@@ -143,7 +143,7 @@ function AppInner() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
-          <span className="text-sm font-bold tracking-tight text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AIEOS</span>
+          <span className="text-xs font-bold tracking-tight text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI-Native Engineering Operation System</span>
         </div>
         <div className="flex items-center gap-1">
           {(Object.keys(THEMES) as ThemeId[]).map(id => (
