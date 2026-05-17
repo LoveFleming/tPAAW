@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState } from "react";
 import { cn } from "../utils";
 
 const STORAGE_KEY = "aieos.project";
@@ -35,176 +35,6 @@ function addRecentProject(path: string) {
   localStorage.setItem("aieos.recent-projects", JSON.stringify(projects.slice(0, 10)));
 }
 
-// ── Folder Picker Modal ──
-function FolderPickerModal({ onClose, onSelect }: { onClose: () => void; onSelect: (path: string) => void }) {
-  const [browseResult, setBrowseResult] = useState<BrowseResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [selectedDir, setSelectedDir] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const listRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const browse = useCallback(async (path: string) => {
-    setLoading(true);
-    setError("");
-    try {
-      const resp = await fetch(`${API_BASE}/api/fs/browse?path=${encodeURIComponent(path)}`);
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || "Failed to browse");
-      setBrowseResult(data);
-      setSelectedDir(null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    browse("/Users/steward/App");
-  }, [browse]);
-
-  // Keyboard: Enter to confirm, Escape to close, Backspace to go up
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Enter" && selectedDir) onSelect(selectedDir);
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose, onSelect, selectedDir]);
-
-  // Build breadcrumb segments
-  const segments = browseResult?.currentPath.split("/").filter(Boolean) ?? [];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="bg-stone-900 border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl shadow-black/50 flex flex-col max-h-[70vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-white/10">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-white">Choose a folder</h2>
-            <button onClick={onClose} className="text-stone-500 hover:text-white transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          {/* Breadcrumb */}
-          {browseResult && (
-            <div className="flex items-center gap-0.5 text-xs font-mono overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-              <button onClick={() => browse("/")} className="text-stone-500 hover:text-orange-400 transition-colors shrink-0">/</button>
-              {segments.map((seg, i) => {
-                const partialPath = "/" + segments.slice(0, i + 1).join("/");
-                return (
-                  <React.Fragment key={partialPath}>
-                    <span className="text-stone-600 shrink-0">/</span>
-                    <button
-                      onClick={() => browse(partialPath)}
-                      className="text-stone-400 hover:text-orange-400 transition-colors truncate max-w-[100px] shrink-0"
-                    >
-                      {seg}
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Directory List */}
-        <div ref={listRef} className="flex-1 overflow-y-auto py-1 min-h-0" style={{ scrollbarWidth: "thin" }}>
-          {/* Parent */}
-          {browseResult?.parent && (
-            <button
-              onClick={() => browse(browseResult.parent!)}
-              className="w-full flex items-center gap-3 px-5 py-2.5 text-left hover:bg-white/5 transition-colors"
-            >
-              <span className="text-stone-500 text-sm">📁</span>
-              <span className="text-sm text-stone-400">..</span>
-            </button>
-          )}
-
-          {loading && (
-            <div className="flex items-center justify-center py-12 text-stone-500">
-              <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading...
-            </div>
-          )}
-
-          {!loading && browseResult?.directories.length === 0 && (
-            <div className="py-12 text-center text-stone-500 text-sm">Empty directory</div>
-          )}
-
-          {!loading && browseResult?.directories.map((dir) => {
-            const isSelected = selectedDir === dir.path;
-            return (
-              <button
-                key={dir.path}
-                onClick={() => setSelectedDir(isSelected ? null : dir.path)}
-                onDoubleClick={() => onSelect(dir.path)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors",
-                  isSelected
-                    ? "bg-orange-500/15 text-orange-300"
-                    : "hover:bg-white/5 text-stone-300"
-                )}
-              >
-                <span className="text-sm">{isSelected ? "📂" : "📁"}</span>
-                <span className="text-sm font-medium truncate">{dir.name}</span>
-                {isSelected && (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-orange-400 shrink-0 ml-auto">
-                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between gap-3">
-          {/* Manual path input */}
-          <div className="flex-1 flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Or type a path..."
-              defaultValue={browseResult?.currentPath}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const val = (e.target as HTMLInputElement).value.trim();
-                  if (val) browse(val);
-                }
-              }}
-              className="flex-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-stone-500 focus:outline-none focus:border-orange-400 font-mono"
-            />
-          </div>
-          <button
-            onClick={() => selectedDir ? onSelect(selectedDir) : null}
-            disabled={!selectedDir}
-            className={cn(
-              "px-5 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap",
-              selectedDir
-                ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/20 hover:from-orange-600 hover:to-amber-600"
-                : "bg-white/5 text-stone-600 cursor-not-allowed"
-            )}
-          >
-            Open
-          </button>
-        </div>
-        {error && <div className="px-5 pb-3 text-red-400 text-xs">{error}</div>}
-      </div>
-    </div>
-  );
-}
-
 // ── Main Welcome Page ──
 interface Props {
   onSelect: (path: string) => void;
@@ -213,7 +43,6 @@ interface Props {
 export default function WelcomePage({ onSelect }: Props) {
   const [inputPath, setInputPath] = useState("");
   const [error, setError] = useState("");
-  const [showPicker, setShowPicker] = useState(false);
   const recentProjects = getRecentProjects();
 
   const handleSelect = (path: string) => {
@@ -226,6 +55,23 @@ export default function WelcomePage({ onSelect }: Props) {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSelect(inputPath);
+  };
+
+  const handleNativeFolderPicker = async () => {
+    try {
+      // Ask the server to open a native folder dialog via osascript (macOS)
+      const resp = await fetch(`${API_BASE}/api/fs/pick-folder`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.path) {
+          setInputPath(data.path);
+          handleSelect(data.path);
+        }
+      }
+    } catch {
+      // Fallback: user can still type manually
+      setError("Folder picker not available — please type the path manually");
+    }
   };
 
   return (
@@ -260,7 +106,7 @@ export default function WelcomePage({ onSelect }: Props) {
               className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-stone-500 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400 text-sm font-mono"
             />
             <button
-              onClick={() => setShowPicker(true)}
+              onClick={handleNativeFolderPicker}
               className="px-4 py-3 border border-white/10 rounded-xl text-stone-300 hover:bg-white/5 hover:text-white transition-all text-sm"
               title="Browse folders"
             >
@@ -307,14 +153,6 @@ export default function WelcomePage({ onSelect }: Props) {
           Select a source code project to begin · Constitution &amp; Standards apply globally
         </p>
       </div>
-
-      {/* Folder Picker Popup */}
-      {showPicker && (
-        <FolderPickerModal
-          onClose={() => setShowPicker(false)}
-          onSelect={(path) => { setShowPicker(false); handleSelect(path); }}
-        />
-      )}
     </div>
   );
 }

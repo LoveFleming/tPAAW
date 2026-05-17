@@ -445,6 +445,29 @@ const server = createServer(async (req, res) => {
 
   // ── End Conversation endpoints ──
 
+  // GET /api/fs/pick-folder — native OS folder picker (macOS)
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/pick-folder")) {
+    try {
+      const { execFile } = await import("child_process");
+      const result = await new Promise((resolve, reject) => {
+        const script = `
+          set chosenFolder to choose folder with prompt "Select a project folder"
+          return POSIX path of chosenFolder
+        `;
+        execFile("osascript", ["-e", script], (err, stdout) => {
+          if (err) reject(err);
+          else resolve(stdout.toString().trim());
+        });
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: result }));
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: null, error: "Folder picker cancelled or unavailable" }));
+    }
+    return;
+  }
+
   // GET /api/fs/browse?path=... — list immediate subdirectories for folder picker
   if (req.method === "GET" && req.url?.startsWith("/api/fs/browse")) {
     const params = new URL(req.url, "http://localhost").searchParams;
