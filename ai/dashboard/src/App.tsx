@@ -145,20 +145,6 @@ function AppInner() {
           </button>
           <span className="text-sm font-bold tracking-tight text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AIEOS</span>
         </div>
-        {/* Project / Switch Code Base */}
-        <button
-          onClick={() => setShowWelcome(true)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white text-xs"
-          title="Switch Code Base"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-          </svg>
-          <span className="truncate max-w-[120px]">{projectName}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 opacity-50">
-            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-          </svg>
-        </button>
         <div className="flex items-center gap-1">
           {(Object.keys(THEMES) as ThemeId[]).map(id => (
             <button key={id} onClick={() => setTheme(id)} className={cn("w-6 h-6 rounded-full text-xs flex items-center justify-center transition-all", theme === id ? "bg-white/30 ring-2 ring-white" : "hover:bg-white/20")} title={THEMES[id].label}>
