@@ -328,7 +328,12 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                                     {allSkills.map(sk => (
                                         <button
                                             key={sk.id}
-                                            onClick={() => setEnabledSkills(prev => ({ ...prev, [sk.id]: !prev[sk.id] }))}
+                                            onClick={() => setEnabledSkills(prev => {
+                                                const isOn = prev[sk.id];
+                                                const next: Record<string, boolean> = {};
+                                                if (!isOn) next[sk.id] = true;
+                                                return next;
+                                            })}
                                             className={cn(
                                                 "text-sm font-medium px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 whitespace-nowrap",
                                             )}
@@ -376,7 +381,12 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                         {allSkills.map(sk => (
                             <button
                                 key={sk.id}
-                                onClick={() => setEnabledSkills(prev => ({ ...prev, [sk.id]: !prev[sk.id] }))}
+                                onClick={() => setEnabledSkills(prev => {
+                                    const isOn = prev[sk.id];
+                                    const next: Record<string, boolean> = {};
+                                    if (!isOn) next[sk.id] = true;
+                                    return next;
+                                })}
                                 className={cn("text-xs font-medium px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 whitespace-nowrap")}
                                 style={enabledSkills[sk.id]
                                     ? { backgroundColor: t.accent, color: "white", borderColor: t.accent }
