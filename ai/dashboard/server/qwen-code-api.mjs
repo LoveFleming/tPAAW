@@ -445,6 +445,34 @@ const server = createServer(async (req, res) => {
 
   // ── End Conversation endpoints ──
 
+  // GET /api/fs/browse?path=... — list immediate subdirectories for folder picker
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/browse")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const dirPath = params.get("path") || "";
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/Users/steward");
+    try {
+      const stat = await import("fs").then(m => m.promises.stat(absPath));
+      if (!stat.isDirectory()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Not a directory" }));
+        return;
+      }
+      const entries = await readdir(absPath, { withFileTypes: true });
+      const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite"]);
+      const dirs = entries
+        .filter(e => e.isDirectory() && !IGNORED.has(e.name) && !e.name.startsWith("."))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(e => ({ name: e.name, path: join(absPath, e.name) }));
+      const parent = absPath !== "/" ? dirname(absPath) : null;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ currentPath: absPath, parent, directories: dirs }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message, currentPath: absPath, parent: null, directories: [] }));
+    }
+    return;
+  }
+
   // GET /api/fs/tree?root=... — directory tree for release unit
   if (req.method === "GET" && req.url?.startsWith("/api/fs/tree")) {
     const params = new URL(req.url, "http://localhost").searchParams;
