@@ -1,24 +1,34 @@
 import Icon from "./components/Icon";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
  * AIEOS — AI-native Engineering Operation System
  *
- * Two-layer architecture:
- * - Factory (global): Constitution, Standards, AI Crew
- * - Release Unit (project): File explorer, AI interaction
- *
- * First visit → Welcome page to select a project
- * Subsequent visits → auto-open last project
+ * Layout:
+ *   ┌──────────────────────────────────────────────┐
+ *   │ Header (AIEOS | project name | theme)        │
+ *   ├─────────┬────────────────────────────────────┤
+ *   │ Factory │  Tabs                              │
+ *   │  Const  │  ┌────────────────────────────────┐│
+ *   │  Std    │  │                                ││
+ *   │  Crew   │  │  Main content area             ││
+ *   │─────────│  │  (file viewer / factory page)  ││
+ *   │ 📂 Files│  │                                ││
+ *   │  tree.. │  │                                ││
+ *   │  tree.. │  └────────────────────────────────┘│
+ *   │─────────│                                    │
+ *   │ Switch  │                                    │
+ *   └─────────┴────────────────────────────────────┘
  */
 
 import WelcomePage from "./pages/WelcomePage";
 import AICrew from "./pages/AICrew";
 import FactoryDocument from "./pages/FactoryDocument";
-import ReleaseUnitExplorer from "./pages/ReleaseUnitExplorer";
+import FileViewer from "./pages/FileViewer";
+import SidebarFileTree from "./components/SidebarFileTree";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
-import { Skill, RunStatus, Run, Risk } from "./types";
+import { Skill, Risk } from "./types";
 import { ThemeProvider, useTheme, THEMES, ThemeId } from "./theme";
 import { cn } from "./utils";
 
@@ -35,6 +45,9 @@ function AppInner() {
   const [activePage, setActivePage] = useState<string>("release.files");
   const [openTabs, setOpenTabs] = useState<string[]>(["release.files"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // ── File viewer state ──
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   // ── Dynamic crew data ──
   const [crew, setCrew] = useState<Skill[]>([]);
@@ -56,6 +69,7 @@ function AppInner() {
     setShowWelcome(false);
     setActivePage("release.files");
     setOpenTabs(["release.files"]);
+    setSelectedFile(null);
   };
 
   const handleSwitchProject = () => {
@@ -90,6 +104,15 @@ function AppInner() {
     openApp(tabId);
   };
 
+  // ── File selection from sidebar ──
+  const handleSelectFile = (path: string) => {
+    setSelectedFile(path);
+    // Auto-switch to file viewer tab
+    if (activePage !== "release.files") {
+      setActivePage("release.files");
+    }
+  };
+
   // ── Welcome page ──
   if (showWelcome || !projectRoot) {
     return <WelcomePage onSelect={handleSelectProject} />;
@@ -104,22 +127,12 @@ function AppInner() {
     { id: "factory.crew", label: "AI Crew" },
   ];
 
-  const releaseNav = [
-    { id: "release.files", label: "File Structure" },
-  ];
-
-  const navSections = [
-    { title: "🏭 Factory", items: factoryNav },
-    { title: "📂 Release Unit", items: releaseNav },
-  ];
-
   // ── Tab label resolver ──
   const labelFor = (id: string): string => {
-    for (const section of navSections) {
-      for (const item of section.items) {
-        if (item.id === id) return item.label;
-      }
-    }
+    if (id === "release.files") return projectName;
+    if (id === "factory.constitution") return "Constitution";
+    if (id === "factory.standards") return "Standards";
+    if (id === "factory.crew") return "AI Crew";
     if (id.startsWith("employee.")) {
       const [empPart] = id.split("#");
       const empId = empPart.slice(9);
@@ -136,14 +149,13 @@ function AppInner() {
     if (pageId === "factory.standards") return <FactoryDocument file="standards" headerIcon="ruler" headerTitle="Standards" headerSub="工程標準與規範" />;
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
 
-    // Release Unit pages
-    if (pageId === "release.files") return <ReleaseUnitExplorer projectRoot={projectRoot} />;
+    // Release Unit — file viewer
+    if (pageId === "release.files") return <FileViewer filePath={selectedFile} projectRoot={projectRoot} />;
 
-    // Employee workspace (legacy, keeping compatibility)
+    // Employee workspace
     if (pageId.startsWith("employee.")) {
       const [empPart] = pageId.split("#");
       const employeeId = empPart.slice(9);
-      // Lazy import to avoid breaking if EmployeeWorkspace is refactored
       const EmpWs = React.lazy(() => import("./pages/EmployeeWorkspaceV2"));
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
@@ -160,7 +172,7 @@ function AppInner() {
   return (
     <div className="h-screen flex flex-col bg-orange-50/40 text-stone-800 font-sans selection:bg-amber-200 overflow-hidden">
       {/* Top Header */}
-      <header className="h-12 flex items-center justify-between px-4 shrink-0 z-10" style={{ background: themeInfo.gradient }}>
+      <header className="h-11 flex items-center justify-between px-4 shrink-0 z-10" style={{ background: themeInfo.gradient }}>
         <div className="flex items-center gap-4">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 -ml-1 rounded-full text-white/80 hover:bg-white/20 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -200,26 +212,39 @@ function AppInner() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className={cn("bg-white border-r border-stone-200 flex-shrink-0 overflow-y-auto flex flex-col py-2 transition-all duration-200", sidebarOpen ? "w-56" : "w-0 border-r-0 overflow-hidden")}>
-          <div className="flex flex-col">
-            {navSections.map((section) => (
-              <SidebarSection key={section.title} title={section.title}>
-                <div className="space-y-0.5">
-                  {section.items.map((item) => (
-                    <NavItem
-                      key={item.id}
-                      active={activePage === item.id}
-                      label={item.label}
-                      onClick={() => openApp(item.id)}
-                    />
-                  ))}
-                </div>
-              </SidebarSection>
-            ))}
+        <aside className={cn(
+          "bg-white border-r border-stone-200 flex-shrink-0 flex flex-col transition-all duration-200 overflow-hidden",
+          sidebarOpen ? "w-64" : "w-0"
+        )}>
+          <div className="flex flex-col overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
+            {/* Factory nav */}
+            <SidebarSection title="🏭 Factory">
+              <div className="space-y-0.5">
+                {factoryNav.map((item) => (
+                  <NavItem
+                    key={item.id}
+                    active={activePage === item.id}
+                    label={item.label}
+                    onClick={() => openApp(item.id)}
+                  />
+                ))}
+              </div>
+            </SidebarSection>
+
+            {/* Release Unit — file tree inline */}
+            <SidebarSection title={`📂 ${projectName}`}>
+              <div className="px-2 py-1">
+                <SidebarFileTree
+                  projectRoot={projectRoot}
+                  selectedFile={selectedFile}
+                  onSelectFile={handleSelectFile}
+                />
+              </div>
+            </SidebarSection>
           </div>
 
-          {/* Switch project button at bottom */}
-          <div className="mt-auto px-3 py-2">
+          {/* Switch project at bottom */}
+          <div className="px-3 py-2 border-t border-stone-100 shrink-0">
             <button
               onClick={handleSwitchProject}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
