@@ -232,14 +232,12 @@ function AppInner() {
             </SidebarSection>
 
             {/* Release Unit — file tree inline */}
-            <SidebarSection title={`📂 ${projectName}`}>
-              <div className="px-2 py-1">
-                <SidebarFileTree
-                  projectRoot={projectRoot}
-                  selectedFile={selectedFile}
-                  onSelectFile={handleSelectFile}
-                />
-              </div>
+            <SidebarSection title="📂 Release Unit">
+              <SidebarFileTree
+                projectRoot={projectRoot}
+                selectedFile={selectedFile}
+                onSelectFile={handleSelectFile}
+              />
             </SidebarSection>
           </div>
 

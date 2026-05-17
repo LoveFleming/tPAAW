@@ -64,19 +64,19 @@ function TreeNodeView({
       <button
         onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
         className={cn(
-          "w-full flex items-center gap-1.5 py-[3px] text-[11px] hover:bg-orange-50 transition-colors text-left rounded-sm",
-          isSelected ? "bg-orange-100 text-orange-700 font-medium" : "text-stone-600"
+          "w-full flex items-center gap-1.5 py-1 text-sm hover:bg-orange-50 transition-colors text-left",
+          isSelected ? "bg-orange-50 text-orange-700 font-semibold border-l-4 border-orange-500 pl-[39px]" : "text-stone-500 border-l-4 border-transparent"
         )}
-        style={{ paddingLeft: `${depth * 12 + 6}px` }}
+        style={{ paddingLeft: isSelected ? undefined : `${depth * 16 + 8}px` }}
         title={node.path}
       >
         {isDir ? (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-            className={cn("w-3 h-3 text-amber-500 shrink-0 transition-transform", isExpanded ? "" : "-rotate-90")}>
+            className={cn("w-3.5 h-3.5 text-amber-500 shrink-0 transition-transform", isExpanded ? "" : "-rotate-90")}>
             <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
           </svg>
         ) : (
-          <span className="w-3 shrink-0 text-center text-[9px] leading-none">{fileIcon(node.name)}</span>
+          <span className="w-3.5 shrink-0 text-center text-[10px] leading-none">{fileIcon(node.name)}</span>
         )}
         <span className="truncate">{node.name}</span>
       </button>
@@ -179,16 +179,19 @@ export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFil
   if (!tree) return null;
 
   return (
-    <div className="overflow-y-auto flex-1 py-1" style={{ scrollbarWidth: "thin" }}>
-      <TreeNodeView
-        node={tree}
-        root={projectRoot}
-        depth={0}
-        selectedPath={selectedFile}
-        onSelectFile={onSelectFile}
-        onToggleDir={handleToggleDir}
-        expanded={expanded}
-      />
+    <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
+      {tree.children?.map((child) => (
+        <TreeNodeView
+          key={child.path}
+          node={child}
+          root={projectRoot}
+          depth={0}
+          selectedPath={selectedFile}
+          onSelectFile={onSelectFile}
+          onToggleDir={handleToggleDir}
+          expanded={expanded}
+        />
+      ))}
     </div>
   );
 }
