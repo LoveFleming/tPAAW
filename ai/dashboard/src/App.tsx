@@ -104,13 +104,13 @@ function AppInner() {
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
     if (pageId === "codebase") {
       return (
-        <div className="flex-1 flex items-center justify-center text-stone-400">
+        <div className="flex-1 flex items-center justify-center" style={{ color: themeInfo.accent + "66" }}>
           <div className="text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12 mx-auto mb-3 text-stone-300">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12 mx-auto mb-3" style={{ color: themeInfo.accent + "44" }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
             </svg>
             <p className="text-sm">Select a file from the sidebar</p>
-            <p className="text-xs text-stone-300 mt-1">Each file opens in its own tab</p>
+            <p className="text-xs mt-1" style={{ color: themeInfo.accent + "44" }}>Each file opens in its own tab</p>
           </div>
         </div>
       );
@@ -134,7 +134,7 @@ function AppInner() {
   const { info: themeInfo, theme, setTheme } = useTheme();
 
   return (
-    <div className="h-screen flex flex-col bg-stone-50 text-stone-800 font-sans overflow-hidden" style={{ "--tw-selection-color": themeInfo.accentLight } as React.CSSProperties}>
+    <div className="h-screen flex flex-col text-stone-800 font-sans overflow-hidden" style={{ backgroundColor: themeInfo.accentBg, "--tw-selection-color": themeInfo.accentLight } as React.CSSProperties}>
       {/* ── Header ── */}
       <header className="h-11 flex items-center justify-between px-3 shrink-0 z-10 border-b border-stone-200" style={{ background: themeInfo.gradient }}>
         <div className="flex items-center gap-3">

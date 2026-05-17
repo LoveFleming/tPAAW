@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, RiskBadge, cn } from "../components/ui/shared";
 import { Skill } from "../types";
+import { useTheme } from "../theme";
 import CrewEditor from "../components/CrewEditor";
 import Icon from "../components/Icon";
 
@@ -10,6 +11,7 @@ interface AICrewProps {
 }
 
 export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
+    const { info: t } = useTheme();
     const [crew, setCrew] = useState<Skill[]>([]);
     const [loading, setLoading] = useState(true);
     const [editorOpen, setEditorOpen] = useState(false);
@@ -87,16 +89,19 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
     }
 
     return (
-        <div className="flex flex-col space-y-4 h-full overflow-y-auto px-6">
+        <div className="flex flex-col space-y-4 h-full overflow-y-auto px-6" style={{ backgroundColor: t.accentBg }}>
             {/* Header with Add button */}
             <div className="flex items-center justify-between pt-2">
                 <div>
                     <h2 className="text-lg font-bold text-stone-800">AI Crew Members</h2>
-                    <p className="text-xs text-zinc-400">點選 Crew 開啟工作區，可以同時開多個員工的 tab</p>
+                    <p className="text-xs text-stone-400">點選 Crew 開啟工作區，可以同時開多個員工的 tab</p>
                 </div>
                 <button
                     onClick={handleAdd}
-                    className="px-4 py-2 rounded-xl text-sm font-bold bg-orange-500 text-white border border-orange-600 hover:bg-orange-600 transition-colors shadow-sm"
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-colors shadow-sm"
+                    style={{ backgroundColor: t.accent, borderColor: t.accentHover }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
                 >
                     <Icon name="plus" size={14} /> 新增員工
                 </button>
@@ -118,11 +123,13 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                         <button
                             onClick={() => openEmployee(s.id)}
                             className={cn(
-                                "w-full flex flex-col rounded-2xl border bg-white p-0 overflow-hidden shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group text-left",
-                                "border-orange-100 hover:border-orange-300"
+                                "w-full flex flex-col rounded-2xl border bg-white p-0 overflow-hidden shadow-sm transition-all hover:shadow-md hover:-translate-y-1 group text-left"
                             )}
+                            style={{ borderColor: t.accentBorder }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = t.accentBorder; }}
                         >
-                            <div className="h-48 w-full bg-orange-50/50 relative overflow-hidden shrink-0 flex items-center justify-center p-2">
+                            <div className="h-48 w-full relative overflow-hidden shrink-0 flex items-center justify-center p-2" style={{ backgroundColor: t.accentBg }}>
                                 <img
                                     src={s.imageUrl}
                                     alt={s.title}
@@ -135,23 +142,22 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                                     <RiskBadge risk={s.risk} />
                                 </div>
                             </div>
-                            <div className="p-4 flex flex-col flex-1 border-t border-orange-50">
+                            <div className="p-4 flex flex-col flex-1 border-t" style={{ borderColor: t.accentBorder + "60" }}>
                                 <div className="text-base font-bold text-stone-800 truncate">{s.title}</div>
-                                <div className="font-mono text-[10px] font-semibold text-orange-600 uppercase tracking-widest truncate mt-1">{s.codename}</div>
+                                <div className="font-mono text-[10px] font-semibold uppercase tracking-widest truncate mt-1" style={{ color: t.accent }}>{s.codename}</div>
                                 <div className="text-xs text-zinc-500 mt-2 line-clamp-2">{s.description}</div>
                                 <div className="flex flex-wrap gap-1 mt-3">
                                     {s.skills.slice(0, 3).map(sk => (
                                         <span key={sk.id} className={cn(
-                                            "text-[10px] px-1.5 py-0.5 rounded-full",
-                                            sk.enabled
-                                                ? "bg-orange-100 text-orange-700"
-                                                : "bg-zinc-100 text-zinc-400"
-                                        )}>
-                                            {sk.enabled ? <Icon name="check" size={10} className="text-emerald-500" /> : <span className="text-stone-300">\u25CB</span>} {sk.name}
+                                            "text-[10px] px-1.5 py-0.5 rounded-full"
+                                        )}
+                                        style={{ backgroundColor: sk.enabled ? t.accentLight : "#f5f5f4", color: sk.enabled ? t.accent : "#a8a29e" }}
+                                        >
+                                            {sk.enabled ? <Icon name="check" size={10} style={{ color: "#10b981" }} /> : <span className="text-stone-300">\u25CB</span>} {sk.name}
                                         </span>
                                     ))}
                                     {s.skills.length > 3 && (
-                                        <span className="text-[10px] bg-zinc-100 text-zinc-400 px-1.5 py-0.5 rounded-full">
+                                        <span className="text-[10px] bg-stone-100 text-stone-400 px-1.5 py-0.5 rounded-full">
                                             +{s.skills.length - 3}
                                         </span>
                                     )}
@@ -164,10 +170,13 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                 {/* Add new card placeholder */}
                 <button
                     onClick={handleAdd}
-                    className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/30 hover:bg-orange-50/60 transition-colors min-h-[240px] group"
+                    className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-white/30 hover:bg-white/60 transition-colors min-h-[240px] group"
+                    style={{ borderColor: t.accentBorder }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = t.accentBorder; }}
                 >
-                    <div className="text-4xl text-orange-300 group-hover:text-orange-500 transition-colors mb-2">+</div>
-                    <div className="text-sm font-bold text-orange-400 group-hover:text-orange-600 transition-colors">新增員工</div>
+                    <div className="text-4xl group-hover:scale-110 transition-all mb-2" style={{ color: t.accentBorder }}>+</div>
+                    <div className="text-sm font-bold transition-colors" style={{ color: t.accent + "aa" }}>新增員工</div>
                 </button>
             </div>
 
