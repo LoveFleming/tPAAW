@@ -414,8 +414,21 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                     </div>
                 </Card>
 
-                {/* --- CLI Console --- */}
-                <Card className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border shadow-sm overflow-hidden" style={{ borderColor: t.accentBorder + "60" }}>
+                {/* --- CLI Console or Empty State --- */}
+                {selectedSkillIds.length === 0 ? (
+                    <div className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border rounded-xl" style={{ borderColor: t.accentBorder + "60" }}>
+                        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.accentBg }}>
+                                <Icon name="lightning" size={28} style={{ color: t.accent + "40" }} />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm font-semibold" style={{ color: t.accentText }}>選擇一個技能才能開始工作</p>
+                                <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>從上方的 Skills 面板選擇一個技能</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <Card className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border shadow-sm overflow-hidden" style={{ borderColor: t.accentBorder + "60" }}>
                     {/* Console header */}
                     <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b gap-2" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg }}>
                         <div className="flex items-center gap-2 min-w-0">
@@ -539,6 +552,7 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                         )}
                     </div>
                 </Card>
+                )}
             </div>
 
             {/* ===== Right Sidebar ===== */}
