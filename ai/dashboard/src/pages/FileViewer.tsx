@@ -99,7 +99,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       .finally(() => setLoading(false));
   }, [filePath]);
 
-  const relativePath = filePath.slice(projectRoot.length + 1);
+  const relativePath = filePath.replace(new RegExp(`^${projectRoot.replace(/\/+/g, '/').replace(/\/$/, '')}/?`), '');
   const fileName = filePath.split("/").pop() || "";
   const fileType = detectFileType(fileName);
 
@@ -129,7 +129,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
           Loading...
         </div>
       ) : content !== null ? (
-        <div className="flex-1 overflow-hidden flex flex-col bg-white">
+        <div className="flex-1 overflow-auto flex flex-col bg-white min-h-0">
           {fileType === "json" && parsedJson !== null && <JsonViewer data={parsedJson} />}
           {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-auto"><CodeView content={content} /></div>}
           {fileType === "markdown" && <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>}
