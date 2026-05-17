@@ -34,7 +34,7 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
   return null;
 }
 
-const BASE_INDENT = 40;
+const BASE_INDENT = 26;
 const DEPTH_STEP = 14;
 
 const TreeNodeView = React.memo(function TreeNodeView({
@@ -185,18 +185,15 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
 
   return (
     <div className="overflow-y-auto" style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)" }}>
-      {tree.children.map((child) => (
-        <TreeNodeView
-          key={child.path}
-          node={child}
-          depth={0}
-          activeFilePath={activeFilePath}
-          openFilePaths={openFilePaths}
-          onSelectFile={onSelectFile}
-          onToggleDir={handleToggleDir}
-          expandedPaths={expandedPaths}
-        />
-      ))}
+      <TreeNodeView
+        node={tree}
+        depth={0}
+        activeFilePath={activeFilePath}
+        openFilePaths={openFilePaths}
+        onSelectFile={onSelectFile}
+        onToggleDir={handleToggleDir}
+        expandedPaths={expandedPaths}
+      />
     </div>
   );
 }
