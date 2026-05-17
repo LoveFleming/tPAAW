@@ -104,7 +104,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
   const fileType = detectFileType(fileName);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0">
       {/* File header bar — theme-aware */}
       <div className="px-4 py-1.5 border-b flex items-center justify-between shrink-0"
         style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
@@ -129,7 +129,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
           Loading...
         </div>
       ) : content !== null ? (
-        <div className="flex-1 overflow-auto flex flex-col bg-white min-h-0">
+        <div className="flex-1 flex flex-col bg-white min-h-0 overflow-hidden">
           {fileType === "json" && parsedJson !== null && <JsonViewer data={parsedJson} />}
           {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-auto"><CodeView content={content} /></div>}
           {fileType === "markdown" && <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>}
