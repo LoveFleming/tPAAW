@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, cn } from "../components/ui/shared";
 import { SKILLS } from "../data/mockData";
 import { Skill, CrewSkill, RequiredInput, buildSystemPrompt } from "../types";
@@ -126,14 +126,22 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
         return selectedModel;
     }, [employee, selectedSkillIds, selectedModel]);
 
-    const effectiveApprovalMode = useMemo(() => {
-        if (!employee) return permissionMode;
+    // Initialize permissionMode from skill config (only on first skill selection)
+    const initializedRef = useRef(false);
+    useEffect(() => {
+        if (!employee || initializedRef.current) return;
         for (const id of selectedSkillIds) {
             const sk = employee.skills.find(s => s.id === id);
-            if (sk?.approvalMode) return sk.approvalMode;
+            if (sk?.approvalMode) {
+                setPermissionMode(sk.approvalMode);
+                initializedRef.current = true;
+                return;
+            }
         }
-        return permissionMode;
-    }, [employee, selectedSkillIds, permissionMode]);
+    }, [employee, selectedSkillIds]);
+
+    // Runtime approval mode — user override always wins
+    const effectiveApprovalMode = permissionMode;
 
     const handleStartClick = () => {
         if (!employee) return;
@@ -419,35 +427,45 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                             </span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                            {/* Approval Mode — runtime changeable, restarts console */}
                             <select
                                 value={permissionMode}
-                                onChange={e => setPermissionMode(e.target.value)}
-                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-white"
+                                onChange={e => {
+                                    setPermissionMode(e.target.value);
+                                    setConsoleKey(prev => prev + 1);
+                                    setChatStarted(true);
+                                }}
+                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-white cursor-pointer"
                                 style={{ borderColor: t.accentBorder, color: t.accentText }}
+                                title="Approval Mode — changing restarts console"
                             >
-                                <option value="default">Default</option>
-                                <option value="auto-edit">Auto-Edit</option>
-                                <option value="yolo">YOLO</option>
-                                <option value="plan">Plan</option>
+                                <option value="default">🔒 Default</option>
+                                <option value="auto-edit">✏️ Auto-Edit</option>
+                                <option value="yolo">⚡ YOLO</option>
+                                <option value="plan">📋 Plan</option>
                             </select>
+                            {/* CLI Engine — display only */}
                             <select
-                                value={selectedCli}
-                                onChange={e => setSelectedCli(e.target.value)}
-                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-white"
+                                disabled
+                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-stone-50 opacity-60 cursor-not-allowed"
                                 style={{ borderColor: t.accentBorder, color: t.accentText }}
+                                title="CLI engine is set by skill config — change in skill settings"
+                                value={effectiveCli}
                             >
                                 {Object.entries(installedClis).map(([key, info]: [string, any]) => (
-                                    <option key={key} value={key} disabled={!info.installed}>
-                                        {info.name} {info.installed ? '' : '(未安裝)'}
+                                    <option key={key} value={key}>
+                                        {info.name} {!info.installed ? '(未安裝)' : ''}
                                     </option>
                                 ))}
                             </select>
+                            {/* Model — display only */}
                             {models.length > 0 && (
                                 <select
-                                    value={selectedModel}
-                                    onChange={e => setSelectedModel(e.target.value)}
-                                    className="hidden sm:block px-1.5 py-1 rounded-lg border text-[11px] bg-white max-w-[140px] truncate"
+                                    disabled
+                                    className="hidden sm:block px-1.5 py-1 rounded-lg border text-[11px] bg-stone-50 opacity-60 cursor-not-allowed max-w-[140px] truncate"
                                     style={{ borderColor: t.accentBorder, color: t.accentText }}
+                                    title="Model is set by skill config — change in skill settings"
+                                    value={effectiveModel}
                                 >
                                     {models.map(m => (
                                         <option key={m.id} value={m.id}>
