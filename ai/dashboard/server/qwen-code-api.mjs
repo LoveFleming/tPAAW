@@ -445,6 +445,87 @@ const server = createServer(async (req, res) => {
 
   // ── End Conversation endpoints ──
 
+  // GET /api/fs/tree?root=... — directory tree for release unit
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/tree")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const root = params.get("root");
+    if (!root) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'root' query param" }));
+      return;
+    }
+    const absRoot = resolve(root);
+    // Safety: only allow absolute paths
+    if (!absRoot.startsWith("/")) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
+      return;
+    }
+    try {
+      const tree = await buildTree(absRoot, absRoot, 3);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(tree));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/fs/file?path=... — read file content
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/file")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const filePath = params.get("path");
+    if (!filePath) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'path' query param" }));
+      return;
+    }
+    const absPath = resolve(filePath);
+    if (!absPath.startsWith("/")) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
+      return;
+    }
+    try {
+      const stat = await import("fs").then(m => m.promises.stat(absPath));
+      if (stat.size > 1024 * 1024) {
+        res.writeHead(413, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "File too large (max 1MB)" }));
+        return;
+      }
+      const content = await readFile(absPath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: absPath, content, size: stat.size }));
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "File not found" }));
+    }
+    return;
+  }
+
+  // GET /api/fs/tree-deep?root=...&subpath=... — lazy-load one directory level
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/tree-deep")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const root = params.get("root");
+    const subpath = params.get("subpath") || "";
+    if (!root) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'root' query param" }));
+      return;
+    }
+    const absDir = resolve(join(root, subpath));
+    try {
+      const children = await buildTree(absDir, absDir, 1);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(children));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // GET /api/factory-content/:name — single file
   const singleFileMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content\/([\w-]+)$/);
   if (singleFileMatch) {
@@ -558,6 +639,37 @@ const server = createServer(async (req, res) => {
   res.writeHead(404);
   res.end("Not found");
 });
+
+async function buildTree(absRoot, currentPath, maxDepth) {
+  const IGNORED = new Set([".git", "node_modules", ".DS_Store", "__pycache__", ".next", "dist", ".cache", ".turbo"]);
+  const result = { name: currentPath === absRoot ? basename(absRoot) : basename(currentPath), path: currentPath, type: "dir", children: [] };
+  if (maxDepth <= 0) { result.children = undefined; result.lazy = true; return result; }
+  let entries;
+  try { entries = await readdir(currentPath, { withFileTypes: true }); } catch { return result; }
+  // Sort: dirs first, then files, both alphabetical
+  const sorted = entries
+    .filter(e => !IGNORED.has(e.name) && !e.name.startsWith("."))
+    .sort((a, b) => {
+      if (a.isDirectory() && !b.isDirectory()) return -1;
+      if (!a.isDirectory() && b.isDirectory()) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  for (const entry of sorted) {
+    const fullPath = join(currentPath, entry.name);
+    if (entry.isDirectory()) {
+      const child = await buildTree(absRoot, fullPath, maxDepth - 1);
+      result.children.push(child);
+    } else {
+      result.children.push({ name: entry.name, path: fullPath, type: "file" });
+    }
+  }
+  return result;
+}
+
+function basename(p) {
+  const parts = p.replace(/\/$/, "").split("/");
+  return parts[parts.length - 1];
+}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
