@@ -9,7 +9,7 @@ import SidebarFileTree from "./components/SidebarFileTree";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Skill } from "./types";
-import { ThemeProvider, useTheme, THEMES, ThemeId } from "./theme";
+import { ThemeProvider, useTheme, THEMES, ThemeId, THEME_GROUPS } from "./theme";
 import { cn } from "./utils";
 
 const STORAGE_PROJECT_KEY = "aieos.project";
@@ -132,6 +132,7 @@ function AppInner() {
   };
 
   const { info: themeInfo, theme, setTheme } = useTheme();
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
 
   return (
     <div className="h-screen flex flex-col text-stone-800 font-sans overflow-hidden" style={{ backgroundColor: themeInfo.accentBg, "--tw-selection-color": themeInfo.accentLight } as React.CSSProperties}>
@@ -145,12 +146,69 @@ function AppInner() {
           </button>
           <span className="text-xs font-bold tracking-tight text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI-Native Engineering Operation System</span>
         </div>
-        <div className="flex items-center gap-1">
-          {(Object.keys(THEMES) as ThemeId[]).map(id => (
-            <button key={id} onClick={() => setTheme(id)} className={cn("w-6 h-6 rounded-full text-xs flex items-center justify-center transition-all", theme === id ? "bg-white/30 ring-2 ring-white" : "hover:bg-white/20")} title={THEMES[id].label}>
-              <Icon name={THEMES[id].icon} size={14} />
-            </button>
-          ))}
+        {/* Theme dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setThemeMenuOpen(!themeMenuOpen)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white/80 hover:text-white text-xs"
+          >
+            <span>{THEMES[theme]?.emoji}</span>
+            <span className="hidden sm:inline">{THEMES[theme]?.label}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={cn("w-3 h-3 opacity-50 transition-transform", themeMenuOpen ? "rotate-180" : "")}>
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {/* Dropdown */}
+          {themeMenuOpen && (
+            <>
+              {/* Backdrop to close on click outside */}
+              <div className="fixed inset-0 z-40" onClick={() => setThemeMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 w-72 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
+                <div className="px-4 py-2.5 border-b border-stone-100 bg-stone-50">
+                  <p className="text-xs font-bold text-stone-600">🎨 選擇主題色調</p>
+                  <p className="text-[10px] text-stone-400 mt-0.5">不同色系可以舒緩不同的杏仁核狀態</p>
+                </div>
+                <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                {THEME_GROUPS.map(group => (
+                  <div key={group.label}>
+                    <div className="px-4 py-1.5 bg-stone-50/50 border-b border-stone-100">
+                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{group.label}</span>
+                    </div>
+                    {group.themes.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => { setTheme(t.id); setThemeMenuOpen(false); }}
+                        className={cn(
+                          "w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors",
+                          theme === t.id ? "bg-stone-50" : "hover:bg-stone-50"
+                        )}
+                      >
+                        <span className="text-lg mt-0.5">{t.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("text-sm font-semibold", theme === t.id ? "text-stone-800" : "text-stone-600")}>{t.label}</span>
+                            {theme === t.id && (
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" style={{ color: t.accent }}>
+                                <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-stone-400 mt-0.5">{t.desc}</p>
+                          {t.feeling && <p className="text-[10px] text-stone-300 mt-0.5">💬 {t.feeling}</p>}
+                        </div>
+                        <div className="flex gap-0.5 mt-1 shrink-0">
+                          <span className="w-3 h-3 rounded-full border border-stone-200" style={{ backgroundColor: t.accent }} />
+                          <span className="w-3 h-3 rounded-full border border-stone-200" style={{ backgroundColor: t.accentLight }} />
+                          <span className="w-3 h-3 rounded-full border border-stone-200" style={{ backgroundColor: t.accentBg }} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
