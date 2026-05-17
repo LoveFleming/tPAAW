@@ -415,15 +415,24 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                 </Card>
 
                 {/* --- CLI Console or Empty State --- */}
-                {selectedSkillIds.length === 0 ? (
+                {!chatStarted ? (
                     <div className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border rounded-xl" style={{ borderColor: t.accentBorder + "60" }}>
                         <div className="flex-1 flex flex-col items-center justify-center gap-3">
                             <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.accentBg }}>
-                                <Icon name="lightning" size={28} style={{ color: t.accent + "40" }} />
+                                <Icon name="lightning" size={28} style={{ color: t.accent + (selectedSkillIds.length > 0 ? "80" : "40") }} />
                             </div>
                             <div className="text-center">
-                                <p className="text-sm font-semibold" style={{ color: t.accentText }}>選擇一個技能才能開始工作</p>
-                                <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>從上方的 Skills 面板選擇一個技能</p>
+                                {selectedSkillIds.length === 0 ? (
+                                    <>
+                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>選擇一個技能才能開始工作</p>
+                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>從上方的 Skills 面板選擇一個技能</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>準備好了！按下「開始」啟動工作</p>
+                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>選擇的技能：{selectedSkillIds.map(sid => employee?.skills.find(s => s.id === sid)?.name).filter(Boolean).join(', ')}</p>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
