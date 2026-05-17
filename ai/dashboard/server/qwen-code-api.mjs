@@ -445,23 +445,56 @@ const server = createServer(async (req, res) => {
 
   // ── End Conversation endpoints ──
 
-  // GET /api/fs/pick-folder — native OS folder picker (macOS)
+  // GET /api/fs/pick-folder — native OS folder picker (macOS / Linux / Windows)
   if (req.method === "GET" && req.url?.startsWith("/api/fs/pick-folder")) {
     try {
-      const { execFile } = await import("child_process");
-      const result = await new Promise((resolve, reject) => {
-        const script = `
-          set chosenFolder to choose folder with prompt "Select a project folder"
-          return POSIX path of chosenFolder
-        `;
-        execFile("osascript", ["-e", script], (err, stdout) => {
-          if (err) reject(err);
-          else resolve(stdout.toString().trim());
+      const { execFile, exec } = await import("child_process");
+      const platform = process.platform; // 'darwin' | 'linux' | 'win32'
+      let result;
+
+      if (platform === "darwin") {
+        // macOS — osascript
+        result = await new Promise((resolve, reject) => {
+          execFile("osascript", ["-e", 'set chosenFolder to choose folder with prompt "Select a project folder"\nreturn POSIX path of chosenFolder'], (err, stdout) => {
+            if (err) reject(err); else resolve(stdout.toString().trim());
+          });
         });
-      });
+      } else if (platform === "linux") {
+        // Linux — try zenity first, fallback to kdialog
+        try {
+          result = await new Promise((resolve, reject) => {
+            execFile("zenity", ["--file-selection", "--directory", "--title=Select a project folder"], (err, stdout) => {
+              if (err) reject(err); else resolve(stdout.toString().trim());
+            });
+          });
+        } catch {
+          result = await new Promise((resolve, reject) => {
+            execFile("kdialog", ["--getexistingdirectory", process.env.HOME || "/", "Select a project folder"], (err, stdout) => {
+              if (err) reject(err); else resolve(stdout.toString().trim());
+            });
+          });
+        }
+      } else if (platform === "win32") {
+        // Windows — PowerShell FolderBrowserDialog
+        const psScript = `
+          Add-Type -AssemblyName System.Windows.Forms
+          $fb = New-Object System.Windows.Forms.FolderBrowserDialog
+          $fb.Description = 'Select a project folder'
+          $fb.ShowNewFolderButton = $false
+          if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { exit 1 }
+        `;
+        result = await new Promise((resolve, reject) => {
+          exec(`powershell -NoProfile -Command "${psScript.replace(/\n/g, ' ').replace(/"/g, '\\"')}"`, (err, stdout) => {
+            if (err) reject(err); else resolve(stdout.toString().trim());
+          });
+        });
+      } else {
+        throw new Error(`Unsupported platform: ${platform}`);
+      }
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ path: result }));
-    } catch (err) {
+    } catch {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ path: null, error: "Folder picker cancelled or unavailable" }));
     }
