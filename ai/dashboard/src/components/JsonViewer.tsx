@@ -287,7 +287,7 @@ export default function JsonViewer({ data, title, compact = false, readOnly = fa
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
         {/* Search */}
@@ -332,7 +332,7 @@ export default function JsonViewer({ data, title, compact = false, readOnly = fa
       </div>
 
       {/* Tree */}
-      <div className={cn("flex-1 overflow-auto", compact ? "p-2" : "p-4")} style={{ scrollbarWidth: "thin" }}>
+      <div className={cn("flex-1 overflow-auto min-h-0", compact ? "p-2" : "p-4")} style={{ scrollbarWidth: "thin" }}>
         <div className="font-mono text-[13px] leading-relaxed">
           <JsonTree data={data} keyName="" depth={0} path="$"
             expandedSet={expandedSet} onToggle={handleToggle} searchQuery={searchQuery} />

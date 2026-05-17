@@ -104,7 +104,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
   const fileType = detectFileType(fileName);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* File header bar — theme-aware */}
       <div className="px-4 py-1.5 border-b flex items-center justify-between shrink-0"
         style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
