@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
+import { useTheme } from "../theme";
 
 interface TreeNode {
   name: string;
@@ -38,22 +39,12 @@ const BASE_INDENT = 26;
 const DEPTH_STEP = 14;
 
 const TreeNodeView = React.memo(function TreeNodeView({
-  node,
-  depth,
-  activeFilePath,
-  openFilePaths,
-  onSelectFile,
-  onToggleDir,
-  expandedPaths,
+  node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths,
 }: {
-  node: TreeNode;
-  depth: number;
-  activeFilePath: string | null;
-  openFilePaths: Set<string>;
-  onSelectFile: (path: string) => void;
-  onToggleDir: (path: string) => void;
-  expandedPaths: Set<string>;
+  node: TreeNode; depth: number; activeFilePath: string | null; openFilePaths: Set<string>;
+  onSelectFile: (path: string) => void; onToggleDir: (path: string) => void; expandedPaths: Set<string>;
 }) {
+  const { info: t } = useTheme();
   const isDir = node.type === "dir";
   const isExpanded = expandedPaths.has(node.path);
   const isActive = !isDir && activeFilePath === node.path;
@@ -63,23 +54,23 @@ const TreeNodeView = React.memo(function TreeNodeView({
     <div>
       <button
         onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
-        className={cn(
-          "flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors",
-          isActive
-            ? "bg-orange-50 text-orange-700 font-semibold"
-            : isOpen
-            ? "text-orange-600 bg-orange-50/50"
-            : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"
-        )}
+        className={cn("flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors")}
         style={{
           paddingLeft: `${BASE_INDENT + depth * DEPTH_STEP}px`,
-          borderLeft: isActive ? "3px solid #f97316" : "3px solid transparent",
+          borderLeft: isActive ? `3px solid ${t.accent}` : "3px solid transparent",
+          backgroundColor: isActive ? t.accentBg : undefined,
+          color: isActive ? t.accent : isOpen ? t.accent + "aa" : "#78716c",
+          fontWeight: isActive ? 600 : 400,
         }}
+        onMouseEnter={e => { if (!isActive) { e.currentTarget.style.backgroundColor = t.accentBg; e.currentTarget.style.color = t.accent; } }}
+        onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = isOpen ? t.accent + "aa" : "#78716c"; } }}
       >
         <div className="flex items-center gap-2.5 min-w-0">
           {isDir ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-              className={cn("w-3.5 h-3.5 text-amber-500 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}>
+              className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
+              style={{ color: t.accent }}
+            >
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
           ) : (

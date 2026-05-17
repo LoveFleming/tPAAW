@@ -9,14 +9,16 @@ export function Card({
     children,
     right,
     className,
+    style,
 }: {
     title?: React.ReactNode;
     children: React.ReactNode;
     right?: React.ReactNode;
     className?: string;
+    style?: React.CSSProperties;
 }) {
     return (
-        <div className={cn("bg-white p-4 shadow-sm border border-zinc-200", className)}>
+        <div className={cn("bg-white p-4 shadow-sm border border-zinc-200", className)} style={style}>
             {title && (
                 <div className="mb-3 flex items-center justify-between gap-3 title">
                     <div className="text-lg font-normal text-stone-800">{title}</div>
@@ -81,11 +83,15 @@ export function NavItem({
     label,
     onClick,
     right,
+    accentColor = "#f97316",
+    accentBg = "#fff7ed",
 }: {
     active: boolean;
     label: string;
     onClick: () => void;
     right?: React.ReactNode;
+    accentColor?: string;
+    accentBg?: string;
 }) {
     const iconInfo = NAV_ICONS[label];
 
@@ -94,11 +100,16 @@ export function NavItem({
             onClick={onClick}
             className={cn(
                 "flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors",
-                active
-                    ? "bg-orange-50 text-orange-700 font-semibold"
-                    : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"
             )}
-            style={{ paddingLeft: active ? "38px" : "40px", borderLeft: active ? "3px solid #f97316" : "3px solid transparent" }}
+            style={{
+                paddingLeft: active ? "38px" : "40px",
+                borderLeft: active ? `3px solid ${accentColor}` : "3px solid transparent",
+                backgroundColor: active ? accentBg : undefined,
+                color: active ? accentColor : "#78716c",
+                fontWeight: active ? 600 : 400,
+            }}
+            onMouseEnter={e => { if (!active) { e.currentTarget.style.backgroundColor = accentBg; e.currentTarget.style.color = accentColor; } }}
+            onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
                 {iconInfo && <span className="text-xs shrink-0">{iconInfo.emoji}</span>}

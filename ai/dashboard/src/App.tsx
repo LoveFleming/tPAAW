@@ -134,7 +134,7 @@ function AppInner() {
   const { info: themeInfo, theme, setTheme } = useTheme();
 
   return (
-    <div className="h-screen flex flex-col bg-stone-50 text-stone-800 font-sans selection:bg-amber-200 overflow-hidden">
+    <div className="h-screen flex flex-col bg-stone-50 text-stone-800 font-sans overflow-hidden" style={{ "--tw-selection-color": themeInfo.accentLight } as React.CSSProperties}>
       {/* ── Header ── */}
       <header className="h-11 flex items-center justify-between px-3 shrink-0 z-10 border-b border-stone-200" style={{ background: themeInfo.gradient }}>
         <div className="flex items-center gap-3">
@@ -171,16 +171,16 @@ function AppInner() {
       <div className="flex flex-1 overflow-hidden">
         {/* ── Sidebar ── */}
         <aside className={cn(
-          "bg-white border-r border-stone-200/80 flex-shrink-0 flex flex-col transition-all duration-200 overflow-hidden",
+          "flex-shrink-0 flex flex-col transition-all duration-200 overflow-hidden border-r",
           sidebarOpen ? "w-60" : "w-0"
-        )}>
+        )} style={{ backgroundColor: "white", borderColor: themeInfo.accentBorder + "60" }}>
           <div className="flex flex-col overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
 
             {/* Factory */}
             <SidebarSection title="Factory">
               <div>
                 {factoryNav.map((item) => (
-                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} />
+                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
               </div>
             </SidebarSection>
@@ -197,10 +197,13 @@ function AppInner() {
           </div>
 
           {/* Switch project */}
-          <div className="px-3 py-2 border-t border-stone-100 shrink-0">
+          <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
               onClick={() => setShowWelcome(true)}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-stone-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors"
+              style={{ color: themeInfo.accentHover + "99" }}
+              onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
+              onMouseLeave={e => { e.currentTarget.style.color = themeInfo.accentHover + "99"; e.currentTarget.style.backgroundColor = ""; }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 .75.75V21m-6 0H9m4.5 0h6m-6 0V9m0 12H3.75a.75.75 0 0 1-.75-.75V13.5m16.5 0V3.75a.75.75 0 0 0-.75-.75H4.5a.75.75 0 0 0-.75.75v9.75m15 0h-1.5" />
@@ -213,7 +216,7 @@ function AppInner() {
         {/* ── Main ── */}
         <main className="flex-1 overflow-hidden flex flex-col">
           {/* Tabs */}
-          <div className="flex w-full items-end gap-0.5 overflow-x-auto bg-stone-100 px-3 pt-1.5 border-b border-stone-200" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex w-full items-end gap-0.5 overflow-x-auto px-3 pt-1.5 border-b" style={{ scrollbarWidth: 'none', backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
             {openTabs.map((tabId) => {
               const isActive = activePage === tabId;
               const isCodebase = tabId === "codebase";
@@ -224,9 +227,13 @@ function AppInner() {
                   className={cn(
                     "group relative flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-xs transition-all rounded-t-md",
                     isActive
-                      ? "bg-white text-stone-800 font-medium shadow-sm"
-                      : "text-stone-400 hover:text-stone-600 hover:bg-stone-200/50"
+                      ? "bg-white font-medium shadow-sm"
+                      : "hover:bg-white/50"
                   )}
+                  style={isActive
+                    ? { color: themeInfo.accentText }
+                    : { color: themeInfo.accentText + "88" }
+                  }
                 >
                   <span className="truncate whitespace-nowrap max-w-[160px]">{labelFor(tabId)}</span>
                   {!isCodebase && (

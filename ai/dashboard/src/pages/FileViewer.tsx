@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import JsonViewer from "../components/JsonViewer";
+import { useTheme } from "../theme";
 
 const API_BASE = "http://127.0.0.1:4097";
 
@@ -15,17 +16,6 @@ function fileIcon(name: string): string {
   return map[ext] || "📄";
 }
 
-function detectLang(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const map: Record<string, string> = {
-    ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
-    json: "json", md: "markdown", css: "css", html: "html",
-    py: "python", java: "java", go: "go", rs: "rust",
-    yaml: "yaml", yml: "yaml", sh: "bash", sql: "sql",
-  };
-  return map[ext] || "text";
-}
-
 function detectFileType(name: string): "markdown" | "json" | "code" {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (ext === "md" || ext === "markdown") return "markdown";
@@ -33,8 +23,9 @@ function detectFileType(name: string): "markdown" | "json" | "code" {
   return "code";
 }
 
-// ── Markdown View ──
+// ── Markdown View (theme-aware prose) ──
 function MarkdownView({ content }: { content: string }) {
+  const { info: t } = useTheme();
   const [MarkdownComponent, setComponent] = useState<React.ComponentType<{ children: string }> | null>(null);
 
   useEffect(() => {
@@ -48,13 +39,26 @@ function MarkdownView({ content }: { content: string }) {
   }
 
   return (
-    <div className="p-6 max-w-4xl prose prose-stone prose-sm prose-headings:text-stone-800 prose-a:text-orange-600 prose-code:text-orange-700 prose-code:bg-orange-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-stone-900 prose-pre:text-stone-100">
+    <div
+      className="p-6 max-w-4xl prose prose-sm"
+      style={{
+        // @ts-ignore CSS custom properties via style
+        "--tw-prose-body": t.accentText,
+        "--tw-prose-headings": t.accentText,
+        "--tw-prose-links": t.accent,
+        "--tw-prose-bold": t.accentText,
+        "--tw-prose-code": t.accent,
+        "--tw-prose-pre-bg": "#1c1917",
+        "--tw-prose-pre-code": "#e7e5e4",
+        color: "#57534e",
+      } as React.CSSProperties}
+    >
       <MarkdownComponent>{content}</MarkdownComponent>
     </div>
   );
 }
 
-// ── Code View (default) ──
+// ── Code View ──
 function CodeView({ content }: { content: string }) {
   return (
     <pre className="p-6 text-sm font-mono text-stone-700 whitespace-pre-wrap leading-relaxed" style={{ tabSize: 2 }}>
@@ -70,11 +74,11 @@ interface Props {
 }
 
 export default function FileViewer({ filePath, projectRoot }: Props) {
+  const { info: t } = useTheme();
   const [content, setContent] = useState<string | null>(null);
-  const [meta, setMeta] = useState<{ size: number; lang: string } | null>(null);
+  const [meta, setMeta] = useState<{ size: number } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Parse JSON for the viewer
   const parsedJson = useMemo(() => {
     if (!content || detectFileType(filePath.split("/").pop() || "") !== "json") return null;
     try { return JSON.parse(content); } catch { return null; }
@@ -89,8 +93,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       .then(r => r.json())
       .then(data => {
         setContent(data.content);
-        const name = filePath.split("/").pop() || "";
-        setMeta({ size: data.size, lang: detectLang(name) });
+        setMeta({ size: data.size });
       })
       .catch(() => setContent("// Unable to load file"))
       .finally(() => setLoading(false));
@@ -102,15 +105,15 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* File header bar */}
-      <div className="px-4 py-1.5 border-b border-stone-200 bg-stone-50 flex items-center justify-between shrink-0">
+      {/* File header bar — theme-aware */}
+      <div className="px-4 py-1.5 border-b flex items-center justify-between shrink-0"
+        style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs">{fileIcon(fileName)}</span>
-          <span className="text-xs font-mono text-stone-600 truncate">{relativePath}</span>
+          <span className="text-xs font-mono truncate" style={{ color: t.accentText }}>{relativePath}</span>
         </div>
         {meta && (
-          <div className="flex items-center gap-3 text-[11px] text-stone-400 shrink-0">
-            <span>{meta.lang}</span>
+          <div className="flex items-center gap-3 text-[11px] shrink-0" style={{ color: t.accentHover }}>
             <span>{(meta.size / 1024).toFixed(1)} KB</span>
           </div>
         )}
@@ -127,18 +130,10 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
         </div>
       ) : content !== null ? (
         <div className="flex-1 overflow-hidden flex flex-col bg-white">
-          {fileType === "json" && parsedJson !== null && (
-            <JsonViewer data={parsedJson} />
-          )}
-          {fileType === "json" && parsedJson === null && (
-            <div className="flex-1 overflow-auto p-6"><CodeView content={content} /></div>
-          )}
-          {fileType === "markdown" && (
-            <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>
-          )}
-          {fileType === "code" && (
-            <div className="flex-1 overflow-auto"><CodeView content={content} /></div>
-          )}
+          {fileType === "json" && parsedJson !== null && <JsonViewer data={parsedJson} />}
+          {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-auto"><CodeView content={content} /></div>}
+          {fileType === "markdown" && <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>}
+          {fileType === "code" && <div className="flex-1 overflow-auto"><CodeView content={content} /></div>}
         </div>
       ) : null}
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, cn } from "../components/ui/shared";
 import { SKILLS } from "../data/mockData";
 import { Skill, CrewSkill, RequiredInput, buildSystemPrompt } from "../types";
+import { useTheme } from "../theme";
 import TerminalConsole from "../components/TerminalConsole";
 import Icon from "../components/Icon";
 
@@ -24,20 +25,9 @@ interface Props {
     employeeId: string;
 }
 
-function buildInitialMessage(inputs: RequiredInput[], data: Record<string, string>, skillIds: string[]): string {
-    const lines: string[] = [];
-    lines.push("## 📄 Source");
-    for (const input of inputs) {
-        const val = data[input.id]?.trim();
-        if (val) lines.push(`**${input.label}:** ${val}`);
-    }
-    lines.push("---");
-    lines.push("Please start working based on the above information.");
-    return lines.join("\n");
-}
-
 export default function EmployeeWorkspaceV2({ employeeId }: Props) {
     const employee = SKILLS.find((s) => s.id === employeeId);
+    const { info: t } = useTheme();
     const [enabledSkills, setEnabledSkills] = useState<Record<string, boolean>>({});
     const [consoleKey, setConsoleKey] = useState(0);
     const [systemPrompt, setSystemPrompt] = useState("");
@@ -52,6 +42,9 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
     const [conversations, setConversations] = useState<ConvSummary[]>([]);
     const [cliTab, setCliTab] = useState<"console" | "logs" | "preview">("console");
     const [showPromptPreview, setShowPromptPreview] = useState(false);
+    const [showInputDialog, setShowInputDialog] = useState(false);
+    const [inputDialogData, setInputDialogData] = useState<Record<string, string>>({});
+    const [inputDialogErrors, setInputDialogErrors] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         fetch("http://127.0.0.1:4097/api/models")
@@ -96,6 +89,25 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
         return Object.entries(enabledSkills).filter(([_, v]) => v).map(([k]) => k);
     }, [enabledSkills]);
 
+    // Collect all required inputs from selected skills
+    const requiredInputs = useMemo(() => {
+        if (!employee) return [];
+        const inputs: RequiredInput[] = [];
+        const seen = new Set<string>();
+        for (const id of selectedSkillIds) {
+            const sk = employee.skills.find(s => s.id === id);
+            if (sk?.requiredInputs) {
+                for (const inp of sk.requiredInputs) {
+                    if (!seen.has(inp.id)) {
+                        seen.add(inp.id);
+                        inputs.push(inp);
+                    }
+                }
+            }
+        }
+        return inputs;
+    }, [employee, selectedSkillIds]);
+
     const effectiveCli = useMemo(() => {
         if (!employee) return "qwen";
         for (const id of selectedSkillIds) {
@@ -123,31 +135,55 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
         return permissionMode;
     }, [employee, selectedSkillIds, permissionMode]);
 
-    const handleStartTask = () => {
-        if (!employee || !taskInput.trim()) return;
-        const prompt = buildSystemPrompt(employee, selectedSkillIds);
+    const handleStartClick = () => {
+        if (!employee) return;
+        if (requiredInputs.length > 0) {
+            // Show input dialog
+            setInputDialogData({});
+            setInputDialogErrors({});
+            setShowInputDialog(true);
+        } else if (taskInput.trim()) {
+            // No required inputs, launch directly
+            launchTask({});
+        }
+    };
+
+    const launchTask = (dialogData: Record<string, string>) => {
+        if (!employee) return;
+        const allData = { ...dialogData, task: taskInput.trim() };
+        const prompt = buildSystemPrompt(employee, selectedSkillIds, allData);
         setSystemPrompt(prompt);
-        setFormData(prev => ({ ...prev, task: taskInput.trim() }));
+        setFormData(allData);
         setConsoleKey(prev => prev + 1);
         setChatStarted(true);
+        setShowInputDialog(false);
+    };
+
+    const handleDialogSubmit = () => {
+        // Validate required fields
+        const errors: Record<string, boolean> = {};
+        for (const inp of requiredInputs) {
+            if (inp.required && !inputDialogData[inp.id]?.trim()) {
+                errors[inp.id] = true;
+            }
+        }
+        if (Object.keys(errors).length > 0) {
+            setInputDialogErrors(errors);
+            return;
+        }
+        launchTask(inputDialogData);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            handleStartTask();
+            handleStartClick();
         }
     };
 
     const stats = [
-        { label: "指派任務", value: "12", icon: "chat" as const, color: "text-blue-500" },
-        { label: "完成任務", value: "8", icon: "check" as const, color: "text-emerald-500" },
-    ];
-
-    const quickActions = [
-        { label: "建立新任務", icon: "plus" as const, desc: "開一個新的 CLI session" },
-        { label: "建立新 Skill", icon: "lightning" as const, desc: "擴充員工能力" },
-        { label: "匯出對話紀錄", icon: "save" as const, desc: "存成 Markdown" },
+        { label: "指派任務", value: "12", icon: "chat" as const },
+        { label: "完成任務", value: "8", icon: "check" as const },
     ];
 
     if (!employee) return <div className="p-8 text-stone-400">Employee not found</div>;
@@ -156,12 +192,101 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
 
     return (
         <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+            {/* ===== Input Dialog Modal ===== */}
+            {showInputDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowInputDialog(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        {/* Dialog header */}
+                        <div className="px-6 py-4 border-b" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
+                            <h3 className="text-lg font-bold" style={{ color: t.accentText }}>任務參數</h3>
+                            <p className="text-xs mt-0.5" style={{ color: t.accent }}>
+                                {selectedSkillIds.length} 個技能需要以下資料才能啟動
+                            </p>
+                        </div>
+
+                        {/* Dialog body */}
+                        <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                            {requiredInputs.map(inp => (
+                                <div key={inp.id}>
+                                    <label className="flex items-center gap-1.5 text-sm font-medium text-stone-700 mb-1">
+                                        {inp.label}
+                                        {inp.required && <span className="text-rose-500">*</span>}
+                                    </label>
+                                    {inp.description && (
+                                        <p className="text-[11px] text-stone-400 mb-1.5">{inp.description}</p>
+                                    )}
+                                    {inp.multiline ? (
+                                        <textarea
+                                            value={inputDialogData[inp.id] || ""}
+                                            onChange={e => {
+                                                setInputDialogData(prev => ({ ...prev, [inp.id]: e.target.value }));
+                                                if (inputDialogErrors[inp.id]) {
+                                                    setInputDialogErrors(prev => { const n = { ...prev }; delete n[inp.id]; return n; });
+                                                }
+                                            }}
+                                            placeholder={inp.placeholder}
+                                            rows={4}
+                                            className={cn(
+                                                "w-full px-3 py-2 text-sm border rounded-xl resize-none focus:outline-none focus:ring-2 transition-colors",
+                                                inputDialogErrors[inp.id]
+                                                    ? "border-rose-300 focus:ring-rose-200 bg-rose-50/30"
+                                                    : "border-stone-200 focus:ring-blue-100"
+                                            )}
+                                        />
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={inputDialogData[inp.id] || ""}
+                                            onChange={e => {
+                                                setInputDialogData(prev => ({ ...prev, [inp.id]: e.target.value }));
+                                                if (inputDialogErrors[inp.id]) {
+                                                    setInputDialogErrors(prev => { const n = { ...prev }; delete n[inp.id]; return n; });
+                                                }
+                                            }}
+                                            placeholder={inp.placeholder}
+                                            className={cn(
+                                                "w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-colors",
+                                                inputDialogErrors[inp.id]
+                                                    ? "border-rose-300 focus:ring-rose-200 bg-rose-50/30"
+                                                    : "border-stone-200 focus:ring-blue-100"
+                                            )}
+                                        />
+                                    )}
+                                    {inputDialogErrors[inp.id] && (
+                                        <p className="text-[11px] text-rose-500 mt-1">此欄位為必填</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Dialog footer */}
+                        <div className="px-6 py-3 border-t border-stone-100 flex items-center justify-end gap-2">
+                            <button
+                                onClick={() => setShowInputDialog(false)}
+                                className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleDialogSubmit}
+                                className="px-5 py-2 text-sm font-bold text-white rounded-xl transition-colors shadow-sm"
+                                style={{ backgroundColor: t.accent }}
+                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
+                            >
+                                🚀 啟動任務
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ===== Main Content ===== */}
             <div className="flex-1 flex flex-col overflow-y-auto p-2 sm:p-3 gap-2 sm:gap-2.5 min-w-0 min-h-0">
 
                 {/* --- Profile Banner --- */}
-                <Card className="overflow-hidden border border-blue-100 shadow-sm">
-                    <div className="flex flex-col sm:flex-row bg-gradient-to-r from-blue-50 via-white to-indigo-50">
+                <Card className="overflow-hidden border shadow-sm" style={{ borderColor: t.accentBorder }}>
+                    <div className="flex flex-col sm:flex-row" style={{ background: `linear-gradient(to right, ${t.accentLight}, white, ${t.accentBg})` }}>
                         {/* Photo */}
                         <div className="w-full sm:w-40 md:w-52 shrink-0 flex items-center justify-center p-3 max-h-[160px] sm:max-h-none">
                             <img
@@ -175,10 +300,12 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                         <div className="flex-1 py-2 sm:py-3 px-3 sm:px-4 flex flex-col justify-center min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <span className="text-xl sm:text-2xl font-bold text-stone-800">{employee.codename || employee.title}</span>
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">AI 員工</span>
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: t.accentLight, color: t.accent }}>
+                                    AI 員工
+                                </span>
                             </div>
                             <div className="flex items-center gap-1.5 text-stone-600 mb-1 sm:mb-2">
-                                <Icon name="gear" size={14} className="text-blue-500" />
+                                <Icon name="gear" size={14} style={{ color: t.accent }} />
                                 <span className="font-medium text-sm">{employee.title}</span>
                             </div>
                             <p className="text-sm text-stone-500 mb-2 line-clamp-2 hidden sm:block">{employee.rolePrompt?.split("。")[0]}</p>
@@ -189,9 +316,9 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                         </div>
                         {/* Skills + Actions — hidden on small, visible md+ */}
                         <div className="hidden md:flex flex-[2] py-3 pr-4 pl-2 flex-col justify-center gap-2.5 min-w-0">
-                            <div className="bg-white/70 rounded-xl p-3 border border-blue-100">
+                            <div className="rounded-xl p-3 border" style={{ backgroundColor: "rgba(255,255,255,0.7)", borderColor: t.accentBorder }}>
                                 <div className="flex items-center gap-1.5 mb-2">
-                                    <div className="w-6 h-6 rounded-lg bg-blue-500 flex items-center justify-center">
+                                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: t.accent }}>
                                         <Icon name="lightning" size={12} className="text-white" />
                                     </div>
                                     <span className="text-sm font-bold text-stone-700">Skills</span>
@@ -204,10 +331,13 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                                             onClick={() => setEnabledSkills(prev => ({ ...prev, [sk.id]: !prev[sk.id] }))}
                                             className={cn(
                                                 "text-sm font-medium px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 whitespace-nowrap",
-                                                enabledSkills[sk.id]
-                                                    ? "bg-blue-500 text-white border-blue-500 shadow-sm shadow-blue-200"
-                                                    : "bg-white text-stone-600 border-stone-200 hover:border-blue-400 hover:bg-blue-50"
                                             )}
+                                            style={enabledSkills[sk.id]
+                                                ? { backgroundColor: t.accent, color: "white", borderColor: t.accent, boxShadow: `0 1px 3px ${t.accent}40` }
+                                                : { backgroundColor: "white", color: "#57534e", borderColor: "#e7e5e4" }
+                                            }
+                                            onMouseEnter={e => { if (!enabledSkills[sk.id]) { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.backgroundColor = t.accentBg; } }}
+                                            onMouseLeave={e => { if (!enabledSkills[sk.id]) { e.currentTarget.style.borderColor = "#e7e5e4"; e.currentTarget.style.backgroundColor = "white"; } }}
                                         >
                                             <Icon name={enabledSkills[sk.id] ? "check" : "gear"} size={12} />
                                             {sk.name}
@@ -218,13 +348,17 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setShowPromptPreview(!showPromptPreview)}
-                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-white border border-stone-200 text-stone-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-white border text-stone-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    style={{ borderColor: t.accentBorder, color: t.accentText }}
                                 >
                                     <Icon name="document" size={14} /> 提示詞
                                 </button>
                                 <button
-                                    onClick={() => { setConsoleKey(prev => prev + 1); setChatStarted(true); }}
-                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-bold bg-blue-500 text-white hover:bg-blue-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm shadow-blue-200"
+                                    onClick={handleStartClick}
+                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-bold text-white transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    style={{ backgroundColor: t.accent, boxShadow: `0 1px 3px ${t.accent}40` }}
+                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
                                 >
                                     <Icon name="rocket" size={14} /> 開始
                                 </button>
@@ -234,28 +368,28 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                 </Card>
 
                 {/* --- Mobile Skills row (visible < md) --- */}
-                <Card className="md:hidden overflow-hidden border border-blue-100 shadow-sm">
+                <Card className="md:hidden overflow-hidden border shadow-sm" style={{ borderColor: t.accentBorder }}>
                     <div className="p-2.5 flex flex-wrap gap-1.5 items-center">
-                        <div className="w-5 h-5 rounded-md bg-blue-500 flex items-center justify-center mr-1">
+                        <div className="w-5 h-5 rounded-md flex items-center justify-center mr-1" style={{ backgroundColor: t.accent }}>
                             <Icon name="lightning" size={10} className="text-white" />
                         </div>
                         {allSkills.map(sk => (
                             <button
                                 key={sk.id}
                                 onClick={() => setEnabledSkills(prev => ({ ...prev, [sk.id]: !prev[sk.id] }))}
-                                className={cn(
-                                    "text-xs font-medium px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 whitespace-nowrap",
-                                    enabledSkills[sk.id]
-                                        ? "bg-blue-500 text-white border-blue-500"
-                                        : "bg-white text-stone-600 border-stone-200"
-                                )}
+                                className={cn("text-xs font-medium px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 whitespace-nowrap")}
+                                style={enabledSkills[sk.id]
+                                    ? { backgroundColor: t.accent, color: "white", borderColor: t.accent }
+                                    : { backgroundColor: "white", color: "#57534e", borderColor: "#e7e5e4" }
+                                }
                             >
                                 {sk.name}
                             </button>
                         ))}
                         <button
-                            onClick={() => { setConsoleKey(prev => prev + 1); setChatStarted(true); }}
-                            className="ml-auto px-3 py-1 rounded-lg text-xs font-bold bg-blue-500 text-white hover:bg-blue-600 flex items-center gap-1"
+                            onClick={handleStartClick}
+                            className="ml-auto px-3 py-1 rounded-lg text-xs font-bold text-white flex items-center gap-1"
+                            style={{ backgroundColor: t.accent }}
                         >
                             <Icon name="rocket" size={11} /> 開始
                         </button>
@@ -263,14 +397,14 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                 </Card>
 
                 {/* --- CLI Console --- */}
-                <Card className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border border-blue-100/60 shadow-sm overflow-hidden">
+                <Card className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border shadow-sm overflow-hidden" style={{ borderColor: t.accentBorder + "60" }}>
                     {/* Console header */}
-                    <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-blue-50 bg-blue-50/40 gap-2">
+                    <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b gap-2" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg }}>
                         <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: t.accent }}>
                                 <span className="text-white text-[10px] font-black">O</span>
                             </div>
-                            <span className="font-bold text-blue-900 text-sm truncate">
+                            <span className="font-bold text-sm truncate" style={{ color: t.accentText }}>
                                 {effectiveCli === 'claude' ? 'Claude Code' : effectiveCli === 'opencode' ? 'OpenCode' : 'Qwen'} CLI
                             </span>
                         </div>
@@ -278,8 +412,8 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                             <select
                                 value={permissionMode}
                                 onChange={e => setPermissionMode(e.target.value)}
-                                className="px-1.5 py-1 rounded-lg border border-blue-100 text-[11px] text-blue-700 bg-white"
-                                title="Approval Mode"
+                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-white"
+                                style={{ borderColor: t.accentBorder, color: t.accentText }}
                             >
                                 <option value="default">Default</option>
                                 <option value="auto-edit">Auto-Edit</option>
@@ -289,8 +423,8 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                             <select
                                 value={selectedCli}
                                 onChange={e => setSelectedCli(e.target.value)}
-                                className="px-1.5 py-1 rounded-lg border border-blue-100 text-[11px] text-blue-700 bg-white"
-                                title="CLI Engine"
+                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-white"
+                                style={{ borderColor: t.accentBorder, color: t.accentText }}
                             >
                                 {Object.entries(installedClis).map(([key, info]: [string, any]) => (
                                     <option key={key} value={key} disabled={!info.installed}>
@@ -302,7 +436,8 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                                 <select
                                     value={selectedModel}
                                     onChange={e => setSelectedModel(e.target.value)}
-                                    className="hidden sm:block px-1.5 py-1 rounded-lg border border-blue-100 text-[11px] text-blue-700 bg-white max-w-[140px] truncate"
+                                    className="hidden sm:block px-1.5 py-1 rounded-lg border text-[11px] bg-white max-w-[140px] truncate"
+                                    style={{ borderColor: t.accentBorder, color: t.accentText }}
                                 >
                                     {models.map(m => (
                                         <option key={m.id} value={m.id}>
@@ -313,7 +448,8 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                             )}
                             <button
                                 onClick={() => setShowPromptPreview(!showPromptPreview)}
-                                className="hidden sm:flex px-2 py-1 rounded-lg border border-blue-100 text-[11px] text-blue-600 hover:bg-blue-50 transition-colors items-center gap-1"
+                                className="hidden sm:flex px-2 py-1 rounded-lg border text-[11px] transition-colors items-center gap-1"
+                                style={{ borderColor: t.accentBorder, color: t.accent }}
                             >
                                 <Icon name="document" size={11} /> Prompt
                             </button>
@@ -321,17 +457,16 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                     </div>
 
                     {/* Console tabs */}
-                    <div className="flex border-b border-blue-50 px-2 sm:px-4">
+                    <div className="flex border-b px-2 sm:px-4" style={{ borderColor: t.accentBorder + "40" }}>
                         {(["console", "logs", "preview"] as const).map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setCliTab(tab)}
-                                className={cn(
-                                    "px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px",
-                                    cliTab === tab
-                                        ? "border-blue-500 text-blue-600"
-                                        : "border-transparent text-blue-300 hover:text-blue-500"
-                                )}
+                                className={cn("px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px")}
+                                style={cliTab === tab
+                                    ? { borderColor: t.accent, color: t.accent }
+                                    : { borderColor: "transparent", color: t.accent + "50" }
+                                }
                             >
                                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
                             </button>
@@ -354,7 +489,7 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                                 ].filter(Boolean).join('\n\n') : undefined}
                             />
                         ) : cliTab === "logs" ? (
-                            <div className="h-full flex items-center justify-center text-blue-300 text-sm bg-slate-900">
+                            <div className="h-full flex items-center justify-center text-sm bg-slate-900" style={{ color: t.accent + "60" }}>
                                 <div className="text-center">
                                     <Icon name="document" size={24} className="mx-auto mb-2 opacity-30" />
                                     <p>Logs will appear here</p>
@@ -362,11 +497,11 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                             </div>
                         ) : (
                             showPromptPreview && systemPrompt ? (
-                                <div className="h-full overflow-auto p-4 bg-blue-50/30">
+                                <div className="h-full overflow-auto p-4" style={{ backgroundColor: t.accentBg }}>
                                     <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono">{systemPrompt}</pre>
                                 </div>
                             ) : (
-                                <div className="h-full flex items-center justify-center text-blue-300 text-sm bg-blue-50/30">
+                                <div className="h-full flex items-center justify-center text-sm" style={{ backgroundColor: t.accentBg, color: t.accent + "60" }}>
                                     <div className="text-center">
                                         <Icon name="document" size={24} className="mx-auto mb-2 opacity-30" />
                                         <p>Start a task to preview prompt</p>
@@ -379,74 +514,73 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
             </div>
 
             {/* ===== Right Sidebar ===== */}
-            <div className="w-full lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-blue-50 bg-white/80 overflow-y-auto p-2 sm:p-3 flex flex-col gap-2 sm:gap-2.5 max-h-[260px] lg:max-h-none">
+            <div className="w-full lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l bg-white/80 overflow-y-auto p-2 sm:p-3 flex flex-col gap-2 sm:gap-2.5 max-h-[260px] lg:max-h-none"
+                style={{ borderColor: t.accentBorder + "40" }}>
 
                 {/* Overview Stats */}
-                <Card className="p-2 sm:p-3 border border-blue-50 shadow-sm">
-                    <h3 className="font-bold text-blue-900 text-sm mb-0.5">概覽</h3>
-                    <p className="text-[10px] text-blue-300 mb-2">今日工作概要</p>
+                <Card className="p-2 sm:p-3 border shadow-sm" style={{ borderColor: t.accentBorder }}>
+                    <h3 className="font-bold text-sm mb-0.5" style={{ color: t.accentText }}>概覽</h3>
+                    <p className="text-[10px] mb-2" style={{ color: t.accent + "80" }}>今日工作概要</p>
                     <div className="grid grid-cols-2 gap-2">
                         {stats.map(s => (
-                            <div key={s.label} className="bg-blue-50/50 rounded-xl p-2 sm:p-3 text-center">
+                            <div key={s.label} className="rounded-xl p-2 sm:p-3 text-center" style={{ backgroundColor: t.accentBg }}>
                                 <div className="flex items-center justify-center gap-1 mb-1">
-                                    <Icon name={s.icon} size={12} className={s.color} />
-                                    <span className="text-lg font-bold text-blue-900">{s.value}</span>
+                                    <Icon name={s.icon} size={12} style={{ color: t.accent }} />
+                                    <span className="text-lg font-bold" style={{ color: t.accentText }}>{s.value}</span>
                                 </div>
-                                <span className="text-[10px] text-blue-400">{s.label}</span>
+                                <span className="text-[10px]" style={{ color: t.accent + "90" }}>{s.label}</span>
                             </div>
                         ))}
                     </div>
                 </Card>
 
                 {/* Quick Actions */}
-                <Card className="p-2 sm:p-3 border border-blue-50 shadow-sm">
-                    <h3 className="font-bold text-blue-900 text-sm mb-2">快速操作</h3>
+                <Card className="p-2 sm:p-3 border shadow-sm" style={{ borderColor: t.accentBorder }}>
+                    <h3 className="font-bold text-sm mb-2" style={{ color: t.accentText }}>快速操作</h3>
                     <div className="flex flex-row lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible">
-                        {quickActions.map(a => (
+                        {[
+                            { label: "建立新任務", icon: "plus" as const, desc: "開一個新的 CLI session" },
+                            { label: "建立新 Skill", icon: "lightning" as const, desc: "擴充員工能力" },
+                            { label: "匯出對話紀錄", icon: "save" as const, desc: "存成 Markdown" },
+                        ].map(a => (
                             <button
                                 key={a.label}
-                                className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-blue-50 transition-colors text-left group shrink-0 lg:shrink"
+                                className="flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors text-left group shrink-0 lg:shrink"
+                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentBg; }}
+                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = ""; }}
                             >
-                                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
-                                    <Icon name={a.icon} size={14} className="text-blue-500" />
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundColor: t.accentLight }}>
+                                    <Icon name={a.icon} size={14} style={{ color: t.accent }} />
                                 </div>
                                 <div className="min-w-0 hidden sm:block">
-                                    <div className="text-xs font-medium text-blue-800">{a.label}</div>
-                                    <div className="text-[10px] text-blue-400">{a.desc}</div>
+                                    <div className="text-xs font-medium" style={{ color: t.accentText }}>{a.label}</div>
+                                    <div className="text-[10px]" style={{ color: t.accent + "80" }}>{a.desc}</div>
                                 </div>
-                                <span className="text-xs font-medium text-blue-800 sm:hidden">{a.label}</span>
                             </button>
                         ))}
                     </div>
                 </Card>
 
                 {/* Recent Conversations */}
-                <Card className="p-2 sm:p-3 border border-blue-50 shadow-sm flex-1">
+                <Card className="p-2 sm:p-3 border shadow-sm flex-1" style={{ borderColor: t.accentBorder }}>
                     <div className="flex items-center justify-between mb-1.5">
-                        <h3 className="font-bold text-blue-900 text-sm">最近對話</h3>
-                        <span className="text-[10px] text-blue-500 cursor-pointer hover:text-blue-700">查看全部</span>
+                        <h3 className="font-bold text-sm" style={{ color: t.accentText }}>最近對話</h3>
+                        <span className="text-[10px] cursor-pointer" style={{ color: t.accent }}>查看全部</span>
                     </div>
                     {conversations.length === 0 ? (
                         <div className="space-y-1.5">
-                            <div className="flex items-center justify-between py-1.5 border-b border-blue-50">
-                                <span className="text-xs text-blue-700/60 truncate">如何建立新的微服務？</span>
-                                <span className="text-[10px] text-blue-300 ml-2">10:15</span>
-                            </div>
-                            <div className="flex items-center justify-between py-1.5 border-b border-blue-50">
-                                <span className="text-xs text-blue-700/60 truncate">工廠的部署流程是什麼？</span>
-                                <span className="text-[10px] text-blue-300 ml-2">昨天</span>
-                            </div>
-                            <div className="flex items-center justify-between py-1.5">
-                                <span className="text-xs text-blue-700/60 truncate">如何設定權限與角色？</span>
-                                <span className="text-[10px] text-blue-300 ml-2">昨天</span>
-                            </div>
+                            {["如何建立新的微服務？", "工廠的部署流程是什麼？", "如何設定權限與角色？"].map((q, i) => (
+                                <div key={i} className="flex items-center justify-between py-1.5 border-b last:border-0" style={{ borderColor: t.accentBorder + "40" }}>
+                                    <span className="text-xs truncate" style={{ color: t.accentText + "70" }}>{q}</span>
+                                </div>
+                            ))}
                         </div>
                     ) : (
                         <div className="space-y-1.5">
                             {conversations.slice(0, 3).map(c => (
-                                <div key={c.id} className="flex items-center justify-between py-1.5 border-b border-blue-50 last:border-0">
-                                    <span className="text-xs text-blue-700/60 truncate flex-1">{c.title}</span>
-                                    <span className="text-[10px] text-blue-300 shrink-0 ml-2">
+                                <div key={c.id} className="flex items-center justify-between py-1.5 border-b last:border-0" style={{ borderColor: t.accentBorder + "40" }}>
+                                    <span className="text-xs truncate flex-1" style={{ color: t.accentText + "70" }}>{c.title}</span>
+                                    <span className="text-[10px] shrink-0 ml-2" style={{ color: t.accent + "60" }}>
                                         {new Date(c.updatedAt).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })}
                                     </span>
                                 </div>
@@ -455,13 +589,14 @@ export default function EmployeeWorkspaceV2({ employeeId }: Props) {
                     )}
                 </Card>
 
-                {/* Quote — pinned to bottom */}
-                <Card className="p-3 sm:p-4 border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm relative overflow-hidden mt-auto hidden sm:block">
-                    <div className="absolute top-2 right-3 text-5xl text-blue-200/40 font-serif">"</div>
+                {/* Quote */}
+                <Card className="p-3 sm:p-4 border shadow-sm relative overflow-hidden mt-auto hidden sm:block"
+                    style={{ borderColor: t.accentBorder, background: `linear-gradient(to bottom right, ${t.accentLight}, ${t.accentBg})` }}>
+                    <div className="absolute top-2 right-3 text-5xl font-serif" style={{ color: t.accent + "25" }}>\"</div>
                     <p className="text-sm text-stone-600 italic leading-relaxed relative z-10">
                         導入創新，萬機皆服務，萬事皆連結。
                     </p>
-                    <p className="text-[10px] text-blue-400 mt-2 font-medium">— AI Software Factory</p>
+                    <p className="text-[10px] mt-2 font-medium" style={{ color: t.accent + "80" }}>— AI Software Factory</p>
                 </Card>
             </div>
         </div>
