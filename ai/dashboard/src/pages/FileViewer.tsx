@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "../utils";
 
 const API_BASE = "http://127.0.0.1:4097";
@@ -10,7 +10,7 @@ function fileIcon(name: string): string {
     json: "📋", md: "📝", css: "🎨", html: "🌐",
     py: "🐍", java: "☕", go: "🐹", rs: "🦀",
     yaml: "⚙️", yml: "⚙️", toml: "⚙️",
-    sh: "📜", txt: "📄",
+    sh: "📜", txt: "📄", lock: "🔒",
   };
   return map[ext] || "📄";
 }
@@ -26,6 +26,61 @@ function detectLang(name: string): string {
   return map[ext] || "text";
 }
 
+function detectFileType(name: string): "markdown" | "json" | "code" {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "md" || ext === "markdown") return "markdown";
+  if (ext === "json") return "json";
+  return "code";
+}
+
+// ── JSON View ──
+function JsonView({ content }: { content: string }) {
+  const formatted = useMemo(() => {
+    try {
+      return JSON.stringify(JSON.parse(content), null, 2);
+    } catch {
+      return content;
+    }
+  }, [content]);
+
+  return (
+    <pre className="p-6 text-sm font-mono text-stone-700 leading-relaxed whitespace-pre" style={{ tabSize: 2 }}>
+      <code>{formatted}</code>
+    </pre>
+  );
+}
+
+// ── Markdown View ──
+function MarkdownView({ content }: { content: string }) {
+  const [MarkdownComponent, setComponent] = useState<React.ComponentType<{ children: string }> | null>(null);
+
+  useEffect(() => {
+    import("react-markdown").then((mod) => {
+      setComponent(() => mod.default as any);
+    });
+  }, []);
+
+  if (!MarkdownComponent) {
+    return <pre className="p-6 text-sm font-mono text-stone-700 whitespace-pre-wrap">{content}</pre>;
+  }
+
+  return (
+    <div className="p-6 max-w-4xl prose prose-stone prose-sm prose-headings:text-stone-800 prose-a:text-orange-600 prose-code:text-orange-700 prose-code:bg-orange-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-stone-900 prose-pre:text-stone-100">
+      <MarkdownComponent>{content}</MarkdownComponent>
+    </div>
+  );
+}
+
+// ── Code View (default) ──
+function CodeView({ content }: { content: string }) {
+  return (
+    <pre className="p-6 text-sm font-mono text-stone-700 whitespace-pre-wrap leading-relaxed" style={{ tabSize: 2 }}>
+      <code>{content}</code>
+    </pre>
+  );
+}
+
+// ── Main Component ──
 interface Props {
   filePath: string | null;
   projectRoot: string;
@@ -66,6 +121,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
 
   const relativePath = filePath.slice(projectRoot.length + 1);
   const fileName = filePath.split("/").pop() || "";
+  const fileType = detectFileType(fileName);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -86,13 +142,13 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       {/* File content */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">Loading...</div>
-      ) : (
-        <div className="flex-1 overflow-auto">
-          <pre className="p-4 text-sm font-mono text-stone-700 whitespace-pre-wrap leading-relaxed" style={{ tabSize: 2 }}>
-            <code>{content}</code>
-          </pre>
+      ) : content !== null ? (
+        <div className="flex-1 overflow-auto bg-white">
+          {fileType === "markdown" && <MarkdownView content={content} />}
+          {fileType === "json" && <JsonView content={content} />}
+          {fileType === "code" && <CodeView content={content} />}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
