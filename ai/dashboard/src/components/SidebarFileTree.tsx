@@ -34,7 +34,10 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
   return null;
 }
 
-// ── Tree Node ──
+// Indent: NavItem uses pl-[40px] as base, each depth adds 14px
+const BASE_INDENT = 40;
+const DEPTH_STEP = 14;
+
 const TreeNodeView = React.memo(function TreeNodeView({
   node,
   depth,
@@ -53,30 +56,34 @@ const TreeNodeView = React.memo(function TreeNodeView({
   const isDir = node.type === "dir";
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedPath === node.path;
-  const indent = depth * 14 + 8;
+  const isActive = isSelected && !isDir;
 
   return (
     <div>
       <button
         onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
         className={cn(
-          "w-full flex items-center gap-1.5 py-[5px] text-[13px] transition-colors text-left",
-          isSelected
-            ? "text-orange-700 font-semibold bg-orange-50"
+          "flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors",
+          isActive
+            ? "bg-orange-50 text-orange-700 font-semibold"
             : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"
         )}
-        style={{ paddingLeft: `${indent}px` }}
-        title={node.path}
+        style={{
+          paddingLeft: `${BASE_INDENT + depth * DEPTH_STEP}px`,
+          borderLeft: isActive ? "3px solid #f97316" : "3px solid transparent",
+        }}
       >
-        {isDir ? (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-            className={cn("w-3 h-3 text-amber-500 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}>
-            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-          </svg>
-        ) : (
-          <span className="w-3 shrink-0 text-center text-[10px] leading-none">{fileIcon(node.name)}</span>
-        )}
-        <span className="truncate">{node.name}</span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          {isDir ? (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+              className={cn("w-3.5 h-3.5 text-amber-500 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}>
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <span className="text-xs shrink-0">{fileIcon(node.name)}</span>
+          )}
+          <span className="truncate">{node.name}</span>
+        </div>
       </button>
       {isDir && isExpanded && node.children && node.children.length > 0 && (
         <div>
@@ -108,8 +115,6 @@ export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFil
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-
-  // Use ref so toggle handler doesn't go stale
   const treeRef = useRef<TreeNode | null>(null);
   treeRef.current = tree;
 
@@ -130,7 +135,6 @@ export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFil
   }, [projectRoot]);
 
   const handleToggleDir = useCallback(async (dirPath: string) => {
-    // Toggle expand
     setExpandedPaths(prev => {
       const next = new Set(prev);
       if (next.has(dirPath)) next.delete(dirPath);
@@ -138,7 +142,6 @@ export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFil
       return next;
     });
 
-    // Lazy load if needed (read from ref, not stale closure)
     const currentTree = treeRef.current;
     if (!currentTree) return;
     const node = findNode(currentTree, dirPath);
@@ -148,7 +151,6 @@ export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFil
       const subpath = dirPath.slice(projectRoot.length);
       const resp = await fetch(`${API_BASE}/api/fs/tree-deep?root=${encodeURIComponent(projectRoot)}&subpath=${encodeURIComponent(subpath)}`);
       const loaded: TreeNode = await resp.json();
-
       setTree(prev => {
         if (!prev) return prev;
         const clone: TreeNode = JSON.parse(JSON.stringify(prev));
@@ -177,7 +179,7 @@ export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFil
   if (!tree?.children) return null;
 
   return (
-    <div className="overflow-y-auto" style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 280px)" }}>
+    <div className="overflow-y-auto" style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)" }}>
       {tree.children.map((child) => (
         <TreeNodeView
           key={child.path}

@@ -530,7 +530,7 @@ const server = createServer(async (req, res) => {
   }
 
   // GET /api/fs/tree?root=... — directory tree for release unit
-  if (req.method === "GET" && req.url?.startsWith("/api/fs/tree")) {
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/tree") && !req.url?.startsWith("/api/fs/tree-deep")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const root = params.get("root");
     if (!root) {
