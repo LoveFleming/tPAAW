@@ -54,14 +54,11 @@ function AppInner() {
     });
   };
 
+  const [instanceCounter, setInstanceCounter] = useState(0);
   const openEmployee = (employeeId: string) => {
-    const tabId = `employee.${employeeId}`;
-    // If tab already exists, just switch to it
-    if (!openTabs.includes(tabId)) {
-      openApp(tabId);
-    } else {
-      setActivePage(tabId);
-    }
+    const tabId = `employee.${employeeId}#${instanceCounter}`;
+    setInstanceCounter((c) => c + 1);
+    openApp(tabId);
   };
 
   // File click → open as a new tab with file path as ID
@@ -86,7 +83,7 @@ function AppInner() {
     if (id === "codebase") return projectName;
     if (id.startsWith("factory.")) return factoryNav.find(n => n.id === id)?.label ?? id;
     if (id.startsWith("employee.")) {
-      const empId = id.slice(9);
+      const empId = id.split("#")[0].slice(9);
       const emp = crew.find(s => s.id === empId);
       return emp ? emp.codename : empId;
     }
@@ -123,7 +120,7 @@ function AppInner() {
       return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
     }
     if (pageId.startsWith("employee.")) {
-      const employeeId = pageId.slice(9);
+      const employeeId = pageId.split("#")[0].slice(9);
       const EmpWs = React.lazy(() => import("./pages/EmployeeWorkspaceV2"));
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
