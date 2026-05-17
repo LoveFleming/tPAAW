@@ -23,7 +23,6 @@ function AppInner() {
   const [activePage, setActivePage] = useState<string>("codebase");
   const [openTabs, setOpenTabs] = useState<string[]>(["codebase"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const [crew, setCrew] = useState<Skill[]>([]);
   const loadCrew = useCallback(async () => {
@@ -40,7 +39,6 @@ function AppInner() {
     setShowWelcome(false);
     setActivePage("codebase");
     setOpenTabs(["codebase"]);
-    setSelectedFile(null);
   };
 
   const openApp = (id: string) => {
@@ -63,9 +61,10 @@ function AppInner() {
     openApp(tabId);
   };
 
+  // File click → open as a new tab with file path as ID
   const handleSelectFile = (path: string) => {
-    setSelectedFile(path);
-    if (activePage !== "codebase") setActivePage("codebase");
+    const tabId = `file://${path}`;
+    openApp(tabId);
   };
 
   if (showWelcome || !projectRoot) {
@@ -88,14 +87,38 @@ function AppInner() {
       const emp = crew.find(s => s.id === empId);
       return emp ? emp.codename : empId;
     }
+    if (id.startsWith("file://")) {
+      const fullPath = id.slice(7);
+      return fullPath.split("/").pop() || fullPath;
+    }
     return id;
   };
+
+  // Track which file paths are open (for sidebar highlight)
+  const openFilePaths = new Set(openTabs.filter(t => t.startsWith("file://")).map(t => t.slice(7)));
+  const activeFilePath = activePage.startsWith("file://") ? activePage.slice(7) : null;
 
   const renderPage = (pageId: string) => {
     if (pageId === "factory.constitution") return <FactoryDocument file="constitution" headerIcon="scroll" headerTitle="Constitution" headerSub="工廠憲法 — 核心原則與價值" />;
     if (pageId === "factory.standards") return <FactoryDocument file="standards" headerIcon="ruler" headerTitle="Standards" headerSub="工程標準與規範" />;
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
-    if (pageId === "codebase") return <FileViewer filePath={selectedFile} projectRoot={projectRoot} />;
+    if (pageId === "codebase") {
+      return (
+        <div className="flex-1 flex items-center justify-center text-stone-400">
+          <div className="text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12 mx-auto mb-3 text-stone-300">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+            </svg>
+            <p className="text-sm">Select a file from the sidebar</p>
+            <p className="text-xs text-stone-300 mt-1">Each file opens in its own tab</p>
+          </div>
+        </div>
+      );
+    }
+    if (pageId.startsWith("file://")) {
+      const filePath = pageId.slice(7);
+      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
+    }
     if (pageId.startsWith("employee.")) {
       const employeeId = pageId.split("#")[0].slice(9);
       const EmpWs = React.lazy(() => import("./pages/EmployeeWorkspaceV2"));
@@ -121,10 +144,6 @@ function AppInner() {
             </svg>
           </button>
           <span className="text-sm font-bold tracking-tight text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AIEOS</span>
-          <span className="text-white/30 text-xs">›</span>
-          <button onClick={() => setShowWelcome(true)} className="text-xs text-white/60 hover:text-white transition-colors truncate max-w-[200px]" title="Switch project">
-            {projectName}
-          </button>
         </div>
         <div className="flex items-center gap-1">
           {(Object.keys(THEMES) as ThemeId[]).map(id => (
@@ -142,6 +161,19 @@ function AppInner() {
           sidebarOpen ? "w-60" : "w-0"
         )}>
           <div className="flex flex-col overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
+            {/* Project root display */}
+            <div className="px-4 py-3 border-b border-stone-100">
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-orange-500 shrink-0">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                </svg>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-stone-800 truncate">{projectName}</div>
+                  <div className="text-[10px] font-mono text-stone-400 truncate">{projectRoot}</div>
+                </div>
+              </div>
+            </div>
+
             {/* Factory */}
             <SidebarSection title="Factory">
               <div>
@@ -151,15 +183,14 @@ function AppInner() {
               </div>
             </SidebarSection>
 
-            {/* Code Base — file tree indented */}
+            {/* Code Base — file tree */}
             <SidebarSection title="Code Base">
-              <div className="ml-3">
-                <SidebarFileTree
-                  projectRoot={projectRoot}
-                  selectedFile={selectedFile}
-                  onSelectFile={handleSelectFile}
-                />
-              </div>
+              <SidebarFileTree
+                projectRoot={projectRoot}
+                activeFilePath={activeFilePath}
+                openFilePaths={openFilePaths}
+                onSelectFile={handleSelectFile}
+              />
             </SidebarSection>
           </div>
 
@@ -183,6 +214,7 @@ function AppInner() {
           <div className="flex w-full items-end gap-0.5 overflow-x-auto bg-stone-100 px-3 pt-1.5 border-b border-stone-200" style={{ scrollbarWidth: 'none' }}>
             {openTabs.map((tabId) => {
               const isActive = activePage === tabId;
+              const isCodebase = tabId === "codebase";
               return (
                 <div
                   key={tabId}
@@ -195,7 +227,7 @@ function AppInner() {
                   )}
                 >
                   <span className="truncate whitespace-nowrap max-w-[160px]">{labelFor(tabId)}</span>
-                  {tabId !== "codebase" && (
+                  {!isCodebase && (
                     <button
                       onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}
                       className="flex h-4 w-4 items-center justify-center rounded-full text-stone-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"

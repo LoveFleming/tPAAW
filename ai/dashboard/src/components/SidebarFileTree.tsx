@@ -34,29 +34,30 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
   return null;
 }
 
-// Indent: NavItem uses pl-[40px] as base, each depth adds 14px
 const BASE_INDENT = 40;
 const DEPTH_STEP = 14;
 
 const TreeNodeView = React.memo(function TreeNodeView({
   node,
   depth,
-  selectedPath,
+  activeFilePath,
+  openFilePaths,
   onSelectFile,
   onToggleDir,
   expandedPaths,
 }: {
   node: TreeNode;
   depth: number;
-  selectedPath: string | null;
+  activeFilePath: string | null;
+  openFilePaths: Set<string>;
   onSelectFile: (path: string) => void;
   onToggleDir: (path: string) => void;
   expandedPaths: Set<string>;
 }) {
   const isDir = node.type === "dir";
   const isExpanded = expandedPaths.has(node.path);
-  const isSelected = selectedPath === node.path;
-  const isActive = isSelected && !isDir;
+  const isActive = !isDir && activeFilePath === node.path;
+  const isOpen = !isDir && openFilePaths.has(node.path);
 
   return (
     <div>
@@ -66,6 +67,8 @@ const TreeNodeView = React.memo(function TreeNodeView({
           "flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors",
           isActive
             ? "bg-orange-50 text-orange-700 font-semibold"
+            : isOpen
+            ? "text-orange-600 bg-orange-50/50"
             : "text-stone-500 hover:text-stone-700 hover:bg-stone-50"
         )}
         style={{
@@ -92,7 +95,8 @@ const TreeNodeView = React.memo(function TreeNodeView({
               key={child.path}
               node={child}
               depth={depth + 1}
-              selectedPath={selectedPath}
+              activeFilePath={activeFilePath}
+              openFilePaths={openFilePaths}
               onSelectFile={onSelectFile}
               onToggleDir={onToggleDir}
               expandedPaths={expandedPaths}
@@ -107,11 +111,12 @@ const TreeNodeView = React.memo(function TreeNodeView({
 // ── Sidebar File Tree ──
 interface Props {
   projectRoot: string;
-  selectedFile: string | null;
+  activeFilePath: string | null;
+  openFilePaths: Set<string>;
   onSelectFile: (path: string) => void;
 }
 
-export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFile }: Props) {
+export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile }: Props) {
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -185,7 +190,8 @@ export default function SidebarFileTree({ projectRoot, selectedFile, onSelectFil
           key={child.path}
           node={child}
           depth={0}
-          selectedPath={selectedFile}
+          activeFilePath={activeFilePath}
+          openFilePaths={openFilePaths}
           onSelectFile={onSelectFile}
           onToggleDir={handleToggleDir}
           expandedPaths={expandedPaths}
