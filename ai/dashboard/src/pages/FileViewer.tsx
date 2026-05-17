@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { JsonView, allExpanded, collapseAllNested, darkStyles, defaultStyles } from "react-json-view-lite";
-import "react-json-view-lite/dist/index.css";
+import JsonViewer from "../components/JsonViewer";
 
 const API_BASE = "http://127.0.0.1:4097";
 
@@ -32,46 +31,6 @@ function detectFileType(name: string): "markdown" | "json" | "code" {
   if (ext === "md" || ext === "markdown") return "markdown";
   if (ext === "json") return "json";
   return "code";
-}
-
-// ── JSON View — collapsible tree ──
-function JsonTreeView({ content }: { content: string }) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  const parsed = useMemo(() => {
-    try { return JSON.parse(content); }
-    catch { return { error: "Invalid JSON", raw: content }; }
-  }, [content]);
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-1.5 border-b border-stone-100 bg-stone-50/50 shrink-0">
-        <button
-          onClick={() => setCollapsed(false)}
-          className="text-[11px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-        >
-          Expand All
-        </button>
-        <button
-          onClick={() => setCollapsed(true)}
-          className="text-[11px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-        >
-          Collapse
-        </button>
-      </div>
-      {/* Tree */}
-      <div className="flex-1 overflow-auto p-4" style={{ scrollbarWidth: "thin" }}>
-        <div className="text-sm font-mono">
-          <JsonView
-            data={parsed}
-            shouldExpandNode={collapsed ? collapseAllNested : allExpanded}
-            style={defaultStyles}
-          />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── Markdown View ──
@@ -114,6 +73,12 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
   const [content, setContent] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ size: number; lang: string } | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Parse JSON for the viewer
+  const parsedJson = useMemo(() => {
+    if (!content || detectFileType(filePath.split("/").pop() || "") !== "json") return null;
+    try { return JSON.parse(content); } catch { return null; }
+  }, [content, filePath]);
 
   useEffect(() => {
     if (!filePath) { setContent(null); setMeta(null); return; }
@@ -161,10 +126,19 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
           Loading...
         </div>
       ) : content !== null ? (
-        <div className="flex-1 overflow-auto bg-white" style={{ scrollbarWidth: "thin" }}>
-          {fileType === "json" && <JsonTreeView content={content} />}
-          {fileType === "markdown" && <MarkdownView content={content} />}
-          {fileType === "code" && <CodeView content={content} />}
+        <div className="flex-1 overflow-hidden flex flex-col bg-white">
+          {fileType === "json" && parsedJson !== null && (
+            <JsonViewer data={parsedJson} />
+          )}
+          {fileType === "json" && parsedJson === null && (
+            <div className="flex-1 overflow-auto p-6"><CodeView content={content} /></div>
+          )}
+          {fileType === "markdown" && (
+            <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>
+          )}
+          {fileType === "code" && (
+            <div className="flex-1 overflow-auto"><CodeView content={content} /></div>
+          )}
         </div>
       ) : null}
     </div>
