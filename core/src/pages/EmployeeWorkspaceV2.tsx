@@ -48,6 +48,9 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [inputDialogData, setInputDialogData] = useState<Record<string, string>>({});
     const [inputDialogErrors, setInputDialogErrors] = useState<Record<string, boolean>>({});
     const [savedInputs, setSavedInputs] = useState<Array<{ hash: string; skillId: string; data: Record<string, string>; savedAt: string }>>([]);
+    const [rightPanelOpen, setRightPanelOpen] = useState(true);
+    const [showWorkLog, setShowWorkLog] = useState(false);
+    const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; timestamp: string }>>([]);
 
     useEffect(() => {
         fetch("http://127.0.0.1:4097/api/models")
@@ -105,6 +108,17 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     }, [employee, projectRoot]);
 
     useEffect(() => { loadSavedInputs(); }, [loadSavedInputs]);
+
+    const loadWorkLog = useCallback(() => {
+        if (!employee) return;
+        const params = new URLSearchParams({ root: projectRoot || "" });
+        fetch(`http://127.0.0.1:4097/api/work-log/${employee.id}?${params}`)
+            .then(r => r.json())
+            .then(data => setWorkLog(data.entries || []))
+            .catch(() => {});
+    }, [employee, projectRoot]);
+
+    useEffect(() => { loadWorkLog(); }, [loadWorkLog]);
 
     const selectedSkillIds = useMemo(() => {
         return Object.entries(enabledSkills).filter(([_, v]) => v).map(([k]) => k);
@@ -230,6 +244,24 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
             } catch {
                 // Non-critical — ignore save errors
             }
+        }
+
+        // Save work log
+        try {
+            const inputSummary = Object.entries(allData).map(([k, v]) => v).filter(Boolean).join(", ") || taskInput.trim() || "";
+            const params = new URLSearchParams({ root: projectRoot || "" });
+            await fetch(`http://127.0.0.1:4097/api/work-log/${employee.id}?${params}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    skillIds: selectedSkillIds,
+                    inputSummary: inputSummary.slice(0, 100),
+                    cli: effectiveCli,
+                }),
+            });
+            loadWorkLog();
+        } catch {
+            // Non-critical — ignore save errors
         }
     };
 
@@ -458,6 +490,16 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 </div>
                             </div>
                             <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowWorkLog(true)}
+                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-white border text-stone-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm relative"
+                                    style={{ borderColor: t.accentBorder, color: t.accentText }}
+                                >
+                                    <Icon name="clock" size={14} /> 最近工作
+                                    {workLog.length > 0 && (
+                                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white text-[9px] flex items-center justify-center" style={{ backgroundColor: t.accent }}>{workLog.length > 9 ? '9+' : workLog.length}</span>
+                                    )}
+                                </button>
                                 <button
                                     onClick={() => setShowPromptPreview(!showPromptPreview)}
                                     className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-white border text-stone-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
@@ -746,48 +788,46 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                 )}
             </div>
 
-            {/* ===== Right Sidebar ===== */}
-            <div className="w-full lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l bg-white/80 overflow-y-auto p-2 sm:p-3 flex flex-col gap-2 sm:gap-2.5 max-h-[260px] lg:max-h-none"
-                style={{ borderColor: t.accentBorder + "40" }}>
-
-                {/* Recent Conversations */}
-                <Card className="p-2 sm:p-3 border shadow-sm flex-1" style={{ borderColor: t.accentBorder }}>
-                    <div className="flex items-center justify-between mb-1.5">
-                        <h3 className="font-bold text-sm" style={{ color: t.accentText }}>最近對話</h3>
-                        <span className="text-[10px] cursor-pointer" style={{ color: t.accent }}>查看全部</span>
+            {/* ===== Work Log Popup ===== */}
+            {showWorkLog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setShowWorkLog(false)}>
+                    <div className="absolute inset-0 bg-black/30" />
+                    <div className="relative bg-white rounded-2xl shadow-2xl border w-[400px] max-h-[70vh] flex flex-col" style={{ borderColor: t.accentBorder }} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: t.accentBorder + "40" }}>
+                            <h3 className="font-bold text-sm" style={{ color: t.accentText }}>最近工作</h3>
+                            <button onClick={() => setShowWorkLog(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none cursor-pointer">✕</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "thin" }}>
+                            {workLog.length === 0 ? (
+                                <p className="text-xs text-center py-8" style={{ color: t.accentText + "50" }}>尚無工作紀錄</p>
+                            ) : (
+                                <div className="space-y-2.5">
+                                    {workLog.map(w => (
+                                        <div key={w.id} className="p-2.5 rounded-lg border" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "40" }}>
+                                            <div className="flex items-center justify-between mb-1">
+                                                {w.skillIds?.length > 0 ? (
+                                                    <div className="flex gap-1 flex-wrap">
+                                                        {w.skillIds.map(s => (
+                                                            <span key={s} className="text-[10px] inline-block px-1.5 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>{s}</span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px]" style={{ color: t.accentText + "50" }}>general</span>
+                                                )}
+                                                <span className="text-[10px] shrink-0" style={{ color: t.accent + "70" }}>
+                                                    {new Date(w.timestamp).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs truncate" style={{ color: t.accentText + "80" }}>{w.inputSummary || "—"}</p>
+                                            {w.cli && <span className="text-[10px]" style={{ color: t.accentText + "40" }}>via {w.cli}</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    {conversations.length === 0 ? (
-                        <div className="space-y-1.5">
-                            {["如何建立新的微服務？", "工廠的部署流程是什麼？", "如何設定權限與角色？"].map((q, i) => (
-                                <div key={i} className="flex items-center justify-between py-1.5 border-b last:border-0" style={{ borderColor: t.accentBorder + "40" }}>
-                                    <span className="text-xs truncate" style={{ color: t.accentText + "70" }}>{q}</span>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="space-y-1.5">
-                            {conversations.slice(0, 3).map(c => (
-                                <div key={c.id} className="flex items-center justify-between py-1.5 border-b last:border-0" style={{ borderColor: t.accentBorder + "40" }}>
-                                    <span className="text-xs truncate flex-1" style={{ color: t.accentText + "70" }}>{c.title}</span>
-                                    <span className="text-[10px] shrink-0 ml-2" style={{ color: t.accent + "60" }}>
-                                        {new Date(c.updatedAt).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </Card>
-
-                {/* Quote */}
-                <Card className="p-3 sm:p-4 border shadow-sm relative overflow-hidden mt-auto hidden sm:block"
-                    style={{ borderColor: t.accentBorder, background: `linear-gradient(to bottom right, ${t.accentLight}, ${t.accentBg})` }}>
-                    <div className="absolute top-2 right-3 text-5xl font-serif" style={{ color: t.accent + "25" }}>\"</div>
-                    <p className="text-sm text-stone-600 italic leading-relaxed relative z-10">
-                        導入創新，萬機皆服務，萬事皆連結。
-                    </p>
-                    <p className="text-[10px] mt-2 font-medium" style={{ color: t.accent + "80" }}>— AI Software Factory</p>
-                </Card>
-            </div>
+                </div>
+            )}
         </div>
     );
 }

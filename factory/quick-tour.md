@@ -1,424 +1,159 @@
-# 快速導覽
+# Quick Tour — AIEOC 使用指南
 
-給第一次進入 AI Software Factory 的人看的。
+歡迎使用 **AIEOC (AI Engineering Operating Center)**。
 
-這份快速導覽的目的，不只是介紹功能，而是讓人快速理解：
-
-> 這不是讓 AI 自由寫程式。  
-> 這是一條以 Spec 為核心、以 Gate 控制品質、由人做最後決策的 API 生產線。
+> AI 進駐工程環境，協助建立工程秩序與品質治理。
 
 ---
 
-## 1. AI Software Factory 是什麼？
+## 核心精神
 
-AI Software Factory 是一套 **Spec-Driven、Gate-Controlled** 的軟體生產線。
+> AIEOC 不是讓 AI 自由寫程式，
+> 而是讓 AI 在規範和制度的約束下，
+> 協助建立工程秩序與品質治理。
 
-它不是單純讓 AI 幫忙寫程式，而是把軟體交付拆成一條可重複、可檢查、可治理的流程：
-
-```text
-Spec → Contract → Code → Test → Lint → Runtime Validation → Review → Release
-````
-
-在這條生產線裡：
-
-* Spec 是 Single Source of Truth
-* AI 根據 Spec 產生程式碼、測試、文件與 Runbook
-* Controller / Service / Orchestrator / Node 有清楚邊界
-* Node 有明確的 Input / Output Contract
-* Gate 負責檢查品質
-* Human Reviewer 負責最後判斷與放行
-
-AI 在這裡不是自由創作者，而是受規格與工程規範約束的生產助理。
+導入創新，萬機皆服務，萬事皆連結。
 
 ---
 
-## 2. 為什麼我們需要 AI Software Factory？
+## 1. Skills 是最重要的資產
 
-我們真正要解決的問題，不只是「寫程式速度不夠快」，而是：
+AIEOC 最核心的功能是 **讓你分門別類累積建立自己的 Skills**。
 
-* 需求不夠清楚
-* 規格沒有被落實
-* 程式邊界不清楚
-* 測試不足
-* Sanity check 不確實
-* 上線前才發現問題
-* 出事後難以追蹤原因
-* 文件、測試、Runbook 與程式碼不同步
+Skill 是什麼？就是你讓 AI 做事的方法論：
 
-傳統開發常常依賴工程師的經驗與記憶。
-但當系統變大、團隊變多、舊程式越來越複雜時，光靠人小心是不夠的。
+- 你怎麼分析一個 code base
+- 你怎麼建立測試
+- 你怎麼做 code review
+- 你怎麼排錯
+- 你怎麼部署
 
-AI Software Factory 的目標是：
+這些方法論，就是你的工程智慧。AIEOC 幫你把這些智慧變成可重用、可分享的 Skill。
 
-> 把品質要求變成工程制度，
-> 把交付流程變成可檢查的生產線，
-> 把 AI 的速度放進受控的框架裡。
+### Skill 生命週期
 
----
+1. **發現問題** — 你找到一個反覆出現的工程問題
+2. **建立 Skill** — 把解法寫成結構化的 SKILL.md
+3. **指派給 AI 員工** — 讓對應角色的 AI 使用這個 Skill
+4. **持續累積** — 每次使用可以優化，越來越精準
+5. **跨專案重用** — 同一個 Skill 可以套用到不同 code base
 
-## 3. 為什麼可以信任 AI 產生的程式？
+> **Skills 是你的工程資產。** 寫程式的 AI 滿街都是，但你的 Skills 別人沒有。這才是 AIEOC 的價值。
 
-我們不是要求大家相信 AI。
+### Skill Input — 給 AI 明確的指令
 
-我們要相信的是：
+每個 Skill 執行時，你需要提供 **Input**，告訴 AI 這次要處理什麼。好的 Input 讓 AI 產出更精準：
 
-> 一條有 Spec、有程式邊界、有 Contract、有 100% unit test、有 regression test、有 Sonar、有 lint、有 fail-fast 的生產線。
+- **具體明確** — 「分析 src/services/ 下的錯誤處理」比「看一下程式碼」好得多
+- **提供脈絡** — 說明目標、範圍、限制條件
+- **可重複使用** — 輸入過的 Input 會自動保留，下次可以直接選取重用
 
-AI 只是加速填標準零件，品質由 Spec、Contract、Test、Lint、Quality Gate 和 Human Review 來守。
+在員工工作區啟動 Skill 時：
 
-更重要的是：
+1. 如果 Skill 有定義必填欄位，會跳出 **Input 對話框** 讓你填寫
+2. 填完後點 **啟動**，AI 就會帶著你的 Input 開始工作
+3. 過去填過的 Input 會顯示在 **「已存輸入」** 下拉選單，可以直接選取
 
-> Spec 不是只放在文件裡，Spec 會進入 runtime。
-
-如果程式碼改了，但 Spec 沒改；
-或是 Code 與 Contract 對不起來；
-系統會在啟動或執行前段 fail first / fail fast。
-
-這代表錯誤不會悄悄進入 production。
-
-AI 的產出必須受到以下控制：
-
-* 根據 Spec 產生程式碼
-* 遵守 Controller / Service / Orchestrator / Node 邊界
-* 遵守 Node Input / Output Contract
-* 遵守 Error Code 規則
-* 產生對應 Unit Test
-* 通過 Context Regression Test
-* 通過 Sonar 品質檢查
-* 通過 Lint 檢查
-* 通過 Runtime Contract Validation
-* 經過 PR Review 與 Human Approval
-
-所以這不是：
-
-```text
-AI 寫完就上線
-```
-
-而是：
-
-```text
-AI 產出 → Gate 檢查 → 人審核 → 才能放行
-```
+> 💡 把你每次成功讓 AI 產出好結果的 Input 記下來，這就是你的最佳實務。AIEOC 會自動幫你保留這些輸入。
 
 ---
 
-## 4. Spec 如何變成 Code？
+## 2. AI 員工團隊
 
-AI Software Factory 的核心流程是：
+AI 員工是 Skills 的載體。每位員工有明確的角色定位，負責執行特定類型的 Skill。
 
-```text
-Business Requirement
-        ↓
-Spec
-        ↓
-API Contract / Node Contract / Orchestrator Spec
-        ↓
-Generated Code
-        ↓
-Generated Test
-        ↓
-Generated Runbook
-        ↓
-Quality Gates
-        ↓
-Human Review
-        ↓
-Release
-```
+目前系統內建的員工展示了一個軟體開發團隊的基本成員：
 
-Spec 不是一般文件，而是工程生產的起點。
+| 員工 | 角色 | 說明 |
+|------|------|------|
+| 小春 林 | AI Skill Designer | 負責設計和建立 Skills |
+| 林語晴 | Factory Guide | 工廠導覽、引導使用者 |
+| 陳哲宇 | Spec Architect | 需求分析、API 合約 |
+| 安妮卡 | Node Developer | 節點開發、Contract 驗證 |
+| 彼得 | QA Engineer | 品質保證、測試設計 |
+| 蘇菲亞 | Troubleshooting Engineer | 故障排除、根因分析 |
 
-一份好的 Spec 需要說清楚：
+> ⚠️ 以上員工的 Skills 尚未完全建立，目前是展示用途。**你應該根據自己的需求，為每位員工建立真正可用的 Skills。**
 
-* API 要解決什麼業務問題
-* Input 是什麼
-* Output 是什麼
-* Orchestrator 流程是什麼
-* 每個 Node 的責任是什麼
-* 每個 Node 的 Input / Output Contract 是什麼
-* Business Rule 是什麼
-* Error Code 是什麼
-* 測試情境是什麼
-* Runbook 要如何處理異常
+### 如何新增員工與建立 Skills
 
-AI 根據這些 Spec 產生：
+1. 點左側 **AI Crew** 進入團隊頁面
+2. 點選任一員工卡片上的 **「新增」按鈕** — 可以建立新的 AI 員工，設定名稱、角色、專長
+3. 點選員工卡片上的 **「編輯」按鈕** — 可以修改員工資料、管理其 Skills 清單
+4. 在編輯模式下可以新增或移除 Skills，讓員工具備你需要的能力
+5. Skills 的詳細定義檔放在 `skills/` 目錄下，每個 Skill 是一個資料夾加上 `SKILL.md`
 
-* Controller
-* Service
-* Orchestrator
-* Node
-* DTO
-* Unit Test
-* Regression Test
-* Error Mapping
-* Runbook Draft
-* Observability Fields
-
-也就是說，AI 不是憑空寫程式。
-AI 是根據規格，在標準框架裡產生可檢查的工程產物。
+> 💡 **建議流程**：先想好你需要解決什麼問題 → 新增對應角色的員工 → 為他建立專屬的 Skill → 反覆使用和優化。Skills 不用一次到位，邊用邊改才是正確的累積方式。
 
 ---
 
-## 5. Gate 如何保護品質？
+## 3. 如何開始？
 
-Gate 是 AI Software Factory 的品質門禁。
+### Step 1：選擇 Project
 
-Gate 不是提醒，也不是建議。
-Gate 是：
+啟動後輸入你的專案路徑（或點資料夾選擇器），進入 Dashboard。
 
-> 不通過，就不能往下走。
+### Step 2：認識介面
 
-主要 Gate 包含：
+- **Header** — 頂部標題列，右側可切換主題
+- **Sidebar（左側）** — Factory 文件、AI Crew、Code Base 檔案樹
+- **Tabs（上方）** — 開啟的頁面分頁，點擊切換
+- **工作區（中間）** — 主要操作區域，顯示目前選中的頁面內容
+- **Switch Project（左下）** — 切換到其他專案
 
-### Spec Gate
+### Step 3：使用 AI 員工
 
-檢查 Spec 是否清楚、完整、可實作。
+點左側 **AI Crew** → 選擇一位 AI 員工 → 進入工作區：
 
-包含：
-
-* API 目的是否明確
-* Input / Output 是否定義清楚
-* Node 責任是否清楚
-* Orchestrator 流程是否合理
-* Error Code 是否符合規則
-* 測試情境是否足夠
-* Runbook 是否有對應處理方式
+1. **選擇 Skills** — 勾選要使用的技能
+2. **填寫 Input** — 輸入任務需求
+3. **啟動** — 選擇 CLI（Qwen / Claude / OpenCode），開始工作
+4. **Console** — 即時查看 AI 執行過程，支援全螢幕模式
 
 ---
 
-### Contract Gate
+## 4. 主題色系 — 舒緩杏仁核
 
-檢查 Code 與 Contract 是否一致。
+點右上角的主題按鈕，切換不同色系。不同色系可以舒緩不同的杏仁核狀態：
 
-包含：
-
-* Request DTO 是否符合 API Contract
-* Response DTO 是否符合 API Contract
-* Node Input 是否符合 Node Contract
-* Node Output 是否符合 Node Contract
-* Required field 是否完整
-* Type 是否正確
-* Enum 是否符合規範
-
----
-
-### Runtime Validation Gate
-
-Spec 會進入 runtime，成為執行期的約束。
-
-如果程式與 Spec / Contract 不一致，系統要能 fail first / fail fast。
-
-這代表：
-
-* 啟動時可以檢查 Spec 是否存在
-* 啟動時可以檢查 Contract 是否一致
-* 執行時可以檢查 Node Input / Output 是否符合規格
-* 不符合規格就快速失敗，不讓問題往後擴散
+| 主題 | 適用情境 |
+|------|---------|
+| ☀️ 陽光 | 好心情、日常使用 |
+| 🌤️ 藍天 | 輕鬆愉快 |
+| 🌊 舒緩焦慮 | 停不下來、擔心未來 |
+| 🌲 舒緩緊張 | 被 deadline 追著跑 |
+| 🪵 舒緩憤怒 | 容易 irritated |
+| ☕ 舒緩疲憊 | 腦袋累、被掏空 |
+| 🔮 靈感爆發 | 創造力爆發 |
 
 ---
 
-### Test Gate
+## 5. Console 全螢幕
 
-測試不是補充品，而是放行條件。
+在 Console 區域右上角有 **全螢幕按鈕**（展開圖示）：
 
-包含：
-
-* Unit Test
-* Context Regression Test
-* API Test
-* Node Test
-* Orchestrator Flow Test
-
-目標是：
-
-> 每次修改都能確認新功能正確，舊行為沒有被破壞。
+- 點一下 → Console 全螢幕顯示
+- 再按一下或按 **ESC** → 退出全螢幕
 
 ---
 
-### Quality Gate
+## 6. 跨 CLI 使用
 
-用工具檢查程式品質。
+AIEOC 支援多種 AI coding CLI，設定檔統一在 `providers/` 目錄：
 
-包含：
+- 用 Qwen：`cd /path/to/aieoc && qwen`
+- 用 Claude Code：`cd /path/to/aieoc && claude`
+- 用 OpenCode：`cd /path/to/aieoc && opencode`
 
-* Sonar no code smell
-* Lint
-* Coverage
-* Duplicate code check
-* Naming convention check
-* Error code rule check
-* Forbidden dependency check
+所有 CLI 共用同一份 `skills/`，零設定直接使用。
 
 ---
 
-### PR Gate
+## 7. 目錄結構
 
-所有修改都要進入 PR 流程。
-
-PR 不只看 code，也要看：
-
-* Spec 是否同步修改
-* Test 是否同步補上
-* Runbook 是否同步更新
-* Gate report 是否通過
-* AI review 是否有提出風險
-* Human reviewer 是否同意放行
-
----
-
-## 6. Human Reviewer 最後決定什麼？
-
-AI Software Factory 不代表人不重要。
-
-相反地，人的角色會更重要，只是工作重心會改變。
-
-以前人常常花很多時間在：
-
-* 寫 boilerplate code
-* 補重複的 test
-* 查 coding standard
-* 補文件
-* 補 Runbook
-* 做低價值的人工比對
-
-未來人的角色會往兩邊移動。
-
----
-
-### 方向一：往上游，把 Spec 搞清楚
-
-這是最重要的工作。
-
-因為：
-
-> Spec 錯，Code 一定錯。
-
-人要負責釐清：
-
-* 真正的 business intent 是什麼
-* 使用者情境是什麼
-* 哪些是 business rule
-* 哪些是 exception case
-* 哪些是可接受的 fallback
-* 哪些情況必須 abort
-* 哪些情況需要人工 approval
-* 哪些行為要納入 regression test
-
-這類角色可以稱為：
-
-```text
-Spec Engineer
-Business Spec Owner
-API Designer
-Orchestrator Designer
-```
-
-他們的重點不是寫更多 code，
-而是讓 AI 有正確、清楚、可檢查的規格可以執行。
-
----
-
-### 方向二：往下游，成為工廠檢查員
-
-另一種人的角色，是成為 AI Software Factory 的品質檢查員。
-
-他們不需要逐行手寫所有程式，
-而是看：
-
-* Spec 是否合理
-* AI 產出的 code 是否符合標準
-* Gate report 是否通過
-* Test coverage 是否足夠
-* Regression result 是否安全
-* Sonar / Lint 是否乾淨
-* Error handling 是否完整
-* Runbook 是否可用
-* PR diff 是否超出範圍
-* 風險是否可以接受
-
-這類角色可以稱為：
-
-```text
-Factory Inspector
-AI Output Reviewer
-Quality Gate Reviewer
-Release Reviewer
-```
-
-人的價值會從「自己下去做所有苦工」，
-轉成「定義正確方向，檢查風險，做最後決策」。
-
----
-
-## 7. 如何開始一條 API 生產線？
-
-開始一條 API 生產線，不是直接叫 AI 寫 code。
-
-正確流程是：
-
-```text
-1. 定義 API Business Intent
-2. 撰寫 API Spec
-3. 定義 API Contract
-4. 拆解 Orchestrator Flow
-5. 定義 Node Responsibility
-6. 定義 Node Input / Output Contract
-7. 定義 Error Code
-8. 定義 Test Case
-9. 定義 Runbook
-10. 讓 AI 產生程式碼與測試
-11. 執行 Gate
-12. Human Review
-13. Merge / Release
-```
-
-第一版不需要一次做到完美。
-重點是先讓每一支 API 都走同一條標準路徑。
-
-每完成一支 API，工廠就會累積：
-
-* 一份 Spec
-* 一組 Contract
-* 一組 Node
-* 一組 Test
-* 一份 Runbook
-* 一份 Gate Report
-* 一次可回溯的工程紀錄
-
-長期來看，這些不是單一 API 的產物，
-而是整座 AI Software Factory 的工程資產。
-
----
-
-## 核心訊息
-
-我們不是要求大家相信 AI。
-
-我們是要求大家相信一條有：
-
-* Spec
-* Code Boundary
-* Contract
-* Runtime Validation
-* Unit Test
-* Regression Test
-* Sonar
-* Lint
-* Quality Gate
-* Human Approval
-
-的受控生產線。
-
-AI 負責加速。
-Spec 負責約束。
-Gate 負責放行。
-人負責最後決策。
-
----
-
-## 最重要的一句話
-
-> AI Software Factory 不是讓 AI 自由寫程式，
-> 而是讓 AI 在 Spec、Contract、Runtime Validation、Test、Lint、Quality Gate 和 Human Approval 的約束下，生產可檢查、可回歸、可治理的軟體。
-
+- **core/** — Dashboard 主程式
+- **crew/** — AI 員工定義
+- **factory/** — 工廠文件
+- **skills/** — AI 技能（只一份，最重要的資產）
+- **providers/** — CLI 設定
+- **conversations/** — 對話和工作紀錄

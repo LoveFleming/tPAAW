@@ -5,7 +5,6 @@ import WelcomePage from "./pages/WelcomePage";
 import AICrew from "./pages/AICrew";
 import FactoryDocument from "./pages/FactoryDocument";
 import FileViewer from "./pages/FileViewer";
-import ProjectDashboard from "./pages/ProjectDashboard";
 import SidebarFileTree from "./components/SidebarFileTree";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
@@ -35,8 +34,8 @@ function AppInner() {
   });
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(STORAGE_PROJECT_KEY));
 
-  const [activePage, setActivePage] = useState<string>("codebase");
-  const [openTabs, setOpenTabs] = useState<string[]>(["codebase"]);
+  const [activePage, setActivePage] = useState<string>("quick-tour");
+  const [openTabs, setOpenTabs] = useState<string[]>(["quick-tour"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [crew, setCrew] = useState<Skill[]>([]);
@@ -64,8 +63,8 @@ function AppInner() {
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
     setShowWelcome(false);
-    setActivePage("codebase");
-    setOpenTabs(["codebase"]);
+    setActivePage("quick-tour");
+    setOpenTabs(["quick-tour"]);
   };
 
   const openApp = (id: string) => {
@@ -101,10 +100,12 @@ function AppInner() {
 
   const factoryNav = useMemo(() => {
     const staticItems = [{ id: "factory.crew", label: "AI Crew" }];
-    const mdItems = factoryFiles.map(f => ({
-      id: `factory.md.${f}`,
-      label: f.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
-    }));
+    const mdItems = factoryFiles
+      .filter(f => f !== "quick-tour")
+      .map(f => ({
+        id: `factory.md.${f}`,
+        label: f.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+      }));
     return [...mdItems, ...staticItems];
   }, [factoryFiles]);
 
@@ -113,7 +114,7 @@ function AppInner() {
   }
 
   const labelFor = (id: string): string => {
-    if (id === "codebase") return projectName;
+    if (id === "quick-tour") return "Quick Tour";
     if (id.startsWith("factory.")) return factoryNav.find(n => n.id === id)?.label ?? id;
     if (id.startsWith("employee.")) {
       const empId = id.split("#")[0].slice(9);
@@ -138,8 +139,8 @@ function AppInner() {
       const label = factoryNav.find(n => n.id === pageId)?.label ?? file;
       return <FactoryDocument file={file} headerIcon="scroll" headerTitle={label} headerSub="" />;
     }
-    if (pageId === "codebase") {
-      return <ProjectDashboard projectRoot={projectRoot!} openEmployee={openEmployee} />;
+    if (pageId === "quick-tour") {
+      return <FactoryDocument file="quick-tour" headerIcon="scroll" headerTitle="Quick Tour" headerSub="" />;
     }
     if (pageId.startsWith("file://")) {
       const filePath = pageId.slice(7);
@@ -168,7 +169,7 @@ function AppInner() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
-          <span className="text-xs font-bold tracking-tight text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI-Native Engineering Operation System</span>
+          <span className="text-sm font-semibold text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI Engineering Operation Center</span>
         </div>
         {/* Theme dropdown */}
         <div className="relative">
@@ -263,7 +264,7 @@ function AppInner() {
           {/* Switch project */}
           <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
-              onClick={() => { setProjectRoot(null); setShowWelcome(true); setOpenTabs(["codebase"]); setActivePage("codebase"); }}
+              onClick={() => { setProjectRoot(null); setShowWelcome(true); setOpenTabs(["quick-tour"]); setActivePage("quick-tour"); }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors"
               style={{ color: themeInfo.accentHover + "99" }}
               onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
@@ -283,7 +284,7 @@ function AppInner() {
           <div className="flex w-full items-end gap-0.5 overflow-x-auto px-3 pt-1.5 border-b" style={{ scrollbarWidth: 'none', backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
             {openTabs.map((tabId) => {
               const isActive = activePage === tabId;
-              const isCodebase = tabId === "codebase";
+              const isPinned = tabId === "quick-tour";
               return (
                 <div
                   key={tabId}
@@ -300,7 +301,7 @@ function AppInner() {
                   }
                 >
                   <span className="truncate whitespace-nowrap max-w-[160px]">{labelFor(tabId)}</span>
-                  {!isCodebase && (
+                  {!isPinned && (
                     <button
                       onClick={(e) => { e.stopPropagation(); closeTab(tabId); }}
                       className="flex h-4 w-4 items-center justify-center rounded-full text-stone-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"

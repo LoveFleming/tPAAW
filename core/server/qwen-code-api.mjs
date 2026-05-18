@@ -44,7 +44,7 @@ const pendingApprovals = new Map(); // queryId -> { resolve, toolName, toolInput
 const server = createServer(async (req, res) => {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
@@ -529,6 +529,70 @@ const server = createServer(async (req, res) => {
   }
 
   // ── End Saved Inputs endpoints ──
+
+  // ── Work Log endpoints ──
+
+  // GET /api/work-log/:employeeId — list work log entries
+  const workLogGetMatch = req.method === "GET" && req.url?.match(/^\/api\/work-log\/([\w.-]+)(?:\?.*)?$/);
+  if (workLogGetMatch) {
+    const employeeId = workLogGetMatch[1];
+    const u = new URL(req.url, `http://localhost`);
+    const root = u.searchParams.get("root");
+    const dir = root
+      ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
+      : join(CREW_ROOT, "conversation", employeeId);
+    const filePath = join(dir, "work-log.json");
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(raw);
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ entries: [] }));
+    }
+    return;
+  }
+
+  // POST /api/work-log/:employeeId — save a work log entry
+  const workLogPostMatch = req.method === "POST" && req.url?.match(/^\/api\/work-log\/([\w.-]+)(?:\?.*)?$/);
+  if (workLogPostMatch) {
+    const employeeId = workLogPostMatch[1];
+    const u = new URL(req.url, `http://localhost`);
+    const root = u.searchParams.get("root");
+    const dir = root
+      ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
+      : join(CREW_ROOT, "conversation", employeeId);
+    await mkdir(dir, { recursive: true });
+    const filePath = join(dir, "work-log.json");
+
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const { skillIds, inputSummary, cli } = JSON.parse(body);
+
+    let existing = { entries: [] };
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      existing = JSON.parse(raw);
+    } catch { /* first time */ }
+
+    existing.entries.unshift({
+      id: `work-${Date.now()}`,
+      skillIds: skillIds || [],
+      inputSummary: inputSummary || "",
+      cli: cli || "",
+      timestamp: new Date().toISOString(),
+    });
+
+    // Keep last 50 entries
+    if (existing.entries.length > 50) existing.entries = existing.entries.slice(0, 50);
+
+    await writeFile(filePath, JSON.stringify(existing, null, 2), "utf-8");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // ── End Work Log endpoints ──
 
   // GET /api/fs/pick-folder — native OS folder picker (macOS / Linux / Windows)
   if (req.method === "GET" && req.url?.startsWith("/api/fs/pick-folder")) {
