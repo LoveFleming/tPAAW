@@ -677,7 +677,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                         {cliTab === "console" ? (
                             <TerminalConsole
                                 key={`terminal-${consoleKey}`}
-                                cwd={undefined}
+                                cwd={projectRoot}
                                 cli={effectiveCli}
                                 model={effectiveModel || undefined}
                                 approvalMode={effectiveApprovalMode}
@@ -738,7 +738,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                             {cliTab === "console" ? (
                                 <TerminalConsole
                                     key={`terminal-fs-${consoleKey}`}
-                                    cwd={undefined}
+                                    cwd={projectRoot}
                                     cli={effectiveCli}
                                     model={effectiveModel || undefined}
                                     approvalMode={effectiveApprovalMode}
