@@ -1,0 +1,6 @@
+{
+  "name": "ai-factory",
+  "version": "1.0.0",
+  "contextFileName": "QWEN.md",
+  "skills": "../../../skills"
+}

@@ -1,0 +1,5 @@
+{
+  "name": "aieoc",
+  "description": "AI Software Factory — skills loaded from ./skills/",
+  "skills": ["./skills"]
+}
