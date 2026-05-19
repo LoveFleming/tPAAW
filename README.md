@@ -43,12 +43,54 @@ aieoc/
 
 ## 快速開始
 
-### 安裝
+### 安裝 Dashboard
 
 ```bash
 cd aieoc/core
 npm install
 ```
+
+### 安裝 AI CLI 工具
+
+AIEOC 支援三種 AI coding CLI，安裝後即可從 Dashboard 直接啟動。
+
+#### Qwen Code
+
+```bash
+# npm 全域安裝
+npm install -g @qwen-code/qwen-code
+
+# 或 macOS Homebrew
+brew install qwen-code
+
+# 驗證
+qwen --version
+```
+
+#### Claude Code
+
+```bash
+# npm 全域安裝
+npm install -g @anthropic-ai/claude-code
+
+# 或 macOS Homebrew
+brew install claude-code
+
+# 驗證
+claude --version
+```
+
+#### OpenCode
+
+```bash
+# macOS Homebrew
+brew install opencode
+
+# 驗證
+opencode version
+```
+
+> 安裝完任何一個 CLI 後，Dashboard 會自動偵測。也可以三個都裝，在不同 Skill 切換使用。
 
 ### 啟動
 
