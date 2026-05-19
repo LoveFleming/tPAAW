@@ -189,6 +189,32 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     // Runtime approval mode — user override always wins
     const effectiveApprovalMode = permissionMode;
 
+    // Save runtime setting changes back to crew JSON (all selected skills)
+    const saveSkillConfig = useCallback(async (field: 'cli' | 'model' | 'approvalMode', value: string) => {
+        if (!employee) return;
+        const updated = { ...employee };
+        let changed = false;
+        const targets = selectedSkillIds.length > 0
+            ? updated.skills.filter(s => selectedSkillIds.includes(s.id))
+            : updated.skills.filter(s => s.enabled);
+        for (const sk of targets) {
+            if (sk[field] !== value) {
+                (sk as unknown as Record<string, unknown>)[field] = value;
+                changed = true;
+            }
+        }
+        if (!changed) return;
+        try {
+            await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+            });
+        } catch (err) {
+            console.error("[AIEOC] Failed to save skill config:", err);
+        }
+    }, [employee, selectedSkillIds]);
+
     const handleStartClick = () => {
         if (!employee) return;
         if (requiredInputs.length > 0) {
@@ -608,6 +634,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 value={permissionMode}
                                 onChange={e => {
                                     setPermissionMode(e.target.value);
+                                    saveSkillConfig("approvalMode", e.target.value);
                                     setConsoleKey(prev => prev + 1);
                                 }}
                                 className={cn(
@@ -627,6 +654,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 value={selectedCli}
                                 onChange={e => {
                                     setSelectedCli(e.target.value);
+                                    saveSkillConfig("cli", e.target.value);
                                     setConsoleKey(prev => prev + 1);
                                 }}
                                 className={cn(
@@ -648,6 +676,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                     value={effectiveModel}
                                     onChange={e => {
                                         setSelectedModel(e.target.value);
+                                        saveSkillConfig("model", e.target.value);
                                         setConsoleKey(prev => prev + 1);
                                     }}
                                     className={cn(
