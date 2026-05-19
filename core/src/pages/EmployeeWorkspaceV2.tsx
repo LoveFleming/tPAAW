@@ -34,6 +34,11 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [systemPrompt, setSystemPrompt] = useState("");
     const [chatStarted, setChatStarted] = useState(false);
     const [taskInput, setTaskInput] = useState("");
+
+    // "Running" config = what the active console is using
+    const [runningCli, setRunningCli] = useState("qwen");
+    const [runningModel, setRunningModel] = useState("");
+    const [runningApproval, setRunningApproval] = useState("yolo");
     const [aieocRoot, setAieocRoot] = useState("");
 
         const [formData, setFormData] = useState<Record<string, string>>({});
@@ -215,6 +220,27 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
         }
     }, [employee, selectedSkillIds]);
 
+    // Check if pending config differs from running config
+    const configDirty = chatStarted && (
+        effectiveCli !== runningCli ||
+        (effectiveModel || "") !== runningModel ||
+        permissionMode !== runningApproval
+    );
+
+    // Apply pending config: save to crew JSON, restart console with same prompt
+    const applyConfig = useCallback(async () => {
+        // Save all changes to crew JSON
+        if (effectiveCli !== runningCli) await saveSkillConfig("cli", effectiveCli);
+        if ((effectiveModel || "") !== runningModel) await saveSkillConfig("model", effectiveModel || "");
+        if (permissionMode !== runningApproval) await saveSkillConfig("approvalMode", permissionMode);
+        // Update running state
+        setRunningCli(effectiveCli);
+        setRunningModel(effectiveModel || "");
+        setRunningApproval(permissionMode);
+        // Restart console with same system prompt
+        setConsoleKey(prev => prev + 1);
+    }, [effectiveCli, effectiveModel, permissionMode, runningCli, runningModel, runningApproval, saveSkillConfig]);
+
     const handleStartClick = () => {
         if (!employee) return;
         if (requiredInputs.length > 0) {
@@ -258,6 +284,10 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
         setConsoleKey(prev => prev + 1);
         setChatStarted(true);
         setShowInputDialog(false);
+        // Snapshot running config
+        setRunningCli(effectiveCli);
+        setRunningModel(effectiveModel || "");
+        setRunningApproval(permissionMode);
 
         // Save input via API
         if (Object.keys(dialogData).length > 0 || taskInput.trim()) {
@@ -634,12 +664,11 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 value={permissionMode}
                                 onChange={e => {
                                     setPermissionMode(e.target.value);
-                                    saveSkillConfig("approvalMode", e.target.value);
-                                    setConsoleKey(prev => prev + 1);
                                 }}
                                 className={cn(
                                     "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
-                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white"
+                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
+                                    chatStarted && permissionMode !== runningApproval && !fullscreen && "border-amber-400"
                                 )}
                                 style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
                                 title="Approval Mode"
@@ -654,12 +683,11 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 value={selectedCli}
                                 onChange={e => {
                                     setSelectedCli(e.target.value);
-                                    saveSkillConfig("cli", e.target.value);
-                                    setConsoleKey(prev => prev + 1);
                                 }}
                                 className={cn(
                                     "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
-                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white"
+                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
+                                    chatStarted && effectiveCli !== runningCli && !fullscreen && "border-amber-400"
                                 )}
                                 style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
                                 title="CLI Engine"
@@ -676,12 +704,11 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                     value={effectiveModel}
                                     onChange={e => {
                                         setSelectedModel(e.target.value);
-                                        saveSkillConfig("model", e.target.value);
-                                        setConsoleKey(prev => prev + 1);
                                     }}
                                     className={cn(
                                         "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer max-w-[140px]",
-                                        fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white"
+                                        fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
+                                        chatStarted && (effectiveModel || "") !== runningModel && !fullscreen && "border-amber-400"
                                     )}
                                     style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
                                     title="Model"
@@ -692,6 +719,22 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                         </option>
                                     ))}
                                 </select>
+                            )}
+                            {/* Apply & Restart — only visible when config changed */}
+                            {configDirty && (
+                                <button
+                                    onClick={applyConfig}
+                                    className={cn(
+                                        "px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 animate-pulse",
+                                        fullscreen
+                                            ? "bg-amber-600 text-white hover:bg-amber-500"
+                                            : "text-white hover:opacity-90"
+                                    )}
+                                    style={!fullscreen ? { backgroundColor: t.accent } : undefined}
+                                    title="套用變更並重啟 CLI"
+                                >
+                                    <Icon name="restart" size={12} /> 套用
+                                </button>
                             )}
                             {/* Fullscreen toggle */}
                             <button
