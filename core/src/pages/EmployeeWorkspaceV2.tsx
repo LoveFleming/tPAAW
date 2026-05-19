@@ -40,7 +40,6 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [models, setModels] = useState<ModelOption[]>([]);
     const [selectedModel, setSelectedModel] = useState<string>("");
     const [permissionMode, setPermissionMode] = useState<string>("yolo");
-    const [selectedCli, setSelectedCli] = useState<string>("qwen");
     const [installedClis, setInstalledClis] = useState<Record<string, { installed: boolean; name: string }>>({});
     const [conversations, setConversations] = useState<ConvSummary[]>([]);
     const [fullscreen, setFullscreen] = useState(false);
@@ -144,14 +143,25 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
         return inputs;
     }, [employee, selectedSkillIds]);
 
-    const effectiveCli = useMemo(() => {
+    // Default CLI from first selected skill, user can override at runtime
+    const defaultCliFromSkills = useMemo(() => {
         if (!employee) return "qwen";
         for (const id of selectedSkillIds) {
             const sk = employee.skills.find(s => s.id === id);
             if (sk?.cli) return sk.cli;
         }
-        return selectedCli;
-    }, [employee, selectedSkillIds, selectedCli]);
+        return "qwen";
+    }, [employee, selectedSkillIds]);
+
+    const [selectedCli, setSelectedCli] = useState<string>("qwen");
+
+    // Sync selectedCli when skills change (initial default)
+    useEffect(() => {
+        setSelectedCli(defaultCliFromSkills);
+    }, [defaultCliFromSkills]);
+
+    // effectiveCli always follows user selection
+    const effectiveCli = selectedCli;
 
     const effectiveModel = useMemo(() => {
         if (!employee) return selectedModel;
