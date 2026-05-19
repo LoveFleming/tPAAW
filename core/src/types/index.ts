@@ -19,6 +19,7 @@ export interface RequiredInput {
     placeholder: string;
     required: boolean;
     multiline?: boolean;
+    rows?: number;
     group?: string;  // 分組顯示
 }
 

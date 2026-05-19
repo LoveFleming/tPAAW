@@ -19,7 +19,8 @@
           "type": "textarea",
           "placeholder": "例：我需要一個技能來掃描 Java 專案的目錄結構，自動識別模組邊界，產出 release unit 清單。目標使用者是 QA，要在 CI pipeline 裡自動跑。",
           "required": true,
-          "rows": 6
+          "multiline": true,
+          "rows": 10
         }
       ],
       "cli": "qwen"

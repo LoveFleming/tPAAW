@@ -364,7 +364,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                                 }
                                             }}
                                             placeholder={inp.placeholder}
-                                            rows={4}
+                                            rows={inp.rows || 4}
                                             className={cn(
                                                 "w-full px-3 py-2 text-sm border rounded-xl resize-none focus:outline-none focus:ring-2 transition-colors",
                                                 inputDialogErrors[inp.id]
