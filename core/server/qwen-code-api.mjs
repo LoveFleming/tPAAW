@@ -633,17 +633,11 @@ const server = createServer(async (req, res) => {
           if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { exit 1 }
         `;
         result = await new Promise((resolve, reject) => {
-          const { spawn } = await import("child_process");
-          const child = spawn("powershell", ["-NoProfile", "-Command", psScript], { stdio: ["pipe", "pipe", "pipe"] });
-          let stdout = "";
-          let stderr = "";
-          child.stdout.on("data", (d) => { stdout += d.toString(); });
-          child.stderr.on("data", (d) => { stderr += d.toString(); });
-          child.on("close", (code) => {
-            if (code !== 0) reject(new Error(stderr || "Dialog cancelled"));
-            else resolve(stdout.trim());
-          });
-          child.on("error", reject);
+          import("child_process").then(({ exec }) => {
+            exec(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $fb = New-Object System.Windows.Forms.FolderBrowserDialog; $fb.Description = 'Select a project folder'; $fb.ShowNewFolderButton = $false; if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { exit 1 }"`, { maxBuffer: 1024*1024 }, (err, stdout) => {
+              if (err) reject(err); else resolve(stdout.toString().trim());
+            });
+          }).catch(reject);
         });
       } else {
         throw new Error(`Unsupported platform: ${platform}`);
