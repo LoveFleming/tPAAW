@@ -306,7 +306,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
             {/* ===== Input Dialog Modal ===== */}
             {showInputDialog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowInputDialog(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
                         {/* Dialog header */}
                         <div className="px-6 py-4 border-b" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                             <h3 className="text-lg font-bold" style={{ color: t.accentText }}>任務參數</h3>
