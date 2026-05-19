@@ -633,9 +633,17 @@ const server = createServer(async (req, res) => {
           if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { exit 1 }
         `;
         result = await new Promise((resolve, reject) => {
-          exec(`powershell -NoProfile -Command "${psScript.replace(/\n/g, ' ').replace(/"/g, '\\"')}"`, (err, stdout) => {
-            if (err) reject(err); else resolve(stdout.toString().trim());
+          const { spawn } = await import("child_process");
+          const child = spawn("powershell", ["-NoProfile", "-Command", psScript], { stdio: ["pipe", "pipe", "pipe"] });
+          let stdout = "";
+          let stderr = "";
+          child.stdout.on("data", (d) => { stdout += d.toString(); });
+          child.stderr.on("data", (d) => { stderr += d.toString(); });
+          child.on("close", (code) => {
+            if (code !== 0) reject(new Error(stderr || "Dialog cancelled"));
+            else resolve(stdout.trim());
           });
+          child.on("error", reject);
         });
       } else {
         throw new Error(`Unsupported platform: ${platform}`);
