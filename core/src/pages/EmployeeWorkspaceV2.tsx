@@ -185,7 +185,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
             setInputDialogData({});
             setInputDialogErrors({});
             setShowInputDialog(true);
-        } else if (taskInput.trim()) {
+        } else {
             // No required inputs, launch directly
             launchTask({});
         }
