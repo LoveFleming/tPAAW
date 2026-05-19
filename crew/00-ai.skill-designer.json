@@ -8,9 +8,9 @@
     {
       "id": "skill-design",
       "name": "Skill Design",
-      "description": "設計新的 AI 技能，從需求到完整的 SKILL.md",
+      "description": "使用 skill-creator 方法論設計新的 AI 技能，從需求到完整的 SKILL.md",
       "enabled": false,
-      "prompt": "設計 AI 技能步驟：\n1. Intent — 釐清技能的目的和使用場景\n2. Inputs/Outputs — 定義所需的輸入參數和預期輸出\n3. Workflow — 設計執行流程和步驟\n4. Guardrails — 加入品質護欄和錯誤處理\n5. 產出完整的 SKILL.md",
+      "prompt": "你正在使用 skill-creator 方法論來設計 AI 技能。請遵循以下流程：\n\n參考檔案：skills/skill-creator/SKILL.md（完整的技能設計指南）\n\n設計步驟：\n1. 了解需求 — 蒐集具體使用範例，確認技能觸發場景\n2. 規劃內容 — 決定需要哪些 scripts、references、assets\n3. 初始化 — 使用 scripts/init_skill.py 建立技能目錄結構\n4. 編寫 SKILL.md — 撰寫 frontmatter（name, description）和 body\n5. 打包驗證 — 使用 scripts/package_skill.py 驗證並打包\n6. 迭代優化 — 根據實際使用結果持續改善\n\n關鍵原則：\n- 簡潔優先：只放 Codex 不知道的資訊\n- 漸進式揭露：metadata → SKILL.md body → bundled resources\n- 適當的自由度：脆弱操作用 script，靈活任務用文字指引\n- 先讀 skills/skill-creator/SKILL.md 取得完整設計指南",
       "requiredInputs": [
         {
           "id": "skill_intent",
