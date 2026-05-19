@@ -13,20 +13,13 @@
       "prompt": "你正在使用 skill-creator 方法論來設計 AI 技能。請遵循以下流程：\n\n參考檔案：skills/skill-creator/SKILL.md（完整的技能設計指南）\n\n設計步驟：\n1. 了解需求 — 蒐集具體使用範例，確認技能觸發場景\n2. 規劃內容 — 決定需要哪些 scripts、references、assets\n3. 初始化 — 使用 scripts/init_skill.py 建立技能目錄結構\n4. 編寫 SKILL.md — 撰寫 frontmatter（name, description）和 body\n5. 打包驗證 — 使用 scripts/package_skill.py 驗證並打包\n6. 迭代優化 — 根據實際使用結果持續改善\n\n關鍵原則：\n- 簡潔優先：只放 Codex 不知道的資訊\n- 漸進式揭露：metadata → SKILL.md body → bundled resources\n- 適當的自由度：脆弱操作用 script，靈活任務用文字指引\n- 先讀 skills/skill-creator/SKILL.md 取得完整設計指南",
       "requiredInputs": [
         {
-          "id": "skill_intent",
-          "label": "技能目的",
-          "description": "這個技能要解決什麼問題？",
-          "placeholder": "例：掃描舊系統專案並建立 dashboard 資料",
+          "id": "skill_creation_prompts",
+          "label": "Skill Creation Prompts",
+          "description": "描述你想建立的技能，包含目的、使用場景、期望行為",
+          "type": "textarea",
+          "placeholder": "例：我需要一個技能來掃描 Java 專案的目錄結構，自動識別模組邊界，產出 release unit 清單。目標使用者是 QA，要在 CI pipeline 裡自動跑。",
           "required": true,
-          "group": "🎯 Intent"
-        },
-        {
-          "id": "target_user",
-          "label": "目標使用者",
-          "description": "誰會使用這個技能？",
-          "placeholder": "例：工廠嚮導 / 開發者 / QA",
-          "required": false,
-          "group": "👤 Target"
+          "rows": 6
         }
       ],
       "cli": "qwen"
