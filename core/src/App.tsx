@@ -132,6 +132,8 @@ function AppInner() {
   const openFilePaths = new Set(openTabs.filter(t => t.startsWith("file://")).map(t => t.slice(7)));
   const activeFilePath = activePage.startsWith("file://") ? activePage.slice(7) : null;
 
+  const EmployeeWorkspaceV2Lazy = React.lazy(() => import("./pages/EmployeeWorkspaceV2"));
+
   const renderPage = (pageId: string) => {
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
     if (pageId.startsWith("factory.md.")) {
@@ -148,10 +150,9 @@ function AppInner() {
     }
     if (pageId.startsWith("employee.")) {
       const employeeId = pageId.split("#")[0].slice(9);
-      const EmpWs = React.lazy(() => import("./pages/EmployeeWorkspaceV2"));
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmpWs employeeId={employeeId} projectRoot={projectRoot || undefined} />
+          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} />
         </React.Suspense>
       );
     }
