@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
+import { FileIcon } from "../components/Icon";
 
 // ── Types ──
 interface TreeNode {
@@ -32,18 +33,9 @@ async function fetchFile(path: string): Promise<{ path: string; content: string;
 }
 
 // ── File icon helper ──
-function fileIcon(name: string): string {
+function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const map: Record<string, string> = {
-    ts: "📘", tsx: "📘", js: "📙", jsx: "📙", mjs: "📙",
-    json: "📋", md: "📝", css: "🎨", html: "🌐",
-    py: "🐍", java: "☕", go: "🐹", rs: "🦀",
-    yaml: "⚙️", yml: "⚙️", toml: "⚙️", env: "🔐",
-    sh: "📜", bash: "📜", zsh: "📜",
-    png: "🖼️", jpg: "🖼️", svg: "🖼️", gif: "🖼️",
-    txt: "📄", lock: "🔒",
-  };
-  return map[ext] || "📄";
+  return <FileIcon ext={ext} size={12} />;
 }
 
 // ── Language detection for syntax highlighting hint ──
@@ -102,7 +94,7 @@ function TreeNodeView({
             <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
           </svg>
         ) : (
-          <span className="w-3.5 shrink-0 text-center text-[10px]">{fileIcon(node.name)}</span>
+          <span className="w-3.5 shrink-0 text-center">{fileIconElement(node.name)}</span>
         )}
         <span className="truncate">{node.name}</span>
       </button>
@@ -269,7 +261,7 @@ export default function ReleaseUnitExplorer({ projectRoot }: Props) {
           <>
             <div className="px-4 py-2 border-b border-stone-200 bg-stone-50 flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs">{fileIcon(selectedFile.split("/").pop() || "")}</span>
+                <span className="text-xs">{fileIconElement(selectedFile.split("/").pop() || "")}</span>
                 <span className="text-sm font-mono text-stone-700 truncate">
                   {selectedFile.slice(projectRoot.length + 1)}
                 </span>

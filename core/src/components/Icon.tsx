@@ -50,15 +50,40 @@ const PATHS: Record<string, { path: string; viewBox?: string; fill?: boolean; st
     // Nature (theme icons)
     // Theme icons — colorful filled SVGs
     sun:       { path: "THEME_SUN", fill: true, stroke: false, color: "#FBBF24" },
+    sunny:     { path: "THEME_SUN", fill: true, stroke: false, color: "#FBBF24" },
     "cloud-sun": { path: "THEME_CLOUD_SUN", fill: true, stroke: false, color: "#60A5FA" },
+    sky:       { path: "THEME_CLOUD_SUN", fill: true, stroke: false, color: "#60A5FA" },
     "calm-anger": { path: "THEM_CALM_ANGER", fill: true, stroke: false, color: "#A78BFA" },
     "calm-anxiety": { path: "THEME_CALM_ANXIETY", fill: true, stroke: false, color: "#6EE7B7" },
     "calm-resignation": { path: "THEME_CALM_RESIGNATION", fill: true, stroke: false, color: "#FB923C" },
+    "calm-tension": { path: "THEME_CALM_TENSION", fill: true, stroke: false, color: "#34D399" },
+    "calm-exhaustion": { path: "THEME_CALM_EXHAUSTION", fill: true, stroke: false, color: "#D97706" },
+    "boost-creative": { path: "THEME_BOOST_CREATIVE", fill: true, stroke: false, color: "#A78BFA" },
 
     // CLI brand dots (solid circles)
     "dot-purple": { path: "M12 12m-8 0a8 8 0 1016 0 8 8 0 00-16 0z", viewBox: "0 0 24 24", fill: true, stroke: false, color: "#8B5CF6" },
     "dot-orange": { path: "M12 12m-8 0a8 8 0 1016 0 8 8 0 00-16 0z", viewBox: "0 0 24 24", fill: true, stroke: false, color: "#F97316" },
     "dot-blue":   { path: "M12 12m-8 0a8 8 0 1016 0 8 8 0 00-16 0z", viewBox: "0 0 24 24", fill: true, stroke: false, color: "#3B82F6" },
+
+    // File type icons (replacing emoji)
+    "file-json":   { path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#F59E0B" },
+    "file-md":     { path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#3B82F6" },
+    "file-code":   { path: "M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5", color: "#8B5CF6" },
+    "file-css":    { path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#EC4899" },
+    "file-html":   { path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#F97316" },
+    "file-py":     { path: "M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5", color: "#3B82F6" },
+    "file-java":   { path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#EF4444" },
+    "file-go":     { path: "M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5", color: "#06B6D4" },
+    "file-rs":     { path: "M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5", color: "#F97316" },
+    "file-sh":     { path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#10B981" },
+    "file-txt":    { path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#6B7280" },
+    "file-lock":   { path: "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z", color: "#6B7280" },
+    "file-default":{ path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z", color: "#9CA3AF" },
+
+    // UI emoji replacements
+    "nav-scroll":  { path: "M13.5 10.5V21M10.5 10.5V21M7.5 10.5V21M3.75 21h14.25a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25h-1.372c-.516 0-1.006.178-1.395.5l-1.083.864a2.25 2.25 0 01-1.395.5H3.75a2.25 2.25 0 00-2.25 2.25v8.25a2.25 2.25 0 002.25 2.25z", color: "#D97706" },
+    "nav-ruler":   { path: "M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15", color: "#6366F1" },
+    "nav-crew":    { path: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z", color: "#8B5CF6" },
 
     // Misc
     arrow:     { path: "M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" },
@@ -133,6 +158,39 @@ const THEME_ICONS: Record<string, (size: number, uid: string) => React.ReactElem
             {/* Warm heart — comfort, embrace */}
             <path d="M24 36s-12-7.5-12-15c0-4 3-7 6.5-7c2.5 0 4.5 1.5 5.5 3.5c1-2 3-3.5 5.5-3.5c3.5 0 6.5 3 6.5 7C36 28.5 24 36 24 36z" fill="#FDBA74" opacity="0.9" />
             <path d="M24 32s-8-5-8-10c0-2.5 2-4.5 4-4.5c1.5 0 3 1 4 2.5c1-1.5 2.5-2.5 4-2.5c2 0 4 2 4 4.5C32 27 24 32 24 32z" fill="#FED7AA" opacity="0.8" />
+        </svg>
+    ),
+    THEME_CALM_TENSION: (s, uid) => (
+        <svg width={s} height={s} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs><radialGradient id={`${uid}-forest`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#D1FAE5" /><stop offset="50%" stopColor="#34D399" /><stop offset="100%" stopColor="#059669" /></radialGradient></defs>
+            <circle cx="24" cy="24" r="20" fill={`url(#${uid}-forest)`} />
+            {/* Pine tree — nature, grounding */}
+            <polygon points="24,8 18,22 21,22 16,32 31,32 26,22 30,22" fill="#065F46" opacity="0.9" />
+            <rect x="22" y="32" width="4" height="6" fill="#065F46" opacity="0.8" />
+        </svg>
+    ),
+    THEME_CALM_EXHAUSTION: (s, uid) => (
+        <svg width={s} height={s} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs><radialGradient id={`${uid}-warm`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#FEF3C7" /><stop offset="50%" stopColor="#D97706" /><stop offset="100%" stopColor="#92400E" /></radialGradient></defs>
+            <circle cx="24" cy="24" r="20" fill={`url(#${uid}-warm)`} />
+            {/* Coffee cup — warmth, comfort */}
+            <rect x="14" y="18" width="16" height="14" rx="2" fill="#FDE68A" opacity="0.9" />
+            <path d="M30 22h2a4 4 0 010 8h-2" stroke="#FDE68A" strokeWidth="2" fill="none" opacity="0.8" />
+            <path d="M20 15c0-2 1-3 2-4" stroke="#FDE68A" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+            <path d="M24 14c0-2 1-3 2-4" stroke="#FDE68A" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+        </svg>
+    ),
+    THEME_BOOST_CREATIVE: (s, uid) => (
+        <svg width={s} height={s} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs><radialGradient id={`${uid}-purple`} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#EDE9FE" /><stop offset="50%" stopColor="#A78BFA" /><stop offset="100%" stopColor="#7C3AED" /></radialGradient></defs>
+            <circle cx="24" cy="24" r="20" fill={`url(#${uid}-purple)`} />
+            {/* Crystal ball — inspiration, magic */}
+            <ellipse cx="24" cy="22" rx="10" ry="10" fill="#DDD6FE" opacity="0.7" />
+            <ellipse cx="24" cy="22" rx="7" ry="7" fill="#C4B5FD" opacity="0.5" />
+            <path d="M18 34h12" stroke="#DDD6FE" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+            <path d="M20 36h8" stroke="#DDD6FE" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+            {/* Sparkle */}
+            <circle cx="20" cy="18" r="1.5" fill="white" opacity="0.9" />
         </svg>
     ),
 };
@@ -212,4 +270,16 @@ export function ApprovalIcon({ mode, size = 14 }: { mode: string; size?: number 
         plan: "plan",
     };
     return <Icon name={map[mode] || "lock"} size={size} />;
+}
+
+// File type icon helper — replaces emoji file icons on all platforms
+const FILE_ICON_MAP: Record<string, string> = {
+    json: "file-json", md: "file-md", css: "file-css", html: "file-html",
+    py: "file-py", java: "file-java", go: "file-go", rs: "file-rs",
+    ts: "file-code", tsx: "file-code", js: "file-code", jsx: "file-code",
+    sh: "file-sh", txt: "file-txt", lock: "file-lock",
+};
+
+export function FileIcon({ ext, size = 14, className = "" }: { ext: string; size?: number; className?: string }) {
+    return <Icon name={FILE_ICON_MAP[ext] || "file-default"} size={size} className={className} />;
 }

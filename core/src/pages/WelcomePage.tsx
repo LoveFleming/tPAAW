@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "../utils";
+import Icon from "../components/Icon";
 
 const STORAGE_KEY = "aieoc.project";
 const API_BASE = "http://127.0.0.1:4097";
@@ -71,7 +72,7 @@ function FolderBrowserModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-          <h3 className="text-white font-semibold text-sm">📂 選擇資料夾</h3>
+          <h3 className="text-white font-semibold text-sm flex items-center gap-2"><Icon name="folder" size={16} /> 選擇資料夾</h3>
           <button onClick={onClose} className="text-stone-500 hover:text-white transition-colors text-lg">✕</button>
         </div>
 
@@ -94,10 +95,10 @@ function FolderBrowserModal({
           {/* Quick nav */}
           <div className="flex gap-2 mt-2">
             {parent && (
-              <button onClick={() => browse(parent)} className="text-xs text-stone-400 hover:text-orange-400 transition-colors">⬆ 上層</button>
+              <button onClick={() => browse(parent)} className="text-xs text-stone-400 hover:text-orange-400 transition-colors flex items-center gap-1"><Icon name="expand" size={10} /> 上層</button>
             )}
             <button onClick={goHome} className="text-xs text-stone-400 hover:text-orange-400 transition-colors">🏠 Home</button>
-            <button onClick={() => browse("/")} className="text-xs text-stone-400 hover:text-orange-400 transition-colors">📁 Root</button>
+            <button onClick={() => browse("/")} className="text-xs text-stone-400 hover:text-orange-400 transition-colors flex items-center gap-1"><Icon name="folder" size={10} /> Root</button>
           </div>
         </div>
 
@@ -116,7 +117,7 @@ function FolderBrowserModal({
                 onClick={() => browse(d.path)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-white/5 rounded-lg transition-colors group"
               >
-                <span className="text-stone-500 group-hover:text-orange-400 transition-colors">📁</span>
+                <span className="text-stone-500 group-hover:text-orange-400 transition-colors"><Icon name="folder" size={14} /></span>
                 <span className="text-sm text-stone-300 group-hover:text-white transition-colors truncate">{d.name}</span>
               </button>
             ))
@@ -241,14 +242,15 @@ export default function WelcomePage({ onSelect }: Props) {
               className="px-4 py-3 border border-white/10 rounded-xl text-stone-300 hover:bg-white/5 hover:text-white transition-all text-sm"
               title="Browse folders"
             >
-              📂
+              <Icon name="folder" size={16} />
             </button>
             <button
               onClick={() => setShowFolderBrowser(true)}
               className="px-3 py-3 border border-white/10 rounded-xl text-stone-300 hover:bg-white/5 hover:text-white transition-all text-sm"
               title="Web folder browser"
             >
-              🌐</button>
+              <Icon name="search" size={16} />
+            </button>
             <button
               onClick={() => handleSelect(inputPath)}
               className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-medium rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/20 text-sm whitespace-nowrap"

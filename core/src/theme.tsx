@@ -200,8 +200,8 @@ export function useTheme() {
 
 // Grouped theme list for dropdown
 export const THEME_GROUPS: { label: string; themes: ThemePalette[] }[] = [
-  { label: "☀️ 日常", themes: [THEMES.sunny, THEMES.sky] },
-  { label: "🧠 舒緩杏仁核", themes: [
+  { label: "日常", themes: [THEMES.sunny, THEMES.sky] },
+  { label: "舒緩杏仁核", themes: [
     THEMES["calm-anxiety"],
     THEMES["calm-tension"],
     THEMES["calm-anger"],

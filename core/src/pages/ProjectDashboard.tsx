@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTheme } from "../theme";
+import Icon from "../components/Icon";
 
 interface Widget {
   id: string;
@@ -26,10 +27,10 @@ const EMPTY_WIDGETS: Widget[] = [
 ];
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; icon: string }> = {
-  ok:      { bg: "bg-emerald-50",  border: "border-emerald-200", text: "text-emerald-600", icon: "✅" },
-  warning: { bg: "bg-amber-50",    border: "border-amber-200",   text: "text-amber-600",   icon: "⚠️" },
-  danger:  { bg: "bg-rose-50",     border: "border-rose-200",    text: "text-rose-600",    icon: "❌" },
-  empty:   { bg: "bg-stone-50",    border: "border-stone-200",   text: "text-stone-400",   icon: "—\u00A0" },
+  ok:      { bg: "bg-emerald-50",  border: "border-emerald-200", text: "text-emerald-600", icon: "check" },
+  warning: { bg: "bg-amber-50",    border: "border-amber-200",   text: "text-amber-600",   icon: "warning" },
+  danger:  { bg: "bg-rose-50",     border: "border-rose-200",    text: "text-rose-600",    icon: "cross" },
+  empty:   { bg: "bg-stone-50",    border: "border-stone-200",   text: "text-stone-400",   icon: "" },
 };
 
 export default function ProjectDashboard({ projectRoot, openEmployee }: { projectRoot: string; openEmployee?: (id: string) => void }) {
@@ -83,7 +84,7 @@ export default function ProjectDashboard({ projectRoot, openEmployee }: { projec
                   <div key={w.id} className={`rounded-xl border p-4 ${s.bg} ${s.border}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{w.label}</span>
-                      <span className="text-xs">{s.icon}</span>
+                      {s.icon ? <Icon name={s.icon} size={14} className={s.text} /> : <span className="text-xs">—</span>}
                     </div>
                     {w.status === "empty" ? (
                       <div className="text-2xl font-bold text-stone-300">—</div>
@@ -111,7 +112,7 @@ export default function ProjectDashboard({ projectRoot, openEmployee }: { projec
             {/* No data — call to action */}
             {!hasData && (
               <div className="rounded-xl border border-dashed p-8 text-center" style={{ borderColor: t.accentBorder }}>
-                <div className="text-3xl mb-3">🚀</div>
+                <div className="mb-3"><Icon name="rocket" size={28} /></div>
                 <p className="text-sm font-semibold text-stone-600 mb-1">No dashboard data yet</p>
                 <p className="text-xs text-stone-400 mb-4">
                   Run the <span className="font-mono px-1 py-0.5 rounded" style={{ backgroundColor: t.accentLight, color: t.accentText }}>Dashboard Setup</span> skill to initialize dashboard structure.
@@ -121,7 +122,7 @@ export default function ProjectDashboard({ projectRoot, openEmployee }: { projec
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: t.accent }}
                 >
-                  <span>📋</span> Ask 小春 林 to run "Dashboard Setup"
+                  <span><Icon name="clipboard" size={14} /></span> Ask 小春 林 to run "Dashboard Setup"
                 </button>
               </div>
             )}

@@ -1,19 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import JsonViewer from "../components/JsonViewer";
 import { useTheme } from "../theme";
+import { FileIcon } from "../components/Icon";
 
 const API_BASE = "http://127.0.0.1:4097";
 
-function fileIcon(name: string): string {
+function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const map: Record<string, string> = {
-    ts: "📘", tsx: "📘", js: "📙", jsx: "📙", mjs: "📙",
-    json: "📋", md: "📝", css: "🎨", html: "🌐",
-    py: "🐍", java: "☕", go: "🐹", rs: "🦀",
-    yaml: "⚙️", yml: "⚙️", toml: "⚙️",
-    sh: "📜", txt: "📄", lock: "🔒",
-  };
-  return map[ext] || "📄";
+  return <FileIcon ext={ext} size={12} />;
 }
 
 function detectFileType(name: string): "markdown" | "json" | "code" {
@@ -109,7 +103,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       <div className="px-4 py-1.5 border-b flex items-center justify-between shrink-0"
         style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs">{fileIcon(fileName)}</span>
+          <span className="text-xs">{fileIconElement(fileName)}</span>
           <span className="text-xs font-mono truncate" style={{ color: t.accentText }}>{relativePath}</span>
         </div>
         {meta && (

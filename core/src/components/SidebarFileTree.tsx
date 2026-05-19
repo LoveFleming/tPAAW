@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
 import { useTheme } from "../theme";
+import { FileIcon } from "./Icon";
 
 interface TreeNode {
   name: string;
@@ -12,18 +13,9 @@ interface TreeNode {
 
 const API_BASE = "http://127.0.0.1:4097";
 
-function fileIcon(name: string): string {
+function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const map: Record<string, string> = {
-    ts: "📘", tsx: "📘", js: "📙", jsx: "📙", mjs: "📙",
-    json: "📋", md: "📝", css: "🎨", html: "🌐",
-    py: "🐍", java: "☕", go: "🐹", rs: "🦀",
-    yaml: "⚙️", yml: "⚙️", toml: "⚙️", env: "🔐",
-    sh: "📜", bash: "📜", zsh: "📜",
-    png: "🖼️", jpg: "🖼️", svg: "🖼️", gif: "🖼️",
-    txt: "📄", lock: "🔒",
-  };
-  return map[ext] || "📄";
+  return <FileIcon ext={ext} size={14} />;
 }
 
 function findNode(root: TreeNode, path: string): TreeNode | null {
@@ -74,7 +66,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
           ) : (
-            <span className="text-xs shrink-0">{fileIcon(node.name)}</span>
+            <span className="shrink-0">{fileIconElement(node.name)}</span>
           )}
           <span className="truncate">{node.name}</span>
         </div>

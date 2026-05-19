@@ -177,7 +177,7 @@ function AppInner() {
             onClick={() => setThemeMenuOpen(!themeMenuOpen)}
             className="flex items-center gap-1.5 w-8 h-8 rounded-full bg-white/90 hover:bg-white shadow-sm border border-stone-200 text-base justify-center transition-colors"
           >
-            <span>{THEMES[theme]?.emoji}</span>
+            <Icon name={theme} size={18} />
           </button>
           {/* Dropdown */}
           {themeMenuOpen && (
@@ -204,7 +204,7 @@ function AppInner() {
                           theme === t.id ? "bg-stone-50" : "hover:bg-stone-50"
                         )}
                       >
-                        <span className="text-lg mt-0.5">{t.emoji}</span>
+                        <span className="mt-0.5"><Icon name={t.id} size={18} /></span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className={cn("text-sm font-semibold", theme === t.id ? "text-stone-800" : "text-stone-600")}>{t.label}</span>
@@ -215,7 +215,7 @@ function AppInner() {
                             )}
                           </div>
                           <p className="text-[11px] text-stone-400 mt-0.5">{t.desc}</p>
-                          {t.feeling && <p className="text-[10px] text-stone-300 mt-0.5">💬 {t.feeling}</p>}
+                          {t.feeling && <p className="text-[10px] text-stone-300 mt-0.5 flex items-center gap-1"><Icon name="chat" size={10} /> {t.feeling}</p>}
                         </div>
                         <div className="flex gap-0.5 mt-1 shrink-0">
                           <span className="w-3 h-3 rounded-full border border-stone-200" style={{ backgroundColor: t.accent }} />

@@ -3,8 +3,8 @@ import { Card, cn } from "../components/ui/shared";
 import { SKILLS } from "../data/mockData";
 import { Skill, CrewSkill, RequiredInput, buildSystemPrompt } from "../types";
 import { useTheme } from "../theme";
-import TerminalConsole from "../components/TerminalConsole";
 import Icon from "../components/Icon";
+import TerminalConsole from "../components/TerminalConsole";
 
 interface ModelOption {
     id: string;
@@ -321,7 +321,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                             {savedInputs.length > 0 && (
                                 <div>
                                     <label className="flex items-center gap-1.5 text-sm font-medium text-stone-700 mb-1">
-                                        📋 已存輸入
+                                        <Icon name="clipboard" size={14} /> 已存輸入
                                     </label>
                                     <p className="text-[11px] text-stone-400 mb-1.5">選擇過去的輸入快速填入</p>
                                     <select
@@ -413,7 +413,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
                                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
                             >
-                                🚀 啟動任務
+                                <Icon name="rocket" size={14} /> 啟動任務
                             </button>
                         </div>
                     </div>
@@ -602,10 +602,10 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 style={{ borderColor: t.accentBorder, color: t.accentText }}
                                 title="Approval Mode — changing restarts console"
                             >
-                                <option value="default">🔒 Default</option>
+                                <option value="default">Default</option>
                                 <option value="auto-edit">✏️ Auto-Edit</option>
                                 <option value="yolo">⚡ YOLO</option>
-                                <option value="plan">📋 Plan</option>
+                                <option value="plan">Plan</option>
                             </select>
                             {/* CLI Engine — display only */}
                             <select

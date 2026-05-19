@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { cn, badgeClasses } from "../../utils";
 import { Risk } from "../../types";
+import Icon from "../Icon";
 
 export { cn };
 
@@ -48,10 +49,10 @@ export function CodeBlock({ text }: { text: string }) {
 }
 
 // ── Nav Icon helper ──
-const NAV_ICONS: Record<string, { emoji: string; label: string }> = {
-    "Constitution": { emoji: "📜", label: "Constitution" },
-    "Standards":    { emoji: "📏", label: "Standards" },
-    "AI Crew":      { emoji: "👥", label: "AI Crew" },
+const NAV_ICONS: Record<string, string> = {
+    "Constitution": "nav-scroll",
+    "Standards":    "nav-ruler",
+    "AI Crew":      "nav-crew",
 };
 
 export function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -93,7 +94,7 @@ export function NavItem({
     accentColor?: string;
     accentBg?: string;
 }) {
-    const iconInfo = NAV_ICONS[label];
+    const iconName = NAV_ICONS[label];
 
     return (
         <button
@@ -112,7 +113,7 @@ export function NavItem({
             onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
-                {iconInfo ? <span className="text-xs shrink-0">{iconInfo.emoji}</span> : <span className="text-xs shrink-0">📄</span>}
+                {iconName ? <Icon name={iconName} size={14} /> : <Icon name="file-default" size={14} />}
                 <span className="truncate">{label}</span>
             </div>
             {right}
