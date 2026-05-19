@@ -41,9 +41,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [selectedCli, setSelectedCli] = useState<string>("qwen");
     const [installedClis, setInstalledClis] = useState<Record<string, { installed: boolean; name: string }>>({});
     const [conversations, setConversations] = useState<ConvSummary[]>([]);
-    const [cliTab, setCliTab] = useState<"console" | "logs" | "preview">("console");
     const [fullscreen, setFullscreen] = useState(false);
-    const [showPromptPreview, setShowPromptPreview] = useState(false);
     const [showInputDialog, setShowInputDialog] = useState(false);
     const [inputDialogData, setInputDialogData] = useState<Record<string, string>>({});
     const [inputDialogErrors, setInputDialogErrors] = useState<Record<string, boolean>>({});
@@ -501,13 +499,6 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                     )}
                                 </button>
                                 <button
-                                    onClick={() => setShowPromptPreview(!showPromptPreview)}
-                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-white border text-stone-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                    style={{ borderColor: t.accentBorder, color: t.accentText }}
-                                >
-                                    <Icon name="document" size={14} /> 提示詞
-                                </button>
-                                <button
                                     onClick={handleStartClick}
                                     className="flex-1 px-3 py-2 rounded-xl text-sm font-bold text-white transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                                     style={{ backgroundColor: t.accent, boxShadow: `0 1px 3px ${t.accent}40` }}
@@ -638,13 +629,6 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 </select>
                             )}
                             <button
-                                onClick={() => setShowPromptPreview(!showPromptPreview)}
-                                className="hidden sm:flex px-2 py-1 rounded-lg border text-[11px] transition-colors items-center gap-1"
-                                style={{ borderColor: t.accentBorder, color: t.accent }}
-                            >
-                                <Icon name="document" size={11} /> Prompt
-                            </button>
-                            <button
                                 onClick={() => setFullscreen(true)}
                                 className="px-1.5 py-1 rounded-lg border text-[11px] transition-colors flex items-center"
                                 style={{ borderColor: t.accentBorder, color: t.accent }}
@@ -655,59 +639,20 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                         </div>
                     </div>
 
-                    {/* Console tabs */}
-                    <div className="flex border-b px-2 sm:px-4" style={{ borderColor: t.accentBorder + "40" }}>
-                        {(["console", "logs", "preview"] as const).map(tab => (
-                            <button
-                                key={tab}
-                                onClick={() => setCliTab(tab)}
-                                className={cn("px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px")}
-                                style={cliTab === tab
-                                    ? { borderColor: t.accent, color: t.accent }
-                                    : { borderColor: "transparent", color: t.accent + "50" }
-                                }
-                            >
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            </button>
-                        ))}
-                    </div>
-
                     {/* Terminal */}
                     <div className="flex-1 min-h-0">
-                        {cliTab === "console" ? (
-                            <TerminalConsole
-                                key={`terminal-${consoleKey}`}
-                                cwd={projectRoot}
-                                cli={effectiveCli}
-                                model={effectiveModel || undefined}
-                                approvalMode={effectiveApprovalMode}
-                                systemPrompt={undefined}
-                                initialPrompt={chatStarted ? [
-                                    systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
-                                    taskInput ? `# Task\n${taskInput}` : '',
-                                ].filter(Boolean).join('\n\n') : undefined}
-                            />
-                        ) : cliTab === "logs" ? (
-                            <div className="h-full flex items-center justify-center text-sm bg-slate-900" style={{ color: t.accent + "60" }}>
-                                <div className="text-center">
-                                    <Icon name="document" size={24} className="mx-auto mb-2 opacity-30" />
-                                    <p>Logs will appear here</p>
-                                </div>
-                            </div>
-                        ) : (
-                            showPromptPreview && systemPrompt ? (
-                                <div className="h-full overflow-auto p-4" style={{ backgroundColor: t.accentBg }}>
-                                    <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono">{systemPrompt}</pre>
-                                </div>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-sm" style={{ backgroundColor: t.accentBg, color: t.accent + "60" }}>
-                                    <div className="text-center">
-                                        <Icon name="document" size={24} className="mx-auto mb-2 opacity-30" />
-                                        <p>Start a task to preview prompt</p>
-                                    </div>
-                                </div>
-                            )
-                        )}
+                        <TerminalConsole
+                            key={`terminal-${consoleKey}`}
+                            cwd={projectRoot}
+                            cli={effectiveCli}
+                            model={effectiveModel || undefined}
+                            approvalMode={effectiveApprovalMode}
+                            systemPrompt={undefined}
+                            initialPrompt={chatStarted ? [
+                                systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
+                                taskInput ? `# Task\n${taskInput}` : '',
+                            ].filter(Boolean).join('\n\n') : undefined}
+                        />
                     </div>
                 </Card>
                 )}
@@ -735,54 +680,18 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                         </div>
                         {/* Fullscreen console body */}
                         <div className="flex-1 min-h-0">
-                            {cliTab === "console" ? (
-                                <TerminalConsole
-                                    key={`terminal-fs-${consoleKey}`}
-                                    cwd={projectRoot}
-                                    cli={effectiveCli}
-                                    model={effectiveModel || undefined}
-                                    approvalMode={effectiveApprovalMode}
-                                    systemPrompt={undefined}
-                                    initialPrompt={chatStarted ? [
-                                        systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
-                                        taskInput ? `# Task\n${taskInput}` : '',
-                                    ].filter(Boolean).join('\n\n') : undefined}
-                                />
-                            ) : cliTab === "logs" ? (
-                                <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                                    <div className="text-center">
-                                        <Icon name="document" size={24} className="mx-auto mb-2 opacity-30" />
-                                        <p>Logs will appear here</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                showPromptPreview && systemPrompt ? (
-                                    <div className="h-full overflow-auto p-6 bg-gray-950">
-                                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">{systemPrompt}</pre>
-                                    </div>
-                                ) : (
-                                    <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                                        <div className="text-center">
-                                            <Icon name="document" size={24} className="mx-auto mb-2 opacity-30" />
-                                            <p>Start a task to preview prompt</p>
-                                        </div>
-                                    </div>
-                                )
-                            )}
-                        </div>
-                        {/* Fullscreen tabs */}
-                        <div className="flex border-t border-gray-700 bg-gray-900 px-4 shrink-0">
-                            {(["console", "logs", "preview"] as const).map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setCliTab(tab)}
-                                    className={cn("px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px",
-                                        cliTab === tab ? "border-blue-400 text-blue-400" : "border-transparent text-gray-500"
-                                    )}
-                                >
-                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                                </button>
-                            ))}
+                            <TerminalConsole
+                                key={`terminal-fs-${consoleKey}`}
+                                cwd={projectRoot}
+                                cli={effectiveCli}
+                                model={effectiveModel || undefined}
+                                approvalMode={effectiveApprovalMode}
+                                systemPrompt={undefined}
+                                initialPrompt={chatStarted ? [
+                                    systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
+                                    taskInput ? `# Task\n${taskInput}` : '',
+                                ].filter(Boolean).join('\n\n') : undefined}
+                            />
                         </div>
                     </div>
                 )}
