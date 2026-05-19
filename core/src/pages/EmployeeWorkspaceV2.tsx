@@ -571,43 +571,60 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                             </div>
                         </div>
                     </div>
-                ) : (
-                    <Card className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border shadow-sm overflow-hidden" style={{ borderColor: t.accentBorder + "60" }}>
+                                ) : (
+                    <Card
+                        className={cn(
+                            "flex flex-col border shadow-sm overflow-hidden",
+                            fullscreen
+                                ? "fixed inset-0 z-50 rounded-none border-none shadow-none bg-gray-900"
+                                : "flex-1 min-h-[280px] sm:min-h-[400px]"
+                        )}
+                        style={fullscreen ? {} : { borderColor: t.accentBorder + "60" }}
+                    >
                     {/* Console header */}
-                    <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b gap-2" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg }}>
+                    <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b gap-2" style={{ borderColor: fullscreen ? "#374151" : t.accentBorder + "40", backgroundColor: fullscreen ? "#111827" : t.accentBg }}>
                         <div className="flex items-center gap-2 min-w-0">
                             <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: t.accent }}>
                                 <span className="text-white text-[10px] font-black">O</span>
                             </div>
-                            <span className="font-bold text-sm truncate" style={{ color: t.accentText }}>
+                            <span className={cn("font-bold text-sm truncate", fullscreen && "text-gray-200")} style={!fullscreen ? { color: t.accentText } : undefined}>
                                 {effectiveCli === 'claude' ? 'Claude Code' : effectiveCli === 'opencode' ? 'OpenCode' : 'Qwen'} CLI
+                                {fullscreen && ' — 全螢幕'}
                             </span>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                            {/* Approval Mode — runtime changeable, restarts console */}
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                            {/* Approval Mode */}
                             <select
                                 value={permissionMode}
                                 onChange={e => {
                                     setPermissionMode(e.target.value);
                                     setConsoleKey(prev => prev + 1);
-                                    setChatStarted(true);
                                 }}
-                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-white cursor-pointer"
-                                style={{ borderColor: t.accentBorder, color: t.accentText }}
-                                title="Approval Mode — changing restarts console"
+                                className={cn(
+                                    "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
+                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white"
+                                )}
+                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
+                                title="Approval Mode"
                             >
                                 <option value="default">Default</option>
-                                <option value="auto-edit">✏️ Auto-Edit</option>
-                                <option value="yolo">⚡ YOLO</option>
+                                <option value="auto-edit">Auto-Edit</option>
+                                <option value="yolo">YOLO</option>
                                 <option value="plan">Plan</option>
                             </select>
-                            {/* CLI Engine — display only */}
+                            {/* CLI Engine */}
                             <select
-                                disabled
-                                className="px-1.5 py-1 rounded-lg border text-[11px] bg-stone-50 opacity-60 cursor-not-allowed"
-                                style={{ borderColor: t.accentBorder, color: t.accentText }}
-                                title="CLI engine is set by skill config — change in skill settings"
-                                value={effectiveCli}
+                                value={selectedCli}
+                                onChange={e => {
+                                    setSelectedCli(e.target.value);
+                                    setConsoleKey(prev => prev + 1);
+                                }}
+                                className={cn(
+                                    "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
+                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white"
+                                )}
+                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
+                                title="CLI Engine"
                             >
                                 {Object.entries(installedClis).map(([key, info]: [string, any]) => (
                                     <option key={key} value={key}>
@@ -615,14 +632,20 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                     </option>
                                 ))}
                             </select>
-                            {/* Model — display only */}
+                            {/* Model */}
                             {models.length > 0 && (
                                 <select
-                                    disabled
-                                    className="hidden sm:block px-1.5 py-1 rounded-lg border text-[11px] bg-stone-50 opacity-60 cursor-not-allowed max-w-[140px] truncate"
-                                    style={{ borderColor: t.accentBorder, color: t.accentText }}
-                                    title="Model is set by skill config — change in skill settings"
                                     value={effectiveModel}
+                                    onChange={e => {
+                                        setSelectedModel(e.target.value);
+                                        setConsoleKey(prev => prev + 1);
+                                    }}
+                                    className={cn(
+                                        "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer max-w-[140px]",
+                                        fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white"
+                                    )}
+                                    style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
+                                    title="Model"
                                 >
                                     {models.map(m => (
                                         <option key={m.id} value={m.id}>
@@ -631,18 +654,23 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                     ))}
                                 </select>
                             )}
+                            {/* Fullscreen toggle */}
                             <button
-                                onClick={() => setFullscreen(true)}
-                                className="px-1.5 py-1 rounded-lg border text-[11px] transition-colors flex items-center"
-                                style={{ borderColor: t.accentBorder, color: t.accent }}
-                                title="全螢幕"
+                                onClick={() => setFullscreen(!fullscreen)}
+                                className={cn(
+                                    "px-1.5 py-1 rounded-lg border text-[11px] transition-colors flex items-center",
+                                    fullscreen ? "border-gray-600 text-gray-300 hover:text-white hover:border-gray-400" : ""
+                                )}
+                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accent } : undefined}
+                                title={fullscreen ? "退出全螢幕 (Esc)" : "全螢幕"}
                             >
-                                <Icon name="expand" size={14} />
+                                <Icon name={fullscreen ? "contract" : "expand"} size={14} />
+                                {fullscreen && <span className="ml-1">ESC</span>}
                             </button>
                         </div>
                     </div>
 
-                    {/* Terminal */}
+                    {/* Terminal — single instance, shared between normal and fullscreen */}
                     <div className="flex-1 min-h-0">
                         <TerminalConsole
                             key={`terminal-${consoleKey}`}
@@ -659,46 +687,8 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                     </div>
                 </Card>
                 )}
-
-                {/* ===== Fullscreen Console Overlay ===== */}
-                {fullscreen && chatStarted && (
-                    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-                        {/* Fullscreen header */}
-                        <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 shrink-0">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: t.accent }}>
-                                    <span className="text-white text-[10px] font-black">O</span>
-                                </div>
-                                <span className="font-bold text-sm text-gray-200 truncate">
-                                    {effectiveCli === 'claude' ? 'Claude Code' : effectiveCli === 'opencode' ? 'OpenCode' : 'Qwen'} CLI — 全螢幕
-                                </span>
-                            </div>
-                            <button
-                                onClick={() => setFullscreen(false)}
-                                className="px-2 py-1 rounded-lg border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 transition-colors flex items-center gap-1.5 text-xs"
-                                title="退出全螢幕 (Esc)"
-                            >
-                                <Icon name="contract" size={14} /> ESC
-                            </button>
-                        </div>
-                        {/* Fullscreen console body */}
-                        <div className="flex-1 min-h-0">
-                            <TerminalConsole
-                                key={`terminal-fs-${consoleKey}`}
-                                cwd={projectRoot}
-                                cli={effectiveCli}
-                                model={effectiveModel || undefined}
-                                approvalMode={effectiveApprovalMode}
-                                systemPrompt={undefined}
-                                initialPrompt={chatStarted ? [
-                                    systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
-                                    taskInput ? `# Task\n${taskInput}` : '',
-                                ].filter(Boolean).join('\n\n') : undefined}
-                            />
-                        </div>
-                    </div>
-                )}
             </div>
+
 
             {/* ===== Work Log Popup ===== */}
             {showWorkLog && (
