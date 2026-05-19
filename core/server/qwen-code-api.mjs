@@ -199,10 +199,10 @@ const server = createServer(async (req, res) => {
         }
       }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ models, currentModel }));
+      res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT, models, currentModel }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ models: [], currentModel: "", error: err.message }));
+      res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT, models: [], currentModel: "", error: err.message }));
     }
     return;
   }
@@ -231,7 +231,7 @@ const server = createServer(async (req, res) => {
         })
       );
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(crew.filter(Boolean)));
+      res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT, crew: crew.filter(Boolean) }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

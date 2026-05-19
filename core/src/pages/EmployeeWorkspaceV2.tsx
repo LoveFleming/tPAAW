@@ -35,7 +35,8 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [chatStarted, setChatStarted] = useState(false);
     const [taskInput, setTaskInput] = useState("");
     const [aieocRoot, setAieocRoot] = useState("");
-    const [formData, setFormData] = useState<Record<string, string>>({});
+
+        const [formData, setFormData] = useState<Record<string, string>>({});
     const [models, setModels] = useState<ModelOption[]>([]);
     const [selectedModel, setSelectedModel] = useState<string>("");
     const [permissionMode, setPermissionMode] = useState<string>("yolo");
@@ -52,16 +53,10 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; timestamp: string }>>([]);
 
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/aieoc-root")
-            .then(r => r.json())
-            .then(data => { if (data.aieocRoot) setAieocRoot(data.aieocRoot); })
-            .catch(() => {});
-    }, []);
-
-    useEffect(() => {
         fetch("http://127.0.0.1:4097/api/models")
             .then(r => r.json())
             .then(data => {
+                if (data.aieocRoot) setAieocRoot(data.aieocRoot);
                 const list: ModelOption[] = data.models || [];
                 setModels(list);
                 const current = list.find((m: ModelOption) => m.current);
