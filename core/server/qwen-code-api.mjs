@@ -690,8 +690,8 @@ const server = createServer(async (req, res) => {
       return;
     }
     const absRoot = resolve(root);
-    // Safety: only allow absolute paths
-    if (!absRoot.startsWith("/")) {
+    // Safety: only allow absolute paths (Unix: /... or Windows: C:\... / X:/...)
+    if (!absRoot.startsWith("/") && !/^[A-Za-z]:/.test(absRoot)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
       return;
@@ -717,7 +717,7 @@ const server = createServer(async (req, res) => {
       return;
     }
     const absPath = resolve(filePath);
-    if (!absPath.startsWith("/")) {
+    if (!absPath.startsWith("/") && !/^[A-Za-z]:/.test(absPath)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
       return;

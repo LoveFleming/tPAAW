@@ -245,13 +245,6 @@ export default function WelcomePage({ onSelect }: Props) {
               <Icon name="folder" size={16} />
             </button>
             <button
-              onClick={() => setShowFolderBrowser(true)}
-              className="px-3 py-3 border border-white/10 rounded-xl text-stone-300 hover:bg-white/5 hover:text-white transition-all text-sm"
-              title="Web folder browser"
-            >
-              <Icon name="search" size={16} />
-            </button>
-            <button
               onClick={() => handleSelect(inputPath)}
               className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-medium rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/20 text-sm whitespace-nowrap"
             >
