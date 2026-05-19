@@ -77,14 +77,20 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     }, []);
 
     // Initialize skills
+    const prevEmployeeIdRef = useRef<string>(employeeId);
     useEffect(() => {
         if (!employee) return;
+        // Only reset state when switching to a DIFFERENT employee
+        const changed = prevEmployeeIdRef.current !== employeeId;
+        prevEmployeeIdRef.current = employeeId;
         const initial: Record<string, boolean> = {};
         employee.skills.forEach(s => { initial[s.id] = s.enabled; });
         setEnabledSkills(initial);
-        setChatStarted(false);
-        setFormData({});
-    }, [employee]);
+        if (changed) {
+            setChatStarted(false);
+            setFormData({});
+        }
+    }, [employee, employeeId]);
 
     const projectPathHash = useMemo(() => {
         if (!projectRoot) return "_default";
