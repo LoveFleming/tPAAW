@@ -34,6 +34,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [systemPrompt, setSystemPrompt] = useState("");
     const [chatStarted, setChatStarted] = useState(false);
     const [taskInput, setTaskInput] = useState("");
+    const [aieocRoot, setAieocRoot] = useState("");
     const [formData, setFormData] = useState<Record<string, string>>({});
     const [models, setModels] = useState<ModelOption[]>([]);
     const [selectedModel, setSelectedModel] = useState<string>("");
@@ -49,6 +50,13 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [rightPanelOpen, setRightPanelOpen] = useState(true);
     const [showWorkLog, setShowWorkLog] = useState(false);
     const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; timestamp: string }>>([]);
+
+    useEffect(() => {
+        fetch("http://127.0.0.1:4097/api/aieoc-root")
+            .then(r => r.json())
+            .then(data => { if (data.aieocRoot) setAieocRoot(data.aieocRoot); })
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         fetch("http://127.0.0.1:4097/api/models")
@@ -213,7 +221,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const launchTask = async (dialogData: Record<string, string>) => {
         if (!employee) return;
         const allData = { ...dialogData, task: taskInput.trim() };
-        const prompt = buildSystemPrompt(employee, selectedSkillIds, allData);
+        const prompt = buildSystemPrompt(employee, selectedSkillIds, allData, { aieocRoot, projectRoot: projectRoot || "" });
         setSystemPrompt(prompt);
         setFormData(allData);
         setConsoleKey(prev => prev + 1);

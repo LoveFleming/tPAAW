@@ -58,8 +58,13 @@ export type Skill = {
     chatConfig?: ChatConfig;
 };
 
-export function buildSystemPrompt(crew: Skill, selectedSkillIds?: string[], formData?: Record<string, string>): string {
+export function buildSystemPrompt(crew: Skill, selectedSkillIds?: string[], formData?: Record<string, string>, paths?: { aieocRoot: string; projectRoot: string }): string {
     const parts: string[] = [crew.rolePrompt];
+
+    // Inject base paths so CLI knows where to find AIEOC resources and project files
+    if (paths) {
+        parts.push(`\n## 環境路徑\n- **AIEOC Base**: ${paths.aieocRoot}（skills、crew、factory、conversations 都在這裡）\n- **Project Codebase**: ${paths.projectRoot}（使用者的專案原始碼）\n\n讀取 AIEOC 資源時使用 AIEOC Base 路徑，例如：${paths.aieocRoot}/factory/quick-tour.md、${paths.aieocRoot}/skills/`);
+    }
 
     const skillsToLoad = crew.skills.filter(
         s => selectedSkillIds ? selectedSkillIds.includes(s.id) : s.enabled

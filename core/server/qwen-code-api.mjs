@@ -156,6 +156,13 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/aieoc-root — return AIEOC base path
+  if (req.method === "GET" && req.url === "/api/aieoc-root") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT }));
+    return;
+  }
+
   // GET /api/clis — list installed CLI tools
   if (req.method === "GET" && req.url === "/api/clis") {
     try {
