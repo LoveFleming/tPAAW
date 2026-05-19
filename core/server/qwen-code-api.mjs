@@ -923,7 +923,8 @@ async function buildTree(absRoot, currentPath, maxDepth) {
 }
 
 function basename(p) {
-  const parts = p.replace(/\/$/, "").split("/");
+  // Handle both Unix (/) and Windows (\) separators
+  const parts = p.replace(/[\/]+$/, "").split(/[\\/]/);
   return parts[parts.length - 1];
 }
 
