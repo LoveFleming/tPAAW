@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
 import { FileIcon } from "../components/Icon";
+import { pathBasename } from "../utils";
 
 // ── Types ──
 interface TreeNode {
@@ -196,14 +197,14 @@ export default function ReleaseUnitExplorer({ projectRoot }: Props) {
     try {
       const data = await fetchFile(filePath);
       setFileContent(data.content);
-      const name = filePath.split("/").pop() || "";
+      const name = pathBasename(filePath);
       setFileMeta({ path: data.path, size: data.size, lang: detectLang(name) });
     } catch {
       setFileContent("// Unable to load file");
     }
   }, []);
 
-  const projectName = projectRoot.split("/").filter(Boolean).pop() || projectRoot;
+  const projectName = pathBasename(projectRoot);
 
   if (loading && !tree) {
     return (
@@ -261,7 +262,7 @@ export default function ReleaseUnitExplorer({ projectRoot }: Props) {
           <>
             <div className="px-4 py-2 border-b border-stone-200 bg-stone-50 flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs">{fileIconElement(selectedFile.split("/").pop() || "")}</span>
+                <span className="text-xs">{fileIconElement(pathBasename(selectedFile))}</span>
                 <span className="text-sm font-mono text-stone-700 truncate">
                   {selectedFile.slice(projectRoot.length + 1)}
                 </span>

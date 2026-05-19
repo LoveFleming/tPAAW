@@ -618,7 +618,7 @@ const server = createServer(async (req, res) => {
           });
         } catch {
           result = await new Promise((resolve, reject) => {
-            execFile("kdialog", ["--getexistingdirectory", process.env.HOME || "/", "Select a project folder"], (err, stdout) => {
+            execFile("kdialog", ["--getexistingdirectory", process.env.HOME || process.env.USERPROFILE || "/", "Select a project folder"], (err, stdout) => {
               if (err) reject(err); else resolve(stdout.toString().trim());
             });
           });
@@ -656,7 +656,7 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url?.startsWith("/api/fs/browse")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const dirPath = params.get("path") || "";
-    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/Users/steward");
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.USERPROFILE || process.env.HOME || "/");
     try {
       const stat = await import("fs").then(m => m.promises.stat(absPath));
       if (!stat.isDirectory()) {
@@ -670,7 +670,7 @@ const server = createServer(async (req, res) => {
         .filter(e => e.isDirectory() && !IGNORED.has(e.name) && !e.name.startsWith("."))
         .sort((a, b) => a.name.localeCompare(b.name))
         .map(e => ({ name: e.name, path: join(absPath, e.name) }));
-      const parent = absPath !== "/" ? dirname(absPath) : null;
+      const parent = (absPath !== "/" && !/^[A-Za-z]:\\$/.test(absPath)) ? dirname(absPath) : null;
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ currentPath: absPath, parent, directories: dirs }));
     } catch (err) {

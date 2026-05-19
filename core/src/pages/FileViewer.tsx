@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import JsonViewer from "../components/JsonViewer";
 import { useTheme } from "../theme";
 import { FileIcon } from "../components/Icon";
+import { pathBasename } from "../utils";
 
 const API_BASE = "http://127.0.0.1:4097";
 
@@ -74,7 +75,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
   const [loading, setLoading] = useState(false);
 
   const parsedJson = useMemo(() => {
-    if (!content || detectFileType(filePath.split("/").pop() || "") !== "json") return null;
+    if (!content || detectFileType(pathBasename(filePath)) !== "json") return null;
     try { return JSON.parse(content); } catch { return null; }
   }, [content, filePath]);
 
@@ -93,8 +94,8 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       .finally(() => setLoading(false));
   }, [filePath]);
 
-  const relativePath = filePath.replace(new RegExp(`^${projectRoot.replace(/\/+/g, '/').replace(/\/$/, '')}/?`), '');
-  const fileName = filePath.split("/").pop() || "";
+  const relativePath = filePath.replace(new RegExp(`^${projectRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '');
+  const fileName = pathBasename(filePath);
   const fileType = detectFileType(fileName);
 
   return (

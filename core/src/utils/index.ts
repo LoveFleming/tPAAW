@@ -45,3 +45,13 @@ export function statusClasses(s: RunStatus) {
     if (s === "running") return "bg-blue-100 text-blue-700";
     return "bg-amber-100 text-amber-700";
 }
+
+/** Cross-platform path basename — handles both / and \ separators */
+export function pathBasename(p: string): string {
+    return p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
+}
+
+/** Cross-platform path split — handles both / and \ separators */
+export function pathSplit(p: string): string[] {
+    return p.split(/[\\/]/).filter(Boolean);
+}

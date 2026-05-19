@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useTheme } from "../theme";
 import Icon from "../components/Icon";
+import { pathBasename } from "../utils";
 
 interface Widget {
   id: string;
@@ -48,7 +49,7 @@ export default function ProjectDashboard({ projectRoot, openEmployee }: { projec
     return () => { cancelled = true; };
   }, [projectRoot]);
 
-  const projectName = projectRoot.split("/").filter(Boolean).pop() || projectRoot;
+  const projectName = pathBasename(projectRoot);
 
   const widgets = data?.widgets ?? EMPTY_WIDGETS;
   const hasData = data?.scannedAt != null;

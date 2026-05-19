@@ -10,7 +10,7 @@ import SidebarFileTree from "./components/SidebarFileTree";
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Skill } from "./types";
 import { ThemeProvider, useTheme, THEMES, ThemeId, THEME_GROUPS } from "./theme";
-import { cn } from "./utils";
+import { cn, pathBasename } from "./utils";
 
 const STORAGE_PROJECT_KEY = "aieoc.project";
 
@@ -93,7 +93,7 @@ function AppInner() {
     openApp(tabId);
   };
 
-  const projectName = projectRoot?.split("/").filter(Boolean).pop() || "";
+  const projectName = projectRoot ? pathBasename(projectRoot) : "";
 
   const { info: themeInfo, theme, setTheme } = useTheme();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -123,7 +123,7 @@ function AppInner() {
     }
     if (id.startsWith("file://")) {
       const fullPath = id.slice(7);
-      return fullPath.split("/").pop() || fullPath;
+      return pathBasename(fullPath);
     }
     return id;
   };

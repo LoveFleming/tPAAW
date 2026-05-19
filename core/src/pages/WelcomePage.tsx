@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "../utils";
 import Icon from "../components/Icon";
+import { pathBasename } from "../utils";
 
 const STORAGE_KEY = "aieoc.project";
 const API_BASE = "http://127.0.0.1:4097";
@@ -151,7 +152,7 @@ function getRecentProjects(): RecentProject[] {
 
 function addRecentProject(path: string) {
   const projects = getRecentProjects().filter(p => p.path !== path);
-  const name = path.split("/").filter(Boolean).pop() || path;
+  const name = pathBasename(path);
   projects.unshift({ path, name, lastOpened: new Date().toISOString() });
   localStorage.setItem("aieoc.recent-projects", JSON.stringify(projects.slice(0, 10)));
 }
