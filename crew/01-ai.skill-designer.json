@@ -32,7 +32,7 @@
             "enabled": false,
             "prompt": "測試 Qwen CLI 工具步驟：\n1. 確認當前 CLI（Qwen / Claude Code / OpenCode）\n2. 驗證 skills/ 目錄可讀\n3. 驗證 crew/ 和 factory/ 資料完整\n4. 列出可用 CLI 並提供切換建議\n5. 輸出測試報告",
             "requiredInputs": [],
-            "cli": "qwen"
+            "cli": "opencode"
         },
         {
             "id": "claude-code-test",

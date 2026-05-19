@@ -83,10 +83,10 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
         // Only reset state when switching to a DIFFERENT employee
         const changed = prevEmployeeIdRef.current !== employeeId;
         prevEmployeeIdRef.current = employeeId;
-        const initial: Record<string, boolean> = {};
-        employee.skills.forEach(s => { initial[s.id] = s.enabled; });
-        setEnabledSkills(initial);
         if (changed) {
+            const initial: Record<string, boolean> = {};
+            employee.skills.forEach(s => { initial[s.id] = s.enabled; });
+            setEnabledSkills(initial);
             setChatStarted(false);
             setFormData({});
         }
@@ -155,6 +155,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     }, [employee, selectedSkillIds]);
 
     // Default CLI from first selected skill, user can override at runtime
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const defaultCliFromSkills = useMemo(() => {
         if (!employee) return "qwen";
         for (const id of selectedSkillIds) {
@@ -162,26 +163,24 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
             if (sk?.cli) return sk.cli;
         }
         return "qwen";
-    }, [employee, selectedSkillIds]);
+    }, [selectedSkillIds]); // intentionally omit employee to avoid HMR reset
 
     const [selectedCli, setSelectedCli] = useState<string>("qwen");
 
-    // Sync selectedCli when skills change (initial default)
+    // Sync selectedCli from skill default ONLY when skills selection changes
+    const prevSkillIdsRef = useRef<string>("");
     useEffect(() => {
-        setSelectedCli(defaultCliFromSkills);
-    }, [defaultCliFromSkills]);
+        const key = selectedSkillIds.sort().join(",");
+        if (key !== prevSkillIdsRef.current) {
+            prevSkillIdsRef.current = key;
+            setSelectedCli(defaultCliFromSkills);
+        }
+    }, [defaultCliFromSkills, selectedSkillIds]);
 
     // effectiveCli always follows user selection
     const effectiveCli = selectedCli;
 
-    const effectiveModel = useMemo(() => {
-        if (!employee) return selectedModel;
-        for (const id of selectedSkillIds) {
-            const sk = employee.skills.find(s => s.id === id);
-            if (sk?.model) return sk.model;
-        }
-        return selectedModel;
-    }, [employee, selectedSkillIds, selectedModel]);
+    const effectiveModel = selectedModel;
 
     // Initialize permissionMode from skill config (only on first skill selection)
     const initializedRef = useRef(false);
