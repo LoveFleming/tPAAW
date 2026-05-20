@@ -42,6 +42,7 @@ export default function TerminalConsole({
     const directModeRef = useRef(true);
     const stoppedByUserRef = useRef(false);
     const suppressOutputRef = useRef(false); // true = drop PTY data, freeze terminal content
+    const terminalSnapshotRef = useRef<string[]>([]); // saved lines for restore after Stop
     const wsRef = useRef<WebSocket | null>(null);
     const termRef = useRef<Terminal | null>(null);
     const fitRef = useRef<FitAddon | null>(null);
@@ -57,6 +58,31 @@ export default function TerminalConsole({
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: "input", text }));
         }
+    }, []);
+
+    // Save current terminal content as snapshot
+    const saveTerminalSnapshot = useCallback(() => {
+        const term = termRef.current;
+        if (!term) return;
+        const buf = term.buffer.active;
+        const lines: string[] = [];
+        for (let i = 0; i < buf.length; i++) {
+            const line = buf.getLine(i);
+            if (line) lines.push(line.translateToString(true));
+        }
+        terminalSnapshotRef.current = lines;
+    }, []);
+
+    // Restore terminal content from snapshot
+    const restoreTerminalSnapshot = useCallback(() => {
+        const term = termRef.current;
+        if (!term) return;
+        term.clear();
+        const lines = terminalSnapshotRef.current;
+        if (lines.length === 0) return;
+        // Write all lines at once
+        term.write(lines.join('\r\n'));
+        terminalSnapshotRef.current = [];
     }, []);
 
     // Send text to PTY
@@ -188,7 +214,8 @@ export default function TerminalConsole({
                 setGenerating(false);
                 suppressOutputRef.current = false;
                 if (stoppedByUserRef.current) {
-                    // User pressed Stop → CLI exited as expected, just set state
+                    // User pressed Stop → restore terminal to pre-Stop state
+                    restoreTerminalSnapshot();
                     setStopped(true);
                 } else {
                     // Unexpected exit
@@ -537,6 +564,7 @@ export default function TerminalConsole({
                             onClick={() => {
                                 stoppedByUserRef.current = true;
                                 suppressOutputRef.current = true;
+                                saveTerminalSnapshot();
                                 sendToPty("\x03");
                                 setGenerating(false);
                             }}
