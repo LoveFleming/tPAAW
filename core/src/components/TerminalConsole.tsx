@@ -37,8 +37,10 @@ export default function TerminalConsole({
     const [ready, setReady] = useState(false);
     const [directMode, setDirectMode] = useState(true);
     const [generating, setGenerating] = useState(false); // true = CLI is generating, Stop enabled; false = idle/stopped, Resume enabled
+    const [stopped, setStopped] = useState(false); // true = user pressed Stop, CLI may have exited — Resume should re-spawn
     // Refs for stable access in closures
     const directModeRef = useRef(true);
+    const stoppedByUserRef = useRef(false);
     const wsRef = useRef<WebSocket | null>(null);
     const termRef = useRef<Terminal | null>(null);
     const fitRef = useRef<FitAddon | null>(null);
@@ -61,6 +63,8 @@ export default function TerminalConsole({
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
         setGenerating(true);
+        setStopped(false);
+        stoppedByUserRef.current = false;
 
         const hasNewlines = text.includes("\n");
         if (hasNewlines) {
@@ -178,10 +182,18 @@ export default function TerminalConsole({
                 ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
                 onReady?.();
             } else if (msg.type === "exit") {
-                // CLI exited — keep WS alive, user can click Restart
-                term.write("\r\n\x1b[33m⚠️ Qwen CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
                 setReady(false);
-                // Keep connected=true so terminal stays alive and buttons work
+                setGenerating(false);
+                if (stoppedByUserRef.current) {
+                    // User pressed Stop → CLI exited as expected
+                    term.write("\r\n\x1b[33m⏸ Stopped. Press ▶ Resume to continue.\x1b[0m\r\n");
+                    setStopped(true);
+                } else {
+                    // Unexpected exit
+                    term.write("\r\n\x1b[33m⚠️ CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
+                    setStopped(false);
+                }
+                stoppedByUserRef.current = false;
                 onExit?.(msg.exitCode || 0);
             } else if (msg.type === "error") {
                 term.write(`\r\n\x1b[31m❌ Error: ${msg.message}\x1b[0m\r\n`);
@@ -248,6 +260,8 @@ export default function TerminalConsole({
         setReady(false);
         setConnected(false);
         setGenerating(false);
+        setStopped(false);
+        stoppedByUserRef.current = false;
 
         // Reconnect after short delay
         const timer = setTimeout(() => {
@@ -301,6 +315,67 @@ export default function TerminalConsole({
         if (inputRef.current) inputRef.current.style.height = "auto";
     };
 
+    const handleResumeAfterStop = useCallback(() => {
+        setStopped(false);
+        setGenerating(false);
+        stoppedByUserRef.current = false;
+        initialSentRef.current = false;
+
+        // Kill old PTY if still alive
+        if (wsRef.current) {
+            wsRef.current.send(JSON.stringify({ type: "kill" }));
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+        if (termRef.current) {
+            termRef.current.clear();
+            termRef.current.write("\x1b[33m▶ Resuming...\x1b[0m\r\n");
+        }
+        setReady(false);
+        setConnected(false);
+
+        setTimeout(() => {
+            if (!mountedRef.current) return;
+            const term = termRef.current;
+            if (!term) return;
+
+            const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
+            const ws = new WebSocket(wsUrl);
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                setConnected(true);
+                const opts = optsRef.current;
+                ws.send(JSON.stringify({
+                    type: "spawn",
+                    options: {
+                        cwd: opts.cwd || undefined,
+                        cli: opts.cli || undefined,
+                        model: opts.model || undefined,
+                        approvalMode: opts.approvalMode || "yolo",
+                        systemPrompt: opts.systemPrompt || undefined,
+                    },
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                if (!mountedRef.current) return;
+                let msg;
+                try { msg = JSON.parse(event.data as string); } catch { return; }
+                if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
+                else if (msg.type === "ready") {
+                    setReady(true);
+                    setStopped(false);
+                    if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
+                }
+                else if (msg.type === "exit") { setReady(false); setConnected(true); }
+                else if (msg.type === "error" && termRef.current) termRef.current.write(`\r\n\x1b[31m❌ ${msg.message}\x1b[0m\r\n`);
+            };
+            ws.onclose = () => { setConnected(false); setReady(false); };
+            ws.onerror = () => { setConnected(false); };
+        }, 500);
+    }, []);
+
     const handleRestart = () => {
         // Kill current PTY
         if (wsRef.current) {
@@ -316,6 +391,8 @@ export default function TerminalConsole({
         setReady(false);
         setConnected(false);
         setGenerating(false);
+        setStopped(false);
+        stoppedByUserRef.current = false;
 
         // Reconnect after short delay
         setTimeout(() => {
@@ -435,9 +512,10 @@ export default function TerminalConsole({
                 {/* Bottom bar: status + buttons */}
                 <div className="flex items-center justify-between mt-1">
                     <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${connected && ready ? "bg-green-500" : connected ? "bg-yellow-500 animate-pulse" : "bg-red-500"}`} />
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${stopped ? "bg-yellow-500" : connected && ready ? "bg-green-500" : connected ? "bg-yellow-500 animate-pulse" : "bg-red-500"}`} />
                         <span className="text-[10px] text-stone-500">
-                            {connected && ready ? `${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'} ready (${approvalMode})` :
+                            {stopped ? `${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'} stopped — press Resume` :
+                             connected && ready ? `${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'} ready (${approvalMode})` :
                              connected ? `Starting ${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'}...` : "Disconnected"}
                         </span>
                     </div>
@@ -449,19 +527,30 @@ export default function TerminalConsole({
                         >
                             {directMode ? <><Icon name="document" size={12} /> Textarea</> : <><Icon name="keyboard" size={12} /> Direct</>}
                         </button>
-                        {/* Stop: interrupt current LLM response (Ctrl+C) */}
+                                        {/* Stop: interrupt current LLM response (Ctrl+C) */}
                         <button
-                            onClick={() => { sendToPty("\x03"); setGenerating(false); }}
-                            disabled={!connected || !ready || !generating}
+                            onClick={() => {
+                                stoppedByUserRef.current = true;
+                                sendToPty("\x03");
+                                setGenerating(false);
+                            }}
+                            disabled={!connected || (!generating && !ready) || stopped}
                             className="px-2 py-1 rounded text-[10px] font-bold bg-red-900 text-red-300 border border-red-700 hover:bg-red-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             title="Stop current response (Ctrl+C)"
                         >
                             ⏹ Stop
                         </button>
-                        {/* Resume: send 'continue' to resume the conversation */}
+                        {/* Resume: re-spawn if needed, then continue conversation */}
                         <button
-                            onClick={() => sendInput("continue")}
-                            disabled={!connected || !ready || generating}
+                            onClick={() => {
+                                if (!ready || stopped) {
+                                    // CLI exited after Stop — respawn then send prompt
+                                    handleResumeAfterStop();
+                                } else {
+                                    sendInput("continue");
+                                }
+                            }}
+                            disabled={!connected || generating}
                             className="px-2 py-1 rounded text-[10px] font-bold bg-green-900 text-green-300 border border-green-700 hover:bg-green-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             title="Resume conversation"
                         >
