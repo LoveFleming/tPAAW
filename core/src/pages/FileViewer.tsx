@@ -1,14 +1,41 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import JsonViewer from "../components/JsonViewer";
 import { useTheme } from "../theme";
 import { FileIcon } from "../components/Icon";
 import { pathBasename } from "../utils";
+import hljs from "highlight.js";
+import "highlight.js/styles/github.css"; // Light theme matching the white background
 
 const API_BASE = "http://127.0.0.1:4097";
 
 function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   return <FileIcon ext={ext} size={12} />;
+}
+
+// Map file extension to highlight.js language
+function detectLanguage(name: string): string | undefined {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    ts: "typescript", tsx: "typescript",
+    js: "javascript", jsx: "javascript", mjs: "javascript",
+    java: "java",
+    xml: "xml", svg: "xml", xsd: "xml", xsl: "xml",
+    yaml: "yaml", yml: "yaml",
+    json: "json",
+    md: "markdown", markdown: "markdown",
+    py: "python",
+    go: "go",
+    rs: "rust",
+    sql: "sql",
+    sh: "bash", bash: "bash", zsh: "bash",
+    css: "css", scss: "scss", less: "less",
+    html: "xml", htm: "xml",
+    dockerfile: "dockerfile",
+    makefile: "makefile",
+    toml: "ini",
+  };
+  return map[ext];
 }
 
 function detectFileType(name: string): "markdown" | "json" | "code" {
@@ -53,13 +80,90 @@ function MarkdownView({ content }: { content: string }) {
   );
 }
 
-// ── Code View ──
-function CodeView({ content }: { content: string }) {
+// ── Syntax-highlighted Code View with line numbers ──
+function CodeView({ content, fileName }: { content: string; fileName: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const codeRef = useRef<HTMLElement>(null);
+  const lineNumRef = useRef<HTMLDivElement>(null);
+
+  const lines = content.split("\n");
+  const lineCount = lines.length;
+  const lang = detectLanguage(fileName);
+
+  // Highlight the code
+  const highlighted = useMemo(() => {
+    if (!lang) {
+      // Auto-detect
+      try {
+        const result = hljs.highlightAuto(content);
+        return result.value;
+      } catch {
+        return escapeHtml(content);
+      }
+    }
+    try {
+      const result = hljs.highlight(content, { language: lang, ignoreIllegals: true });
+      return result.value;
+    } catch {
+      return escapeHtml(content);
+    }
+  }, [content, lang]);
+
+  // Sync scroll between line numbers and code
+  const handleScroll = useCallback(() => {
+    if (containerRef.current && lineNumRef.current) {
+      lineNumRef.current.scrollTop = containerRef.current.scrollTop;
+    }
+  }, []);
+
+  // Line number width (dynamic)
+  const lineNumWidth = Math.max(3, String(lineCount).length) * 10 + 16;
+
   return (
-    <pre className="p-6 text-sm font-mono text-stone-700 whitespace-pre-wrap leading-relaxed" style={{ tabSize: 2 }}>
-      <code>{content}</code>
-    </pre>
+    <div className="flex h-full">
+      {/* Line numbers */}
+      <div
+        ref={lineNumRef}
+        className="shrink-0 overflow-hidden select-none border-r"
+        style={{
+          width: lineNumWidth,
+          backgroundColor: "#f8f8f8",
+          borderColor: "#e5e5e5",
+        }}
+      >
+        <div className="py-4">
+          {lines.map((_, i) => (
+            <div
+              key={i}
+              className="text-right pr-3 text-xs leading-5 font-mono"
+              style={{ color: "#b0b0b0", height: 20 }}
+            >
+              {i + 1}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Code */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto"
+        onScroll={handleScroll}
+      >
+        <pre className="py-4 px-4 text-sm leading-5 font-mono" style={{ tabSize: 2 }}>
+          <code
+            ref={codeRef}
+            className={lang ? `language-${lang}` : ""}
+            dangerouslySetInnerHTML={{ __html: highlighted }}
+          />
+        </pre>
+      </div>
+    </div>
   );
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // ── Main Component ──
@@ -126,9 +230,9 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       ) : content !== null ? (
         <div className="flex-1 flex flex-col bg-white min-h-0 overflow-hidden">
           {fileType === "json" && parsedJson !== null && <JsonViewer data={parsedJson} />}
-          {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-auto"><CodeView content={content} /></div>}
+          {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} /></div>}
           {fileType === "markdown" && <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>}
-          {fileType === "code" && <div className="flex-1 overflow-auto"><CodeView content={content} /></div>}
+          {fileType === "code" && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} /></div>}
         </div>
       ) : null}
     </div>
