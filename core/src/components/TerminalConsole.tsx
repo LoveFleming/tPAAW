@@ -36,6 +36,7 @@ export default function TerminalConsole({
     const [connected, setConnected] = useState(false);
     const [ready, setReady] = useState(false);
     const [directMode, setDirectMode] = useState(true);
+    const [generating, setGenerating] = useState(false); // true = CLI is generating, Stop enabled; false = idle/stopped, Resume enabled
     // Refs for stable access in closures
     const directModeRef = useRef(true);
     const wsRef = useRef<WebSocket | null>(null);
@@ -58,6 +59,8 @@ export default function TerminalConsole({
     // Send text to PTY
     const sendInput = useCallback((text: string) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+        setGenerating(true);
 
         const hasNewlines = text.includes("\n");
         if (hasNewlines) {
@@ -244,6 +247,7 @@ export default function TerminalConsole({
         initialSentRef.current = false;
         setReady(false);
         setConnected(false);
+        setGenerating(false);
 
         // Reconnect after short delay
         const timer = setTimeout(() => {
@@ -311,6 +315,7 @@ export default function TerminalConsole({
         initialSentRef.current = false;
         setReady(false);
         setConnected(false);
+        setGenerating(false);
 
         // Reconnect after short delay
         setTimeout(() => {
@@ -446,8 +451,8 @@ export default function TerminalConsole({
                         </button>
                         {/* Stop: interrupt current LLM response (Ctrl+C) */}
                         <button
-                            onClick={() => sendToPty("\x03")}
-                            disabled={!connected || !ready}
+                            onClick={() => { sendToPty("\x03"); setGenerating(false); }}
+                            disabled={!connected || !ready || !generating}
                             className="px-2 py-1 rounded text-[10px] font-bold bg-red-900 text-red-300 border border-red-700 hover:bg-red-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             title="Stop current response (Ctrl+C)"
                         >
@@ -456,7 +461,7 @@ export default function TerminalConsole({
                         {/* Resume: send 'continue' to resume the conversation */}
                         <button
                             onClick={() => sendInput("continue")}
-                            disabled={!connected || !ready}
+                            disabled={!connected || !ready || generating}
                             className="px-2 py-1 rounded text-[10px] font-bold bg-green-900 text-green-300 border border-green-700 hover:bg-green-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             title="Resume conversation"
                         >
