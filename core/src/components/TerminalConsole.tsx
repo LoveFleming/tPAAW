@@ -41,6 +41,7 @@ export default function TerminalConsole({
     // Refs for stable access in closures
     const directModeRef = useRef(true);
     const stoppedByUserRef = useRef(false);
+    const suppressOutputRef = useRef(false); // true = drop PTY data, freeze terminal content
     const wsRef = useRef<WebSocket | null>(null);
     const termRef = useRef<Terminal | null>(null);
     const fitRef = useRef<FitAddon | null>(null);
@@ -65,6 +66,7 @@ export default function TerminalConsole({
         setGenerating(true);
         setStopped(false);
         stoppedByUserRef.current = false;
+        suppressOutputRef.current = false;
 
         const hasNewlines = text.includes("\n");
         if (hasNewlines) {
@@ -176,7 +178,7 @@ export default function TerminalConsole({
             try { msg = JSON.parse(event.data as string); } catch { return; }
 
             if (msg.type === "data") {
-                term.write(msg.data);
+                if (!suppressOutputRef.current) term.write(msg.data);
             } else if (msg.type === "ready") {
                 setReady(true);
                 ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
@@ -184,9 +186,9 @@ export default function TerminalConsole({
             } else if (msg.type === "exit") {
                 setReady(false);
                 setGenerating(false);
+                suppressOutputRef.current = false;
                 if (stoppedByUserRef.current) {
-                    // User pressed Stop → CLI exited as expected
-                    term.write("\r\n\x1b[33m⏸ Stopped. Press ▶ Resume to continue.\x1b[0m\r\n");
+                    // User pressed Stop → CLI exited as expected, just set state
                     setStopped(true);
                 } else {
                     // Unexpected exit
@@ -262,6 +264,7 @@ export default function TerminalConsole({
         setGenerating(false);
         setStopped(false);
         stoppedByUserRef.current = false;
+        suppressOutputRef.current = false;
 
         // Reconnect after short delay
         const timer = setTimeout(() => {
@@ -292,7 +295,7 @@ export default function TerminalConsole({
                 if (!mountedRef.current) return;
                 let msg;
                 try { msg = JSON.parse(event.data as string); } catch { return; }
-                if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
+                if (msg.type === "data" && termRef.current && !suppressOutputRef.current) termRef.current.write(msg.data);
                 else if (msg.type === "ready") {
                     setReady(true);
                     if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
@@ -319,6 +322,7 @@ export default function TerminalConsole({
         setStopped(false);
         setGenerating(false);
         stoppedByUserRef.current = false;
+        suppressOutputRef.current = false;
         initialSentRef.current = false;
 
         // Kill old PTY if still alive
@@ -362,7 +366,7 @@ export default function TerminalConsole({
                 if (!mountedRef.current) return;
                 let msg;
                 try { msg = JSON.parse(event.data as string); } catch { return; }
-                if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
+                if (msg.type === "data" && termRef.current && !suppressOutputRef.current) termRef.current.write(msg.data);
                 else if (msg.type === "ready") {
                     setReady(true);
                     setStopped(false);
@@ -393,6 +397,7 @@ export default function TerminalConsole({
         setGenerating(false);
         setStopped(false);
         stoppedByUserRef.current = false;
+        suppressOutputRef.current = false;
 
         // Reconnect after short delay
         setTimeout(() => {
@@ -423,7 +428,7 @@ export default function TerminalConsole({
                 if (!mountedRef.current) return;
                 let msg;
                 try { msg = JSON.parse(event.data as string); } catch { return; }
-                if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
+                if (msg.type === "data" && termRef.current && !suppressOutputRef.current) termRef.current.write(msg.data);
                 else if (msg.type === "ready") {
                     setReady(true);
                     if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
@@ -531,6 +536,7 @@ export default function TerminalConsole({
                         <button
                             onClick={() => {
                                 stoppedByUserRef.current = true;
+                                suppressOutputRef.current = true;
                                 sendToPty("\x03");
                                 setGenerating(false);
                             }}
