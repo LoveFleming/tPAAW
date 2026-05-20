@@ -36,13 +36,8 @@ export default function TerminalConsole({
     const [connected, setConnected] = useState(false);
     const [ready, setReady] = useState(false);
     const [directMode, setDirectMode] = useState(true);
-    const [generating, setGenerating] = useState(false); // true = CLI is generating, Stop enabled; false = idle/stopped, Resume enabled
-    const [stopped, setStopped] = useState(false); // true = user pressed Stop, CLI may have exited — Resume should re-spawn
     // Refs for stable access in closures
     const directModeRef = useRef(true);
-    const stoppedByUserRef = useRef(false);
-    const suppressOutputRef = useRef(false); // true = drop PTY data, freeze terminal content
-    const terminalSnapshotRef = useRef<string[]>([]); // saved lines for restore after Stop
     const wsRef = useRef<WebSocket | null>(null);
     const termRef = useRef<Terminal | null>(null);
     const fitRef = useRef<FitAddon | null>(null);
@@ -60,39 +55,9 @@ export default function TerminalConsole({
         }
     }, []);
 
-    // Save current terminal content as snapshot
-    const saveTerminalSnapshot = useCallback(() => {
-        const term = termRef.current;
-        if (!term) return;
-        const buf = term.buffer.active;
-        const lines: string[] = [];
-        for (let i = 0; i < buf.length; i++) {
-            const line = buf.getLine(i);
-            if (line) lines.push(line.translateToString(true));
-        }
-        terminalSnapshotRef.current = lines;
-    }, []);
-
-    // Restore terminal content from snapshot
-    const restoreTerminalSnapshot = useCallback(() => {
-        const term = termRef.current;
-        if (!term) return;
-        term.clear();
-        const lines = terminalSnapshotRef.current;
-        if (lines.length === 0) return;
-        // Write all lines at once
-        term.write(lines.join('\r\n'));
-        terminalSnapshotRef.current = [];
-    }, []);
-
     // Send text to PTY
     const sendInput = useCallback((text: string) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-        setGenerating(true);
-        setStopped(false);
-        stoppedByUserRef.current = false;
-        suppressOutputRef.current = false;
 
         const hasNewlines = text.includes("\n");
         if (hasNewlines) {
@@ -204,25 +169,16 @@ export default function TerminalConsole({
             try { msg = JSON.parse(event.data as string); } catch { return; }
 
             if (msg.type === "data") {
-                if (!suppressOutputRef.current) term.write(msg.data);
+                term.write(msg.data);
             } else if (msg.type === "ready") {
                 setReady(true);
                 ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
                 onReady?.();
             } else if (msg.type === "exit") {
+                // CLI exited — keep WS alive, user can click Restart
+                term.write("\r\n\x1b[33m⚠️ CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
                 setReady(false);
-                setGenerating(false);
-                suppressOutputRef.current = false;
-                if (stoppedByUserRef.current) {
-                    // User pressed Stop → restore terminal to pre-Stop state
-                    restoreTerminalSnapshot();
-                    setStopped(true);
-                } else {
-                    // Unexpected exit
-                    term.write("\r\n\x1b[33m⚠️ CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
-                    setStopped(false);
-                }
-                stoppedByUserRef.current = false;
+                // Keep connected=true so terminal stays alive and buttons work
                 onExit?.(msg.exitCode || 0);
             } else if (msg.type === "error") {
                 term.write(`\r\n\x1b[31m❌ Error: ${msg.message}\x1b[0m\r\n`);
@@ -288,10 +244,6 @@ export default function TerminalConsole({
         initialSentRef.current = false;
         setReady(false);
         setConnected(false);
-        setGenerating(false);
-        setStopped(false);
-        stoppedByUserRef.current = false;
-        suppressOutputRef.current = false;
 
         // Reconnect after short delay
         const timer = setTimeout(() => {
@@ -322,7 +274,7 @@ export default function TerminalConsole({
                 if (!mountedRef.current) return;
                 let msg;
                 try { msg = JSON.parse(event.data as string); } catch { return; }
-                if (msg.type === "data" && termRef.current && !suppressOutputRef.current) termRef.current.write(msg.data);
+                if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
                 else if (msg.type === "ready") {
                     setReady(true);
                     if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
@@ -345,68 +297,6 @@ export default function TerminalConsole({
         if (inputRef.current) inputRef.current.style.height = "auto";
     };
 
-    const handleResumeAfterStop = useCallback(() => {
-        setStopped(false);
-        setGenerating(false);
-        stoppedByUserRef.current = false;
-        suppressOutputRef.current = false;
-        initialSentRef.current = false;
-
-        // Kill old PTY if still alive
-        if (wsRef.current) {
-            wsRef.current.send(JSON.stringify({ type: "kill" }));
-            wsRef.current.close();
-            wsRef.current = null;
-        }
-        if (termRef.current) {
-            termRef.current.clear();
-            termRef.current.write("\x1b[33m▶ Resuming...\x1b[0m\r\n");
-        }
-        setReady(false);
-        setConnected(false);
-
-        setTimeout(() => {
-            if (!mountedRef.current) return;
-            const term = termRef.current;
-            if (!term) return;
-
-            const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
-            const ws = new WebSocket(wsUrl);
-            wsRef.current = ws;
-
-            ws.onopen = () => {
-                setConnected(true);
-                const opts = optsRef.current;
-                ws.send(JSON.stringify({
-                    type: "spawn",
-                    options: {
-                        cwd: opts.cwd || undefined,
-                        cli: opts.cli || undefined,
-                        model: opts.model || undefined,
-                        approvalMode: opts.approvalMode || "yolo",
-                        systemPrompt: opts.systemPrompt || undefined,
-                    },
-                }));
-            };
-
-            ws.onmessage = (event) => {
-                if (!mountedRef.current) return;
-                let msg;
-                try { msg = JSON.parse(event.data as string); } catch { return; }
-                if (msg.type === "data" && termRef.current && !suppressOutputRef.current) termRef.current.write(msg.data);
-                else if (msg.type === "ready") {
-                    setReady(true);
-                    setStopped(false);
-                    if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
-                }
-                else if (msg.type === "exit") { setReady(false); setConnected(true); }
-                else if (msg.type === "error" && termRef.current) termRef.current.write(`\r\n\x1b[31m❌ ${msg.message}\x1b[0m\r\n`);
-            };
-            ws.onclose = () => { setConnected(false); setReady(false); };
-            ws.onerror = () => { setConnected(false); };
-        }, 500);
-    }, []);
-
     const handleRestart = () => {
         // Kill current PTY
         if (wsRef.current) {
@@ -421,10 +311,6 @@ export default function TerminalConsole({
         initialSentRef.current = false;
         setReady(false);
         setConnected(false);
-        setGenerating(false);
-        setStopped(false);
-        stoppedByUserRef.current = false;
-        suppressOutputRef.current = false;
 
         // Reconnect after short delay
         setTimeout(() => {
@@ -455,7 +341,7 @@ export default function TerminalConsole({
                 if (!mountedRef.current) return;
                 let msg;
                 try { msg = JSON.parse(event.data as string); } catch { return; }
-                if (msg.type === "data" && termRef.current && !suppressOutputRef.current) termRef.current.write(msg.data);
+                if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
                 else if (msg.type === "ready") {
                     setReady(true);
                     if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
@@ -516,7 +402,7 @@ export default function TerminalConsole({
                             disabled={!connected}
                             placeholder={
                                 !connected ? "Connecting..." :
-                                !ready ? "Starting Qwen CLI..." :
+                                !ready ? "Starting CLI..." :
                                 "Type your prompt... (Shift+Enter for newline)"
                             }
                             className="flex-1 bg-transparent outline-none text-stone-200 text-sm disabled:opacity-50 resize-none min-h-[24px] max-h-[120px] overflow-y-auto leading-normal py-0 placeholder-stone-600"
@@ -537,17 +423,16 @@ export default function TerminalConsole({
                     <div className="flex items-center gap-2">
                         <span className="text-green-400 text-sm">⌨️</span>
                         <span className="text-stone-500 text-xs">
-                            Click here and type directly — arrow keys, Tab, and interactive menus work.
+                            Click here and type directly — arrow keys, Tab, and interactive menus work. Press Esc to pause.
                         </span>
                     </div>
                 )}
                 {/* Bottom bar: status + buttons */}
                 <div className="flex items-center justify-between mt-1">
                     <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${stopped ? "bg-yellow-500" : connected && ready ? "bg-green-500" : connected ? "bg-yellow-500 animate-pulse" : "bg-red-500"}`} />
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${connected && ready ? "bg-green-500" : connected ? "bg-yellow-500 animate-pulse" : "bg-red-500"}`} />
                         <span className="text-[10px] text-stone-500">
-                            {stopped ? `${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'} stopped — press Resume` :
-                             connected && ready ? `${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'} ready (${approvalMode})` :
+                            {connected && ready ? `${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'} ready (${approvalMode})` :
                              connected ? `Starting ${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'}...` : "Disconnected"}
                         </span>
                     </div>
@@ -558,37 +443,6 @@ export default function TerminalConsole({
                             title={directMode ? "Switch to textarea input" : "Switch to direct terminal input"}
                         >
                             {directMode ? <><Icon name="document" size={12} /> Textarea</> : <><Icon name="keyboard" size={12} /> Direct</>}
-                        </button>
-                                        {/* Stop: interrupt current LLM response (Ctrl+C) */}
-                        <button
-                            onClick={() => {
-                                stoppedByUserRef.current = true;
-                                suppressOutputRef.current = true;
-                                saveTerminalSnapshot();
-                                sendToPty("\x03");
-                                setGenerating(false);
-                            }}
-                            disabled={!connected || (!generating && !ready) || stopped}
-                            className="px-2 py-1 rounded text-[10px] font-bold bg-red-900 text-red-300 border border-red-700 hover:bg-red-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Stop current response (Ctrl+C)"
-                        >
-                            ⏹ Stop
-                        </button>
-                        {/* Resume: re-spawn if needed, then continue conversation */}
-                        <button
-                            onClick={() => {
-                                if (!ready || stopped) {
-                                    // CLI exited after Stop — respawn then send prompt
-                                    handleResumeAfterStop();
-                                } else {
-                                    sendInput("continue");
-                                }
-                            }}
-                            disabled={!connected || generating}
-                            className="px-2 py-1 rounded text-[10px] font-bold bg-green-900 text-green-300 border border-green-700 hover:bg-green-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Resume conversation"
-                        >
-                            ▶ Resume
                         </button>
                         {/* Restart: kill PTY and start fresh */}
                         <button
