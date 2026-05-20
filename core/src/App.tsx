@@ -34,8 +34,8 @@ function AppInner() {
   });
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(STORAGE_PROJECT_KEY));
 
-  const [activePage, setActivePage] = useState<string>("quick-tour");
-  const [openTabs, setOpenTabs] = useState<string[]>(["quick-tour"]);
+  const [activePage, setActivePage] = useState<string>("factory.crew");
+  const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [crew, setCrew] = useState<Skill[]>([]);
@@ -63,8 +63,8 @@ function AppInner() {
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
     setShowWelcome(false);
-    setActivePage("quick-tour");
-    setOpenTabs(["quick-tour"]);
+    setActivePage("factory.crew");
+    setOpenTabs(["factory.crew"]);
   };
 
   const openApp = (id: string) => {
@@ -114,7 +114,6 @@ function AppInner() {
   }
 
   const labelFor = (id: string): string => {
-    if (id === "quick-tour") return "Quick Tour";
     if (id.startsWith("factory.")) return factoryNav.find(n => n.id === id)?.label ?? id;
     if (id.startsWith("employee.")) {
       const empId = id.split("#")[0].slice(9);
@@ -140,9 +139,6 @@ function AppInner() {
       const file = pageId.slice(11);
       const label = factoryNav.find(n => n.id === pageId)?.label ?? file;
       return <FactoryDocument file={file} headerIcon="scroll" headerTitle={label} headerSub="" />;
-    }
-    if (pageId === "quick-tour") {
-      return <FactoryDocument file="quick-tour" headerIcon="scroll" headerTitle="Quick Tour" headerSub="" />;
     }
     if (pageId.startsWith("file://")) {
       const filePath = pageId.slice(7);
@@ -265,7 +261,7 @@ function AppInner() {
           {/* Switch project */}
           <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
-              onClick={() => { setProjectRoot(null); setShowWelcome(true); setOpenTabs(["quick-tour"]); setActivePage("quick-tour"); }}
+              onClick={() => { setProjectRoot(null); setShowWelcome(true); setOpenTabs(["factory.crew"]); setActivePage("factory.crew"); }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors"
               style={{ color: themeInfo.accentHover + "99" }}
               onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
@@ -285,7 +281,7 @@ function AppInner() {
           <div className="flex w-full items-end gap-0.5 overflow-x-auto px-3 pt-1.5 border-b" style={{ scrollbarWidth: 'none', backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
             {openTabs.map((tabId) => {
               const isActive = activePage === tabId;
-              const isPinned = tabId === "quick-tour";
+              const isPinned = tabId === "factory.crew";
               return (
                 <div
                   key={tabId}
