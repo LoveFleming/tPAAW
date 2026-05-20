@@ -67,12 +67,13 @@ export default function TerminalConsole({
                 type: "input",
                 text: `\x1b[200~${text}\x1b[201~`,
             }));
-            // Send Enter separately with a small delay to ensure CLI processes paste first
+            // Send Enter separately with a delay to ensure CLI processes paste first.
+            // Use \r\n for cross-platform compatibility (Windows PTY needs it).
             setTimeout(() => {
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r\n" }));
                 }
-            }, 150);
+            }, 300);
         } else {
             // Single-line: send text then Enter
             wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));
