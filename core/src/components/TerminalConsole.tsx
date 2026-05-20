@@ -11,6 +11,8 @@ interface TerminalConsoleProps {
     approvalMode?: string;
     systemPrompt?: string;
     initialPrompt?: string;
+    /** Increment to trigger a hot-restart (re-spawn PTY with current props without remounting the component). */
+    restartTrigger?: number;
     onReady?: () => void;
     onExit?: (code: number) => void;
 }
@@ -24,6 +26,7 @@ export default function TerminalConsole({
     approvalMode = "yolo",
     systemPrompt,
     initialPrompt,
+    restartTrigger,
     onReady,
     onExit,
 }: TerminalConsoleProps) {
@@ -221,6 +224,70 @@ export default function TerminalConsole({
         }, delay);
         return () => clearTimeout(timer);
     }, [ready, initialPrompt, sendInput]);
+
+    // Hot-restart: when restartTrigger increments, kill PTY and re-spawn with current props
+    const prevRestartRef = useRef(restartTrigger);
+    useEffect(() => {
+        if (restartTrigger === undefined || restartTrigger === prevRestartRef.current) return;
+        prevRestartRef.current = restartTrigger;
+
+        // Kill current PTY
+        if (wsRef.current) {
+            wsRef.current.send(JSON.stringify({ type: "kill" }));
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+        if (termRef.current) {
+            termRef.current.clear();
+            termRef.current.write("\x1b[33m🔄 Switching model/cli...\x1b[0m\r\n");
+        }
+        initialSentRef.current = false;
+        setReady(false);
+        setConnected(false);
+
+        // Reconnect after short delay
+        const timer = setTimeout(() => {
+            if (!mountedRef.current) return;
+            const term = termRef.current;
+            if (!term) return;
+
+            const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
+            const ws = new WebSocket(wsUrl);
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                setConnected(true);
+                const opts = optsRef.current;
+                ws.send(JSON.stringify({
+                    type: "spawn",
+                    options: {
+                        cwd: opts.cwd || undefined,
+                        cli: opts.cli || undefined,
+                        model: opts.model || undefined,
+                        approvalMode: opts.approvalMode || "yolo",
+                        systemPrompt: opts.systemPrompt || undefined,
+                    },
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                if (!mountedRef.current) return;
+                let msg;
+                try { msg = JSON.parse(event.data as string); } catch { return; }
+                if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
+                else if (msg.type === "ready") {
+                    setReady(true);
+                    if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
+                }
+                else if (msg.type === "exit") { setReady(false); setConnected(true); }
+                else if (msg.type === "error" && termRef.current) termRef.current.write(`\r\n\x1b[31m❌ ${msg.message}\x1b[0m\r\n`);
+            };
+            ws.onclose = () => { setConnected(false); setReady(false); };
+            ws.onerror = () => { setConnected(false); };
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [restartTrigger]);
 
     const handleSubmit = () => {
         const text = input.trim();

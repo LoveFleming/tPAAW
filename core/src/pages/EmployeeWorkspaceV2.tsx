@@ -31,6 +31,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const { info: t } = useTheme();
     const [enabledSkills, setEnabledSkills] = useState<Record<string, boolean>>({});
     const [consoleKey, setConsoleKey] = useState(0);
+    const [restartCount, setRestartCount] = useState(0);
     const [systemPrompt, setSystemPrompt] = useState("");
     const [chatStarted, setChatStarted] = useState(false);
     const [taskInput, setTaskInput] = useState("");
@@ -232,7 +233,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
         permissionMode !== runningApproval
     );
 
-    // Apply pending config: save to crew JSON, restart console with same prompt
+    // Apply pending config: save to crew JSON, hot-restart console with same prompt
     const applyConfig = useCallback(async () => {
         // Save all changes to crew JSON
         if (effectiveCli !== runningCli) await saveSkillConfig("cli", effectiveCli);
@@ -242,8 +243,8 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
         setRunningCli(effectiveCli);
         setRunningModel(effectiveModel || "");
         setRunningApproval(permissionMode);
-        // Restart console with same system prompt
-        setConsoleKey(prev => prev + 1);
+        // Hot-restart console (same component, re-spawn PTY with new config)
+        setRestartCount(prev => prev + 1);
     }, [effectiveCli, effectiveModel, permissionMode, runningCli, runningModel, runningApproval, saveSkillConfig]);
 
     const handleStartClick = () => {
@@ -770,6 +771,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                                 systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
                                 taskInput ? `# Task\n${taskInput}` : '',
                             ].filter(Boolean).join('\n\n') : undefined}
+                            restartTrigger={restartCount}
                         />
                     </div>
                 </Card>
