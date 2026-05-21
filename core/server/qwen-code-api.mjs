@@ -17,6 +17,9 @@ import { query, isSDKAssistantMessage, isSDKResultMessage, isSDKPartialAssistant
 import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { tmpdir } from "os";
+import { exec as execCb } from "child_process";
+import { promisify } from "util";
+const execAsync = promisify(execCb);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -176,7 +179,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/models — list available models from CLI config
+  // GET /api/models — list available models for a CLI
   // ?cli=qwen|claude|opencode (default: qwen)
   const modelsMatch = req.method === "GET" && req.url?.match(/^\/api\/models(?:\?(.*))?$/);
   if (modelsMatch) {
@@ -188,33 +191,32 @@ const server = createServer(async (req, res) => {
       let currentModel = "";
 
       if (cliType === "qwen") {
-        // Read from ~/.qwen/settings.json
+        // Qwen has no CLI list command — read from settings
         const settingsPath = join(homeDir, ".qwen/settings.json");
-        const raw = await readFile(settingsPath, "utf-8");
-        const settings = JSON.parse(raw);
-        const providers = settings.modelProviders || {};
-        currentModel = settings.model?.name || "";
-        for (const [, list] of Object.entries(providers)) {
-          if (!Array.isArray(list)) continue;
-          for (const m of list) {
-            models.push({
-              id: m.id, name: m.name,
-              contextWindowSize: m.generationConfig?.contextWindowSize,
-              vision: m.capabilities?.vision || false,
-              current: m.id === currentModel,
-            });
-          }
-        }
-      } else if (cliType === "claude") {
-        // Claude Code uses claude model list from its own config
-        // Try reading ~/.claude.json or just provide well-known claude models
-        const claudeSettingsPath = join(homeDir, ".claude.json");
         try {
-          const raw = await readFile(claudeSettingsPath, "utf-8");
+          const raw = await readFile(settingsPath, "utf-8");
+          const settings = JSON.parse(raw);
+          const providers = settings.modelProviders || {};
+          currentModel = settings.model?.name || "";
+          for (const [, list] of Object.entries(providers)) {
+            if (!Array.isArray(list)) continue;
+            for (const m of list) {
+              models.push({
+                id: m.id, name: m.name,
+                contextWindowSize: m.generationConfig?.contextWindowSize,
+                vision: m.capabilities?.vision || false,
+                current: m.id === currentModel,
+              });
+            }
+          }
+        } catch {}
+      } else if (cliType === "claude") {
+        // Claude has no CLI list command — try reading config for current model
+        try {
+          const raw = await readFile(join(homeDir, ".claude.json"), "utf-8");
           const cs = JSON.parse(raw);
           if (cs.model) currentModel = cs.model;
         } catch {}
-        // Provide standard Claude models
         const claudeModels = [
           { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
           { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
@@ -226,19 +228,21 @@ const server = createServer(async (req, res) => {
           models.push({ id: m.id, name: m.name, current: m.id === currentModel });
         }
       } else if (cliType === "opencode") {
-        // OpenCode — try reading ~/.config/opencode/opencode.json (Mac & Linux)
+        // OpenCode has `opencode models` command — execute it
+        const config = CLI_CONFIGS.opencode;
+        const platform = process.platform;
+        const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
+        const bin = process.env[config.envBin] || config.bins[binKey];
         try {
-          const opencodeConfigPath = join(homeDir, ".config/opencode/opencode.json");
-          const raw = await readFile(opencodeConfigPath, "utf-8");
-          const oc = JSON.parse(raw);
-          currentModel = oc.model || oc.defaultModel || "";
-          if (Array.isArray(oc.models)) {
-            for (const m of oc.models) {
-              models.push({ id: m.id || m, name: m.name || m.id || m, current: (m.id || m) === currentModel });
-            }
+          const { stdout } = await execAsync(`"${bin}" models 2>&1`, { timeout: 15000 });
+          const lines = (stdout || "").split("\n").map(l => l.trim()).filter(Boolean);
+          for (const line of lines) {
+            // opencode models outputs one model per line: provider/name
+            models.push({ id: line, name: line, current: false });
           }
-        } catch {}
-        // Fallback if no config found
+        } catch (err) {
+          console.log(`[Models] opencode models failed: ${err.message}`);
+        }
         if (models.length === 0) {
           models.push({ id: "default", name: "OpenCode Default", current: true });
         }
