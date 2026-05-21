@@ -1072,9 +1072,11 @@ const CLI_CONFIGS = {
     envBin: "OPENCODE_BIN",
     buildArgs: (opts) => {
       const args = [];
-      if (opts.model) args.push("-m", opts.model);
-      // OpenCode runs as TUI by default, no separate approval mode flags
-      // but we can pass --prompt for non-interactive
+      // OpenCode model format: provider/model (e.g. openrouter/anthropic/claude-sonnet-4)
+      // Only pass -m if model looks like provider/model format
+      if (opts.model && opts.model.includes("/")) {
+        args.push("-m", opts.model);
+      }
       return args;
     },
   },
