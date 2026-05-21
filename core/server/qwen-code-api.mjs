@@ -314,7 +314,9 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const port = CLI_CONFIGS.opencode?.serverPort || 4199;
+    // Find the active OpenCode session to get its port
+    const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
+    const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
     try {
       // First append the prompt text
       const resp = await fetch(`http://127.0.0.1:${port}/tui/append-prompt`, {
@@ -349,7 +351,8 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const port = CLI_CONFIGS.opencode?.serverPort || 4199;
+    const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
+    const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/config`, {
         method: "PATCH",
@@ -368,7 +371,8 @@ const server = createServer(async (req, res) => {
 
   // GET /api/opencode/health — check if OpenCode server is up
   if (req.method === "GET" && req.url === "/api/opencode/health") {
-    const port = CLI_CONFIGS.opencode?.serverPort || 4199;
+    const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
+    const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/global/health`, { signal: AbortSignal.timeout(3000) });
       const data = await resp.json();
@@ -1163,14 +1167,18 @@ const CLI_CONFIGS = {
     name: "OpenCode",
     bins: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
     envBin: "OPENCODE_BIN",
-    serverPort: 4199, // fixed port for OpenCode's built-in HTTP server
+    // Port range for OpenCode's built-in HTTP server
+    // Each spawn gets a unique port to avoid conflicts
+    serverPortBase: 4199,
     buildArgs: (opts) => {
       const args = [];
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
-      // Fixed port so we can POST /tui/append-prompt when ready
-      args.push("--port", String(CLI_CONFIGS.opencode.serverPort));
+      // Pass assigned port for SDK API access
+      if (opts.serverPort) {
+        args.push("--port", String(opts.serverPort));
+      }
       return args;
     },
   },
@@ -1259,10 +1267,16 @@ wss.on("connection", (ws, req) => {
       const old = ptySessions.get(ws);
       if (old?.pty) { old.pty.kill(); }
 
-      try {
-        const pty = spawnCli(ptySpawn, msg.options || {});
+      // For OpenCode: assign a unique server port
+      const opts = msg.options || {};
+      if (opts.cli === "opencode") {
+        opts.serverPort = CLI_CONFIGS.opencode.serverPortBase + Math.floor(Math.random() * 100);
+      }
 
-        ptySessions.set(ws, { pty, id: sessionId, cliType: (msg.options || {}).cli || "qwen" });
+      try {
+        const pty = spawnCli(ptySpawn, opts);
+
+        ptySessions.set(ws, { pty, id: sessionId, cliType: opts.cli || "qwen", serverPort: opts.serverPort });
 
         pty.onData((data) => {
           if (ws.readyState === 1) {
