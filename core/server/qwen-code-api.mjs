@@ -176,28 +176,80 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/models — list available models from ~/.qwen/settings.json
-  if (req.method === "GET" && req.url === "/api/models") {
+  // GET /api/models — list available models from CLI config
+  // ?cli=qwen|claude|opencode (default: qwen)
+  const modelsMatch = req.method === "GET" && req.url?.match(/^\/api\/models(?:\?(.*))?$/);
+  if (modelsMatch) {
+    const qs = new URLSearchParams(modelsMatch[1] || "");
+    const cliType = qs.get("cli") || "qwen";
     try {
       const homeDir = process.env.HOME || process.env.USERPROFILE;
-      const settingsPath = join(homeDir, ".qwen/settings.json");
-      const raw = await readFile(settingsPath, "utf-8");
-      const settings = JSON.parse(raw);
-      const providers = settings.modelProviders || {};
       const models = [];
-      const currentModel = settings.model?.name || "";
-      for (const [, list] of Object.entries(providers)) {
-        if (!Array.isArray(list)) continue;
-        for (const m of list) {
-          models.push({
-            id: m.id,
-            name: m.name,
-            contextWindowSize: m.generationConfig?.contextWindowSize,
-            vision: m.capabilities?.vision || false,
-            current: m.id === currentModel,
-          });
+      let currentModel = "";
+
+      if (cliType === "qwen") {
+        // Read from ~/.qwen/settings.json
+        const settingsPath = join(homeDir, ".qwen/settings.json");
+        const raw = await readFile(settingsPath, "utf-8");
+        const settings = JSON.parse(raw);
+        const providers = settings.modelProviders || {};
+        currentModel = settings.model?.name || "";
+        for (const [, list] of Object.entries(providers)) {
+          if (!Array.isArray(list)) continue;
+          for (const m of list) {
+            models.push({
+              id: m.id, name: m.name,
+              contextWindowSize: m.generationConfig?.contextWindowSize,
+              vision: m.capabilities?.vision || false,
+              current: m.id === currentModel,
+            });
+          }
+        }
+      } else if (cliType === "claude") {
+        // Claude Code uses claude model list from its own config
+        // Try reading ~/.claude.json or just provide well-known claude models
+        const claudeSettingsPath = join(homeDir, ".claude.json");
+        try {
+          const raw = await readFile(claudeSettingsPath, "utf-8");
+          const cs = JSON.parse(raw);
+          if (cs.model) currentModel = cs.model;
+        } catch {}
+        // Provide standard Claude models
+        const claudeModels = [
+          { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
+          { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
+          { id: "claude-haiku-4-20250506", name: "Claude Haiku 4" },
+          { id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet" },
+          { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
+        ];
+        for (const m of claudeModels) {
+          models.push({ id: m.id, name: m.name, current: m.id === currentModel });
+        }
+      } else if (cliType === "opencode") {
+        // OpenCode — try reading config
+        const opencodeConfigs = [
+          join(homeDir, ".opencode/config.json"),
+          join(homeDir, ".config/opencode/config.json"),
+        ];
+        for (const p of opencodeConfigs) {
+          try {
+            const raw = await readFile(p, "utf-8");
+            const oc = JSON.parse(raw);
+            currentModel = oc.model || oc.defaultModel || "";
+            if (Array.isArray(oc.models)) {
+              for (const m of oc.models) {
+                models.push({ id: m.id || m, name: m.name || m.id || m, current: (m.id || m) === currentModel });
+              }
+            }
+            break;
+          } catch {}
+        }
+        // Fallback if no config found
+        if (models.length === 0) {
+          models.push({ id: "default", name: "OpenCode Default", current: true });
         }
       }
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT, models, currentModel }));
     } catch (err) {

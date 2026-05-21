@@ -57,18 +57,24 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [showWorkLog, setShowWorkLog] = useState(false);
     const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; timestamp: string }>>([]);
 
-    useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/models")
+    // Fetch models for a specific CLI
+    const fetchModels = useCallback((cli: string) => {
+        fetch(`http://127.0.0.1:4097/api/models?cli=${cli}`)
             .then(r => r.json())
             .then(data => {
                 if (data.aieocRoot) setAieocRoot(data.aieocRoot);
                 const list: ModelOption[] = data.models || [];
                 setModels(list);
                 const current = list.find((m: ModelOption) => m.current);
-                if (current) setSelectedModel(current.id);
+                setSelectedModel(current ? current.id : (list.length > 0 ? list[0].id : ""));
             })
             .catch(() => {});
     }, []);
+
+    // Initial fetch (default qwen)
+    useEffect(() => {
+        fetchModels("qwen");
+    }, [fetchModels]);
 
     useEffect(() => {
         fetch("http://127.0.0.1:4097/api/clis")
@@ -688,7 +694,9 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                             <select
                                 value={selectedCli}
                                 onChange={e => {
-                                    setSelectedCli(e.target.value);
+                                    const newCli = e.target.value;
+                                    setSelectedCli(newCli);
+                                    fetchModels(newCli);
                                 }}
                                 className={cn(
                                     "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
