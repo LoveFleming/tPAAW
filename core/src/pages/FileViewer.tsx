@@ -232,6 +232,35 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       .finally(() => setLoading(false));
   }, [filePath]);
 
+  // SSE: auto-reload when file changes
+  useEffect(() => {
+    if (!filePath || !projectRoot) return;
+    const fileName = pathBasename(filePath);
+    const fileType = detectFileType(fileName);
+    if (fileType === "image") return; // images use direct URL
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`${API_BASE}/api/fs/watch?root=${encodeURIComponent(projectRoot)}`);
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.path === filePath && data.type === "change") {
+            // Reload content
+            fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`)
+              .then(r => r.json())
+              .then(d => {
+                setContent(d.content);
+                setMeta({ size: d.size });
+              })
+              .catch(() => {});
+          }
+        } catch {}
+      };
+      es.onerror = () => {};
+    } catch {}
+    return () => { es?.close(); };
+  }, [filePath, projectRoot]);
+
   const relativePath = filePath.replace(new RegExp(`^${projectRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '');
   const fileName = pathBasename(filePath);
   const fileType = detectFileType(fileName);

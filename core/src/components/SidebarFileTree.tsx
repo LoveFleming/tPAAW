@@ -219,6 +219,33 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     return () => { cancelled = true; };
   }, [projectRoot]);
 
+  // ── SSE: auto-refresh on file changes ──
+  const refreshTree = useCallback(() => {
+    if (!projectRoot) return;
+    fetch(`${API_BASE}/api/fs/tree?root=${encodeURIComponent(projectRoot)}`)
+      .then(r => r.json())
+      .then((data: TreeNode) => {
+        setTree(prev => {
+          // Keep expanded paths, just update the tree data
+          return data;
+        });
+      })
+      .catch(() => {});
+  }, [projectRoot]);
+
+  useEffect(() => {
+    if (!projectRoot) return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`${API_BASE}/api/fs/watch?root=${encodeURIComponent(projectRoot)}`);
+      es.onmessage = () => {
+        refreshTree();
+      };
+      es.onerror = () => { /* auto reconnect */ };
+    } catch {}
+    return () => { es?.close(); };
+  }, [projectRoot, refreshTree]);
+
   const handleToggleDir = useCallback(async (dirPath: string) => {
     setExpandedPaths(prev => {
       const next = new Set(prev);

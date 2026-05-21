@@ -19,6 +19,7 @@ import { spawn as ptySpawn } from "node-pty";
 import { tmpdir } from "os";
 import { exec as execCb } from "child_process";
 import { promisify } from "util";
+import chokidar from "chokidar";
 const execAsync = promisify(execCb);
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1113,7 +1114,59 @@ function readBody(req) {
     req.on("end", () => resolve(Buffer.concat(chunks).toString()));
     req.on("error", reject);
   });
+  // SSE: File watcher
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/watch")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const root = params.get("root");
+    if (!root) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing root" }));
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.write("\n"); // kick the stream
+    sseClients.add(res);
+    startWatcher(root);
+    req.on("close", () => {
+      sseClients.delete(res);
+    });
+    return;
+  }
+
 }
+
+// ── File Watcher (SSE) ──
+const sseClients = new Set();
+let watcher = null;
+
+function startWatcher(root) {
+  if (watcher) watcher.close();
+  watcher = chokidar.watch(root, {
+    ignored: /node_modules|\.git|dist|__pycache__|\.next|\.nuxt|target|build/, 
+    persistent: true,
+    ignoreInitial: true,
+    depth: 8,
+    awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+  });
+  const broadcast = (type, path) => {
+    const msg = `data: ${JSON.stringify({ type, path })}\n\n`;
+    for (const c of sseClients) {
+      try { c.write(msg); } catch { sseClients.delete(c); }
+    }
+  };
+  watcher.on("add", (p) => broadcast("add", p));
+  watcher.on("unlink", (p) => broadcast("unlink", p));
+  watcher.on("change", (p) => broadcast("change", p));
+  watcher.on("addDir", (p) => broadcast("addDir", p));
+  watcher.on("unlinkDir", (p) => broadcast("unlinkDir", p));
+  console.log(`[Watcher] Watching ${root}`);
+}
+
 
 server.listen(PORT, () => {
   console.log(`[qwen-code-api] Listening on http://127.0.0.1:${PORT}`);
