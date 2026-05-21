@@ -1096,12 +1096,6 @@ const CLI_CONFIGS = {
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
-      // Initial prompt via --prompt flag (Go TUI can't receive PTY writes)
-      console.log(`[OpenCode buildArgs] initialPrompt=${opts.initialPrompt ? JSON.stringify(opts.initialPrompt).slice(0,80) : "undefined"}`);
-      if (opts.initialPrompt) {
-        args.push("--prompt", opts.initialPrompt);
-      }
-      console.log(`[OpenCode buildArgs] final args:`, args);
       return args;
     },
   },

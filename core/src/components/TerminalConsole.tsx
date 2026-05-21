@@ -215,12 +215,34 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // OpenCode: skip — prompt is passed via --prompt flag at spawn time
+    // OpenCode: copy to clipboard then term.paste() after TUI initializes
     // Qwen/Claude: send via bracketed paste after CLI initializes
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
-        if (cli === "opencode") return; // prompt already in spawn args
         initialSentRef.current = true;
+
+        if (cli === "opencode") {
+            // OpenCode Go TUI: use xterm.js paste() to simulate real paste
+            // Wait for TUI to fully render, then paste prompt
+            const timer = setTimeout(() => {
+                const term = termRef.current;
+                if (!term) return;
+                // Copy to clipboard so user can also Ctrl+V manually
+                navigator.clipboard?.writeText(initialPrompt).catch(() => {});
+                // xterm.js paste() simulates a real paste event
+                // This goes through xterm's internal onData pipeline
+                term.paste(initialPrompt);
+                // Send Enter after paste settles
+                setTimeout(() => {
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                        wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                    }
+                }, 500);
+            }, 6000);
+            return () => clearTimeout(timer);
+        }
+
+        // Qwen / Claude: bracketed paste
         const timer = setTimeout(() => {
             sendInput(initialPrompt);
         }, 4000);
