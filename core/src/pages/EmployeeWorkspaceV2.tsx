@@ -36,13 +36,19 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [chatStarted, setChatStarted] = useState(false);
     const [taskInput, setTaskInput] = useState("");
 
-    // "Running" config = what the active console is using
+    // "Running" config = what the active console is using (persisted in chatConfig)
     const savedCli = employee?.chatConfig?.cli || "qwen";
     const savedModel = employee?.chatConfig?.model || "";
     const savedApproval = employee?.chatConfig?.approvalMode || "yolo";
     const [runningCli, setRunningCli] = useState(savedCli);
     const [runningModel, setRunningModel] = useState(savedModel);
     const [runningApproval, setRunningApproval] = useState(savedApproval);
+    // Sync running config when employee changes
+    useEffect(() => {
+        setRunningCli(savedCli);
+        setRunningModel(savedModel);
+        setRunningApproval(savedApproval);
+    }, [employee?.id]); // eslint-disable-line react-hooks/exhaustive-deps
     const [aieocRoot, setAieocRoot] = useState("");
 
         const [formData, setFormData] = useState<Record<string, string>>({});
