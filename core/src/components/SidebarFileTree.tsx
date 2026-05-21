@@ -264,7 +264,11 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   if (!tree?.children) return null;
 
   return (
-    <div className="overflow-y-auto" style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)" }}>
+    <div
+      className="overflow-y-auto"
+      style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)" }}
+      onContextMenu={e => e.preventDefault()}
+    >
       <TreeNodeView
         node={tree}
         depth={0}
