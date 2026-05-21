@@ -155,15 +155,6 @@ AIEOC 讓你**自己定義 AI 成員** — 幫每個 AI 取名字、設角色、
 | 迪維雅·雷迪 Divya Reddy | QA Engineer | 品質保證、測試設計 |
 | 梅根·布魯克斯 Megan Brooks | Troubleshooting Engineer | 故障排除、根因分析 |
 
-## Dashboard
-
-每個 Project 進入 AIEOC 後會看到 Dashboard，包含四個指標 widget：
-
-- 📋 **Specs** — 規格文件數量
-- 🧪 **Tests** — 測試數量與通過率
-- 📖 **Runbooks** — 操作手冊數量與覆蓋率
-- 📊 **Coverage** — 測試覆蓋率
-
 ## 跨 CLI 使用
 
 AIEOC 支援多種 AI coding CLI，設定檔統一在 `providers/` 目錄：
