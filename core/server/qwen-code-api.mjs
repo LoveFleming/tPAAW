@@ -228,44 +228,49 @@ const server = createServer(async (req, res) => {
           models.push({ id: m.id, name: m.name, current: m.id === currentModel });
         }
       } else if (cliType === "opencode") {
-        // OpenCode: execute `opencode models <provider>` for configured providers only
-        // Read auth.json to find which providers the user has configured
-        const config = CLI_CONFIGS.opencode;
-        const platform = process.platform;
-        const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
-        const bin = process.env[config.envBin] || config.bins[binKey];
-
-        // Find configured providers from auth.json
-        let authProviders: string[] = [];
-        try {
-          const authPaths = [
-            join(homeDir, ".local/share/opencode/auth.json"),
-            join(homeDir, ".config/opencode/auth.json"),
-          ];
-          for (const ap of authPaths) {
-            try {
-              const raw = await readFile(ap, "utf-8");
-              const auth = JSON.parse(raw);
-              authProviders = Object.keys(auth);
-              break;
-            } catch {}
-          }
-        } catch {}
-
-        // Fetch models for each configured provider
-        const seen = new Set<string>();
-        for (const provider of authProviders) {
+        // OpenCode: read ~/.config/opencode/opencode.json for model config
+        // Provider config has: models (custom defs), whitelist (only show these)
+        // Agent config has: model (default)
+        // Path is the same on Mac, Linux, and Windows (via %APPDATA% or %USERPROFILE%\.config)
+        const configPaths = [
+          join(homeDir, ".config/opencode/opencode.json"),
+          // Windows fallback
+          join(process.env.APPDATA || join(homeDir, "AppData/Roaming"), "opencode/opencode.json"),
+        ];
+        let opencodeConfig: any = null;
+        for (const cp of configPaths) {
           try {
-            const { stdout } = await execAsync(`"${bin}" models ${provider} 2>&1`, { timeout: 15000 });
-            const lines = (stdout || "").split("\n").map(l => l.trim()).filter(Boolean);
-            for (const line of lines) {
-              if (!seen.has(line)) {
-                seen.add(line);
-                models.push({ id: line, name: line, current: false });
+            const raw = await readFile(cp, "utf-8");
+            opencodeConfig = JSON.parse(raw);
+            break;
+          } catch {}
+        }
+
+        if (opencodeConfig) {
+          // Get default model from agent config
+          const agents = opencodeConfig.agent || opencodeConfig.agents || {};
+          if (agents.model) currentModel = agents.model;
+
+          // Collect models from provider configs
+          const providers = opencodeConfig.provider || opencodeConfig.providers || {};
+          for (const [provName, provConf] of Object.entries(providers)) {
+            const pc = provConf as any;
+            // If whitelist is set, only show those models
+            if (Array.isArray(pc.whitelist)) {
+              for (const m of pc.whitelist) {
+                const id = typeof m === "string" ? m : m.id;
+                models.push({ id, name: id, current: id === currentModel });
               }
             }
-          } catch (err) {
-            console.log(`[Models] opencode models ${provider} failed: ${err.message}`);
+            // Also include custom model definitions
+            if (pc.models && typeof pc.models === "object") {
+              for (const [modelId, modelDef] of Object.entries(pc.models)) {
+                const md = modelDef as any;
+                if (!models.find(m => m.id === modelId)) {
+                  models.push({ id: modelId, name: md.name || modelId, current: modelId === currentModel });
+                }
+              }
+            }
           }
         }
 
