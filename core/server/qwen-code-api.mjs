@@ -1125,7 +1125,13 @@ function spawnCli(ptySpawn, opts) {
     const cmdBin = process.env.COMSPEC || "cmd.exe";
     const cmdArgs = ["/c", bin, ...args];
     console.log(`[PTY] Spawning ${config.name}: ${cmdBin} ${cmdArgs.join(" ")} (cwd: ${resolvedCwd})`);
-    return ptySpawn(cmdBin, cmdArgs, ptyOpts);
+    try {
+      return ptySpawn(cmdBin, cmdArgs, ptyOpts);
+    } catch (e) {
+      // Fallback: try without cmd.exe wrapper
+      console.log(`[PTY] cmd.exe spawn failed, trying direct: ${bin} ${args.join(" ")}`);
+      return ptySpawn(bin, args, ptyOpts);
+    }
   }
 
   console.log(`[PTY] Spawning ${config.name}: ${bin} ${args.join(" ")} (cwd: ${resolvedCwd})`);

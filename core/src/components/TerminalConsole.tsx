@@ -215,16 +215,16 @@ export default function TerminalConsole({
 
     // Auto-send initial prompt when ready
     // Waits for the CLI to fully initialize before sending.
-    // Uses a longer delay because Qwen/Claude CLI needs time to load.
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
         initialSentRef.current = true;
-        const delay = 4000;
+        // OpenCode TUI needs more time to initialize, especially on Windows
+        const delay = cli === "opencode" ? 8000 : 4000;
         const timer = setTimeout(() => {
             sendInput(initialPrompt);
         }, delay);
         return () => clearTimeout(timer);
-    }, [ready, initialPrompt, sendInput]);
+    }, [ready, initialPrompt, sendInput, cli]);
 
     // Hot-restart: when restartTrigger increments, kill PTY and re-spawn with current props
     const prevRestartRef = useRef(restartTrigger);
