@@ -1212,12 +1212,11 @@ wss.on("connection", (ws, req) => {
       }
     }
     else if (msg.type === "multiline") {
-      // Windows multi-line: convert \n to \r\n and send directly
+      // Legacy: Windows multi-line fallback (no longer sent by frontend)
       const session = ptySessions.get(ws);
       if (!session?.pty) return;
-      const fullText = (msg.text || "").replace(/\n/g, "\r\n");
       try {
-        session.pty.write(fullText + "\r");
+        session.pty.write((msg.text || "").replace(/\n/g, "\r\n") + "\r");
       } catch {}
     }
     else if (msg.type === "resize") {

@@ -61,10 +61,9 @@ export default function TerminalConsole({
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
         const hasNewlines = text.includes("\n");
-        const isWin = platformRef.current === "win32";
 
-        if (hasNewlines && !isWin) {
-            // macOS / Linux: bracketed paste
+        if (hasNewlines) {
+            // Multi-line: use bracketed paste (works on Mac/Linux/Windows)
             wsRef.current.send(JSON.stringify({
                 type: "input",
                 text: `\x1b[200~${text}\x1b[201~`,
@@ -74,12 +73,6 @@ export default function TerminalConsole({
                     wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
                 }
             }, 300);
-        } else if (hasNewlines && isWin) {
-            // Windows: send via server (handles \r\n conversion)
-            wsRef.current.send(JSON.stringify({
-                type: "multiline",
-                text,
-            }));
         } else {
             // Single-line: send text then Enter
             wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));
