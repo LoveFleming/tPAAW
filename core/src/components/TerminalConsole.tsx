@@ -60,8 +60,8 @@ export default function TerminalConsole({
     const sendInput = useCallback((text: string) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-        const isWin = platformRef.current === "win32";
         const hasNewlines = text.includes("\n");
+        const isWin = platformRef.current === "win32";
 
         if (hasNewlines && !isWin) {
             // macOS / Linux: bracketed paste works reliably
@@ -75,29 +75,13 @@ export default function TerminalConsole({
                 }
             }, 300);
         } else if (hasNewlines && isWin) {
-            // Windows: bracketed paste unreliable with ConPTY — type text in chunks
-            // to avoid "pasted content" prompt that requires manual Enter.
-            // Replace \n with \r\n for Windows terminal, send in small chunks.
-            const winText = text.replace(/\n/g, "\r\n");
-            const CHUNK = 24; // chars per chunk
-            const CHUNK_DELAY = 40; // ms between chunks
-            const totalChunks = Math.ceil(winText.length / CHUNK);
-
-            for (let i = 0; i < totalChunks; i++) {
-                const chunk = winText.slice(i * CHUNK, (i + 1) * CHUNK);
-                setTimeout(() => {
-                    if (wsRef.current?.readyState === WebSocket.OPEN) {
-                        wsRef.current.send(JSON.stringify({ type: "input", text: chunk }));
-                    }
-                }, i * CHUNK_DELAY);
-            }
-
-            // Send Enter to submit after all chunks
-            setTimeout(() => {
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
-                }
-            }, totalChunks * CHUNK_DELAY + 200);
+            // Windows: delegate to server-side chunked write
+            // ConPTY detects rapid input as paste and shows "pasted content".
+            // Server will write char-by-char with real delays to avoid this.
+            wsRef.current.send(JSON.stringify({
+                type: "multiline",
+                text,
+            }));
         } else {
             // Single-line: send text then Enter
             wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));

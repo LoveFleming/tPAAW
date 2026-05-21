@@ -1099,6 +1099,28 @@ wss.on("connection", (ws, req) => {
         session.pty.write(msg.text || "");
       }
     }
+    else if (msg.type === "multiline") {
+      // Server-side chunked write for Windows — avoids ConPTY paste detection.
+      // Client sends full text, server writes it char-by-char with real delays.
+      const session = ptySessions.get(ws);
+      if (!session?.pty) return;
+      const pty = session.pty;
+      const fullText = (msg.text || "").replace(/\n/g, "\r\n");
+      const CHUNK = 8;        // chars per write
+      const CHUNK_DELAY = 20;  // ms between writes
+      let i = 0;
+      const timer = setInterval(() => {
+        const chunk = fullText.slice(i, i + CHUNK);
+        if (!chunk) { clearInterval(timer); return; }
+        try { pty.write(chunk); } catch { clearInterval(timer); }
+        i += CHUNK;
+        if (i >= fullText.length) {
+          clearInterval(timer);
+          // Send Enter to submit after all chunks
+          setTimeout(() => { try { pty.write("\r"); } catch {} }, 150);
+        }
+      }, CHUNK_DELAY);
+    }
     else if (msg.type === "resize") {
       const session = ptySessions.get(ws);
       if (session?.pty && msg.cols && msg.rows) {
