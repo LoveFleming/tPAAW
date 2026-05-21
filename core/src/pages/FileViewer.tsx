@@ -38,11 +38,31 @@ function detectLanguage(name: string): string | undefined {
   return map[ext];
 }
 
-function detectFileType(name: string): "markdown" | "json" | "code" {
+function detectFileType(name: string): "markdown" | "json" | "image" | "code" {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (ext === "md" || ext === "markdown") return "markdown";
   if (ext === "json") return "json";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"].includes(ext)) return "image";
   return "code";
+}
+
+// ── Image View ──
+function ImageView({ filePath }: { filePath: string }) {
+  const { info: t } = useTheme();
+  const url = `http://127.0.0.1:4097/api/fs/file?path=${encodeURIComponent(filePath)}`;
+  return (
+    <div className="flex-1 flex items-center justify-center p-6 overflow-auto" style={{ backgroundColor: t.accentBg }}>
+      <img
+        src={url}
+        alt={pathBasename(filePath)}
+        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+          (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class=\"text-stone-400 text-sm\">Failed to load image</div>`;
+        }}
+      />
+    </div>
+  );
 }
 
 // ── Markdown View (theme-aware prose) ──
@@ -190,6 +210,15 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
 
   useEffect(() => {
     if (!filePath) { setContent(null); setMeta(null); return; }
+    const fileName = pathBasename(filePath);
+    const fileType = detectFileType(fileName);
+    // For images, don't fetch content — ImageView uses direct URL
+    if (fileType === "image") {
+      setContent(""); // trigger loaded state
+      setMeta({ size: 0 });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setContent(null);
     setMeta(null);
@@ -237,6 +266,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
           {fileType === "json" && parsedJson !== null && <JsonViewer data={parsedJson} />}
           {fileType === "json" && parsedJson === null && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} /></div>}
           {fileType === "markdown" && <div className="flex-1 overflow-auto"><MarkdownView content={content} /></div>}
+          {fileType === "image" && <ImageView filePath={filePath} />}
           {fileType === "code" && <div className="flex-1 overflow-hidden"><CodeView content={content} fileName={fileName} /></div>}
         </div>
       ) : null}

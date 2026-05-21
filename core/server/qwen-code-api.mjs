@@ -889,9 +889,27 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: "File too large (max 1MB)" }));
         return;
       }
-      const content = await readFile(absPath, "utf-8");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ path: absPath, content, size: stat.size }));
+      const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
+      const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"];
+      if (imageExts.includes(ext)) {
+        // Binary image file — return raw bytes
+        const mimeMap = {
+          png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+          gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+          bmp: "image/bmp", ico: "image/x-icon",
+        };
+        const data = await readFile(absPath); // buffer
+        res.writeHead(200, {
+          "Content-Type": mimeMap[ext] || "application/octet-stream",
+          "Content-Length": stat.size,
+          "Cache-Control": "public, max-age=3600",
+        });
+        res.end(data);
+      } else {
+        const content = await readFile(absPath, "utf-8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ path: absPath, content, size: stat.size }));
+      }
     } catch {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "File not found" }));
