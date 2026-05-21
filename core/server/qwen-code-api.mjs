@@ -275,6 +275,27 @@ const server = createServer(async (req, res) => {
         }
 
         if (models.length === 0) {
+          // Fallback: execute `opencode models` to get live model list
+          const config = CLI_CONFIGS.opencode;
+          const platform = process.platform;
+          const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
+          const bin = process.env[config.envBin] || config.bins[binKey];
+          try {
+            const { stdout } = await execAsync(`"${bin}" models 2>&1`, { timeout: 15000 });
+            const lines = (stdout || "").split("\n").map(l => l.trim()).filter(Boolean);
+            const seen = new Set();
+            for (const line of lines) {
+              if (!seen.has(line)) {
+                seen.add(line);
+                models.push({ id: line, name: line, current: false });
+              }
+            }
+          } catch (err) {
+            console.log(`[Models] opencode models fallback failed: ${err.message}`);
+          }
+        }
+
+        if (models.length === 0) {
           models.push({ id: "default", name: "OpenCode Default", current: true });
         }
       }
