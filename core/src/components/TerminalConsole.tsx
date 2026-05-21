@@ -46,8 +46,8 @@ export default function TerminalConsole({
     const mountedRef = useRef(true);
 
     // Stable options ref so closures always see latest props
-    const optsRef = useRef({ cwd, cli, model, approvalMode, systemPrompt });
-    optsRef.current = { cwd, cli, model, approvalMode, systemPrompt };
+    const optsRef = useRef({ cwd, cli, model, approvalMode, systemPrompt, initialPrompt });
+    optsRef.current = { cwd, cli, model, approvalMode, systemPrompt, initialPrompt };
 
     // Send a string to PTY via WebSocket
     const sendToPty = useCallback((text: string) => {
@@ -159,6 +159,7 @@ export default function TerminalConsole({
                     model: opts.model || undefined,
                     approvalMode: opts.approvalMode || "yolo",
                     systemPrompt: opts.systemPrompt || undefined,
+                    initialPrompt: opts.initialPrompt || undefined,
                 },
             }));
         };

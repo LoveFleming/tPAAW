@@ -1093,15 +1093,12 @@ const CLI_CONFIGS = {
     envBin: "OPENCODE_BIN",
     buildArgs: (opts) => {
       const args = [];
-      // OpenCode model format: provider/model (e.g. openrouter/anthropic/claude-sonnet-4)
-      // Only pass -m if model looks like provider/model format
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
-      // Initial prompt: pass via --prompt flag instead of PTY write
-      // Go TUI (Bubble Tea) doesn't reliably accept programmatic PTY input
-      if (opts.systemPrompt) {
-        args.push("--prompt", opts.systemPrompt);
+      // Initial prompt via --prompt flag (Go TUI can't receive PTY writes)
+      if (opts.initialPrompt) {
+        args.push("--prompt", opts.initialPrompt);
       }
       return args;
     },
