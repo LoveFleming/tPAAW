@@ -64,7 +64,7 @@ export default function TerminalConsole({
         const isWin = platformRef.current === "win32";
 
         if (hasNewlines && !isWin) {
-            // macOS / Linux: bracketed paste works reliably
+            // macOS / Linux: bracketed paste
             wsRef.current.send(JSON.stringify({
                 type: "input",
                 text: `\x1b[200~${text}\x1b[201~`,
@@ -75,12 +75,10 @@ export default function TerminalConsole({
                 }
             }, 300);
         } else if (hasNewlines && isWin) {
-            // Windows: delegate to server-side write
-            // Send cli type so server can choose the right strategy
+            // Windows: send via server (handles \r\n conversion)
             wsRef.current.send(JSON.stringify({
                 type: "multiline",
                 text,
-                cli: optsRef.current.cli || "qwen",
             }));
         } else {
             // Single-line: send text then Enter

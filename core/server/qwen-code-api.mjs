@@ -1212,37 +1212,13 @@ wss.on("connection", (ws, req) => {
       }
     }
     else if (msg.type === "multiline") {
-      // Server-side write for Windows multi-line input
+      // Windows multi-line: convert \n to \r\n and send directly
       const session = ptySessions.get(ws);
       if (!session?.pty) return;
-      const pty = session.pty;
-      const cli = msg.cli || "qwen";
-
-      if (cli === "opencode") {
-        // OpenCode TUI on Windows: just send full text raw + Enter
-        // Chunked write doesn't work — OpenCode's TUI ignores it
-        // Bracketed paste also doesn't work
-        // Raw write + \r works for single-line; for multi-line send as-is
-        try {
-          pty.write(msg.text + "\r");
-        } catch {}
-      } else {
-        // Qwen / Claude on Windows: chunked write to avoid ConPTY paste detection
-        const fullText = (msg.text || "").replace(/\n/g, "\r\n");
-        const CHUNK = 8;
-        const CHUNK_DELAY = 20;
-        let i = 0;
-        const timer = setInterval(() => {
-          const chunk = fullText.slice(i, i + CHUNK);
-          if (!chunk) { clearInterval(timer); return; }
-          try { pty.write(chunk); } catch { clearInterval(timer); }
-          i += CHUNK;
-          if (i >= fullText.length) {
-            clearInterval(timer);
-            setTimeout(() => { try { pty.write("\r"); } catch {} }, 150);
-          }
-        }, CHUNK_DELAY);
-      }
+      const fullText = (msg.text || "").replace(/\n/g, "\r\n");
+      try {
+        session.pty.write(fullText + "\r");
+      } catch {}
     }
     else if (msg.type === "resize") {
       const session = ptySessions.get(ws);
