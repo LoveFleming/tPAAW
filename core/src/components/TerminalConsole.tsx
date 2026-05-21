@@ -215,20 +215,41 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // OpenCode: --prompt pre-fills text, just need Enter to submit
-    // Qwen/Claude: send via bracketed paste after CLI initializes
+    // OpenCode: poll health → clipboard + term.paste() + Enter
+    // Qwen/Claude: bracketed paste after 4s
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
         initialSentRef.current = true;
 
         if (cli === "opencode") {
-            // --prompt flag pre-fills the text, send Enter to submit
-            const timer = setTimeout(() => {
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
-                }
-            }, 2000);
-            return () => clearTimeout(timer);
+            // Poll OpenCode server until healthy, then paste via xterm.js
+            let attempts = 0;
+            const maxAttempts = 30;
+            const poll = setInterval(async () => {
+                attempts++;
+                try {
+                    const r = await fetch("http://127.0.0.1:4097/api/opencode/health");
+                    const data = await r.json();
+                    if (data.healthy) {
+                        clearInterval(poll);
+                        const term = termRef.current;
+                        if (term) {
+                            // Copy to clipboard
+                            navigator.clipboard?.writeText(initialPrompt).catch(() => {});
+                            // paste via xterm.js — simulates real Ctrl+V
+                            term.paste(initialPrompt);
+                            // Wait for paste to settle, then submit
+                            setTimeout(() => {
+                                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                                }
+                            }, 800);
+                        }
+                    }
+                } catch {}
+                if (attempts >= maxAttempts) clearInterval(poll);
+            }, 1000);
+            return () => clearInterval(poll);
         }
 
         // Qwen / Claude: bracketed paste

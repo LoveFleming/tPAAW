@@ -1148,12 +1148,6 @@ const CLI_CONFIGS = {
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
-      // Pass initial prompt via --prompt flag — OpenCode TUI handles it natively
-      if (opts.initialPrompt) {
-        console.log(`[OpenCode buildArgs] --prompt length=${opts.initialPrompt.length}, first 100: ${JSON.stringify(opts.initialPrompt.slice(0, 100))}`);
-        args.push("--prompt", opts.initialPrompt);
-      }
-      console.log(`[OpenCode buildArgs] args count=${args.length}`);
       return args;
     },
   },
