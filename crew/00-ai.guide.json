@@ -22,7 +22,7 @@
         "maxTokens": 4096,
         "temperature": 0.5,
         "cli": "opencode",
-        "model": "opencode/big-pickle",
+        "model": "openrouter/moonshotai/kimi-k2.6",
         "approvalMode": "yolo"
     }
 }

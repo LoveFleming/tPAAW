@@ -348,7 +348,6 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/api/opencode/health") {
     const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
     const port = ocSession?.serverPort || 4199;
-    console.log(`[OpenCode Health] checking port ${port}, session found: ${!!ocSession}`);
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/global/health`, { signal: AbortSignal.timeout(3000) });
       const data = await resp.json();
@@ -1188,7 +1187,6 @@ function spawnCli(ptySpawn, opts) {
     }
   }
 
-  console.log(`[PTY] Spawning ${config.name}: ${bin} ${args.map(a => a.includes('\n') ? `[${a.length} chars multiline]` : a).join(' ')} (cwd: ${resolvedCwd})`);
   return ptySpawn(bin, args, ptyOpts);
 }
 
