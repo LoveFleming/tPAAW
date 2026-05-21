@@ -328,16 +328,15 @@ const server = createServer(async (req, res) => {
       const sessionID = sess.id;
       console.log(`[OpenCode Prompt] created session: ${sessionID}`);
 
-      // Send message to the session
-      const msgResp = await fetch(`http://127.0.0.1:${port}/session/${sessionID}/message`, {
+      // Send message asynchronously (no wait for response)
+      const msgResp = await fetch(`http://127.0.0.1:${port}/session/${sessionID}/prompt_async`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           parts: [{ type: "text", text: parsed.text || "" }],
         }),
       });
-      const msgBody = await msgResp.text();
-      console.log(`[OpenCode Prompt] message response: ${msgResp.status} ${msgBody.slice(0, 100)}`);
+      console.log(`[OpenCode Prompt] prompt_async response: ${msgResp.status}`);
 
       // Switch TUI to this session so user can see it
       await fetch(`http://127.0.0.1:${port}/tui/select-session`, {
