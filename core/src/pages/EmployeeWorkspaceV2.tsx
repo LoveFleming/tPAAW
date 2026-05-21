@@ -43,11 +43,17 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [runningCli, setRunningCli] = useState(savedCli);
     const [runningModel, setRunningModel] = useState(savedModel);
     const [runningApproval, setRunningApproval] = useState(savedApproval);
-    // Sync running config when employee changes
+    // Sync running config when employee changes (different employee selected)
+    const prevEmpIdRef = useRef(employee?.id);
     useEffect(() => {
-        setRunningCli(savedCli);
-        setRunningModel(savedModel);
-        setRunningApproval(savedApproval);
+        if (employee?.id !== prevEmpIdRef.current) {
+            prevEmpIdRef.current = employee?.id;
+            setRunningCli(savedCli);
+            setRunningModel(savedModel);
+            setRunningApproval(savedApproval);
+            setSelectedModel(savedModel);
+            fetchModels(savedCli, savedModel);
+        }
     }, [employee?.id]); // eslint-disable-line react-hooks/exhaustive-deps
     const [aieocRoot, setAieocRoot] = useState("");
 
