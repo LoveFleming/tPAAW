@@ -237,7 +237,7 @@ const server = createServer(async (req, res) => {
           // Windows fallback
           join(process.env.APPDATA || join(homeDir, "AppData/Roaming"), "opencode/opencode.json"),
         ];
-        let opencodeConfig: any = null;
+        let opencodeConfig = null;
         for (const cp of configPaths) {
           try {
             const raw = await readFile(cp, "utf-8");
@@ -254,7 +254,7 @@ const server = createServer(async (req, res) => {
           // Collect models from provider configs
           const providers = opencodeConfig.provider || opencodeConfig.providers || {};
           for (const [provName, provConf] of Object.entries(providers)) {
-            const pc = provConf as any;
+            const pc = provConf;
             // If whitelist is set, only show those models
             if (Array.isArray(pc.whitelist)) {
               for (const m of pc.whitelist) {
@@ -265,7 +265,7 @@ const server = createServer(async (req, res) => {
             // Also include custom model definitions
             if (pc.models && typeof pc.models === "object") {
               for (const [modelId, modelDef] of Object.entries(pc.models)) {
-                const md = modelDef as any;
+                const md = modelDef;
                 if (!models.find(m => m.id === modelId)) {
                   models.push({ id: modelId, name: md.name || modelId, current: modelId === currentModel });
                 }
