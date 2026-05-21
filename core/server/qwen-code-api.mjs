@@ -316,19 +316,49 @@ const server = createServer(async (req, res) => {
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const port = CLI_CONFIGS.opencode?.serverPort || 4199;
     try {
+      // First append the prompt text
       const resp = await fetch(`http://127.0.0.1:${port}/tui/append-prompt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: parsed.text || "" }),
       });
-      if (resp.ok) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true }));
-      } else {
+      if (!resp.ok) {
         const text = await resp.text();
         res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: `OpenCode server returned ${resp.status}`, detail: text }));
+        res.end(JSON.stringify({ error: `OpenCode /tui/append-prompt returned ${resp.status}`, detail: text }));
+        return;
       }
+      // If submit flag is set, send Enter key via PTY
+      if (parsed.submit) {
+        const session = [...ptySessions.values()].find(s => s.cliType === "opencode");
+        if (session?.pty) {
+          setTimeout(() => { try { session.pty.write("\r"); } catch {} }, 300);
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `OpenCode server not ready: ${err.message}` }));
+    }
+    return;
+  }
+
+  // PATCH /api/opencode/config — switch model via OpenCode server
+  if (req.method === "PATCH" && req.url === "/api/opencode/config") {
+    const body = await readBody(req);
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const port = CLI_CONFIGS.opencode?.serverPort || 4199;
+    try {
+      const resp = await fetch(`http://127.0.0.1:${port}/config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const data = await resp.text();
+      res.writeHead(resp.status, { "Content-Type": "application/json" });
+      res.end(data);
     } catch (err) {
       res.writeHead(502, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: `OpenCode server not ready: ${err.message}` }));
@@ -1232,7 +1262,7 @@ wss.on("connection", (ws, req) => {
       try {
         const pty = spawnCli(ptySpawn, msg.options || {});
 
-        ptySessions.set(ws, { pty, id: sessionId });
+        ptySessions.set(ws, { pty, id: sessionId, cliType });
 
         pty.onData((data) => {
           if (ws.readyState === 1) {

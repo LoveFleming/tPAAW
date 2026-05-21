@@ -215,8 +215,8 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // OpenCode: poll health then POST /api/opencode/prompt (via OpenCode SDK server)
-    // Qwen/Claude: send via bracketed paste after CLI initializes
+    // OpenCode: poll health → POST /api/opencode/prompt (SDK server API)
+    // Qwen/Claude: send via bracketed paste (PTY)
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
         initialSentRef.current = true;
@@ -232,17 +232,18 @@ export default function TerminalConsole({
                     const data = await r.json();
                     if (data.healthy) {
                         clearInterval(poll);
-                        // Send prompt via OpenCode SDK server
+                        // Send prompt via OpenCode SDK server + submit
                         await fetch("http://127.0.0.1:4097/api/opencode/prompt", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ text: initialPrompt }),
+                            body: JSON.stringify({ text: initialPrompt, submit: true }),
                         });
                     }
                 } catch {}
                 if (attempts >= maxAttempts) clearInterval(poll);
             }, 1000);
             return () => clearInterval(poll);
+        }
         }
 
         // Qwen / Claude: bracketed paste
