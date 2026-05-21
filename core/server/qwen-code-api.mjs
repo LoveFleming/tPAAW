@@ -1143,17 +1143,14 @@ const CLI_CONFIGS = {
     name: "OpenCode",
     bins: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
     envBin: "OPENCODE_BIN",
-    // Port range for OpenCode's built-in HTTP server
-    // Each spawn gets a unique port to avoid conflicts
-    serverPortBase: 4199,
     buildArgs: (opts) => {
       const args = [];
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
-      // Pass assigned port for SDK API access
-      if (opts.serverPort) {
-        args.push("--port", String(opts.serverPort));
+      // Pass initial prompt via --prompt flag — OpenCode TUI handles it natively
+      if (opts.initialPrompt) {
+        args.push("--prompt", opts.initialPrompt);
       }
       return args;
     },
@@ -1245,14 +1242,11 @@ wss.on("connection", (ws, req) => {
 
       // For OpenCode: assign a unique server port
       const opts = msg.options || {};
-      if (opts.cli === "opencode") {
-        opts.serverPort = CLI_CONFIGS.opencode.serverPortBase + Math.floor(Math.random() * 100);
-      }
 
       try {
         const pty = spawnCli(ptySpawn, opts);
 
-        ptySessions.set(ws, { pty, id: sessionId, cliType: opts.cli || "qwen", serverPort: opts.serverPort });
+        ptySessions.set(ws, { pty, id: sessionId, cliType: opts.cli || "qwen" });
 
         pty.onData((data) => {
           if (ws.readyState === 1) {

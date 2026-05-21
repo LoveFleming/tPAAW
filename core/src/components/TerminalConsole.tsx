@@ -215,42 +215,12 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // OpenCode: poll health → term.paste() when server is ready
+    // OpenCode: skip — prompt passed via --prompt flag at spawn time
     // Qwen/Claude: send via bracketed paste after CLI initializes
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
+        if (cli === "opencode") return; // --prompt flag handles it
         initialSentRef.current = true;
-
-        if (cli === "opencode") {
-            // Poll OpenCode's built-in server until healthy, then paste via xterm.js
-            let attempts = 0;
-            const maxAttempts = 30; // 30 * 1s = 30s max wait
-            const poll = setInterval(async () => {
-                attempts++;
-                try {
-                    const r = await fetch("http://127.0.0.1:4097/api/opencode/health");
-                    const data = await r.json();
-                    if (data.healthy) {
-                        clearInterval(poll);
-                        // Use xterm.js paste() — simulates real paste into TUI
-                        const term = termRef.current;
-                        if (term) {
-                            term.paste(initialPrompt);
-                            // Submit with Enter after paste settles
-                            setTimeout(() => {
-                                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
-                                }
-                            }, 500);
-                        }
-                    }
-                } catch {}
-                if (attempts >= maxAttempts) clearInterval(poll);
-            }, 1000);
-            return () => clearInterval(poll);
-        }
-
-        // Qwen / Claude: bracketed paste
         const timer = setTimeout(() => {
             sendInput(initialPrompt);
         }, 4000);
