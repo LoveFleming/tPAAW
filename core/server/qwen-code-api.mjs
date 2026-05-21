@@ -1150,8 +1150,10 @@ const CLI_CONFIGS = {
       }
       // Pass initial prompt via --prompt flag — OpenCode TUI handles it natively
       if (opts.initialPrompt) {
+        console.log(`[OpenCode buildArgs] --prompt length=${opts.initialPrompt.length}, first 100: ${JSON.stringify(opts.initialPrompt.slice(0, 100))}`);
         args.push("--prompt", opts.initialPrompt);
       }
+      console.log(`[OpenCode buildArgs] args count=${args.length}`);
       return args;
     },
   },
@@ -1188,7 +1190,7 @@ function spawnCli(ptySpawn, opts) {
     }
   }
 
-  console.log(`[PTY] Spawning ${config.name}: ${bin} ${args.join(" ")} (cwd: ${resolvedCwd})`);
+  console.log(`[PTY] Spawning ${config.name}: ${bin} ${args.map(a => a.includes('\n') ? `[${a.length} chars multiline]` : a).join(' ')} (cwd: ${resolvedCwd})`);
   return ptySpawn(bin, args, ptyOpts);
 }
 
