@@ -327,7 +327,7 @@ const server = createServer(async (req, res) => {
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
-    const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
+    const port = ocSession?.serverPort || 4199;
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/config`, {
         method: "PATCH",
@@ -347,7 +347,7 @@ const server = createServer(async (req, res) => {
   // GET /api/opencode/health — check if OpenCode server is up
   if (req.method === "GET" && req.url === "/api/opencode/health") {
     const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
-    const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
+    const port = ocSession?.serverPort || 4199;
     console.log(`[OpenCode Health] checking port ${port}, session found: ${!!ocSession}`);
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/global/health`, { signal: AbortSignal.timeout(3000) });
@@ -1148,6 +1148,10 @@ const CLI_CONFIGS = {
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
+      // Fixed port for health check + future SDK API use
+      if (opts.serverPort) {
+        args.push("--port", String(opts.serverPort));
+      }
       return args;
     },
   },
@@ -1238,11 +1242,14 @@ wss.on("connection", (ws, req) => {
 
       // For OpenCode: assign a unique server port
       const opts = msg.options || {};
+      if (opts.cli === "opencode") {
+        opts.serverPort = 4199 + Math.floor(Math.random() * 100);
+      }
 
       try {
         const pty = spawnCli(ptySpawn, opts);
 
-        ptySessions.set(ws, { pty, id: sessionId, cliType: opts.cli || "qwen" });
+        ptySessions.set(ws, { pty, id: sessionId, cliType: opts.cli || "qwen", serverPort: opts.serverPort });
 
         pty.onData((data) => {
           if (ws.readyState === 1) {
