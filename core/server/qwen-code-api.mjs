@@ -226,24 +226,18 @@ const server = createServer(async (req, res) => {
           models.push({ id: m.id, name: m.name, current: m.id === currentModel });
         }
       } else if (cliType === "opencode") {
-        // OpenCode — try reading config
-        const opencodeConfigs = [
-          join(homeDir, ".opencode/config.json"),
-          join(homeDir, ".config/opencode/config.json"),
-        ];
-        for (const p of opencodeConfigs) {
-          try {
-            const raw = await readFile(p, "utf-8");
-            const oc = JSON.parse(raw);
-            currentModel = oc.model || oc.defaultModel || "";
-            if (Array.isArray(oc.models)) {
-              for (const m of oc.models) {
-                models.push({ id: m.id || m, name: m.name || m.id || m, current: (m.id || m) === currentModel });
-              }
+        // OpenCode — try reading ~/.config/opencode/opencode.json (Mac & Linux)
+        try {
+          const opencodeConfigPath = join(homeDir, ".config/opencode/opencode.json");
+          const raw = await readFile(opencodeConfigPath, "utf-8");
+          const oc = JSON.parse(raw);
+          currentModel = oc.model || oc.defaultModel || "";
+          if (Array.isArray(oc.models)) {
+            for (const m of oc.models) {
+              models.push({ id: m.id || m, name: m.name || m.id || m, current: (m.id || m) === currentModel });
             }
-            break;
-          } catch {}
-        }
+          }
+        } catch {}
         // Fallback if no config found
         if (models.length === 0) {
           models.push({ id: "default", name: "OpenCode Default", current: true });
