@@ -140,7 +140,7 @@ function AppInner() {
   const renderPage = (pageId: string) => {
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
     if (pageId.startsWith("factory.file.")) {
-      const fileName = pageId.slice(14);
+      const fileName = pageId.slice(13);
       const filePath = `${aieocRoot}/factory/${fileName}`;
       return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
     }
