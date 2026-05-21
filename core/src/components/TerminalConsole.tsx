@@ -281,6 +281,7 @@ export default function TerminalConsole({
                         model: opts.model || undefined,
                         approvalMode: opts.approvalMode || "yolo",
                         systemPrompt: opts.systemPrompt || undefined,
+                        initialPrompt: opts.initialPrompt || undefined,
                     },
                 }));
             };
@@ -349,6 +350,7 @@ export default function TerminalConsole({
                         model: opts.model || undefined,
                         approvalMode: opts.approvalMode || "yolo",
                         systemPrompt: opts.systemPrompt || undefined,
+                        initialPrompt: opts.initialPrompt || undefined,
                     },
                 }));
             };
