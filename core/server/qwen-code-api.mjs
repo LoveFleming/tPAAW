@@ -317,6 +317,7 @@ const server = createServer(async (req, res) => {
     // Find the active OpenCode session to get its port
     const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
     const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
+    console.log(`[OpenCode Prompt] port=${port}, session=${!!ocSession}, text=${(parsed.text||"").slice(0,60)}...`);
     try {
       // First append the prompt text
       const resp = await fetch(`http://127.0.0.1:${port}/tui/append-prompt`, {
@@ -373,6 +374,7 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/api/opencode/health") {
     const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
     const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
+    console.log(`[OpenCode Health] checking port ${port}, session found: ${!!ocSession}`);
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/global/health`, { signal: AbortSignal.timeout(3000) });
       const data = await resp.json();
