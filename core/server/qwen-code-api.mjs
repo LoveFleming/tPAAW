@@ -884,14 +884,20 @@ const server = createServer(async (req, res) => {
     }
     try {
       const stat = await import("fs").then(m => m.promises.stat(absPath));
-      if (stat.size > 1024 * 1024) {
+      const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
+      const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"];
+      const isImage = imageExts.includes(ext);
+      if (isImage && stat.size > 10 * 1024 * 1024) {
+        res.writeHead(413, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Image too large (max 10MB)" }));
+        return;
+      }
+      if (!isImage && stat.size > 1024 * 1024) {
         res.writeHead(413, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "File too large (max 1MB)" }));
         return;
       }
-      const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
-      const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"];
-      if (imageExts.includes(ext)) {
+      if (isImage) {
         // Binary image file — return raw bytes
         const mimeMap = {
           png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
