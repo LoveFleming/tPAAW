@@ -922,11 +922,11 @@ const server = createServer(async (req, res) => {
   }
 
   // GET /api/factory-content/:name — single file
-  const singleFileMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content\/([\w-]+)$/);
+  const singleFileMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content\/([\w.-]+)$/);
   if (singleFileMatch) {
     const name = singleFileMatch[1];
     const factoryDir = FACTORY_ROOT;
-    const filePath = join(factoryDir, `${name}.md`);
+    const filePath = join(factoryDir, name);
     try {
       const content = await readFile(filePath, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -938,18 +938,12 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/factory-content — list all markdown files
+  // GET /api/factory-content — list all files in factory directory
   if (req.method === "GET" && req.url === "/api/factory-content") {
     const factoryDir = FACTORY_ROOT;
     try {
       const files = await readdir(factoryDir);
-      const mdFiles = files.filter(f => f.endsWith(".md")).sort();
-      const result = await Promise.all(
-        mdFiles.map(async (name) => {
-          const content = await readFile(join(factoryDir, name), "utf-8");
-          return { filename: name.replace(/\.md$/, ""), content };
-        })
-      );
+      const result = files.sort().map(f => ({ filename: f }));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
     } catch (err) {

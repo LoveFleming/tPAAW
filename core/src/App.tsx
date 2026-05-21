@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import WelcomePage from "./pages/WelcomePage";
 import AICrew from "./pages/AICrew";
-import FactoryDocument from "./pages/FactoryDocument";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 
@@ -40,6 +39,7 @@ function AppInner() {
 
   const [crew, setCrew] = useState<Skill[]>([]);
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
+  const [aieocRoot, setAieocRoot] = useState("");
 
   const loadCrew = useCallback(async () => {
     try {
@@ -55,6 +55,11 @@ function AppInner() {
         const data = await resp.json();
         setFactoryFiles(data.map((f: any) => f.filename));
       }
+    } catch {}
+    try {
+      const r = await fetch("http://127.0.0.1:4097/api/models?cli=qwen");
+      const d = await r.json();
+      if (d.aieocRoot) setAieocRoot(d.aieocRoot);
     } catch {}
   }, []);
 
@@ -100,13 +105,12 @@ function AppInner() {
 
   const factoryNav = useMemo(() => {
     const staticItems = [{ id: "factory.crew", label: "AI Crew" }];
-    const mdItems = factoryFiles
-      .filter(f => f !== "quick-tour")
+    const fileItems = factoryFiles
       .map(f => ({
-        id: `factory.md.${f}`,
-        label: f.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        id: `factory.file.${f}`,
+        label: f.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
       }));
-    return [...mdItems, ...staticItems];
+    return [...fileItems, ...staticItems];
   }, [factoryFiles]);
 
   if (showWelcome || !projectRoot) {
@@ -135,10 +139,10 @@ function AppInner() {
 
   const renderPage = (pageId: string) => {
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
-    if (pageId.startsWith("factory.md.")) {
-      const file = pageId.slice(11);
-      const label = factoryNav.find(n => n.id === pageId)?.label ?? file;
-      return <FactoryDocument file={file} headerIcon="scroll" headerTitle={label} headerSub="" />;
+    if (pageId.startsWith("factory.file.")) {
+      const fileName = pageId.slice(14);
+      const filePath = `${aieocRoot}/factory/${fileName}`;
+      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
     }
     if (pageId.startsWith("file://")) {
       const filePath = pageId.slice(7);
