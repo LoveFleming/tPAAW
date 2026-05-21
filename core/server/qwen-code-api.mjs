@@ -325,6 +325,8 @@ const server = createServer(async (req, res) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: parsed.text || "" }),
       });
+      const respBody = await resp.text();
+      console.log(`[OpenCode Prompt] /tui/append-prompt response: ${resp.status} ${respBody}`);
       if (!resp.ok) {
         const text = await resp.text();
         res.writeHead(502, { "Content-Type": "application/json" });
