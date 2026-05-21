@@ -309,48 +309,15 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // POST /api/opencode/prompt — send prompt to OpenCode via session message API
+  // POST /api/opencode/prompt — send prompt to OpenCode via term.paste
   if (req.method === "POST" && req.url === "/api/opencode/prompt") {
     const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
-    const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
-    console.log(`[OpenCode Prompt] port=${port}, session=${!!ocSession}, text=${(parsed.text||"").slice(0,60)}...`);
-    try {
-      // Create a new session
-      const sessResp = await fetch(`http://127.0.0.1:${port}/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const sess = await sessResp.json();
-      const sessionID = sess.id;
-      console.log(`[OpenCode Prompt] created session: ${sessionID}`);
-
-      // Send message asynchronously (no wait for response)
-      const msgResp = await fetch(`http://127.0.0.1:${port}/session/${sessionID}/prompt_async`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parts: [{ type: "text", text: parsed.text || "" }],
-        }),
-      });
-      console.log(`[OpenCode Prompt] prompt_async response: ${msgResp.status}`);
-
-      // Switch TUI to this session so user can see it
-      await fetch(`http://127.0.0.1:${port}/tui/select-session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionID }),
-      });
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(502, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `OpenCode server not ready: ${err.message}` }));
-    }
+    // This API just signals the frontend to use term.paste()
+    // The actual paste is done client-side after health check confirms ready
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, text: parsed.text || "" }));
     return;
   }
 

@@ -215,14 +215,14 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // OpenCode: poll health → POST /api/opencode/prompt (SDK server API)
-    // Qwen/Claude: send via bracketed paste (PTY)
+    // OpenCode: poll health → term.paste() when server is ready
+    // Qwen/Claude: send via bracketed paste after CLI initializes
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
         initialSentRef.current = true;
 
         if (cli === "opencode") {
-            // Poll OpenCode's built-in server until healthy, then send prompt via API
+            // Poll OpenCode's built-in server until healthy, then paste via xterm.js
             let attempts = 0;
             const maxAttempts = 30; // 30 * 1s = 30s max wait
             const poll = setInterval(async () => {
@@ -232,12 +232,17 @@ export default function TerminalConsole({
                     const data = await r.json();
                     if (data.healthy) {
                         clearInterval(poll);
-                        // Send prompt via OpenCode SDK server + submit
-                        await fetch("http://127.0.0.1:4097/api/opencode/prompt", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ text: initialPrompt, submit: true }),
-                        });
+                        // Use xterm.js paste() — simulates real paste into TUI
+                        const term = termRef.current;
+                        if (term) {
+                            term.paste(initialPrompt);
+                            // Submit with Enter after paste settles
+                            setTimeout(() => {
+                                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                                }
+                            }, 500);
+                        }
                     }
                 } catch {}
                 if (attempts >= maxAttempts) clearInterval(poll);
