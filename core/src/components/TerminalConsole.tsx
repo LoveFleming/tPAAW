@@ -75,12 +75,12 @@ export default function TerminalConsole({
                 }
             }, 300);
         } else if (hasNewlines && isWin) {
-            // Windows: delegate to server-side chunked write
-            // ConPTY detects rapid input as paste and shows "pasted content".
-            // Server will write char-by-char with real delays to avoid this.
+            // Windows: delegate to server-side write
+            // Send cli type so server can choose the right strategy
             wsRef.current.send(JSON.stringify({
                 type: "multiline",
                 text,
+                cli: optsRef.current.cli || "qwen",
             }));
         } else {
             // Single-line: send text then Enter
