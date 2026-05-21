@@ -309,38 +309,43 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // POST /api/opencode/prompt — send prompt to OpenCode TUI via its built-in server
+  // POST /api/opencode/prompt — send prompt to OpenCode via session message API
   if (req.method === "POST" && req.url === "/api/opencode/prompt") {
     const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    // Find the active OpenCode session to get its port
     const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
     const port = ocSession?.serverPort || CLI_CONFIGS.opencode?.serverPortBase || 4199;
     console.log(`[OpenCode Prompt] port=${port}, session=${!!ocSession}, text=${(parsed.text||"").slice(0,60)}...`);
     try {
-      // First append the prompt text
-      const resp = await fetch(`http://127.0.0.1:${port}/tui/append-prompt`, {
+      // Create a new session
+      const sessResp = await fetch(`http://127.0.0.1:${port}/session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: parsed.text || "" }),
+        body: JSON.stringify({}),
       });
-      const respBody = await resp.text();
-      console.log(`[OpenCode Prompt] /tui/append-prompt response: ${resp.status} ${respBody}`);
-      if (!resp.ok) {
-        res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: `OpenCode /tui/append-prompt returned ${resp.status}`, detail: respBody }));
-        return;
-      }
-      // If submit flag is set, use OpenCode SDK submit-prompt
-      if (parsed.submit) {
-        await fetch(`http://127.0.0.1:${port}/tui/submit-prompt`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        });
-        console.log(`[OpenCode Prompt] /tui/submit-prompt sent`);
-      }
+      const sess = await sessResp.json();
+      const sessionID = sess.id;
+      console.log(`[OpenCode Prompt] created session: ${sessionID}`);
+
+      // Send message to the session
+      const msgResp = await fetch(`http://127.0.0.1:${port}/session/${sessionID}/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parts: [{ type: "text", text: parsed.text || "" }],
+        }),
+      });
+      const msgBody = await msgResp.text();
+      console.log(`[OpenCode Prompt] message response: ${msgResp.status} ${msgBody.slice(0, 100)}`);
+
+      // Switch TUI to this session so user can see it
+      await fetch(`http://127.0.0.1:${port}/tui/select-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionID }),
+      });
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
     } catch (err) {
