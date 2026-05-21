@@ -1262,7 +1262,7 @@ wss.on("connection", (ws, req) => {
       try {
         const pty = spawnCli(ptySpawn, msg.options || {});
 
-        ptySessions.set(ws, { pty, id: sessionId, cliType });
+        ptySessions.set(ws, { pty, id: sessionId, cliType: (msg.options || {}).cli || "qwen" });
 
         pty.onData((data) => {
           if (ws.readyState === 1) {
