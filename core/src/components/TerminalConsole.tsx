@@ -60,35 +60,44 @@ export default function TerminalConsole({
     const sendInput = useCallback((text: string) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
+        const isWin = platformRef.current === "win32";
         const hasNewlines = text.includes("\n");
-        if (hasNewlines) {
-            // Multi-line: use bracketed paste so the CLI treats it as a single paste,
-            // then send Enter to confirm/submit.
-            // Windows Qwen CLI shows "pasted content N chars" and needs extra Enter.
+
+        if (hasNewlines && !isWin) {
+            // macOS / Linux: bracketed paste works reliably
             wsRef.current.send(JSON.stringify({
                 type: "input",
                 text: `\x1b[200~${text}\x1b[201~`,
             }));
-
-            const isWin = platformRef.current === "win32";
-            const firstDelay = isWin ? 800 : 300;
-            const enterChar = isWin ? "\r" : "\r";
-
-            // First Enter: confirm the paste
             setTimeout(() => {
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "input", text: enterChar }));
+                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
                 }
-            }, firstDelay);
+            }, 300);
+        } else if (hasNewlines && isWin) {
+            // Windows: bracketed paste unreliable with ConPTY — type text in chunks
+            // to avoid "pasted content" prompt that requires manual Enter.
+            // Replace \n with \r\n for Windows terminal, send in small chunks.
+            const winText = text.replace(/\n/g, "\r\n");
+            const CHUNK = 24; // chars per chunk
+            const CHUNK_DELAY = 40; // ms between chunks
+            const totalChunks = Math.ceil(winText.length / CHUNK);
 
-            // On Windows, send a safety-net Enter in case CLI still shows "pasted content"
-            if (isWin) {
+            for (let i = 0; i < totalChunks; i++) {
+                const chunk = winText.slice(i * CHUNK, (i + 1) * CHUNK);
                 setTimeout(() => {
                     if (wsRef.current?.readyState === WebSocket.OPEN) {
-                        wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                        wsRef.current.send(JSON.stringify({ type: "input", text: chunk }));
                     }
-                }, firstDelay + 800);
+                }, i * CHUNK_DELAY);
             }
+
+            // Send Enter to submit after all chunks
+            setTimeout(() => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                }
+            }, totalChunks * CHUNK_DELAY + 200);
         } else {
             // Single-line: send text then Enter
             wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));
