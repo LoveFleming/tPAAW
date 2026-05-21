@@ -309,6 +309,48 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // POST /api/opencode/prompt — send prompt to OpenCode TUI via its built-in server
+  if (req.method === "POST" && req.url === "/api/opencode/prompt") {
+    const body = await readBody(req);
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const port = CLI_CONFIGS.opencode?.serverPort || 4199;
+    try {
+      const resp = await fetch(`http://127.0.0.1:${port}/tui/append-prompt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: parsed.text || "" }),
+      });
+      if (resp.ok) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+      } else {
+        const text = await resp.text();
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `OpenCode server returned ${resp.status}`, detail: text }));
+      }
+    } catch (err) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `OpenCode server not ready: ${err.message}` }));
+    }
+    return;
+  }
+
+  // GET /api/opencode/health — check if OpenCode server is up
+  if (req.method === "GET" && req.url === "/api/opencode/health") {
+    const port = CLI_CONFIGS.opencode?.serverPort || 4199;
+    try {
+      const resp = await fetch(`http://127.0.0.1:${port}/global/health`, { signal: AbortSignal.timeout(3000) });
+      const data = await resp.json();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(503, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ healthy: false }));
+    }
+    return;
+  }
+
   // ── Crew CRUD endpoints ──
 
   const CREW_DIR = CREW_ROOT;
@@ -1091,11 +1133,14 @@ const CLI_CONFIGS = {
     name: "OpenCode",
     bins: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
     envBin: "OPENCODE_BIN",
+    serverPort: 4199, // fixed port for OpenCode's built-in HTTP server
     buildArgs: (opts) => {
       const args = [];
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
+      // Fixed port so we can POST /tui/append-prompt when ready
+      args.push("--port", String(CLI_CONFIGS.opencode.serverPort));
       return args;
     },
   },

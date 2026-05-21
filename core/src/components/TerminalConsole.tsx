@@ -215,31 +215,34 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // OpenCode: copy to clipboard then term.paste() after TUI initializes
+    // OpenCode: poll health then POST /api/opencode/prompt (via OpenCode SDK server)
     // Qwen/Claude: send via bracketed paste after CLI initializes
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
         initialSentRef.current = true;
 
         if (cli === "opencode") {
-            // OpenCode Go TUI: use xterm.js paste() to simulate real paste
-            // Wait for TUI to fully render, then paste prompt
-            const timer = setTimeout(() => {
-                const term = termRef.current;
-                if (!term) return;
-                // Copy to clipboard so user can also Ctrl+V manually
-                navigator.clipboard?.writeText(initialPrompt).catch(() => {});
-                // xterm.js paste() simulates a real paste event
-                // This goes through xterm's internal onData pipeline
-                term.paste(initialPrompt);
-                // Send Enter after paste settles
-                setTimeout(() => {
-                    if (wsRef.current?.readyState === WebSocket.OPEN) {
-                        wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+            // Poll OpenCode's built-in server until healthy, then send prompt via API
+            let attempts = 0;
+            const maxAttempts = 30; // 30 * 1s = 30s max wait
+            const poll = setInterval(async () => {
+                attempts++;
+                try {
+                    const r = await fetch("http://127.0.0.1:4097/api/opencode/health");
+                    const data = await r.json();
+                    if (data.healthy) {
+                        clearInterval(poll);
+                        // Send prompt via OpenCode SDK server
+                        await fetch("http://127.0.0.1:4097/api/opencode/prompt", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ text: initialPrompt }),
+                        });
                     }
-                }, 500);
-            }, 6000);
-            return () => clearTimeout(timer);
+                } catch {}
+                if (attempts >= maxAttempts) clearInterval(poll);
+            }, 1000);
+            return () => clearInterval(poll);
         }
 
         // Qwen / Claude: bracketed paste
