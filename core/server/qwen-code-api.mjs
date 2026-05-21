@@ -1110,7 +1110,7 @@ function spawnCli(ptySpawn, opts) {
 
   const platform = process.platform;
   const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
-  const bin = process.env[config.envBin] || config.bins[binKey];
+  let bin = process.env[config.envBin] || config.bins[binKey];
   const args = config.buildArgs(opts);
   const resolvedCwd = opts.cwd || process.env.QWEN_CWD || AIEOC_ROOT;
 
@@ -1119,6 +1119,14 @@ function spawnCli(ptySpawn, opts) {
     cwd: resolvedCwd,
     env: { ...process.env },
   };
+
+  // Windows: .cmd files need to be spawned via cmd.exe
+  if (platform === "win32" && bin.endsWith(".cmd")) {
+    const cmdBin = process.env.COMSPEC || "cmd.exe";
+    const cmdArgs = ["/c", bin, ...args];
+    console.log(`[PTY] Spawning ${config.name}: ${cmdBin} ${cmdArgs.join(" ")} (cwd: ${resolvedCwd})`);
+    return ptySpawn(cmdBin, cmdArgs, ptyOpts);
+  }
 
   console.log(`[PTY] Spawning ${config.name}: ${bin} ${args.join(" ")} (cwd: ${resolvedCwd})`);
   return ptySpawn(bin, args, ptyOpts);

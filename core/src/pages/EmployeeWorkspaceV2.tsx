@@ -37,9 +37,12 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [taskInput, setTaskInput] = useState("");
 
     // "Running" config = what the active console is using
-    const [runningCli, setRunningCli] = useState("qwen");
-    const [runningModel, setRunningModel] = useState("");
-    const [runningApproval, setRunningApproval] = useState("yolo");
+    const savedCli = employee?.chatConfig?.cli || "qwen";
+    const savedModel = employee?.chatConfig?.model || "";
+    const savedApproval = employee?.chatConfig?.approvalMode || "yolo";
+    const [runningCli, setRunningCli] = useState(savedCli);
+    const [runningModel, setRunningModel] = useState(savedModel);
+    const [runningApproval, setRunningApproval] = useState(savedApproval);
     const [aieocRoot, setAieocRoot] = useState("");
 
         const [formData, setFormData] = useState<Record<string, string>>({});
@@ -58,23 +61,28 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
     const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; timestamp: string }>>([]);
 
     // Fetch models for a specific CLI
-    const fetchModels = useCallback((cli: string) => {
+    const fetchModels = useCallback((cli: string, preferModel?: string) => {
         fetch(`http://127.0.0.1:4097/api/models?cli=${cli}`)
             .then(r => r.json())
             .then(data => {
                 if (data.aieocRoot) setAieocRoot(data.aieocRoot);
                 const list: ModelOption[] = data.models || [];
                 setModels(list);
-                const current = list.find((m: ModelOption) => m.current);
-                setSelectedModel(current ? current.id : (list.length > 0 ? list[0].id : ""));
+                // Prefer saved model, then current, then first
+                if (preferModel && list.find(m => m.id === preferModel)) {
+                    setSelectedModel(preferModel);
+                } else {
+                    const current = list.find((m: ModelOption) => m.current);
+                    setSelectedModel(current ? current.id : (list.length > 0 ? list[0].id : ""));
+                }
             })
             .catch(() => {});
     }, []);
 
-    // Initial fetch (default qwen)
+    // Initial fetch with saved config
     useEffect(() => {
-        fetchModels("qwen");
-    }, [fetchModels]);
+        fetchModels(savedCli, savedModel);
+    }, [fetchModels]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         fetch("http://127.0.0.1:4097/api/clis")
@@ -172,17 +180,17 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
         return "qwen";
     }, [selectedSkillIds]); // intentionally omit employee to avoid HMR reset
 
-    const [selectedCli, setSelectedCli] = useState<string>("qwen");
+    const [selectedCli, setSelectedCli] = useState<string>(savedCli);
 
-    // Sync selectedCli from skill default ONLY when skills selection changes
-    const prevSkillIdsRef = useRef<string>("");
+    // Sync selectedCli from saved config or skill default
     useEffect(() => {
-        const key = selectedSkillIds.sort().join(",");
-        if (key !== prevSkillIdsRef.current) {
-            prevSkillIdsRef.current = key;
+        if (savedCli) {
+            setSelectedCli(savedCli);
+            fetchModels(savedCli);
+        } else if (defaultCliFromSkills) {
             setSelectedCli(defaultCliFromSkills);
         }
-    }, [defaultCliFromSkills, selectedSkillIds]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // effectiveCli always follows user selection
     const effectiveCli = selectedCli;
@@ -241,17 +249,36 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
 
     // Apply pending config: save to crew JSON, hot-restart console with same prompt
     const applyConfig = useCallback(async () => {
-        // Save all changes to crew JSON
-        if (effectiveCli !== runningCli) await saveSkillConfig("cli", effectiveCli);
-        if ((effectiveModel || "") !== runningModel) await saveSkillConfig("model", effectiveModel || "");
-        if (permissionMode !== runningApproval) await saveSkillConfig("approvalMode", permissionMode);
+        // Save cli and model to crew JSON chatConfig for persistence
+        if (!employee) return;
+        const updated = { ...employee };
+        if (!updated.chatConfig) updated.chatConfig = {};
+        updated.chatConfig.cli = effectiveCli;
+        updated.chatConfig.model = effectiveModel || "";
+        updated.chatConfig.approvalMode = permissionMode;
+        // Also save to individual skills
+        const targets = selectedSkillIds.length > 0
+            ? updated.skills.filter(s => selectedSkillIds.includes(s.id))
+            : updated.skills.filter(s => s.enabled);
+        for (const sk of targets) {
+            if (sk.cli !== effectiveCli) sk.cli = effectiveCli;
+        }
+        try {
+            await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+            });
+        } catch (err) {
+            console.error("[AIEOC] Failed to save config:", err);
+        }
         // Update running state
         setRunningCli(effectiveCli);
         setRunningModel(effectiveModel || "");
         setRunningApproval(permissionMode);
-        // Hot-restart console (same component, re-spawn PTY with new config)
+        // Hot-restart console
         setRestartCount(prev => prev + 1);
-    }, [effectiveCli, effectiveModel, permissionMode, runningCli, runningModel, runningApproval, saveSkillConfig]);
+    }, [effectiveCli, effectiveModel, permissionMode, runningCli, runningModel, runningApproval, employee, selectedSkillIds]);
 
     const handleStartClick = () => {
         if (!employee) return;
