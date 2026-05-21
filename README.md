@@ -1,14 +1,14 @@
 # AIEOC — AI Engineering Operating Center
 
-**AI 進駐工程環境，協助建立工程秩序與品質治理。**
+**讓人跟 AI 協作更順暢的操作介面。**
 
-AIEOC 是一套獨立的 AI 軟體工廠作業系統，可以套用在任何 code base 上。它提供 Dashboard 讓人有一個好的操作介面來操作 AI，讓舊系統也能擁有工程秩序與品質治理。
+AIEOC 提供一個友善的 Dashboard，讓工程師用直覺的方式操作 AI — 管理對話、累積技能、切換專案。不管你用哪個 AI CLI，都能在這裡找到一致的操作體驗。
 
 ## 核心概念
 
-- 🏭 **AI Software Factory** — 用半導體製造的概念管理軟體開發流程
+- 🖥️ **友善操作介面** — Dashboard 讓你用圖形介面管理 AI 員工、技能和對話，不用背指令
 - 🧠 **舒緩杏仁核** — 主題色系依心理學設計，幫助工程師在不同情緒狀態下保持專注
-- 🤖 **AI 員工團隊** — 每個 AI 員工有自己的角色、技能和 personality
+- 🤖 **AI 員工團隊** — 每個 AI 員工有自己的角色、技能和 personality，像管理真正的團隊一樣
 - 🔧 **跨 CLI 支援** — Skills 只存一份，Qwen / Claude Code / OpenCode 都能用
 
 ## 目錄結構
@@ -26,14 +26,8 @@ aieoc/
 │   ├── 03-ai.node-dev.json
 │   ├── 04-ai.qa.json
 │   └── 05-ai.troubleshooting.json
-├── factory/                ← 工廠文件（自動 render 到左側選單）
-│   ├── constitution.md
-│   ├── standards.md
-│   └── quick-tour.md
+├── factory/                ← 團隊文件（自動 render 到左側選單）
 ├── skills/                 ← AI 技能（只一份，所有 CLI 共用）
-│   ├── factory-tour/
-│   ├── cli-test/
-│   └── dashboard-setup/
 ├── providers/              ← 各 CLI 設定
 │   ├── qwen/
 │   ├── opencode/
@@ -57,36 +51,21 @@ AIEOC 支援三種 AI coding CLI，安裝後即可從 Dashboard 直接啟動。
 #### Qwen Code
 
 ```bash
-# npm 全域安裝
 npm install -g @qwen-code/qwen-code
-
-# 或 macOS Homebrew
-brew install qwen-code
-
-# 驗證
 qwen --version
 ```
 
 #### Claude Code
 
 ```bash
-# npm 全域安裝
 npm install -g @anthropic-ai/claude-code
-
-# 或 macOS Homebrew
-brew install claude-code
-
-# 驗證
 claude --version
 ```
 
 #### OpenCode
 
 ```bash
-# macOS Homebrew
 brew install opencode
-
-# 驗證
 opencode version
 ```
 
@@ -150,24 +129,18 @@ Skill 是什麼？就是你讓 AI 做事的方法論：
 - **提供脈絡** — 說明目標、範圍、限制條件
 - **可重複使用** — 輸入過的 Input 會自動保留，下次可以直接選取重用
 
-在員工工作區啟動 Skill 時：
-
-1. 如果 Skill 有定義必填欄位，會跳出 **Input 對話框** 讓你填寫
-2. 填完後點 **啟動**，AI 就會帶著你的 Input 開始工作
-3. 過去填過的 Input 會顯示在 **「已存輸入」** 下拉選單，可以直接選取
-
 > 💡 把你每次成功讓 AI 產出好結果的 Input 記下來，這就是你的最佳實務。AIEOC 會自動幫你保留這些輸入。
 
 ## AI 員工團隊
 
 | 員工 | 角色 | 專長 |
 |------|------|------|
-| 小春 林 Koharu Hayashi | AI Skill Designer | 技能設計、流程架構、Dashboard Setup、CLI Test |
-| 林語晴 Sunny Lin | Factory Guide | 工廠導覽、角色推薦、FAQ |
-| 陳哲宇 Ethan Chen | Spec Architect | 需求分析、API 合約 |
-| 安妮卡·拉奧 Anika Rao | Node Developer | 節點開發、Contract 驗證 |
-| 彼得 Piotr Kowalski | QA Engineer | 品質保證、測試設計 |
-| 蘇菲亞 Sophia Carter | Troubleshooting Engineer | 故障排除、根因分析 |
+| 小春 林 Koharu Hayashi | AI Skill Designer | 技能設計、流程架構 |
+| 林語晴 Sunny Lin | Guide | 導覽、角色推薦、FAQ |
+| 林曉薇 Xiaowei Lin | Spec Architect | 需求分析、API 合約 |
+| 普里亞·夏爾馬 Priya Sharma | Node Developer | 節點開發、Contract 驗證 |
+| 迪維雅·雷迪 Divya Reddy | QA Engineer | 品質保證、測試設計 |
+| 梅根·布魯克斯 Megan Brooks | Troubleshooting Engineer | 故障排除、根因分析 |
 
 ## Dashboard
 
@@ -177,8 +150,6 @@ Skill 是什麼？就是你讓 AI 做事的方法論：
 - 🧪 **Tests** — 測試數量與通過率
 - 📖 **Runbooks** — 操作手冊數量與覆蓋率
 - 📊 **Coverage** — 測試覆蓋率
-
-初始狀態為空，由 AI 員工執行 **Dashboard Setup** skill 建立資料結構。
 
 ## 跨 CLI 使用
 
@@ -201,7 +172,7 @@ cd /path/to/aieoc && opencode
 
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
 - **Server**: Express (Node.js)
-- **Icons**: Inline SVG（不使用 emoji，確保 Mac/Windows/Linux 一致顯示）
+- **Icons**: Inline SVG（不使用 emoji，確保跨平台一致顯示）
 - **Data**: JSON files（無需資料庫）
 
 ## License
