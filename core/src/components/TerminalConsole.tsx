@@ -38,6 +38,7 @@ export default function TerminalConsole({
     const [directMode, setDirectMode] = useState(true);
     // Refs for stable access in closures
     const directModeRef = useRef(true);
+    const platformRef = useRef<string>("");
     const wsRef = useRef<WebSocket | null>(null);
     const termRef = useRef<Terminal | null>(null);
     const fitRef = useRef<FitAddon | null>(null);
@@ -62,18 +63,32 @@ export default function TerminalConsole({
         const hasNewlines = text.includes("\n");
         if (hasNewlines) {
             // Multi-line: use bracketed paste so the CLI treats it as a single paste,
-            // then send Enter to submit
+            // then send Enter to confirm/submit.
+            // Windows Qwen CLI shows "pasted content N chars" and needs extra Enter.
             wsRef.current.send(JSON.stringify({
                 type: "input",
                 text: `\x1b[200~${text}\x1b[201~`,
             }));
-            // Send Enter separately with a delay to ensure CLI processes paste first.
-            // Use \r\n for cross-platform compatibility (Windows PTY needs it).
+
+            const isWin = platformRef.current === "win32";
+            const firstDelay = isWin ? 800 : 300;
+            const enterChar = isWin ? "\r" : "\r";
+
+            // First Enter: confirm the paste
             setTimeout(() => {
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r\n" }));
+                    wsRef.current.send(JSON.stringify({ type: "input", text: enterChar }));
                 }
-            }, 300);
+            }, firstDelay);
+
+            // On Windows, send a safety-net Enter in case CLI still shows "pasted content"
+            if (isWin) {
+                setTimeout(() => {
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                        wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                    }
+                }, firstDelay + 800);
+            }
         } else {
             // Single-line: send text then Enter
             wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));
@@ -173,6 +188,7 @@ export default function TerminalConsole({
                 term.write(msg.data);
             } else if (msg.type === "ready") {
                 setReady(true);
+                if (msg.platform) platformRef.current = msg.platform;
                 ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
                 onReady?.();
             } else if (msg.type === "exit") {
@@ -278,6 +294,7 @@ export default function TerminalConsole({
                 if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
                 else if (msg.type === "ready") {
                     setReady(true);
+                    if (msg.platform) platformRef.current = msg.platform;
                     if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
                 }
                 else if (msg.type === "exit") { setReady(false); setConnected(true); }
@@ -345,6 +362,7 @@ export default function TerminalConsole({
                 if (msg.type === "data" && termRef.current) termRef.current.write(msg.data);
                 else if (msg.type === "ready") {
                     setReady(true);
+                    if (msg.platform) platformRef.current = msg.platform;
                     if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
                 }
                 else if (msg.type === "exit") { setReady(false); setConnected(false); }

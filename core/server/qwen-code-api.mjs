@@ -1087,7 +1087,7 @@ wss.on("connection", (ws, req) => {
           ptySessions.delete(ws);
         });
 
-        ws.send(JSON.stringify({ type: "ready", sessionId }));
+        ws.send(JSON.stringify({ type: "ready", sessionId, platform: process.platform }));
       } catch (err) {
         console.error(`[PTY] Spawn failed:`, err.message);
         ws.send(JSON.stringify({ type: "error", message: `Failed to start Qwen CLI: ${err.message}` }));
