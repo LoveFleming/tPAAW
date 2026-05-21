@@ -3,6 +3,85 @@ import { cn } from "../utils";
 import { useTheme } from "../theme";
 import { FileIcon } from "./Icon";
 
+// ── Context Menu ──
+interface CtxMenuState {
+  x: number;
+  y: number;
+  fullPath: string;
+  relativePath: string;
+}
+
+function ContextMenu({ menu, onClose }: { menu: CtxMenuState; onClose: () => void }) {
+  const { info: t } = useTheme();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [onClose]);
+
+  const copy = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); } catch { /* fallback */ }
+    onClose();
+  };
+
+  const itemStyle: React.CSSProperties = {
+    padding: "6px 16px",
+    fontSize: 13,
+    cursor: "pointer",
+    color: t.text,
+    whiteSpace: "nowrap",
+    transition: "background 0.1s",
+  };
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "fixed",
+        left: menu.x,
+        top: menu.y,
+        zIndex: 9999,
+        background: t.cardBg,
+        border: `1px solid ${t.border}`,
+        borderRadius: 8,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+        padding: "4px 0",
+        minWidth: 180,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={itemStyle}
+        onMouseEnter={e => (e.currentTarget.style.background = t.accentBg)}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        onClick={() => copy(menu.fullPath)}
+      >
+        📋 Copy Path
+      </div>
+      <div
+        style={itemStyle}
+        onMouseEnter={e => (e.currentTarget.style.background = t.accentBg)}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        onClick={() => copy(menu.relativePath)}
+      >
+        📄 Copy Relative Path
+      </div>
+    </div>
+  );
+}
+
+let globalCtxMenuSetter: ((m: CtxMenuState | null) => void) | null = null;
+function closeGlobalCtxMenu() { globalCtxMenuSetter?.(null); }
+
 interface TreeNode {
   name: string;
   path: string;
@@ -31,10 +110,11 @@ const BASE_INDENT = 26;
 const DEPTH_STEP = 14;
 
 const TreeNodeView = React.memo(function TreeNodeView({
-  node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths,
+  node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths, projectRoot,
 }: {
   node: TreeNode; depth: number; activeFilePath: string | null; openFilePaths: Set<string>;
   onSelectFile: (path: string) => void; onToggleDir: (path: string) => void; expandedPaths: Set<string>;
+  projectRoot: string;
 }) {
   const { info: t } = useTheme();
   const isDir = node.type === "dir";
@@ -42,10 +122,19 @@ const TreeNodeView = React.memo(function TreeNodeView({
   const isActive = !isDir && activeFilePath === node.path;
   const isOpen = !isDir && openFilePaths.has(node.path);
 
+  const handleCtx = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const relPath = node.path.startsWith(projectRoot + "/") ? node.path.slice(projectRoot.length + 1) : node.path.startsWith(projectRoot) ? node.path.slice(projectRoot.length) : node.path;
+    closeGlobalCtxMenu();
+    globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath });
+  }, [node.path, projectRoot]);
+
   return (
     <div>
       <button
         onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
+        onContextMenu={handleCtx}
         className={cn("flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors")}
         style={{
           paddingLeft: `${BASE_INDENT + depth * DEPTH_STEP}px`,
@@ -83,6 +172,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
               onSelectFile={onSelectFile}
               onToggleDir={onToggleDir}
               expandedPaths={expandedPaths}
+              projectRoot={projectRoot}
             />
           ))}
         </div>
@@ -103,8 +193,15 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const treeRef = useRef<TreeNode | null>(null);
   treeRef.current = tree;
+
+  // register global setter so tree nodes can open context menu
+  useEffect(() => {
+    globalCtxMenuSetter = setCtxMenu;
+    return () => { globalCtxMenuSetter = null; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,7 +273,9 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         onSelectFile={onSelectFile}
         onToggleDir={handleToggleDir}
         expandedPaths={expandedPaths}
+        projectRoot={projectRoot}
       />
+      {ctxMenu && <ContextMenu menu={ctxMenu} onClose={() => setCtxMenu(null)} />}
     </div>
   );
 }
