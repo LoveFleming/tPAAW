@@ -228,21 +228,47 @@ const server = createServer(async (req, res) => {
           models.push({ id: m.id, name: m.name, current: m.id === currentModel });
         }
       } else if (cliType === "opencode") {
-        // OpenCode has `opencode models` command — execute it
+        // OpenCode: execute `opencode models <provider>` for configured providers only
+        // Read auth.json to find which providers the user has configured
         const config = CLI_CONFIGS.opencode;
         const platform = process.platform;
         const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
         const bin = process.env[config.envBin] || config.bins[binKey];
+
+        // Find configured providers from auth.json
+        let authProviders: string[] = [];
         try {
-          const { stdout } = await execAsync(`"${bin}" models 2>&1`, { timeout: 15000 });
-          const lines = (stdout || "").split("\n").map(l => l.trim()).filter(Boolean);
-          for (const line of lines) {
-            // opencode models outputs one model per line: provider/name
-            models.push({ id: line, name: line, current: false });
+          const authPaths = [
+            join(homeDir, ".local/share/opencode/auth.json"),
+            join(homeDir, ".config/opencode/auth.json"),
+          ];
+          for (const ap of authPaths) {
+            try {
+              const raw = await readFile(ap, "utf-8");
+              const auth = JSON.parse(raw);
+              authProviders = Object.keys(auth);
+              break;
+            } catch {}
           }
-        } catch (err) {
-          console.log(`[Models] opencode models failed: ${err.message}`);
+        } catch {}
+
+        // Fetch models for each configured provider
+        const seen = new Set<string>();
+        for (const provider of authProviders) {
+          try {
+            const { stdout } = await execAsync(`"${bin}" models ${provider} 2>&1`, { timeout: 15000 });
+            const lines = (stdout || "").split("\n").map(l => l.trim()).filter(Boolean);
+            for (const line of lines) {
+              if (!seen.has(line)) {
+                seen.add(line);
+                models.push({ id: line, name: line, current: false });
+              }
+            }
+          } catch (err) {
+            console.log(`[Models] opencode models ${provider} failed: ${err.message}`);
+          }
         }
+
         if (models.length === 0) {
           models.push({ id: "default", name: "OpenCode Default", current: true });
         }
