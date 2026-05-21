@@ -215,12 +215,23 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // OpenCode: skip — prompt passed via --prompt flag at spawn time
+    // OpenCode: --prompt pre-fills text, just need Enter to submit
     // Qwen/Claude: send via bracketed paste after CLI initializes
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
-        if (cli === "opencode") return; // --prompt flag handles it
         initialSentRef.current = true;
+
+        if (cli === "opencode") {
+            // --prompt flag pre-fills the text, send Enter to submit
+            const timer = setTimeout(() => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                }
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+
+        // Qwen / Claude: bracketed paste
         const timer = setTimeout(() => {
             sendInput(initialPrompt);
         }, 4000);
