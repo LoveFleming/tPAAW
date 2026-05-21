@@ -49,14 +49,19 @@ function detectFileType(name: string): "markdown" | "json" | "code" {
 function MarkdownView({ content }: { content: string }) {
   const { info: t } = useTheme();
   const [MarkdownComponent, setComponent] = useState<React.ComponentType<{ children: string }> | null>(null);
+  const [gfmPlugin, setGfmPlugin] = useState<any>(null);
 
   useEffect(() => {
-    import("react-markdown").then((mod) => {
-      setComponent(() => mod.default as any);
+    Promise.all([
+      import("react-markdown"),
+      import("remark-gfm"),
+    ]).then(([mdMod, gfmMod]) => {
+      setGfmPlugin(() => gfmMod.default);
+      setComponent(() => mdMod.default as any);
     });
   }, []);
 
-  if (!MarkdownComponent) {
+  if (!MarkdownComponent || !gfmPlugin) {
     return <pre className="p-6 text-sm font-mono text-stone-700 whitespace-pre-wrap">{content}</pre>;
   }
 
@@ -75,7 +80,7 @@ function MarkdownView({ content }: { content: string }) {
         color: "#57534e",
       } as React.CSSProperties}
     >
-      <MarkdownComponent>{content}</MarkdownComponent>
+      <MarkdownComponent remarkPlugins={[gfmPlugin]}>{content}</MarkdownComponent>
     </div>
   );
 }
