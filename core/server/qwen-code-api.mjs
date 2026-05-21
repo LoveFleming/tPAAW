@@ -328,17 +328,18 @@ const server = createServer(async (req, res) => {
       const respBody = await resp.text();
       console.log(`[OpenCode Prompt] /tui/append-prompt response: ${resp.status} ${respBody}`);
       if (!resp.ok) {
-        const text = await resp.text();
         res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: `OpenCode /tui/append-prompt returned ${resp.status}`, detail: text }));
+        res.end(JSON.stringify({ error: `OpenCode /tui/append-prompt returned ${resp.status}`, detail: respBody }));
         return;
       }
-      // If submit flag is set, send Enter key via PTY
+      // If submit flag is set, use OpenCode SDK submit-prompt
       if (parsed.submit) {
-        const session = [...ptySessions.values()].find(s => s.cliType === "opencode");
-        if (session?.pty) {
-          setTimeout(() => { try { session.pty.write("\r"); } catch {} }, 300);
-        }
+        await fetch(`http://127.0.0.1:${port}/tui/submit-prompt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        console.log(`[OpenCode Prompt] /tui/submit-prompt sent`);
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
