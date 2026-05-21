@@ -281,8 +281,8 @@ function AppInner() {
 
         {/* ── Main ── */}
         <main className="flex-1 overflow-hidden flex flex-col">
-          {/* Tabs */}
-          <div className="flex w-full items-end gap-0.5 overflow-x-auto px-3 pt-1.5 border-b" style={{ scrollbarWidth: 'none', backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
+          {/* Tabs — multi-row wrap */}
+          <div className="flex w-full items-end gap-0.5 flex-wrap px-3 pt-1.5 border-b" style={{ backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
             {openTabs.map((tabId) => {
               const isActive = activePage === tabId;
               const isPinned = tabId === "factory.crew";
@@ -291,7 +291,7 @@ function AppInner() {
                   key={tabId}
                   onClick={() => setActivePage(tabId)}
                   className={cn(
-                    "group relative flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-sm transition-all rounded-t-md",
+                    "group relative flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-sm transition-all rounded-t-md shrink-0",
                     isActive
                       ? "bg-white shadow-sm"
                       : "hover:bg-white/50"
