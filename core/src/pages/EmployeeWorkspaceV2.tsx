@@ -80,8 +80,8 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
                 if (data.aieocRoot) setAieocRoot(data.aieocRoot);
                 const list: ModelOption[] = data.models || [];
                 setModels(list);
-                // Prefer saved model, then current, then first
-                if (preferModel && list.find(m => m.id === preferModel)) {
+                // Prefer saved model if it exists in the list
+                if (preferModel != null && list.find(m => m.id === preferModel)) {
                     setSelectedModel(preferModel);
                 } else {
                     const current = list.find((m: ModelOption) => m.current);
@@ -91,10 +91,13 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
             .catch(() => {});
     }, []);
 
-    // Initial fetch with saved config
+    // Initial fetch with saved config — only once on mount
+    const mountedRef = useRef(false);
     useEffect(() => {
+        if (mountedRef.current) return;
+        mountedRef.current = true;
         fetchModels(savedCli, savedModel);
-    }, [fetchModels]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         fetch("http://127.0.0.1:4097/api/clis")
@@ -194,11 +197,10 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) 
 
     const [selectedCli, setSelectedCli] = useState<string>(savedCli);
 
-    // Sync selectedCli from saved config or skill default
+    // Sync selectedCli from saved config or skill default — only on mount
     useEffect(() => {
         if (savedCli) {
             setSelectedCli(savedCli);
-            fetchModels(savedCli);
         } else if (defaultCliFromSkills) {
             setSelectedCli(defaultCliFromSkills);
         }
