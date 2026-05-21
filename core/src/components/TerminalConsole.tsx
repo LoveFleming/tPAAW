@@ -244,7 +244,6 @@ export default function TerminalConsole({
             }, 1000);
             return () => clearInterval(poll);
         }
-        }
 
         // Qwen / Claude: bracketed paste
         const timer = setTimeout(() => {
