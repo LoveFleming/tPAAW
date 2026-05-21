@@ -1098,6 +1098,11 @@ const CLI_CONFIGS = {
       if (opts.model && opts.model.includes("/")) {
         args.push("-m", opts.model);
       }
+      // Initial prompt: pass via --prompt flag instead of PTY write
+      // Go TUI (Bubble Tea) doesn't reliably accept programmatic PTY input
+      if (opts.systemPrompt) {
+        args.push("--prompt", opts.systemPrompt);
+      }
       return args;
     },
   },

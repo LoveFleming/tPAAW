@@ -214,15 +214,15 @@ export default function TerminalConsole({
     }, []); // Mount once
 
     // Auto-send initial prompt when ready
-    // Waits for the CLI to fully initialize before sending.
+    // OpenCode: skip — prompt is passed via --prompt flag at spawn time
+    // Qwen/Claude: send via bracketed paste after CLI initializes
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
+        if (cli === "opencode") return; // prompt already in spawn args
         initialSentRef.current = true;
-        // OpenCode TUI needs more time to initialize, especially on Windows
-        const delay = cli === "opencode" ? 8000 : 4000;
         const timer = setTimeout(() => {
             sendInput(initialPrompt);
-        }, delay);
+        }, 4000);
         return () => clearTimeout(timer);
     }, [ready, initialPrompt, sendInput, cli]);
 
