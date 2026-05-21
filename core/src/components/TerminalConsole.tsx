@@ -240,6 +240,19 @@ export default function TerminalConsole({
             wsRef.current = null;
         }
         if (termRef.current) {
+            // Reset terminal: clear alternate screen, disable all modes, then clear
+            termRef.current.write("\x1b[?1049l"); // Exit alternate screen buffer
+            termRef.current.write("\x1b[?2004l"); // Disable bracketed paste
+            termRef.current.write("\x1b[?1000l"); // Disable mouse tracking
+            termRef.current.write("\x1b[?1002l"); // Disable mouse tracking (button)
+            termRef.current.write("\x1b[?1003l"); // Disable mouse tracking (any)
+            termRef.current.write("\x1b[?1006l"); // Disable SGR mouse
+            termRef.current.write("\x1b[?1016l"); // Disable SGR pixels
+            termRef.current.write("\x1b[?2027l"); // Disable unicode keyboard
+            termRef.current.write("\x1b[?2031l"); // Disable color scheme reporting
+            termRef.current.write("\x1b[?1004l"); // Disable focus reporting
+            termRef.current.write("\x1b[>4;0m");  // Reset terminal mode
+            termRef.current.write("\x1bc");       // Full reset (RIS)
             termRef.current.clear();
             termRef.current.write("\x1b[33m🔄 Switching model/cli...\x1b[0m\r\n");
         }
