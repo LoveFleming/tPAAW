@@ -281,9 +281,10 @@ function AppInner() {
     }
     if (pageId.startsWith("employee.")) {
       const employeeId = pageId.split("#")[0].slice(9);
+      const tabCrew = crewByFactoryRef.current[tabFactoryId] ?? crew;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={crew} factoryId={tabFactoryId} />
+          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={tabCrew} factoryId={tabFactoryId} />
         </React.Suspense>
       );
     }
