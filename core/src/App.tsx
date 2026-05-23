@@ -148,21 +148,17 @@ function AppInner() {
 
   const handlePickWorkingBase = useCallback(async () => {
     try {
-      // Use native directory picker via API server
       const resp = await fetch("http://127.0.0.1:4097/api/pick-directory");
       if (resp.ok) {
         const data = await resp.json();
         if (data.path) {
           handleSelectProject(data.path);
+          return;
         }
-      } else {
-        // Fallback to manual input modal
-        setWorkingBaseModalOpen(true);
       }
-    } catch {
-      // Fallback to manual input modal
-      setWorkingBaseModalOpen(true);
-    }
+    } catch {}
+    // Fallback: show manual input modal
+    setWorkingBaseModalOpen(true);
   }, []);
 
   const recentProjects = useMemo(() => {
@@ -512,13 +508,13 @@ function AppInner() {
             <h3 className="text-lg font-bold text-stone-800 mb-1">📂 Select Working Base</h3>
             <p className="text-xs text-stone-400 mb-4">瀏覽器不支援原生檔案總管，請手動輸入路徑</p>
 
-            <div className="mb-4">
               <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Enter Path</span>
               <div className="mt-1.5 flex gap-2">
                 <input
                   id="working-base-input"
                   type="text"
-                  placeholder="/Users/steward/App/my-project"
+                  defaultValue={projectRoot || ""}
+                  placeholder="/path/to/your/project"
                   className="flex-1 px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-400 font-mono"
                   onKeyDown={e => {
                     if (e.key === "Enter") {
@@ -539,7 +535,6 @@ function AppInner() {
                   Open
                 </button>
               </div>
-            </div>
 
             <button
               onClick={() => setWorkingBaseModalOpen(false)}
