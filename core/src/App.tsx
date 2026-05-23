@@ -428,12 +428,29 @@ function AppInner() {
 
             {/* Working Base — file tree */}
             <SidebarSection title="Working Base">
-              <SidebarFileTree
-                projectRoot={projectRoot}
-                activeFilePath={activeFilePath}
-                openFilePaths={openFilePaths}
-                onSelectFile={handleSelectFile}
-              />
+              {projectRoot ? (
+                <SidebarFileTree
+                  projectRoot={projectRoot}
+                  activeFilePath={activeFilePath}
+                  openFilePaths={openFilePaths}
+                  onSelectFile={handleSelectFile}
+                />
+              ) : (
+                <div className="px-2 py-3">
+                  <button
+                    onClick={() => handlePickWorkingBase()}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed transition-colors"
+                    style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = themeInfo.accent; e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = themeInfo.accentBorder; e.currentTarget.style.color = themeInfo.accentHover; e.currentTarget.style.backgroundColor = ""; }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776" />
+                    </svg>
+                    Select Working Base
+                  </button>
+                </div>
+              )}
             </SidebarSection>
           </div>
 
