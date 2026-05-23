@@ -146,6 +146,25 @@ function AppInner() {
   const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
   const [workingBaseModalOpen, setWorkingBaseModalOpen] = useState(false);
 
+  const handlePickWorkingBase = useCallback(async () => {
+    try {
+      // Use native directory picker via API server
+      const resp = await fetch("http://127.0.0.1:4097/api/pick-directory");
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.path) {
+          handleSelectProject(data.path);
+        }
+      } else {
+        // Fallback to manual input modal
+        setWorkingBaseModalOpen(true);
+      }
+    } catch {
+      // Fallback to manual input modal
+      setWorkingBaseModalOpen(true);
+    }
+  }, []);
+
   const recentProjects = useMemo(() => {
     try {
       return (JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as {path: string; name: string; lastOpened: string}[]);
@@ -409,7 +428,7 @@ function AppInner() {
           {/* Select Working Base */}
           <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
-              onClick={() => setWorkingBaseModalOpen(true)}
+              onClick={() => handlePickWorkingBase()}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"
               style={{ color: themeInfo.accentHover + "99" }}
               onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
@@ -491,33 +510,7 @@ function AppInner() {
             onClick={e => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-stone-800 mb-1">📂 Select Working Base</h3>
-            <p className="text-xs text-stone-400 mb-4">選擇 AI CLI 的工作目錄</p>
-
-            {recentProjects.length > 0 && (
-              <div className="mb-4">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Recent</span>
-                <div className="mt-1.5 space-y-1">
-                  {recentProjects.map((p) => (
-                    <button
-                      key={p.path}
-                      onClick={() => { handleSelectProject(p.path); setWorkingBaseModalOpen(false); }}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors",
-                        p.path === projectRoot ? "bg-stone-100 text-stone-800 font-semibold" : "hover:bg-stone-50 text-stone-600"
-                      )}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0 text-stone-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776" />
-                      </svg>
-                      <span className="truncate font-mono text-xs">{p.path}</span>
-                      {p.path === projectRoot && (
-                        <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: themeInfo.accentLight, color: themeInfo.accent }}>CURRENT</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-stone-400 mb-4">瀏覽器不支援原生檔案總管，請手動輸入路徑</p>
 
             <div className="mb-4">
               <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Enter Path</span>
@@ -556,7 +549,7 @@ function AppInner() {
             </button>
           </div>
         </div>
-      )}
+      )}}
     </div>
   );
 }

@@ -267,6 +267,26 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/pick-directory — native OS directory picker
+  if (req.method === "GET" && req.url === "/api/pick-directory") {
+    try {
+      const { execFile } = await import("child_process");
+      const path = await new Promise((resolve, reject) => {
+        // macOS: use osascript to show native folder picker
+        execFile("osascript", ["-e", `POSIX path of (choose folder with prompt "Select Working Base")`], (err, stdout) => {
+          if (err) { reject(err); return; }
+          resolve(stdout.trim().replace(/\/$/, ""));
+        });
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path }));
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: null, error: "Cancelled or not supported" }));
+    }
+    return;
+  }
+
   // GET /api/aioc-root — return AIOC base path
   if (req.method === "GET" && req.url === "/api/aioc-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
