@@ -27,7 +27,7 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
     name: "",
     icon: "🏭",
     description: "",
-    copyFrom: "",
+    copyFrom: "default",
   });
 
   const handleCreate = useCallback(async () => {
@@ -41,7 +41,7 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
       if (resp.ok) {
         onFactoriesChanged();
         setCreating(false);
-        setNewFactory({ id: "", name: "", icon: "🏭", description: "", copyFrom: "" });
+        setNewFactory({ id: "", name: "", icon: "🏭", description: "", copyFrom: "default" });
       } else {
         const err = await resp.json();
         alert(err.error || "Create failed");
@@ -202,6 +202,20 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
                   placeholder="這個工廠負責什麼？"
                   className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-400"
                 />
+              </div>
+
+              {/* Copy from existing factory */}
+              <div>
+                <label className="text-xs font-semibold text-stone-500 block mb-1">從現有 Factory 複製</label>
+                <select
+                  value={newFactory.copyFrom}
+                  onChange={e => setNewFactory(p => ({ ...p, copyFrom: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-400 bg-white"
+                >
+                  {factories.map(f => (
+                    <option key={f.id} value={f.id}>{f.icon} {f.name}</option>
+                  ))}
+                </select>
               </div>
 
             </div>
