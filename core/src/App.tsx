@@ -40,9 +40,20 @@ function AppInner() {
   });
 
   // All tabs across all factories, keyed as "factoryId:pageId"
-  const factoryStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string }>>({});
+  const factoryStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
   const [activePage, setActivePage] = useState<string>("factory.crew");
   const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
+  // visibleTabs: only tabs belonging to current factory (for tab bar display)
+  const visibleTabs = useMemo(() => {
+    return openTabs.filter(t => {
+      // Shared factory pages always visible
+      if (t === "factory.crew" || t.startsWith("factory.file.")) return true;
+      // Per-factory tabs: only show if prefix matches current factory
+      const colonIdx = t.indexOf(":");
+      if (colonIdx === -1) return true;
+      return t.slice(0, colonIdx) === selectedFactoryId;
+    });
+  }, [openTabs, selectedFactoryId]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem("aioc.sidebar-width");
@@ -118,15 +129,33 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current factory state
-    factoryStateRef.current[selectedFactoryId] = { projectRoot, activePage };
+    // Save current factory state (including openTabs filtered to this factory)
+    const currentFactoryTabs = openTabs.filter(t => {
+      if (t === "factory.crew" || t.startsWith("factory.file.")) return false; // shared
+      const colonIdx = t.indexOf(":");
+      return colonIdx !== -1 && t.slice(0, colonIdx) === selectedFactoryId;
+    });
+    factoryStateRef.current[selectedFactoryId] = {
+      projectRoot,
+      activePage: currentFactoryTabs.length > 0 ? activePage : "factory.crew",
+      openTabs: currentFactoryTabs,
+    };
     // Restore target factory state
     const saved = factoryStateRef.current[factoryId];
-    if (saved?.activePage) {
+    // Merge: shared tabs + factory-specific tabs
+    const sharedTabs = openTabs.filter(t => t === "factory.crew" || t.startsWith("factory.file."));
+    const restoredTabs = saved?.openTabs ?? [];
+    const merged = [...sharedTabs, ...restoredTabs];
+    // Ensure factory.crew always present
+    if (!merged.includes("factory.crew")) merged.unshift("factory.crew");
+    setOpenTabs(merged);
+    // Restore activePage
+    if (saved?.activePage && merged.includes(saved.activePage)) {
       setActivePage(saved.activePage);
     } else {
       setActivePage("factory.crew");
     }
+    // Restore projectRoot
     if (saved?.projectRoot) {
       setProjectRoot(saved.projectRoot);
     } else {
@@ -513,7 +542,7 @@ function AppInner() {
         <main className="flex-1 overflow-hidden flex flex-col">
           {/* Tabs — multi-row wrap */}
           <div className="flex w-full items-end gap-0.5 flex-wrap px-3 pt-1.5 border-b" style={{ backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
-            {openTabs.map((tabId) => {
+            {visibleTabs.map((tabId) => {
               const isActive = activePage === tabId;
               const isPinned = tabId === "factory.crew";
               return (
