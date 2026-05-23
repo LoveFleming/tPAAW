@@ -148,7 +148,7 @@ function AppInner() {
 
   const recentProjects = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as string[];
+      return (JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as {path: string; name: string; lastOpened: string}[]);
     } catch { return []; }
   }, [projectRoot]);
 
@@ -499,18 +499,18 @@ function AppInner() {
                 <div className="mt-1.5 space-y-1">
                   {recentProjects.map((p) => (
                     <button
-                      key={p}
-                      onClick={() => { handleSelectProject(p); setWorkingBaseModalOpen(false); }}
+                      key={p.path}
+                      onClick={() => { handleSelectProject(p.path); setWorkingBaseModalOpen(false); }}
                       className={cn(
                         "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors",
-                        p === projectRoot ? "bg-stone-100 text-stone-800 font-semibold" : "hover:bg-stone-50 text-stone-600"
+                        p.path === projectRoot ? "bg-stone-100 text-stone-800 font-semibold" : "hover:bg-stone-50 text-stone-600"
                       )}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0 text-stone-400">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776" />
                       </svg>
-                      <span className="truncate font-mono text-xs">{p}</span>
-                      {p === projectRoot && (
+                      <span className="truncate font-mono text-xs">{p.path}</span>
+                      {p.path === projectRoot && (
                         <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: themeInfo.accentLight, color: themeInfo.accent }}>CURRENT</span>
                       )}
                     </button>
