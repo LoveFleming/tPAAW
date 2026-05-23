@@ -204,20 +204,6 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
                 />
               </div>
 
-              {/* Copy from */}
-              <div>
-                <label className="text-xs font-semibold text-stone-500 block mb-1">從現有 Factory 複製 (選填)</label>
-                <select
-                  value={newFactory.copyFrom}
-                  onChange={e => setNewFactory(p => ({ ...p, copyFrom: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-400 bg-white"
-                >
-                  <option value="">— 不複製，從零開始 —</option>
-                  {factories.map(f => (
-                    <option key={f.id} value={f.id}>{f.icon} {f.name}</option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             <div className="flex gap-2 mt-5">
