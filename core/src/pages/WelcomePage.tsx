@@ -3,7 +3,7 @@ import { cn } from "../utils";
 import Icon from "../components/Icon";
 import { pathBasename } from "../utils";
 
-const STORAGE_KEY = "aieoc.project";
+const STORAGE_KEY = "aioc.project";
 const API_BASE = "http://127.0.0.1:4097";
 
 interface RecentProject {
@@ -145,7 +145,7 @@ function FolderBrowserModal({
 
 function getRecentProjects(): RecentProject[] {
   try {
-    const raw = localStorage.getItem("aieoc.recent-projects");
+    const raw = localStorage.getItem("aioc.recent-projects");
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
 }
@@ -154,7 +154,7 @@ function addRecentProject(path: string) {
   const projects = getRecentProjects().filter(p => p.path !== path);
   const name = pathBasename(path);
   projects.unshift({ path, name, lastOpened: new Date().toISOString() });
-  localStorage.setItem("aieoc.recent-projects", JSON.stringify(projects.slice(0, 10)));
+  localStorage.setItem("aioc.recent-projects", JSON.stringify(projects.slice(0, 10)));
 }
 
 // ── Main Welcome Page ──
@@ -219,7 +219,7 @@ export default function WelcomePage({ onSelect }: Props) {
             </svg>
           </div>
           <h1 className="text-4xl font-bold text-white tracking-tight" style={{ fontFamily: "'SF Pro Display', system-ui, sans-serif" }}>
-            AIEOC
+            AIOC
           </h1>
           <p className="text-stone-400 mt-2 text-lg">AI-native Engineering Operation System</p>
         </div>

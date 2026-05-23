@@ -1,8 +1,8 @@
-# AIEOC — AI Engineering Operating Center
+# AIOC — AI-Native Operation Center
 
 **讓人跟 AI 協作更順暢的操作介面。**
 
-AIEOC 提供一個友善的 Dashboard，讓工程師用直覺的方式操作 AI — 管理對話、累積技能、切換專案。不管你用哪個 AI CLI，都能在這裡找到一致的操作體驗。
+AIOC 提供一個友善的 Dashboard，讓工程師用直覺的方式操作 AI — 管理對話、累積技能、切換專案。不管你用哪個 AI CLI，都能在這裡找到一致的操作體驗。
 
 ## 核心概念
 
@@ -14,7 +14,7 @@ AIEOC 提供一個友善的 Dashboard，讓工程師用直覺的方式操作 AI 
 ## 目錄結構
 
 ```
-aieoc/
+aioc/
 ├── core/                   ← 主程式（Dashboard UI + API Server）
 │   ├── src/                ← React + TypeScript frontend
 │   ├── server/             ← Express API server
@@ -40,13 +40,13 @@ aieoc/
 ### 安裝 Dashboard
 
 ```bash
-cd aieoc/core
+cd aioc/core
 npm install
 ```
 
 ### 安裝 AI CLI 工具
 
-AIEOC 支援三種 AI coding CLI，安裝後即可從 Dashboard 直接啟動。
+AIOC 支援三種 AI coding CLI，安裝後即可從 Dashboard 直接啟動。
 
 #### Qwen Code
 
@@ -99,7 +99,7 @@ Dashboard 會在 http://localhost:5173 啟動。
 
 ## Skills — 最重要的資產
 
-AIEOC 最核心的功能是 **讓你分門別類累積建立自己的 Skills**。
+AIOC 最核心的功能是 **讓你分門別類累積建立自己的 Skills**。
 
 Skill 是什麼？就是你讓 AI 做事的方法論：
 
@@ -109,7 +109,7 @@ Skill 是什麼？就是你讓 AI 做事的方法論：
 - 你怎麼排錯
 - 你怎麼部署
 
-這些方法論，就是你的工程智慧。AIEOC 幫你把這些智慧變成可重用、可分享的 Skill。
+這些方法論，就是你的工程智慧。AIOC 幫你把這些智慧變成可重用、可分享的 Skill。
 
 ### Skill 生命週期
 
@@ -119,7 +119,7 @@ Skill 是什麼？就是你讓 AI 做事的方法論：
 4. **持續累積** — 每次使用可以優化，越來越精準
 5. **跨專案重用** — 同一個 Skill 可以套用到不同 code base
 
-> **Skills 是你的工程資產。** 寫程式的 AI 滿街都是，但你的 Skills 別人沒有。這才是 AIEOC 的價值。
+> **Skills 是你的工程資產。** 寫程式的 AI 滿街都是，但你的 Skills 別人沒有。這才是 AIOC 的價值。
 
 ### Skill Input — 給 AI 明確的指令
 
@@ -129,11 +129,11 @@ Skill 是什麼？就是你讓 AI 做事的方法論：
 - **提供脈絡** — 說明目標、範圍、限制條件
 - **可重複使用** — 輸入過的 Input 會自動保留，下次可以直接選取重用
 
-> 💡 把你每次成功讓 AI 產出好結果的 Input 記下來，這就是你的最佳實務。AIEOC 會自動幫你保留這些輸入。
+> 💡 把你每次成功讓 AI 產出好結果的 Input 記下來，這就是你的最佳實務。AIOC 會自動幫你保留這些輸入。
 
 ## 自組 AI 團隊
 
-AIEOC 讓你**自己定義 AI 成員** — 幫每個 AI 取名字、設角色、寫 personality、配技能。就像組建一個真正的團隊。
+AIOC 讓你**自己定義 AI 成員** — 幫每個 AI 取名字、設角色、寫 personality、配技能。就像組建一個真正的團隊。
 
 每個 AI 成員用一個 JSON 檔案定義，放在 `crew/` 目錄下：
 
@@ -157,17 +157,17 @@ AIEOC 讓你**自己定義 AI 成員** — 幫每個 AI 取名字、設角色、
 
 ## 跨 CLI 使用
 
-AIEOC 支援多種 AI coding CLI，設定檔統一在 `providers/` 目錄：
+AIOC 支援多種 AI coding CLI，設定檔統一在 `providers/` 目錄：
 
 ```bash
 # 用 Qwen 開啟
-cd /path/to/aieoc && qwen
+cd /path/to/aioc && qwen
 
 # 用 Claude Code 開啟
-cd /path/to/aieoc && claude
+cd /path/to/aioc && claude
 
 # 用 OpenCode 開啟
-cd /path/to/aieoc && opencode
+cd /path/to/aioc && opencode
 ```
 
 所有 CLI 共用同一份 `skills/`，零設定直接使用。

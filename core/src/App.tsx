@@ -11,7 +11,7 @@ import { Skill } from "./types";
 import { ThemeProvider, useTheme, THEMES, ThemeId, THEME_GROUPS } from "./theme";
 import { cn, pathBasename } from "./utils";
 
-const STORAGE_PROJECT_KEY = "aieoc.project";
+const STORAGE_PROJECT_KEY = "aioc.project";
 
 // Migrate from old key name
 try {
@@ -21,8 +21,8 @@ try {
     localStorage.removeItem("aieos.project");
   }
   const oldRecent = localStorage.getItem("aieos.recent-projects");
-  if (oldRecent && !localStorage.getItem("aieoc.recent-projects")) {
-    localStorage.setItem("aieoc.recent-projects", oldRecent);
+  if (oldRecent && !localStorage.getItem("aioc.recent-projects")) {
+    localStorage.setItem("aioc.recent-projects", oldRecent);
     localStorage.removeItem("aieos.recent-projects");
   }
 } catch {}
@@ -37,13 +37,13 @@ function AppInner() {
   const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem("aieoc.sidebar-width");
+    const saved = localStorage.getItem("aioc.sidebar-width");
     return saved ? parseInt(saved, 10) : 240;
   });
 
   const [crew, setCrew] = useState<Skill[]>([]);
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
-  const [aieocRoot, setAieocRoot] = useState("");
+  const [aiocRoot, setAiocRoot] = useState("");
 
   const loadCrew = useCallback(async () => {
     try {
@@ -63,7 +63,7 @@ function AppInner() {
     try {
       const r = await fetch("http://127.0.0.1:4097/api/models?cli=qwen");
       const d = await r.json();
-      if (d.aieocRoot) setAieocRoot(d.aieocRoot);
+      if (d.aiocRoot) setAiocRoot(d.aiocRoot);
     } catch {}
   }, []);
 
@@ -153,7 +153,7 @@ function AppInner() {
       sidebarDragRef.current = null;
       // Save to localStorage
       setSidebarWidth(w => {
-        localStorage.setItem("aieoc.sidebar-width", w.toString());
+        localStorage.setItem("aioc.sidebar-width", w.toString());
         return w;
       });
     };
@@ -165,7 +165,7 @@ function AppInner() {
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
     if (pageId.startsWith("factory.file.")) {
       const fileName = pageId.slice(13);
-      const filePath = `${aieocRoot}/factory/${fileName}`;
+      const filePath = `${aiocRoot}/factory/${fileName}`;
       return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
     }
     if (pageId.startsWith("file://")) {
@@ -181,7 +181,7 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageId}</div>;
-  }, [projectRoot, aieocRoot, crew]);
+  }, [projectRoot, aiocRoot, crew]);
 
   // Early return AFTER all hooks
   if (showWelcome || !projectRoot) {
@@ -199,7 +199,7 @@ function AppInner() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
-          <span className="text-sm font-semibold text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI Engineering Operation Center</span>
+          <span className="text-sm font-semibold text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI-Native Operation Center</span>
         </div>
         {/* Theme dropdown */}
         <div className="relative">

@@ -1,4 +1,4 @@
-# AI Software Factory (AIEOC — AI Engineering Operating Center)
+# AI Software Factory (AIOC — AI-Native Operation Center)
 
 你是一個 AI 軟體工廠的成員。工廠採用半導體製造的概念，將軟體開發流程標準化。
 

@@ -1,11 +1,11 @@
 ---
 name: dashboard-setup
-description: 在目標專案建立 AIEOC Dashboard 所需的目錄與資料結構（.aieoc/dashboard.json）
+description: 在目標專案建立 AIOC Dashboard 所需的目錄與資料結構（.aioc/dashboard.json）
 ---
 
-# Dashboard Setup — 建立 AIEOC Dashboard 資料結構
+# Dashboard Setup — 建立 AIOC Dashboard 資料結構
 
-你是 AI 軟體工廠的技能設計師，名叫小春 林（Koharu Hayashi）。這個技能負責為任何專案建立 AIEOC Dashboard 所需的目錄和 schema。
+你是 AI 軟體工廠的技能設計師，名叫小春 林（Koharu Hayashi）。這個技能負責為任何專案建立 AIOC Dashboard 所需的目錄和 schema。
 
 ## 建立流程
 
@@ -18,7 +18,7 @@ description: 在目標專案建立 AIEOC Dashboard 所需的目錄與資料結�
 
 ```
 {project-root}/
-├── .aieoc/
+├── .aioc/
 │   └── dashboard.json
 ```
 
@@ -66,17 +66,17 @@ description: 在目標專案建立 AIEOC Dashboard 所需的目錄與資料結�
 ### 4. 驗證
 
 確認：
-- `.aieoc/` 目錄已建立
+- `.aioc/` 目錄已建立
 - `dashboard.json` 格式正確（valid JSON）
 - Dashboard 頁面可以透過 `GET /api/project-dashboard?root={path}` 讀取到
 
 ### 5. 回報結果
 
 ```
-🛠️ AIEOC Dashboard Setup 完成
+🛠️ AIOC Dashboard Setup 完成
 ================================
 📁 Project: {name}
-📂 .aieoc/ 已建立
+📂 .aioc/ 已建立
 📄 dashboard.json schema 已初始化
 
 Widgets:
@@ -90,7 +90,7 @@ Widgets:
 
 ## 注意事項
 - 只負責建立目錄和空的 schema，不負責掃描專案內容
-- 如果 `.aieoc/` 已存在，確認 dashboard.json 格式正確即可，不要覆蓋已有數據
+- 如果 `.aioc/` 已存在，確認 dashboard.json 格式正確即可，不要覆蓋已有數據
 - `scannedAt` 保持 null，表示尚未被掃描填充
 
 ## 語氣與態度
