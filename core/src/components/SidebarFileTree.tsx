@@ -109,6 +109,29 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
 const BASE_INDENT = 26;
 const DEPTH_STEP = 14;
 
+// Collapse chains of directories that each have only one child (a subdirectory)
+// into a single breadcrumb-style node. e.g. ai/dashboard/public/ → one line
+function collapseLonelyChains(node: TreeNode): TreeNode {
+  if (node.type !== "dir" || !node.children) return node;
+
+  const collapsed: TreeNode[] = node.children.map(collapseLonelyChains);
+
+  // If this dir has exactly one child and it's a directory, merge into breadcrumb
+  if (collapsed.length === 1 && collapsed[0].type === "dir") {
+    const child = collapsed[0];
+    return {
+      ...child,
+      name: node.name + "/" + child.name,
+      // keep the deepest path as the node path (for toggle)
+      path: child.path,
+      children: child.children,
+      lazy: child.lazy,
+    };
+  }
+
+  return { ...node, children: collapsed };
+}
+
 const TreeNodeView = React.memo(function TreeNodeView({
   node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths, projectRoot,
 }: {
@@ -121,6 +144,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
   const isExpanded = expandedPaths.has(node.path);
   const isActive = !isDir && activeFilePath === node.path;
   const isOpen = !isDir && openFilePaths.has(node.path);
+  const isBreadcrumb = isDir && node.name.includes("/");
 
   const handleCtx = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -129,6 +153,23 @@ const TreeNodeView = React.memo(function TreeNodeView({
     closeGlobalCtxMenu();
     globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath });
   }, [node.path, projectRoot]);
+
+  // For breadcrumb folders, show each segment with / visual separator
+  const renderBreadcrumbName = (name: string) => {
+    const parts = name.split("/");
+    return (
+      <span className="truncate flex items-center gap-0.5">
+        {parts.map((part, i) => (
+          <React.Fragment key={i}>
+            <span>{part}</span>
+            {i < parts.length - 1 && (
+              <span style={{ color: t.accent + "60", margin: "0 1px" }}>/</span>
+            )}
+          </React.Fragment>
+        ))}
+      </span>
+    );
+  };
 
   return (
     <div>
@@ -157,7 +198,9 @@ const TreeNodeView = React.memo(function TreeNodeView({
           ) : (
             <span className="shrink-0">{fileIconElement(node.name)}</span>
           )}
-          <span className="truncate">{node.name}</span>
+          {isBreadcrumb ? renderBreadcrumbName(node.name) : (
+            <span className="truncate">{node.name}</span>
+          )}
         </div>
       </button>
       {isDir && isExpanded && node.children && node.children.length > 0 && (
@@ -210,7 +253,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
       .then(r => r.json())
       .then((data: TreeNode) => {
         if (!cancelled) {
-          setTree(data);
+          setTree(collapseLonelyChains(data));
           setExpandedPaths(new Set([projectRoot]));
         }
       })
@@ -226,8 +269,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
       .then(r => r.json())
       .then((data: TreeNode) => {
         setTree(prev => {
-          // Keep expanded paths, just update the tree data
-          return data;
+          return collapseLonelyChains(data);
         });
       })
       .catch(() => {});
@@ -268,7 +310,8 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         const clone: TreeNode = JSON.parse(JSON.stringify(prev));
         const target = findNode(clone, dirPath);
         if (target) {
-          target.children = loaded.children;
+          // collapse lonely chains in loaded children too
+          target.children = (loaded.children ?? []).map(collapseLonelyChains);
           target.lazy = false;
         }
         return clone;
