@@ -103,7 +103,7 @@ export function NavItem({
                 "flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors",
             )}
             style={{
-                paddingLeft: active ? "38px" : "40px",
+                paddingLeft: active ? "26px" : "28px",
                 borderLeft: active ? `3px solid ${accentColor}` : "3px solid transparent",
                 backgroundColor: active ? accentBg : undefined,
                 color: active ? accentColor : "#78716c",
