@@ -33,9 +33,13 @@ function AppInner() {
   const [showFactoryEntry, setShowFactoryEntry] = useState(false);
 
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
-    return localStorage.getItem(STORAGE_PROJECT_KEY) || null;
+    const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+    return localStorage.getItem(`aioc.project.${lastFactory}`) || null;
   });
-  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(STORAGE_PROJECT_KEY));
+  const [showWelcome, setShowWelcome] = useState(() => {
+    const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+    return !localStorage.getItem(`aioc.project.${lastFactory}`);
+  });
   const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
   });
@@ -92,6 +96,8 @@ function AppInner() {
     setShowFactoryEntry(false);
     setActivePage("factory.crew");
     setOpenTabs(["factory.crew"]);
+    // Save per-factory projectRoot
+    localStorage.setItem(`aioc.project.${selectedFactoryId}`, path);
     // Update recent projects
     try {
       const existing = JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as string[];
@@ -118,10 +124,12 @@ function AppInner() {
     if (saved) {
       setOpenTabs(saved.tabs);
       setActivePage(saved.activePage);
-      if (saved.projectRoot) setProjectRoot(saved.projectRoot);
+      setProjectRoot(saved.projectRoot);
     } else {
       setOpenTabs(["factory.crew"]);
       setActivePage("factory.crew");
+      // Load persisted projectRoot for this factory (may be null)
+      setProjectRoot(localStorage.getItem(`aioc.project.${factoryId}`) || null);
     }
     setSelectedFactoryId(factoryId);
     localStorage.setItem(STORAGE_FACTORY_KEY, factoryId);
