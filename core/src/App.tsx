@@ -37,7 +37,7 @@ function AppInner() {
   });
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(STORAGE_PROJECT_KEY));
   const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_FACTORY_KEY) || "fabric-service";
+    return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
   });
 
   const [activePage, setActivePage] = useState<string>("factory.crew");

@@ -28,7 +28,7 @@ const DASHBOARD_ROOT = resolve(__dirname, "..");
 const AIOC_ROOT = resolve(__dirname, "../../");
 const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "core/conversations");
 const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
-const DEFAULT_FACTORY = "fabric-service";
+const DEFAULT_FACTORY = "default";
 
 const PORT = parseInt(process.env.QWEN_CODE_PORT || "4097", 10);
 
@@ -250,9 +250,9 @@ const server = createServer(async (req, res) => {
   const factoryDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/factories\/([\w.-]+)$/);
   if (factoryDeleteMatch) {
     const fId = factoryDeleteMatch[1];
-    if (fId === DEFAULT_FACTORY || fId === "default") {
+    if (fId === "default") {
       res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Cannot delete the default or template factory" }));
+      res.end(JSON.stringify({ error: "Cannot delete the default factory" }));
       return;
     }
     try {

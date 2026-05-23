@@ -116,8 +116,8 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
                   ✓ CURRENT
                 </span>
               )}
-              {/* Delete button for non-fabric-service */}
-              {f.id !== "fabric-service" && (
+              {/* Delete button — only for non-default factories */}
+              {f.id !== "default" && (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(f.id); }}
                   className="mt-2 text-[10px] text-rose-400 hover:text-rose-600 transition-colors"
