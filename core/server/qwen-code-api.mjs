@@ -26,7 +26,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DASHBOARD_ROOT = resolve(__dirname, "..");
 const AIOC_ROOT = resolve(__dirname, "../../");
-const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "conversations");
+const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "core/conversations");
 const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
 const DEFAULT_FACTORY = "fabric-service";
 
