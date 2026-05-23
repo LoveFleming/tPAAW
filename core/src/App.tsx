@@ -115,7 +115,7 @@ function AppInner() {
   const closeTab = (id: string) => {
     setOpenTabs((prev) => {
       const next = prev.filter((t) => t !== id);
-      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : "codebase");
+      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : "workingbase");
       return next;
     });
   };
@@ -340,8 +340,8 @@ function AppInner() {
               </div>
             </SidebarSection>
 
-            {/* Code Base — file tree */}
-            <SidebarSection title="Code Base">
+            {/* Working Base — file tree */}
+            <SidebarSection title="Working Base">
               <SidebarFileTree
                 projectRoot={projectRoot}
                 activeFilePath={activeFilePath}

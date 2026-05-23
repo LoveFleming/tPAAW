@@ -65,7 +65,7 @@ export function buildSystemPrompt(crew: Skill, selectedSkillIds?: string[], form
 
     // Inject base paths so CLI knows where to find AIOC resources and project files
     if (paths) {
-        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}（factories、conversations 都在這裡）\n- **Project Codebase**: ${paths.projectRoot}（使用者的專案原始碼）\n\n讀取 AIOC 資源時使用 AIOC Base 路徑下的 factories/ 目錄。`);
+        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}（factories、conversations 都在這裡）\n- **Project Codebase**: ${paths.projectRoot}（AI CLI 的工作目錄，使用者的專案原始碼）\n\n讀取 AIOC 資源時使用 AIOC Base 路徑下的 factories/ 目錄。`);
     }
 
     const skillsToLoad = crew.skills.filter(
