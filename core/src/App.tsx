@@ -40,6 +40,8 @@ function AppInner() {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
   });
 
+  // Per-factory state: tabs and projectRoot saved/restored on switch
+  const factoryStateRef = useRef<Record<string, { tabs: string[]; activePage: string; projectRoot: string | null }>>({});
   const [activePage, setActivePage] = useState<string>("factory.crew");
   const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -109,6 +111,18 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
+    // Save current factory state
+    factoryStateRef.current[selectedFactoryId] = { tabs: openTabs, activePage, projectRoot };
+    // Restore target factory state (or default)
+    const saved = factoryStateRef.current[factoryId];
+    if (saved) {
+      setOpenTabs(saved.tabs);
+      setActivePage(saved.activePage);
+      if (saved.projectRoot) setProjectRoot(saved.projectRoot);
+    } else {
+      setOpenTabs(["factory.crew"]);
+      setActivePage("factory.crew");
+    }
     setSelectedFactoryId(factoryId);
     localStorage.setItem(STORAGE_FACTORY_KEY, factoryId);
   };
