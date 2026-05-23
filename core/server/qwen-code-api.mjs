@@ -28,7 +28,7 @@ const DASHBOARD_ROOT = resolve(__dirname, "..");
 const AIOC_ROOT = resolve(__dirname, "../../");
 const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "conversations");
 const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
-const DEFAULT_FACTORY = "default";
+const DEFAULT_FACTORY = "fabric-service";
 
 const PORT = parseInt(process.env.QWEN_CODE_PORT || "4097", 10);
 

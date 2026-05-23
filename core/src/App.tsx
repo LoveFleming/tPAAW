@@ -2,6 +2,7 @@ import Icon from "./components/Icon";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import WelcomePage from "./pages/WelcomePage";
+import FactoryEntryPage from "./pages/FactoryEntryPage";
 import AICrew from "./pages/AICrew";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
@@ -29,13 +30,14 @@ try {
 
 function AppInner() {
   const STORAGE_FACTORY_KEY = "aioc.factory";
+  const [showFactoryEntry, setShowFactoryEntry] = useState(false);
 
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_PROJECT_KEY) || null;
   });
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(STORAGE_PROJECT_KEY));
   const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+    return localStorage.getItem(STORAGE_FACTORY_KEY) || "fabric-service";
   });
 
   const [activePage, setActivePage] = useState<string>("factory.crew");
@@ -85,8 +87,19 @@ function AppInner() {
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
     setShowWelcome(false);
+    setShowFactoryEntry(false);
     setActivePage("factory.crew");
     setOpenTabs(["factory.crew"]);
+  };
+
+  const enterFactory = (factoryId: string) => {
+    switchFactory(factoryId);
+    setShowFactoryEntry(false);
+  };
+
+  const goToFactoryEntry = () => {
+    setShowFactoryEntry(true);
+    loadFactories();
   };
 
   const switchFactory = (factoryId: string) => {
@@ -204,6 +217,20 @@ function AppInner() {
   // Early return AFTER all hooks
   if (showWelcome || !projectRoot) {
     return <WelcomePage onSelect={handleSelectProject} />;
+  }
+
+  // Factory Entry screen
+  if (showFactoryEntry) {
+    return (
+      <FactoryEntryPage
+        factories={factories}
+        selectedFactoryId={selectedFactoryId}
+        onSelect={enterFactory}
+        onBack={() => setShowFactoryEntry(false)}
+        aiocRoot={aiocRoot}
+        onFactoriesChanged={loadFactories}
+      />
+    );
   }
 
 
@@ -327,7 +354,7 @@ function AppInner() {
           {/* Switch project */}
           <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
-              onClick={() => { setProjectRoot(null); setShowWelcome(true); setOpenTabs(["factory.crew"]); setActivePage("factory.crew"); }}
+              onClick={() => goToFactoryEntry()}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors"
               style={{ color: themeInfo.accentHover + "99" }}
               onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
@@ -336,7 +363,7 @@ function AppInner() {
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 .75.75V21m-6 0H9m4.5 0h6m-6 0V9m0 12H3.75a.75.75 0 0 1-.75-.75V13.5m16.5 0V3.75a.75.75 0 0 0-.75-.75H4.5a.75.75 0 0 0-.75.75v9.75m15 0h-1.5" />
               </svg>
-              Switch Project
+              AI Factory
             </button>
           </div>
         </aside>
