@@ -251,7 +251,7 @@ function AppInner() {
             <div className="relative ml-3">
               <button
                 onClick={() => setFactoryMenuOpen(!factoryMenuOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/20 hover:bg-white/30 text-white/90 text-xs transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white/90 text-sm font-semibold transition-colors cursor-pointer"
                 style={{ fontFamily: "'SF Pro Display', sans-serif" }}
               >
                 {factories.find(f => f.id === selectedFactoryId)?.icon || "🏭"} {factories.find(f => f.id === selectedFactoryId)?.name || selectedFactoryId}
@@ -263,7 +263,7 @@ function AppInner() {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setFactoryMenuOpen(false)} />
                   <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
-                    <div className="px-3 py-2 border-b border-stone-100 bg-stone-50">
+                    <div className="px-3 py-1.5 border-b border-stone-100 bg-stone-50">
                       <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">🏭 AI Factory</span>
                     </div>
                     <div className="max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
@@ -272,21 +272,18 @@ function AppInner() {
                           key={f.id}
                           onClick={() => { switchFactory(f.id); setFactoryMenuOpen(false); }}
                           className={cn(
-                            "w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                            "w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors",
                             f.id === selectedFactoryId ? "bg-stone-50" : "hover:bg-stone-50"
                           )}
                         >
-                          <span className="text-base">{f.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className={cn("text-sm", f.id === selectedFactoryId ? "font-semibold text-stone-800" : "text-stone-600")}>{f.name}</span>
-                              {f.id === selectedFactoryId && (
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" style={{ color: themeInfo.accent }}>
-                                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-stone-400 font-mono">{f.id}</span>
+                          <span className="text-sm">{f.icon}</span>
+                          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                            <span className={cn("text-sm", f.id === selectedFactoryId ? "font-semibold text-stone-800" : "text-stone-600")}>{f.name}</span>
+                            {f.id === selectedFactoryId && (
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3" style={{ color: themeInfo.accent }}>
+                                <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                              </svg>
+                            )}
                           </div>
                         </button>
                       ))}
@@ -294,10 +291,10 @@ function AppInner() {
                     <div className="border-t border-stone-200">
                       <button
                         onClick={() => { setFactoryMenuOpen(false); goToFactoryEntry(); }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
                       >
-                        <span className="text-base">➕</span>
-                        <span className="font-medium">Create New Factory</span>
+                        <span className="text-sm">➕</span>
+                        <span>Create New Factory</span>
                       </button>
                     </div>
                   </div>
