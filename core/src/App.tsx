@@ -28,10 +28,15 @@ try {
 } catch {}
 
 function AppInner() {
+  const STORAGE_FACTORY_KEY = "aioc.factory";
+
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_PROJECT_KEY) || null;
   });
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(STORAGE_PROJECT_KEY));
+  const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+  });
 
   const [activePage, setActivePage] = useState<string>("factory.crew");
   const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
@@ -41,20 +46,28 @@ function AppInner() {
     return saved ? parseInt(saved, 10) : 240;
   });
 
+  const [factories, setFactories] = useState<{id: string; name: string; icon: string; description: string}[]>([]);
   const [crew, setCrew] = useState<Skill[]>([]);
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
   const [aiocRoot, setAiocRoot] = useState("");
 
-  const loadCrew = useCallback(async () => {
+  const loadFactories = useCallback(async () => {
     try {
-      const resp = await fetch("http://127.0.0.1:4097/api/crew");
-      if (resp.ok) setCrew(await resp.json());
+      const resp = await fetch("http://127.0.0.1:4097/api/factories");
+      if (resp.ok) setFactories(await resp.json());
     } catch {}
   }, []);
 
+  const loadCrew = useCallback(async () => {
+    try {
+      const resp = await fetch(`http://127.0.0.1:4097/api/crew?factory=${selectedFactoryId}`);
+      if (resp.ok) setCrew(await resp.json());
+    } catch {}
+  }, [selectedFactoryId]);
+
   const loadFactoryFiles = useCallback(async () => {
     try {
-      const resp = await fetch("http://127.0.0.1:4097/api/factory-content");
+      const resp = await fetch(`http://127.0.0.1:4097/api/factory-content?factory=${selectedFactoryId}`);
       if (resp.ok) {
         const data = await resp.json();
         setFactoryFiles(data.map((f: any) => f.filename));
@@ -67,13 +80,18 @@ function AppInner() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadCrew(); loadFactoryFiles(); }, [loadCrew, loadFactoryFiles]);
+  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); }, [loadFactories, loadCrew, loadFactoryFiles]);
 
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
     setShowWelcome(false);
     setActivePage("factory.crew");
     setOpenTabs(["factory.crew"]);
+  };
+
+  const switchFactory = (factoryId: string) => {
+    setSelectedFactoryId(factoryId);
+    localStorage.setItem(STORAGE_FACTORY_KEY, factoryId);
   };
 
   const openApp = (id: string) => {
@@ -162,10 +180,10 @@ function AppInner() {
   }, [sidebarWidth]);
 
   const renderPage = useCallback((pageId: string) => {
-    if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
+    if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={selectedFactoryId} />;
     if (pageId.startsWith("factory.file.")) {
       const fileName = pageId.slice(13);
-      const filePath = `${aiocRoot}/factory/${fileName}`;
+      const filePath = `${aiocRoot}/factories/${selectedFactoryId}/docs/${fileName}`;
       return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
     }
     if (pageId.startsWith("file://")) {
@@ -176,12 +194,12 @@ function AppInner() {
       const employeeId = pageId.split("#")[0].slice(9);
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={crew} />
+          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={crew} factoryId={selectedFactoryId} />
         </React.Suspense>
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageId}</div>;
-  }, [projectRoot, aiocRoot, crew]);
+  }, [projectRoot, aiocRoot, crew, selectedFactoryId]);
 
   // Early return AFTER all hooks
   if (showWelcome || !projectRoot) {
@@ -200,6 +218,21 @@ function AppInner() {
             </svg>
           </button>
           <span className="text-sm font-semibold text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI-Native Operation Center</span>
+          {/* Factory selector in header */}
+          {factories.length > 0 && (
+            <select
+              value={selectedFactoryId}
+              onChange={e => switchFactory(e.target.value)}
+              className="ml-3 px-2 py-0.5 text-xs rounded-md border-0 bg-white/20 text-white/90 hover:bg-white/30 cursor-pointer transition-colors"
+              style={{ fontFamily: "'SF Pro Display', sans-serif" }}
+            >
+              {factories.map(f => (
+                <option key={f.id} value={f.id} className="text-stone-800">
+                  {f.icon} {f.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         {/* Theme dropdown */}
         <div className="relative">

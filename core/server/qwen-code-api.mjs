@@ -25,10 +25,10 @@ const execAsync = promisify(execCb);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DASHBOARD_ROOT = resolve(__dirname, "..");
-const AIEOC_ROOT = resolve(__dirname, "../../");
-const CONVERSATIONS_ROOT = resolve(AIEOC_ROOT, "conversations");
-const CREW_ROOT = resolve(AIEOC_ROOT, "crew");
-const FACTORY_ROOT = resolve(AIEOC_ROOT, "factory");
+const AIOC_ROOT = resolve(__dirname, "../../");
+const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "conversations");
+const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
+const DEFAULT_FACTORY = "default";
 
 const PORT = parseInt(process.env.QWEN_CODE_PORT || "4097", 10);
 
@@ -160,10 +160,131 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/aieoc-root — return AIEOC base path
-  if (req.method === "GET" && req.url === "/api/aieoc-root") {
+  // Helper: resolve factory-scoped directory
+  function factoryDir(factoryId, subdir) {
+    return resolve(FACTORIES_ROOT, factoryId, subdir);
+  }
+
+  // Helper: get factoryId from query param, fallback to default
+  function getFactoryId(url) {
+    const u = new URL(url, "http://localhost");
+    return u.searchParams.get("factory") || DEFAULT_FACTORY;
+  }
+
+  // ── Factory CRUD ──
+
+  // GET /api/factories — list all factories
+  if (req.method === "GET" && req.url?.match(/^\/api\/factories(?:\?.*)?$/)) {
+    try {
+      await mkdir(FACTORIES_ROOT, { recursive: true });
+      const dirs = await readdir(FACTORIES_ROOT);
+      const factories = [];
+      for (const dir of dirs) {
+        try {
+          const stat = await import("fs/promises").then(m => m.stat(join(FACTORIES_ROOT, dir)));
+          if (!stat.isDirectory()) continue;
+          const configPath = join(FACTORIES_ROOT, dir, "factory.json");
+          const raw = await readFile(configPath, "utf-8");
+          factories.push(JSON.parse(raw));
+        } catch { /* skip invalid */ }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(factories));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/factories — create new factory
+  if (req.method === "POST" && req.url === "/api/factories") {
+    const body = await readBody(req);
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    if (!parsed.id) { res.writeHead(400); res.end("Missing 'id'"); return; }
+    if (!parsed.name) { res.writeHead(400); res.end("Missing 'name'"); return; }
+
+    const factoryPath = join(FACTORIES_ROOT, parsed.id);
+    try {
+      await mkdir(factoryPath, { recursive: true });
+      await mkdir(join(factoryPath, "crew", "pic"), { recursive: true });
+      await mkdir(join(factoryPath, "skills"), { recursive: true });
+      await mkdir(join(factoryPath, "docs"), { recursive: true });
+      await mkdir(join(factoryPath, "constitution", "standards"), { recursive: true });
+
+      const factoryJson = {
+        id: parsed.id,
+        name: parsed.name,
+        description: parsed.description || "",
+        icon: parsed.icon || "🏭",
+        version: "1.0.0",
+        createdAt: new Date().toISOString(),
+        settings: { defaultCli: parsed.defaultCli || "qwen" },
+      };
+      await writeFile(join(factoryPath, "factory.json"), JSON.stringify(factoryJson, null, 2), "utf-8");
+
+      // Optionally copy from template factory
+      if (parsed.copyFrom) {
+        const srcCrew = join(FACTORIES_ROOT, parsed.copyFrom, "crew");
+        const srcSkills = join(FACTORIES_ROOT, parsed.copyFrom, "skills");
+        const srcDocs = join(FACTORIES_ROOT, parsed.copyFrom, "docs");
+        const srcConst = join(FACTORIES_ROOT, parsed.copyFrom, "constitution");
+        try {
+          const { cpSync } = await import("fs");
+          try { cpSync(srcCrew, join(factoryPath, "crew"), { recursive: true }); } catch {}
+          try { cpSync(srcSkills, join(factoryPath, "skills"), { recursive: true }); } catch {}
+          try { cpSync(srcDocs, join(factoryPath, "docs"), { recursive: true }); } catch {}
+          try { cpSync(srcConst, join(factoryPath, "constitution"), { recursive: true }); } catch {}
+        } catch {
+          // cpSync not available (Node < 16.7), skip copy
+        }
+      }
+
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, factory: factoryJson }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // DELETE /api/factories/:id — delete a factory
+  const factoryDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/factories\/([\w.-]+)$/);
+  if (factoryDeleteMatch) {
+    const fId = factoryDeleteMatch[1];
+    if (fId === DEFAULT_FACTORY) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Cannot delete the default factory" }));
+      return;
+    }
+    try {
+      const { rm } = await import("fs/promises");
+      await rm(join(FACTORIES_ROOT, fId), { recursive: true, force: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/aioc-root — return AIOC base path
+  if (req.method === "GET" && req.url === "/api/aioc-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT }));
+    res.end(JSON.stringify({ aiocRoot: AIOC_ROOT }));
+    return;
+  }
+
+  // GET /api/factory-root — return active factory root path
+  const factoryRootMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-root(?:\?(.*))?$/);
+  if (factoryRootMatch) {
+    const fId = getFactoryId(req.url);
+    const fRoot = join(FACTORIES_ROOT, fId);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ factoryRoot: fRoot, factoryId: fId }));
     return;
   }
 
@@ -302,10 +423,10 @@ const server = createServer(async (req, res) => {
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT, models, currentModel }));
+      res.end(JSON.stringify({ aiocRoot: AIOC_ROOT, models, currentModel }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aieocRoot: AIEOC_ROOT, models: [], currentModel: "", error: err.message }));
+      res.end(JSON.stringify({ aiocRoot: AIOC_ROOT, models: [], currentModel: "", error: err.message }));
     }
     return;
   }
@@ -361,9 +482,9 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // ── Crew CRUD endpoints ──
+  // ── Crew CRUD endpoints (factory-scoped) ──
 
-  const CREW_DIR = CREW_ROOT;
+  const CREW_DIR = factoryDir(getFactoryId(req.url), "crew");
 
   // Helper: list all crew JSON files
   async function listCrewFiles() {
@@ -726,7 +847,7 @@ const server = createServer(async (req, res) => {
     const root = u.searchParams.get("root");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(CREW_ROOT, "conversation", employeeId);
+      : join(factoryDir(getFactoryId(req.url), "crew"), "conversation", employeeId);
     const filePath = join(dir, "work-log.json");
     try {
       const raw = await readFile(filePath, "utf-8");
@@ -747,7 +868,7 @@ const server = createServer(async (req, res) => {
     const root = u.searchParams.get("root");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(CREW_ROOT, "conversation", employeeId);
+      : join(factoryDir(getFactoryId(req.url), "crew"), "conversation", employeeId);
     await mkdir(dir, { recursive: true });
     const filePath = join(dir, "work-log.json");
 
@@ -971,11 +1092,33 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/factory/:factoryId/crew-pic/:filename — serve crew photo from factory directory
+  const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/factory\/([\w.-]+)\/crew-pic\/(.+)$/);
+  if (crewPicMatch) {
+    const [, fId, picName] = crewPicMatch;
+    const picPath = join(FACTORIES_ROOT, fId, "crew", "pic", picName);
+    try {
+      const { stat } = await import("fs/promises");
+      const s = await stat(picPath);
+      if (!s.isFile()) throw new Error("Not a file");
+      const ext = picName.split(".").pop()?.toLowerCase();
+      const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml" };
+      res.writeHead(200, { "Content-Type": mimeMap[ext] || "application/octet-stream" });
+      const { createReadStream } = await import("fs");
+      createReadStream(picPath).pipe(res);
+    } catch {
+      res.writeHead(404);
+      res.end("Not found");
+    }
+    return;
+  }
+
   // GET /api/factory-content/:name — single file
-  const singleFileMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content\/([\w.-]+)$/);
+  const singleFileMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content\/([\w.-]+)(?:\?.*)?$/);
   if (singleFileMatch) {
     const name = singleFileMatch[1];
-    const factoryDir = FACTORY_ROOT;
+    const fId = getFactoryId(req.url);
+    const factoryDir = join(FACTORIES_ROOT, fId, "docs");
     const filePath = join(factoryDir, name);
     try {
       const content = await readFile(filePath, "utf-8");
@@ -989,14 +1132,16 @@ const server = createServer(async (req, res) => {
   }
 
   // GET /api/factory-content — list all files in factory directory
-  if (req.method === "GET" && req.url === "/api/factory-content") {
-    const factoryDir = FACTORY_ROOT;
+  const factoryContentListMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content(?:\?.*)?$/);
+  if (factoryContentListMatch) {
+    const fId = getFactoryId(req.url);
+    const factoryDirPath = join(FACTORIES_ROOT, fId, "docs");
     try {
-      const files = await readdir(factoryDir);
+      const files = await readdir(factoryDirPath);
       const result = files.sort().map(f => ({ filename: f }));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
-    } catch (err) {
+    } catch {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify([]));
     }
@@ -1261,7 +1406,7 @@ function spawnCli(ptySpawn, opts) {
   const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
   let bin = process.env[config.envBin] || config.bins[binKey];
   const args = config.buildArgs(opts);
-  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || AIEOC_ROOT;
+  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || AIOC_ROOT;
 
   const ptyOpts = {
     name: "xterm-256color", cols: 120, rows: 30,

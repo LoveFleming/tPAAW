@@ -8,9 +8,10 @@ import Icon from "../components/Icon";
 interface AICrewProps {
     openEmployee: (employeeId: string) => void;
     onCrewChanged?: () => void;
+    factoryId?: string;
 }
 
-export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
+export default function AICrew({ openEmployee, onCrewChanged, factoryId = "default" }: AICrewProps) {
     const { info: t } = useTheme();
     const [crew, setCrew] = useState<Skill[]>([]);
     const [loading, setLoading] = useState(true);
@@ -19,7 +20,7 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
 
     const loadCrew = useCallback(async () => {
         try {
-            const resp = await fetch("http://127.0.0.1:4097/api/crew");
+            const resp = await fetch(`http://127.0.0.1:4097/api/crew?factory=${factoryId}`);
             if (resp.ok) {
                 const data = await resp.json();
                 setCrew(data);
@@ -48,7 +49,7 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
 
     const handleSave = async (crewData: Skill) => {
         const isEdit = !!editingCrew;
-        const url = isEdit ? `http://127.0.0.1:4097/api/crew/${crewData.id}` : "http://127.0.0.1:4097/api/crew";
+        const url = isEdit ? `http://127.0.0.1:4097/api/crew/${crewData.id}?factory=${factoryId}` : `http://127.0.0.1:4097/api/crew?factory=${factoryId}`;
         const method = isEdit ? "PUT" : "POST";
 
         const resp = await fetch(url, {
@@ -69,7 +70,7 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
     };
 
     const handleDelete = async (id: string) => {
-        const resp = await fetch(`http://127.0.0.1:4097/api/crew/${id}`, { method: "DELETE" });
+        const resp = await fetch(`http://127.0.0.1:4097/api/crew/${id}?factory=${factoryId}`, { method: "DELETE" });
         if (!resp.ok) {
             const err = await resp.json();
             throw new Error(err.error || `Delete failed (${resp.status})`);
@@ -131,7 +132,7 @@ export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
                         >
                             <div className="h-48 w-full relative overflow-hidden shrink-0 flex items-center justify-center p-2" style={{ backgroundColor: t.accentBg }}>
                                 <img
-                                    src={s.imageUrl}
+                                    src={s.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crew-pic/${s.imageUrl.split("/").pop()}` : s.imageUrl}
                                     alt={s.title}
                                     className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110 drop-shadow-sm"
                                     onError={(e) => {
