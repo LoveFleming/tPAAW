@@ -271,7 +271,7 @@ function AppInner() {
   }, [projectRoot, aiocRoot, crew, selectedFactoryId]);
 
   // Early return AFTER all hooks
-  if (showWelcome || !projectRoot) {
+  if (showWelcome) {
     return <WelcomePage onSelect={handleSelectProject} />;
   }
 
