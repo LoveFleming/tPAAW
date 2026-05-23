@@ -142,17 +142,6 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
         </button>
       </div>
 
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="text-xs text-stone-400 hover:text-stone-600 transition-colors flex items-center gap-1"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-        </svg>
-        Back to Dashboard
-      </button>
-
       {/* Create Factory Modal */}
       {creating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setCreating(false)}>
