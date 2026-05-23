@@ -106,61 +106,10 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
   return null;
 }
 
-const BASE_INDENT = 26;
-const DEPTH_STEP = 14;
-
-/**
- * Given a list of child nodes (the children of an expanded directory),
- * collapse chains of directories that only have one child (another directory)
- * into breadcrumb-style virtual nodes.
- *
- * Example: if expanded children are:
- *   src/ (only child: components/) → components/ (only child: Button/) → Button/ (has files)
- * → src/components/Button/
- *
- * Only collapses when the chain reaches a directory that has multiple children or files.
- */
-function collapseChildren(children: TreeNode[]): TreeNode[] {
-  const result: TreeNode[] = [];
-  for (const child of children) {
-    if (child.type !== "dir" || !child.children || child.children.length !== 1) {
-      result.push(child);
-      continue;
-    }
-    // Walk down the single-child chain
-    const nameParts: string[] = [child.name];
-    let current = child.children[0];
-    let deepestPath = child.path;
-    // Keep walking while current is a dir with exactly one child (a dir)
-    while (current.type === "dir" && current.children && current.children.length === 1 && current.children[0].type === "dir") {
-      nameParts.push(current.name);
-      deepestPath = current.path;
-      current = current.children[0];
-    }
-    // Now `current` is either a file, or a dir with 0, >1 children, or a dir whose only child is a file
-    // Check if current is still a single-child dir (child is a file) — in that case include it too
-    if (current.type === "dir" && current.children && current.children.length === 1 && current.children[0].type === "file") {
-      // Don't collapse further — keep the dir and the file visible
-      result.push({
-        ...child,
-        name: nameParts.length > 1 ? nameParts.join("/") : child.name,
-        path: deepestPath,
-        children: [current.children[0]],
-        lazy: false,
-      });
-    } else {
-      // current has multiple children or is a file — collapse up to here
-      result.push({
-        ...child,
-        name: nameParts.length > 1 ? nameParts.join("/") : child.name,
-        path: deepestPath,
-        children: current.type === "dir" ? current.children : undefined,
-        lazy: current.type === "dir" ? current.lazy : false,
-      });
-    }
-  }
-  return result;
-}
+// VSCode-style indent: compact steps, capped at max depth
+const BASE_INDENT = 16;
+const DEPTH_STEP = 12;
+const MAX_INDENT_DEPTH = 10; // Beyond this, all items share the same indent level
 
 const TreeNodeView = React.memo(function TreeNodeView({
   node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths, projectRoot,
@@ -174,7 +123,10 @@ const TreeNodeView = React.memo(function TreeNodeView({
   const isExpanded = expandedPaths.has(node.path);
   const isActive = !isDir && activeFilePath === node.path;
   const isOpen = !isDir && openFilePaths.has(node.path);
-  const isBreadcrumb = isDir && node.name.includes("/");
+
+  // Cap the visual indent depth (VSCode style)
+  const effectiveDepth = Math.min(depth, MAX_INDENT_DEPTH);
+  const indentPx = BASE_INDENT + effectiveDepth * DEPTH_STEP;
 
   const handleCtx = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -184,27 +136,8 @@ const TreeNodeView = React.memo(function TreeNodeView({
     globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath });
   }, [node.path, projectRoot]);
 
-  // For breadcrumb folders, show each segment with / visual separator
-  const renderBreadcrumbName = (name: string) => {
-    const parts = name.split("/");
-    return (
-      <span className="truncate flex items-center gap-0.5">
-        {parts.map((part, i) => (
-          <React.Fragment key={i}>
-            <span>{part}</span>
-            {i < parts.length - 1 && (
-              <span style={{ color: t.accent + "60", margin: "0 1px" }}>/</span>
-            )}
-          </React.Fragment>
-        ))}
-      </span>
-    );
-  };
-
-  // When expanded, collapse single-child chains in children
-  const visibleChildren = isDir && isExpanded && node.children && node.children.length > 0
-    ? collapseChildren(node.children)
-    : node.children;
+  // Show depth indicator for deeply nested items (dots to indicate skipped levels)
+  const showDepthHint = depth > MAX_INDENT_DEPTH;
 
   return (
     <div>
@@ -213,7 +146,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
         onContextMenu={handleCtx}
         className={cn("flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors")}
         style={{
-          paddingLeft: `${BASE_INDENT + depth * DEPTH_STEP}px`,
+          paddingLeft: `${indentPx}px`,
           borderLeft: isActive ? `3px solid ${t.accent}` : "3px solid transparent",
           backgroundColor: isActive ? t.accentBg : undefined,
           color: isActive ? t.accent : isOpen ? t.accent + "aa" : "#78716c",
@@ -222,7 +155,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
         onMouseEnter={e => { if (!isActive) { e.currentTarget.style.backgroundColor = t.accentBg; e.currentTarget.style.color = t.accent; } }}
         onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = isOpen ? t.accent + "aa" : "#78716c"; } }}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
           {isDir ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
               className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
@@ -233,14 +166,15 @@ const TreeNodeView = React.memo(function TreeNodeView({
           ) : (
             <span className="shrink-0">{fileIconElement(node.name)}</span>
           )}
-          {isBreadcrumb ? renderBreadcrumbName(node.name) : (
-            <span className="truncate">{node.name}</span>
+          {showDepthHint && (
+            <span style={{ color: t.accent + "40", fontSize: 10, letterSpacing: -1 }}>··</span>
           )}
+          <span className="truncate">{node.name}</span>
         </div>
       </button>
-      {isDir && isExpanded && visibleChildren && visibleChildren.length > 0 && (
+      {isDir && isExpanded && node.children && node.children.length > 0 && (
         <div>
-          {visibleChildren.map((child) => (
+          {node.children.map((child) => (
             <TreeNodeView
               key={child.path}
               node={child}
