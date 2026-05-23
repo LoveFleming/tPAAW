@@ -109,27 +109,57 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
 const BASE_INDENT = 26;
 const DEPTH_STEP = 14;
 
-// Collapse chains of directories that each have only one child (a subdirectory)
-// into a single breadcrumb-style node. e.g. ai/dashboard/public/ → one line
-function collapseLonelyChains(node: TreeNode): TreeNode {
-  if (node.type !== "dir" || !node.children) return node;
-
-  const collapsed: TreeNode[] = node.children.map(collapseLonelyChains);
-
-  // If this dir has exactly one child and it's a directory, merge into breadcrumb
-  if (collapsed.length === 1 && collapsed[0].type === "dir") {
-    const child = collapsed[0];
-    return {
-      ...child,
-      name: node.name + "/" + child.name,
-      // keep the deepest path as the node path (for toggle)
-      path: child.path,
-      children: child.children,
-      lazy: child.lazy,
-    };
+/**
+ * Given a list of child nodes (the children of an expanded directory),
+ * collapse chains of directories that only have one child (another directory)
+ * into breadcrumb-style virtual nodes.
+ *
+ * Example: if expanded children are:
+ *   src/ (only child: components/) → components/ (only child: Button/) → Button/ (has files)
+ * → src/components/Button/
+ *
+ * Only collapses when the chain reaches a directory that has multiple children or files.
+ */
+function collapseChildren(children: TreeNode[]): TreeNode[] {
+  const result: TreeNode[] = [];
+  for (const child of children) {
+    if (child.type !== "dir" || !child.children || child.children.length !== 1) {
+      result.push(child);
+      continue;
+    }
+    // Walk down the single-child chain
+    const nameParts: string[] = [child.name];
+    let current = child.children[0];
+    let deepestPath = child.path;
+    // Keep walking while current is a dir with exactly one child (a dir)
+    while (current.type === "dir" && current.children && current.children.length === 1 && current.children[0].type === "dir") {
+      nameParts.push(current.name);
+      deepestPath = current.path;
+      current = current.children[0];
+    }
+    // Now `current` is either a file, or a dir with 0, >1 children, or a dir whose only child is a file
+    // Check if current is still a single-child dir (child is a file) — in that case include it too
+    if (current.type === "dir" && current.children && current.children.length === 1 && current.children[0].type === "file") {
+      // Don't collapse further — keep the dir and the file visible
+      result.push({
+        ...child,
+        name: nameParts.length > 1 ? nameParts.join("/") : child.name,
+        path: deepestPath,
+        children: [current.children[0]],
+        lazy: false,
+      });
+    } else {
+      // current has multiple children or is a file — collapse up to here
+      result.push({
+        ...child,
+        name: nameParts.length > 1 ? nameParts.join("/") : child.name,
+        path: deepestPath,
+        children: current.type === "dir" ? current.children : undefined,
+        lazy: current.type === "dir" ? current.lazy : false,
+      });
+    }
   }
-
-  return { ...node, children: collapsed };
+  return result;
 }
 
 const TreeNodeView = React.memo(function TreeNodeView({
@@ -171,6 +201,11 @@ const TreeNodeView = React.memo(function TreeNodeView({
     );
   };
 
+  // When expanded, collapse single-child chains in children
+  const visibleChildren = isDir && isExpanded && node.children && node.children.length > 0
+    ? collapseChildren(node.children)
+    : node.children;
+
   return (
     <div>
       <button
@@ -203,9 +238,9 @@ const TreeNodeView = React.memo(function TreeNodeView({
           )}
         </div>
       </button>
-      {isDir && isExpanded && node.children && node.children.length > 0 && (
+      {isDir && isExpanded && visibleChildren && visibleChildren.length > 0 && (
         <div>
-          {node.children.map((child) => (
+          {visibleChildren.map((child) => (
             <TreeNodeView
               key={child.path}
               node={child}
@@ -253,7 +288,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
       .then(r => r.json())
       .then((data: TreeNode) => {
         if (!cancelled) {
-          setTree(collapseLonelyChains(data));
+          setTree(data);
           setExpandedPaths(new Set([projectRoot]));
         }
       })
@@ -268,9 +303,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     fetch(`${API_BASE}/api/fs/tree?root=${encodeURIComponent(projectRoot)}`)
       .then(r => r.json())
       .then((data: TreeNode) => {
-        setTree(prev => {
-          return collapseLonelyChains(data);
-        });
+        setTree(data);
       })
       .catch(() => {});
   }, [projectRoot]);
@@ -310,8 +343,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         const clone: TreeNode = JSON.parse(JSON.stringify(prev));
         const target = findNode(clone, dirPath);
         if (target) {
-          // collapse lonely chains in loaded children too
-          target.children = (loaded.children ?? []).map(collapseLonelyChains);
+          target.children = loaded.children;
           target.lazy = false;
         }
         return clone;
