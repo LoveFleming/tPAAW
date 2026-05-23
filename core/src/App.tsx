@@ -1,5 +1,5 @@
 import Icon from "./components/Icon";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import WelcomePage from "./pages/WelcomePage";
 import AICrew from "./pages/AICrew";
@@ -36,6 +36,10 @@ function AppInner() {
   const [activePage, setActivePage] = useState<string>("factory.crew");
   const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem("aieoc.sidebar-width");
+    return saved ? parseInt(saved, 10) : 240;
+  });
 
   const [crew, setCrew] = useState<Skill[]>([]);
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
@@ -137,6 +141,30 @@ function AppInner() {
 
   const EmployeeWorkspaceV2Lazy = React.lazy(() => import("./pages/EmployeeWorkspaceV2"));
 
+  // Sidebar resize handler
+  const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const handleSidebarDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    sidebarDragRef.current = { startX: e.clientX, startWidth: sidebarWidth };
+    const handleMove = (ev: MouseEvent) => {
+      if (!sidebarDragRef.current) return;
+      const newWidth = Math.max(160, Math.min(500, sidebarDragRef.current.startWidth + ev.clientX - sidebarDragRef.current.startX));
+      setSidebarWidth(newWidth);
+    };
+    const handleUp = () => {
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+      sidebarDragRef.current = null;
+      // Save to localStorage
+      setSidebarWidth(w => {
+        localStorage.setItem("aieoc.sidebar-width", w.toString());
+        return w;
+      });
+    };
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+  }, [sidebarWidth]);
+
   const renderPage = (pageId: string) => {
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
     if (pageId.startsWith("factory.file.")) {
@@ -152,7 +180,7 @@ function AppInner() {
       const employeeId = pageId.split("#")[0].slice(9);
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} />
+          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={crew} />
         </React.Suspense>
       );
     }
@@ -237,9 +265,9 @@ function AppInner() {
       <div className="flex flex-1 overflow-hidden">
         {/* ── Sidebar ── */}
         <aside className={cn(
-          "flex-shrink-0 flex flex-col transition-all duration-200 overflow-hidden border-r",
-          sidebarOpen ? "w-60" : "w-0"
-        )} style={{ backgroundColor: "white", borderColor: themeInfo.accentBorder + "60" }}>
+          "flex-shrink-0 flex flex-col overflow-hidden border-r",
+          !sidebarOpen && "w-0"
+        )} style={{ width: sidebarOpen ? sidebarWidth : 0, backgroundColor: "white", borderColor: themeInfo.accentBorder + "60", transition: sidebarDragRef.current ? "none" : "width 200ms" }}>
           <div className="flex flex-col overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
 
             {/* Factory */}
@@ -278,6 +306,17 @@ function AppInner() {
             </button>
           </div>
         </aside>
+
+        {/* Sidebar resize handle */}
+        {sidebarOpen && (
+          <div
+            onMouseDown={handleSidebarDragStart}
+            className="flex-shrink-0 w-1.5 cursor-col-resize hover:bg-stone-300/50 active:bg-stone-400/50 transition-colors relative group"
+            style={{ zIndex: 10 }}
+          >
+            <div className="absolute inset-y-0 -left-1 -right-1" />
+          </div>
+        )}
 
         {/* ── Main ── */}
         <main className="flex-1 overflow-hidden flex flex-col">

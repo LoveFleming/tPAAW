@@ -43,6 +43,8 @@ export interface ChatConfig {
     maxTokens?: number;
     temperature?: number;
     model?: string;
+    cli?: string;
+    approvalMode?: string;
 }
 
 export type Skill = {

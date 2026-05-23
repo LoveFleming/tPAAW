@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, cn } from "../components/ui/shared";
-import { SKILLS } from "../data/mockData";
 import { Skill, CrewSkill, RequiredInput, buildSystemPrompt } from "../types";
 import { useTheme } from "../theme";
 import Icon from "../components/Icon";
@@ -24,10 +23,22 @@ interface ConvSummary {
 interface Props {
     employeeId: string;
     projectRoot?: string;
+    crew?: Skill[];
 }
 
-export default function EmployeeWorkspaceV2({ employeeId, projectRoot }: Props) {
-    const employee = SKILLS.find((s) => s.id === employeeId);
+export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: crewProp }: Props) {
+    // Use crew from props (API-fetched) to avoid HMR reset when crew JSON files change
+    const [apiEmployee, setApiEmployee] = useState<Skill | null>(null);
+    const propEmployee = crewProp?.find((s) => s.id === employeeId) || null;
+    // Fallback: fetch fresh from API on mount if not in crew prop
+    useEffect(() => {
+        if (propEmployee) return;
+        fetch(`http://127.0.0.1:4097/api/crew/${employeeId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data) setApiEmployee(data); })
+            .catch(() => {});
+    }, [employeeId, propEmployee]);
+    const employee = propEmployee || apiEmployee;
     const { info: t } = useTheme();
     const [enabledSkills, setEnabledSkills] = useState<Record<string, boolean>>({});
     const [consoleKey, setConsoleKey] = useState(0);

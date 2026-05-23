@@ -602,6 +602,31 @@ const server = createServer(async (req, res) => {
       updatedAt: new Date().toISOString(),
     };
     await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+
+    // Cleanup: keep only the 5 most recent conversations
+    try {
+      const files = await readdir(convDir);
+      const jsonFiles = files.filter(f => f.endsWith(".json"));
+      if (jsonFiles.length > 5) {
+        // Get all files with their timestamps
+        const fileStats = await Promise.all(jsonFiles.map(async f => {
+          try {
+            const raw = await readFile(join(convDir, f), "utf-8");
+            const d = JSON.parse(raw);
+            return { name: f, updatedAt: d.updatedAt || d.createdAt || "" };
+          } catch {
+            return { name: f, updatedAt: "" };
+          }
+        }));
+        // Sort by updatedAt descending, delete the oldest ones
+        fileStats.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+        const toDelete = fileStats.slice(5);
+        for (const f of toDelete) {
+          try { await unlink(join(convDir, f.name)); } catch { /* ignore */ }
+        }
+      }
+    } catch { /* cleanup is best-effort */ }
+
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, id }));
     return;
