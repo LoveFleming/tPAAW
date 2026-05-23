@@ -51,6 +51,7 @@ function AppInner() {
 
   const [factories, setFactories] = useState<{id: string; name: string; icon: string; description: string}[]>([]);
   const [crew, setCrew] = useState<Skill[]>([]);
+  const crewByFactoryRef = useRef<Record<string, Skill[]>>({});
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
   const [aiocRoot, setAiocRoot] = useState("");
 
@@ -64,7 +65,11 @@ function AppInner() {
   const loadCrew = useCallback(async () => {
     try {
       const resp = await fetch(`http://127.0.0.1:4097/api/crew?factory=${selectedFactoryId}`);
-      if (resp.ok) setCrew(await resp.json());
+      if (resp.ok) {
+        const data = await resp.json();
+        setCrew(data);
+        crewByFactoryRef.current[selectedFactoryId] = data;
+      }
     } catch {}
   }, [selectedFactoryId]);
 
@@ -211,10 +216,13 @@ function AppInner() {
     // Per-factory tabs
     const colonIdx = fullId.indexOf(":");
     if (colonIdx === -1) return fullId;
+    const tabFactoryId = fullId.slice(0, colonIdx);
     const id = fullId.slice(colonIdx + 1);
     if (id.startsWith("employee.")) {
       const empId = id.split("#")[0].slice(9);
-      const emp = crew.find(s => s.id === empId);
+      // Look up crew from the correct factory
+      const factoryCrew = crewByFactoryRef.current[tabFactoryId] ?? crew;
+      const emp = factoryCrew.find(s => s.id === empId);
       return emp ? emp.codename : empId;
     }
     if (id.startsWith("file://")) {
