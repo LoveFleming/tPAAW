@@ -80,7 +80,7 @@ function AppInner() {
       const d = await r.json();
       if (d.aiocRoot) setAiocRoot(d.aiocRoot);
     } catch {}
-  }, []);
+  }, [selectedFactoryId]);
 
   useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); }, [loadFactories, loadCrew, loadFactoryFiles]);
 
