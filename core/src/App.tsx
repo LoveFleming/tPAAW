@@ -39,10 +39,16 @@ function AppInner() {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
   });
 
-  // Per-factory state: tabs and projectRoot saved/restored on switch
-  const factoryStateRef = useRef<Record<string, { tabs: string[]; activePage: string; projectRoot: string | null }>>({});
-  const [activePage, setActivePage] = useState<string>("factory.crew");
-  const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
+  // All tabs across all factories, keyed as "factoryId:pageId"
+  const factoryStateRef = useRef<Record<string, { projectRoot: string | null }>>({});
+  const [activePage, setActivePage] = useState<string>(() => {
+    const f = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+    return `${f}:factory.crew`;
+  });
+  const [openTabs, setOpenTabs] = useState<string[]>(() => {
+    const f = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+    return [`${f}:factory.crew`];
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem("aioc.sidebar-width");
@@ -88,8 +94,11 @@ function AppInner() {
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
     setShowFactoryEntry(false);
-    setActivePage("factory.crew");
-    setOpenTabs(["factory.crew"]);
+    setActivePage(`${selectedFactoryId}:factory.crew`);
+    setOpenTabs(prev => {
+      const fullId = `${selectedFactoryId}:factory.crew`;
+      return prev.includes(fullId) ? prev : [fullId, ...prev];
+    });
     // Save per-factory projectRoot
     localStorage.setItem(`aioc.project.${selectedFactoryId}`, path);
     // Update recent projects
@@ -111,18 +120,20 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current factory state
-    factoryStateRef.current[selectedFactoryId] = { tabs: openTabs, activePage, projectRoot };
-    // Restore target factory state (or default)
+    // Save current factory projectRoot
+    factoryStateRef.current[selectedFactoryId] = { projectRoot };
+    // Ensure target factory has a default tab
+    const prefix = `${factoryId}:`;
+    const hasTabs = openTabs.some(t => t.startsWith(prefix));
+    if (!hasTabs) {
+      setOpenTabs(prev => [...prev, `${factoryId}:factory.crew`]);
+    }
+    setActivePage(`${factoryId}:factory.crew`);
+    // Restore projectRoot
     const saved = factoryStateRef.current[factoryId];
-    if (saved) {
-      setOpenTabs(saved.tabs);
-      setActivePage(saved.activePage);
+    if (saved?.projectRoot) {
       setProjectRoot(saved.projectRoot);
     } else {
-      setOpenTabs(["factory.crew"]);
-      setActivePage("factory.crew");
-      // Load persisted projectRoot for this factory (may be null)
       setProjectRoot(localStorage.getItem(`aioc.project.${factoryId}`) || null);
     }
     setSelectedFactoryId(factoryId);
@@ -130,29 +141,32 @@ function AppInner() {
   };
 
   const openApp = (id: string) => {
-    setOpenTabs((prev) => prev.includes(id) ? prev : [...prev, id]);
-    setActivePage(id);
+    const fullId = `${selectedFactoryId}:${id}`;
+    setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
+    setActivePage(fullId);
   };
 
   const closeTab = (id: string) => {
     setOpenTabs((prev) => {
       const next = prev.filter((t) => t !== id);
-      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : "workingbase");
+      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : `${selectedFactoryId}:factory.crew`);
       return next;
     });
   };
 
   const [instanceCounter, setInstanceCounter] = useState(0);
   const openEmployee = (employeeId: string) => {
-    const tabId = `employee.${employeeId}#${instanceCounter}`;
+    const tabId = `${selectedFactoryId}:employee.${employeeId}#${instanceCounter}`;
     setInstanceCounter((c) => c + 1);
-    openApp(tabId);
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
   };
 
   // File click → open as a new tab with file path as ID
   const handleSelectFile = (path: string) => {
-    const tabId = `file://${path}`;
-    openApp(tabId);
+    const fullId = `${selectedFactoryId}:file://${path}`;
+    setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
+    setActivePage(fullId);
   };
 
   const projectName = projectRoot ? pathBasename(projectRoot) : "";
@@ -198,7 +212,9 @@ function AppInner() {
     return [...fileItems, ...staticItems];
   }, [factoryFiles]);
 
-  const labelFor = useCallback((id: string): string => {
+  const labelFor = useCallback((fullId: string): string => {
+    const colonIdx = fullId.indexOf(":");
+    const id = fullId.slice(colonIdx + 1);
     if (id.startsWith("factory.")) return factoryNav.find(n => n.id === id)?.label ?? id;
     if (id.startsWith("employee.")) {
       const empId = id.split("#")[0].slice(9);
@@ -213,8 +229,8 @@ function AppInner() {
   }, [factoryNav, crew]);
 
   // Track which file paths are open (for sidebar highlight)
-  const openFilePaths = useMemo(() => new Set(openTabs.filter(t => t.startsWith("file://")).map(t => t.slice(7))), [openTabs]);
-  const activeFilePath = activePage.startsWith("file://") ? activePage.slice(7) : null;
+  const openFilePaths = useMemo(() => new Set(openTabs.filter(t => t.includes(":file://")).map(t => { const i = t.indexOf(":file://"); return t.slice(i + 1).slice(7); })), [openTabs]);
+  const activeFilePath = activePage.includes(":file://") ? activePage.slice(activePage.indexOf(":file://") + 1).slice(7) : null;
 
   const EmployeeWorkspaceV2Lazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspaceV2")), []);
 
@@ -242,22 +258,29 @@ function AppInner() {
     document.addEventListener("mouseup", handleUp);
   }, [sidebarWidth]);
 
-  const renderPage = useCallback((pageId: string) => {
-    if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={selectedFactoryId} />;
+  const renderPage = useCallback((fullId: string) => {
+    // Parse factoryId:pageId
+    const colonIdx = fullId.indexOf(":");
+    const tabFactoryId = fullId.slice(0, colonIdx);
+    const pageId = fullId.slice(colonIdx + 1);
+    // Use tab-specific projectRoot for file operations
+    const tabProjectRoot = projectRoot; // could be improved with per-tab lookup
+
+    if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={tabFactoryId} />;
     if (pageId.startsWith("factory.file.")) {
       const fileName = pageId.slice(13);
-      const filePath = `${aiocRoot}/factories/${selectedFactoryId}/docs/${fileName}`;
-      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
+      const filePath = `${aiocRoot}/factories/${tabFactoryId}/docs/${fileName}`;
+      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} />;
     }
     if (pageId.startsWith("file://")) {
       const filePath = pageId.slice(7);
-      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
+      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} />;
     }
     if (pageId.startsWith("employee.")) {
       const employeeId = pageId.split("#")[0].slice(9);
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={crew} factoryId={selectedFactoryId} />
+          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={crew} factoryId={tabFactoryId} />
         </React.Suspense>
       );
     }
@@ -421,7 +444,7 @@ function AppInner() {
             <SidebarSection title="Factory">
               <div>
                 {factoryNav.map((item) => (
-                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                  <NavItem key={item.id} active={activePage === `${selectedFactoryId}:${item.id}`} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
               </div>
             </SidebarSection>

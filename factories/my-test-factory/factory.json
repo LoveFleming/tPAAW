@@ -1,0 +1,11 @@
+{
+  "id": "my-test-factory",
+  "name": "testing",
+  "description": "testing",
+  "icon": "🚀",
+  "version": "1.0.0",
+  "createdAt": "2026-05-23T18:56:43.848Z",
+  "settings": {
+    "defaultCli": "qwen"
+  }
+}
