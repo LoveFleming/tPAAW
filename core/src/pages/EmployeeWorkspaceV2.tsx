@@ -560,7 +560,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
                         {/* Photo */}
                         <div className="w-full sm:w-40 md:w-52 shrink-0 flex items-center justify-center p-3 max-h-[160px] sm:max-h-none">
                             <img
-                                src={employee.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crew-pic/${employee.imageUrl.split("/").pop()}` : employee.imageUrl}
+                                src={employee.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crews-pic/${employee.imageUrl.split("/").pop()}` : employee.imageUrl}
                                 alt={employee.title}
                                 className="w-full h-full object-contain drop-shadow-lg"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

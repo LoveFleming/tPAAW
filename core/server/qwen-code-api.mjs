@@ -208,10 +208,9 @@ const server = createServer(async (req, res) => {
     const factoryPath = join(FACTORIES_ROOT, parsed.id);
     try {
       await mkdir(factoryPath, { recursive: true });
-      await mkdir(join(factoryPath, "crew", "pic"), { recursive: true });
+      await mkdir(join(factoryPath, "crews", "pic"), { recursive: true });
       await mkdir(join(factoryPath, "skills"), { recursive: true });
       await mkdir(join(factoryPath, "docs"), { recursive: true });
-      await mkdir(join(factoryPath, "constitution", "standards"), { recursive: true });
 
       const factoryJson = {
         id: parsed.id,
@@ -226,16 +225,14 @@ const server = createServer(async (req, res) => {
 
       // Optionally copy from template factory
       if (parsed.copyFrom) {
-        const srcCrew = join(FACTORIES_ROOT, parsed.copyFrom, "crew");
+        const srcCrew = join(FACTORIES_ROOT, parsed.copyFrom, "crews");
         const srcSkills = join(FACTORIES_ROOT, parsed.copyFrom, "skills");
         const srcDocs = join(FACTORIES_ROOT, parsed.copyFrom, "docs");
-        const srcConst = join(FACTORIES_ROOT, parsed.copyFrom, "constitution");
         try {
           const { cpSync } = await import("fs");
-          try { cpSync(srcCrew, join(factoryPath, "crew"), { recursive: true }); } catch {}
+          try { cpSync(srcCrew, join(factoryPath, "crews"), { recursive: true }); } catch {}
           try { cpSync(srcSkills, join(factoryPath, "skills"), { recursive: true }); } catch {}
           try { cpSync(srcDocs, join(factoryPath, "docs"), { recursive: true }); } catch {}
-          try { cpSync(srcConst, join(factoryPath, "constitution"), { recursive: true }); } catch {}
         } catch {
           // cpSync not available (Node < 16.7), skip copy
         }
@@ -485,7 +482,7 @@ const server = createServer(async (req, res) => {
   // ── Crew CRUD endpoints (factory-scoped) ──
 
     // Helper: resolve CREW_DIR per request with factory scope
-  function crewDirForRequest() { return factoryDir(getFactoryId(req.url), "crew"); }
+  function crewDirForRequest() { return factoryDir(getFactoryId(req.url), "crews"); }
 
   // Helper: list all crew JSON files
   async function listCrewFiles() {
@@ -849,7 +846,7 @@ const server = createServer(async (req, res) => {
     const root = u.searchParams.get("root");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(factoryDir(getFactoryId(req.url), "crew"), "conversation", employeeId);
+      : join(factoryDir(getFactoryId(req.url), "crews"), "conversation", employeeId);
     const filePath = join(dir, "work-log.json");
     try {
       const raw = await readFile(filePath, "utf-8");
@@ -870,7 +867,7 @@ const server = createServer(async (req, res) => {
     const root = u.searchParams.get("root");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(factoryDir(getFactoryId(req.url), "crew"), "conversation", employeeId);
+      : join(factoryDir(getFactoryId(req.url), "crews"), "conversation", employeeId);
     await mkdir(dir, { recursive: true });
     const filePath = join(dir, "work-log.json");
 
@@ -1094,11 +1091,11 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/factory/:factoryId/crew-pic/:filename — serve crew photo from factory directory
-  const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/factory\/([\w.-]+)\/crew-pic\/(.+)$/);
+  // GET /api/factory/:factoryId/crews-pic/:filename — serve crew photo from factory directory
+  const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/factory\/([\w.-]+)\/crews-pic\/(.+)$/);
   if (crewPicMatch) {
     const [, fId, picName] = crewPicMatch;
-    const picPath = join(FACTORIES_ROOT, fId, "crew", "pic", picName);
+    const picPath = join(FACTORIES_ROOT, fId, "crews", "pic", picName);
     try {
       const { stat } = await import("fs/promises");
       const s = await stat(picPath);

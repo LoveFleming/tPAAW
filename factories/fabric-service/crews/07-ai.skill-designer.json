@@ -2,7 +2,7 @@
     "id": "ai.skill-designer",
     "title": "AI Skill Designer",
     "codename": "小春 林 Koharu Hayashi",
-    "imageUrl": "/crew/pic/koharu_skill_designer.png",
+    "imageUrl": "/crews/pic/koharu_skill_designer.png",
     "skills": [
         {
             "id": "skill-design",

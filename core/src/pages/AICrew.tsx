@@ -132,7 +132,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
                         >
                             <div className="h-48 w-full relative overflow-hidden shrink-0 flex items-center justify-center p-2" style={{ backgroundColor: t.accentBg }}>
                                 <img
-                                    src={s.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crew-pic/${s.imageUrl.split("/").pop()}` : s.imageUrl}
+                                    src={s.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crews-pic/${s.imageUrl.split("/").pop()}` : s.imageUrl}
                                     alt={s.title}
                                     className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110 drop-shadow-sm"
                                     onError={(e) => {

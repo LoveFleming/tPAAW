@@ -114,7 +114,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
             id: id.trim(),
             title: title.trim(),
             codename: codename.trim(),
-            imageUrl: imageUrl.trim() || "/crew/pic/default_crew.png",
+            imageUrl: imageUrl.trim() || "/crews/pic/default_crew.png",
             skills: skills.map(sk => ({ ...sk, id: sk.id.trim(), name: sk.name.trim() })),
             risk,
             description: description.trim(),
@@ -196,7 +196,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                         <div>
                             <label className="text-sm font-semibold text-stone-500">Avatar Image URL</label>
                             <input value={imageUrl} onChange={e => setImageUrl(e.target.value)}
-                                className={inputCls} style={inputStyle} placeholder="/crew/pic/my_avatar.png" />
+                                className={inputCls} style={inputStyle} placeholder="/crews/pic/my_avatar.png" />
                         </div>
                         <div>
                             <label className="text-sm font-semibold text-stone-500">Risk Level</label>
