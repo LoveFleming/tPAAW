@@ -117,11 +117,7 @@ function AppInner() {
     return [...fileItems, ...staticItems];
   }, [factoryFiles]);
 
-  if (showWelcome || !projectRoot) {
-    return <WelcomePage onSelect={handleSelectProject} />;
-  }
-
-  const labelFor = (id: string): string => {
+  const labelFor = useCallback((id: string): string => {
     if (id.startsWith("factory.")) return factoryNav.find(n => n.id === id)?.label ?? id;
     if (id.startsWith("employee.")) {
       const empId = id.split("#")[0].slice(9);
@@ -133,13 +129,13 @@ function AppInner() {
       return pathBasename(fullPath);
     }
     return id;
-  };
+  }, [factoryNav, crew]);
 
   // Track which file paths are open (for sidebar highlight)
-  const openFilePaths = new Set(openTabs.filter(t => t.startsWith("file://")).map(t => t.slice(7)));
+  const openFilePaths = useMemo(() => new Set(openTabs.filter(t => t.startsWith("file://")).map(t => t.slice(7))), [openTabs]);
   const activeFilePath = activePage.startsWith("file://") ? activePage.slice(7) : null;
 
-  const EmployeeWorkspaceV2Lazy = React.lazy(() => import("./pages/EmployeeWorkspaceV2"));
+  const EmployeeWorkspaceV2Lazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspaceV2")), []);
 
   // Sidebar resize handler
   const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -165,7 +161,7 @@ function AppInner() {
     document.addEventListener("mouseup", handleUp);
   }, [sidebarWidth]);
 
-  const renderPage = (pageId: string) => {
+  const renderPage = useCallback((pageId: string) => {
     if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
     if (pageId.startsWith("factory.file.")) {
       const fileName = pageId.slice(13);
@@ -185,7 +181,12 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageId}</div>;
-  };
+  }, [projectRoot, aieocRoot, crew]);
+
+  // Early return AFTER all hooks
+  if (showWelcome || !projectRoot) {
+    return <WelcomePage onSelect={handleSelectProject} />;
+  }
 
 
   return (
