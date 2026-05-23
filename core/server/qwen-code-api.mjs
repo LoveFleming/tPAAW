@@ -223,19 +223,18 @@ const server = createServer(async (req, res) => {
       };
       await writeFile(join(factoryPath, "factory.json"), JSON.stringify(factoryJson, null, 2), "utf-8");
 
-      // Optionally copy from template factory
-      if (parsed.copyFrom) {
-        const srcCrew = join(FACTORIES_ROOT, parsed.copyFrom, "crews");
-        const srcSkills = join(FACTORIES_ROOT, parsed.copyFrom, "skills");
-        const srcDocs = join(FACTORIES_ROOT, parsed.copyFrom, "docs");
-        try {
-          const { cpSync } = await import("fs");
-          try { cpSync(srcCrew, join(factoryPath, "crews"), { recursive: true }); } catch {}
-          try { cpSync(srcSkills, join(factoryPath, "skills"), { recursive: true }); } catch {}
-          try { cpSync(srcDocs, join(factoryPath, "docs"), { recursive: true }); } catch {}
-        } catch {
-          // cpSync not available (Node < 16.7), skip copy
-        }
+      // Always clone from 'default' factory (copyFrom overrides if specified)
+      const cloneSource = parsed.copyFrom || "default";
+      const srcCrews = join(FACTORIES_ROOT, cloneSource, "crews");
+      const srcSkills = join(FACTORIES_ROOT, cloneSource, "skills");
+      const srcDocs = join(FACTORIES_ROOT, cloneSource, "docs");
+      try {
+        const { cpSync } = await import("fs");
+        try { cpSync(srcCrews, join(factoryPath, "crews"), { recursive: true }); } catch {}
+        try { cpSync(srcSkills, join(factoryPath, "skills"), { recursive: true }); } catch {}
+        try { cpSync(srcDocs, join(factoryPath, "docs"), { recursive: true }); } catch {}
+      } catch {
+        // cpSync not available (Node < 16.7), skip copy
       }
 
       res.writeHead(201, { "Content-Type": "application/json" });
@@ -251,9 +250,9 @@ const server = createServer(async (req, res) => {
   const factoryDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/factories\/([\w.-]+)$/);
   if (factoryDeleteMatch) {
     const fId = factoryDeleteMatch[1];
-    if (fId === DEFAULT_FACTORY) {
+    if (fId === DEFAULT_FACTORY || fId === "default") {
       res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Cannot delete the default factory" }));
+      res.end(JSON.stringify({ error: "Cannot delete the default or template factory" }));
       return;
     }
     try {

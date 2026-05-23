@@ -1,0 +1,11 @@
+{
+  "id": "default",
+  "name": "Default",
+  "description": "AIOC 預設工廠模板 — 每個新建工廠的起點",
+  "icon": "🏗️",
+  "version": "1.0.0",
+  "createdAt": "2026-05-23T00:00:00.000Z",
+  "settings": {
+    "defaultCli": "qwen"
+  }
+}
