@@ -1,7 +1,6 @@
 import Icon from "./components/Icon";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import WelcomePage from "./pages/WelcomePage";
 import FactoryEntryPage from "./pages/FactoryEntryPage";
 import AICrew from "./pages/AICrew";
 import FileViewer from "./pages/FileViewer";
@@ -35,10 +34,6 @@ function AppInner() {
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
     const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
     return localStorage.getItem(`aioc.project.${lastFactory}`) || null;
-  });
-  const [showWelcome, setShowWelcome] = useState(() => {
-    const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    return !localStorage.getItem(`aioc.project.${lastFactory}`);
   });
   const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
@@ -92,7 +87,6 @@ function AppInner() {
 
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
-    setShowWelcome(false);
     setShowFactoryEntry(false);
     setActivePage("factory.crew");
     setOpenTabs(["factory.crew"]);
@@ -271,11 +265,6 @@ function AppInner() {
   }, [projectRoot, aiocRoot, crew, selectedFactoryId]);
 
   // Early return AFTER all hooks
-  if (showWelcome) {
-    return <WelcomePage onSelect={handleSelectProject} />;
-  }
-
-  // Factory Entry screen
   if (showFactoryEntry) {
     return (
       <FactoryEntryPage
