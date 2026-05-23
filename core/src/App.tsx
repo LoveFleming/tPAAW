@@ -267,7 +267,7 @@ function AppInner() {
                       <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">🏭 AI Factory</span>
                     </div>
                     <div className="max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-                      {factories.map(f => (
+                      {factories.filter(f => f.id !== "default").map(f => (
                         <button
                           key={f.id}
                           onClick={() => { switchFactory(f.id); setFactoryMenuOpen(false); }}

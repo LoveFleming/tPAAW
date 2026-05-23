@@ -91,7 +91,7 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
 
       {/* Factory grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl w-full px-6 mb-6">
-        {factories.map((f) => {
+        {factories.filter(f => f.id !== "default").map((f) => {
           const isSelected = f.id === selectedFactoryId;
           return (
             <button
