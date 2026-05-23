@@ -484,23 +484,25 @@ const server = createServer(async (req, res) => {
 
   // ── Crew CRUD endpoints (factory-scoped) ──
 
-  const CREW_DIR = factoryDir(getFactoryId(req.url), "crew");
+    // Helper: resolve CREW_DIR per request with factory scope
+  function crewDirForRequest() { return factoryDir(getFactoryId(req.url), "crew"); }
 
   // Helper: list all crew JSON files
   async function listCrewFiles() {
-    await mkdir(CREW_DIR, { recursive: true });
-    const files = await readdir(CREW_DIR);
+    const dir = crewDirForRequest();
+    await mkdir(dir, { recursive: true });
+    const files = await readdir(dir);
     return files.filter(f => f.endsWith(".json") && !f.includes("conversation")).sort();
   }
 
   // GET /api/crew — list all crew members
-  if (req.method === "GET" && req.url === "/api/crew") {
+  if (req.method === "GET" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
     try {
       const files = await listCrewFiles();
       const crew = await Promise.all(
         files.map(async (name) => {
           try {
-            const raw = await readFile(join(CREW_DIR, name), "utf-8");
+            const raw = await readFile(join(crewDirForRequest(), name), "utf-8");
             return JSON.parse(raw);
           } catch { return null; }
         })
@@ -515,7 +517,7 @@ const server = createServer(async (req, res) => {
   }
 
   // GET /api/crew/:id — get single crew member
-  const crewGetMatch = req.method === "GET" && req.url?.match(/^\/api\/crew\/([\w.-]+)$/);
+  const crewGetMatch = req.method === "GET" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
   if (crewGetMatch) {
     const crewId = crewGetMatch[1];
     try {
@@ -523,7 +525,7 @@ const server = createServer(async (req, res) => {
       let target = null;
       for (const f of files) {
         try {
-          const raw = await readFile(join(CREW_DIR, f), "utf-8");
+          const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
           const data = JSON.parse(raw);
           if (data.id === crewId) { target = f; break; }
         } catch { /* skip */ }
@@ -533,7 +535,7 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: "Crew not found" }));
         return;
       }
-      const content = await readFile(join(CREW_DIR, target), "utf-8");
+      const content = await readFile(join(crewDirForRequest(), target), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(content);
     } catch (err) {
@@ -544,7 +546,7 @@ const server = createServer(async (req, res) => {
   }
 
   // POST /api/crew — create new crew member
-  if (req.method === "POST" && req.url === "/api/crew") {
+  if (req.method === "POST" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
     const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
@@ -555,7 +557,7 @@ const server = createServer(async (req, res) => {
       // Check for duplicate id
       const files = await listCrewFiles();
       for (const f of files) {
-        const raw = await readFile(join(CREW_DIR, f), "utf-8");
+        const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
         const existing = JSON.parse(raw);
         if (existing.id === parsed.id) {
           res.writeHead(409, { "Content-Type": "application/json" });
@@ -569,7 +571,7 @@ const server = createServer(async (req, res) => {
         ? String(Math.max(...files.map(f => parseInt(f.split("-")[0]) || 0)) + 1).padStart(2, "0")
         : "00";
       const filename = `${numPrefix}-${parsed.id}.json`;
-      await writeFile(join(CREW_DIR, filename), JSON.stringify(parsed, null, 4), "utf-8");
+      await writeFile(join(crewDirForRequest(), filename), JSON.stringify(parsed, null, 4), "utf-8");
       res.writeHead(201, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, filename, crew: parsed }));
     } catch (err) {
@@ -580,7 +582,7 @@ const server = createServer(async (req, res) => {
   }
 
   // PUT /api/crew/:id — update crew member
-  const crewPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/crew\/([\w.-]+)$/);
+  const crewPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
   if (crewPutMatch) {
     const crewId = crewPutMatch[1];
     const body = await readBody(req);
@@ -591,7 +593,7 @@ const server = createServer(async (req, res) => {
       const files = await listCrewFiles();
       let targetFile = null;
       for (const f of files) {
-        const raw = await readFile(join(CREW_DIR, f), "utf-8");
+        const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
         const existing = JSON.parse(raw);
         if (existing.id === crewId) { targetFile = f; break; }
       }
@@ -602,7 +604,7 @@ const server = createServer(async (req, res) => {
       }
       // Ensure id is not changed
       parsed.id = crewId;
-      await writeFile(join(CREW_DIR, targetFile), JSON.stringify(parsed, null, 4), "utf-8");
+      await writeFile(join(crewDirForRequest(), targetFile), JSON.stringify(parsed, null, 4), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, crew: parsed }));
     } catch (err) {
@@ -613,14 +615,14 @@ const server = createServer(async (req, res) => {
   }
 
   // DELETE /api/crew/:id — delete crew member
-  const crewDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/crew\/([\w.-]+)$/);
+  const crewDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
   if (crewDeleteMatch) {
     const crewId = crewDeleteMatch[1];
     try {
       const files = await listCrewFiles();
       let targetFile = null;
       for (const f of files) {
-        const raw = await readFile(join(CREW_DIR, f), "utf-8");
+        const raw = await readFile(join(crewDirForRequest(), f), "utf-8");
         const existing = JSON.parse(raw);
         if (existing.id === crewId) { targetFile = f; break; }
       }
@@ -630,7 +632,7 @@ const server = createServer(async (req, res) => {
         return;
       }
       const { unlink } = await import("fs/promises");
-      await unlink(join(CREW_DIR, targetFile));
+      await unlink(join(crewDirForRequest(), targetFile));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
     } catch (err) {
