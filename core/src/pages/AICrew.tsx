@@ -33,7 +33,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
             } catch { /* */ }
         }
         setLoading(false);
-    }, []);
+    }, [factoryId]);
 
     useEffect(() => { loadCrew(); }, [loadCrew]);
 
