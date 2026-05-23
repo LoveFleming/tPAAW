@@ -90,6 +90,12 @@ function AppInner() {
     setShowFactoryEntry(false);
     setActivePage("factory.crew");
     setOpenTabs(["factory.crew"]);
+    // Update recent projects
+    try {
+      const existing = JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as string[];
+      const updated = [path, ...existing.filter((p: string) => p !== path)].slice(0, 10);
+      localStorage.setItem("aioc.recent-projects", JSON.stringify(updated));
+    } catch {}
   };
 
   const enterFactory = (factoryId: string) => {
@@ -138,6 +144,13 @@ function AppInner() {
   const { info: themeInfo, theme, setTheme } = useTheme();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
+  const [workingBaseModalOpen, setWorkingBaseModalOpen] = useState(false);
+
+  const recentProjects = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as string[];
+    } catch { return []; }
+  }, [projectRoot]);
 
   const factoryNav = useMemo(() => {
     const staticItems = [{ id: "factory.crew", label: "AI Crew" }];
@@ -393,20 +406,25 @@ function AppInner() {
             </SidebarSection>
           </div>
 
-          {/* Switch project */}
+          {/* Select Working Base */}
           <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
-              onClick={() => goToFactoryEntry()}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors"
+              onClick={() => setWorkingBaseModalOpen(true)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"
               style={{ color: themeInfo.accentHover + "99" }}
               onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
               onMouseLeave={e => { e.currentTarget.style.color = themeInfo.accentHover + "99"; e.currentTarget.style.backgroundColor = ""; }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 .75.75V21m-6 0H9m4.5 0h6m-6 0V9m0 12H3.75a.75.75 0 0 1-.75-.75V13.5m16.5 0V3.75a.75.75 0 0 0-.75-.75H4.5a.75.75 0 0 0-.75.75v9.75m15 0h-1.5" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9m-9 3h.008v.008H12.75V12Zm0 0H9.75m3 0v3m0-3h3" />
               </svg>
-              AI Factory
+              Select Working Base
             </button>
+            {projectRoot && (
+              <div className="mt-1 px-3 text-[10px] text-stone-400 font-mono truncate" title={projectRoot}>
+                {projectRoot}
+              </div>
+            )}
           </div>
         </aside>
 
@@ -469,6 +487,81 @@ function AppInner() {
           </div>
         </main>
       </div>
+
+      {/* Working Base Selection Modal */}
+      {workingBaseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setWorkingBaseModalOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-stone-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-stone-800 mb-1">📂 Select Working Base</h3>
+            <p className="text-xs text-stone-400 mb-4">選擇 AI CLI 的工作目錄</p>
+
+            {recentProjects.length > 0 && (
+              <div className="mb-4">
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Recent</span>
+                <div className="mt-1.5 space-y-1">
+                  {recentProjects.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => { handleSelectProject(p); setWorkingBaseModalOpen(false); }}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors",
+                        p === projectRoot ? "bg-stone-100 text-stone-800 font-semibold" : "hover:bg-stone-50 text-stone-600"
+                      )}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0 text-stone-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9m-9 3h.008v.008H12.75V12Zm0 0H9.75m3 0v3m0-3h3" />
+                      </svg>
+                      <span className="truncate font-mono text-xs">{p}</span>
+                      {p === projectRoot && (
+                        <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: themeInfo.accentLight, color: themeInfo.accent }}>CURRENT</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Enter Path</span>
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  id="working-base-input"
+                  type="text"
+                  placeholder="/Users/steward/App/my-project"
+                  className="flex-1 px-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-400 font-mono"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (val) { handleSelectProject(val); setWorkingBaseModalOpen(false); }
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    const input = document.getElementById("working-base-input") as HTMLInputElement;
+                    const val = input?.value.trim();
+                    if (val) { handleSelectProject(val); setWorkingBaseModalOpen(false); }
+                  }}
+                  className="px-4 py-2 text-sm font-bold text-white rounded-lg transition-colors"
+                  style={{ backgroundColor: themeInfo.accent }}
+                >
+                  Open
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setWorkingBaseModalOpen(false)}
+              className="w-full text-center text-xs text-stone-400 hover:text-stone-600 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
