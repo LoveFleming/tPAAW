@@ -170,10 +170,15 @@ function AppInner() {
   const factoryNav = useMemo(() => {
     const staticItems = [{ id: "factory.crew", label: "AI Crew" }];
     const fileItems = factoryFiles
-      .map(f => ({
-        id: `factory.file.${f}`,
-        label: f.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
-      }));
+      .map(f => {
+        const stripped = f.replace(/^\d{2}-/, ""); // strip "00-" prefix
+        return {
+          sortKey: f, // keep original for sort (00- comes first)
+          id: `factory.file.${f}`,
+          label: stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        };
+      })
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
     return [...fileItems, ...staticItems];
   }, [factoryFiles]);
 
