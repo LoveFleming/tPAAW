@@ -41,14 +41,8 @@ function AppInner() {
 
   // All tabs across all factories, keyed as "factoryId:pageId"
   const factoryStateRef = useRef<Record<string, { projectRoot: string | null }>>({});
-  const [activePage, setActivePage] = useState<string>(() => {
-    const f = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    return `${f}:factory.crew`;
-  });
-  const [openTabs, setOpenTabs] = useState<string[]>(() => {
-    const f = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    return [`${f}:factory.crew`];
-  });
+  const [activePage, setActivePage] = useState<string>("factory.crew");
+  const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem("aioc.sidebar-width");
@@ -94,10 +88,9 @@ function AppInner() {
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
     setShowFactoryEntry(false);
-    setActivePage(`${selectedFactoryId}:factory.crew`);
+    setActivePage("factory.crew");
     setOpenTabs(prev => {
-      const fullId = `${selectedFactoryId}:factory.crew`;
-      return prev.includes(fullId) ? prev : [fullId, ...prev];
+      return prev.includes("factory.crew") ? prev : ["factory.crew", ...prev];
     });
     // Save per-factory projectRoot
     localStorage.setItem(`aioc.project.${selectedFactoryId}`, path);
@@ -122,13 +115,7 @@ function AppInner() {
   const switchFactory = (factoryId: string) => {
     // Save current factory projectRoot
     factoryStateRef.current[selectedFactoryId] = { projectRoot };
-    // Ensure target factory has a default tab
-    const prefix = `${factoryId}:`;
-    const hasTabs = openTabs.some(t => t.startsWith(prefix));
-    if (!hasTabs) {
-      setOpenTabs(prev => [...prev, `${factoryId}:factory.crew`]);
-    }
-    setActivePage(`${factoryId}:factory.crew`);
+    setActivePage("factory.crew");
     // Restore projectRoot
     const saved = factoryStateRef.current[factoryId];
     if (saved?.projectRoot) {
@@ -141,7 +128,8 @@ function AppInner() {
   };
 
   const openApp = (id: string) => {
-    const fullId = `${selectedFactoryId}:${id}`;
+    // Factory pages are shared (no prefix), employee/file tabs are per-factory
+    const fullId = id.startsWith("factory.") ? id : `${selectedFactoryId}:${id}`;
     setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
     setActivePage(fullId);
   };
@@ -149,7 +137,7 @@ function AppInner() {
   const closeTab = (id: string) => {
     setOpenTabs((prev) => {
       const next = prev.filter((t) => t !== id);
-      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : `${selectedFactoryId}:factory.crew`);
+      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : "factory.crew");
       return next;
     });
   };
@@ -213,24 +201,27 @@ function AppInner() {
   }, [factoryFiles]);
 
   const labelFor = useCallback((fullId: string): string => {
+    // Shared factory pages (no colon)
+    if (fullId === "factory.crew") return "AI Crew";
+    if (fullId.startsWith("factory.file.")) return factoryNav.find(n => n.id === fullId)?.label ?? fullId;
+    // Per-factory tabs
     const colonIdx = fullId.indexOf(":");
+    if (colonIdx === -1) return fullId;
     const id = fullId.slice(colonIdx + 1);
-    if (id.startsWith("factory.")) return factoryNav.find(n => n.id === id)?.label ?? id;
     if (id.startsWith("employee.")) {
       const empId = id.split("#")[0].slice(9);
       const emp = crew.find(s => s.id === empId);
       return emp ? emp.codename : empId;
     }
     if (id.startsWith("file://")) {
-      const fullPath = id.slice(7);
-      return pathBasename(fullPath);
+      return pathBasename(id.slice(7));
     }
     return id;
   }, [factoryNav, crew]);
 
   // Track which file paths are open (for sidebar highlight)
-  const openFilePaths = useMemo(() => new Set(openTabs.filter(t => t.includes(":file://")).map(t => { const i = t.indexOf(":file://"); return t.slice(i + 1).slice(7); })), [openTabs]);
-  const activeFilePath = activePage.includes(":file://") ? activePage.slice(activePage.indexOf(":file://") + 1).slice(7) : null;
+  const openFilePaths = useMemo(() => new Set(openTabs.filter(t => t.includes(":file://") || t.startsWith("file://")).map(t => { const i = t.indexOf("file://"); return t.slice(i + 7); })), [openTabs]);
+  const activeFilePath = (activePage.includes(":file://") || activePage.startsWith("file://")) ? activePage.slice(activePage.indexOf("file://") + 7) : null;
 
   const EmployeeWorkspaceV2Lazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspaceV2")), []);
 
@@ -259,28 +250,28 @@ function AppInner() {
   }, [sidebarWidth]);
 
   const renderPage = useCallback((fullId: string) => {
-    // Parse factoryId:pageId
+    // Shared factory pages (no prefix)
+    if (fullId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={selectedFactoryId} />;
+    if (fullId.startsWith("factory.file.")) {
+      const fileName = fullId.slice(13);
+      const filePath = `${aiocRoot}/factories/${selectedFactoryId}/docs/${fileName}`;
+      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
+    }
+    // Per-factory tabs (factoryId: prefix)
     const colonIdx = fullId.indexOf(":");
+    if (colonIdx === -1) return <div className="p-8 text-stone-400">Page not found: {fullId}</div>;
     const tabFactoryId = fullId.slice(0, colonIdx);
     const pageId = fullId.slice(colonIdx + 1);
-    // Use tab-specific projectRoot for file operations
-    const tabProjectRoot = projectRoot; // could be improved with per-tab lookup
 
-    if (pageId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={tabFactoryId} />;
-    if (pageId.startsWith("factory.file.")) {
-      const fileName = pageId.slice(13);
-      const filePath = `${aiocRoot}/factories/${tabFactoryId}/docs/${fileName}`;
-      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} />;
-    }
     if (pageId.startsWith("file://")) {
       const filePath = pageId.slice(7);
-      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} />;
+      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
     }
     if (pageId.startsWith("employee.")) {
       const employeeId = pageId.split("#")[0].slice(9);
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={crew} factoryId={tabFactoryId} />
+          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={crew} factoryId={tabFactoryId} />
         </React.Suspense>
       );
     }
