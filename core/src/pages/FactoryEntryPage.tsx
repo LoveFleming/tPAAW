@@ -42,6 +42,7 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, aio
         onFactoriesChanged();
         setCreating(false);
         setNewFactory({ id: "", name: "", icon: "🏭", description: "", copyFrom: "default" });
+        onSelect(newFactory.id);
       } else {
         const err = await resp.json();
         alert(err.error || "Create failed");
