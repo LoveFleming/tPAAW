@@ -267,20 +267,70 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/pick-directory — native OS directory picker
+  // GET /api/pick-directory — native OS directory picker (macOS/Windows/Linux)
   if (req.method === "GET" && req.url === "/api/pick-directory") {
     try {
       const { execFile } = await import("child_process");
-      const path = await new Promise((resolve, reject) => {
-        // macOS: use osascript to show native folder picker
-        execFile("osascript", ["-e", `POSIX path of (choose folder with prompt "Select Working Base")`], (err, stdout) => {
-          if (err) { reject(err); return; }
-          resolve(stdout.trim().replace(/\/$/, ""));
+      const platform = process.platform;
+      let path;
+
+      if (platform === "darwin") {
+        // macOS: osascript choose folder
+        path = await new Promise((resolve, reject) => {
+          execFile("osascript", ["-e", `POSIX path of (choose folder with prompt "Select Working Base")`], (err, stdout) => {
+            if (err) { reject(err); return; }
+            resolve(stdout.trim().replace(/\/$/, ""));
+          });
         });
-      });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ path }));
-    } catch (err) {
+      } else if (platform === "win32") {
+        // Windows: PowerShell FolderBrowserDialog
+        const psScript = `
+Add-Type -AssemblyName System.Windows.Forms
+$fb = New-Object System.Windows.Forms.FolderBrowserDialog
+$fb.Description = 'Select Working Base'
+if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
+`.trim();
+        path = await new Promise((resolve, reject) => {
+          execFile("powershell", ["-NoProfile", "-Command", psScript], (err, stdout) => {
+            if (err) { reject(err); return; }
+            const p = stdout.trim();
+            resolve(p || null);
+          });
+        });
+      } else {
+        // Linux: zenity or kdialog
+        const { execSync } = await import("child_process");
+        let cmd;
+        try { execSync("which zenity", { stdio: "ignore" }); cmd = "zenity"; } catch {
+          try { execSync("which kdialog", { stdio: "ignore" }); cmd = "kdialog"; } catch { cmd = null; }
+        }
+        if (cmd === "zenity") {
+          path = await new Promise((resolve, reject) => {
+            execFile("zenity", ["--file-selection", "--directory", "--title=Select Working Base"], (err, stdout) => {
+              if (err) { reject(err); return; }
+              resolve(stdout.trim() || null);
+            });
+          });
+        } else if (cmd === "kdialog") {
+          path = await new Promise((resolve, reject) => {
+            execFile("kdialog", ["--getexistingdirectory", ".", "Select Working Base"], (err, stdout) => {
+              if (err) { reject(err); return; }
+              resolve(stdout.trim() || null);
+            });
+          });
+        } else {
+          path = null;
+        }
+      }
+
+      if (path) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ path }));
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ path: null, error: "Cancelled or no dialog available" }));
+      }
+    } catch {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ path: null, error: "Cancelled or not supported" }));
     }
