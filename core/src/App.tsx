@@ -40,7 +40,7 @@ function AppInner() {
   });
 
   // All tabs across all factories, keyed as "factoryId:pageId"
-  const factoryStateRef = useRef<Record<string, { projectRoot: string | null }>>({});
+  const factoryStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string }>>({});
   const [activePage, setActivePage] = useState<string>("factory.crew");
   const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -113,11 +113,15 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current factory projectRoot
-    factoryStateRef.current[selectedFactoryId] = { projectRoot };
-    setActivePage("factory.crew");
-    // Restore projectRoot
+    // Save current factory state
+    factoryStateRef.current[selectedFactoryId] = { projectRoot, activePage };
+    // Restore target factory state
     const saved = factoryStateRef.current[factoryId];
+    if (saved?.activePage) {
+      setActivePage(saved.activePage);
+    } else {
+      setActivePage("factory.crew");
+    }
     if (saved?.projectRoot) {
       setProjectRoot(saved.projectRoot);
     } else {
