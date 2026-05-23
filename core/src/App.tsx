@@ -137,6 +137,7 @@ function AppInner() {
 
   const { info: themeInfo, theme, setTheme } = useTheme();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
 
   const factoryNav = useMemo(() => {
     const staticItems = [{ id: "factory.crew", label: "AI Crew" }];
@@ -245,20 +246,64 @@ function AppInner() {
             </svg>
           </button>
           <span className="text-sm font-semibold text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI-Native Operation Center</span>
-          {/* Factory selector in header */}
+          {/* Factory panel in header */}
           {factories.length > 0 && (
-            <select
-              value={selectedFactoryId}
-              onChange={e => switchFactory(e.target.value)}
-              className="ml-3 px-2 py-0.5 text-xs rounded-md border-0 bg-white/20 text-white/90 hover:bg-white/30 cursor-pointer transition-colors"
-              style={{ fontFamily: "'SF Pro Display', sans-serif" }}
-            >
-              {factories.map(f => (
-                <option key={f.id} value={f.id} className="text-stone-800">
-                  {f.icon} {f.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative ml-3">
+              <button
+                onClick={() => setFactoryMenuOpen(!factoryMenuOpen)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/20 hover:bg-white/30 text-white/90 text-xs transition-colors cursor-pointer"
+                style={{ fontFamily: "'SF Pro Display', sans-serif" }}
+              >
+                {factories.find(f => f.id === selectedFactoryId)?.icon || "🏭"} {factories.find(f => f.id === selectedFactoryId)?.name || selectedFactoryId}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={cn("w-3 h-3 transition-transform", factoryMenuOpen ? "" : "rotate-180")}>
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </button>
+              {factoryMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setFactoryMenuOpen(false)} />
+                  <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
+                    <div className="px-3 py-2 border-b border-stone-100 bg-stone-50">
+                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">🏭 AI Factory</span>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                      {factories.map(f => (
+                        <button
+                          key={f.id}
+                          onClick={() => { switchFactory(f.id); setFactoryMenuOpen(false); }}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                            f.id === selectedFactoryId ? "bg-stone-50" : "hover:bg-stone-50"
+                          )}
+                        >
+                          <span className="text-base">{f.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={cn("text-sm", f.id === selectedFactoryId ? "font-semibold text-stone-800" : "text-stone-600")}>{f.name}</span>
+                              {f.id === selectedFactoryId && (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" style={{ color: themeInfo.accent }}>
+                                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-stone-400 font-mono">{f.id}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="border-t border-stone-200">
+                      <button
+                        onClick={() => { setFactoryMenuOpen(false); goToFactoryEntry(); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
+                      >
+                        <span className="text-base">➕</span>
+                        <span className="font-medium">Create New Factory</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
         {/* Theme dropdown */}
