@@ -1485,6 +1485,30 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
+  // SSE: File watcher
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/watch")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const root = params.get("root");
+    if (!root) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing root" }));
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.write("\n"); // kick the stream
+    const watcher = startWatcher(root, res);
+    req.on("close", () => {
+      watcher.close();
+      res.end();
+    });
+    return;
+  }
+
   res.writeHead(404);
   res.end("Not found");
 });
@@ -1528,57 +1552,30 @@ function readBody(req) {
     req.on("end", () => resolve(Buffer.concat(chunks).toString()));
     req.on("error", reject);
   });
-  // SSE: File watcher
-  if (req.method === "GET" && req.url?.startsWith("/api/fs/watch")) {
-    const params = new URL(req.url, "http://localhost").searchParams;
-    const root = params.get("root");
-    if (!root) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Missing root" }));
-      return;
-    }
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "Access-Control-Allow-Origin": "*",
-    });
-    res.write("\n"); // kick the stream
-    sseClients.add(res);
-    startWatcher(root);
-    req.on("close", () => {
-      sseClients.delete(res);
-    });
-    return;
-  }
-
 }
 
 // ── File Watcher (SSE) ──
-const sseClients = new Set();
-let watcher = null;
-
-function startWatcher(root) {
-  if (watcher) watcher.close();
-  watcher = chokidar.watch(root, {
-    ignored: /node_modules|\.git|dist|__pycache__|\.next|\.nuxt|target|build/, 
+// Each SSE client gets its own watcher, supporting multiple roots simultaneously
+function startWatcher(root, sseRes) {
+  const w = chokidar.watch(root, {
+    ignored: /node_modules|\.git|dist|__pycache__|\.next|\.nuxt|target|build/,
     persistent: true,
     ignoreInitial: true,
     depth: 8,
     awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
   });
-  const broadcast = (type, path) => {
-    const msg = `data: ${JSON.stringify({ type, path })}\n\n`;
-    for (const c of sseClients) {
-      try { c.write(msg); } catch { sseClients.delete(c); }
-    }
+  const send = (type, path) => {
+    try {
+      sseRes.write(`data: ${JSON.stringify({ type, path })}\n\n`);
+    } catch { /* client gone */ }
   };
-  watcher.on("add", (p) => broadcast("add", p));
-  watcher.on("unlink", (p) => broadcast("unlink", p));
-  watcher.on("change", (p) => broadcast("change", p));
-  watcher.on("addDir", (p) => broadcast("addDir", p));
-  watcher.on("unlinkDir", (p) => broadcast("unlinkDir", p));
-  console.log(`[Watcher] Watching ${root}`);
+  w.on("add", (p) => send("add", p));
+  w.on("unlink", (p) => send("unlink", p));
+  w.on("change", (p) => send("change", p));
+  w.on("addDir", (p) => send("addDir", p));
+  w.on("unlinkDir", (p) => send("unlinkDir", p));
+  console.log(`[Watcher] Watching ${root} (client ${sseRes.socket?.remotePort})`);
+  return w;
 }
 
 
@@ -1723,7 +1720,6 @@ wss.on("connection", (ws, req) => {
       const old = ptySessions.get(ws);
       if (old?.pty) { old.pty.kill(); }
 
-      // For OpenCode: assign a unique server port
       const opts = msg.options || {};
       if (opts.cli === "opencode") {
         opts.serverPort = 4199 + Math.floor(Math.random() * 100);
@@ -1751,7 +1747,7 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify({ type: "ready", sessionId, platform: process.platform }));
       } catch (err) {
         console.error(`[PTY] Spawn failed:`, err.message);
-        ws.send(JSON.stringify({ type: "error", message: `Failed to start Qwen CLI: ${err.message}` }));
+        ws.send(JSON.stringify({ type: "error", message: `Failed to start CLI: ${err.message}` }));
       }
     }
     else if (msg.type === "input") {

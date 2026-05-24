@@ -232,12 +232,16 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
     setContent(null);
     setMeta(null);
     fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`)
-      .then(r => r.json())
-      .then(data => {
-        setContent(data.content);
-        setMeta({ size: data.size });
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
-      .catch(() => setContent("// Unable to load file"))
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setContent(data.content ?? "");
+        setMeta({ size: data.size ?? 0 });
+      })
+      .catch((err) => setContent(`// Unable to load file: ${err.message}`))
       .finally(() => setLoading(false));
   }, [filePath]);
 

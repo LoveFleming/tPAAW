@@ -236,7 +236,7 @@ export default function TerminalConsole({
             return () => clearInterval(poll);
         }
 
-        // Qwen / Claude: wait for CLI prompt to appear, then paste + Enter
+        // Qwen / Claude: wait for CLI to fully initialize, then paste + Enter
         const timer = setTimeout(() => {
             const term = termRef.current;
             if (term && initialPrompt) {

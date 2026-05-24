@@ -231,16 +231,21 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     return () => { cancelled = true; };
   }, [projectRoot]);
 
-  // ── SSE: auto-refresh on file changes ──
+  // ── Auto-refresh tree every 3 seconds ──
   const refreshTree = useCallback(() => {
     if (!projectRoot) return;
     fetch(`${API_BASE}/api/fs/tree?root=${encodeURIComponent(projectRoot)}`)
       .then(r => r.json())
-      .then((data: TreeNode) => {
-        setTree(data);
-      })
+      .then((data: TreeNode) => { setTree(data); })
       .catch(() => {});
   }, [projectRoot]);
+
+  useEffect(() => {
+    if (!projectRoot) return;
+    refreshTree();
+    const interval = setInterval(refreshTree, 3000);
+    return () => clearInterval(interval);
+  }, [projectRoot, refreshTree]);
 
   const handleToggleDir = useCallback(async (dirPath: string) => {
     setExpandedPaths(prev => {

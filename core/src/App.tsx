@@ -102,6 +102,14 @@ function AppInner() {
 
   useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); }, [loadFactories, loadCrew, loadFactoryFiles]);
 
+  // Auto-refresh factory docs every 3 seconds
+  useEffect(() => {
+    if (!selectedFactoryId) return;
+    loadFactoryFiles();
+    const interval = setInterval(loadFactoryFiles, 3000);
+    return () => clearInterval(interval);
+  }, [selectedFactoryId, loadFactoryFiles]);
+
   const handleSelectProject = (path: string) => {
     setProjectRoot(path);
     setShowFactoryEntry(false);
@@ -298,6 +306,7 @@ function AppInner() {
     if (fullId === "factory.skills") return <SkillsPage />;
     if (fullId.startsWith("factory.file.")) {
       const fileName = fullId.slice(13);
+      if (!aiocRoot || !selectedFactoryId) return <div className="p-8 text-stone-400">Loading...</div>;
       const filePath = `${aiocRoot}/factories/${selectedFactoryId}/docs/${fileName}`;
       return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
     }
