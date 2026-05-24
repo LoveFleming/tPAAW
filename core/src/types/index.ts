@@ -12,71 +12,119 @@ export type PortalApp = {
 
 export type SkillEngine = "qwen" | "deterministic" | "cline";
 
-export interface RequiredInput {
+export type CliEngine = "qwen" | "claude" | "opencode";
+
+/**
+ * UserInput — 操作員在啟動 Skill 前要填的表單欄位
+ * 定義在 skills/{id}/SKILL.md 的 frontmatter 裡
+ */
+export interface UserInput {
     id: string;
     label: string;
     description: string;
     placeholder: string;
     required: boolean;
+    type?: "text" | "textarea" | "select" | "number";
     multiline?: boolean;
     rows?: number;
-    group?: string;  // 分組顯示
+    group?: string;
+    options?: string[];
 }
 
-export type CliEngine = "qwen" | "claude" | "opencode";
-
-export interface CrewSkill {
+/**
+ * SkillDefinition — 共享技能池裡的一個技能
+ * 對應 skills/{id}/SKILL.md
+ * 
+ * 三個核心欄位：
+ *   skillPrompt  → 具體任務指令（告訴 AI 做什麼、怎麼做）
+ *   useSkills    → 引用其他技能（CLI 從 skills/{id}/SKILL.md 讀取）
+ *   userInputs   → 操作員要填的表單欄位
+ */
+export interface SkillDefinition {
     id: string;
     name: string;
     description: string;
-    enabled: boolean;
-    prompt: string;
-    knowledge?: string[];
-    requiredInputs?: RequiredInput[];
-    cli?: CliEngine;
-    model?: string;
-    approvalMode?: string;
+    version?: string;
+    category?: string;
+    /** 具體任務指令 */
+    skillPrompt: string;
+    /** 引用其他技能 */
+    useSkills: string[];
+    /** 操作員要填的表單 */
+    userInputs: UserInput[];
+    /** SKILL.md 完整內容 */
+    fullContent?: string;
 }
 
 export interface ChatConfig {
     greeting?: string;
     maxTokens?: number;
     temperature?: number;
+    cli?: CliEngine;
     model?: string;
-    cli?: string;
     approvalMode?: string;
 }
 
-export type Skill = {
+/**
+ * Crew — AI 員工
+ *
+ * 員工只存 skill IDs（引用共享技能池）
+ * CLI、Model、Approval Mode 歸員工管
+ */
+export interface Crew {
     id: string;
     title: string;
     codename: string;
     imageUrl: string;
-    skillName?: string;
-    skills: CrewSkill[];
-    risk: Risk;
-    description: string;
     rolePrompt: string;
+    description: string;
+    risk: Risk;
+    /** 引用的技能 IDs（對應 skills/{id}/SKILL.md） */
+    skillIds: string[];
     chatConfig?: ChatConfig;
-};
+    // --- Legacy compat ---
+    /** @deprecated use skillIds */
+    skills?: any[];
+    /** @deprecated */
+    skillName?: string;
+}
 
-export function buildSystemPrompt(crew: Skill, selectedSkillIds?: string[], formData?: Record<string, string>, paths?: { aiocRoot: string; projectRoot: string }): string {
+/**
+ * 把 crew JSON 和 skill definitions 組合，產出 system prompt
+ */
+export function buildSystemPrompt(
+    crew: Crew,
+    skillDefinitions: Map<string, SkillDefinition>,
+    selectedSkillIds: string[],
+    formData?: Record<string, string>,
+    paths?: { aiocRoot: string; projectRoot: string; factoryId?: string }
+): string {
+    // 角色永遠由員工決定
     const parts: string[] = [crew.rolePrompt];
 
-    // Inject base paths so CLI knows where to find AIOC resources and project files
+    // Inject base paths
     if (paths) {
-        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}（factories、conversations 都在這裡）\n- **Project Codebase**: ${paths.projectRoot}（AI CLI 的工作目錄，使用者的專案原始碼）\n\n讀取 AIOC 資源時使用 AIOC Base 路徑下的 factories/ 目錄。`);
+        const factoryPath = paths.factoryId ? `${paths.aiocRoot}/factories/${paths.factoryId}` : `${paths.aiocRoot}/factories`;
+        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}\n  - Skills: ${paths.aiocRoot}/skills/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
     }
 
-    const skillsToLoad = crew.skills.filter(
-        s => selectedSkillIds ? selectedSkillIds.includes(s.id) : s.enabled
-    );
+    for (const skillId of selectedSkillIds) {
+        const skillDef = skillDefinitions.get(skillId);
+        if (!skillDef) continue;
 
-    for (const skill of skillsToLoad) {
-        parts.push(`\n## Skill: ${skill.name}\n${skill.prompt}`);
+        // ── 1. skillPrompt ──
+        if (skillDef.skillPrompt) {
+            parts.push(`\n## Skill: ${skillDef.name}\n${skillDef.skillPrompt}`);
+        }
+
+        // ── 2. useSkills — 注入檔案路徑讓 CLI 讀取 ──
+        if (skillDef.useSkills.length > 0 && paths) {
+            const skillPaths = skillDef.useSkills.map(id => `- ${paths.aiocRoot}/skills/${id}/SKILL.md`);
+            parts.push(`\n### 參考技能\n請先讀取以下技能檔案：\n${skillPaths.join("\n")}`);
+        }
     }
 
-    // Inject form data if provided
+    // ── 3. userInputs — 操作員提供的資料 ──
     if (formData && Object.keys(formData).length > 0) {
         parts.push('\n## 操作員提供的規格資料');
         for (const [key, value] of Object.entries(formData)) {
@@ -88,6 +136,48 @@ export function buildSystemPrompt(crew: Skill, selectedSkillIds?: string[], form
 
     return parts.join('\n\n');
 }
+
+/**
+ * Migrate legacy crew JSON to new schema
+ */
+export function migrateCrew(crew: any): Crew {
+    const skillIds: string[] = [];
+    
+    // Extract skill IDs from old embedded skills array
+    if (Array.isArray(crew.skills)) {
+        for (const s of crew.skills) {
+            const sid = s.id || s.skillId;
+            if (sid && !skillIds.includes(sid)) {
+                skillIds.push(sid);
+            }
+        }
+    }
+    // Also check skillName
+    if (crew.skillName && !skillIds.includes(crew.skillName)) {
+        skillIds.push(crew.skillName);
+    }
+
+    return {
+        id: crew.id || "",
+        title: crew.title || "",
+        codename: crew.codename || "",
+        imageUrl: crew.imageUrl || "",
+        rolePrompt: crew.rolePrompt || "",
+        description: crew.description || "",
+        risk: crew.risk || "safe",
+        skillIds: crew.skillIds || skillIds,
+        chatConfig: crew.chatConfig,
+        // Keep legacy for round-trip
+        skills: crew.skills,
+        skillName: crew.skillName,
+    };
+}
+
+// Legacy type alias
+export type Skill = Crew;
+export type CrewSkill = any;
+
+// --- Below types are unchanged ---
 
 export type RunStatus = "queued" | "running" | "success" | "failed";
 

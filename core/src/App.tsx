@@ -3,11 +3,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import FactoryEntryPage from "./pages/FactoryEntryPage";
 import AICrew from "./pages/AICrew";
+import SkillsPage from "./pages/SkillsPage";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
-import { Skill } from "./types";
+import { Crew } from "./types";
 import { ThemeProvider, useTheme, THEMES, ThemeId, THEME_GROUPS } from "./theme";
 import { cn, pathBasename } from "./utils";
 
@@ -47,7 +48,7 @@ function AppInner() {
   const visibleTabs = useMemo(() => {
     return openTabs.filter(t => {
       // Shared factory pages always visible
-      if (t === "factory.crew" || t.startsWith("factory.file.")) return true;
+      if (t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file.")) return true;
       // Per-factory tabs: only show if prefix matches current factory
       const colonIdx = t.indexOf(":");
       if (colonIdx === -1) return true;
@@ -61,8 +62,8 @@ function AppInner() {
   });
 
   const [factories, setFactories] = useState<{id: string; name: string; icon: string; description: string}[]>([]);
-  const [crew, setCrew] = useState<Skill[]>([]);
-  const crewByFactoryRef = useRef<Record<string, Skill[]>>({});
+  const [crew, setCrew] = useState<Crew[]>([]);
+  const crewByFactoryRef = useRef<Record<string, Crew[]>>({});
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
   const [aiocRoot, setAiocRoot] = useState("");
 
@@ -131,7 +132,7 @@ function AppInner() {
   const switchFactory = (factoryId: string) => {
     // Save current factory state (including openTabs filtered to this factory)
     const currentFactoryTabs = openTabs.filter(t => {
-      if (t === "factory.crew" || t.startsWith("factory.file.")) return false; // shared
+      if (t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file.")) return false; // shared
       const colonIdx = t.indexOf(":");
       return colonIdx !== -1 && t.slice(0, colonIdx) === selectedFactoryId;
     });
@@ -143,7 +144,7 @@ function AppInner() {
     // Restore target factory state
     const saved = factoryStateRef.current[factoryId];
     // Merge: shared tabs + factory-specific tabs
-    const sharedTabs = openTabs.filter(t => t === "factory.crew" || t.startsWith("factory.file."));
+    const sharedTabs = openTabs.filter(t => t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file."));
     const restoredTabs = saved?.openTabs ?? [];
     const merged = [...sharedTabs, ...restoredTabs];
     // Ensure factory.crew always present
@@ -180,13 +181,13 @@ function AppInner() {
     });
   };
 
-  const [instanceCounter, setInstanceCounter] = useState(0);
-  const openEmployee = (employeeId: string) => {
-    const tabId = `${selectedFactoryId}:employee.${employeeId}#${instanceCounter}`;
-    setInstanceCounter((c) => c + 1);
-    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+  const instanceCounterRef = useRef(0);
+  const openEmployee = useCallback((employeeId: string) => {
+    const count = instanceCounterRef.current++;
+    const tabId = `${selectedFactoryId}:employee.${employeeId}#${count}`;
+    setOpenTabs((prev) => [...prev, tabId]);
     setActivePage(tabId);
-  };
+  }, [selectedFactoryId]);
 
   // File click → open as a new tab with file path as ID
   const handleSelectFile = (path: string) => {
@@ -224,7 +225,7 @@ function AppInner() {
   }, [projectRoot]);
 
   const factoryNav = useMemo(() => {
-    const staticItems = [{ id: "factory.crew", label: "AI Crew" }];
+    const staticItems = [{ id: "factory.crew", label: "AI Crew" }, { id: "factory.skills", label: "Skills" }];
     const fileItems = factoryFiles
       .map(f => {
         const stripped = f.replace(/^\d{2}-/, ""); // strip "00-" prefix
@@ -241,6 +242,7 @@ function AppInner() {
   const labelFor = useCallback((fullId: string): string => {
     // Shared factory pages (no colon)
     if (fullId === "factory.crew") return "AI Crew";
+    if (fullId === "factory.skills") return "Skills";
     if (fullId.startsWith("factory.file.")) return factoryNav.find(n => n.id === fullId)?.label ?? fullId;
     // Per-factory tabs
     const colonIdx = fullId.indexOf(":");
@@ -293,6 +295,7 @@ function AppInner() {
   const renderPage = useCallback((fullId: string) => {
     // Shared factory pages (no prefix)
     if (fullId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={selectedFactoryId} />;
+    if (fullId === "factory.skills") return <SkillsPage />;
     if (fullId.startsWith("factory.file.")) {
       const fileName = fullId.slice(13);
       const filePath = `${aiocRoot}/factories/${selectedFactoryId}/docs/${fileName}`;
@@ -477,7 +480,7 @@ function AppInner() {
             <SidebarSection title="Factory">
               <div>
                 {factoryNav.map((item) => (
-                  <NavItem key={item.id} active={activePage === `${selectedFactoryId}:${item.id}`} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                  <NavItem key={item.id} active={activePage === item.id || activePage === `${selectedFactoryId}:${item.id}`} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
               </div>
             </SidebarSection>

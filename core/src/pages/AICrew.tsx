@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, RiskBadge, cn } from "../components/ui/shared";
-import { Skill } from "../types";
+import { Crew, SkillDefinition } from "../types";
 import { useTheme } from "../theme";
 import CrewEditor from "../components/CrewEditor";
 import Icon from "../components/Icon";
@@ -13,10 +13,11 @@ interface AICrewProps {
 
 export default function AICrew({ openEmployee, onCrewChanged, factoryId = "default" }: AICrewProps) {
     const { info: t } = useTheme();
-    const [crew, setCrew] = useState<Skill[]>([]);
+    const [crew, setCrew] = useState<Crew[]>([]);
+    const [skillDefs, setSkillDefs] = useState<Map<string, SkillDefinition>>(new Map());
     const [loading, setLoading] = useState(true);
     const [editorOpen, setEditorOpen] = useState(false);
-    const [editingCrew, setEditingCrew] = useState<Skill | null>(null);
+    const [editingCrew, setEditingCrew] = useState<Crew | null>(null);
 
     const loadCrew = useCallback(async () => {
         try {
@@ -35,6 +36,18 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
         setLoading(false);
     }, [factoryId]);
 
+    // Fetch skill definitions
+    useEffect(() => {
+        fetch("http://127.0.0.1:4097/api/skills")
+            .then(r => r.json())
+            .then((data: SkillDefinition[]) => {
+                const map = new Map<string, SkillDefinition>();
+                for (const sd of data) map.set(sd.id, sd);
+                setSkillDefs(map);
+            })
+            .catch(() => {});
+    }, []);
+
     useEffect(() => { loadCrew(); }, [loadCrew]);
 
     const handleAdd = () => {
@@ -42,12 +55,12 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
         setEditorOpen(true);
     };
 
-    const handleEdit = (c: Skill) => {
+    const handleEdit = (c: Crew) => {
         setEditingCrew(c);
         setEditorOpen(true);
     };
 
-    const handleSave = async (crewData: Skill) => {
+    const handleSave = async (crewData: Crew) => {
         const isEdit = !!editingCrew;
         const url = isEdit ? `http://127.0.0.1:4097/api/crew/${crewData.id}?factory=${factoryId}` : `http://127.0.0.1:4097/api/crew?factory=${factoryId}`;
         const method = isEdit ? "PUT" : "POST";
@@ -148,18 +161,21 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
                                 <div className="font-mono text-[10px] font-semibold uppercase tracking-widest truncate mt-1" style={{ color: t.accent }}>{s.codename}</div>
                                 <div className="text-xs text-zinc-500 mt-2 line-clamp-2">{s.description}</div>
                                 <div className="flex flex-wrap gap-1 mt-3">
-                                    {s.skills.slice(0, 3).map(sk => (
-                                        <span key={sk.id} className={cn(
-                                            "text-[10px] px-1.5 py-0.5 rounded-full"
-                                        )}
-                                        style={{ backgroundColor: sk.enabled ? t.accentLight : "#f5f5f4", color: sk.enabled ? t.accent : "#a8a29e" }}
-                                        >
-                                            {sk.enabled ? <Icon name="check" size={10} style={{ color: "#10b981" }} /> : null} {sk.name}
-                                        </span>
-                                    ))}
-                                    {s.skills.length > 3 && (
+                                    {(s.skillIds || []).slice(0, 3).map(sid => {
+                                        const sk = skillDefs.get(sid);
+                                        return (
+                                            <span key={sid} className={cn(
+                                                "text-[10px] px-1.5 py-0.5 rounded-full"
+                                            )}
+                                            style={{ backgroundColor: t.accentLight, color: t.accent }}
+                                            >
+                                                <Icon name="check" size={10} style={{ color: "#10b981" }} /> {sk?.name || sid}
+                                            </span>
+                                        );
+                                    })}
+                                    {(s.skillIds || []).length > 3 && (
                                         <span className="text-[10px] bg-stone-100 text-stone-400 px-1.5 py-0.5 rounded-full">
-                                            +{s.skills.length - 3}
+                                            +{(s.skillIds || []).length - 3}
                                         </span>
                                     )}
                                 </div>

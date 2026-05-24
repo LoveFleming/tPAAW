@@ -1,35 +1,17 @@
-import React, { useState } from "react";
-import { Skill, CrewSkill, RequiredInput, Risk } from "../types";
+import React, { useState, useEffect } from "react";
+import { Crew, Risk, SkillDefinition } from "../types";
 import CrewAvatar from "./CrewAvatar";
 import Icon from "./Icon";
 import { useTheme } from "../theme";
 
 interface CrewEditorProps {
-    crew?: Skill | null;
-    onSave: (crew: Skill) => Promise<void>;
+    crew?: Crew | null;
+    onSave: (crew: Crew) => Promise<void>;
     onDelete?: (id: string) => Promise<void>;
     onCancel: () => void;
 }
 
 const RISK_OPTIONS: Risk[] = ["safe", "guarded", "external"];
-
-const EMPTY_SKILL: CrewSkill = {
-    id: "",
-    name: "",
-    description: "",
-    enabled: true,
-    prompt: "",
-    requiredInputs: [],
-    cli: "qwen",
-};
-
-const EMPTY_INPUT: RequiredInput = {
-    id: "",
-    label: "",
-    description: "",
-    placeholder: "",
-    required: false,
-};
 
 export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEditorProps) {
     const isEdit = !!crew;
@@ -47,54 +29,26 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const [greeting, setGreeting] = useState(crew?.chatConfig?.greeting || "");
     const [maxTokens, setMaxTokens] = useState(crew?.chatConfig?.maxTokens || 4096);
     const [temperature, setTemperature] = useState(crew?.chatConfig?.temperature ?? 0.3);
-    const [skills, setSkills] = useState<CrewSkill[]>(crew?.skills?.length ? crew.skills : []);
+    const [cli, setCli] = useState(crew?.chatConfig?.cli || "qwen");
+    const [model, setModel] = useState(crew?.chatConfig?.model || "");
+    const [approvalMode, setApprovalMode] = useState(crew?.chatConfig?.approvalMode || "yolo");
+    const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(crew?.skillIds || []);
+
+    // Fetch all skill definitions from shared pool
+    const [allSkills, setAllSkills] = useState<SkillDefinition[]>([]);
+    useEffect(() => {
+        fetch("http://127.0.0.1:4097/api/skills")
+            .then(r => r.json())
+            .then((data: SkillDefinition[]) => setAllSkills(data))
+            .catch(() => {});
+    }, []);
 
     const idDisabled = isEdit;
 
-    function makeSkillId(name: string): string {
-        return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    }
-
-    const addSkill = () => {
-        setSkills([...skills, { ...EMPTY_SKILL, id: `skill-${Date.now()}` }]);
-    };
-
-    const removeSkill = (idx: number) => {
-        setSkills(skills.filter((_, i) => i !== idx));
-    };
-
-    const updateSkill = (idx: number, field: keyof CrewSkill, value: any) => {
-        const updated = [...skills];
-        updated[idx] = { ...updated[idx], [field]: value };
-        if (field === "name" && updated[idx].id.startsWith("skill-")) {
-            updated[idx].id = makeSkillId(value) || updated[idx].id;
-        }
-        setSkills(updated);
-    };
-
-    const addInput = (skillIdx: number) => {
-        const updated = [...skills];
-        const inputs = [...(updated[skillIdx].requiredInputs || []), { ...EMPTY_INPUT, id: `input-${Date.now()}` }];
-        updated[skillIdx] = { ...updated[skillIdx], requiredInputs: inputs };
-        setSkills(updated);
-    };
-
-    const removeInput = (skillIdx: number, inputIdx: number) => {
-        const updated = [...skills];
-        const inputs = (updated[skillIdx].requiredInputs || []).filter((_, i) => i !== inputIdx);
-        updated[skillIdx] = { ...updated[skillIdx], requiredInputs: inputs };
-        setSkills(updated);
-    };
-
-    const updateInput = (skillIdx: number, inputIdx: number, field: keyof RequiredInput, value: any) => {
-        const updated = [...skills];
-        const inputs = [...(updated[skillIdx].requiredInputs || [])];
-        inputs[inputIdx] = { ...inputs[inputIdx], [field]: value };
-        if (field === "label" && inputs[inputIdx].id.startsWith("input-")) {
-            inputs[inputIdx].id = makeSkillId(value) || inputs[inputIdx].id;
-        }
-        updated[skillIdx] = { ...updated[skillIdx], requiredInputs: inputs };
-        setSkills(updated);
+    const toggleSkill = (skillId: string) => {
+        setSelectedSkillIds(prev =>
+            prev.includes(skillId) ? prev.filter(s => s !== skillId) : [...prev, skillId]
+        );
     };
 
     const handleSave = async () => {
@@ -103,23 +57,24 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
         if (!title.trim()) { setError("Title is required"); return; }
         if (!codename.trim()) { setError("Codename is required"); return; }
         if (!rolePrompt.trim()) { setError("Role Prompt is required"); return; }
-        for (const sk of skills) {
-            if (!sk.id.trim() || !sk.name.trim()) {
-                setError("All skills must have id and name");
-                return;
-            }
-        }
 
-        const newCrew: Skill = {
+        const newCrew: Crew = {
             id: id.trim(),
             title: title.trim(),
             codename: codename.trim(),
             imageUrl: imageUrl.trim() || "/crews/pic/default_crew.png",
-            skills: skills.map(sk => ({ ...sk, id: sk.id.trim(), name: sk.name.trim() })),
+            skillIds: selectedSkillIds,
             risk,
             description: description.trim(),
             rolePrompt: rolePrompt.trim(),
-            chatConfig: { greeting: greeting.trim() || undefined, maxTokens, temperature },
+            chatConfig: {
+                greeting: greeting.trim() || undefined,
+                maxTokens,
+                temperature,
+                cli: cli as any,
+                model: model.trim() || undefined,
+                approvalMode: approvalMode.trim() || undefined,
+            },
         };
 
         setSaving(true);
@@ -137,7 +92,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
         finally { setSaving(false); }
     };
 
-    // Shared input styles (text-sm = 14px, matching profile)
+    // Shared input styles
     const inputCls = "w-full mt-1 px-3 py-2 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-1";
     const inputStyle = { borderColor: "#d6d3d1" };
 
@@ -163,7 +118,9 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                         <div>
                             <div className="text-lg font-bold text-stone-800">{title || "Employee Name"}</div>
                             <div className="text-sm text-stone-500">{codename || "Codename"}</div>
-                            <div className="text-xs text-stone-400 mt-1">{skills.length} skills • {risk}</div>
+                            <div className="text-xs text-stone-400 mt-1">
+                                {selectedSkillIds.length === 0 ? '純 Prompt 模式' : `${selectedSkillIds.length} 個技能`} • {cli} • {approvalMode}
+                            </div>
                         </div>
                     </div>
 
@@ -225,9 +182,89 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                             placeholder="你是半導體工廠的...，名叫...。你的工作是..." />
                     </fieldset>
 
-                    {/* Chat Config */}
+                    {/* Skills — 選擇共享技能池 */}
                     <fieldset className="space-y-3">
-                        <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5"><Icon name="chat" size={16} /> Chat Config</legend>
+                        <div className="flex items-center justify-between border-b border-stone-200 pb-1">
+                            <legend className="text-sm font-bold text-stone-600 flex items-center gap-1.5">
+                                <Icon name="lightning" size={16} /> 技能 <span className="text-stone-400 font-normal">({selectedSkillIds.length})</span>
+                            </legend>
+                        </div>
+
+                        {allSkills.length === 0 ? (
+                            <div className="text-center text-sm py-6 rounded-xl border-2 border-dashed" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
+                                <div className="text-stone-400 mb-1">共享技能池中沒有技能</div>
+                                <div className="text-xs text-stone-400">請先在 skills/ 目錄建立 SKILL.md</div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {allSkills.map(sk => {
+                                    const isSelected = selectedSkillIds.includes(sk.id);
+                                    return (
+                                        <button key={sk.id} type="button" onClick={() => toggleSkill(sk.id)}
+                                            className="text-sm font-medium px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 whitespace-nowrap"
+                                            style={isSelected
+                                                ? { backgroundColor: t.accent, color: "white", borderColor: t.accent, boxShadow: `0 1px 3px ${t.accent}40` }
+                                                : { backgroundColor: "white", color: "#57534e", borderColor: "#e7e5e4" }
+                                            }
+                                        >
+                                            <Icon name={isSelected ? "check" : "gear"} size={12} />
+                                            {sk.name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {selectedSkillIds.length > 0 && (
+                            <div className="space-y-1.5 mt-2">
+                                {selectedSkillIds.map(sid => {
+                                    const sk = allSkills.find(s => s.id === sid);
+                                    return (
+                                        <div key={sid} className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg" style={{ backgroundColor: t.accentBg, color: t.accentText }}>
+                                            <span className="font-bold">{sk?.name || sid}</span>
+                                            {sk?.description && <span className="text-stone-400">— {sk.description}</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {selectedSkillIds.length === 0 && allSkills.length > 0 && (
+                            <div className="text-xs text-stone-400 text-center py-2">
+                                未選技能 = 純 Prompt 模式，只使用 Role Prompt
+                            </div>
+                        )}
+                    </fieldset>
+
+                    {/* Execution Config — 歸員工管 */}
+                    <fieldset className="space-y-3">
+                        <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5"><Icon name="settings" size={16} /> 執行設定 <span className="text-stone-400 font-normal text-xs">（歸員工管）</span></legend>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="text-sm font-semibold text-stone-500">CLI Engine</label>
+                                <select value={cli} onChange={e => setCli(e.target.value)}
+                                    className={`${inputCls}`} style={inputStyle}>
+                                    <option value="qwen">Qwen Code</option>
+                                    <option value="claude">Claude Code</option>
+                                    <option value="opencode">OpenCode</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-sm font-semibold text-stone-500">Model</label>
+                                <input value={model} onChange={e => setModel(e.target.value)}
+                                    className={inputCls} style={inputStyle} placeholder="moonshotai/kimi-k2.5" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-semibold text-stone-500">Approval Mode</label>
+                                <select value={approvalMode} onChange={e => setApprovalMode(e.target.value)}
+                                    className={inputCls} style={inputStyle}>
+                                    <option value="default">Default</option>
+                                    <option value="auto-edit">Auto-Edit</option>
+                                    <option value="yolo">YOLO</option>
+                                    <option value="plan">Plan</option>
+                                </select>
+                            </div>
+                        </div>
                         <div>
                             <label className="text-sm font-semibold text-stone-500">Greeting Message</label>
                             <input value={greeting} onChange={e => setGreeting(e.target.value)}
@@ -245,154 +282,6 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                                     className={inputCls} style={inputStyle} min={0} max={2} step={0.1} />
                             </div>
                         </div>
-                    </fieldset>
-
-                    {/* Skills — unified text-sm matching profile */}
-                    <fieldset className="space-y-4">
-                        <div className="flex items-center justify-between border-b border-stone-200 pb-1">
-                            <legend className="text-sm font-bold text-stone-600 flex items-center gap-1.5"><Icon name="lightning" size={16} /> Skills ({skills.length})</legend>
-                            <button type="button" onClick={addSkill}
-                                className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                                style={{ backgroundColor: t.accentLight, color: t.accent, borderColor: t.accentBorder }}
-                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accent; e.currentTarget.style.color = "white"; }}
-                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accentLight; e.currentTarget.style.color = t.accent; }}
-                            >
-                                + Add Skill
-                            </button>
-                        </div>
-
-                        {skills.length === 0 && (
-                            <div className="text-center text-sm text-stone-400 py-4">
-                                No skills yet. Click "+ Add Skill" to add one.
-                            </div>
-                        )}
-
-                        {skills.map((sk, skIdx) => (
-                            <div key={skIdx} className="border rounded-xl p-4 space-y-3" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-bold" style={{ color: t.accent }}>Skill #{skIdx + 1} — {sk.name || "Unnamed"}</span>
-                                    <button type="button" onClick={() => removeSkill(skIdx)}
-                                        className="text-sm text-red-400 hover:text-red-600 font-bold flex items-center gap-0.5"><Icon name="cross" size={12} /> Remove</button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div>
-                                        <label className="text-sm font-semibold text-stone-500">ID</label>
-                                        <input value={sk.id} onChange={e => updateSkill(skIdx, "id", e.target.value)}
-                                            className={`${inputCls} font-mono`} style={inputStyle} />
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-semibold text-stone-500">Name *</label>
-                                        <input value={sk.name} onChange={e => updateSkill(skIdx, "name", e.target.value)}
-                                            className={inputCls} style={inputStyle} />
-                                    </div>
-                                    <div className="flex items-end gap-2">
-                                        <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
-                                            <input type="checkbox" checked={sk.enabled}
-                                                onChange={e => updateSkill(skIdx, "enabled", e.target.checked)}
-                                                className="rounded border-stone-300" />
-                                            <span className="text-sm text-stone-500">Enabled</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-semibold text-stone-500">Description</label>
-                                    <input value={sk.description} onChange={e => updateSkill(skIdx, "description", e.target.value)}
-                                        className={inputCls} style={inputStyle} placeholder="What this skill does" />
-                                </div>
-                                <div>
-                                    <label className="text-sm font-semibold text-stone-500">Prompt</label>
-                                    <textarea value={sk.prompt} onChange={e => updateSkill(skIdx, "prompt", e.target.value)}
-                                        rows={3} className={`${inputCls} font-mono`} style={inputStyle}
-                                        placeholder="Skill-specific system prompt instructions..." />
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div>
-                                        <label className="text-sm font-semibold text-stone-500">CLI Engine</label>
-                                        <select value={sk.cli || "qwen"} onChange={e => updateSkill(skIdx, "cli", e.target.value)}
-                                            className={`${inputCls}`} style={inputStyle}>
-                                            <option value="qwen">Qwen Code</option>
-                                            <option value="claude">Claude Code</option>
-                                            <option value="opencode">OpenCode</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-semibold text-stone-500">Model</label>
-                                        <input value={sk.model || ""} onChange={e => updateSkill(skIdx, "model", e.target.value)}
-                                            className={inputCls} style={inputStyle} placeholder="Default (inherit)" />
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-semibold text-stone-500">Approval Mode</label>
-                                        <select value={sk.approvalMode || ""} onChange={e => updateSkill(skIdx, "approvalMode", e.target.value)}
-                                            className={inputCls} style={inputStyle}>
-                                            <option value="">Default (inherit)</option>
-                                            <option value="default">Default</option>
-                                            <option value="auto-edit">Auto-Edit</option>
-                                            <option value="yolo">YOLO</option>
-                                            <option value="plan">Plan</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {/* Required Inputs */}
-                                <div className="space-y-3 ml-2 pl-4 border-l-2" style={{ borderColor: t.accentBorder }}>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-bold" style={{ color: t.accent }}>Inputs ({sk.requiredInputs?.length || 0})</span>
-                                        <button type="button" onClick={() => addInput(skIdx)}
-                                            className="text-sm font-bold hover:underline" style={{ color: t.accent }}>+ Add Input</button>
-                                    </div>
-                                    {(sk.requiredInputs || []).map((inp, inpIdx) => (
-                                        <div key={inpIdx} className="bg-white rounded-lg p-4 border border-stone-200 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm font-bold text-stone-500">Input #{inpIdx + 1}</span>
-                                                <button type="button" onClick={() => removeInput(skIdx, inpIdx)}
-                                                    className="text-sm text-red-400 hover:text-red-600 font-bold"><Icon name="cross" size={12} /></button>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="text-sm text-stone-500">ID</label>
-                                                    <input value={inp.id} onChange={e => updateInput(skIdx, inpIdx, "id", e.target.value)}
-                                                        className={`${inputCls} font-mono`} style={inputStyle} />
-                                                </div>
-                                                <div>
-                                                    <label className="text-sm text-stone-500">Label *</label>
-                                                    <input value={inp.label} onChange={e => updateInput(skIdx, inpIdx, "label", e.target.value)}
-                                                        className={inputCls} style={inputStyle} />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm text-stone-500">Description</label>
-                                                <input value={inp.description} onChange={e => updateInput(skIdx, inpIdx, "description", e.target.value)}
-                                                    className={inputCls} style={inputStyle} />
-                                            </div>
-                                            <div>
-                                                <label className="text-sm text-stone-500">Placeholder</label>
-                                                <input value={inp.placeholder} onChange={e => updateInput(skIdx, inpIdx, "placeholder", e.target.value)}
-                                                    className={inputCls} style={inputStyle} />
-                                            </div>
-                                            <div className="flex gap-4 items-center">
-                                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                                    <input type="checkbox" checked={inp.required}
-                                                        onChange={e => updateInput(skIdx, inpIdx, "required", e.target.checked)}
-                                                        className="rounded border-stone-200" />
-                                                    <span className="text-sm text-stone-500">Required</span>
-                                                </label>
-                                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                                    <input type="checkbox" checked={inp.multiline || false}
-                                                        onChange={e => updateInput(skIdx, inpIdx, "multiline", e.target.checked)}
-                                                        className="rounded border-stone-200" />
-                                                    <span className="text-sm text-stone-500">Multiline</span>
-                                                </label>
-                                                <div className="flex items-center gap-1.5">
-                                                    <label className="text-sm text-stone-500">Group</label>
-                                                    <input value={inp.group || ""} onChange={e => updateInput(skIdx, inpIdx, "group", e.target.value)}
-                                                        className={`${inputCls} !mt-0 w-32`} style={inputStyle} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
                     </fieldset>
                 </div>
 

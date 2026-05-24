@@ -242,19 +242,6 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
       .catch(() => {});
   }, [projectRoot]);
 
-  useEffect(() => {
-    if (!projectRoot) return;
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource(`${API_BASE}/api/fs/watch?root=${encodeURIComponent(projectRoot)}`);
-      es.onmessage = () => {
-        refreshTree();
-      };
-      es.onerror = () => { /* auto reconnect */ };
-    } catch {}
-    return () => { es?.close(); };
-  }, [projectRoot, refreshTree]);
-
   const handleToggleDir = useCallback(async (dirPath: string) => {
     setExpandedPaths(prev => {
       const next = new Set(prev);

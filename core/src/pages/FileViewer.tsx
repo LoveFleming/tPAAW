@@ -202,6 +202,15 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
   const [content, setContent] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ size: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Esc to exit fullscreen
+  useEffect(() => {
+    if (!fullscreen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [fullscreen]);
 
   const parsedJson = useMemo(() => {
     if (!content || detectFileType(pathBasename(filePath)) !== "json") return null;
@@ -232,53 +241,33 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       .finally(() => setLoading(false));
   }, [filePath]);
 
-  // SSE: auto-reload when file changes
-  useEffect(() => {
-    if (!filePath || !projectRoot) return;
-    const fileName = pathBasename(filePath);
-    const fileType = detectFileType(fileName);
-    if (fileType === "image") return; // images use direct URL
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource(`${API_BASE}/api/fs/watch?root=${encodeURIComponent(projectRoot)}`);
-      es.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.path === filePath && data.type === "change") {
-            // Reload content
-            fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`)
-              .then(r => r.json())
-              .then(d => {
-                setContent(d.content);
-                setMeta({ size: d.size });
-              })
-              .catch(() => {});
-          }
-        } catch {}
-      };
-      es.onerror = () => {};
-    } catch {}
-    return () => { es?.close(); };
-  }, [filePath, projectRoot]);
-
   const relativePath = filePath.replace(new RegExp(`^${projectRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '');
   const fileName = pathBasename(filePath);
   const fileType = detectFileType(fileName);
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className={fullscreen ? "fixed inset-0 z-50 bg-white flex flex-col" : "h-full flex flex-col min-h-0"}>
       {/* File header bar — theme-aware */}
       <div className="px-4 py-1.5 border-b flex items-center justify-between shrink-0"
         style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs">{fileIconElement(fileName)}</span>
-          <span className="text-xs font-mono truncate" style={{ color: t.accentText }}>{relativePath}</span>
+          <span className="text-sm font-semibold truncate" style={{ color: t.accentText }}>{fileName}</span>
+          {meta && (
+            <span className="text-[11px] shrink-0" style={{ color: t.accentHover }}>
+              {(meta.size / 1024).toFixed(1)} KB
+            </span>
+          )}
         </div>
-        {meta && (
-          <div className="flex items-center gap-3 text-[11px] shrink-0" style={{ color: t.accentHover }}>
-            <span>{(meta.size / 1024).toFixed(1)} KB</span>
-          </div>
-        )}
+        <button
+          onClick={() => setFullscreen(!fullscreen)}
+          className="px-2 py-1 rounded-lg text-xs font-bold border transition-colors"
+          style={{ borderColor: t.accentBorder, color: t.accent }}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accent; e.currentTarget.style.color = "white"; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = t.accent; }}
+        >
+          {fullscreen ? "✕ 退出全螢幕" : "⛶ 全螢幕"}
+        </button>
       </div>
 
       {/* Content */}

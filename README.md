@@ -19,21 +19,25 @@ aioc/
 │   ├── src/                ← React + TypeScript frontend
 │   ├── server/             ← Express API server
 │   └── public/             ← 靜態資源
-├── crew/                   ← AI 員工定義
-│   ├── 00-ai.skill-designer.json
-│   ├── 01-ai.guide.json
-│   ├── 02-ai.spec.json
-│   ├── 03-ai.node-dev.json
-│   ├── 04-ai.qa.json
-│   └── 05-ai.troubleshooting.json
-├── factory/                ← 團隊文件（自動 render 到左側選單）
-├── skills/                 ← AI 技能（只一份，所有 CLI 共用）
-├── providers/              ← 各 CLI 設定
-│   ├── qwen/
-│   ├── opencode/
-│   └── claude/
-└── conversations/          ← 對話歷史（by project path hash）
+├── factories/              ← 各工廠定義
+│   ├── default/            ← 預設模板
+│   │   ├── crews/          ← 員工 JSON
+│   │   └── docs/           ← 工廠文件
+│   └── fabric-service/     ← 範例工廠
+│       ├── crews/
+│       └── docs/
+├── skills/                 ← 共享 AI 技能（所有工廠、所有 CLI 共用）
+│   ├── cli-test/
+│   ├── dashboard-setup/
+│   ├── factory-tour/
+│   └── java-unit-test/
+└── providers/              ← 各 CLI 設定
+    ├── qwen/
+    ├── opencode/
+    └── claude/
 ```
+
+> Skills 只存一份在 `skills/`，所有工廠和 CLI 共用。員工可選 0~多個技能，也可以純 Prompt 模式。
 
 ## 快速開始
 

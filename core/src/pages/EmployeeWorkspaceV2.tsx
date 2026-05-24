@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, cn } from "../components/ui/shared";
-import { Skill, CrewSkill, RequiredInput, buildSystemPrompt } from "../types";
+import { Crew, SkillDefinition, UserInput, buildSystemPrompt, migrateCrew } from "../types";
 import { useTheme } from "../theme";
 import Icon from "../components/Icon";
 import TerminalConsole from "../components/TerminalConsole";
@@ -23,12 +23,12 @@ interface ConvSummary {
 interface Props {
     employeeId: string;
     projectRoot?: string;
-    crew?: Skill[];
+    crew?: Crew[];
 }
 
 export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: crewProp, factoryId = "default" }: Props & { factoryId?: string }) {
     // Use crew from props (API-fetched) to avoid HMR reset when crew JSON files change
-    const [apiEmployee, setApiEmployee] = useState<Skill | null>(null);
+    const [apiEmployee, setApiEmployee] = useState<Crew | null>(null);
     const propEmployee = crewProp?.find((s) => s.id === employeeId) || null;
     // Fallback: fetch fresh from API on mount if not in crew prop
     useEffect(() => {
@@ -38,8 +38,23 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
             .then(data => { if (data) setApiEmployee(data); })
             .catch(() => {});
     }, [employeeId, propEmployee]);
-    const employee = propEmployee || apiEmployee;
+    const rawEmployee = propEmployee || apiEmployee;
+    const employee = rawEmployee ? migrateCrew(rawEmployee) : null;
     const { info: t } = useTheme();
+
+    // ── Skill Definitions (fetched from /api/skills) ──
+    const [skillDefinitions, setSkillDefinitions] = useState<Map<string, SkillDefinition>>(new Map());
+    useEffect(() => {
+        fetch("http://127.0.0.1:4097/api/skills")
+            .then(r => r.json())
+            .then((data: SkillDefinition[]) => {
+                const map = new Map<string, SkillDefinition>();
+                for (const sd of data) map.set(sd.id, sd);
+                setSkillDefinitions(map);
+            })
+            .catch(() => {});
+    }, []);
+
     const [enabledSkills, setEnabledSkills] = useState<Record<string, boolean>>({});
     const [consoleKey, setConsoleKey] = useState(0);
     const [restartCount, setRestartCount] = useState(0);
@@ -126,7 +141,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
         prevEmployeeIdRef.current = employeeId;
         if (changed) {
             const initial: Record<string, boolean> = {};
-            employee.skills.forEach(s => { initial[s.id] = s.enabled; });
+            (employee.skillIds || []).forEach(id => { initial[id] = true; });
             setEnabledSkills(initial);
             setChatStarted(false);
             setFormData({});
@@ -176,35 +191,29 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
         return Object.entries(enabledSkills).filter(([_, v]) => v).map(([k]) => k);
     }, [enabledSkills]);
 
-    // Collect all required inputs from selected skills
+    // Collect all user inputs from selected skills
     const requiredInputs = useMemo(() => {
         if (!employee) return [];
-        const inputs: RequiredInput[] = [];
+        const inputs: UserInput[] = [];
         const seen = new Set<string>();
         for (const id of selectedSkillIds) {
-            const sk = employee.skills.find(s => s.id === id);
-            if (sk?.requiredInputs) {
-                for (const inp of sk.requiredInputs) {
-                    if (!seen.has(inp.id)) {
-                        seen.add(inp.id);
-                        inputs.push(inp);
-                    }
+            const sk = skillDefinitions.get(id);
+            const skillInputs = sk?.userInputs || [];
+            for (const inp of skillInputs) {
+                if (!seen.has(inp.id)) {
+                    seen.add(inp.id);
+                    inputs.push(inp);
                 }
             }
         }
         return inputs;
-    }, [employee, selectedSkillIds]);
+    }, [employee, selectedSkillIds, skillDefinitions]);
 
-    // Default CLI from first selected skill, user can override at runtime
+    // Default CLI from employee chatConfig
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const defaultCliFromSkills = useMemo(() => {
-        if (!employee) return "qwen";
-        for (const id of selectedSkillIds) {
-            const sk = employee.skills.find(s => s.id === id);
-            if (sk?.cli) return sk.cli;
-        }
-        return "qwen";
-    }, [selectedSkillIds]); // intentionally omit employee to avoid HMR reset
+        return employee?.chatConfig?.cli || "qwen";
+    }, [selectedSkillIds]);
 
     const [selectedCli, setSelectedCli] = useState<string>(savedCli);
 
@@ -227,9 +236,11 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
     useEffect(() => {
         if (!employee || initializedRef.current) return;
         for (const id of selectedSkillIds) {
-            const sk = employee.skills.find(s => s.id === id);
-            if (sk?.approvalMode) {
-                setPermissionMode(sk.approvalMode);
+            const sk = skillDefinitions.get(id);
+            // approval mode comes from employee chatConfig now
+            const approvalFromEmployee = employee?.chatConfig?.approvalMode;
+            if (approvalFromEmployee) {
+                setPermissionMode(approvalFromEmployee);
                 initializedRef.current = true;
                 return;
             }
@@ -242,18 +253,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
     // Save runtime setting changes back to crew JSON (all selected skills)
     const saveSkillConfig = useCallback(async (field: 'cli' | 'model' | 'approvalMode', value: string) => {
         if (!employee) return;
-        const updated = { ...employee };
-        let changed = false;
-        const targets = selectedSkillIds.length > 0
-            ? updated.skills.filter(s => selectedSkillIds.includes(s.id))
-            : updated.skills.filter(s => s.enabled);
-        for (const sk of targets) {
-            if (sk[field] !== value) {
-                (sk as unknown as Record<string, unknown>)[field] = value;
-                changed = true;
-            }
-        }
-        if (!changed) return;
+        const updated = { ...employee, chatConfig: { ...employee.chatConfig, [field]: value } };
         try {
             await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}?factory=${factoryId}`, {
                 method: "PUT",
@@ -276,18 +276,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
     const applyConfig = useCallback(async () => {
         // Save cli and model to crew JSON chatConfig for persistence
         if (!employee) return;
-        const updated = { ...employee };
-        if (!updated.chatConfig) updated.chatConfig = {};
-        updated.chatConfig.cli = effectiveCli;
-        updated.chatConfig.model = effectiveModel || "";
-        updated.chatConfig.approvalMode = permissionMode;
-        // Also save to individual skills
-        const targets = selectedSkillIds.length > 0
-            ? updated.skills.filter(s => selectedSkillIds.includes(s.id))
-            : updated.skills.filter(s => s.enabled);
-        for (const sk of targets) {
-            if (sk.cli !== effectiveCli) sk.cli = effectiveCli;
-        }
+        const updated = { ...employee, chatConfig: { ...employee.chatConfig, cli: effectiveCli, model: effectiveModel || "", approvalMode: permissionMode } };
         try {
             await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}?factory=${factoryId}`, {
                 method: "PUT",
@@ -342,7 +331,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
     const launchTask = async (dialogData: Record<string, string>) => {
         if (!employee) return;
         const allData = { ...dialogData, task: taskInput.trim() };
-        const prompt = buildSystemPrompt(employee, selectedSkillIds, allData, { aiocRoot, projectRoot: projectRoot || "" });
+        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { aiocRoot, projectRoot: projectRoot || "", factoryId });
         setSystemPrompt(prompt);
         setFormData(allData);
         setConsoleKey(prev => prev + 1);
@@ -421,16 +410,11 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
         return () => window.removeEventListener("keydown", handler);
     }, [fullscreen]);
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleStartClick();
-        }
-    };
+    // Enter does NOT trigger start — user must click the button
 
     if (!employee) return <div className="p-8 text-stone-400">Employee not found</div>;
 
-    const allSkills = employee.skills || [];
+    const allSkillDefs = (employee?.skillIds || []).map(id => skillDefinitions.get(id)).filter(Boolean) as SkillDefinition[];
 
     return (
         <div className="flex flex-col lg:flex-row h-full overflow-hidden">
@@ -592,10 +576,10 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
                                         <Icon name="lightning" size={12} className="text-white" />
                                     </div>
                                     <span className="text-sm font-bold text-stone-700">Skills</span>
-                                    <span className="text-[10px] text-stone-400 ml-auto">{selectedSkillIds.length}/{allSkills.length} 已選</span>
+                                    <span className="text-[10px] text-stone-400 ml-auto">{selectedSkillIds.length}/{allSkillDefs.length} 已選</span>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {allSkills.map(sk => (
+                                    {allSkillDefs.map(sk => (
                                         <button
                                             key={sk.id}
                                             onClick={() => setEnabledSkills(prev => {
@@ -651,7 +635,7 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
                         <div className="w-5 h-5 rounded-md flex items-center justify-center mr-1" style={{ backgroundColor: t.accent }}>
                             <Icon name="lightning" size={10} className="text-white" />
                         </div>
-                        {allSkills.map(sk => (
+                        {allSkillDefs.map(sk => (
                             <button
                                 key={sk.id}
                                 onClick={() => setEnabledSkills(prev => {
@@ -682,22 +666,60 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
                 {/* --- CLI Console or Empty State --- */}
                 {!chatStarted ? (
                     <div className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border rounded-xl" style={{ borderColor: t.accentBorder + "60" }}>
-                        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4">
                             <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.accentBg }}>
                                 <Icon name="lightning" size={28} style={{ color: t.accent + (selectedSkillIds.length > 0 ? "80" : "40") }} />
                             </div>
                             <div className="text-center">
                                 {selectedSkillIds.length === 0 ? (
                                     <>
-                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>選擇一個技能才能開始工作</p>
-                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>從上方的 Skills 面板選擇一個技能</p>
+                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>純 Prompt 模式</p>
+                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>輸入任務描述，或從上方選擇技能</p>
                                     </>
                                 ) : (
                                     <>
-                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>準備好了！按下「開始」啟動工作</p>
-                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>選擇的技能：{selectedSkillIds.map(sid => employee?.skills.find(s => s.id === sid)?.name).filter(Boolean).join(', ')}</p>
+                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>準備好了！輸入任務按下 Enter 啟動</p>
+                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>選擇的技能：{selectedSkillIds.map(sid => skillDefinitions.get(sid)?.name).filter(Boolean).join(', ')}</p>
                                     </>
                                 )}
+                            </div>
+                            {/* Task Input — pre-launch */}
+                            <div className="w-full max-w-3xl mt-3">
+                                <div className="rounded-2xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md" style={{ borderColor: t.accentBorder + "80", backgroundColor: "white" }}>
+                                    <textarea
+                                        value={taskInput}
+                                        onChange={e => {
+                                            setTaskInput(e.target.value);
+                                            e.target.style.height = "auto";
+                                            e.target.style.height = Math.min(e.target.scrollHeight, 400) + "px";
+                                        }}
+                                        onKeyDown={e => {
+                                            if (e.nativeEvent?.isComposing || (e as any).isComposing) return;
+                                            if (e.key === "Enter" && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleStartClick();
+                                            }
+                                        }}
+                                        placeholder={"描述你想讓 AI 做什麼...\n\n可以貼上需求文件、error log、程式碼片段等任何內容\nShift+Enter 換行，Enter 送出"}
+                                        className="w-full bg-transparent outline-none text-sm text-stone-700 resize-none min-h-[260px] max-h-[400px] px-4 py-3 leading-relaxed placeholder-stone-400 font-mono"
+                                        rows={10}
+                                    />
+                                    <div className="flex items-center justify-between px-4 py-2 border-t" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg }}>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[11px] text-stone-400">Shift+Enter 換行 · Enter 送出</span>
+                                            {taskInput.length > 0 && <span className="text-[11px] text-stone-400">{taskInput.length} 字</span>}
+                                        </div>
+                                        <button
+                                            onClick={handleStartClick}
+                                            className="px-5 py-1.5 rounded-xl text-sm font-bold text-white shrink-0 transition-all hover:shadow-md active:scale-95"
+                                            style={{ backgroundColor: t.accent }}
+                                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
+                                        >
+                                            <Icon name="rocket" size={14} /> 開始
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -829,7 +851,6 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
                             systemPrompt={undefined}
                             initialPrompt={chatStarted ? [
                                 systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
-                                taskInput ? `# Task\n${taskInput}` : '',
                             ].filter(Boolean).join('\n\n') : undefined}
                             restartTrigger={restartCount}
                         />

@@ -53,6 +53,7 @@ const NAV_ICONS: Record<string, string> = {
     "Constitution": "nav-scroll",
     "Standards":    "nav-ruler",
     "AI Crew":      "nav-crew",
+    "Skills":       "lightning",
 };
 
 export function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {

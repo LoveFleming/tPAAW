@@ -10,7 +10,7 @@
  */
 
 import { createServer } from "http";
-import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, unlink, rm } from "fs/promises";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { query, isSDKAssistantMessage, isSDKResultMessage, isSDKPartialAssistantMessage } from "@qwen-code/sdk";
@@ -28,6 +28,7 @@ const DASHBOARD_ROOT = resolve(__dirname, "..");
 const AIOC_ROOT = resolve(__dirname, "../../");
 const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "core/conversations");
 const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
+const SKILLS_ROOT = resolve(AIOC_ROOT, "skills");
 const DEFAULT_FACTORY = "default";
 
 const PORT = parseInt(process.env.QWEN_CODE_PORT || "4097", 10);
@@ -171,6 +172,184 @@ const server = createServer(async (req, res) => {
     return u.searchParams.get("factory") || DEFAULT_FACTORY;
   }
 
+  // ── Skills API (global, top-level) ──
+
+  // Helper: parse YAML frontmatter from SKILL.md (simple parser for arrays/objects)
+  function parseSkillFrontmatter(raw) {
+    const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) return { body: raw };
+    const body = raw.slice(fmMatch[0].length).trim();
+    const fm = fmMatch[1];
+    const result = {};
+    let currentKey = null;
+    let currentArray = null;
+    let currentObj = null;
+    let inArray = false;
+    let inObj = false;
+    let objDepth = 0;
+
+    for (const line of fm.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+
+      // Array item
+      if (trimmed.startsWith("- ") && currentArray) {
+        const val = trimmed.slice(2).trim();
+        // Check if it's a key: value inside array item
+        if (val.includes(":") && !val.startsWith('"')) {
+          const obj = {};
+          // First key
+          const [k, ...v] = val.split(":");
+          obj[k.trim()] = v.join(":").trim().replace(/^['"]|['"]$/g, "");
+          currentArray.push(obj);
+          currentObj = obj;
+        } else {
+          currentArray.push(val.replace(/^['"]|['"]$/g, ""));
+          currentObj = null;
+        }
+        continue;
+      }
+
+      // Key-value pair inside an object (array item)
+      if (currentObj && trimmed.includes(":") && !trimmed.startsWith("-")) {
+        const [k, ...v] = trimmed.split(":");
+        currentObj[k.trim()] = v.join(":").trim().replace(/^['"]|['"]$/g, "");
+        continue;
+      }
+
+      // Top-level key
+      const colonIdx = trimmed.indexOf(":");
+      if (colonIdx > 0) {
+        const k = trimmed.slice(0, colonIdx).trim();
+        const v = trimmed.slice(colonIdx + 1).trim();
+        if (v === "" || v === "[]") {
+          // Array or empty
+          result[k] = [];
+          currentArray = result[k];
+          currentObj = null;
+        } else if (v === "true") {
+          result[k] = true;
+          currentArray = null;
+        } else if (v === "false") {
+          result[k] = false;
+          currentArray = null;
+        } else {
+          result[k] = v.replace(/^['"]|['"]$/g, "");
+          currentArray = null;
+        }
+        currentKey = k;
+      }
+    }
+    return { ...result, body };
+  }
+
+  // GET /api/skills — list all shared skills with full definitions
+  if (req.method === "GET" && req.url?.match(/^\/api\/skills(?:\?.*)?$/)) {
+    try {
+      await mkdir(SKILLS_ROOT, { recursive: true });
+      const dirs = await readdir(SKILLS_ROOT);
+      const skills = [];
+      for (const dir of dirs) {
+        try {
+          const stat = await import("fs/promises").then(m => m.stat(join(SKILLS_ROOT, dir)));
+          if (!stat.isDirectory()) continue;
+          const skillPath = join(SKILLS_ROOT, dir, "SKILL.md");
+          const raw = await readFile(skillPath, "utf-8");
+          const parsed = parseSkillFrontmatter(raw);
+          skills.push({
+            id: dir,
+            name: parsed.name || dir,
+            description: parsed.description || "",
+            version: parsed.version || "1.0.0",
+            category: parsed.category || "",
+            skillPrompt: parsed.body || "",
+            useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
+            userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
+            fullContent: raw,
+          });
+        } catch { /* skip invalid */ }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(skills));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/skills/:id — get single skill definition
+  const skillGetMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
+  if (skillGetMatch) {
+    const skillId = skillGetMatch[1];
+    const skillPath = join(SKILLS_ROOT, skillId, "SKILL.md");
+    try {
+      const raw = await readFile(skillPath, "utf-8");
+      const parsed = parseSkillFrontmatter(raw);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        id: skillId,
+        name: parsed.name || skillId,
+        description: parsed.description || "",
+        version: parsed.version || "1.0.0",
+        category: parsed.category || "",
+        skillPrompt: parsed.body || "",
+        useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
+        userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
+        fullContent: raw,
+      }));
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Skill not found" }));
+    }
+    return;
+  }
+
+  // ── Skill Save API ──
+
+  // PUT /api/skills/:id — create or update a skill
+  if (req.method === "PUT" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
+    const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
+    try {
+      const body = await new Promise<string>((resolve) => {
+        let data = "";
+        req.on("data", (chunk) => { data += chunk; });
+        req.on("end", () => resolve(data));
+      });
+      const payload = JSON.parse(body);
+      const content = payload.content;
+      if (!content || !skillId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing content or skillId" }));
+        return;
+      }
+      const skillDir = join(SKILLS_ROOT, skillId);
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, "SKILL.md"), content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, id: skillId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // DELETE /api/skills/:id — delete a skill
+  if (req.method === "DELETE" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
+    const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
+    try {
+      const skillDir = join(SKILLS_ROOT, skillId);
+      await rm(skillDir, { recursive: true, force: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ── Factory CRUD ──
 
   // GET /api/factories — list all factories
@@ -209,7 +388,6 @@ const server = createServer(async (req, res) => {
     try {
       await mkdir(factoryPath, { recursive: true });
       await mkdir(join(factoryPath, "crews", "pic"), { recursive: true });
-      await mkdir(join(factoryPath, "skills"), { recursive: true });
       await mkdir(join(factoryPath, "docs"), { recursive: true });
 
       const factoryJson = {
@@ -226,12 +404,10 @@ const server = createServer(async (req, res) => {
       // Always clone from 'default' factory (copyFrom overrides if specified)
       const cloneSource = parsed.copyFrom || "default";
       const srcCrews = join(FACTORIES_ROOT, cloneSource, "crews");
-      const srcSkills = join(FACTORIES_ROOT, cloneSource, "skills");
       const srcDocs = join(FACTORIES_ROOT, cloneSource, "docs");
       try {
         const { cpSync } = await import("fs");
         try { cpSync(srcCrews, join(factoryPath, "crews"), { recursive: true }); } catch {}
-        try { cpSync(srcSkills, join(factoryPath, "skills"), { recursive: true }); } catch {}
         try { cpSync(srcDocs, join(factoryPath, "docs"), { recursive: true }); } catch {}
       } catch {
         // cpSync not available (Node < 16.7), skip copy
