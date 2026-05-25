@@ -102,11 +102,11 @@ function AppInner() {
 
   useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); }, [loadFactories, loadCrew, loadFactoryFiles]);
 
-  // Auto-refresh factory docs every 3 seconds
+  // Auto-refresh factory docs every 30 seconds
   useEffect(() => {
     if (!selectedFactoryId) return;
     loadFactoryFiles();
-    const interval = setInterval(loadFactoryFiles, 3000);
+    const interval = setInterval(loadFactoryFiles, 30000);
     return () => clearInterval(interval);
   }, [selectedFactoryId, loadFactoryFiles]);
 

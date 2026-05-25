@@ -231,7 +231,9 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
     setLoading(true);
     setContent(null);
     setMeta(null);
-    fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -241,8 +243,11 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
         setContent(data.content ?? "");
         setMeta({ size: data.size ?? 0 });
       })
-      .catch((err) => setContent(`// Unable to load file: ${err.message}`))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        const msg = err.name === 'AbortError' ? 'Request timed out' : err.message;
+        setContent(`// Unable to load file: ${msg}`);
+      })
+      .finally(() => { clearTimeout(timer); setLoading(false); });
   }, [filePath]);
 
   const safeRoot = projectRoot || '';
