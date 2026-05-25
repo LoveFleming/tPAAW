@@ -27,6 +27,7 @@ interface Props {
 }
 
 export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewProp, factoryId = "default" }: Props & { factoryId?: string }) {
+    console.log(`[EmployeeWorkspace] render: employeeId=${employeeId}, projectRoot=${projectRoot}, factoryId=${factoryId}, crewCount=${crewProp?.length}`);
     // Use crew from props (API-fetched) to avoid HMR reset when crew JSON files change
     const [apiEmployee, setApiEmployee] = useState<Crew | null>(null);
     const propEmployee = crewProp?.find((s) => s.id === employeeId) || null;
@@ -138,8 +139,10 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         if (!employee) return;
         // Only reset state when switching to a DIFFERENT employee
         const changed = prevEmployeeIdRef.current !== employeeId;
+        console.log(`[EmployeeWorkspace] reset-guard effect: employeeId=${employeeId}, prev=${prevEmployeeIdRef.current}, changed=${changed}, employee=${!!employee}`);
         prevEmployeeIdRef.current = employeeId;
         if (changed) {
+            console.log(`[EmployeeWorkspace] RESETTING chatStarted=false (employeeId changed)`);
             const initial: Record<string, boolean> = {};
             (employee.skillIds || []).forEach(id => { initial[id] = true; });
             setEnabledSkills(initial);
