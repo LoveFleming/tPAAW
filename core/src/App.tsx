@@ -158,19 +158,21 @@ function AppInner() {
 
     // Compute new scope
     const newScope = makeScopeKey(selectedFactoryId, path);
+    const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
+    const existingScopeTabs = openTabs.filter(t => t.startsWith(newPrefix));
 
-    if (saved) {
-      // Restore this scope's tabs
+    if (existingScopeTabs.length > 0) {
+      // Already mounted — just switch visibility
+      const savedActive = saved?.activePage && openTabs.includes(saved.activePage) ? saved.activePage : existingScopeTabs[0];
+      setActivePage(savedActive);
+    } else if (saved) {
+      // Restore saved tabs
       const merged = [...openTabs, ...saved.openTabs];
       const seen = new Set<string>();
       const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
       setOpenTabs(unique);
-      if (saved.activePage && unique.includes(saved.activePage)) {
-        setActivePage(saved.activePage);
-      } else {
-        setActivePage(`${newScope}:crew`);
-      }
+      setActivePage(saved.activePage && unique.includes(saved.activePage) ? saved.activePage : `${newScope}:crew`);
     } else {
       // New scope — add crew tab
       const crewTab = `${newScope}:crew`;
@@ -199,7 +201,7 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current scope's tabs
+    // Save current scope's active page
     const currentPrefix = currentScope + ":";
     const currentScopeTabs = openTabs.filter(t => t.startsWith(currentPrefix));
     scopeStateRef.current[currentScope] = {
@@ -211,21 +213,24 @@ function AppInner() {
     // Compute new scope
     const savedRoot = localStorage.getItem(`aioc.project.${factoryId}`);
     const newScope = makeScopeKey(factoryId, savedRoot);
+    const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
 
-    // Merge: keep all existing tabs + add restored tabs for new scope
-    const restoredTabs = saved?.openTabs ?? [`${newScope}:crew`];
-    const merged = [...openTabs, ...restoredTabs];
-    const seen = new Set<string>();
-    const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
+    // Check if target scope already has tabs in openTabs
+    const existingScopeTabs = openTabs.filter(t => t.startsWith(newPrefix));
 
-    setOpenTabs(unique);
-
-    // Restore activePage
-    if (saved?.activePage && unique.includes(saved.activePage)) {
-      setActivePage(saved.activePage);
+    if (existingScopeTabs.length > 0) {
+      // Tabs already mounted — just switch visibility (no reload)
+      const savedActive = saved?.activePage && openTabs.includes(saved.activePage) ? saved.activePage : existingScopeTabs[0];
+      setActivePage(savedActive);
     } else {
-      setActivePage(`${newScope}:crew`);
+      // No tabs for this scope yet — restore from saved or create crew tab
+      const restoredTabs = saved?.openTabs ?? [`${newScope}:crew`];
+      const merged = [...openTabs, ...restoredTabs];
+      const seen = new Set<string>();
+      const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
+      setOpenTabs(unique);
+      setActivePage(saved?.activePage && unique.includes(saved.activePage) ? saved.activePage : `${newScope}:crew`);
     }
 
     // Restore projectRoot
