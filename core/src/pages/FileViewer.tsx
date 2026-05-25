@@ -234,22 +234,35 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
     setContent(null);
     setMeta(null);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`, { signal: controller.signal })
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setContent(data.content ?? "");
-        setMeta({ size: data.size ?? 0 });
-      })
-      .catch((err) => {
-        const msg = err.name === 'AbortError' ? 'Request timed out' : err.message;
-        setContent(`// Unable to load file: ${msg}`);
-      })
-      .finally(() => { clearTimeout(timer); setLoading(false); });
+    const timer = setTimeout(() => controller.abort(), 15000);
+    // Retry logic: up to 3 attempts with 500ms delay
+    const doFetch = (attempt = 0) => {
+      fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`, { signal: controller.signal })
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          setContent(data.content ?? "");
+          setMeta({ size: data.size ?? 0 });
+        })
+        .catch((err) => {
+          if (err.name === 'AbortError') {
+            setContent(`// Unable to load file: Request timed out`);
+            setLoading(false);
+            return;
+          }
+          if (attempt < 2) {
+            setTimeout(() => doFetch(attempt + 1), 500);
+          } else {
+            setContent(`// Unable to load file: ${err.message}`);
+            setLoading(false);
+          }
+        });
+    };
+    doFetch(0);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [filePath, active]);
 
   const safeRoot = projectRoot || '';
