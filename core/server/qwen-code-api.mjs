@@ -1148,7 +1148,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
 
     let body = "";
     for await (const chunk of req) body += chunk;
-    const { skillIds, inputSummary, cli } = JSON.parse(body);
+    const { skillIds, inputSummary, cli, inputData } = JSON.parse(body);
 
     let existing = { entries: [] };
     try {
@@ -1161,6 +1161,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       skillIds: skillIds || [],
       inputSummary: inputSummary || "",
       cli: cli || "",
+      inputData: inputData || {},
       timestamp: new Date().toISOString(),
     });
 

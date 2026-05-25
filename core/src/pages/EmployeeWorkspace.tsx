@@ -96,7 +96,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const [savedInputs, setSavedInputs] = useState<Array<{ hash: string; skillId: string; data: Record<string, string>; savedAt: string }>>([]);
     const [rightPanelOpen, setRightPanelOpen] = useState(true);
     const [showWorkLog, setShowWorkLog] = useState(false);
-    const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; timestamp: string }>>([]);
+    const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; inputData?: Record<string, string>; timestamp: string }>>([]);
 
     // Fetch models for a specific CLI
     const fetchModels = useCallback((cli: string, preferModel?: string) => {
@@ -377,6 +377,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                     skillIds: selectedSkillIds,
                     inputSummary: inputSummary.slice(0, 100),
                     cli: effectiveCli,
+                    inputData: allData,
                 }),
             });
             loadWorkLog();
@@ -680,6 +681,25 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                     <>
                                         <p className="text-sm font-semibold" style={{ color: t.accentText }}>準備好了！輸入任務按下 Enter 啟動</p>
                                         <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>選擇的技能：{selectedSkillIds.map(sid => skillDefinitions.get(sid)?.name).filter(Boolean).join(', ')}</p>
+                                        {/* Show each skill's userInputs as quick reference */}
+                                        <div className="mt-3 text-left max-w-lg mx-auto space-y-2">
+                                            {selectedSkillIds.map(sid => {
+                                                const sd = skillDefinitions.get(sid);
+                                                if (!sd?.userInputs?.length) return null;
+                                                return (
+                                                    <div key={sid} className="rounded-lg border p-2.5" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "30" }}>
+                                                        <div className="text-xs font-semibold mb-1.5" style={{ color: t.accent }}>{sd.name} — 需要輸入</div>
+                                                        {sd.userInputs.map(inp => (
+                                                            <div key={inp.id} className="text-xs ml-2 mb-0.5" style={{ color: t.accentText + "70" }}>
+                                                                <span className="font-medium">{inp.label}</span>
+                                                                {inp.required && <span className="text-rose-400 ml-0.5">*</span>}
+                                                                {inp.description && <span className="text-stone-400 ml-1">— {inp.description}</span>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </>
                                 )}
                             </div>
@@ -864,7 +884,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
             {showWorkLog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setShowWorkLog(false)}>
                     <div className="absolute inset-0 bg-black/30" />
-                    <div className="relative bg-white rounded-2xl shadow-2xl border w-[400px] max-h-[70vh] flex flex-col" style={{ borderColor: t.accentBorder }} onClick={e => e.stopPropagation()}>
+                    <div className="relative bg-white rounded-2xl shadow-2xl border w-[520px] max-h-[70vh] flex flex-col" style={{ borderColor: t.accentBorder }} onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: t.accentBorder + "40" }}>
                             <h3 className="font-bold text-base" style={{ color: t.accentText }}>最近工作</h3>
                             <button onClick={() => setShowWorkLog(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none cursor-pointer">✕</button>
@@ -874,26 +894,71 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                 <p className="text-sm text-center py-8" style={{ color: t.accentText + "50" }}>尚無工作紀錄</p>
                             ) : (
                                 <div className="space-y-2.5">
-                                    {workLog.map(w => (
-                                        <div key={w.id} className="p-3 rounded-lg border" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "40" }}>
-                                            <div className="flex items-center justify-between mb-1.5">
-                                                {w.skillIds?.length > 0 ? (
-                                                    <div className="flex gap-1 flex-wrap">
-                                                        {w.skillIds.map(s => (
-                                                            <span key={s} className="text-xs inline-block px-2 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>{s}</span>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-xs" style={{ color: t.accentText + "50" }}>general</span>
+                                    {workLog.map(w => {
+                                        const skillNames = (w.skillIds || []).map(s => skillDefinitions.get(s)?.name || s);
+                                        const hasInputs = w.inputData && Object.keys(w.inputData).length > 0;
+                                        return (
+                                            <button
+                                                key={w.id}
+                                                className="w-full text-left p-3 rounded-lg border transition-colors hover:shadow-sm cursor-pointer"
+                                                style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "40" }}
+                                                onClick={() => {
+                                                    // Load this work log's inputs into the form
+                                                    if (hasInputs) {
+                                                        setTaskInput(w.inputData!.task || "");
+                                                        setShowWorkLog(false);
+                                                    }
+                                                }}
+                                            >
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    {skillNames.length > 0 ? (
+                                                        <div className="flex gap-1 flex-wrap">
+                                                            {skillNames.map(name => (
+                                                                <span key={name} className="text-xs inline-block px-2 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>{name}</span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs" style={{ color: t.accentText + "50" }}>general</span>
+                                                    )}
+                                                    <span className="text-xs shrink-0" style={{ color: t.accent + "70" }}>
+                                                        {new Date(w.timestamp).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                {/* Show inputSummary */}
+                                                {w.inputSummary && (
+                                                    <p className="text-sm truncate mb-1" style={{ color: t.accentText + "80" }}>{w.inputSummary}</p>
                                                 )}
-                                                <span className="text-xs shrink-0" style={{ color: t.accent + "70" }}>
-                                                    {new Date(w.timestamp).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm truncate" style={{ color: t.accentText + "80" }}>{w.inputSummary || "—"}</p>
-                                            {w.cli && <span className="text-xs" style={{ color: t.accentText + "40" }}>via {w.cli}</span>}
-                                        </div>
-                                    ))}
+                                                {/* Show actual input data (prompts) */}
+                                                {hasInputs && (
+                                                    <div className="space-y-1 mt-1.5">
+                                                        {Object.entries(w.inputData!)
+                                                            .filter(([k, v]) => v && k !== "task")
+                                                            .slice(0, 3)
+                                                            .map(([k, v]) => (
+                                                                <div key={k} className="text-xs rounded px-2 py-1" style={{ background: "white", color: t.accentText + "70" }}>
+                                                                    <span className="font-semibold" style={{ color: t.accentText + "90" }}>{k}:</span>{" "}
+                                                                    <span className="line-clamp-1">{String(v).slice(0, 120)}</span>
+                                                                </div>
+                                                            ))
+                                                        }
+                                                        {w.inputData!.task && (
+                                                            <div className="text-xs rounded px-2 py-1" style={{ background: "white", color: t.accentText + "70" }}>
+                                                                <span className="font-semibold" style={{ color: t.accentText + "90" }}>prompt:</span>{" "}
+                                                                <span className="line-clamp-2">{w.inputData!.task.slice(0, 200)}</span>
+                                                            </div>
+                                                        )}
+                                                        {Object.keys(w.inputData!).filter(k => w.inputData![k] && k !== "task").length > 3 && (
+                                                            <span className="text-[10px]" style={{ color: t.accentText + "40" }}>+{Object.keys(w.inputData!).filter(k => w.inputData![k] && k !== "task").length - 3} more...</span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {w.cli && <span className="text-xs mt-1 inline-block" style={{ color: t.accentText + "40" }}>via {w.cli}</span>}
+                                                {hasInputs && (
+                                                    <div className="text-[10px] mt-1.5 font-medium" style={{ color: t.accent + "90" }}>點擊載入此工作</div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
