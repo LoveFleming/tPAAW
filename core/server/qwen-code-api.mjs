@@ -1768,12 +1768,34 @@ wss.on("connection", (ws, req) => {
 
       try {
         const pty = spawnCli(ptySpawn, opts);
+        const cliType = opts.cli || "qwen";
+        ptySessions.set(ws, { pty, id: sessionId, cliType, serverPort: opts.serverPort });
 
-        ptySessions.set(ws, { pty, id: sessionId, cliType: opts.cli || "qwen", serverPort: opts.serverPort });
+        // ── Detect when CLI is truly ready (not just PTY spawned) ──
+        let cliReadyFired = false;
+        const cliReadyPatterns = {
+          qwen: /(?:YOLO mode|Plan mode|Auto-edit mode|Default mode|Type your message)/,
+          claude: /(?:\?>|^>?\s*$)/m,
+          opencode: /(?:Welcome to OpenCode|opencode.*ready)/i,
+        };
+        // Strip ANSI codes for pattern matching
+        const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\].*?\x07/g, "");
 
         pty.onData((data) => {
           if (ws.readyState === 1) {
             ws.send(JSON.stringify({ type: "data", data }));
+          }
+          // Detect CLI ready from output
+          if (!cliReadyFired) {
+            const plain = stripAnsi(data);
+            const pattern = cliReadyPatterns[cliType];
+            if (pattern && pattern.test(plain)) {
+              cliReadyFired = true;
+              console.log(`[PTY] CLI ready detected: ${cliType} (${sessionId})`);
+              if (ws.readyState === 1) {
+                ws.send(JSON.stringify({ type: "cliReady" }));
+              }
+            }
           }
         });
 

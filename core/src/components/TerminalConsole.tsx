@@ -33,6 +33,7 @@ export default function TerminalConsole({
     const containerRef = useRef<HTMLDivElement>(null);
     const [connected, setConnected] = useState(false);
     const [ready, setReady] = useState(false);
+    const cliReadyRef = useRef(false);
     const platformRef = useRef<string>("");
     const wsRef = useRef<WebSocket | null>(null);
     const termRef = useRef<Terminal | null>(null);
@@ -169,6 +170,9 @@ export default function TerminalConsole({
                 if (msg.platform) platformRef.current = msg.platform;
                 ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
                 onReady?.();
+            } else if (msg.type === "cliReady") {
+                // Server detected CLI is truly initialized (saw ready pattern in output)
+                cliReadyRef.current = true;
             } else if (msg.type === "exit") {
                 term.write("\r\n\x1b[33m⚠️ CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
                 setReady(false);
@@ -205,41 +209,25 @@ export default function TerminalConsole({
     }, []);
 
     // ── Auto-send initial prompt when CLI is ready ──
-    // Wait for CLI to fully start and show its prompt before sending
+    // Strategy: poll cliReadyRef every 200ms (server detects ready pattern in PTY output)
+    // Fallback: max 15s timeout (in case pattern detection misses)
     useEffect(() => {
         if (!ready || !initialPrompt || initialSentRef.current) return;
         initialSentRef.current = true;
 
-        if (cli === "opencode") {
-            let attempts = 0;
-            const poll = setInterval(async () => {
-                attempts++;
-                try {
-                    const r = await fetch("http://127.0.0.1:4097/api/opencode/health");
-                    const data = await r.json();
-                    if (data.healthy) {
-                        clearInterval(poll);
-                        const term = termRef.current;
-                        if (term) {
-                            navigator.clipboard?.writeText(initialPrompt).catch(() => {});
-                            term.paste(initialPrompt);
-                            setTimeout(() => {
-                                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
-                                }
-                            }, 800);
-                        }
-                    }
-                } catch {}
-                if (attempts >= 30) clearInterval(poll);
-            }, 1000);
-            return () => clearInterval(poll);
-        }
-
-        // Qwen / Claude: wait for CLI to fully initialize, then paste + Enter
-        const timer = setTimeout(() => {
+        const doSend = () => {
             const term = termRef.current;
-            if (term && initialPrompt) {
+            if (!term || !initialPrompt) return;
+            if (cli === "opencode") {
+                navigator.clipboard?.writeText(initialPrompt).catch(() => {});
+                term.paste(initialPrompt);
+                setTimeout(() => {
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                        wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                    }
+                }, 800);
+            } else {
+                // Qwen / Claude: paste prompt + Enter
                 term.paste(initialPrompt);
                 setTimeout(() => {
                     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -247,8 +235,31 @@ export default function TerminalConsole({
                     }
                 }, 150);
             }
-        }, 5000);
-        return () => clearTimeout(timer);
+        };
+
+        // Poll until cliReadyRef is true or timeout
+        let sent = false;
+        const pollInterval = setInterval(() => {
+            if (cliReadyRef.current && !sent) {
+                sent = true;
+                clearInterval(pollInterval);
+                clearTimeout(fallbackTimer);
+                // Small delay after detection to ensure input field is focused
+                setTimeout(doSend, 300);
+            }
+        }, 200);
+
+        // Fallback: if pattern detection doesn't fire within 15s, send anyway
+        const fallbackTimer = setTimeout(() => {
+            if (!sent) {
+                sent = true;
+                clearInterval(pollInterval);
+                console.log("[TerminalConsole] cliReady timeout, sending prompt anyway");
+                doSend();
+            }
+        }, 15000);
+
+        return () => { clearInterval(pollInterval); clearTimeout(fallbackTimer); };
     }, [ready, initialPrompt, sendInput, cli]);
 
     // ── Hot-restart: re-spawn PTY when restartTrigger changes ──
@@ -256,6 +267,7 @@ export default function TerminalConsole({
     useEffect(() => {
         if (restartTrigger === undefined || restartTrigger === prevRestartRef.current) return;
         prevRestartRef.current = restartTrigger;
+        cliReadyRef.current = false;
         restartSession();
     }, [restartTrigger]);
 
@@ -274,6 +286,7 @@ export default function TerminalConsole({
             termRef.current.write("\x1b[33m🔄 Restarting...\x1b[0m\r\n");
         }
         initialSentRef.current = false;
+        cliReadyRef.current = false;
         setReady(false);
         setConnected(false);
 
@@ -312,6 +325,9 @@ export default function TerminalConsole({
                     setReady(true);
                     if (msg.platform) platformRef.current = msg.platform;
                     if (termRef.current) ws.send(JSON.stringify({ type: "resize", cols: termRef.current.cols, rows: termRef.current.rows }));
+                }
+                else if (msg.type === "cliReady") {
+                    cliReadyRef.current = true;
                 }
                 else if (msg.type === "exit") { setReady(false); setConnected(true); }
                 else if (msg.type === "error" && termRef.current) termRef.current.write(`\r\n\x1b[31m❌ ${msg.message}\x1b[0m\r\n`);
