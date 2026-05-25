@@ -245,7 +245,8 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
       .finally(() => setLoading(false));
   }, [filePath]);
 
-  const relativePath = filePath.replace(new RegExp(`^${projectRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '');
+  const safeRoot = projectRoot || '';
+  const relativePath = safeRoot ? filePath.replace(new RegExp(`^${safeRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '') : filePath;
   const fileName = pathBasename(filePath);
   const fileType = detectFileType(fileName);
 
