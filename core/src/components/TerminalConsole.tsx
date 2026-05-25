@@ -104,7 +104,7 @@ export default function TerminalConsole({
                 brightWhite: "#ffffff",
             },
             fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
-            fontSize: 13,
+            fontSize: 14,
             lineHeight: 1.2,
             cursorBlink: true,
             cursorStyle: "bar",
