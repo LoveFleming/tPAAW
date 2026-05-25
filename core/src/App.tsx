@@ -277,7 +277,7 @@ function AppInner() {
   const openFilePaths = useMemo(() => new Set(openTabs.filter(t => t.includes(":file://") || t.startsWith("file://")).map(t => { const i = t.indexOf("file://"); return t.slice(i + 7); })), [openTabs]);
   const activeFilePath = (activePage.includes(":file://") || activePage.startsWith("file://")) ? activePage.slice(activePage.indexOf("file://") + 7) : null;
 
-  const EmployeeWorkspaceV2Lazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspaceV2")), []);
+  const EmployeeWorkspaceLazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspace")), []);
 
   // Sidebar resize handler
   const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -333,7 +333,7 @@ function AppInner() {
         ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} factoryId={tabFactoryId} />
+          <EmployeeWorkspaceLazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} factoryId={tabFactoryId} />
         </React.Suspense>
       );
     }

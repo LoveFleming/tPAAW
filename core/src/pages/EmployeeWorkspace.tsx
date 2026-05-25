@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, cn } from "../components/ui/shared";
-import { SKILLS } from "../data/mockData";
-import { Skill, CrewSkill, RequiredInput, buildSystemPrompt } from "../types";
-import AgentConsole from "./AgentConsole";
+import { Crew, SkillDefinition, UserInput, buildSystemPrompt, migrateCrew } from "../types";
+import { useTheme } from "../theme";
+import Icon from "../components/Icon";
 import TerminalConsole from "../components/TerminalConsole";
-import Icon, { IconLabel } from "../components/Icon";
 
 interface ModelOption {
     id: string;
     name: string;
-    contextWindowSize?: number;
-    vision?: boolean;
     current: boolean;
 }
 
@@ -23,183 +20,111 @@ interface ConvSummary {
     model: string;
 }
 
-interface EmployeeWorkspaceProps {
+interface Props {
     employeeId: string;
+    projectRoot?: string;
+    crew?: Crew[];
 }
 
-function buildInitialMessage(inputs: RequiredInput[], data: Record<string, string>, skillIds: string[]): string {
-    const lines: string[] = [];
-    const groups = new Map<string, { label: string; value: string }[]>();
-    for (const input of inputs) {
-        const val = data[input.id]?.trim();
-        if (!val) continue;
-        const group = input.group || "Other";
-        if (!groups.has(group)) groups.set(group, []);
-        groups.get(group)!.push({ label: input.label, value: val });
-    }
-    for (const [group, items] of groups) {
-        lines.push(`## ${group}`);
-        for (const item of items) {
-            lines.push(`**${item.label}:** ${item.value}`);
-        }
-        lines.push("");
-    }
-    lines.push("---");
-    lines.push("Please start working based on the above information.");
-    return lines.join("\n");
-}
-
-function BriefingForm({ inputs, onSubmit, onCancel }: {
-    inputs: RequiredInput[];
-    onSubmit: (data: Record<string, string>) => void;
-    onCancel: () => void;
-}) {
-    const [formData, setFormData] = useState<Record<string, string>>({});
-
+export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewProp, factoryId = "default" }: Props & { factoryId?: string }) {
+    // Use crew from props (API-fetched) to avoid HMR reset when crew JSON files change
+    const [apiEmployee, setApiEmployee] = useState<Crew | null>(null);
+    const propEmployee = crewProp?.find((s) => s.id === employeeId) || null;
+    // Fallback: fetch fresh from API on mount if not in crew prop
     useEffect(() => {
-        const initial: Record<string, string> = {};
-        inputs.forEach(i => { initial[i.id] = ""; });
-        setFormData(initial);
-    }, [inputs]);
+        if (propEmployee) return;
+        fetch(`http://127.0.0.1:4097/api/crew/${employeeId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data) setApiEmployee(data); })
+            .catch(() => {});
+    }, [employeeId, propEmployee]);
+    const rawEmployee = propEmployee || apiEmployee;
+    const employee = rawEmployee ? migrateCrew(rawEmployee) : null;
+    const { info: t } = useTheme();
 
-    const groups = useMemo(() => {
-        const map = new Map<string, RequiredInput[]>();
-        for (const input of inputs) {
-            const group = input.group || "其他";
-            if (!map.has(group)) map.set(group, []);
-            map.get(group)!.push(input);
-        }
-        return map;
-    }, [inputs]);
-
-    const missingRequired = inputs.filter(i => i.required && !formData[i.id]?.trim());
-
-    const handleChange = (id: string, value: string) => {
-        setFormData(prev => ({ ...prev, [id]: value }));
-    };
-
-    return (
-        <div className="flex flex-col h-full">
-            {/* Scrollable form area */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-                <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-                    <div className="text-center space-y-1">
-                        <h3 className="text-lg font-bold text-stone-800 flex items-center gap-1.5"><Icon name="clipboard" size={20} /> 工作需求表</h3>
-                        <p className="text-xs text-stone-400">請填寫以下資料，讓員工知道要做什麼。必填欄位標記 *</p>
-                    </div>
-
-                    {Array.from(groups.entries()).map(([groupName, groupInputs]) => (
-                        <Card key={groupName} title={groupName} className="p-4">
-                            <div className="space-y-4">
-                                {groupInputs.map(input => (
-                                    <div key={input.id}>
-                                        <label className="block text-sm font-semibold text-stone-600 mb-1">
-                                            {input.label}
-                                            {input.required && <span className="text-rose-500 ml-1">*</span>}
-                                        </label>
-                                        <p className="text-xs text-stone-400 mb-1.5">{input.description}</p>
-                                        {input.multiline ? (
-                                            <textarea
-                                                value={formData[input.id] || ""}
-                                                onChange={e => handleChange(input.id, e.target.value)}
-                                                placeholder={input.placeholder}
-                                                rows={6}
-                                                className={cn(
-                                                    "w-full rounded-xl border bg-amber-50/50 px-3 py-2 text-sm font-mono transition-colors",
-                                                    "placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400",
-                                                    input.required && !formData[input.id]?.trim()
-                                                        ? "border-red-200 bg-red-50/30"
-                                                        : "border-orange-200"
-                                                )}
-                                            />
-                                        ) : (
-                                            <input
-                                                type="text"
-                                                value={formData[input.id] || ""}
-                                                onChange={e => handleChange(input.id, e.target.value)}
-                                                placeholder={input.placeholder}
-                                                className={cn(
-                                                    "w-full rounded-xl border bg-amber-50/50 px-3 py-2 text-sm font-mono transition-colors",
-                                                    "placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400",
-                                                    input.required && !formData[input.id]?.trim()
-                                                        ? "border-red-200 bg-red-50/30"
-                                                        : "border-orange-200"
-                                                )}
-                                            />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                    ))}
-                </div>
-            </div>
-
-            {/* Fixed bottom action bar */}
-            <div className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur-sm border-t border-orange-100 shrink-0">
-                <button
-                    onClick={onCancel}
-                    className="px-4 py-2 rounded-xl border border-orange-200 text-sm text-stone-400 hover:bg-amber-50 transition-colors"
-                >
-                    ← 返回
-                </button>
-                <div className="flex items-center gap-3">
-                    {missingRequired.length > 0 ? (
-                        <span className="text-xs text-red-400">
-                            還有 {missingRequired.length} 個必填欄位未填
-                        </span>
-                    ) : (
-                        <span className="text-xs text-emerald-500 flex items-center gap-1"><Icon name="success" size={12} /> 資料齊全，可以開始！</span>
-                    )}
-                    <button
-                        onClick={() => onSubmit(formData)}
-                        disabled={missingRequired.length > 0}
-                        className={cn(
-                            "px-6 py-2.5 rounded-xl text-sm font-bold transition-all",
-                            missingRequired.length === 0
-                                ? "bg-orange-500 text-white hover:bg-orange-600 shadow-sm active:scale-95"
-                                : "bg-amber-50 text-stone-400 cursor-not-allowed"
-                        )}
-                    >
-                        <Icon name="rocket" size={14} /> 開始 ({inputs.filter(i => formData[i.id]?.trim()).length}/{inputs.length} 已填)
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-export default function EmployeeWorkspace({ employeeId }: EmployeeWorkspaceProps) {
-    const employee = SKILLS.find((s) => s.id === employeeId);
-    const [enabledSkills, setEnabledSkills] = useState<Record<string, boolean>>({});
-    const [consoleKey, setConsoleKey] = useState(0);
-    const [systemPrompt, setSystemPrompt] = useState("");
-    const [chatStarted, setChatStarted] = useState(false);
-    const [showPromptModal, setShowPromptModal] = useState(false);
-    const [showBriefing, setShowBriefing] = useState(false);
-    const [formData, setFormData] = useState<Record<string, string>>({});
-    const [models, setModels] = useState<ModelOption[]>([]);
-    const [selectedModel, setSelectedModel] = useState<string>("");
-    const [permissionMode, setPermissionMode] = useState<string>("yolo");
-    const [selectedCli, setSelectedCli] = useState<string>("qwen");
-    const [installedClis, setInstalledClis] = useState<Record<string, { installed: boolean; name: string }>>({});
-    const [conversations, setConversations] = useState<ConvSummary[]>([]);
-    const [showConvHistory, setShowConvHistory] = useState(false);
-
-    // Load models from server
+    // ── Skill Definitions (fetched from /api/skills) ──
+    const [skillDefinitions, setSkillDefinitions] = useState<Map<string, SkillDefinition>>(new Map());
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/models")
+        fetch("http://127.0.0.1:4097/api/skills")
             .then(r => r.json())
-            .then(data => {
-                const list: ModelOption[] = data.models || [];
-                setModels(list);
-                const current = list.find((m: ModelOption) => m.current);
-                if (current) setSelectedModel(current.id);
+            .then((data: SkillDefinition[]) => {
+                const map = new Map<string, SkillDefinition>();
+                for (const sd of data) map.set(sd.id, sd);
+                setSkillDefinitions(map);
             })
             .catch(() => {});
     }, []);
 
-    // Load installed CLIs
+    const [enabledSkills, setEnabledSkills] = useState<Record<string, boolean>>({});
+    const [consoleKey, setConsoleKey] = useState(0);
+    const [restartCount, setRestartCount] = useState(0);
+    const [systemPrompt, setSystemPrompt] = useState("");
+    const [chatStarted, setChatStarted] = useState(false);
+    const [taskInput, setTaskInput] = useState("");
+
+    // "Running" config = what the active console is using (persisted in chatConfig)
+    const savedCli = employee?.chatConfig?.cli || "qwen";
+    const savedModel = employee?.chatConfig?.model || "";
+    const savedApproval = employee?.chatConfig?.approvalMode || "yolo";
+    const [runningCli, setRunningCli] = useState(savedCli);
+    const [runningModel, setRunningModel] = useState(savedModel);
+    const [runningApproval, setRunningApproval] = useState(savedApproval);
+    // Sync running config when employee changes (different employee selected)
+    const prevEmpIdRef = useRef(employee?.id);
+    useEffect(() => {
+        if (employee?.id !== prevEmpIdRef.current) {
+            prevEmpIdRef.current = employee?.id;
+            setRunningCli(savedCli);
+            setRunningModel(savedModel);
+            setRunningApproval(savedApproval);
+            setSelectedModel(savedModel);
+            fetchModels(savedCli, savedModel);
+        }
+    }, [employee?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const [aiocRoot, setAiocRoot] = useState("");
+
+        const [formData, setFormData] = useState<Record<string, string>>({});
+    const [models, setModels] = useState<ModelOption[]>([]);
+    const [selectedModel, setSelectedModel] = useState<string>("");
+    const [permissionMode, setPermissionMode] = useState<string>("yolo");
+    const [installedClis, setInstalledClis] = useState<Record<string, { installed: boolean; name: string }>>({});
+    const [conversations, setConversations] = useState<ConvSummary[]>([]);
+    const [fullscreen, setFullscreen] = useState(false);
+    const [showInputDialog, setShowInputDialog] = useState(false);
+    const [inputDialogData, setInputDialogData] = useState<Record<string, string>>({});
+    const [inputDialogErrors, setInputDialogErrors] = useState<Record<string, boolean>>({});
+    const [savedInputs, setSavedInputs] = useState<Array<{ hash: string; skillId: string; data: Record<string, string>; savedAt: string }>>([]);
+    const [rightPanelOpen, setRightPanelOpen] = useState(true);
+    const [showWorkLog, setShowWorkLog] = useState(false);
+    const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; timestamp: string }>>([]);
+
+    // Fetch models for a specific CLI
+    const fetchModels = useCallback((cli: string, preferModel?: string) => {
+        fetch(`http://127.0.0.1:4097/api/models?cli=${cli}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.aiocRoot) setAiocRoot(data.aiocRoot);
+                const list: ModelOption[] = data.models || [];
+                setModels(list);
+                // Prefer saved model if it exists in the list
+                if (preferModel != null && list.find(m => m.id === preferModel)) {
+                    setSelectedModel(preferModel);
+                } else {
+                    const current = list.find((m: ModelOption) => m.current);
+                    setSelectedModel(current ? current.id : (list.length > 0 ? list[0].id : ""));
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    // Initial fetch with saved config — only once on mount
+    const mountedRef = useRef(false);
+    useEffect(() => {
+        if (mountedRef.current) return;
+        mountedRef.current = true;
+        fetchModels(savedCli, savedModel);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     useEffect(() => {
         fetch("http://127.0.0.1:4097/api/clis")
             .then(r => r.json())
@@ -207,440 +132,771 @@ export default function EmployeeWorkspace({ employeeId }: EmployeeWorkspaceProps
             .catch(() => {});
     }, []);
 
-    // Load conversation history
+    // Initialize skills
+    const prevEmployeeIdRef = useRef<string>(employeeId);
+    useEffect(() => {
+        if (!employee) return;
+        // Only reset state when switching to a DIFFERENT employee
+        const changed = prevEmployeeIdRef.current !== employeeId;
+        prevEmployeeIdRef.current = employeeId;
+        if (changed) {
+            const initial: Record<string, boolean> = {};
+            (employee.skillIds || []).forEach(id => { initial[id] = true; });
+            setEnabledSkills(initial);
+            setChatStarted(false);
+            setFormData({});
+        }
+    }, [employee, employeeId]);
+
+    const projectPathHash = useMemo(() => {
+        if (!projectRoot) return "_default";
+        // Simple hash: replace non-alphanumeric with underscore
+        return projectRoot.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "") || "_default";
+    }, [projectRoot]);
+
     const loadConversations = useCallback(() => {
         if (!employee) return;
-        fetch(`http://127.0.0.1:4097/api/conversations/${employee.id}`)
+        const params = new URLSearchParams({ root: projectRoot || "" });
+        fetch(`http://127.0.0.1:4097/api/conversations/${employee.id}?${params}`)
             .then(r => r.json())
-            .then((list: ConvSummary[]) => setConversations(list))
-            .catch(() => setConversations([]));
-    }, [employee]);
+            .then(data => setConversations(data.conversations || data || []))
+            .catch(() => {});
+    }, [employee, projectRoot]);
 
-    useEffect(() => {
-        loadConversations();
-    }, [loadConversations]);
+    useEffect(() => { loadConversations(); }, [loadConversations]);
 
-    useEffect(() => {
-        if (employee) {
-            const initial: Record<string, boolean> = {};
-            // No skill selected by default
-            setEnabledSkills(initial);
-            setConsoleKey(0);
-            setChatStarted(false);
-            setShowPromptModal(false);
-            setShowBriefing(false);
-            setShowConvHistory(false);
-            setFormData({});
-            setSystemPrompt(buildSystemPrompt(employee, []));
-        }
-    }, [employee]);
+    const loadSavedInputs = useCallback(() => {
+        if (!employee) return;
+        const params = new URLSearchParams({ root: projectRoot || "" });
+        fetch(`http://127.0.0.1:4097/api/saved-inputs/${employee.id}?${params}`)
+            .then(r => r.json())
+            .then(data => setSavedInputs(data.inputs || []))
+            .catch(() => {});
+    }, [employee, projectRoot]);
+
+    useEffect(() => { loadSavedInputs(); }, [loadSavedInputs]);
+
+    const loadWorkLog = useCallback(() => {
+        if (!employee) return;
+        const params = new URLSearchParams({ root: projectRoot || "" });
+        fetch(`http://127.0.0.1:4097/api/work-log/${employee.id}?${params}`)
+            .then(r => r.json())
+            .then(data => setWorkLog(data.entries || []))
+            .catch(() => {});
+    }, [employee, projectRoot]);
+
+    useEffect(() => { loadWorkLog(); }, [loadWorkLog]);
 
     const selectedSkillIds = useMemo(() => {
-        return Object.entries(enabledSkills)
-            .filter(([_, v]) => v)
-            .map(([k]) => k);
+        return Object.entries(enabledSkills).filter(([_, v]) => v).map(([k]) => k);
     }, [enabledSkills]);
 
-    // Derive CLI, model, approvalMode from first selected skill (or fallback to employee defaults)
-    const effectiveCli = useMemo(() => {
-        if (!employee) return "qwen";
-        for (const id of selectedSkillIds) {
-            const sk = employee.skills.find(s => s.id === id);
-            if (sk?.cli) return sk.cli;
-        }
-        return "qwen";
-    }, [employee, selectedSkillIds]);
-
-    const effectiveModel = useMemo(() => {
-        if (!employee) return selectedModel;
-        for (const id of selectedSkillIds) {
-            const sk = employee.skills.find(s => s.id === id);
-            if (sk?.model) return sk.model;
-        }
-        return selectedModel;
-    }, [employee, selectedSkillIds, selectedModel]);
-
-    const effectiveApprovalMode = useMemo(() => {
-        if (!employee) return permissionMode;
-        for (const id of selectedSkillIds) {
-            const sk = employee.skills.find(s => s.id === id);
-            if (sk?.approvalMode) return sk.approvalMode;
-        }
-        return permissionMode;
-    }, [employee, selectedSkillIds, permissionMode]);
-
-    // Collect all requiredInputs from enabled skills
-    const allRequiredInputs = useMemo(() => {
+    // Collect all user inputs from selected skills
+    const requiredInputs = useMemo(() => {
         if (!employee) return [];
-        const inputs: RequiredInput[] = [];
-        for (const skill of employee.skills) {
-            if (selectedSkillIds.includes(skill.id) && skill.requiredInputs) {
-                inputs.push(...skill.requiredInputs);
+        const inputs: UserInput[] = [];
+        const seen = new Set<string>();
+        for (const id of selectedSkillIds) {
+            const sk = skillDefinitions.get(id);
+            const skillInputs = sk?.userInputs || [];
+            for (const inp of skillInputs) {
+                if (!seen.has(inp.id)) {
+                    seen.add(inp.id);
+                    inputs.push(inp);
+                }
             }
         }
         return inputs;
+    }, [employee, selectedSkillIds, skillDefinitions]);
+
+    // Default CLI from employee chatConfig
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const defaultCliFromSkills = useMemo(() => {
+        return employee?.chatConfig?.cli || "qwen";
+    }, [selectedSkillIds]);
+
+    const [selectedCli, setSelectedCli] = useState<string>(savedCli);
+
+    // Sync selectedCli from saved config or skill default — only on mount
+    useEffect(() => {
+        if (savedCli) {
+            setSelectedCli(savedCli);
+        } else if (defaultCliFromSkills) {
+            setSelectedCli(defaultCliFromSkills);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // effectiveCli always follows user selection
+    const effectiveCli = selectedCli;
+
+    const effectiveModel = selectedModel;
+
+    // Initialize permissionMode from skill config (only on first skill selection)
+    const initializedRef = useRef(false);
+    useEffect(() => {
+        if (!employee || initializedRef.current) return;
+        for (const id of selectedSkillIds) {
+            const sk = skillDefinitions.get(id);
+            // approval mode comes from employee chatConfig now
+            const approvalFromEmployee = employee?.chatConfig?.approvalMode;
+            if (approvalFromEmployee) {
+                setPermissionMode(approvalFromEmployee);
+                initializedRef.current = true;
+                return;
+            }
+        }
     }, [employee, selectedSkillIds]);
 
-    const handleSkillToggle = useCallback((skillId: string) => {
-        setEnabledSkills(prev => {
-            // Radio behavior: only one skill at a time
-            const next: Record<string, boolean> = {};
-            // If clicking the already-selected skill, deselect it
-            if (!(prev[skillId])) {
-                next[skillId] = true;
-            }
-            if (employee) {
-                const ids = Object.entries(next).filter(([_, v]) => v).map(([k]) => k);
-                setSystemPrompt(buildSystemPrompt(employee, ids));
-            }
-            return next;
-        });
-    }, [employee]);
+    // Runtime approval mode — user override always wins
+    const effectiveApprovalMode = permissionMode;
 
-    const handleStartChat = () => {
-        // If there are required inputs, show briefing form first
-        if (allRequiredInputs.length > 0 && !chatStarted) {
-            setShowBriefing(true);
-            return;
+    // Save runtime setting changes back to crew JSON (all selected skills)
+    const saveSkillConfig = useCallback(async (field: 'cli' | 'model' | 'approvalMode', value: string) => {
+        if (!employee) return;
+        const updated = { ...employee, chatConfig: { ...employee.chatConfig, [field]: value } };
+        try {
+            await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}?factory=${factoryId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+            });
+        } catch (err) {
+            console.error("[AIOC] Failed to save skill config:", err);
         }
-        // Otherwise start directly
-        if (employee) {
-            setSystemPrompt(buildSystemPrompt(employee, selectedSkillIds));
-            setConsoleKey(prev => prev + 1);
-            setChatStarted(true);
+    }, [employee, selectedSkillIds]);
+
+    // Check if pending config differs from running config
+    const configDirty = chatStarted && (
+        effectiveCli !== runningCli ||
+        (effectiveModel || "") !== runningModel ||
+        permissionMode !== runningApproval
+    );
+
+    // Apply pending config: save to crew JSON, hot-restart console with same prompt
+    const applyConfig = useCallback(async () => {
+        // Save cli and model to crew JSON chatConfig for persistence
+        if (!employee) return;
+        const updated = { ...employee, chatConfig: { ...employee.chatConfig, cli: effectiveCli, model: effectiveModel || "", approvalMode: permissionMode } };
+        try {
+            await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}?factory=${factoryId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+            });
+        } catch (err) {
+            console.error("[AIOC] Failed to save config:", err);
+        }
+        // Update running state
+        setRunningCli(effectiveCli);
+        setRunningModel(effectiveModel || "");
+        setRunningApproval(permissionMode);
+        // Hot-restart console
+        setRestartCount(prev => prev + 1);
+    }, [effectiveCli, effectiveModel, permissionMode, runningCli, runningModel, runningApproval, employee, selectedSkillIds]);
+
+    const handleStartClick = () => {
+        if (!employee) return;
+        if (requiredInputs.length > 0) {
+            // Show input dialog
+            setInputDialogData({});
+            setInputDialogErrors({});
+            setShowInputDialog(true);
+        } else {
+            // No required inputs, launch directly
+            launchTask({});
         }
     };
 
-    const handleBriefingSubmit = (data: Record<string, string>) => {
-        setFormData(data);
-        if (employee) {
-            // Build label→value map for prompt
-            const labelMap: Record<string, string> = {};
-            for (const input of allRequiredInputs) {
-                if (data[input.id]?.trim()) {
-                    labelMap[input.label] = data[input.id];
-                }
+    // Simple MD5-like hash using crypto.subtle (async) — fallback to simple hash
+    const computeHash = async (data: Record<string, string>): Promise<string> => {
+        const str = JSON.stringify(Object.entries(data).sort(([a], [b]) => a.localeCompare(b)));
+        try {
+            const encoder = new TextEncoder();
+            const dataBuffer = encoder.encode(str);
+            const hashBuffer = await crypto.subtle.digest('MD5' as AlgorithmIdentifier, dataBuffer).catch(() => null) || await crypto.subtle.digest('SHA-256', dataBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch {
+            // Fallback: simple string hash
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
             }
-            const prompt = buildSystemPrompt(employee, selectedSkillIds, labelMap);
-            setSystemPrompt(prompt);
+            return Math.abs(hash).toString(16).padStart(8, '0');
         }
+    };
+
+    const launchTask = async (dialogData: Record<string, string>) => {
+        if (!employee) return;
+        const allData = { ...dialogData, task: taskInput.trim() };
+        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { aiocRoot, projectRoot: projectRoot || "", factoryId });
+        setSystemPrompt(prompt);
+        setFormData(allData);
         setConsoleKey(prev => prev + 1);
         setChatStarted(true);
-        setShowBriefing(false);
-    };
+        setShowInputDialog(false);
+        // Snapshot running config
+        setRunningCli(effectiveCli);
+        setRunningModel(effectiveModel || "");
+        setRunningApproval(permissionMode);
 
-    // Handle loading a past conversation
-    const handleLoadConv = async (convId: string) => {
-        if (!employee) return;
+        // Save input via API
+        if (Object.keys(dialogData).length > 0 || taskInput.trim()) {
+            try {
+                const allDataForHash = { ...dialogData, task: taskInput.trim() };
+                const hash = await computeHash(allDataForHash);
+                const existingHashes = savedInputs.map(i => i.hash);
+                if (!existingHashes.includes(hash)) {
+                    const params = new URLSearchParams({ root: projectRoot || "" });
+                    await fetch(`http://127.0.0.1:4097/api/saved-inputs/${employee.id}?${params}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            hash,
+                            skillId: selectedSkillIds.join(","),
+                            data: allDataForHash,
+                        }),
+                    });
+                    loadSavedInputs();
+                }
+            } catch {
+                // Non-critical — ignore save errors
+            }
+        }
+
+        // Save work log
         try {
-            const res = await fetch(`http://127.0.0.1:4097/api/conversations/${employee.id}/${convId}`);
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.systemPrompt) setSystemPrompt(data.systemPrompt);
-            if (data.model) setSelectedModel(data.model);
-            setChatStarted(true);
-            setConsoleKey(prev => prev + 1);
-            setShowConvHistory(false);
-            setLoadedConvMessages(data.messages || []);
-            setLoadedConvId(convId);
-        } catch { /* silently fail */ }
+            const inputSummary = Object.entries(allData).map(([k, v]) => v).filter(Boolean).join(", ") || taskInput.trim() || "";
+            const params = new URLSearchParams({ root: projectRoot || "" });
+            await fetch(`http://127.0.0.1:4097/api/work-log/${employee.id}?${params}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    skillIds: selectedSkillIds,
+                    inputSummary: inputSummary.slice(0, 100),
+                    cli: effectiveCli,
+                }),
+            });
+            loadWorkLog();
+        } catch {
+            // Non-critical — ignore save errors
+        }
     };
 
-    const [loadedConvMessages, setLoadedConvMessages] = useState<Array<{role: string; text: string}> | null>(null);
-    const [loadedConvId, setLoadedConvId] = useState<string | undefined>(undefined);
-
-    // Handle deleting a conversation
-    const handleDeleteConv = async (convId: string) => {
-        if (!employee) return;
-        try {
-            await fetch(`http://127.0.0.1:4097/api/conversations/${employee.id}/${convId}`, { method: "DELETE" });
-            loadConversations();
-        } catch { /* silently fail */ }
+    const handleDialogSubmit = () => {
+        // Validate required fields
+        const errors: Record<string, boolean> = {};
+        for (const inp of requiredInputs) {
+            if (inp.required && !inputDialogData[inp.id]?.trim()) {
+                errors[inp.id] = true;
+            }
+        }
+        if (Object.keys(errors).length > 0) {
+            setInputDialogErrors(errors);
+            return;
+        }
+        launchTask(inputDialogData);
     };
 
-    if (!employee) {
-        return <div className="p-4 text-rose-500">Employee not found.</div>;
-    }
+    // ESC to exit fullscreen
+    useEffect(() => {
+        if (!fullscreen) return;
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setFullscreen(false);
+        };
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+    }, [fullscreen]);
 
-    // Show briefing form - full tab page
-    if (showBriefing) {
-        return (
-            <BriefingForm
-                inputs={allRequiredInputs}
-                onSubmit={handleBriefingSubmit}
-                onCancel={() => setShowBriefing(false)}
-            />
-        );
-    }
+    // Enter does NOT trigger start — user must click the button
+
+    if (!employee) return <div className="p-8 text-stone-400">Employee not found</div>;
+
+    const allSkillDefs = (employee?.skillIds || []).map(id => skillDefinitions.get(id)).filter(Boolean) as SkillDefinition[];
 
     return (
-        <div className="flex flex-col h-full gap-2 relative">
-            {/* Conversation history sidebar overlay */}
-            {showConvHistory && (
-                <div className="fixed inset-0 z-40 flex" onClick={() => setShowConvHistory(false)}>
-                    <div className="w-80 bg-white border-r border-orange-200 shadow-xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="sticky top-0 bg-white border-b border-orange-100 px-4 py-3 flex items-center justify-between z-10">
-                            <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1"><Icon name="chat" size={16} /> 對話紀錄</h3>
-                            <button onClick={() => setShowConvHistory(false)} className="text-stone-400 hover:text-stone-600 text-lg"><Icon name="cross" size={18} /></button>
+        <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+            {/* ===== Input Dialog Modal ===== */}
+            {showInputDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowInputDialog(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+                        {/* Dialog header */}
+                        <div className="px-6 py-4 border-b" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
+                            <h3 className="text-lg font-bold" style={{ color: t.accentText }}>任務參數</h3>
+                            <p className="text-xs mt-0.5" style={{ color: t.accent }}>
+                                {selectedSkillIds.length} 個技能需要以下資料才能啟動
+                            </p>
                         </div>
-                        <div className="p-2">
-                            {conversations.length === 0 ? (
-                                <div className="text-center py-8 text-stone-400 text-xs">尚無對話紀錄</div>
-                            ) : (
-                                conversations.map(conv => (
-                                    <div key={conv.id} className="group relative">
-                                        <button
-                                            onClick={() => handleLoadConv(conv.id)}
-                                            className="w-full text-left p-3 rounded-xl hover:bg-orange-50 transition-colors border border-transparent hover:border-orange-200 mb-1"
-                                        >
-                                            <div className="text-xs font-medium text-stone-700 truncate">{conv.title}</div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-[10px] text-stone-400">{new Date(conv.updatedAt).toLocaleString('zh-TW')}</span>
-                                                <span className="text-[10px] text-stone-300">·</span>
-                                                <span className="text-[10px] text-stone-400">{conv.messageCount} 則訊息</span>
-                                            </div>
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteConv(conv.id); }}
-                                            className="absolute top-2 right-2 w-5 h-5 rounded-full bg-stone-100 hover:bg-red-100 text-stone-300 hover:text-red-400 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
-                                            title="刪除"
-                                        ><Icon name="cross" size={12} /></button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Top panel: Employee header and skills */}
-            <Card className="flex-none overflow-y-auto p-4">
-                <div className="flex gap-6 items-start">
-                    {/* Left: Employee Photo */}
-                    <div className="w-48 h-48 shrink-0 rounded-2xl overflow-hidden bg-orange-50/50 border border-orange-100 flex items-center justify-center p-3 shadow-sm">
-                        <img
-                            src={employee.imageUrl}
-                            alt={employee.title}
-                            className="w-full h-full object-contain drop-shadow-sm"
-                        />
-                    </div>
-                    {/* Right: Details & Skills */}
-                    <div className="flex flex-col gap-3 flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h2 className="text-lg font-bold text-stone-800">
-                                    {employee.codename}
-                                    <span className="text-stone-400 font-normal text-sm ml-2">({employee.title})</span>
-                                </h2>
-                                <p className="text-xs text-stone-400 mt-0.5">{employee.description}</p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0 ml-4">
-                                {/* Conversation history toggle */}
-                                {conversations.length > 0 && (
-                                    <button
-                                        onClick={() => { loadConversations(); setShowConvHistory(true); }}
-                                        className="px-3 py-2 rounded-xl border border-orange-200 text-xs font-medium text-stone-500 hover:bg-amber-50/50 hover:border-orange-300 transition-all"
-                                        title="對話紀錄"
-                                    >
-                                        <Icon name="chat" size={14} /> 紀錄 ({conversations.length})
-                                    </button>
-                                )}
-                                {/* Model selector */}
-                                {/* CLI selector */}
-                                <select
-                                    value={selectedCli}
-                                    onChange={e => setSelectedCli(e.target.value)}
-                                    className="px-2 py-1.5 rounded-xl border border-orange-200 text-xs text-stone-500 bg-white hover:border-orange-300 transition-all"
-                                    title="選擇 CLI Engine"
-                                >
-                                    {Object.entries(installedClis).map(([key, info]: [string, any]) => (
-                                        <option key={key} value={key} disabled={!info.installed}>
-                                            {info.name} {info.installed ? '' : '(未安裝)'}
-                                        </option>
-                                    ))}
-                                </select>
-                                {models.length > 0 && (
+                        {/* Dialog body */}
+                        <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                            {/* Saved Inputs Quick Select */}
+                            {savedInputs.length > 0 && (
+                                <div>
+                                    <label className="flex items-center gap-1.5 text-sm font-medium text-stone-700 mb-1">
+                                        <Icon name="clipboard" size={14} /> 已存輸入
+                                    </label>
+                                    <p className="text-[11px] text-stone-400 mb-1.5">選擇過去的輸入快速填入</p>
                                     <select
-                                        value={selectedModel}
-                                        onChange={e => setSelectedModel(e.target.value)}
-                                        className="px-2 py-1.5 rounded-xl border border-orange-200 text-xs text-stone-500 bg-white hover:border-orange-300 transition-all max-w-[200px] truncate"
-                                        title="選擇 AI Model"
+                                        className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                        value=""
+                                        onChange={e => {
+                                            if (!e.target.value) return;
+                                            try {
+                                                const saved = JSON.parse(e.target.value);
+                                                setInputDialogData(saved.data || {});
+                                                if (saved.data?.task) setTaskInput(saved.data.task);
+                                            } catch {}
+                                        }}
                                     >
-                                        {models.map(m => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.name.length > 35 ? m.name.slice(0, 35) + '...' : m.name} {m.current ? '\u2605' : ''}
+                                        <option value="">-- 選擇已存輸入 --</option>
+                                        {savedInputs.map((si, idx) => (
+                                            <option key={idx} value={JSON.stringify(si)}>
+                                                {Object.values(si.data).slice(0, 2).join(' / ') || si.skillId} ({new Date(si.savedAt).toLocaleDateString('zh-TW')})
                                             </option>
                                         ))}
                                     </select>
-                                )}
-                                {/* Permission mode selector */}
-                                <select
-                                    value={permissionMode}
-                                    onChange={e => setPermissionMode(e.target.value)}
-                                    className="px-2 py-1.5 rounded-xl border border-orange-200 text-xs text-stone-500 bg-white hover:border-orange-300 transition-all"
-                                    title="Permission Mode"
-                                >
-                                    <option value="default">Default</option>
-                                    <option value="auto-edit">Auto-Edit</option>
-                                    <option value="yolo">YOLO</option>
-                                    <option value="plan">Plan</option>
-                                </select>
-                                <button
-                                    onClick={() => setShowPromptModal(true)}
-                                    className="px-3 py-2 rounded-xl border border-orange-200 text-xs font-medium text-stone-500 hover:bg-amber-50/50 hover:border-orange-300 transition-all"
-                                >
-                                    <Icon name="document" size={14} /> 提示詞
-                                </button>
-                                <button
-                                    onClick={handleStartChat}
-                                    disabled={selectedSkillIds.length === 0}
-                                    className={cn(
-                                        "px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                        selectedSkillIds.length > 0
-                                            ? "bg-orange-500 text-white hover:bg-orange-600 shadow-sm active:scale-95"
-                                            : "bg-amber-50 text-stone-400 cursor-not-allowed"
+                                </div>
+                            )}
+                            {requiredInputs.map(inp => (
+                                <div key={inp.id}>
+                                    <label className="flex items-center gap-1.5 text-sm font-medium text-stone-700 mb-1">
+                                        {inp.label}
+                                        {inp.required && <span className="text-rose-500">*</span>}
+                                    </label>
+                                    {inp.description && (
+                                        <p className="text-[11px] text-stone-400 mb-1.5">{inp.description}</p>
                                     )}
+                                    {inp.multiline ? (
+                                        <textarea
+                                            value={inputDialogData[inp.id] || ""}
+                                            onChange={e => {
+                                                setInputDialogData(prev => ({ ...prev, [inp.id]: e.target.value }));
+                                                if (inputDialogErrors[inp.id]) {
+                                                    setInputDialogErrors(prev => { const n = { ...prev }; delete n[inp.id]; return n; });
+                                                }
+                                            }}
+                                            placeholder={inp.placeholder}
+                                            rows={inp.rows || 4}
+                                            className={cn(
+                                                "w-full px-3 py-2 text-sm border rounded-xl resize-none focus:outline-none focus:ring-2 transition-colors",
+                                                inputDialogErrors[inp.id]
+                                                    ? "border-rose-300 focus:ring-rose-200 bg-rose-50/30"
+                                                    : "border-stone-200 focus:ring-blue-100"
+                                            )}
+                                        />
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={inputDialogData[inp.id] || ""}
+                                            onChange={e => {
+                                                setInputDialogData(prev => ({ ...prev, [inp.id]: e.target.value }));
+                                                if (inputDialogErrors[inp.id]) {
+                                                    setInputDialogErrors(prev => { const n = { ...prev }; delete n[inp.id]; return n; });
+                                                }
+                                            }}
+                                            placeholder={inp.placeholder}
+                                            className={cn(
+                                                "w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-colors",
+                                                inputDialogErrors[inp.id]
+                                                    ? "border-rose-300 focus:ring-rose-200 bg-rose-50/30"
+                                                    : "border-stone-200 focus:ring-blue-100"
+                                            )}
+                                        />
+                                    )}
+                                    {inputDialogErrors[inp.id] && (
+                                        <p className="text-[11px] text-rose-500 mt-1">此欄位為必填</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Dialog footer */}
+                        <div className="px-6 py-3 border-t border-stone-100 flex items-center justify-end gap-2">
+                            <button
+                                onClick={() => setShowInputDialog(false)}
+                                className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleDialogSubmit}
+                                className="px-5 py-2 text-sm font-bold text-white rounded-xl transition-colors shadow-sm"
+                                style={{ backgroundColor: t.accent }}
+                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
+                            >
+                                <Icon name="rocket" size={14} /> 啟動任務
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== Main Content ===== */}
+            <div className="flex-1 flex flex-col overflow-y-auto p-2 sm:p-3 gap-2 sm:gap-2.5 min-w-0 min-h-0">
+
+                {/* --- Profile Banner --- */}
+                <Card className="overflow-hidden border shadow-sm" style={{ borderColor: t.accentBorder }}>
+                    <div className="flex flex-col sm:flex-row" style={{ background: `linear-gradient(to right, ${t.accentLight}, white, ${t.accentBg})` }}>
+                        {/* Photo */}
+                        <div className="w-full sm:w-40 md:w-52 shrink-0 flex items-center justify-center p-3 max-h-[160px] sm:max-h-none">
+                            <img
+                                src={employee.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crews-pic/${employee.imageUrl.split("/").pop()}` : employee.imageUrl}
+                                alt={employee.title}
+                                className="w-full h-full object-contain drop-shadow-lg"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 py-2 sm:py-3 px-3 sm:px-4 flex flex-col justify-center min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-xl sm:text-2xl font-bold text-stone-800">{employee.codename || employee.title}</span>
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: t.accentLight, color: t.accent }}>
+                                    AI 員工
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-stone-600 mb-1 sm:mb-2">
+                                <Icon name="gear" size={14} style={{ color: t.accent }} />
+                                <span className="font-medium text-sm">{employee.title}</span>
+                            </div>
+                            <p className="text-sm text-stone-500 mb-2 line-clamp-2 hidden sm:block">{employee.rolePrompt?.split("。")[0]}</p>
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className="text-emerald-600 font-medium">在線上</span>
+                            </div>
+                        </div>
+                        {/* Skills + Actions — hidden on small, visible md+ */}
+                        <div className="hidden md:flex flex-[2] py-3 pr-4 pl-2 flex-col justify-center gap-2.5 min-w-0">
+                            <div className="rounded-xl p-3 border" style={{ backgroundColor: "rgba(255,255,255,0.7)", borderColor: t.accentBorder }}>
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: t.accent }}>
+                                        <Icon name="lightning" size={12} className="text-white" />
+                                    </div>
+                                    <span className="text-sm font-bold text-stone-700">Skills</span>
+                                    <span className="text-[10px] text-stone-400 ml-auto">{selectedSkillIds.length}/{allSkillDefs.length} 已選</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {allSkillDefs.map(sk => (
+                                        <button
+                                            key={sk.id}
+                                            onClick={() => setEnabledSkills(prev => {
+                                                const isOn = prev[sk.id];
+                                                const next: Record<string, boolean> = {};
+                                                if (!isOn) next[sk.id] = true;
+                                                return next;
+                                            })}
+                                            className={cn(
+                                                "text-sm font-medium px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 whitespace-nowrap",
+                                            )}
+                                            style={enabledSkills[sk.id]
+                                                ? { backgroundColor: t.accent, color: "white", borderColor: t.accent, boxShadow: `0 1px 3px ${t.accent}40` }
+                                                : { backgroundColor: "white", color: "#57534e", borderColor: "#e7e5e4" }
+                                            }
+                                            onMouseEnter={e => { if (!enabledSkills[sk.id]) { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.backgroundColor = t.accentBg; } }}
+                                            onMouseLeave={e => { if (!enabledSkills[sk.id]) { e.currentTarget.style.borderColor = "#e7e5e4"; e.currentTarget.style.backgroundColor = "white"; } }}
+                                        >
+                                            <Icon name={enabledSkills[sk.id] ? "check" : "gear"} size={12} />
+                                            {sk.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowWorkLog(true)}
+                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-white border text-stone-600 transition-colors flex items-center justify-center gap-1.5 shadow-sm relative"
+                                    style={{ borderColor: t.accentBorder, color: t.accentText }}
                                 >
-                                    {allRequiredInputs.length > 0 && !chatStarted
-                                        ? <><Icon name="clipboard" size={14} /> 填寫需求</>
-                                        : <><Icon name="chat" size={14} /> Start</>
-                                    }
+                                    <Icon name="clock" size={14} /> 最近工作
+                                    {workLog.length > 0 && (
+                                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white text-[9px] flex items-center justify-center" style={{ backgroundColor: t.accent }}>{workLog.length > 9 ? '9+' : workLog.length}</span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleStartClick}
+                                    className="flex-1 px-3 py-2 rounded-xl text-sm font-bold text-white transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                    style={{ backgroundColor: t.accent, boxShadow: `0 1px 3px ${t.accent}40` }}
+                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
+                                >
+                                    <Icon name="rocket" size={14} /> 開始
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </Card>
 
-                        {/* Skill selection */}
-                        <div>
-                            <div className="font-semibold text-xs mb-2 text-stone-500 uppercase tracking-wider">
-                                選擇要載入的技能
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {employee.skills.map((skill: CrewSkill) => {
-                                    const isSelected = enabledSkills[skill.id] === true;
-                                    const hasInputs = skill.requiredInputs && skill.requiredInputs.length > 0;
-                                    return (
-                                        <label
-                                            key={skill.id}
-                                            className={cn(
-                                                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-all",
-                                                isSelected
-                                                    ? "border-orange-400 bg-orange-50 text-orange-700 shadow-sm"
-                                                    : "border-orange-200 bg-white text-stone-400 hover:border-orange-300"
-                                            )}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="skill-select"
-                                                className="w-3.5 h-3.5 rounded-full border-orange-300 accent-orange-500"
-                                                checked={isSelected}
-                                                onChange={() => handleSkillToggle(skill.id)}
-                                            />
-                                            <span className="font-medium">{skill.name}</span>
-                                            {hasInputs && isSelected && (
-                                                <span className="bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded text-[9px]">
-                                                    <Icon name="clipboard" size={12} /> {skill.requiredInputs!.length} 項輸入
-                                                </span>
-                                            )}
-                                        </label>
-                                    );
+                {/* --- Mobile Skills row (visible < md) --- */}
+                <Card className="md:hidden overflow-hidden border shadow-sm" style={{ borderColor: t.accentBorder }}>
+                    <div className="p-2.5 flex flex-wrap gap-1.5 items-center">
+                        <div className="w-5 h-5 rounded-md flex items-center justify-center mr-1" style={{ backgroundColor: t.accent }}>
+                            <Icon name="lightning" size={10} className="text-white" />
+                        </div>
+                        {allSkillDefs.map(sk => (
+                            <button
+                                key={sk.id}
+                                onClick={() => setEnabledSkills(prev => {
+                                    const isOn = prev[sk.id];
+                                    const next: Record<string, boolean> = {};
+                                    if (!isOn) next[sk.id] = true;
+                                    return next;
                                 })}
+                                className={cn("text-xs font-medium px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 whitespace-nowrap")}
+                                style={enabledSkills[sk.id]
+                                    ? { backgroundColor: t.accent, color: "white", borderColor: t.accent }
+                                    : { backgroundColor: "white", color: "#57534e", borderColor: "#e7e5e4" }
+                                }
+                            >
+                                {sk.name}
+                            </button>
+                        ))}
+                        <button
+                            onClick={handleStartClick}
+                            className="ml-auto px-3 py-1 rounded-lg text-xs font-bold text-white flex items-center gap-1"
+                            style={{ backgroundColor: t.accent }}
+                        >
+                            <Icon name="rocket" size={11} /> 開始
+                        </button>
+                    </div>
+                </Card>
+
+                {/* --- CLI Console or Empty State --- */}
+                {!chatStarted ? (
+                    <div className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border rounded-xl" style={{ borderColor: t.accentBorder + "60" }}>
+                        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4">
+                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: t.accentBg }}>
+                                <Icon name="lightning" size={28} style={{ color: t.accent + (selectedSkillIds.length > 0 ? "80" : "40") }} />
+                            </div>
+                            <div className="text-center">
+                                {selectedSkillIds.length === 0 ? (
+                                    <>
+                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>純 Prompt 模式</p>
+                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>輸入任務描述，或從上方選擇技能</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-sm font-semibold" style={{ color: t.accentText }}>準備好了！輸入任務按下 Enter 啟動</p>
+                                        <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>選擇的技能：{selectedSkillIds.map(sid => skillDefinitions.get(sid)?.name).filter(Boolean).join(', ')}</p>
+                                    </>
+                                )}
+                            </div>
+                            {/* Task Input — pre-launch */}
+                            <div className="w-full max-w-3xl mt-3">
+                                <div className="rounded-2xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md" style={{ borderColor: t.accentBorder + "80", backgroundColor: "white" }}>
+                                    <textarea
+                                        value={taskInput}
+                                        onChange={e => {
+                                            setTaskInput(e.target.value);
+                                            e.target.style.height = "auto";
+                                            e.target.style.height = Math.min(e.target.scrollHeight, 400) + "px";
+                                        }}
+                                        onKeyDown={e => {
+                                            if (e.nativeEvent?.isComposing || (e as any).isComposing) return;
+                                            if (e.key === "Enter" && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleStartClick();
+                                            }
+                                        }}
+                                        placeholder={"描述你想讓 AI 做什麼...\n\n可以貼上需求文件、error log、程式碼片段等任何內容\nShift+Enter 換行，Enter 送出"}
+                                        className="w-full bg-transparent outline-none text-sm text-stone-700 resize-none min-h-[260px] max-h-[400px] px-4 py-3 leading-relaxed placeholder-stone-400 font-mono"
+                                        rows={10}
+                                    />
+                                    <div className="flex items-center justify-between px-4 py-2 border-t" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg }}>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[11px] text-stone-400">Shift+Enter 換行 · Enter 送出</span>
+                                            {taskInput.length > 0 && <span className="text-[11px] text-stone-400">{taskInput.length} 字</span>}
+                                        </div>
+                                        <button
+                                            onClick={handleStartClick}
+                                            className="px-5 py-1.5 rounded-xl text-sm font-bold text-white shrink-0 transition-all hover:shadow-md active:scale-95"
+                                            style={{ backgroundColor: t.accent }}
+                                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
+                                        >
+                                            <Icon name="rocket" size={14} /> 開始
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                                ) : (
+                    <Card
+                        className={cn(
+                            "flex flex-col border shadow-sm overflow-hidden",
+                            fullscreen
+                                ? "fixed inset-0 z-50 rounded-none border-none shadow-none bg-gray-900"
+                                : "flex-1 min-h-[280px] sm:min-h-[400px]"
+                        )}
+                        style={fullscreen ? {} : { borderColor: t.accentBorder + "60" }}
+                    >
+                    {/* Console header */}
+                    <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b gap-2" style={{ borderColor: fullscreen ? "#374151" : t.accentBorder + "40", backgroundColor: fullscreen ? "#111827" : t.accentBg }}>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: t.accent }}>
+                                <span className="text-white text-[10px] font-black">O</span>
+                            </div>
+                            <span className={cn("font-bold text-sm truncate", fullscreen && "text-gray-200")} style={!fullscreen ? { color: t.accentText } : undefined}>
+                                {effectiveCli === 'claude' ? 'Claude Code' : effectiveCli === 'opencode' ? 'OpenCode' : 'Qwen'} CLI
+                                {fullscreen && ' — 全螢幕'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                            {/* Approval Mode */}
+                            <select
+                                value={permissionMode}
+                                onChange={e => {
+                                    setPermissionMode(e.target.value);
+                                }}
+                                className={cn(
+                                    "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
+                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
+                                    chatStarted && permissionMode !== runningApproval && !fullscreen && "border-amber-400"
+                                )}
+                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
+                                title="Approval Mode"
+                            >
+                                <option value="default">Default</option>
+                                <option value="auto-edit">Auto-Edit</option>
+                                <option value="yolo">YOLO</option>
+                                <option value="plan">Plan</option>
+                            </select>
+                            {/* CLI Engine */}
+                            <select
+                                value={selectedCli}
+                                onChange={e => {
+                                    const newCli = e.target.value;
+                                    setSelectedCli(newCli);
+                                    fetchModels(newCli);
+                                }}
+                                className={cn(
+                                    "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
+                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
+                                    chatStarted && effectiveCli !== runningCli && !fullscreen && "border-amber-400"
+                                )}
+                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
+                                title="CLI Engine"
+                            >
+                                {Object.entries(installedClis).map(([key, info]: [string, any]) => (
+                                    <option key={key} value={key}>
+                                        {info.name} {!info.installed ? '(未安裝)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            {/* Model */}
+                            {models.length > 0 && (
+                                <select
+                                    value={effectiveModel}
+                                    onChange={e => {
+                                        setSelectedModel(e.target.value);
+                                    }}
+                                    className={cn(
+                                        "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer max-w-[140px]",
+                                        fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
+                                        chatStarted && (effectiveModel || "") !== runningModel && !fullscreen && "border-amber-400"
+                                    )}
+                                    style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
+                                    title="Model"
+                                >
+                                    {models.map(m => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.name.length > 20 ? m.name.slice(0, 20) + '...' : m.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            {/* Apply & Restart — only visible when config changed */}
+                            {configDirty && (
+                                <button
+                                    onClick={applyConfig}
+                                    className={cn(
+                                        "px-2 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 animate-pulse",
+                                        fullscreen
+                                            ? "bg-amber-600 text-white hover:bg-amber-500"
+                                            : "text-white hover:opacity-90"
+                                    )}
+                                    style={!fullscreen ? { backgroundColor: t.accent } : undefined}
+                                    title="套用變更並重啟 CLI"
+                                >
+                                    <Icon name="restart" size={12} /> 套用
+                                </button>
+                            )}
+                            {/* Fullscreen toggle */}
+                            <button
+                                onClick={() => setFullscreen(!fullscreen)}
+                                className={cn(
+                                    "px-1.5 py-1 rounded-lg border text-[11px] transition-colors flex items-center",
+                                    fullscreen ? "border-gray-600 text-gray-300 hover:text-white hover:border-gray-400" : ""
+                                )}
+                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accent } : undefined}
+                                title={fullscreen ? "退出全螢幕 (Esc)" : "全螢幕"}
+                            >
+                                <Icon name={fullscreen ? "contract" : "expand"} size={14} />
+                                {fullscreen && <span className="ml-1">ESC</span>}
+                            </button>
+                        </div>
+                    </div>
 
-                        {/* Form data summary (after submission) */}
-                        {chatStarted && Object.keys(formData).length > 0 && (
-                            <details className="mt-1">
-                                <summary className="text-xs text-stone-400 cursor-pointer hover:text-stone-500">
-                                    <Icon name="clipboard" size={14} /> 已填寫 {Object.values(formData).filter(v => v.trim()).length}/{allRequiredInputs.length} 項規格資料
-                                </summary>
-                                <div className="mt-2 grid grid-cols-2 gap-2">
-                                    {allRequiredInputs.map(input => (
-                                        <div key={input.id} className="text-xs">
-                                            <span className="font-medium text-stone-500">{input.group} → {input.label}:</span>
-                                            <span className={formData[input.id]?.trim() ? "text-green-600 ml-1" : "text-red-400 ml-1"}>
-                                                {formData[input.id]?.trim() ? <><Icon name="check" size={10} className="text-emerald-500" /> 已填</> : <><Icon name="cross" size={10} className="text-stone-400" /> 未填</>}
-                                            </span>
+                    {/* Terminal — single instance, shared between normal and fullscreen */}
+                    <div className="flex-1 min-h-0">
+                        <TerminalConsole
+                            key={`terminal-${consoleKey}`}
+                            cwd={projectRoot}
+                            cli={effectiveCli}
+                            model={effectiveModel || undefined}
+                            approvalMode={effectiveApprovalMode}
+                            systemPrompt={undefined}
+                            initialPrompt={chatStarted ? [
+                                systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
+                            ].filter(Boolean).join('\n\n') : undefined}
+                            restartTrigger={restartCount}
+                        />
+                    </div>
+                </Card>
+                )}
+            </div>
+
+
+            {/* ===== Work Log Popup ===== */}
+            {showWorkLog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setShowWorkLog(false)}>
+                    <div className="absolute inset-0 bg-black/30" />
+                    <div className="relative bg-white rounded-2xl shadow-2xl border w-[400px] max-h-[70vh] flex flex-col" style={{ borderColor: t.accentBorder }} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: t.accentBorder + "40" }}>
+                            <h3 className="font-bold text-base" style={{ color: t.accentText }}>最近工作</h3>
+                            <button onClick={() => setShowWorkLog(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none cursor-pointer">✕</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "thin" }}>
+                            {workLog.length === 0 ? (
+                                <p className="text-sm text-center py-8" style={{ color: t.accentText + "50" }}>尚無工作紀錄</p>
+                            ) : (
+                                <div className="space-y-2.5">
+                                    {workLog.map(w => (
+                                        <div key={w.id} className="p-3 rounded-lg border" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "40" }}>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                {w.skillIds?.length > 0 ? (
+                                                    <div className="flex gap-1 flex-wrap">
+                                                        {w.skillIds.map(s => (
+                                                            <span key={s} className="text-xs inline-block px-2 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>{s}</span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs" style={{ color: t.accentText + "50" }}>general</span>
+                                                )}
+                                                <span className="text-xs shrink-0" style={{ color: t.accent + "70" }}>
+                                                    {new Date(w.timestamp).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm truncate" style={{ color: t.accentText + "80" }}>{w.inputSummary || "—"}</p>
+                                            {w.cli && <span className="text-xs" style={{ color: t.accentText + "40" }}>via {w.cli}</span>}
                                         </div>
                                     ))}
                                 </div>
-                            </details>
-                        )}
-                    </div>
-                </div>
-            </Card>
-
-            {/* Console area */}
-            {chatStarted ? (
-                <Card className="flex-1 min-h-0 flex flex-col overflow-hidden p-0 border-0 bg-transparent shadow-none">
-                    <TerminalConsole
-                        key={`terminal-${consoleKey}`}
-                        cwd={undefined}
-                        cli={effectiveCli}
-                        model={effectiveModel || undefined}
-                        approvalMode={effectiveApprovalMode}
-                        systemPrompt={undefined}
-                        initialPrompt={chatStarted ? [
-                            systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
-                            Object.keys(formData).length > 0 ? buildInitialMessage(allRequiredInputs, formData, selectedSkillIds) : '',
-                        ].filter(Boolean).join('\n\n') : undefined}
-                    />
-                </Card>
-            ) : (
-                <Card className="flex-1 min-h-0 flex items-center justify-center border-dashed border-2 border-orange-200 bg-amber-50/50/50">
-                    <div className="text-center space-y-2">
-                        <div className="text-4xl"><Icon name="robot" size={40} /></div>
-                        {allRequiredInputs.length > 0 ? (
-                            <div className="text-sm text-stone-400">
-                                點「<Icon name="clipboard" size={12} /> 填寫需求」準備規格資料，再開始開發
-                            </div>
-                        ) : (
-                            <div className="text-sm text-stone-400">選擇一個技能後點 Start 來啟動 Console</div>
-                        )}
-                        <details className="mt-4 text-left">
-                            <summary className="text-xs text-stone-400 cursor-pointer hover:text-stone-500 text-center">
-                                <Icon name="document" size={14} /> 預覽 System Prompt ({systemPrompt.length} 字元)
-                            </summary>
-                            <pre className="bg-zinc-900 text-green-400 p-4 rounded-xl text-[11px] whitespace-pre-wrap font-mono max-h-[300px] overflow-y-auto mt-2">
-                                {systemPrompt}
-                            </pre>
-                        </details>
-                    </div>
-                </Card>
-            )}
-
-            {/* Prompt preview modal */}
-            {showPromptModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowPromptModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-[700px] max-w-[90vw] max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-orange-100">
-                            <div>
-                                <h3 className="text-base font-bold text-stone-800 flex items-center gap-1.5"><Icon name="document" size={18} /> System Prompt 預覽</h3>
-                                <p className="text-xs text-stone-400 mt-0.5">
-                                    {employee.codename} · {systemPrompt.length} 字元
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowPromptModal(false)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-50 text-stone-400 hover:text-stone-500 transition-colors"
-                            >
-                                <Icon name="cross" size={16} />
-                            </button>
+                            )}
                         </div>
-                        <div className="px-5 py-3 border-b border-orange-100 flex flex-wrap gap-1.5">
-                            {employee.skills.map(s => (
-                                <span key={s.id} className={cn(
-                                    "text-[10px] px-2 py-1 rounded-full",
-                                    selectedSkillIds.includes(s.id)
-                                        ? "bg-orange-100 text-orange-700"
-                                        : "bg-amber-50 text-stone-400 line-through"
-                                )}>
-                                    {selectedSkillIds.includes(s.id) ? <Icon name="check" size={10} className="text-emerald-500" /> : <Icon name="cross" size={10} className="text-stone-300" />} {s.name}
-                                </span>
-                            ))}
-                        </div>
-                        <pre className="flex-1 overflow-y-auto bg-zinc-900 text-green-400 p-5 text-xs whitespace-pre-wrap font-mono rounded-b-2xl">
-                            {systemPrompt}
-                        </pre>
                     </div>
                 </div>
             )}
