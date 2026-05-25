@@ -434,34 +434,47 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
 
                         {/* Dialog body */}
                         <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-                            {/* Saved Inputs Quick Select */}
-                            {savedInputs.length > 0 && (
-                                <div>
-                                    <label className="flex items-center gap-1.5 text-sm font-medium text-stone-700 mb-1">
-                                        <Icon name="clipboard" size={14} /> 已存輸入
-                                    </label>
-                                    <p className="text-[11px] text-stone-400 mb-1.5">選擇過去的輸入快速填入</p>
-                                    <select
-                                        className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100"
-                                        value=""
-                                        onChange={e => {
-                                            if (!e.target.value) return;
-                                            try {
-                                                const saved = JSON.parse(e.target.value);
-                                                setInputDialogData(saved.data || {});
-                                                if (saved.data?.task) setTaskInput(saved.data.task);
-                                            } catch {}
-                                        }}
-                                    >
-                                        <option value="">-- 選擇已存輸入 --</option>
-                                        {savedInputs.map((si, idx) => (
-                                            <option key={idx} value={JSON.stringify(si)}>
-                                                {Object.values(si.data).slice(0, 2).join(' / ') || si.skillId} ({new Date(si.savedAt).toLocaleDateString('zh-TW')})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
+                            {/* Saved Inputs Quick Select — filtered by current skills */}
+                            {(() => {
+                                const relevantInputs = savedInputs.filter(si => {
+                                    if (!si.skillId) return true;
+                                    const siSkills = si.skillId.split(',');
+                                    return siSkills.some(s => selectedSkillIds.includes(s));
+                                });
+                                return relevantInputs.length > 0 ? (
+                                    <div>
+                                        <label className="flex items-center gap-1.5 text-sm font-medium text-stone-700 mb-1">
+                                            <Icon name="clipboard" size={14} /> 已存參數
+                                        </label>
+                                        <p className="text-[11px] text-stone-400 mb-1.5">選擇此技能過去的輸入快速填入</p>
+                                        <select
+                                            className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                            value=""
+                                            onChange={e => {
+                                                if (!e.target.value) return;
+                                                try {
+                                                    const saved = JSON.parse(e.target.value);
+                                                    setInputDialogData(saved.data || {});
+                                                    if (saved.data?.task) setTaskInput(saved.data.task);
+                                                } catch {}
+                                            }}
+                                        >
+                                            <option value="">-- 選擇已存參數 --</option>
+                                            {relevantInputs.map((si, idx) => {
+                                                const label = (() => {
+                                                    const vals = Object.entries(si.data).filter(([k]) => k !== 'task').slice(0, 2).map(([, v]) => String(v).slice(0, 30));
+                                                    return vals.length > 0 ? vals.join(' / ') : si.skillId;
+                                                })();
+                                                return (
+                                                    <option key={idx} value={JSON.stringify(si)}>
+                                                        {label} ({new Date(si.savedAt).toLocaleDateString('zh-TW')})
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
+                                ) : null;
+                            })()}
                             {requiredInputs.map(inp => (
                                 <div key={inp.id}>
                                     <label className="flex items-center gap-1.5 text-sm font-medium text-stone-700 mb-1">

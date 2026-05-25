@@ -8,6 +8,8 @@
         "skill-design",
         "skill-creation",
         "skill-forging",
+        "skill-testing",
+        "skill-packing",
         "cli-test",
         "claude-code-test",
         "opencode-test"
