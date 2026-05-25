@@ -15,6 +15,35 @@ import { cn, pathBasename } from "./utils";
 
 const STORAGE_PROJECT_KEY = "aioc.project";
 
+// Simple hash for short readable IDs
+function simpleHash(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(36).slice(0, 6);
+}
+
+// Scope key = factoryId + working base hash
+function makeScopeKey(factoryId: string, projectRoot: string | null): string {
+  if (!projectRoot) return `${factoryId}:_default`;
+  const dirName = projectRoot.split("/").pop() || "root";
+  return `${factoryId}:${dirName}_${simpleHash(projectRoot)}`;
+}
+
+// Parse tab ID into components
+function parseTabId(tabId: string): { scopeKey: string; factoryId: string; pageType: string } {
+  const firstColon = tabId.indexOf(":");
+  if (firstColon === -1) return { scopeKey: "", factoryId: "", pageType: tabId };
+  const factoryId = tabId.slice(0, firstColon);
+  const rest = tabId.slice(firstColon + 1);
+  const secondColon = rest.indexOf(":");
+  if (secondColon === -1) return { scopeKey: tabId, factoryId, pageType: "" };
+  const rootHash = rest.slice(0, secondColon);
+  const pageType = rest.slice(secondColon + 1);
+  return { scopeKey: `${factoryId}:${rootHash}`, factoryId, pageType };
+}
+
 // Migrate from old key name
 try {
   const oldVal = localStorage.getItem("aieos.project");
@@ -41,21 +70,24 @@ function AppInner() {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
   });
 
-  // All tabs across all factories, keyed as "factoryId:pageId"
-  const factoryStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
-  const [activePage, setActivePage] = useState<string>("factory.crew");
-  const [openTabs, setOpenTabs] = useState<string[]>(["factory.crew"]);
-  // visibleTabs: only tabs belonging to current factory (for tab bar display)
+  // All tabs across all scopes, keyed by scopeKey = factoryId:rootHash
+  const scopeStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
+  const [activePage, setActivePage] = useState<string>(() => {
+    const factoryId = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+    const root = localStorage.getItem(`aioc.project.${factoryId}`);
+    return `${makeScopeKey(factoryId, root)}:crew`;
+  });
+  const [openTabs, setOpenTabs] = useState<string[]>(() => {
+    const factoryId = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
+    const root = localStorage.getItem(`aioc.project.${factoryId}`);
+    return [`${makeScopeKey(factoryId, root)}:crew`];
+  });
+  const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
+  // visibleTabs: only tabs belonging to current scope (factory + working base)
   const visibleTabs = useMemo(() => {
-    return openTabs.filter(t => {
-      // Shared factory pages always visible
-      if (t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file.")) return true;
-      // Per-factory tabs: only show if prefix matches current factory
-      const colonIdx = t.indexOf(":");
-      if (colonIdx === -1) return true;
-      return t.slice(0, colonIdx) === selectedFactoryId;
-    });
-  }, [openTabs, selectedFactoryId]);
+    const prefix = currentScope + ":";
+    return openTabs.filter(t => t.startsWith(prefix));
+  }, [openTabs, currentScope]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem("aioc.sidebar-width");
@@ -112,12 +144,40 @@ function AppInner() {
   }, [selectedFactoryId, loadFactoryFiles]);
 
   const handleSelectProject = (path: string) => {
+    // Save current scope tabs
+    const currentPrefix = currentScope + ":";
+    const currentScopeTabs = openTabs.filter(t => t.startsWith(currentPrefix));
+    scopeStateRef.current[currentScope] = {
+      projectRoot,
+      activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
+      openTabs: currentScopeTabs,
+    };
+
     setProjectRoot(path);
     setShowFactoryEntry(false);
-    // Don't change activePage — keep user on current tab
-    setOpenTabs(prev => {
-      return prev.includes("factory.crew") ? prev : ["factory.crew", ...prev];
-    });
+
+    // Compute new scope
+    const newScope = makeScopeKey(selectedFactoryId, path);
+    const saved = scopeStateRef.current[newScope];
+
+    if (saved) {
+      // Restore this scope's tabs
+      const merged = [...openTabs, ...saved.openTabs];
+      const seen = new Set<string>();
+      const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
+      setOpenTabs(unique);
+      if (saved.activePage && unique.includes(saved.activePage)) {
+        setActivePage(saved.activePage);
+      } else {
+        setActivePage(`${newScope}:crew`);
+      }
+    } else {
+      // New scope — add crew tab
+      const crewTab = `${newScope}:crew`;
+      setOpenTabs(prev => prev.includes(crewTab) ? prev : [...prev, crewTab]);
+      setActivePage(crewTab);
+    }
+
     // Save per-factory projectRoot
     localStorage.setItem(`aioc.project.${selectedFactoryId}`, path);
     // Update recent projects
@@ -139,48 +199,49 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current factory state (only per-factory employee/file tabs, not shared)
-    const currentFactoryTabs = openTabs.filter(t => {
-      if (t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file.")) return false;
-      const colonIdx = t.indexOf(":");
-      return colonIdx !== -1 && t.slice(0, colonIdx) === selectedFactoryId;
-    });
-    factoryStateRef.current[selectedFactoryId] = {
+    // Save current scope's tabs
+    const currentPrefix = currentScope + ":";
+    const currentScopeTabs = openTabs.filter(t => t.startsWith(currentPrefix));
+    scopeStateRef.current[currentScope] = {
       projectRoot,
-      activePage: currentFactoryTabs.length > 0 ? activePage : "factory.crew",
-      openTabs: currentFactoryTabs,
+      activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
+      openTabs: currentScopeTabs,
     };
-    // Restore target factory state
-    const saved = factoryStateRef.current[factoryId];
-    const restoredTabs = saved?.openTabs ?? [];
-    // Remove old factory.file.* tabs (they're per-factory, tied to factoryFiles)
-    // Keep: shared tabs (crew, skills) + per-factory employee tabs (from all factories)
-    const kept = openTabs.filter(t => !t.startsWith("factory.file."));
-    const merged = [...kept, ...restoredTabs];
-    // Remove duplicates
+
+    // Compute new scope
+    const savedRoot = localStorage.getItem(`aioc.project.${factoryId}`);
+    const newScope = makeScopeKey(factoryId, savedRoot);
+    const saved = scopeStateRef.current[newScope];
+
+    // Merge: keep all existing tabs + add restored tabs for new scope
+    const restoredTabs = saved?.openTabs ?? [`${newScope}:crew`];
+    const merged = [...openTabs, ...restoredTabs];
     const seen = new Set<string>();
     const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
-    if (!unique.includes("factory.crew")) unique.unshift("factory.crew");
+
     setOpenTabs(unique);
-    // Switch activePage to target factory
+
+    // Restore activePage
     if (saved?.activePage && unique.includes(saved.activePage)) {
       setActivePage(saved.activePage);
     } else {
-      setActivePage("factory.crew");
+      setActivePage(`${newScope}:crew`);
     }
+
     // Restore projectRoot
-    if (saved?.projectRoot) {
-      setProjectRoot(saved.projectRoot);
+    if (savedRoot) {
+      setProjectRoot(savedRoot);
     } else {
-      setProjectRoot(localStorage.getItem(`aioc.project.${factoryId}`) || null);
+      setProjectRoot(null);
     }
+
     setSelectedFactoryId(factoryId);
     localStorage.setItem(STORAGE_FACTORY_KEY, factoryId);
   };
 
   const openApp = (id: string) => {
-    // Factory pages are shared (no prefix), employee/file tabs are per-factory
-    const fullId = id.startsWith("factory.") ? id : `${selectedFactoryId}:${id}`;
+    // id is a pageType like "crew", "skills", "file.xxx"
+    const fullId = `${currentScope}:${id}`;
     setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
     setActivePage(fullId);
   };
@@ -188,7 +249,7 @@ function AppInner() {
   const closeTab = (id: string) => {
     setOpenTabs((prev) => {
       const next = prev.filter((t) => t !== id);
-      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : "factory.crew");
+      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : `${currentScope}:crew`);
       return next;
     });
   };
@@ -196,14 +257,13 @@ function AppInner() {
   const instanceCounterRef = useRef(0);
   const openEmployee = useCallback((employeeId: string) => {
     const count = instanceCounterRef.current++;
-    const tabId = `${selectedFactoryId}:employee.${employeeId}#${count}`;
+    const tabId = `${currentScope}:employee.${employeeId}#${count}`;
     setOpenTabs((prev) => [...prev, tabId]);
     setActivePage(tabId);
-  }, [selectedFactoryId]);
+  }, [currentScope]);
 
-  // File click → open as a new tab with file path as ID
   const handleSelectFile = (path: string) => {
-    const fullId = `${selectedFactoryId}:file://${path}`;
+    const fullId = `${currentScope}:wfile://${path}`;
     setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
     setActivePage(fullId);
   };
@@ -230,46 +290,50 @@ function AppInner() {
   }, [projectRoot]);
 
   const factoryNav = useMemo(() => {
-    const staticItems = [{ id: "factory.crew", label: "AI Crew" }, { id: "factory.skills", label: "Skills" }];
-    const fileItems = factoryFiles
-      .map(f => {
-        const stripped = f.replace(/^\d{2}-/, ""); // strip "00-" prefix
-        return {
-          sortKey: f, // keep original for sort (00- comes first)
-          id: `factory.file.${f}`,
-          label: stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
-        };
-      })
-      .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    const staticItems = [
+      { id: `${currentScope}:crew`, label: "AI Crew" },
+      { id: `${currentScope}:skills`, label: "Skills" },
+    ];
+    const fileItems = factoryFiles.map(f => {
+      const stripped = f.replace(/^\d{2}-/, "");
+      return {
+        sortKey: f,
+        id: `${currentScope}:file.${f}`,
+        label: stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+      };
+    }).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
     return [...fileItems, ...staticItems];
-  }, [factoryFiles]);
+  }, [factoryFiles, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
-    // Shared factory pages (no colon)
-    if (fullId === "factory.crew") return "AI Crew";
-    if (fullId === "factory.skills") return "Skills";
-    if (fullId.startsWith("factory.file.")) return factoryNav.find(n => n.id === fullId)?.label ?? fullId;
-    // Per-factory tabs
-    const colonIdx = fullId.indexOf(":");
-    if (colonIdx === -1) return fullId;
-    const tabFactoryId = fullId.slice(0, colonIdx);
-    const id = fullId.slice(colonIdx + 1);
-    if (id.startsWith("employee.")) {
-      const empId = id.split("#")[0].slice(9);
-      // Look up crew from the correct factory
-      const factoryCrew = crewByFactoryRef.current[tabFactoryId] ?? crew;
+    const { factoryId, pageType } = parseTabId(fullId);
+    if (pageType === "crew") return "AI Crew";
+    if (pageType === "skills") return "Skills";
+    if (pageType.startsWith("file.")) {
+      const fileName = pageType.slice(5);
+      return factoryNav.find(n => n.id === fullId)?.label ?? fileName;
+    }
+    if (pageType.startsWith("employee.")) {
+      const empId = pageType.split("#")[0].slice(9);
+      const factoryCrew = crewByFactoryRef.current[factoryId] ?? crew;
       const emp = factoryCrew.find(s => s.id === empId);
       return emp ? emp.codename : empId;
     }
-    if (id.startsWith("file://")) {
-      return pathBasename(id.slice(7));
+    if (pageType.startsWith("wfile://")) {
+      return pathBasename(pageType.slice(8));
     }
-    return id;
+    return pageType;
   }, [factoryNav, crew]);
 
   // Track which file paths are open (for sidebar highlight)
-  const openFilePaths = useMemo(() => new Set(openTabs.filter(t => t.includes(":file://") || t.startsWith("file://")).map(t => { const i = t.indexOf("file://"); return t.slice(i + 7); })), [openTabs]);
-  const activeFilePath = (activePage.includes(":file://") || activePage.startsWith("file://")) ? activePage.slice(activePage.indexOf("file://") + 7) : null;
+  const openFilePaths = useMemo(() => new Set(
+    openTabs.filter(t => { const { pageType } = parseTabId(t); return pageType.startsWith("wfile://"); })
+      .map(t => { const { pageType } = parseTabId(t); return pageType.slice(8); })
+  ), [openTabs]);
+  const activeFilePath = (() => {
+    const { pageType } = parseTabId(activePage);
+    return pageType.startsWith("wfile://") ? pageType.slice(8) : null;
+  })();
 
   const EmployeeWorkspaceLazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspace")), []);
 
@@ -298,40 +362,39 @@ function AppInner() {
   }, [sidebarWidth]);
 
   const renderPage = useCallback((fullId: string, active?: boolean) => {
-    // Shared factory pages (no prefix)
-    if (fullId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={selectedFactoryId} />;
-    if (fullId === "factory.skills") return <SkillsPage />;
-    if (fullId.startsWith("factory.file.")) {
-      const fileName = fullId.slice(13);
-      if (!aiocRoot || !selectedFactoryId) return <div className="p-8 text-stone-400">Loading...</div>;
-      const filePath = `${aiocRoot}/factories/${selectedFactoryId}/docs/${fileName}`;
-      return <FileViewer filePath={filePath} projectRoot={projectRoot} active={active} />;
-    }
-    // Per-factory tabs (factoryId: prefix)
-    const colonIdx = fullId.indexOf(":");
-    if (colonIdx === -1) return <div className="p-8 text-stone-400">Page not found: {fullId}</div>;
-    const tabFactoryId = fullId.slice(0, colonIdx);
-    const pageId = fullId.slice(colonIdx + 1);
+    const { scopeKey, factoryId, pageType } = parseTabId(fullId);
 
-    if (pageId.startsWith("file://")) {
-      const filePath = pageId.slice(7);
-      return <FileViewer filePath={filePath} projectRoot={projectRoot} active={active} />;
+    if (pageType === "crew") {
+      return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={factoryId || selectedFactoryId} />;
     }
-    if (pageId.startsWith("employee.")) {
-      const employeeId = pageId.split("#")[0].slice(9);
-      const tabCrew = crewByFactoryRef.current[tabFactoryId] ?? crew;
-      // Use THIS factory's projectRoot, not the global one
-      // (global projectRoot changes when switching factories, which would reset the employee)
-      const tabProjectRoot = factoryStateRef.current[tabFactoryId]?.projectRoot
-        ?? localStorage.getItem(`aioc.project.${tabFactoryId}`)
+    if (pageType === "skills") {
+      return <SkillsPage />;
+    }
+    if (pageType.startsWith("file.")) {
+      const fileName = pageType.slice(5);
+      if (!aiocRoot || !factoryId) return <div className="p-8 text-stone-400">Loading...</div>;
+      const filePath = `${aiocRoot}/factories/${factoryId}/docs/${fileName}`;
+      const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot ?? projectRoot;
+      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} active={active} />;
+    }
+    if (pageType.startsWith("wfile://")) {
+      const filePath = pageType.slice(8);
+      const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot ?? projectRoot;
+      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} active={active} />;
+    }
+    if (pageType.startsWith("employee.")) {
+      const employeeId = pageType.split("#")[0].slice(9);
+      const tabCrew = crewByFactoryRef.current[factoryId] ?? crew;
+      const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot
+        ?? localStorage.getItem(`aioc.project.${factoryId}`)
         ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceLazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} factoryId={tabFactoryId} />
+          <EmployeeWorkspaceLazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} factoryId={factoryId} />
         </React.Suspense>
       );
     }
-    return <div className="p-8 text-stone-400">Page not found: {pageId}</div>;
+    return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
   }, [projectRoot, aiocRoot, crew, selectedFactoryId]);
 
   // Early return AFTER all hooks
@@ -491,7 +554,7 @@ function AppInner() {
             <SidebarSection title="Factory">
               <div>
                 {factoryNav.map((item) => (
-                  <NavItem key={item.id} active={activePage === item.id || activePage === `${selectedFactoryId}:${item.id}`} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
               </div>
             </SidebarSection>
@@ -558,7 +621,7 @@ function AppInner() {
           <div className="flex w-full items-end gap-0.5 flex-wrap px-3 pt-1.5 border-b" style={{ backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
             {visibleTabs.map((tabId) => {
               const isActive = activePage === tabId;
-              const isPinned = tabId === "factory.crew";
+              const isPinned = (() => { const { pageType } = parseTabId(tabId); return pageType === "crew"; })();
               return (
                 <div
                   key={tabId}
