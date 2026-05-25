@@ -151,24 +151,15 @@ function AppInner() {
     };
     // Restore target factory state
     const saved = factoryStateRef.current[factoryId];
-    // Merge: shared tabs + other factory tabs (keep them mounted!) + restored factory tabs
+    // Merge: shared tabs + factory-specific tabs
     const sharedTabs = openTabs.filter(t => t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file."));
-    const otherFactoryTabs = openTabs.filter(t => {
-      if (sharedTabs.includes(t)) return false;
-      const colonIdx = t.indexOf(":");
-      if (colonIdx === -1) return false;
-      return t.slice(0, colonIdx) !== selectedFactoryId; // keep tabs from other factories
-    });
     const restoredTabs = saved?.openTabs ?? [];
-    const merged = [...sharedTabs, ...otherFactoryTabs, ...restoredTabs];
-    // Remove duplicates while preserving order
-    const seen = new Set<string>();
-    const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
+    const merged = [...sharedTabs, ...restoredTabs];
     // Ensure factory.crew always present
-    if (!unique.includes("factory.crew")) unique.unshift("factory.crew");
-    setOpenTabs(unique);
+    if (!merged.includes("factory.crew")) merged.unshift("factory.crew");
+    setOpenTabs(merged);
     // Restore activePage
-    if (saved?.activePage && unique.includes(saved.activePage)) {
+    if (saved?.activePage && merged.includes(saved.activePage)) {
       setActivePage(saved.activePage);
     } else {
       setActivePage("factory.crew");
