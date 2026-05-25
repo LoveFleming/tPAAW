@@ -138,10 +138,8 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         if (!employee) return;
         // Only reset state when switching to a DIFFERENT employee
         const changed = prevEmployeeIdRef.current !== employeeId;
-        console.log(`[EmployeeWorkspace] reset-guard effect: employeeId=${employeeId}, prev=${prevEmployeeIdRef.current}, changed=${changed}`);
         prevEmployeeIdRef.current = employeeId;
         if (changed) {
-            console.log(`[EmployeeWorkspace] RESETTING chatStarted=false (employeeId changed)`);
             const initial: Record<string, boolean> = {};
             (employee.skillIds || []).forEach(id => { initial[id] = true; });
             setEnabledSkills(initial);

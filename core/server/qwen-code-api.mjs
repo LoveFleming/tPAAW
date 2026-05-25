@@ -1392,8 +1392,10 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       const { createReadStream } = await import("fs");
       createReadStream(picPath).pipe(res);
     } catch {
-      res.writeHead(404);
-      res.end("Not found");
+      // Fallback: return 1x1 transparent PNG instead of 404
+      const transparentPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRUEFTkSuQmCC", "base64");
+      res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-cache" });
+      res.end(transparentPng);
     }
     return;
   }
