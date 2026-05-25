@@ -199,7 +199,11 @@ export default function TerminalConsole({
             dataDisposable.dispose();
             observer.disconnect();
             window.removeEventListener("resize", onResize);
-            ws.close();
+            if (ws.readyState === WebSocket.CONNECTING) {
+                ws.onopen = () => ws.close(); // close after connect to avoid error
+            } else {
+                ws.close();
+            }
             wsRef.current = null;
             term.dispose();
             termRef.current = null;
