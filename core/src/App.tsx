@@ -139,7 +139,7 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current factory state
+    // Save current factory state (only per-factory employee/file tabs, not shared)
     const currentFactoryTabs = openTabs.filter(t => {
       if (t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file.")) return false;
       const colonIdx = t.indexOf(":");
@@ -152,9 +152,11 @@ function AppInner() {
     };
     // Restore target factory state
     const saved = factoryStateRef.current[factoryId];
-    // Keep ALL existing tabs mounted (shared + all factory employee tabs)
     const restoredTabs = saved?.openTabs ?? [];
-    const merged = [...openTabs, ...restoredTabs];
+    // Remove old factory.file.* tabs (they're per-factory, tied to factoryFiles)
+    // Keep: shared tabs (crew, skills) + per-factory employee tabs (from all factories)
+    const kept = openTabs.filter(t => !t.startsWith("factory.file."));
+    const merged = [...kept, ...restoredTabs];
     // Remove duplicates
     const seen = new Set<string>();
     const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
