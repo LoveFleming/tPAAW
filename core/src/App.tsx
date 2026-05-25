@@ -240,8 +240,8 @@ function AppInner() {
   };
 
   const openApp = (id: string) => {
-    // id is a pageType like "crew", "skills", "file.xxx"
-    const fullId = `${currentScope}:${id}`;
+    // If id already contains a scope prefix (from factoryNav), use it directly
+    const fullId = id.includes(":") ? id : `${currentScope}:${id}`;
     setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
     setActivePage(fullId);
   };
