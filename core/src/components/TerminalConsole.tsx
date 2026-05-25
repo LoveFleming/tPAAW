@@ -39,6 +39,8 @@ export default function TerminalConsole({
     const fitRef = useRef<FitAddon | null>(null);
     const initialSentRef = useRef(false);
     const mountedRef = useRef(true);
+    const reconnectAttemptRef = useRef(0);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Stable options ref so closures always see latest props
     const optsRef = useRef({ cwd, cli, model, approvalMode, systemPrompt, initialPrompt });
@@ -135,68 +137,83 @@ export default function TerminalConsole({
         const observer = new ResizeObserver(onResize);
         observer.observe(el);
 
-        // Connect WebSocket
-        const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
+        // Connect WebSocket (extracted so reconnect can call it)
+        const doConnect = () => {
+            const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
+            const ws = new WebSocket(wsUrl);
+            wsRef.current = ws;
 
-        ws.onopen = () => {
-            if (!mountedRef.current) return;
-            setConnected(true);
-            const opts = optsRef.current;
-            ws.send(JSON.stringify({
-                type: "spawn",
-                options: {
-                    cwd: opts.cwd || undefined,
-                    cli: opts.cli || undefined,
-                    model: opts.model || undefined,
-                    approvalMode: opts.approvalMode || "yolo",
-                    systemPrompt: opts.systemPrompt || undefined,
-                    initialPrompt: opts.initialPrompt || undefined,
-                },
-            }));
-        };
+            ws.onopen = () => {
+                if (!mountedRef.current) return;
+                setConnected(true);
+                reconnectAttemptRef.current = 0; // reset on successful connect
+                const opts = optsRef.current;
+                ws.send(JSON.stringify({
+                    type: "spawn",
+                    options: {
+                        cwd: opts.cwd || undefined,
+                        cli: opts.cli || undefined,
+                        model: opts.model || undefined,
+                        approvalMode: opts.approvalMode || "yolo",
+                        systemPrompt: opts.systemPrompt || undefined,
+                        initialPrompt: opts.initialPrompt || undefined,
+                    },
+                }));
+            };
 
-        ws.onmessage = (event) => {
-            if (!mountedRef.current) return;
-            let msg;
-            try { msg = JSON.parse(event.data as string); } catch { return; }
+            ws.onmessage = (event) => {
+                if (!mountedRef.current) return;
+                let msg;
+                try { msg = JSON.parse(event.data as string); } catch { return; }
 
-            if (msg.type === "data") {
-                term.write(msg.data);
-            } else if (msg.type === "ready") {
-                setReady(true);
-                if (msg.platform) platformRef.current = msg.platform;
-                ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-                onReady?.();
-            } else if (msg.type === "exit") {
-                term.write("\r\n\x1b[33m⚠️ CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
+                if (msg.type === "data") {
+                    term.write(msg.data);
+                } else if (msg.type === "ready") {
+                    setReady(true);
+                    if (msg.platform) platformRef.current = msg.platform;
+                    ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+                    onReady?.();
+                } else if (msg.type === "exit") {
+                    term.write("\r\n\x1b[33m⚠️ CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
+                    setReady(false);
+                    onExit?.(msg.exitCode || 0);
+                } else if (msg.type === "error") {
+                    term.write(`\r\n\x1b[31m❌ Error: ${msg.message}\x1b[0m\r\n`);
+                }
+            };
+
+            ws.onclose = () => {
+                if (!mountedRef.current) return;
+                setConnected(false);
                 setReady(false);
-                onExit?.(msg.exitCode || 0);
-            } else if (msg.type === "error") {
-                term.write(`\r\n\x1b[31m❌ Error: ${msg.message}\x1b[0m\r\n`);
-            }
+                // Auto-reconnect with exponential backoff (1s, 2s, 4s, 8s, 15s max)
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 15000);
+                reconnectAttemptRef.current++;
+                term.write(`\r\n\x1b[33m⏳ Connection lost. Reconnecting in ${Math.round(delay / 1000)}s...\x1b[0m\r\n`);
+                reconnectTimerRef.current = setTimeout(() => {
+                    if (!mountedRef.current) return;
+                    term.write("\r\n\x1b[33m🔄 Reconnecting...\x1b[0m\r\n");
+                    doConnect();
+                }, delay);
+            };
+
+            ws.onerror = () => {
+                if (!mountedRef.current) return;
+                setConnected(false);
+                // onclose fires after onerror, which handles reconnect
+            };
         };
 
-        ws.onclose = () => {
-            if (!mountedRef.current) return;
-            setConnected(false);
-            setReady(false);
-        };
-
-        ws.onerror = () => {
-            if (!mountedRef.current) return;
-            setConnected(false);
-            term.write("\r\n\x1b[31m❌ WebSocket connection failed.\x1b[0m\r\n");
-        };
+        // Initial connection
+        doConnect();
 
         return () => {
             mountedRef.current = false;
+            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             dataDisposable.dispose();
             observer.disconnect();
             window.removeEventListener("resize", onResize);
-            ws.close();
-            wsRef.current = null;
+            if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
             term.dispose();
             termRef.current = null;
             fitRef.current = null;
