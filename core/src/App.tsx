@@ -300,7 +300,7 @@ function AppInner() {
     document.addEventListener("mouseup", handleUp);
   }, [sidebarWidth]);
 
-  const renderPage = useCallback((fullId: string) => {
+  const renderPage = useCallback((fullId: string, active?: boolean) => {
     // Shared factory pages (no prefix)
     if (fullId === "factory.crew") return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={selectedFactoryId} />;
     if (fullId === "factory.skills") return <SkillsPage />;
@@ -308,7 +308,7 @@ function AppInner() {
       const fileName = fullId.slice(13);
       if (!aiocRoot || !selectedFactoryId) return <div className="p-8 text-stone-400">Loading...</div>;
       const filePath = `${aiocRoot}/factories/${selectedFactoryId}/docs/${fileName}`;
-      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
+      return <FileViewer filePath={filePath} projectRoot={projectRoot} active={active} />;
     }
     // Per-factory tabs (factoryId: prefix)
     const colonIdx = fullId.indexOf(":");
@@ -318,7 +318,7 @@ function AppInner() {
 
     if (pageId.startsWith("file://")) {
       const filePath = pageId.slice(7);
-      return <FileViewer filePath={filePath} projectRoot={projectRoot} />;
+      return <FileViewer filePath={filePath} projectRoot={projectRoot} active={active} />;
     }
     if (pageId.startsWith("employee.")) {
       const employeeId = pageId.split("#")[0].slice(9);
@@ -592,7 +592,7 @@ function AppInner() {
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
             {openTabs.map((tabId) => (
               <div key={tabId} className="absolute inset-0" style={{ visibility: activePage === tabId ? "visible" : "hidden", pointerEvents: activePage === tabId ? "auto" : "none" }}>
-                {renderPage(tabId)}
+                {renderPage(tabId, activePage === tabId)}
               </div>
             ))}
           </div>

@@ -195,9 +195,10 @@ function escapeHtml(str: string): string {
 interface Props {
   filePath: string;
   projectRoot: string;
+  active?: boolean;
 }
 
-export default function FileViewer({ filePath, projectRoot }: Props) {
+export default function FileViewer({ filePath, projectRoot, active }: Props) {
   const { info: t } = useTheme();
   const [content, setContent] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ size: number } | null>(null);
@@ -219,6 +220,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
 
   useEffect(() => {
     if (!filePath) { setContent(null); setMeta(null); return; }
+    if (active === false) return; // Don't fetch when tab is hidden
     const fileName = pathBasename(filePath);
     const fileType = detectFileType(fileName);
     // For images, don't fetch content — ImageView uses direct URL
@@ -248,7 +250,7 @@ export default function FileViewer({ filePath, projectRoot }: Props) {
         setContent(`// Unable to load file: ${msg}`);
       })
       .finally(() => { clearTimeout(timer); setLoading(false); });
-  }, [filePath]);
+  }, [filePath, active]);
 
   const safeRoot = projectRoot || '';
   const relativePath = safeRoot ? filePath.replace(new RegExp(`^${safeRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '') : filePath;
