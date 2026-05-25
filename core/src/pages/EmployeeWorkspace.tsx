@@ -96,6 +96,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const [savedInputs, setSavedInputs] = useState<Array<{ hash: string; skillId: string; data: Record<string, string>; savedAt: string }>>([]);
     const [rightPanelOpen, setRightPanelOpen] = useState(true);
     const [showWorkLog, setShowWorkLog] = useState(false);
+    const [showSkillPrompts, setShowSkillPrompts] = useState(false);
     const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; inputData?: Record<string, string>; timestamp: string }>>([]);
 
     // Fetch models for a specific CLI
@@ -616,6 +617,15 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                         <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white text-[9px] flex items-center justify-center" style={{ backgroundColor: t.accent }}>{workLog.length > 9 ? '9+' : workLog.length}</span>
                                     )}
                                 </button>
+                                {selectedSkillIds.length > 0 && (
+                                    <button
+                                        onClick={() => setShowSkillPrompts(true)}
+                                        className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-white border transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                        style={{ borderColor: t.accentBorder, color: t.accentText }}
+                                    >
+                                        <Icon name="scroll" size={14} /> Prompts
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleStartClick}
                                     className="flex-1 px-3 py-2 rounded-xl text-sm font-bold text-white transition-colors flex items-center justify-center gap-1.5 shadow-sm"
@@ -681,25 +691,6 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                     <>
                                         <p className="text-sm font-semibold" style={{ color: t.accentText }}>準備好了！輸入任務按下 Enter 啟動</p>
                                         <p className="text-xs mt-1" style={{ color: t.accent + "80" }}>選擇的技能：{selectedSkillIds.map(sid => skillDefinitions.get(sid)?.name).filter(Boolean).join(', ')}</p>
-                                        {/* Show each skill's userInputs as quick reference */}
-                                        <div className="mt-3 text-left max-w-lg mx-auto space-y-2">
-                                            {selectedSkillIds.map(sid => {
-                                                const sd = skillDefinitions.get(sid);
-                                                if (!sd?.userInputs?.length) return null;
-                                                return (
-                                                    <div key={sid} className="rounded-lg border p-2.5" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "30" }}>
-                                                        <div className="text-xs font-semibold mb-1.5" style={{ color: t.accent }}>{sd.name} — 需要輸入</div>
-                                                        {sd.userInputs.map(inp => (
-                                                            <div key={inp.id} className="text-xs ml-2 mb-0.5" style={{ color: t.accentText + "70" }}>
-                                                                <span className="font-medium">{inp.label}</span>
-                                                                {inp.required && <span className="text-rose-400 ml-0.5">*</span>}
-                                                                {inp.description && <span className="text-stone-400 ml-1">— {inp.description}</span>}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
                                     </>
                                 )}
                             </div>
@@ -879,6 +870,50 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 )}
             </div>
 
+
+            {/* ===== Skill Prompts Dialog ===== */}
+            {showSkillPrompts && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setShowSkillPrompts(false)}>
+                    <div className="absolute inset-0 bg-black/30" />
+                    <div className="relative bg-white rounded-2xl shadow-2xl border w-[600px] max-h-[80vh] flex flex-col" style={{ borderColor: t.accentBorder }} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: t.accentBorder + "40" }}>
+                            <h3 className="font-bold text-base" style={{ color: t.accentText }}>Skill Prompts</h3>
+                            <button onClick={() => setShowSkillPrompts(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none cursor-pointer">✕</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: "thin" }}>
+                            {/* Role Prompt */}
+                            <div>
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>Role</span>
+                                    <span className="text-sm font-semibold" style={{ color: t.accentText }}>{employee?.title}</span>
+                                </div>
+                                <pre className="text-xs whitespace-pre-wrap rounded-lg border p-3 leading-relaxed" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "30", color: t.accentText + "85" }}>{employee?.rolePrompt}</pre>
+                            </div>
+                            {/* Each selected skill */}
+                            {selectedSkillIds.map(sid => {
+                                const sd = skillDefinitions.get(sid);
+                                if (!sd) return (
+                                    <div key={sid}>
+                                        <span className="text-xs" style={{ color: t.accentText + "50" }}>{sid} — not found</span>
+                                    </div>
+                                );
+                                return (
+                                    <div key={sid}>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>Skill</span>
+                                            <span className="text-sm font-semibold" style={{ color: t.accentText }}>{sd.name}</span>
+                                            <span className="text-xs" style={{ color: t.accentText + "40" }}>{sd.id}</span>
+                                        </div>
+                                        {sd.skillPrompt && (
+                                            <pre className="text-xs whitespace-pre-wrap rounded-lg border p-3 leading-relaxed" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "30", color: t.accentText + "85" }}>{sd.skillPrompt}</pre>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ===== Work Log Popup ===== */}
             {showWorkLog && (
