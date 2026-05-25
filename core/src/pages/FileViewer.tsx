@@ -246,6 +246,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
           if (data.error) throw new Error(data.error);
           setContent(data.content ?? "");
           setMeta({ size: data.size ?? 0 });
+          setLoading(false);
         })
         .catch((err) => {
           if (err.name === 'AbortError') {
