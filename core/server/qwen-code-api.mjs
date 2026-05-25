@@ -1164,6 +1164,17 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       timestamp: new Date().toISOString(),
     });
 
+    // Deduplicate: remove entries with same inputSummary + cli within 2 seconds
+    existing.entries = existing.entries.filter((entry, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr.findIndex(e => e.inputSummary === entry.inputSummary && e.cli === entry.cli);
+      if (prev < idx) {
+        const timeDiff = new Date(entry.timestamp).getTime() - new Date(arr[prev].timestamp).getTime();
+        if (Math.abs(timeDiff) < 3000) return false; // duplicate within 3s
+      }
+      return true;
+    });
+
     // Keep last 50 entries
     if (existing.entries.length > 50) existing.entries = existing.entries.slice(0, 50);
 

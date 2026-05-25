@@ -866,32 +866,32 @@ export default function EmployeeWorkspaceV2({ employeeId, projectRoot, crew: cre
                     <div className="absolute inset-0 bg-black/30" />
                     <div className="relative bg-white rounded-2xl shadow-2xl border w-[400px] max-h-[70vh] flex flex-col" style={{ borderColor: t.accentBorder }} onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: t.accentBorder + "40" }}>
-                            <h3 className="font-bold text-sm" style={{ color: t.accentText }}>最近工作</h3>
+                            <h3 className="font-bold text-base" style={{ color: t.accentText }}>最近工作</h3>
                             <button onClick={() => setShowWorkLog(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none cursor-pointer">✕</button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "thin" }}>
                             {workLog.length === 0 ? (
-                                <p className="text-xs text-center py-8" style={{ color: t.accentText + "50" }}>尚無工作紀錄</p>
+                                <p className="text-sm text-center py-8" style={{ color: t.accentText + "50" }}>尚無工作紀錄</p>
                             ) : (
                                 <div className="space-y-2.5">
                                     {workLog.map(w => (
-                                        <div key={w.id} className="p-2.5 rounded-lg border" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "40" }}>
-                                            <div className="flex items-center justify-between mb-1">
+                                        <div key={w.id} className="p-3 rounded-lg border" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "40" }}>
+                                            <div className="flex items-center justify-between mb-1.5">
                                                 {w.skillIds?.length > 0 ? (
                                                     <div className="flex gap-1 flex-wrap">
                                                         {w.skillIds.map(s => (
-                                                            <span key={s} className="text-[10px] inline-block px-1.5 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>{s}</span>
+                                                            <span key={s} className="text-xs inline-block px-2 py-0.5 rounded-full" style={{ background: t.accent + "20", color: t.accent }}>{s}</span>
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px]" style={{ color: t.accentText + "50" }}>general</span>
+                                                    <span className="text-xs" style={{ color: t.accentText + "50" }}>general</span>
                                                 )}
-                                                <span className="text-[10px] shrink-0" style={{ color: t.accent + "70" }}>
+                                                <span className="text-xs shrink-0" style={{ color: t.accent + "70" }}>
                                                     {new Date(w.timestamp).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </div>
-                                            <p className="text-xs truncate" style={{ color: t.accentText + "80" }}>{w.inputSummary || "—"}</p>
-                                            {w.cli && <span className="text-[10px]" style={{ color: t.accentText + "40" }}>via {w.cli}</span>}
+                                            <p className="text-sm truncate" style={{ color: t.accentText + "80" }}>{w.inputSummary || "—"}</p>
+                                            {w.cli && <span className="text-xs" style={{ color: t.accentText + "40" }}>via {w.cli}</span>}
                                         </div>
                                     ))}
                                 </div>
