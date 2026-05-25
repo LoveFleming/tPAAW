@@ -22,6 +22,7 @@ function buildSkillMd(fields: {
     category: string;
     tags: string;
     useSkills: string;
+    usePhysicalSkills: string;
     userInputs: UserInput[];
     body: string;
 }): string {
@@ -43,6 +44,13 @@ function buildSkillMd(fields: {
         if (skills.length) {
             lines.push("useSkills:");
             skills.forEach(s => lines.push(`  - ${s}`));
+        }
+    }
+    if (fields.usePhysicalSkills) {
+        const pskills = fields.usePhysicalSkills.split(",").map(t => t.trim()).filter(Boolean);
+        if (pskills.length) {
+            lines.push("usePhysicalSkills:");
+            pskills.forEach(s => lines.push(`  - ${s}`));
         }
     }
     if (fields.userInputs.length > 0) {
@@ -79,6 +87,7 @@ export default function SkillsPage() {
     const [fCategory, setFCategory] = useState("");
     const [fTags, setFTags] = useState("");
     const [fUseSkills, setFUseSkills] = useState("");
+    const [fUsePhysicalSkills, setFUsePhysicalSkills] = useState("");
     const [fUserInputs, setFUserInputs] = useState<UserInput[]>([]);
     const [fBody, setFBody] = useState("");
     const [saving, setSaving] = useState(false);
@@ -107,6 +116,7 @@ export default function SkillsPage() {
         setFCategory(sk.category || "");
         setFTags("");
         setFUseSkills((sk.useSkills || []).join(", "));
+        setFUsePhysicalSkills((sk.usePhysicalSkills || []).join(", "));
         setFUserInputs(sk.userInputs || []);
         setFBody(sk.skillPrompt || "");
         setError("");
@@ -122,6 +132,7 @@ export default function SkillsPage() {
         setFCategory("");
         setFTags("");
         setFUseSkills("");
+        setFUsePhysicalSkills("");
         setFUserInputs([]);
         setFBody("");
         setError("");
@@ -164,6 +175,7 @@ export default function SkillsPage() {
             category: fCategory.trim(),
             tags: fTags.trim(),
             useSkills: fUseSkills.trim(),
+            usePhysicalSkills: fUsePhysicalSkills.trim(),
             userInputs: fUserInputs,
             body: fBody,
         });
@@ -256,6 +268,11 @@ export default function SkillsPage() {
                             <label className="text-sm font-semibold text-stone-500">引用技能 (useSkills, 逗號分隔)</label>
                             <input value={fUseSkills} onChange={e => setFUseSkills(e.target.value)}
                                 className={inputCls} style={inputStyle} placeholder="other-skill-id, another-skill" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-stone-500">引用實體技能 (usePhysicalSkills, 逗號分隔)</label>
+                            <input value={fUsePhysicalSkills} onChange={e => setFUsePhysicalSkills(e.target.value)}
+                                className={inputCls} style={inputStyle} placeholder="node-codegen, test-generation" />
                         </div>
                     </fieldset>
 
@@ -377,6 +394,7 @@ export default function SkillsPage() {
             <div className="flex items-center justify-between px-6 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                 <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: t.accentText }}>
                     <Icon name="lightning" size={16} /> Skills 共享技能池
+                        <span className="text-xs font-normal text-stone-400 ml-2">input-prompt + physical-skill</span>
                 </h2>
                 <button onClick={startCreate}
                     className="px-4 py-1.5 rounded-lg text-sm font-bold text-white flex items-center gap-1.5"
@@ -425,11 +443,15 @@ export default function SkillsPage() {
                                     </div>
                                     <p className="text-sm text-stone-500 line-clamp-2 mb-3">{sk.description}</p>
                                     <div className="flex items-center gap-2 text-[11px] text-stone-400">
+                                        <span className={`px-1.5 py-0.5 rounded font-semibold ${sk.kind === 'physical-skill' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{sk.kind === 'physical-skill' ? '📦 實體' : '📝 輸入'}</span>
                                         {(sk.userInputs?.length || 0) > 0 && (
                                             <span className="px-1.5 py-0.5 rounded bg-stone-100">{sk.userInputs.length} inputs</span>
                                         )}
                                         {(sk.useSkills?.length || 0) > 0 && (
                                             <span className="px-1.5 py-0.5 rounded bg-stone-100">refs: {sk.useSkills.join(", ")}</span>
+                                        )}
+                                        {(sk.usePhysicalSkills?.length || 0) > 0 && (
+                                            <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">uses: {sk.usePhysicalSkills.join(", ")}</span>
                                         )}
                                         <span className="ml-auto">{sk.version || "1.0.0"}</span>
                                     </div>

@@ -16,7 +16,7 @@ export type CliEngine = "qwen" | "claude" | "opencode";
 
 /**
  * UserInput — 操作員在啟動 Skill 前要填的表單欄位
- * 定義在 skills/{id}/SKILL.md 的 frontmatter 裡
+ * 定義在 skills/input-prompt/{id}/SKILL.md 的 frontmatter 裡
  */
 export interface UserInput {
     id: string;
@@ -32,24 +32,31 @@ export interface UserInput {
 }
 
 /**
- * SkillDefinition — 共享技能池裡的一個技能
- * 對應 skills/{id}/SKILL.md
+ * SkillDefinition — 技能
+ * 
+ * 兩種 kind：
+ *   input-prompt    → 定義「操作員填什麼 + prompt 怎麼寫」，放在 skills/input-prompt/
+ *   physical-skill  → 打包好的實體 skill（zip 解開），放在 skills/physical-skill/
  * 
  * 三個核心欄位：
- *   skillPrompt  → 具體任務指令（告訴 AI 做什麼、怎麼做）
- *   useSkills    → 引用其他技能（CLI 從 skills/{id}/SKILL.md 讀取）
- *   userInputs   → 操作員要填的表單欄位
+ *   skillPrompt        → 具體任務指令（告訴 AI 做什麼、怎麼做）
+ *   useSkills          → 引用其他 input-prompt skill
+ *   usePhysicalSkills  → 引用 physical-skill（CLI runtime 載入執行）
+ *   userInputs         → 操作員要填的表單欄位
  */
 export interface SkillDefinition {
     id: string;
+    kind: "input-prompt" | "physical-skill";
     name: string;
     description: string;
     version?: string;
     category?: string;
     /** 具體任務指令 */
     skillPrompt: string;
-    /** 引用其他技能 */
+    /** 引用其他 input-prompt skill */
     useSkills: string[];
+    /** 引用 physical-skill（CLI runtime 載入執行） */
+    usePhysicalSkills: string[];
     /** 操作員要填的表單 */
     userInputs: UserInput[];
     /** SKILL.md 完整內容 */
@@ -79,7 +86,7 @@ export interface Crew {
     rolePrompt: string;
     description: string;
     risk: Risk;
-    /** 引用的技能 IDs（對應 skills/{id}/SKILL.md） */
+    /** 引用的技能 IDs（對應 skills/input-prompt/{id}/SKILL.md） */
     skillIds: string[];
     chatConfig?: ChatConfig;
     // --- Legacy compat ---
@@ -105,7 +112,7 @@ export function buildSystemPrompt(
     // Inject base paths
     if (paths) {
         const factoryPath = paths.factoryId ? `${paths.aiocRoot}/factories/${paths.factoryId}` : `${paths.aiocRoot}/factories`;
-        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}\n  - Skills: ${paths.aiocRoot}/skills/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
+        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}\n  - Input-Prompt Skills: ${paths.aiocRoot}/skills/input-prompt/\n  - Physical Skills: ${paths.aiocRoot}/skills/physical-skill/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
     }
 
     for (const skillId of selectedSkillIds) {
@@ -119,8 +126,14 @@ export function buildSystemPrompt(
 
         // ── 2. useSkills — 注入檔案路徑讓 CLI 讀取 ──
         if (skillDef.useSkills.length > 0 && paths) {
-            const skillPaths = skillDef.useSkills.map(id => `- ${paths.aiocRoot}/skills/${id}/SKILL.md`);
+            const skillPaths = skillDef.useSkills.map(id => `- ${paths.aiocRoot}/skills/input-prompt/${id}/SKILL.md`);
             parts.push(`\n### 參考技能\n請先讀取以下技能檔案：\n${skillPaths.join("\n")}`);
+        }
+
+        // ── 2b. usePhysicalSkills — 注入 physical skill 路徑 ──
+        if (skillDef.usePhysicalSkills?.length > 0 && paths) {
+            const psPaths = skillDef.usePhysicalSkills.map(id => `- ${paths.aiocRoot}/skills/physical-skill/${id}/`);
+            parts.push(`\n### 實體技能\n請載入以下實體技能目錄：\n${psPaths.join("\n")}`);
         }
     }
 

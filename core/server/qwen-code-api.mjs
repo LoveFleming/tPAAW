@@ -29,6 +29,8 @@ const AIOC_ROOT = resolve(__dirname, "../../");
 const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "core/conversations");
 const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
 const SKILLS_ROOT = resolve(AIOC_ROOT, "skills");
+const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
+const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
 const DEFAULT_FACTORY = "default";
 
 const PORT = parseInt(process.env.QWEN_CODE_PORT || "4097", 10);
@@ -243,32 +245,39 @@ const server = createServer(async (req, res) => {
     return { ...result, body };
   }
 
-  // GET /api/skills — list all shared skills with full definitions
+  // GET /api/skills — list all skills (input-prompt + physical-skill)
   if (req.method === "GET" && req.url?.match(/^\/api\/skills(?:\?.*)?$/)) {
     try {
-      await mkdir(SKILLS_ROOT, { recursive: true });
-      const dirs = await readdir(SKILLS_ROOT);
       const skills = [];
-      for (const dir of dirs) {
-        try {
-          const stat = await import("fs/promises").then(m => m.stat(join(SKILLS_ROOT, dir)));
-          if (!stat.isDirectory()) continue;
-          const skillPath = join(SKILLS_ROOT, dir, "SKILL.md");
-          const raw = await readFile(skillPath, "utf-8");
-          const parsed = parseSkillFrontmatter(raw);
-          skills.push({
-            id: dir,
-            name: parsed.name || dir,
-            description: parsed.description || "",
-            version: parsed.version || "1.0.0",
-            category: parsed.category || "",
-            skillPrompt: parsed.body || "",
-            useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
-            userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
-            fullContent: raw,
-          });
-        } catch { /* skip invalid */ }
-      }
+      // Helper to scan a skill directory
+      const scanSkillsDir = async (root, kind) => {
+        await mkdir(root, { recursive: true });
+        const dirs = await readdir(root);
+        for (const dir of dirs) {
+          try {
+            const stat = await import("fs/promises").then(m => m.stat(join(root, dir)));
+            if (!stat.isDirectory()) continue;
+            const skillPath = join(root, dir, "SKILL.md");
+            const raw = await readFile(skillPath, "utf-8");
+            const parsed = parseSkillFrontmatter(raw);
+            skills.push({
+              id: dir,
+              kind,
+              name: parsed.name || dir,
+              description: parsed.description || "",
+              version: parsed.version || "1.0.0",
+              category: parsed.category || "",
+              skillPrompt: parsed.body || "",
+              useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
+              usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
+              userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
+              fullContent: raw,
+            });
+          } catch { /* skip invalid */ }
+        }
+      };
+      await scanSkillsDir(INPUT_PROMPT_ROOT, "input-prompt");
+      await scanSkillsDir(PHYSICAL_SKILL_ROOT, "physical-skill");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(skills));
     } catch (err) {
@@ -282,23 +291,35 @@ const server = createServer(async (req, res) => {
   const skillGetMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
   if (skillGetMatch) {
     const skillId = skillGetMatch[1];
-    const skillPath = join(SKILLS_ROOT, skillId, "SKILL.md");
-    try {
-      const raw = await readFile(skillPath, "utf-8");
-      const parsed = parseSkillFrontmatter(raw);
+    // Search in both input-prompt and physical-skill
+    const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT];
+    let found = null;
+    for (const root of roots) {
+      const skillPath = join(root, skillId, "SKILL.md");
+      try {
+        const raw = await readFile(skillPath, "utf-8");
+        const parsed = parseSkillFrontmatter(raw);
+        const kind = root === INPUT_PROMPT_ROOT ? "input-prompt" : "physical-skill";
+        found = {
+          id: skillId,
+          kind,
+          name: parsed.name || skillId,
+          description: parsed.description || "",
+          version: parsed.version || "1.0.0",
+          category: parsed.category || "",
+          skillPrompt: parsed.body || "",
+          useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
+          usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
+          userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
+          fullContent: raw,
+        };
+        break;
+      } catch { /* not found in this root */ }
+    }
+    if (found) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        id: skillId,
-        name: parsed.name || skillId,
-        description: parsed.description || "",
-        version: parsed.version || "1.0.0",
-        category: parsed.category || "",
-        skillPrompt: parsed.body || "",
-        useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
-        userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
-        fullContent: raw,
-      }));
-    } catch {
+      res.end(JSON.stringify(found));
+    } else {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Skill not found" }));
     }
@@ -307,7 +328,7 @@ const server = createServer(async (req, res) => {
 
   // ── Skill Save API ──
 
-  // PUT /api/skills/:id — create or update a skill
+  // PUT /api/skills/:id — create or update a skill (input-prompt by default)
   if (req.method === "PUT" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
     const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
     try {
@@ -318,16 +339,18 @@ const server = createServer(async (req, res) => {
       });
       const payload = JSON.parse(body);
       const content = payload.content;
+      const kind = payload.kind || "input-prompt";
       if (!content || !skillId) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Missing content or skillId" }));
         return;
       }
-      const skillDir = join(SKILLS_ROOT, skillId);
+      const baseRoot = kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : INPUT_PROMPT_ROOT;
+      const skillDir = join(baseRoot, skillId);
       await mkdir(skillDir, { recursive: true });
       await writeFile(join(skillDir, "SKILL.md"), content, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, id: skillId }));
+      res.end(JSON.stringify({ ok: true, id: skillId, kind }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -335,14 +358,21 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // DELETE /api/skills/:id — delete a skill
+  // DELETE /api/skills/:id — delete a skill (searches both dirs)
   if (req.method === "DELETE" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
     const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
     try {
-      const skillDir = join(SKILLS_ROOT, skillId);
-      await rm(skillDir, { recursive: true, force: true });
+      const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT];
+      let deleted = false;
+      for (const root of roots) {
+        const skillDir = join(root, skillId);
+        try {
+          await rm(skillDir, { recursive: true, force: true });
+          deleted = true;
+        } catch { /* not in this root */ }
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
+      res.end(JSON.stringify({ ok: true, deleted }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

@@ -193,7 +193,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                         {allSkills.length === 0 ? (
                             <div className="text-center text-sm py-6 rounded-xl border-2 border-dashed" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                                 <div className="text-stone-400 mb-1">共享技能池中沒有技能</div>
-                                <div className="text-xs text-stone-400">請先在 skills/ 目錄建立 SKILL.md</div>
+                                <div className="text-xs text-stone-400">請先在 skills/input-prompt/ 目錄建立 SKILL.md</div>
                             </div>
                         ) : (
                             <div className="flex flex-wrap gap-2">
