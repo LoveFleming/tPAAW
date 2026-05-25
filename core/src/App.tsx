@@ -28,126 +28,6 @@ try {
   }
 } catch {}
 
-// ── File Explorer for Working Base Selection ──
-function WorkingBaseExplorer({ initialPath, onSelect, onClose, theme: t }: {
-  initialPath?: string;
-  onSelect: (path: string) => void;
-  onClose: () => void;
-  theme: ReturnType<typeof useTheme>["info"];
-}) {
-  const [currentPath, setCurrentPath] = useState(initialPath || (process.env.HOME || "/"));
-  const [dirs, setDirs] = useState<Array<{ name: string; path: string }>>([]);
-  const [loading, setLoading] = useState(false);
-  const [manualPath, setManualPath] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const browse = useCallback((path: string) => {
-    setLoading(true);
-    fetch(`http://127.0.0.1:4097/api/fs/browse?path=${encodeURIComponent(path)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setCurrentPath(data.currentPath);
-        setDirs(data.directories || []);
-      })
-      .catch(() => setDirs([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { browse(currentPath); }, []);
-
-  const navigateTo = (path: string) => browse(path);
-  const goUp = () => {
-    const parts = currentPath.replace(/\/$/, "").split("/");
-    if (parts.length > 1) {
-      parts.pop();
-      browse(parts.join("/") || "/");
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border flex flex-col max-h-[80vh]"
-        style={{ borderColor: t.accentBorder }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
-          <h3 className="text-base font-bold flex items-center gap-2" style={{ color: t.accentText }}>📂 Select Working Base</h3>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-lg leading-none cursor-pointer">✕</button>
-        </div>
-
-        {/* Path bar */}
-        <div className="px-4 py-2 border-b flex items-center gap-2 shrink-0" style={{ borderColor: t.accentBorder + "60" }}>
-          <button onClick={goUp} className="px-2 py-1 rounded-lg border text-xs font-medium transition-colors" style={{ borderColor: t.accentBorder, color: t.accent }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentBg; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = ""; }}
-          >↑ 上層</button>
-          <div className="flex-1 text-xs font-mono text-stone-500 truncate px-2 py-1 bg-stone-50 rounded">{currentPath}</div>
-        </div>
-
-        {/* Directory list */}
-        <div className="flex-1 overflow-y-auto min-h-[200px]" style={{ scrollbarWidth: "thin" }}>
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-stone-400 text-sm">
-              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading...
-            </div>
-          ) : dirs.length === 0 ? (
-            <div className="text-center py-12 text-stone-400 text-sm">沒有子目錄</div>
-          ) : (
-            <div className="py-1">
-              {dirs.map(d => (
-                <button
-                  key={d.path}
-                  className="w-full text-left px-4 py-2 text-sm flex items-center gap-2.5 transition-colors hover:bg-stone-50"
-                  onClick={() => navigateTo(d.path)}
-                  onDoubleClick={() => onSelect(d.path)}
-                >
-                  <span className="text-base">📁</span>
-                  <span className="text-stone-700 truncate">{d.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="px-4 py-3 border-t flex items-center gap-2 shrink-0" style={{ borderColor: t.accentBorder + "60" }}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={manualPath}
-            onChange={e => setManualPath(e.target.value)}
-            placeholder="或直接輸入路徑..."
-            className="flex-1 px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 font-mono"
-            style={{ borderColor: t.accentBorder }}
-            onKeyDown={e => {
-              if (e.key === "Enter" && manualPath.trim()) {
-                browse(manualPath.trim());
-                setManualPath("");
-              }
-            }}
-          />
-          <button
-            onClick={() => onSelect(currentPath)}
-            className="px-4 py-1.5 text-sm font-bold text-white rounded-lg transition-colors"
-            style={{ backgroundColor: t.accent }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}
-          >
-            選擇此目錄
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AppInner() {
   const STORAGE_FACTORY_KEY = "aioc.factory";
   const [showFactoryEntry, setShowFactoryEntry] = useState(false);
@@ -329,8 +209,6 @@ function AppInner() {
   const { info: themeInfo, theme, setTheme } = useTheme();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
-  const [workingBaseModalOpen, setWorkingBaseModalOpen] = useState(false);
-
   const handlePickWorkingBase = useCallback(async () => {
     try {
       const resp = await fetch("http://127.0.0.1:4097/api/pick-directory");
@@ -338,12 +216,9 @@ function AppInner() {
         const data = await resp.json();
         if (data.path) {
           handleSelectProject(data.path);
-          return;
         }
       }
     } catch {}
-    // Fallback: show manual input modal
-    setWorkingBaseModalOpen(true);
   }, []);
 
   const recentProjects = useMemo(() => {
@@ -720,14 +595,6 @@ function AppInner() {
       </div>
 
       {/* Working Base Selection Modal — File Explorer */}
-      {workingBaseModalOpen && (
-        <WorkingBaseExplorer
-          initialPath={projectRoot || undefined}
-          onSelect={(path) => { handleSelectProject(path); setWorkingBaseModalOpen(false); }}
-          onClose={() => setWorkingBaseModalOpen(false)}
-          theme={themeInfo}
-        />
-      )}
     </div>
   );
 }
