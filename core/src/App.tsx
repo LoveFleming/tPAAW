@@ -326,9 +326,14 @@ function AppInner() {
     if (pageId.startsWith("employee.")) {
       const employeeId = pageId.split("#")[0].slice(9);
       const tabCrew = crewByFactoryRef.current[tabFactoryId] ?? crew;
+      // Use THIS factory's projectRoot, not the global one
+      // (global projectRoot changes when switching factories, which would reset the employee)
+      const tabProjectRoot = factoryStateRef.current[tabFactoryId]?.projectRoot
+        ?? localStorage.getItem(`aioc.project.${tabFactoryId}`)
+        ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={projectRoot || undefined} crew={tabCrew} factoryId={tabFactoryId} />
+          <EmployeeWorkspaceV2Lazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} factoryId={tabFactoryId} />
         </React.Suspense>
       );
     }
