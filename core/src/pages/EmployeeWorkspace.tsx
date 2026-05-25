@@ -27,7 +27,6 @@ interface Props {
 }
 
 export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewProp, factoryId = "default" }: Props & { factoryId?: string }) {
-    console.log(`[EmployeeWorkspace] render: employeeId=${employeeId}, projectRoot=${projectRoot}, factoryId=${factoryId}, crewCount=${crewProp?.length}`);
     // Use crew from props (API-fetched) to avoid HMR reset when crew JSON files change
     const [apiEmployee, setApiEmployee] = useState<Crew | null>(null);
     const propEmployee = crewProp?.find((s) => s.id === employeeId) || null;
@@ -139,7 +138,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         if (!employee) return;
         // Only reset state when switching to a DIFFERENT employee
         const changed = prevEmployeeIdRef.current !== employeeId;
-        console.log(`[EmployeeWorkspace] reset-guard effect: employeeId=${employeeId}, prev=${prevEmployeeIdRef.current}, changed=${changed}, employee=${!!employee}`);
+        console.log(`[EmployeeWorkspace] reset-guard effect: employeeId=${employeeId}, prev=${prevEmployeeIdRef.current}, changed=${changed}`);
         prevEmployeeIdRef.current = employeeId;
         if (changed) {
             console.log(`[EmployeeWorkspace] RESETTING chatStarted=false (employeeId changed)`);
@@ -149,7 +148,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
             setChatStarted(false);
             setFormData({});
         }
-    }, [employee, employeeId]);
+    }, [employeeId]); // ← ONLY employeeId, not employee object
 
     const projectPathHash = useMemo(() => {
         if (!projectRoot) return "_default";
@@ -158,35 +157,35 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     }, [projectRoot]);
 
     const loadConversations = useCallback(() => {
-        if (!employee) return;
+        if (!employeeId) return;
         const params = new URLSearchParams({ root: projectRoot || "" });
-        fetch(`http://127.0.0.1:4097/api/conversations/${employee.id}?${params}`)
+        fetch(`http://127.0.0.1:4097/api/conversations/${employeeId}?${params}`)
             .then(r => r.json())
             .then(data => setConversations(data.conversations || data || []))
             .catch(() => {});
-    }, [employee, projectRoot]);
+    }, [employeeId, projectRoot]);
 
     useEffect(() => { loadConversations(); }, [loadConversations]);
 
     const loadSavedInputs = useCallback(() => {
-        if (!employee) return;
+        if (!employeeId) return;
         const params = new URLSearchParams({ root: projectRoot || "" });
-        fetch(`http://127.0.0.1:4097/api/saved-inputs/${employee.id}?${params}`)
+        fetch(`http://127.0.0.1:4097/api/saved-inputs/${employeeId}?${params}`)
             .then(r => r.json())
             .then(data => setSavedInputs(data.inputs || []))
             .catch(() => {});
-    }, [employee, projectRoot]);
+    }, [employeeId, projectRoot]);
 
     useEffect(() => { loadSavedInputs(); }, [loadSavedInputs]);
 
     const loadWorkLog = useCallback(() => {
-        if (!employee) return;
+        if (!employeeId) return;
         const params = new URLSearchParams({ root: projectRoot || "" });
-        fetch(`http://127.0.0.1:4097/api/work-log/${employee.id}?${params}`)
+        fetch(`http://127.0.0.1:4097/api/work-log/${employeeId}?${params}`)
             .then(r => r.json())
             .then(data => setWorkLog(data.entries || []))
             .catch(() => {});
-    }, [employee, projectRoot]);
+    }, [employeeId, projectRoot]);
 
     useEffect(() => { loadWorkLog(); }, [loadWorkLog]);
 
