@@ -139,9 +139,9 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current factory state (including openTabs filtered to this factory)
+    // Save current factory state
     const currentFactoryTabs = openTabs.filter(t => {
-      if (t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file.")) return false; // shared
+      if (t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file.")) return false;
       const colonIdx = t.indexOf(":");
       return colonIdx !== -1 && t.slice(0, colonIdx) === selectedFactoryId;
     });
@@ -152,23 +152,15 @@ function AppInner() {
     };
     // Restore target factory state
     const saved = factoryStateRef.current[factoryId];
-    // Merge: shared tabs + other factory tabs (keep them mounted!) + restored factory tabs
-    const sharedTabs = openTabs.filter(t => t === "factory.crew" || t === "factory.skills" || t.startsWith("factory.file."));
-    const otherFactoryTabs = openTabs.filter(t => {
-      if (sharedTabs.includes(t)) return false;
-      const colonIdx = t.indexOf(":");
-      if (colonIdx === -1) return false;
-      return t.slice(0, colonIdx) !== selectedFactoryId; // keep tabs from other factories
-    });
+    // Keep ALL existing tabs mounted (shared + all factory employee tabs)
     const restoredTabs = saved?.openTabs ?? [];
-    const merged = [...sharedTabs, ...otherFactoryTabs, ...restoredTabs];
-    // Remove duplicates while preserving order
+    const merged = [...openTabs, ...restoredTabs];
+    // Remove duplicates
     const seen = new Set<string>();
     const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
-    // Ensure factory.crew always present
     if (!unique.includes("factory.crew")) unique.unshift("factory.crew");
     setOpenTabs(unique);
-    // Restore activePage
+    // Switch activePage to target factory
     if (saved?.activePage && unique.includes(saved.activePage)) {
       setActivePage(saved.activePage);
     } else {
