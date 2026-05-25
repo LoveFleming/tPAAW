@@ -1,4 +1,5 @@
 import Icon from "./components/Icon";
+import DirectoryExplorer from "./components/DirectoryExplorer";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import FactoryEntryPage from "./pages/FactoryEntryPage";
@@ -218,16 +219,14 @@ function AppInner() {
   const { info: themeInfo, theme, setTheme } = useTheme();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
-  const handlePickWorkingBase = useCallback(async () => {
-    try {
-      const resp = await fetch("http://127.0.0.1:4097/api/pick-directory");
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.path) {
-          handleSelectProject(data.path);
-        }
-      }
-    } catch {}
+  const [showDirExplorer, setShowDirExplorer] = useState(false);
+  const handlePickWorkingBase = useCallback(() => {
+    setShowDirExplorer(true);
+  }, []);
+
+  const handleDirSelect = useCallback((path: string) => {
+    handleSelectProject(path);
+    setShowDirExplorer(false);
   }, []);
 
   const recentProjects = useMemo(() => {
@@ -603,7 +602,15 @@ function AppInner() {
         </main>
       </div>
 
-      {/* Working Base Selection Modal — File Explorer */}
+      {/* Working Base Selection — Directory Explorer */}
+      {showDirExplorer && (
+        <DirectoryExplorer
+          initialPath={projectRoot || undefined}
+          onSelect={handleDirSelect}
+          onClose={() => setShowDirExplorer(false)}
+          title="📂 選擇 Working Base"
+        />
+      )}
     </div>
   );
 }

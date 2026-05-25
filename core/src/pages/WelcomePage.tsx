@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "../utils";
 import Icon from "../components/Icon";
+import DirectoryExplorer from "../components/DirectoryExplorer";
 import { pathBasename } from "../utils";
 
 const STORAGE_KEY = "aioc.project";
@@ -12,136 +13,7 @@ interface RecentProject {
   lastOpened: string;
 }
 
-interface DirEntry {
-  name: string;
-  path: string;
-}
 
-interface BrowseResult {
-  currentPath: string;
-  parent: string | null;
-  directories: DirEntry[];
-}
-
-// ── Web-based Folder Browser Modal ──
-function FolderBrowserModal({
-  onClose,
-  onSelect,
-}: {
-  onClose: () => void;
-  onSelect: (path: string) => void;
-}) {
-  const [currentPath, setCurrentPath] = useState("/");
-  const [manualPath, setManualPath] = useState("");
-  const [dirs, setDirs] = useState<DirEntry[]>([]);
-  const [parent, setParent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const browse = useCallback(async (path: string) => {
-    setLoading(true);
-    setError("");
-    try {
-      const resp = await fetch(`${API_BASE}/api/fs/browse?path=${encodeURIComponent(path)}`);
-      if (!resp.ok) throw new Error("Failed to browse");
-      const data: BrowseResult = await resp.json();
-      setCurrentPath(data.currentPath);
-      setManualPath(data.currentPath);
-      setDirs(data.directories);
-      setParent(data.parent);
-    } catch {
-      setError("無法讀取此目錄");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { browse(currentPath); }, [browse, currentPath]);
-
-  // Home directory shortcut
-  const goHome = () => {
-    // Try common home paths
-    const home = "/home";
-    browse(home);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="bg-stone-900 border border-white/10 rounded-2xl w-full max-w-xl mx-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-          <h3 className="text-white font-semibold text-sm flex items-center gap-2"><Icon name="folder" size={16} /> 選擇資料夾</h3>
-          <button onClick={onClose} className="text-stone-500 hover:text-white transition-colors text-lg">✕</button>
-        </div>
-
-        {/* Path bar */}
-        <div className="px-5 py-3 border-b border-white/5">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={manualPath}
-              onChange={(e) => setManualPath(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") browse(manualPath); }}
-              className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-xs font-mono focus:outline-none focus:border-orange-400"
-              placeholder="/path/to/directory"
-            />
-            <button
-              onClick={() => browse(manualPath)}
-              className="px-3 py-2 text-xs border border-white/10 rounded-lg text-stone-300 hover:bg-white/5 hover:text-white transition-all"
-            >Go</button>
-          </div>
-          {/* Quick nav */}
-          <div className="flex gap-2 mt-2">
-            {parent && (
-              <button onClick={() => browse(parent)} className="text-xs text-stone-400 hover:text-orange-400 transition-colors flex items-center gap-1"><Icon name="expand" size={10} /> 上層</button>
-            )}
-            <button onClick={goHome} className="text-xs text-stone-400 hover:text-orange-400 transition-colors">🏠 Home</button>
-            <button onClick={() => browse("/")} className="text-xs text-stone-400 hover:text-orange-400 transition-colors flex items-center gap-1"><Icon name="folder" size={10} /> Root</button>
-          </div>
-        </div>
-
-        {/* Directory listing */}
-        <div className="max-h-72 overflow-y-auto px-2 py-2">
-          {loading ? (
-            <div className="text-center text-stone-500 text-sm py-8">讀取中...</div>
-          ) : error ? (
-            <div className="text-center text-red-400 text-sm py-8">{error}</div>
-          ) : dirs.length === 0 ? (
-            <div className="text-center text-stone-500 text-sm py-8">此目錄下沒有子資料夾</div>
-          ) : (
-            dirs.map((d) => (
-              <button
-                key={d.path}
-                onClick={() => browse(d.path)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-white/5 rounded-lg transition-colors group"
-              >
-                <span className="text-stone-500 group-hover:text-orange-400 transition-colors"><Icon name="folder" size={14} /></span>
-                <span className="text-sm text-stone-300 group-hover:text-white transition-colors truncate">{d.name}</span>
-              </button>
-            ))
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-white/10">
-          <span className="text-xs text-stone-500 font-mono truncate max-w-[60%]" title={currentPath}>{currentPath}</span>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-xs text-stone-400 hover:text-white transition-colors">取消</button>
-            <button
-              onClick={() => onSelect(currentPath)}
-              className="px-4 py-2 text-xs bg-gradient-to-r from-orange-500 to-amber-500 text-white font-medium rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all"
-            >
-              選擇此資料夾
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function getRecentProjects(): RecentProject[] {
   try {
@@ -181,24 +53,8 @@ export default function WelcomePage({ onSelect }: Props) {
 
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
 
-  const handleNativeFolderPicker = async () => {
-    try {
-      // Ask the server to open a native folder dialog
-      const resp = await fetch(`${API_BASE}/api/fs/pick-folder`);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.path) {
-          setInputPath(data.path);
-          handleSelect(data.path);
-          return;
-        }
-      }
-      // Native picker returned no path (cancelled or unavailable) → show web browser
-      setShowFolderBrowser(true);
-    } catch {
-      // Native picker failed → show web-based folder browser
-      setShowFolderBrowser(true);
-    }
+  const handleNativeFolderPicker = () => {
+    setShowFolderBrowser(true);
   };
 
   const handleFolderSelect = (path: string) => {
@@ -255,11 +111,12 @@ export default function WelcomePage({ onSelect }: Props) {
           {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
         </div>
 
-        {/* Web-based Folder Browser Modal */}
+        {/* Directory Explorer */}
         {showFolderBrowser && (
-          <FolderBrowserModal
-            onClose={() => setShowFolderBrowser(false)}
+          <DirectoryExplorer
             onSelect={handleFolderSelect}
+            onClose={() => setShowFolderBrowser(false)}
+            title="📂 選擇專案目錄"
           />
         )}
 
