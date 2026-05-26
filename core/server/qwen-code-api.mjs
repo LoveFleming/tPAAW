@@ -520,6 +520,19 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       };
       await scanDir(join(skillsDir, "input-prompt"), "input-prompt");
       await scanDir(join(skillsDir, "physical-skill"), "physical-skill");
+      // Also scan skills/training/ directory
+      try {
+        const trainingDir = join(skillsDir, "training");
+        const tStat = await import("fs/promises").then(m => m.stat(trainingDir));
+        if (tStat.isDirectory()) {
+          const tEntries = await readdir(trainingDir);
+          for (const f of tEntries) {
+            if (/.md$/i.test(f)) {
+              results.push({ name: "training/" + f, path: join(trainingDir, f) });
+            }
+          }
+        }
+      } catch { /* training dir optional */ }
       // Also check skills root
       try {
         const rootEntries = await readdir(skillsDir);
