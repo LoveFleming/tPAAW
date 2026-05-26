@@ -179,9 +179,7 @@ const server = createServer(async (req, res) => {
 
   // Helper: parse YAML frontmatter from SKILL.md (simple parser for arrays/objects)
   function parseSkillFrontmatter(raw) {
-    const fmMatch = raw.match(/^---?
-([\s\S]*?)?
----/);
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     if (!fmMatch) return { body: raw };
     const body = raw.slice(fmMatch[0].length).trim();
     const fm = fmMatch[1];
