@@ -17,9 +17,15 @@ interface TerminalConsoleProps {
     onExit?: (code: number) => void;
 }
 
+/** Imperative handle exposed via ref */
+export interface TerminalConsoleHandle {
+    /** Send text to the PTY as if the user typed it (adds Enter) */
+    sendPrompt: (text: string) => void;
+}
+
 const WS_PORT = 4098;
 
-export default function TerminalConsole({
+const TerminalConsoleInner = React.forwardRef<TerminalConsoleHandle, TerminalConsoleProps>(function TerminalConsoleInner({
     cwd,
     cli = "qwen",
     model,
@@ -29,7 +35,7 @@ export default function TerminalConsole({
     restartTrigger,
     onReady,
     onExit,
-}: TerminalConsoleProps) {
+}: TerminalConsoleProps, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [connected, setConnected] = useState(false);
     const [ready, setReady] = useState(false);
@@ -73,6 +79,24 @@ export default function TerminalConsole({
             wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));
         }
     }, []);
+
+    // Expose sendPrompt to parent via ref
+    React.useImperativeHandle(ref, () => ({
+        sendPrompt: (text: string) => {
+            if (!text.trim()) return;
+            if (text.includes("\n")) {
+                const term = termRef.current;
+                if (term) term.paste(text);
+                setTimeout(() => {
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                        wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
+                    }
+                }, 150);
+            } else {
+                sendInput(text);
+            }
+        },
+    }), [sendInput]);
 
     // ── Init terminal + WebSocket (mount once) ──
     useEffect(() => {
@@ -377,4 +401,6 @@ export default function TerminalConsole({
             </div>
         </div>
     );
-}
+});
+
+export default TerminalConsoleInner;

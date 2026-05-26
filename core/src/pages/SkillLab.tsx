@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
-import TerminalConsole from "../components/TerminalConsole";
+import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
 
 // ── Types ──
 interface TrainingFile {
@@ -144,7 +144,6 @@ export default function SkillLab() {
     // Terminal state
     const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
     const [chatStarted, setChatStarted] = useState(false);
-    const [restartTrigger, setRestartTrigger] = useState(0);
     const [sendingTrain, setSendingTrain] = useState(false);
     const [sendingTest, setSendingTest] = useState(false);
 
@@ -252,28 +251,33 @@ export default function SkillLab() {
         } catch { /* ignore */ }
     };
 
+    // ── Terminal ref for sending prompts without restart ──
+    const terminalRef = useRef<TerminalConsoleHandle>(null);
+
     // ── Send to CLI ──
     const sendToTerminal = useCallback((prompt: string) => {
         if (!prompt.trim()) return;
-        setInitialPrompt(prompt);
-        if (chatStarted) {
-            setRestartTrigger(prev => prev + 1);
-        } else {
+        if (!chatStarted) {
+            // First time: start terminal with initialPrompt
+            setInitialPrompt(prompt);
             setChatStarted(true);
             setConsoleKey(prev => prev + 1);
+        } else {
+            // Already running: just send text to existing PTY
+            terminalRef.current?.sendPrompt(prompt);
         }
     }, [chatStarted]);
 
     const handleTrain = () => {
         setSendingTrain(true);
         sendToTerminal(trainingPrompt);
-        setTimeout(() => setSendingTrain(false), 800);
+        setTimeout(() => setSendingTrain(false), 300);
     };
 
     const handleTest = () => {
         setSendingTest(true);
         sendToTerminal(testPrompt);
-        setTimeout(() => setSendingTest(false), 800);
+        setTimeout(() => setSendingTest(false), 300);
     };
 
     return (
@@ -421,12 +425,12 @@ export default function SkillLab() {
                         </div>
                     ) : (
                         <TerminalConsole
+                            ref={terminalRef}
                             key={`skilllab-${consoleKey}`}
                             cwd={workingDir || undefined}
                             cli={cli}
                             approvalMode="yolo"
                             initialPrompt={initialPrompt}
-                            restartTrigger={restartTrigger}
                         />
                     )}
                 </div>
