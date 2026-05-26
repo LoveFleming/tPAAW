@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import TerminalConsole from "../components/TerminalConsole";
 
@@ -14,31 +14,34 @@ const LS_KEY_TRAINING_FILE = "skilllab.trainingFile";
 const LS_KEY_TRAINING_PROMPT = "skilllab.trainingPrompt";
 const LS_KEY_TEST_PROMPT = "skilllab.testPrompt";
 
-// ── Auto-save textarea with debounce ──
-function AutoSaveEditor({
+// ── Prompt Editor with auto-save + send button ──
+function PromptEditor({
     label,
+    emoji,
     value,
     onChange,
     placeholder,
     storageKey,
-    rows = 10,
+    sendLabel,
+    sendColor,
+    onSend,
+    sending,
 }: {
     label: string;
+    emoji: string;
     value: string;
     onChange: (v: string) => void;
     placeholder: string;
     storageKey: string;
-    rows?: number;
+    sendLabel: string;
+    sendColor: string;
+    onSend: () => void;
+    sending?: boolean;
 }) {
     const [draft, setDraft] = useState(value);
     const timerRef = useRef<ReturnType<typeof setTimeout>>();
-    const savedRef = useRef(false);
 
-    // Sync external value changes (e.g., loaded from file)
-    useEffect(() => {
-        if (!savedRef.current) setDraft(value);
-        savedRef.current = false;
-    }, [value]);
+    useEffect(() => { setDraft(value); }, [value]);
 
     const handleChange = (v: string) => {
         setDraft(v);
@@ -49,19 +52,41 @@ function AutoSaveEditor({
         }, 500);
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            onSend();
+        }
+    };
+
     return (
         <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex items-center justify-between px-3 py-1.5 border-b" style={{ borderColor: "#e7e5e4" }}>
-                <span className="text-xs font-semibold text-stone-600">{label}</span>
-                <span className="text-[10px] text-stone-400">{draft.length} 字</span>
+            <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
+                <span className="text-xs font-semibold text-stone-600">{emoji} {label}</span>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-stone-400">{draft.length} 字</span>
+                    <button
+                        onClick={onSend}
+                        disabled={sending || !draft.trim()}
+                        className={cn(
+                            "px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
+                            draft.trim() && !sending
+                                ? "text-white hover:opacity-90 shadow-sm"
+                                : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                        )}
+                        style={{ backgroundColor: draft.trim() && !sending ? sendColor : undefined }}
+                    >
+                        {sending ? "⏳" : "▶"} {sendLabel}
+                    </button>
+                </div>
             </div>
             <textarea
                 value={draft}
                 onChange={e => handleChange(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder={placeholder}
-                rows={rows}
                 className="flex-1 w-full px-3 py-2 text-sm font-mono resize-none focus:outline-none border-0"
-                style={{ minHeight: 120, lineHeight: 1.6 }}
+                style={{ minHeight: 80, lineHeight: 1.6 }}
                 spellCheck={false}
             />
         </div>
@@ -77,19 +102,30 @@ export default function SkillLab() {
     const [fileContent, setFileContent] = useState<string>("");
     const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
     const [consoleKey, setConsoleKey] = useState(0);
-    const [mode, setMode] = useState<"train" | "test">("train");
     const [workingDir, setWorkingDir] = useState<string>("");
     const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "dirty">("saved");
 
-    // Load training files list
-    useEffect(() => {
+    // New file dialog
+    const [showNewFileDialog, setShowNewFileDialog] = useState(false);
+    const [newFileName, setNewFileName] = useState("");
+
+    // Terminal state
+    const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
+    const [chatStarted, setChatStarted] = useState(false);
+    const [restartTrigger, setRestartTrigger] = useState(0);
+    const [sendingTrain, setSendingTrain] = useState(false);
+    const [sendingTest, setSendingTest] = useState(false);
+
+    // ── Data loading ──
+    const loadTrainingFiles = useCallback(() => {
         fetch(`${API_BASE}/api/skill-lab/training-files`)
             .then(r => r.ok ? r.json() : [])
             .then((files: TrainingFile[]) => setTrainingFiles(files))
             .catch(() => {});
     }, []);
 
-    // Load working directory
+    useEffect(() => { loadTrainingFiles(); }, [loadTrainingFiles]);
+
     useEffect(() => {
         fetch(`${API_BASE}/api/aioc-root`)
             .then(r => r.ok ? r.json() : {})
@@ -97,21 +133,16 @@ export default function SkillLab() {
             .catch(() => {});
     }, []);
 
-    // Restore last selected file
     useEffect(() => {
         const saved = localStorage.getItem(LS_KEY_TRAINING_FILE);
-        if (saved) {
-            setSelectedFile(saved);
-            loadFileContent(saved);
-        }
+        if (saved) { setSelectedFile(saved); loadFileContent(saved); }
     }, []);
 
     const loadFileContent = useCallback((path: string) => {
         fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(path)}`)
             .then(r => r.ok ? r.json() : null)
             .then((data: { content?: string } | null) => {
-                if (data?.content) setFileContent(data.content);
-                else setFileContent("");
+                setFileContent(data?.content || "");
             })
             .catch(() => setFileContent(""));
     }, []);
@@ -122,7 +153,28 @@ export default function SkillLab() {
         loadFileContent(path);
     };
 
-    // Save file content back to disk
+    // ── Create new training file ──
+    const handleCreateFile = async () => {
+        const name = newFileName.trim();
+        if (!name) return;
+        const fileName = name.endsWith(".md") ? name : `${name}.md`;
+        // Create in skills/training/ directory
+        const aiocRoot = workingDir || ".";
+        const fullPath = `${aiocRoot}/skills/training/${fileName}`;
+        try {
+            await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content: `# Training: ${name}\n\n## 訓練 Prompt\n\n\n\n## 測試 Prompt\n\n` }),
+            });
+            setShowNewFileDialog(false);
+            setNewFileName("");
+            loadTrainingFiles();
+            handleSelectFile(fullPath);
+        } catch { /* ignore */ }
+    };
+
+    // ── File auto-save ──
     const saveFile = useCallback(async (content: string) => {
         if (!selectedFile) return;
         setSaveStatus("saving");
@@ -133,12 +185,9 @@ export default function SkillLab() {
                 body: JSON.stringify({ content }),
             });
             setSaveStatus("saved");
-        } catch {
-            setSaveStatus("dirty");
-        }
+        } catch { setSaveStatus("dirty"); }
     }, [selectedFile]);
 
-    // Auto-save file content with debounce
     const fileSaveTimer = useRef<ReturnType<typeof setTimeout>>();
     const handleFileEdit = useCallback((newContent: string) => {
         setFileContent(newContent);
@@ -147,84 +196,96 @@ export default function SkillLab() {
         fileSaveTimer.current = setTimeout(() => saveFile(newContent), 1000);
     }, [saveFile]);
 
-    // Build the combined prompt to send to CLI
-    const buildPrompt = useCallback(() => {
-        if (mode === "train") {
-            return [
-                trainingPrompt || "# Training Prompt\n(尚未設定訓練 prompt)",
-                "",
-                "---",
-                "# Training Skill File",
-                selectedFile ? `File: ${selectedFile}` : "(尚未選擇檔案)",
-                "",
-                fileContent || "(空的)",
-            ].join("\n");
-        } else {
-            return [
-                testPrompt || "# Test Prompt\n(尚未設定測試 prompt)",
-                "",
-                "---",
-                "# Current Skill Content",
-                fileContent || "(空的)",
-            ].join("\n");
-        }
-    }, [mode, trainingPrompt, testPrompt, selectedFile, fileContent]);
+    // ── Send to CLI ──
+    const buildTrainPrompt = useCallback(() => {
+        return [
+            trainingPrompt || "(尚未設定訓練 prompt)",
+            "",
+            "---",
+            "# Training Skill File",
+            selectedFile ? `File: ${selectedFile}` : "(尚未選擇檔案)",
+            "",
+            fileContent || "(空的)",
+        ].join("\n");
+    }, [trainingPrompt, selectedFile, fileContent]);
 
-    // Send to CLI
-    const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
-    const [chatStarted, setChatStarted] = useState(false);
-    const [restartTrigger, setRestartTrigger] = useState(0);
+    const buildTestPrompt = useCallback(() => {
+        return [
+            testPrompt || "(尚未設定測試 prompt)",
+            "",
+            "---",
+            "# Current Skill Content",
+            fileContent || "(空的)",
+        ].join("\n");
+    }, [testPrompt, fileContent]);
 
-    const handleSend = () => {
-        const prompt = buildPrompt();
+    const sendToTerminal = useCallback((prompt: string) => {
+        if (!prompt.trim()) return;
         setInitialPrompt(prompt);
-        setChatStarted(true);
-        setConsoleKey(prev => prev + 1);
+        if (chatStarted) {
+            setRestartTrigger(prev => prev + 1);
+        } else {
+            setChatStarted(true);
+            setConsoleKey(prev => prev + 1);
+        }
+    }, [chatStarted]);
+
+    const handleTrain = () => {
+        setSendingTrain(true);
+        sendToTerminal(buildTrainPrompt());
+        setTimeout(() => setSendingTrain(false), 800);
     };
 
-    const handleResend = () => {
-        const prompt = buildPrompt();
-        setInitialPrompt(prompt);
-        setRestartTrigger(prev => prev + 1);
+    const handleTest = () => {
+        setSendingTest(true);
+        sendToTerminal(buildTestPrompt());
+        setTimeout(() => setSendingTest(false), 800);
     };
 
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: "#fafaf9" }}>
             {/* ── Header ── */}
-            <div className="shrink-0 px-4 py-2 border-b flex items-center gap-4" style={{ borderColor: "#e7e5e4" }}>
+            <div className="shrink-0 px-4 py-2 border-b flex items-center gap-3" style={{ borderColor: "#e7e5e4" }}>
                 <div className="flex items-center gap-2">
                     <span className="text-lg">🧪</span>
                     <h2 className="text-sm font-bold text-stone-800">Skill Lab</h2>
                 </div>
 
-                {/* Training file selector */}
-                <div className="flex items-center gap-2 ml-4">
-                    <label className="text-[11px] font-medium text-stone-500">Training File:</label>
+                {/* Training file selector + new button */}
+                <div className="flex items-center gap-1.5">
                     <select
                         value={selectedFile}
                         onChange={e => handleSelectFile(e.target.value)}
                         className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-200"
-                        style={{ minWidth: 200 }}
+                        style={{ minWidth: 220 }}
                     >
-                        <option value="">-- 選擇 Training Skill File --</option>
+                        <option value="">-- 選擇 Training File --</option>
                         {trainingFiles.map(f => (
-                            <option key={f.path} value={f.path}>
-                                {f.name}
-                            </option>
+                            <option key={f.path} value={f.path}>{f.name}</option>
                         ))}
                     </select>
+
+                    {/* New file button */}
+                    <button
+                        onClick={() => { setShowNewFileDialog(true); setNewFileName(""); }}
+                        className="px-2 py-1 text-xs font-medium rounded-lg border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-colors"
+                        title="新增 Training File"
+                    >
+                        ＋New
+                    </button>
+
                     {selectedFile && (
-                        <span className="text-[10px] text-stone-400" title={selectedFile}>
+                        <span className="text-[10px] text-stone-400 max-w-[120px] truncate" title={selectedFile}>
                             {selectedFile.split(/[/\\]/).pop()}
                         </span>
                     )}
-                    {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾 saving...</span>}
-                    {saveStatus === "saved" && <span className="text-[10px] text-green-500">✓ saved</span>}
-                    {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">● unsaved</span>}
+                    {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
+                    {saveStatus === "saved" && <span className="text-[10px] text-green-500">✓</span>}
+                    {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
                 </div>
 
                 {/* CLI selector */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                     <label className="text-[11px] font-medium text-stone-500">CLI:</label>
                     <select
                         value={cli}
@@ -237,67 +298,62 @@ export default function SkillLab() {
                     </select>
                 </div>
 
-                {/* Mode toggle */}
-                <div className="flex rounded-lg overflow-hidden border border-stone-200">
+                {/* Reset terminal */}
+                {chatStarted && (
                     <button
-                        onClick={() => setMode("train")}
-                        className={cn("px-3 py-1 text-xs font-medium transition-colors", mode === "train" ? "bg-blue-600 text-white" : "bg-white text-stone-600 hover:bg-stone-50")}
+                        onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(prev => prev + 1); }}
+                        className="ml-auto px-2.5 py-1 text-[11px] font-medium rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50"
                     >
-                        🎓 Train
+                        ✕ Reset Terminal
                     </button>
-                    <button
-                        onClick={() => setMode("test")}
-                        className={cn("px-3 py-1 text-xs font-medium transition-colors", mode === "test" ? "bg-emerald-600 text-white" : "bg-white text-stone-600 hover:bg-stone-50")}
-                    >
-                        🧪 Test
-                    </button>
-                </div>
+                )}
+            </div>
 
-                {/* Send buttons */}
-                <div className="flex gap-1.5 ml-auto">
-                    {!chatStarted ? (
-                        <button
-                            onClick={handleSend}
-                            disabled={!selectedFile || (!trainingPrompt && !testPrompt)}
-                            className={cn(
-                                "px-4 py-1.5 text-xs font-bold rounded-lg transition-colors",
-                                selectedFile && (trainingPrompt || testPrompt)
-                                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                                    : "bg-stone-200 text-stone-400 cursor-not-allowed"
-                            )}
-                        >
-                            ▶ 開始訓練
-                        </button>
-                    ) : (
-                        <>
+            {/* ── New File Dialog ── */}
+            {showNewFileDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowNewFileDialog(false)}>
+                    <div className="bg-white rounded-xl shadow-2xl border border-stone-200 w-96 p-5" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-sm font-bold text-stone-800 mb-3">📄 新增 Training File</h3>
+                        <p className="text-xs text-stone-500 mb-2">檔案會建立在 <code className="bg-stone-100 px-1 rounded">skills/training/</code> 目錄下</p>
+                        <input
+                            type="text"
+                            value={newFileName}
+                            onChange={e => setNewFileName(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") handleCreateFile(); }}
+                            placeholder="檔案名稱，例：train-my-skill"
+                            className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 mb-3"
+                            autoFocus
+                        />
+                        {!newFileName.endsWith(".md") && newFileName.trim() && (
+                            <p className="text-[10px] text-stone-400 mb-2">自動加上 .md 副檔名 → {newFileName.trim()}.md</p>
+                        )}
+                        <div className="flex justify-end gap-2">
                             <button
-                                onClick={handleResend}
-                                disabled={mode === "train" ? !trainingPrompt : !testPrompt}
+                                onClick={() => setShowNewFileDialog(false)}
+                                className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleCreateFile}
+                                disabled={!newFileName.trim()}
                                 className={cn(
-                                    "px-3 py-1.5 text-xs font-bold rounded-lg transition-colors",
-                                    (mode === "train" ? trainingPrompt : testPrompt)
-                                        ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                                        : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                                    "px-4 py-1.5 text-xs font-bold rounded-lg",
+                                    newFileName.trim() ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-stone-200 text-stone-400"
                                 )}
                             >
-                                🔄 {mode === "train" ? "重新訓練" : "重新測試"}
+                                建立
                             </button>
-                            <button
-                                onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(prev => prev + 1); }}
-                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
-                            >
-                                ✕ Reset
-                            </button>
-                        </>
-                    )}
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* ── Body: 3-panel layout ── */}
             <div className="flex-1 flex min-h-0 overflow-hidden">
                 {/* Left: Training Skill File Editor */}
                 <div className="flex flex-col border-r" style={{ width: "35%", borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-                    <div className="flex items-center justify-between px-3 py-1.5 border-b" style={{ borderColor: "#e7e5e4" }}>
+                    <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
                         <span className="text-xs font-semibold text-stone-600">
                             📄 {selectedFile ? selectedFile.split(/[/\\]/).pop() : "Training File"}
                         </span>
@@ -306,7 +362,7 @@ export default function SkillLab() {
                     <textarea
                         value={fileContent}
                         onChange={e => handleFileEdit(e.target.value)}
-                        placeholder={selectedFile ? "編輯 training skill file..." : "← 先選擇一個 training file"}
+                        placeholder={selectedFile ? "編輯 training skill file..." : "← 先選擇或建立一個 training file"}
                         className="flex-1 w-full px-3 py-2 text-sm font-mono resize-none focus:outline-none border-0"
                         style={{ lineHeight: 1.6 }}
                         spellCheck={false}
@@ -314,36 +370,49 @@ export default function SkillLab() {
                     />
                 </div>
 
-                {/* Middle: Prompt Editors (stacked) */}
+                {/* Middle: Prompt Editors (stacked, each with send) */}
                 <div className="flex flex-col border-r" style={{ width: "30%", borderColor: "#e7e5e4" }}>
-                    <AutoSaveEditor
-                        label="🎓 Training Prompt (送給 AI 產生/修改 skill)"
+                    <PromptEditor
+                        label="Training Prompt"
+                        emoji="🎓"
                         value={trainingPrompt}
                         onChange={setTrainingPrompt}
-                        placeholder={"輸入訓練 prompt...\n\n例：請根據以下 training file 規格，鍛造一個完整的 Skill。\n注意 userInputs 的格式要符合 YAML 規範。"}
+                        placeholder={"輸入訓練 prompt，告訴 AI 怎麼產生/修改 skill...\n\n例：請根據以下規格鍛造一個完整的 Skill。\n注意 userInputs 格式要符合 YAML 規範。\n\nCtrl+Enter 快速送出"}
                         storageKey={LS_KEY_TRAINING_PROMPT}
+                        sendLabel="Train"
+                        sendColor="#2563eb"
+                        onSend={handleTrain}
+                        sending={sendingTrain}
                     />
                     <div style={{ height: 1, backgroundColor: "#e7e5e4" }} />
-                    <AutoSaveEditor
-                        label="🧪 Test Prompt (用簡單輸入測試 skill)"
+                    <PromptEditor
+                        label="Test Prompt"
+                        emoji="🧪"
                         value={testPrompt}
                         onChange={setTestPrompt}
-                        placeholder={"輸入測試 prompt...\n\n例：用這個 skill 分析 /src/utils/index.ts 的錯誤處理是否完整。"}
+                        placeholder={"輸入測試 prompt，用簡單輸入驗證 skill...\n\n例：用這個 skill 分析 src/utils/ 的錯誤處理。\n\nCtrl+Enter 快速送出"}
                         storageKey={LS_KEY_TEST_PROMPT}
+                        sendLabel="Test"
+                        sendColor="#059669"
+                        onSend={handleTest}
+                        sending={sendingTest}
                     />
                 </div>
 
                 {/* Right: Terminal */}
                 <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
                     {!chatStarted ? (
-                        <div className="flex flex-col items-center justify-center h-full gap-3">
+                        <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
                             <span className="text-4xl">🧪</span>
-                            <p className="text-stone-400 text-sm">
-                                {selectedFile ? "設定好 prompt 後按 ▶ 開始" : "← 先選擇一個 Training File"}
+                            <p className="text-stone-400 text-sm text-center">
+                                在中間面板寫好 prompt，按 <strong>▶ Train</strong> 或 <strong>▶ Test</strong> 送出
                             </p>
-                            {trainingFiles.length === 0 && (
-                                <p className="text-stone-400 text-xs">
-                                    沒有找到 training files。在 skills/ 目錄下建立 <code className="bg-stone-200 px-1 rounded">*-training.md</code> 檔案
+                            <p className="text-stone-500 text-xs text-center">
+                                Ctrl+Enter 也可以快速送出
+                            </p>
+                            {!selectedFile && (
+                                <p className="text-stone-500 text-xs text-center">
+                                    ← 先選擇或建立一個 Training File
                                 </p>
                             )}
                         </div>
