@@ -84,16 +84,21 @@ const TerminalConsoleInner = React.forwardRef<TerminalConsoleHandle, TerminalCon
     React.useImperativeHandle(ref, () => ({
         sendPrompt: (text: string) => {
             if (!text.trim()) return;
+            const term = termRef.current;
+            if (!term || !wsRef.current?.readyState) return;
             if (text.includes("\n")) {
-                const term = termRef.current;
-                if (term) term.paste(text);
+                // Multi-line: paste then Enter after settling
+                term.paste(text);
                 setTimeout(() => {
                     if (wsRef.current?.readyState === WebSocket.OPEN) {
                         wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
                     }
-                }, 150);
+                }, 600);
             } else {
-                sendInput(text);
+                // Single-line: type + Enter
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));
+                }
             }
         },
     }), [sendInput]);
