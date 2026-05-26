@@ -22,7 +22,7 @@ AI Factory 是一套 **AI-native 的工作生產模式**，透過：
 AIOC (AI-Native Operation Center)
 │
 ├── factories/                    ← 你的 AI 工廠們
-│   ├── fabric-service/           ← 一個工廠
+│   ├── specnode-factory/         ← 一個工廠
 │   │   ├── crews/                ← AI 員工
 │   │   ├── skills/               ← 技能（最重要的資產）
 │   │   └── docs/                 ← 憲法、標準、文件

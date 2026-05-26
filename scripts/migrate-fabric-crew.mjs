@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Migrate fabric-service crew skills to new schema
+// Migrate specnode-factory crew skills to new schema
 // 1. Extract embedded skills from crew JSON → create skills/{id}/SKILL.md
 // 2. Convert crew JSON to new schema (skillIds instead of skills[])
 
@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, resolve } from "path";
 
 const AIOC_ROOT = resolve("/Users/steward/App/aieoc");
-const CREWS_DIR = join(AIOC_ROOT, "factories/fabric-service/crews");
+const CREWS_DIR = join(AIOC_ROOT, "factories/specnode-factory/crews");
 const SKILLS_DIR = join(AIOC_ROOT, "skills");
 const fs = await import("fs");
 const files = fs.readdirSync(CREWS_DIR).filter(f => f.endsWith(".json"));

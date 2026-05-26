@@ -23,7 +23,7 @@ aioc/
 │   ├── default/            ← 預設模板
 │   │   ├── crews/          ← 員工 JSON
 │   │   └── docs/           ← 工廠文件
-│   └── fabric-service/     ← 範例工廠
+│   └── specnode-factory/   ← 範例工廠
 │       ├── crews/
 │       └── docs/
 ├── skills/                 ← 共享 AI 技能（所有工廠、所有 CLI 共用）
