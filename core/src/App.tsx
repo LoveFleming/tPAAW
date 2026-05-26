@@ -27,8 +27,11 @@ function simpleHash(s: string): string {
 // Scope key = factoryId + working base hash
 function makeScopeKey(factoryId: string, projectRoot: string | null): string {
   if (!projectRoot) return `${factoryId}:_default`;
-  const dirName = projectRoot.split(/[/\\]/).pop() || "root";
-  return `${factoryId}:${dirName}_${simpleHash(projectRoot)}`;
+  // Normalize backslashes to forward slashes so Windows C:\xxx and C:/xxx
+  // always produce the same hash (stable scope key across OS path formats)
+  const normalized = projectRoot.replace(/\\/g, "/");
+  const dirName = normalized.split("/").pop() || "root";
+  return `${factoryId}:${dirName}_${simpleHash(normalized)}`;
 }
 
 // Parse tab ID into components
@@ -60,11 +63,15 @@ try {
 
 function AppInner() {
   const STORAGE_FACTORY_KEY = "aioc.factory";
+
+  /** Normalize path to forward slashes for consistent scope keys on all OS */
+  const normPath = (p: string | null): string | null => p ? p.replace(/\\/g, "/") : null;
+
   const [showFactoryEntry, setShowFactoryEntry] = useState(false);
 
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
     const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    return localStorage.getItem(`aioc.project.${lastFactory}`) || null;
+    return normPath(localStorage.getItem(`aioc.project.${lastFactory}`));
   });
   const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
@@ -74,12 +81,12 @@ function AppInner() {
   const scopeStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
   const [activePage, setActivePage] = useState<string>(() => {
     const factoryId = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    const root = localStorage.getItem(`aioc.project.${factoryId}`);
+    const root = normPath(localStorage.getItem(`aioc.project.${factoryId}`));
     return `${makeScopeKey(factoryId, root)}:crew`;
   });
   const [openTabs, setOpenTabs] = useState<string[]>(() => {
     const factoryId = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    const root = localStorage.getItem(`aioc.project.${factoryId}`);
+    const root = normPath(localStorage.getItem(`aioc.project.${factoryId}`));
     return [`${makeScopeKey(factoryId, root)}:crew`];
   });
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
@@ -180,12 +187,13 @@ function AppInner() {
       setActivePage(crewTab);
     }
 
-    // Save per-factory projectRoot
-    localStorage.setItem(`aioc.project.${selectedFactoryId}`, path);
+    // Save per-factory projectRoot (normalize backslashes for consistent scope keys)
+    const normalized = normPath(path)!;
+    localStorage.setItem(`aioc.project.${selectedFactoryId}`, normalized);
     // Update recent projects
     try {
       const existing = JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as string[];
-      const updated = [path, ...existing.filter((p: string) => p !== path)].slice(0, 10);
+      const updated = [normalized, ...existing.filter((p: string) => p !== normalized)].slice(0, 10);
       localStorage.setItem("aioc.recent-projects", JSON.stringify(updated));
     } catch {}
   };
@@ -211,7 +219,7 @@ function AppInner() {
     };
 
     // Compute new scope
-    const savedRoot = localStorage.getItem(`aioc.project.${factoryId}`);
+    const savedRoot = normPath(localStorage.getItem(`aioc.project.${factoryId}`));
     const newScope = makeScopeKey(factoryId, savedRoot);
     const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
@@ -391,7 +399,7 @@ function AppInner() {
       const employeeId = pageType.split("#")[0].slice(9);
       const tabCrew = crewByFactoryRef.current[factoryId] ?? crew;
       const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot
-        ?? localStorage.getItem(`aioc.project.${factoryId}`)
+        ?? normPath(localStorage.getItem(`aioc.project.${factoryId}`))
         ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
