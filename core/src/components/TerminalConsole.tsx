@@ -85,20 +85,14 @@ const TerminalConsoleInner = React.forwardRef<TerminalConsoleHandle, TerminalCon
         sendPrompt: (text: string) => {
             if (!text.trim()) return;
             const term = termRef.current;
-            if (!term || !wsRef.current?.readyState) return;
-            if (text.includes("\n")) {
-                // Multi-line: paste then Enter after settling
-                term.paste(text);
-                setTimeout(() => {
-                    if (wsRef.current?.readyState === WebSocket.OPEN) {
-                        wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
-                    }
-                }, 600);
-            } else {
-                // Single-line: type + Enter
+            if (!term) return;
+            // Always use paste for reliability, then Enter after settling
+            term.paste(text);
+            setTimeout(() => {
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "input", text: text + "\r" }));
+                    wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
                 }
+            }, 800);
             }
         },
     }), [sendInput]);
