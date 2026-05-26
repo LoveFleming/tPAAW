@@ -17,16 +17,25 @@ function parseTrainingFile(content: string): { training: string; test: string } 
     let training = "";
     let test = "";
 
-    // Try to split by ## 訓練 Prompt / ## 測試 Prompt
-    const trainMatch = content.match(/##\s*訓練\s*Prompt\s*\n([\s\S]*?)(?=\n##\s*測試\s*Prompt|$)/i);
-    const testMatch = content.match(/##\s*測試\s*Prompt\s*\n([\s\S]*?)$/i);
+    // Find section positions
+    const trainIdx = content.search(/##\s*訓練\s*Prompt/i);
+    const testIdx = content.search(/##\s*測試\s*Prompt/i);
 
-    if (trainMatch) training = trainMatch[1].trim();
-    if (testMatch) test = testMatch[1].trim();
-
-    // Fallback: if no markers found, put everything in training
-    if (!training && !test) {
+    if (trainIdx === -1 && testIdx === -1) {
+        // No markers — everything goes to training
         training = content.trim();
+    } else if (trainIdx !== -1 && testIdx !== -1) {
+        // Both markers exist
+        const afterTrain = content.indexOf('\n', trainIdx) + 1; // skip the ## line
+        training = content.slice(afterTrain, testIdx).trim();
+        const afterTest = content.indexOf('\n', testIdx) + 1;
+        test = content.slice(afterTest).trim();
+    } else if (trainIdx !== -1) {
+        const afterTrain = content.indexOf('\n', trainIdx) + 1;
+        training = content.slice(afterTrain).trim();
+    } else {
+        const afterTest = content.indexOf('\n', testIdx) + 1;
+        test = content.slice(afterTest).trim();
     }
 
     return { training, test };
