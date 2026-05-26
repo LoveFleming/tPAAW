@@ -46,12 +46,25 @@ export function statusClasses(s: RunStatus) {
     return "bg-amber-100 text-amber-700";
 }
 
-/** Cross-platform path basename — handles both / and \ separators */
+/** Cross-platform path basename - handles both / and \ separators */
 export function pathBasename(p: string): string {
     return p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
 }
 
-/** Cross-platform path split — handles both / and \ separators */
+/** Cross-platform path split - handles both / and \ separators */
 export function pathSplit(p: string): string[] {
     return p.split(/[\\/]/).filter(Boolean);
+}
+
+/** Check if a path starts with a given prefix, handling both / and \ separators */
+export function pathStartsWith(p: string, prefix: string): boolean {
+    return p.startsWith(prefix + "/") || p.startsWith(prefix + "\\") || p === prefix;
+}
+
+/** Get the relative portion after the prefix, stripping leading separator */
+export function pathRelative(p: string, prefix: string): string {
+    if (p.startsWith(prefix + "/")) return p.slice(prefix.length + 1);
+    if (p.startsWith(prefix + "\\")) return p.slice(prefix.length + 1);
+    if (p === prefix) return "";
+    return p;
 }

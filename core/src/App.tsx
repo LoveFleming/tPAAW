@@ -27,7 +27,7 @@ function simpleHash(s: string): string {
 // Scope key = factoryId + working base hash
 function makeScopeKey(factoryId: string, projectRoot: string | null): string {
   if (!projectRoot) return `${factoryId}:_default`;
-  const dirName = projectRoot.split("/").pop() || "root";
+  const dirName = projectRoot.split(/[/\\]/).pop() || "root";
   return `${factoryId}:${dirName}_${simpleHash(projectRoot)}`;
 }
 

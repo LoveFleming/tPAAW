@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
 import { FileIcon } from "../components/Icon";
-import { pathBasename } from "../utils";
+import { pathBasename, pathRelative } from "../utils";
 
 // ── Types ──
 interface TreeNode {
@@ -172,7 +172,7 @@ export default function ReleaseUnitExplorer({ projectRoot }: Props) {
       const node = findNode(tree, dirPath);
       if (node && node.lazy && !node.children) {
         try {
-          const subpath = dirPath.slice(projectRoot.length);
+          const subpath = pathRelative(dirPath, projectRoot);
           const loaded = await fetchLazyChildren(projectRoot, subpath);
           // Merge children into tree
           setTree((prev) => {
@@ -264,7 +264,7 @@ export default function ReleaseUnitExplorer({ projectRoot }: Props) {
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs">{fileIconElement(pathBasename(selectedFile))}</span>
                 <span className="text-sm font-mono text-stone-700 truncate">
-                  {selectedFile.slice(projectRoot.length + 1)}
+                  {pathRelative(selectedFile, projectRoot)}
                 </span>
               </div>
               {fileMeta && (

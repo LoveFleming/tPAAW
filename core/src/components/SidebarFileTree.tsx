@@ -92,6 +92,19 @@ interface TreeNode {
 
 const API_BASE = "http://127.0.0.1:4097";
 
+/** Check if a path starts with a given prefix, handling both / and \ separators */
+function pathStartsWith(p: string, prefix: string): boolean {
+  return p.startsWith(prefix + "/") || p.startsWith(prefix + "\\") || p === prefix;
+}
+
+/** Get the relative portion after the prefix, stripping leading separator */
+function relativePath(p: string, prefix: string): string {
+  if (p.startsWith(prefix + "/")) return p.slice(prefix.length + 1);
+  if (p.startsWith(prefix + "\\")) return p.slice(prefix.length + 1);
+  if (p === prefix) return "";
+  return p;
+}
+
 function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   return <FileIcon ext={ext} size={14} />;
@@ -131,7 +144,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
   const handleCtx = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const relPath = node.path.startsWith(projectRoot + "/") ? node.path.slice(projectRoot.length + 1) : node.path.startsWith(projectRoot) ? node.path.slice(projectRoot.length) : node.path;
+    const relPath = relativePath(node.path, projectRoot);
     closeGlobalCtxMenu();
     globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath });
   }, [node.path, projectRoot]);
@@ -261,7 +274,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     if (!node || !node.lazy || node.children) return;
 
     try {
-      const subpath = dirPath.slice(projectRoot.length);
+      const subpath = relativePath(dirPath, projectRoot);
       const resp = await fetch(`${API_BASE}/api/fs/tree-deep?root=${encodeURIComponent(projectRoot)}&subpath=${encodeURIComponent(subpath)}`);
       const loaded: TreeNode = await resp.json();
       setTree(prev => {
