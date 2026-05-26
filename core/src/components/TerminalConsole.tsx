@@ -25,7 +25,7 @@ export interface TerminalConsoleHandle {
 
 const WS_PORT = 4098;
 
-const TerminalConsoleInner = React.forwardRef<TerminalConsoleHandle, TerminalConsoleProps>(function TerminalConsoleInner({
+const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
     cwd,
     cli = "qwen",
     model,
@@ -35,7 +35,7 @@ const TerminalConsoleInner = React.forwardRef<TerminalConsoleHandle, TerminalCon
     restartTrigger,
     onReady,
     onExit,
-}: TerminalConsoleProps, ref) {
+}: TerminalConsoleProps, ref: React.Ref<TerminalConsoleHandle>) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [connected, setConnected] = useState(false);
     const [ready, setReady] = useState(false);
@@ -93,7 +93,6 @@ const TerminalConsoleInner = React.forwardRef<TerminalConsoleHandle, TerminalCon
                     wsRef.current.send(JSON.stringify({ type: "input", text: "\r" }));
                 }
             }, 800);
-            }
         },
     }), [sendInput]);
 
