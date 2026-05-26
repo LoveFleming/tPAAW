@@ -18,6 +18,7 @@ import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { tmpdir } from "os";
 import { exec as execCb } from "child_process";
+import yaml from "js-yaml";
 import { promisify } from "util";
 import chokidar from "chokidar";
 const execAsync = promisify(execCb);
@@ -178,71 +179,25 @@ const server = createServer(async (req, res) => {
 
   // Helper: parse YAML frontmatter from SKILL.md (simple parser for arrays/objects)
   function parseSkillFrontmatter(raw) {
-    const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+    const fmMatch = raw.match(/^---?
+([\s\S]*?)?
+---/);
     if (!fmMatch) return { body: raw };
     const body = raw.slice(fmMatch[0].length).trim();
     const fm = fmMatch[1];
-    const result = {};
-    let currentKey = null;
-    let currentArray = null;
-    let currentObj = null;
-    let inArray = false;
-    let inObj = false;
-    let objDepth = 0;
 
-    for (const line of fm.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-
-      // Array item
-      if (trimmed.startsWith("- ") && currentArray) {
-        const val = trimmed.slice(2).trim();
-        // Check if it's a key: value inside array item
-        if (val.includes(":") && !val.startsWith('"')) {
-          const obj = {};
-          // First key
-          const [k, ...v] = val.split(":");
-          obj[k.trim()] = v.join(":").trim().replace(/^['"]|['"]$/g, "");
-          currentArray.push(obj);
-          currentObj = obj;
-        } else {
-          currentArray.push(val.replace(/^['"]|['"]$/g, ""));
-          currentObj = null;
-        }
-        continue;
+    // Use js-yaml for full YAML support (|, >, nested arrays, multiline strings)
+    try {
+      const parsed = yaml.load(fm, { schema: yaml.DEFAULT_SCHEMA });
+      if (typeof parsed === 'object' && parsed !== null) {
+        return { ...parsed, body };
       }
-
-      // Key-value pair inside an object (array item)
-      if (currentObj && trimmed.includes(":") && !trimmed.startsWith("-")) {
-        const [k, ...v] = trimmed.split(":");
-        currentObj[k.trim()] = v.join(":").trim().replace(/^['"]|['"]$/g, "");
-        continue;
-      }
-
-      // Top-level key
-      const colonIdx = trimmed.indexOf(":");
-      if (colonIdx > 0) {
-        const k = trimmed.slice(0, colonIdx).trim();
-        const v = trimmed.slice(colonIdx + 1).trim();
-        if (v === "" || v === "[]") {
-          // Array or empty
-          result[k] = [];
-          currentArray = result[k];
-          currentObj = null;
-        } else if (v === "true") {
-          result[k] = true;
-          currentArray = null;
-        } else if (v === "false") {
-          result[k] = false;
-          currentArray = null;
-        } else {
-          result[k] = v.replace(/^['"]|['"]$/g, "");
-          currentArray = null;
-        }
-        currentKey = k;
-      }
+    } catch (err) {
+      console.warn('[AIOC] YAML parse error, skipping frontmatter:', err.message);
     }
-    return { ...result, body };
+
+    // Fallback: return body only
+    return { body };
   }
 
   // GET /api/skills — list all skills (input-prompt + physical-skill)
