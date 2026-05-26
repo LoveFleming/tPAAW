@@ -11,8 +11,39 @@ interface TrainingFile {
 // ── Constants ──
 const API_BASE = "http://127.0.0.1:4097";
 const LS_KEY_TRAINING_FILE = "skilllab.trainingFile";
-const LS_KEY_TRAINING_PROMPT = "skilllab.trainingPrompt";
-const LS_KEY_TEST_PROMPT = "skilllab.testPrompt";
+
+// ── Parse training file into sections ──
+function parseTrainingFile(content: string): { training: string; test: string } {
+    let training = "";
+    let test = "";
+
+    // Try to split by ## 訓練 Prompt / ## 測試 Prompt
+    const trainMatch = content.match(/##\s*訓練\s*Prompt\s*\n([\s\S]*?)(?=\n##\s*測試\s*Prompt|$)/i);
+    const testMatch = content.match(/##\s*測試\s*Prompt\s*\n([\s\S]*?)$/i);
+
+    if (trainMatch) training = trainMatch[1].trim();
+    if (testMatch) test = testMatch[1].trim();
+
+    // Fallback: if no markers found, put everything in training
+    if (!training && !test) {
+        training = content.trim();
+    }
+
+    return { training, test };
+}
+
+function buildFileContent(training: string, test: string): string {
+    const parts: string[] = [];
+    if (training.trim() || test.trim()) {
+        // Reconstruct with section markers
+        parts.push("# Training Skill\n");
+        parts.push("## 訓練 Prompt\n");
+        parts.push(training.trim() + "\n");
+        parts.push("## 測試 Prompt\n");
+        parts.push(test.trim() + "\n");
+    }
+    return parts.join("\n");
+}
 
 // ── Prompt Editor with auto-save + send button ──
 function PromptEditor({
@@ -21,7 +52,6 @@ function PromptEditor({
     value,
     onChange,
     placeholder,
-    storageKey,
     sendLabel,
     sendColor,
     onSend,
@@ -32,24 +62,18 @@ function PromptEditor({
     value: string;
     onChange: (v: string) => void;
     placeholder: string;
-    storageKey: string;
     sendLabel: string;
     sendColor: string;
     onSend: () => void;
     sending?: boolean;
 }) {
     const [draft, setDraft] = useState(value);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
     useEffect(() => { setDraft(value); }, [value]);
 
     const handleChange = (v: string) => {
         setDraft(v);
         onChange(v);
-        clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => {
-            localStorage.setItem(storageKey, v);
-        }, 500);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -97,9 +121,8 @@ function PromptEditor({
 export default function SkillLab() {
     const [trainingFiles, setTrainingFiles] = useState<TrainingFile[]>([]);
     const [selectedFile, setSelectedFile] = useState<string>("");
-    const [trainingPrompt, setTrainingPrompt] = useState(() => localStorage.getItem(LS_KEY_TRAINING_PROMPT) || "");
-    const [testPrompt, setTestPrompt] = useState(() => localStorage.getItem(LS_KEY_TEST_PROMPT) || "");
-    const [fileContent, setFileContent] = useState<string>("");
+    const [trainingPrompt, setTrainingPrompt] = useState("");
+    const [testPrompt, setTestPrompt] = useState("");
     const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
     const [consoleKey, setConsoleKey] = useState(0);
     const [workingDir, setWorkingDir] = useState<string>("");
@@ -115,6 +138,9 @@ export default function SkillLab() {
     const [restartTrigger, setRestartTrigger] = useState(0);
     const [sendingTrain, setSendingTrain] = useState(false);
     const [sendingTest, setSendingTest] = useState(false);
+
+    // Track last loaded content to avoid save loops
+    const loadingRef = useRef(false);
 
     // ── Data loading ──
     const loadTrainingFiles = useCallback(() => {
@@ -138,13 +164,19 @@ export default function SkillLab() {
         if (saved) { setSelectedFile(saved); loadFileContent(saved); }
     }, []);
 
+    // ── File operations ──
     const loadFileContent = useCallback((path: string) => {
+        loadingRef.current = true;
         fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(path)}`)
             .then(r => r.ok ? r.json() : null)
             .then((data: { content?: string } | null) => {
-                setFileContent(data?.content || "");
+                const parsed = parseTrainingFile(data?.content || "");
+                setTrainingPrompt(parsed.training);
+                setTestPrompt(parsed.test);
+                setSaveStatus("saved");
             })
-            .catch(() => setFileContent(""));
+            .catch(() => { setTrainingPrompt(""); setTestPrompt(""); })
+            .finally(() => { loadingRef.current = false; });
     }, []);
 
     const handleSelectFile = (path: string) => {
@@ -153,14 +185,51 @@ export default function SkillLab() {
         loadFileContent(path);
     };
 
+    const saveFile = useCallback(async (training: string, test: string) => {
+        if (!selectedFile || loadingRef.current) return;
+        setSaveStatus("saving");
+        try {
+            const content = buildFileContent(training, test);
+            await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(selectedFile)}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content }),
+            });
+            setSaveStatus("saved");
+        } catch { setSaveStatus("dirty"); }
+    }, [selectedFile]);
+
+    // Auto-save with debounce when either prompt changes
+    const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+    const trainingRef = useRef(trainingPrompt);
+    const testRef = useRef(testPrompt);
+    trainingRef.current = trainingPrompt;
+    testRef.current = testPrompt;
+
+    const triggerAutoSave = useCallback(() => {
+        setSaveStatus("dirty");
+        clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            saveFile(trainingRef.current, testRef.current);
+        }, 800);
+    }, [saveFile]);
+
+    const handleTrainingChange = useCallback((v: string) => {
+        setTrainingPrompt(v);
+        triggerAutoSave();
+    }, [triggerAutoSave]);
+
+    const handleTestChange = useCallback((v: string) => {
+        setTestPrompt(v);
+        triggerAutoSave();
+    }, [triggerAutoSave]);
+
     // ── Create new training file ──
     const handleCreateFile = async () => {
         const name = newFileName.trim();
         if (!name) return;
         const fileName = name.endsWith(".md") ? name : `${name}.md`;
-        // Create in skills/training/ directory
-        const aiocRoot = workingDir || ".";
-        const fullPath = `${aiocRoot}/skills/training/${fileName}`;
+        const fullPath = `${workingDir || "."}/skills/training/${fileName}`;
         try {
             await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, {
                 method: "PUT",
@@ -174,51 +243,7 @@ export default function SkillLab() {
         } catch { /* ignore */ }
     };
 
-    // ── File auto-save ──
-    const saveFile = useCallback(async (content: string) => {
-        if (!selectedFile) return;
-        setSaveStatus("saving");
-        try {
-            await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(selectedFile)}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content }),
-            });
-            setSaveStatus("saved");
-        } catch { setSaveStatus("dirty"); }
-    }, [selectedFile]);
-
-    const fileSaveTimer = useRef<ReturnType<typeof setTimeout>>();
-    const handleFileEdit = useCallback((newContent: string) => {
-        setFileContent(newContent);
-        setSaveStatus("dirty");
-        clearTimeout(fileSaveTimer.current);
-        fileSaveTimer.current = setTimeout(() => saveFile(newContent), 1000);
-    }, [saveFile]);
-
     // ── Send to CLI ──
-    const buildTrainPrompt = useCallback(() => {
-        return [
-            trainingPrompt || "(尚未設定訓練 prompt)",
-            "",
-            "---",
-            "# Training Skill File",
-            selectedFile ? `File: ${selectedFile}` : "(尚未選擇檔案)",
-            "",
-            fileContent || "(空的)",
-        ].join("\n");
-    }, [trainingPrompt, selectedFile, fileContent]);
-
-    const buildTestPrompt = useCallback(() => {
-        return [
-            testPrompt || "(尚未設定測試 prompt)",
-            "",
-            "---",
-            "# Current Skill Content",
-            fileContent || "(空的)",
-        ].join("\n");
-    }, [testPrompt, fileContent]);
-
     const sendToTerminal = useCallback((prompt: string) => {
         if (!prompt.trim()) return;
         setInitialPrompt(prompt);
@@ -232,13 +257,13 @@ export default function SkillLab() {
 
     const handleTrain = () => {
         setSendingTrain(true);
-        sendToTerminal(buildTrainPrompt());
+        sendToTerminal(trainingPrompt);
         setTimeout(() => setSendingTrain(false), 800);
     };
 
     const handleTest = () => {
         setSendingTest(true);
-        sendToTerminal(buildTestPrompt());
+        sendToTerminal(testPrompt);
         setTimeout(() => setSendingTest(false), 800);
     };
 
@@ -251,7 +276,7 @@ export default function SkillLab() {
                     <h2 className="text-sm font-bold text-stone-800">Skill Lab</h2>
                 </div>
 
-                {/* Training file selector + new button */}
+                {/* File selector + new */}
                 <div className="flex items-center gap-1.5">
                     <select
                         value={selectedFile}
@@ -264,8 +289,6 @@ export default function SkillLab() {
                             <option key={f.path} value={f.path}>{f.name}</option>
                         ))}
                     </select>
-
-                    {/* New file button */}
                     <button
                         onClick={() => { setShowNewFileDialog(true); setNewFileName(""); }}
                         className="px-2 py-1 text-xs font-medium rounded-lg border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-colors"
@@ -273,7 +296,6 @@ export default function SkillLab() {
                     >
                         ＋New
                     </button>
-
                     {selectedFile && (
                         <span className="text-[10px] text-stone-400 max-w-[120px] truncate" title={selectedFile}>
                             {selectedFile.split(/[/\\]/).pop()}
@@ -298,7 +320,6 @@ export default function SkillLab() {
                     </select>
                 </div>
 
-                {/* Reset terminal */}
                 {chatStarted && (
                     <button
                         onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(prev => prev + 1); }}
@@ -325,22 +346,14 @@ export default function SkillLab() {
                             autoFocus
                         />
                         {!newFileName.endsWith(".md") && newFileName.trim() && (
-                            <p className="text-[10px] text-stone-400 mb-2">自動加上 .md 副檔名 → {newFileName.trim()}.md</p>
+                            <p className="text-[10px] text-stone-400 mb-2">→ {newFileName.trim()}.md</p>
                         )}
                         <div className="flex justify-end gap-2">
-                            <button
-                                onClick={() => setShowNewFileDialog(false)}
-                                className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
-                            >
-                                取消
-                            </button>
+                            <button onClick={() => setShowNewFileDialog(false)} className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50">取消</button>
                             <button
                                 onClick={handleCreateFile}
                                 disabled={!newFileName.trim()}
-                                className={cn(
-                                    "px-4 py-1.5 text-xs font-bold rounded-lg",
-                                    newFileName.trim() ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-stone-200 text-stone-400"
-                                )}
+                                className={cn("px-4 py-1.5 text-xs font-bold rounded-lg", newFileName.trim() ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-stone-200 text-stone-400")}
                             >
                                 建立
                             </button>
@@ -349,54 +362,42 @@ export default function SkillLab() {
                 </div>
             )}
 
-            {/* ── Body: 3-panel layout ── */}
+            {/* ── Body: 2-panel layout ── */}
             <div className="flex-1 flex min-h-0 overflow-hidden">
-                {/* Left: Training Skill File Editor */}
-                <div className="flex flex-col border-r" style={{ width: "35%", borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-                    <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
-                        <span className="text-xs font-semibold text-stone-600">
-                            📄 {selectedFile ? selectedFile.split(/[/\\]/).pop() : "Training File"}
-                        </span>
-                        <span className="text-[10px] text-stone-400">{fileContent.length} 字</span>
-                    </div>
-                    <textarea
-                        value={fileContent}
-                        onChange={e => handleFileEdit(e.target.value)}
-                        placeholder={selectedFile ? "編輯 training skill file..." : "← 先選擇或建立一個 training file"}
-                        className="flex-1 w-full px-3 py-2 text-sm font-mono resize-none focus:outline-none border-0"
-                        style={{ lineHeight: 1.6 }}
-                        spellCheck={false}
-                        disabled={!selectedFile}
-                    />
-                </div>
-
-                {/* Middle: Prompt Editors (stacked, each with send) */}
-                <div className="flex flex-col border-r" style={{ width: "30%", borderColor: "#e7e5e4" }}>
-                    <PromptEditor
-                        label="Training Prompt"
-                        emoji="🎓"
-                        value={trainingPrompt}
-                        onChange={setTrainingPrompt}
-                        placeholder={"輸入訓練 prompt，告訴 AI 怎麼產生/修改 skill...\n\n例：請根據以下規格鍛造一個完整的 Skill。\n注意 userInputs 格式要符合 YAML 規範。\n\nCtrl+Enter 快速送出"}
-                        storageKey={LS_KEY_TRAINING_PROMPT}
-                        sendLabel="Train"
-                        sendColor="#2563eb"
-                        onSend={handleTrain}
-                        sending={sendingTrain}
-                    />
-                    <div style={{ height: 1, backgroundColor: "#e7e5e4" }} />
-                    <PromptEditor
-                        label="Test Prompt"
-                        emoji="🧪"
-                        value={testPrompt}
-                        onChange={setTestPrompt}
-                        placeholder={"輸入測試 prompt，用簡單輸入驗證 skill...\n\n例：用這個 skill 分析 src/utils/ 的錯誤處理。\n\nCtrl+Enter 快速送出"}
-                        storageKey={LS_KEY_TEST_PROMPT}
-                        sendLabel="Test"
-                        sendColor="#059669"
-                        onSend={handleTest}
-                        sending={sendingTest}
-                    />
+                {/* Left: Prompt Editors (full width, stacked) */}
+                <div className="flex flex-col border-r" style={{ width: "45%", borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
+                    {!selectedFile ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
+                            <span className="text-3xl">🧪</span>
+                            <p className="text-stone-400 text-sm text-center">← 選擇或建立一個 Training File 開始</p>
+                        </div>
+                    ) : (
+                        <>
+                            <PromptEditor
+                                label="訓練 Prompt"
+                                emoji="🎓"
+                                value={trainingPrompt}
+                                onChange={handleTrainingChange}
+                                placeholder={"輸入訓練 prompt，告訴 AI 怎麼產生/修改 skill...\n\n例：請根據以下規格鍛造一個完整的 Skill。\n注意 userInputs 格式要符合 YAML 規範。\n\nCtrl+Enter 快速送出"}
+                                sendLabel="Train"
+                                sendColor="#2563eb"
+                                onSend={handleTrain}
+                                sending={sendingTrain}
+                            />
+                            <div style={{ height: 1, backgroundColor: "#e7e5e4" }} />
+                            <PromptEditor
+                                label="測試 Prompt"
+                                emoji="🧪"
+                                value={testPrompt}
+                                onChange={handleTestChange}
+                                placeholder={"輸入測試 prompt，用簡單輸入驗證 skill...\n\n例：用這個 skill 分析 src/utils/ 的錯誤處理。\n\nCtrl+Enter 快速送出"}
+                                sendLabel="Test"
+                                sendColor="#059669"
+                                onSend={handleTest}
+                                sending={sendingTest}
+                            />
+                        </>
+                    )}
                 </div>
 
                 {/* Right: Terminal */}
@@ -405,16 +406,9 @@ export default function SkillLab() {
                         <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
                             <span className="text-4xl">🧪</span>
                             <p className="text-stone-400 text-sm text-center">
-                                在中間面板寫好 prompt，按 <strong>▶ Train</strong> 或 <strong>▶ Test</strong> 送出
+                                寫好 prompt 後按 <strong>▶ Train</strong> 或 <strong>▶ Test</strong> 送出
                             </p>
-                            <p className="text-stone-500 text-xs text-center">
-                                Ctrl+Enter 也可以快速送出
-                            </p>
-                            {!selectedFile && (
-                                <p className="text-stone-500 text-xs text-center">
-                                    ← 先選擇或建立一個 Training File
-                                </p>
-                            )}
+                            <p className="text-stone-500 text-xs text-center">Ctrl+Enter 快速送出</p>
                         </div>
                     ) : (
                         <TerminalConsole
