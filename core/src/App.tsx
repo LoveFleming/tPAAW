@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import FactoryEntryPage from "./pages/FactoryEntryPage";
 import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
+import SkillLab from "./pages/SkillLab";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 
@@ -306,6 +307,7 @@ function AppInner() {
     const staticItems = [
       { id: `${currentScope}:crew`, label: "AI Crew" },
       { id: `${currentScope}:skills`, label: "Skills" },
+      { id: `${currentScope}:skilllab`, label: "Skill Lab" },
     ];
     const fileItems = factoryFiles.map(f => {
       const stripped = f.replace(/^\d{2}-/, "");
@@ -322,6 +324,7 @@ function AppInner() {
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return "AI Crew";
     if (pageType === "skills") return "Skills";
+    if (pageType === "skilllab") return "Skill Lab";
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);
       return factoryNav.find(n => n.id === fullId)?.label ?? fileName;
@@ -382,6 +385,9 @@ function AppInner() {
     }
     if (pageType === "skills") {
       return <SkillsPage />;
+    }
+    if (pageType === "skilllab") {
+      return <SkillLab />;
     }
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);

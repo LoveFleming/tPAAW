@@ -496,6 +496,77 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
+  // GET /api/skill-lab/training-files — list training skill files
+  if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/training-files")) {
+    try {
+      const skillsDir = join(AIOC_ROOT, "skills");
+      const results = [];
+      const scanDir = async (root, kind) => {
+        await mkdir(root, { recursive: true });
+        const dirs = await readdir(root);
+        for (const dir of dirs) {
+          try {
+            const stat = await import("fs/promises").then(m => m.stat(join(root, dir)));
+            if (!stat.isDirectory()) continue;
+            const entries = await readdir(join(root, dir));
+            for (const f of entries) {
+              // Match *-training.md or *-training.skill.md or training*.md
+              if (/training/i.test(f) && /\.md$/i.test(f)) {
+                results.push({ name: `${kind}/${dir}/${f}`, path: join(root, dir, f) });
+              }
+            }
+          } catch { /* skip */ }
+        }
+      };
+      await scanDir(join(skillsDir, "input-prompt"), "input-prompt");
+      await scanDir(join(skillsDir, "physical-skill"), "physical-skill");
+      // Also check skills root
+      try {
+        const rootEntries = await readdir(skillsDir);
+        for (const f of rootEntries) {
+          if (/training/i.test(f) && /\.md$/i.test(f)) {
+            results.push({ name: f, path: join(skillsDir, f) });
+          }
+        }
+      } catch { /* skip */ }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(results));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // PUT /api/fs/file?path=... — write file content
+  if (req.method === "PUT" && req.url?.startsWith("/api/fs/file")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const filePath = params.get("path");
+    if (!filePath) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'path' query param" }));
+      return;
+    }
+    const absPath = resolve(filePath);
+    if (!absPath.startsWith("/") && !/^[A-Za-z]:/.test(absPath)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
+      return;
+    }
+    try {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      const { content } = JSON.parse(body);
+      await writeFile(absPath, content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // GET /api/aioc-root — return AIOC base path
   if (req.method === "GET" && req.url === "/api/aioc-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
