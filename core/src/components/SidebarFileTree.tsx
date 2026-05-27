@@ -235,8 +235,12 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
       .then(r => r.json())
       .then((data: TreeNode) => {
         if (!cancelled) {
-          setTree(data);
-          setExpandedPaths(new Set([projectRoot]));
+          setTree(prev => mergeTree(prev, data));
+          setExpandedPaths(prev => {
+            const next = new Set(prev);
+            next.add(projectRoot);
+            return next;
+          });
         }
       })
       .catch(() => {})
@@ -244,14 +248,40 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     return () => { cancelled = true; };
   }, [projectRoot]);
 
+  // ── Merge fresh server tree into existing tree, preserving lazy-loaded children ──
+  const mergeTree = useCallback((existing: TreeNode | null, fresh: TreeNode): TreeNode => {
+    if (!existing) return fresh;
+    // Keep existing name/path/type but update children from fresh
+    const merged: TreeNode = { ...fresh };
+    if (existing.children && fresh.children) {
+      // Build a map of fresh children by path for quick lookup
+      const freshMap = new Map<string, TreeNode>();
+      for (const fc of fresh.children) freshMap.set(fc.path, fc);
+      // Merge: prefer existing (may have lazy-loaded deep children), add new, keep order from fresh
+      merged.children = fresh.children.map(fc => {
+        const ec = existing.children!.find(c => c.path === fc.path);
+        if (ec && ec.type === "dir") {
+          // If existing has loaded children (not lazy), preserve them; otherwise use fresh
+          if (ec.children && !ec.lazy) {
+            return mergeTree(ec, fc);
+          }
+        }
+        return fc;
+      });
+    }
+    return merged;
+  }, []);
+
   // ── Auto-refresh tree every 3 seconds ──
   const refreshTree = useCallback(() => {
     if (!projectRoot) return;
     fetch(`${API_BASE}/api/fs/tree?root=${encodeURIComponent(projectRoot)}`)
       .then(r => r.json())
-      .then((data: TreeNode) => { setTree(data); })
+      .then((data: TreeNode) => {
+        setTree(prev => mergeTree(prev, data));
+      })
       .catch(() => {});
-  }, [projectRoot]);
+  }, [projectRoot, mergeTree]);
 
   useEffect(() => {
     if (!projectRoot) return;
@@ -271,7 +301,9 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     const currentTree = treeRef.current;
     if (!currentTree) return;
     const node = findNode(currentTree, dirPath);
-    if (!node || !node.lazy || node.children) return;
+    if (!node) return;
+    // Skip fetch if children are already loaded (not lazy)
+    if (node.children && !node.lazy) return;
 
     try {
       const subpath = relativePath(dirPath, projectRoot);

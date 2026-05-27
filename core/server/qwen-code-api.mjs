@@ -1327,7 +1327,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       return;
     }
     try {
-      const tree = await buildTree(absRoot, absRoot, 3);
+      const tree = await buildTree(absRoot, absRoot, 2);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(tree));
     } catch (err) {
