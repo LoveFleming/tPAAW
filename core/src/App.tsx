@@ -318,16 +318,23 @@ function AppInner() {
     return [...fileItems, ...staticItems];
   }, [factoryFiles, currentScope]);
 
+  const skillLabCounterRef = useRef(0);
+  const openSkillLab = useCallback(() => {
+    const count = skillLabCounterRef.current++;
+    const tabId = `${currentScope}:skilllab#${count}`;
+    setOpenTabs((prev) => [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const skillNav = useMemo(() => [
     { id: `${currentScope}:skills`, label: "Skill Pool" },
-    { id: `${currentScope}:skilllab`, label: "Skill Lab" },
   ], [currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return "AI Crew";
     if (pageType === "skills") return "Skill Pool";
-    if (pageType === "skilllab") return "Skill Lab";
+    if (pageType.startsWith("skilllab")) return "Skill Lab";
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);
       return factoryNav.find(n => n.id === fullId)?.label ?? fileName;
@@ -389,7 +396,7 @@ function AppInner() {
     if (pageType === "skills") {
       return <SkillsPage />;
     }
-    if (pageType === "skilllab") {
+    if (pageType.startsWith("skilllab")) {
       return <SkillLab />;
     }
     if (pageType.startsWith("file.")) {
@@ -587,6 +594,13 @@ function AppInner() {
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
+                <NavItem
+                  active={false}
+                  label="Skill Lab"
+                  onClick={openSkillLab}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
               </div>
             </SidebarSection>
 
