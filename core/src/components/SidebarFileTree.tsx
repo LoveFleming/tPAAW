@@ -39,7 +39,7 @@ function ContextMenu({ menu, onDelete, onClose }: { menu: CtxMenuState; onDelete
     padding: "6px 16px",
     fontSize: 13,
     cursor: "pointer",
-    color: t.text,
+    color: "#374151",
     whiteSpace: "nowrap",
     transition: "background 0.1s",
   };
@@ -52,8 +52,8 @@ function ContextMenu({ menu, onDelete, onClose }: { menu: CtxMenuState; onDelete
         left: menu.x,
         top: menu.y,
         zIndex: 9999,
-        background: t.cardBg,
-        border: `1px solid ${t.border}`,
+        background: "#ffffff",
+        border: `1px solid #e5e7eb`,
         borderRadius: 8,
         boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
         padding: "4px 0",
@@ -63,7 +63,7 @@ function ContextMenu({ menu, onDelete, onClose }: { menu: CtxMenuState; onDelete
     >
       <div
         style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.background = t.accentBg)}
+        onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
         onClick={() => copy(menu.fullPath)}
       >
@@ -71,7 +71,7 @@ function ContextMenu({ menu, onDelete, onClose }: { menu: CtxMenuState; onDelete
       </div>
       <div
         style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.background = t.accentBg)}
+        onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
         onClick={() => copy(menu.relativePath)}
       >
@@ -377,12 +377,12 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: t.cardBg, border: `1px solid ${t.border}`,
+              background: "#ffffff", border: `1px solid #e5e7eb`,
               borderRadius: 12, padding: "24px 28px", minWidth: 340, maxWidth: 420,
               boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
             }}
           >
-            <div style={{ fontSize: 16, fontWeight: 600, color: t.text, marginBottom: 8 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
               ⚠️ Delete {confirmDelete.isDir ? "Folder" : "File"}?
             </div>
             <div style={{ fontSize: 13, color: "#78716c", marginBottom: 20, wordBreak: "break-all" }}>
@@ -395,8 +395,8 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
               <button
                 onClick={() => setConfirmDelete(null)}
                 style={{
-                  padding: "8px 20px", borderRadius: 6, border: `1px solid ${t.border}`,
-                  background: "transparent", color: t.text, cursor: "pointer", fontSize: 13,
+                  padding: "8px 20px", borderRadius: 6, border: `1px solid #d1d5db`,
+                  background: "transparent", color: "#374151", cursor: "pointer", fontSize: 13,
                 }}
               >
                 Cancel
