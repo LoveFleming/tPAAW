@@ -9,9 +9,11 @@ interface CtxMenuState {
   y: number;
   fullPath: string;
   relativePath: string;
+  isDir: boolean;
+  name: string;
 }
 
-function ContextMenu({ menu, onClose }: { menu: CtxMenuState; onClose: () => void }) {
+function ContextMenu({ menu, onDelete, onClose }: { menu: CtxMenuState; onDelete: (menu: CtxMenuState) => void; onClose: () => void }) {
   const { info: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -74,6 +76,15 @@ function ContextMenu({ menu, onClose }: { menu: CtxMenuState; onClose: () => voi
         onClick={() => copy(menu.relativePath)}
       >
         📄 Copy Relative Path
+      </div>
+      <div style={{ height: 1, background: t.border, margin: "4px 0" }} />
+      <div
+        style={{ ...itemStyle, color: "#ef4444" }}
+        onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        onClick={() => { onDelete(menu); }}
+      >
+        🗑️ Delete{menu.isDir ? " Folder" : ""}
       </div>
     </div>
   );
@@ -146,7 +157,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
     e.stopPropagation();
     const relPath = relativePath(node.path, projectRoot);
     closeGlobalCtxMenu();
-    globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath });
+    globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath, isDir: node.type === "dir", name: node.name });
   }, [node.path, projectRoot]);
 
   // Show depth indicator for deeply nested items (dots to indicate skipped levels)
@@ -219,6 +230,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<CtxMenuState | null>(null);
   const treeRef = useRef<TreeNode | null>(null);
   treeRef.current = tree;
 
@@ -352,7 +364,72 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         expandedPaths={expandedPaths}
         projectRoot={projectRoot}
       />
-      {ctxMenu && <ContextMenu menu={ctxMenu} onClose={() => setCtxMenu(null)} />}
+      {ctxMenu && <ContextMenu menu={ctxMenu} onDelete={(m) => { setCtxMenu(null); setConfirmDelete(m); }} onClose={() => setCtxMenu(null)} />}
+      {confirmDelete && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 10000,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: t.cardBg, border: `1px solid ${t.border}`,
+              borderRadius: 12, padding: "24px 28px", minWidth: 340, maxWidth: 420,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 600, color: t.text, marginBottom: 8 }}>
+              ⚠️ Delete {confirmDelete.isDir ? "Folder" : "File"}?
+            </div>
+            <div style={{ fontSize: 13, color: "#78716c", marginBottom: 20, wordBreak: "break-all" }}>
+              {confirmDelete.isDir && (
+                <span style={{ color: "#ef4444", fontWeight: 500 }}>This will delete the folder and all its contents recursively. </span>
+              )}
+              <span style={{ fontFamily: "monospace", fontSize: 12 }}>{confirmDelete.relativePath}</span>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                style={{
+                  padding: "8px 20px", borderRadius: 6, border: `1px solid ${t.border}`,
+                  background: "transparent", color: t.text, cursor: "pointer", fontSize: 13,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const resp = await fetch(`${API_BASE}/api/fs/item?path=${encodeURIComponent(confirmDelete.fullPath)}`, { method: "DELETE" });
+                    if (resp.ok) {
+                      // Remove from expandedPaths
+                      setExpandedPaths(prev => {
+                        const next = new Set(prev);
+                        for (const p of next) {
+                          if (p === confirmDelete.fullPath || p.startsWith(confirmDelete.fullPath + "/") || p.startsWith(confirmDelete.fullPath + "\\")) next.delete(p);
+                        }
+                        return next;
+                      });
+                      refreshTree();
+                    }
+                  } catch { /* ignore */ }
+                  setConfirmDelete(null);
+                }}
+                style={{
+                  padding: "8px 20px", borderRadius: 6, border: "none",
+                  background: "#ef4444", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 500,
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

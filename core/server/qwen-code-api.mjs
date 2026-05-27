@@ -1415,6 +1415,39 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
+  // DELETE /api/fs/item?path=... — delete file or folder (recursive)
+  if (req.method === "DELETE" && req.url?.startsWith("/api/fs/item")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const targetPath = params.get("path");
+    if (!targetPath) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'path' query param" }));
+      return;
+    }
+    const absPath = resolve(targetPath);
+    // Safety: only allow absolute paths
+    if (!absPath.startsWith("/") && !/^[A-Za-z]:/.test(absPath)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
+      return;
+    }
+    // Safety: refuse to delete project root itself
+    try {
+      const stat = await import("fs").then(m => m.promises.stat(absPath));
+      if (stat.isDirectory()) {
+        await rm(absPath, { recursive: true, force: true });
+      } else {
+        await unlink(absPath);
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: absPath }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // GET /api/factory/:factoryId/crews-pic/:filename — serve crew photo from factory directory
   const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/factory\/([\w.-]+)\/crews-pic\/(.+)$/);
   if (crewPicMatch) {
