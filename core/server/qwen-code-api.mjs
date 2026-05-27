@@ -191,7 +191,7 @@ const server = createServer(async (req, res) => {
         return { ...parsed, body };
       }
     } catch (err) {
-      console.warn('[AIOC] YAML parse error, skipping frontmatter:', err.message);
+      // silently skip malformed frontmatter
     }
 
     // Fallback: return body only
