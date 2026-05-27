@@ -306,8 +306,6 @@ function AppInner() {
   const factoryNav = useMemo(() => {
     const staticItems = [
       { id: `${currentScope}:crew`, label: "AI Crew" },
-      { id: `${currentScope}:skills`, label: "Skills" },
-      { id: `${currentScope}:skilllab`, label: "Skill Lab" },
     ];
     const fileItems = factoryFiles.map(f => {
       const stripped = f.replace(/^\d{2}-/, "");
@@ -320,10 +318,15 @@ function AppInner() {
     return [...fileItems, ...staticItems];
   }, [factoryFiles, currentScope]);
 
+  const skillNav = useMemo(() => [
+    { id: `${currentScope}:skills`, label: "Skill Pool" },
+    { id: `${currentScope}:skilllab`, label: "Skill Lab" },
+  ], [currentScope]);
+
   const labelFor = useCallback((fullId: string): string => {
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return "AI Crew";
-    if (pageType === "skills") return "Skills";
+    if (pageType === "skills") return "Skill Pool";
     if (pageType === "skilllab") return "Skill Lab";
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);
@@ -573,6 +576,15 @@ function AppInner() {
             <SidebarSection title="Factory">
               <div>
                 {factoryNav.map((item) => (
+                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                ))}
+              </div>
+            </SidebarSection>
+
+            {/* Skill */}
+            <SidebarSection title="Skill">
+              <div>
+                {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
               </div>
