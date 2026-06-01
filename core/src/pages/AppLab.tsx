@@ -203,7 +203,7 @@ function NewFileDialog({
     );
 }
 
-export default function ReportAppLab() {
+export default function AppLab() {
     const { info: t } = useTheme();
     const [skills, setSkills] = useState<SkillDefinition[]>([]);
     const [selectedSkill, setSelectedSkill] = useState<SkillDefinition | null>(null);

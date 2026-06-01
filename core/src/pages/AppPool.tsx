@@ -14,7 +14,7 @@ interface AppItem {
     status: string;
 }
 
-export default function ReportAppsPage({ onOpenApp }: { onOpenApp: (appId: string) => void }) {
+export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => void }) {
     const { info: t } = useTheme();
     const [apps, setApps] = useState<AppItem[]>([]);
     const [loading, setLoading] = useState(true);

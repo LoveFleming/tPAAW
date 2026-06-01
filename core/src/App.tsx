@@ -6,8 +6,8 @@ import FactoryEntryPage from "./pages/FactoryEntryPage";
 import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
 import SkillLab from "./pages/SkillLab";
-import ReportAppLab from "./pages/ReportAppLab";
-import ReportAppsPage from "./pages/ReportAppsPage";
+import AppLab from "./pages/AppLab";
+import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
@@ -340,13 +340,13 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openReportAppLab = useCallback(() => {
+  const openAppLab = useCallback(() => {
     const tabId = `${currentScope}:reportapplab`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openReportApps = useCallback(() => {
+  const openAppPool = useCallback(() => {
     const tabId = `${currentScope}:reportapps`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
@@ -453,10 +453,10 @@ function AppInner() {
       return <SkillLab />;
     }
     if (pageType === "reportapplab") {
-      return <ReportAppLab />;
+      return <AppLab />;
     }
     if (pageType === "reportapps") {
-      return <ReportAppsPage onOpenApp={openSkillAppById} />;
+      return <AppPool onOpenApp={openSkillAppById} />;
     }
     if (pageType === "cronjobs") {
       return <CronJobsPage />;
@@ -690,14 +690,14 @@ function AppInner() {
                 <NavItem
                   active={activePage.endsWith(":reportapps")}
                   label="App Pool"
-                  onClick={openReportApps}
+                  onClick={openAppPool}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
                 <NavItem
                   active={activePage.endsWith(":reportapplab")}
                   label="App Lab"
-                  onClick={openReportAppLab}
+                  onClick={openAppLab}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
