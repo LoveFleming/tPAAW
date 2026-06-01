@@ -239,6 +239,7 @@ export default function AppLab() {
     const [rightTab, setRightTab] = useState<RightTab>("terminal");
     const [trainRun, setTrainRun] = useState<TrainRun | null>(null);
     const [published, setPublished] = useState(false);
+    const [previewKey, setPreviewKey] = useState(0);
     const [chatStarted, setChatStarted] = useState(false);
     const [initialPrompt, setInitialPrompt] = useState("");
     const [consoleKey, setConsoleKey] = useState(0);
@@ -408,6 +409,22 @@ export default function AppLab() {
             .replace(/\{\{SKILL_ID\}\}/g, skillId) + outputInstruction;
         sendToTerminal(filledPrompt);
         setTimeout(() => setSendingTrain(false), 300);
+
+        // Poll for output file — auto-switch to preview when HTML appears
+        let pollCount = 0;
+        const previewUrl = `${API}/api/app/${reportId}`;
+        const pollTimer = setInterval(() => {
+            pollCount++;
+            fetch(previewUrl, { method: "HEAD" }).then(r => {
+                if (r.ok) {
+                    clearInterval(pollTimer);
+                    setPreviewKey(Date.now());
+                    setRightTab("preview");
+                }
+            }).catch(() => {});
+            // Stop polling after 3 minutes
+            if (pollCount > 360) clearInterval(pollTimer);
+        }, 500);
     };
 
     const handleTest = () => {
@@ -670,7 +687,7 @@ export default function AppLab() {
                         </button>
                         {rightTab === "preview" && (
                             <button
-                                onClick={() => setRightTab("preview")}
+                                onClick={() => setPreviewKey(Date.now())}
                                 className="ml-auto mr-3 text-[10px] text-stone-400 hover:text-stone-600 transition-colors"
                                 title="刷新預覽"
                             >
@@ -705,7 +722,7 @@ export default function AppLab() {
                         const previewUrl = reportId ? `${API}/api/app/${reportId}` : null;
                         return previewUrl ? (
                             <iframe
-                                key={previewUrl + "-" + Date.now()}
+                                key={previewKey}
                                 src={previewUrl}
                                 className="flex-1 w-full border-0 bg-white"
                                 title="App Preview"
