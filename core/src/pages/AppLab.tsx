@@ -409,17 +409,17 @@ export default function AppLab() {
                     if (!line.trim()) continue;
                     try {
                         const msg = JSON.parse(line);
-                        if (msg.type === "stdout" || msg.type === "stderr") {
+                        if (msg.type === "status") {
+                            setTrainRun(prev => prev ? { ...prev, output: prev.output + `⏳ ${msg.data?.message}\n` } : prev);
+                        } else if (msg.type === "stdout" || msg.type === "stderr") {
                             setTrainRun(prev => prev ? { ...prev, output: prev.output + msg.data + "\n" } : prev);
-                        }
-                        if (msg.type === "done") {
+                        } else if (msg.type === "done") {
                             setTrainRun(prev => prev ? { ...prev, status: "done", htmlPath: msg.data?.htmlPath } : prev);
                             if (msg.data?.htmlPath) {
                                 setRightTab("preview");
                                 loadPreview(msg.data.htmlPath);
                             }
-                        }
-                        if (msg.type === "error") {
+                        } else if (msg.type === "error") {
                             setTrainRun(prev => prev ? { ...prev, status: "error", output: prev.output + "\n❌ " + msg.data?.message + "\n" } : prev);
                         }
                     } catch {}

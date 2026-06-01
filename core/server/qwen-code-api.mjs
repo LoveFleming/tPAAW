@@ -509,15 +509,16 @@ const server = createServer(async (req, res) => {
     const outDir = join(PHYSICAL_SKILL_ROOT, reportId);
     await mkdir(outDir, { recursive: true });
 
+    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
+
     // Write prompt to a temp file so CLI can read it
     const promptFile = join(outDir, "_prompt.txt");
     await writeFile(promptFile, prompt, "utf-8");
 
-    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked" });
-
     // Use qwen CLI to generate
     const { spawn } = await import("child_process");
     const htmlOutFile = join(outDir, "app.html");
+    const QWEN_SUPPRESS = "QWEN_CODE_SUPPRESS_YOLO_WARNING";
 
     // Resolve CLI binary and args
     const cliBins = {
@@ -549,6 +550,9 @@ const server = createServer(async (req, res) => {
       env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     });
+
+    // Send initial status so frontend knows connection is alive
+    res.write(JSON.stringify({ type: "status", data: { message: `Training ${reportId} with ${cliName}...`, runId } }) + "\n");
 
     let fullOutput = "";
 
