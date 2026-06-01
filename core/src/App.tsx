@@ -668,8 +668,8 @@ function AppInner() {
               </div>
             </SidebarSection>
 
-            {/* Skill */}
-            <SidebarSection title="Skill">
+            {/* Skills */}
+            <SidebarSection title="Skills">
               <div>
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -684,19 +684,19 @@ function AppInner() {
               </div>
             </SidebarSection>
 
-            {/* Report */}
-            <SidebarSection title="Report">
+            {/* Apps */}
+            <SidebarSection title="Apps">
               <div>
                 <NavItem
                   active={activePage.endsWith(":reportapplab")}
-                  label="Report Lab"
+                  label="App Lab"
                   onClick={openReportAppLab}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
                 <NavItem
                   active={activePage.endsWith(":reportapps")}
-                  label="Report Apps"
+                  label="Apps"
                   onClick={openReportApps}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
