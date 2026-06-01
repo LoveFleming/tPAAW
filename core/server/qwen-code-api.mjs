@@ -516,9 +516,7 @@ const server = createServer(async (req, res) => {
     await writeFile(promptFile, prompt, "utf-8");
 
     // Use qwen CLI to generate
-    const { spawn } = await import("child_process");
     const htmlOutFile = join(outDir, "app.html");
-    const QWEN_SUPPRESS = "QWEN_CODE_SUPPRESS_YOLO_WARNING";
 
     // Resolve CLI binary and args
     const cliBins = {
@@ -545,57 +543,27 @@ const server = createServer(async (req, res) => {
 
     console.log(`[report-train] Spawning ${cliName} (${resolvedBin}) for ${reportId}, template=${template}`);
 
-    // qwen -o text buffers all stdout in pipe mode until process exits.
-    // Solution: redirect stdout to a temp file, poll the file for new content.
-    const outFile = join(outDir, "_cli_output.txt");
-
-    // Use shell redirect to write stdout to file
-    const shellCmd = `${resolvedBin} ${cliArgs.map(a => `"${a.replace(/"/g, '\\"')}"`).join(" ")} > "${outFile}" 2>&1`;
-    console.log(`[report-train] Shell: ${shellCmd.substring(0, 120)}...`);
-
-    const child = spawn("/bin/sh", ["-c", shellCmd], {
+    // Use node-pty so CLI thinks it's on a real terminal → stdout flushes immediately
+    // Plain child_process.spawn causes qwen -o text to buffer everything until exit
+    const ptyProc = ptySpawn(resolvedBin, cliArgs, {
+      name: "xterm-256color",
+      cols: 200,
+      rows: 50,
       cwd: outDir,
-      env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
     });
 
     // Send initial status so frontend knows connection is alive
     res.write(JSON.stringify({ type: "status", data: { message: `Training ${reportId} with ${cliName}...`, runId } }) + "\n");
 
-    // Poll the output file for new content and stream to client
-    let lastPos = 0;
     let fullOutput = "";
-    const pollInterval = setInterval(async () => {
-      try {
-        const stat = await import("fs").then(f => f.stat(outFile)).catch(() => null);
-        if (!stat || stat.size <= lastPos) return;
-        const fd = await import("fs").then(f => f.open(outFile, "r"));
-        const buf = Buffer.alloc(stat.size - lastPos);
-        await fd.read(buf, 0, buf.length, lastPos);
-        await fd.close();
-        lastPos = stat.size;
-        const text = buf.toString();
-        fullOutput += text;
-        res.write(JSON.stringify({ type: "stdout", data: text }) + "\n");
-      } catch {}
-    }, 500);
 
-    child.on("close", async (code) => {
-      clearInterval(pollInterval);
+    ptyProc.onData((data) => {
+      fullOutput += data;
+      res.write(JSON.stringify({ type: "stdout", data }) + "\n");
+    });
 
-      // Final read of output file
-      try {
-        const finalContent = await import("fs").then(f => f.readFile(outFile, "utf-8"));
-        if (finalContent.length > fullOutput.length) {
-          const newPart = finalContent.substring(fullOutput.length);
-          fullOutput = finalContent;
-          res.write(JSON.stringify({ type: "stdout", data: newPart }) + "\n");
-        }
-      } catch {}
-
-      // Cleanup temp file
-      try { await unlink(outFile); } catch {}
-
+    ptyProc.onExit(({ exitCode }) => {
       // Extract HTML from CLI output
       let htmlContent = fullOutput;
       const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
@@ -614,9 +582,9 @@ const server = createServer(async (req, res) => {
         const reportMeta = { template, status: "trained", generatedFrom: skillId, generatedAt: new Date().toISOString(), reportName };
         await writeFile(join(outDir, "report.json"), JSON.stringify(reportMeta, null, 2), "utf-8");
 
-        res.write(JSON.stringify({ type: "done", data: { reportId, htmlPath: htmlOutFile, exitCode: code } }) + "\n");
+        res.write(JSON.stringify({ type: "done", data: { reportId, htmlPath: htmlOutFile, exitCode } }) + "\n");
       } else {
-        res.write(JSON.stringify({ type: "error", data: { message: `CLI finished (code=${code}) but no valid HTML found in output (${fullOutput.length} chars)` } }) + "\n");
+        res.write(JSON.stringify({ type: "error", data: { message: `CLI finished (code=${exitCode}) but no valid HTML found in output (${fullOutput.length} chars)` } }) + "\n");
       }
 
       // Cleanup prompt file
@@ -624,13 +592,9 @@ const server = createServer(async (req, res) => {
       res.end();
     });
 
-    child.on("error", (err) => {
-      res.write(JSON.stringify({ type: "error", data: { message: err.message } }) + "\n");
-      res.end();
-    });
-
+    // No 'error' event on PTY, but handle spawn failures
     // 180s timeout
-    setTimeout(() => { try { child.kill(); } catch {} }, 180_000);
+    setTimeout(() => { try { ptyProc.kill(); } catch {} }, 180_000);
     return;
   }
 
