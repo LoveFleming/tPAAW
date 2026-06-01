@@ -45,6 +45,11 @@ aieoc/
 │       ├── crews/               ← 7 位 AI 員工
 │       ├── docs/                ← 憲法、標準文件
 │       └── factory.json
+├── apps/                        ← App 實體目錄（每個 app 一個資料夾）
+│   ├── my-report/              ← 範例 app
+│   │   ├── app.html           ← 生成的 HTML
+│   │   └── app.json           ← app metadata
+│   └── ...                    ← 更多 apps
 ├── skills/                      ← 共享 AI 技能
 │   ├── input-prompt/            ← CLI 輸入型技能
 │   │   ├── aioc-tour/

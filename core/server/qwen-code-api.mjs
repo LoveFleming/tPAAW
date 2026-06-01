@@ -32,6 +32,7 @@ const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
 const SKILLS_ROOT = resolve(AIOC_ROOT, "skills");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
+const APPS_ROOT = resolve(AIOC_ROOT, "apps");
 const DEFAULT_FACTORY = "default";
 
 const PORT = parseInt(process.env.QWEN_CODE_PORT || "4097", 10);
@@ -432,6 +433,56 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/apps — list apps from apps/ directory
+  if (req.method === "GET" && req.url?.match(/^\/api\/apps(?:\?.*)?$/)) {
+    try {
+      await mkdir(APPS_ROOT, { recursive: true });
+      const dirs = await readdir(APPS_ROOT);
+      const apps = [];
+      for (const dir of dirs) {
+        try {
+          const stat = await import("fs/promises").then(m => m.stat(join(APPS_ROOT, dir)));
+          if (!stat.isDirectory()) continue;
+          const entries = await readdir(join(APPS_ROOT, dir));
+          const hasHtml = entries.includes("app.html");
+          let meta = {};
+          try { meta = JSON.parse(await readFile(join(APPS_ROOT, dir, "app.json"), "utf-8")); } catch {}
+          apps.push({
+            id: dir,
+            name: meta.name || dir,
+            description: meta.description || "",
+            template: meta.template || "",
+            skillId: meta.skillId || "",
+            hasApp: hasHtml,
+            generatedAt: meta.generatedAt || "",
+            status: meta.status || "published",
+          });
+        } catch { /* skip */ }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(apps));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/app/:id — serve app.html from apps/ directory
+  const appServeMatch = req.method === "GET" && req.url?.match(/^\/api\/app\/([\w.-]+)(?:\?.*)?$/);
+  if (appServeMatch) {
+    const appId = appServeMatch[1];
+    try {
+      const html = await readFile(join(APPS_ROOT, appId, "app.html"), "utf-8");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
+    } catch {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "App not found: " + appId }));
+    }
+    return;
+  }
+
   // GET /api/report-templates — list available report templates
   if (req.method === "GET" && req.url?.match(/^\/api\/report-templates(?:\?.*)?$/)) {
     const templates = [
@@ -581,8 +632,23 @@ const server = createServer(async (req, res) => {
       meta.publishedAt = new Date().toISOString();
       await writeFile(reportJsonPath, JSON.stringify(meta, null, 2), "utf-8");
 
+      // Also copy to apps/ directory
+      const reportId = (reportName || skillId).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || skillId;
+      const appDir = join(APPS_ROOT, reportId);
+      await mkdir(appDir, { recursive: true });
+      await writeFile(join(appDir, "app.html"), html, "utf-8");
+      const appJson = {
+        name: reportName || reportId,
+        skillId,
+        template: meta.template || "",
+        generatedAt: meta.generatedAt || new Date().toISOString(),
+        publishedAt: meta.publishedAt,
+        status: "published",
+      };
+      await writeFile(join(appDir, "app.json"), JSON.stringify(appJson, null, 2), "utf-8");
+
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, path: htmlPath }));
+      res.end(JSON.stringify({ ok: true, path: htmlPath, appId: reportId }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
