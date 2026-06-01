@@ -640,10 +640,10 @@ export default function AppLab() {
                                         <button onClick={handleTrain}
                                             disabled={!reportName || !prompt.trim() || trainRun?.status === "running"}
                                             className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
-                                                selectedSkill && reportName && trainRun?.status !== "running"
+                                                reportName && prompt.trim() && trainRun?.status !== "running"
                                                     ? "text-white hover:opacity-90 shadow-sm"
                                                     : "bg-stone-200 text-stone-400 cursor-not-allowed")}
-                                            style={{ backgroundColor: selectedSkill && reportName && trainRun?.status !== "running" ? t.accent : undefined }}>
+                                            style={{ backgroundColor: reportName && prompt.trim() && trainRun?.status !== "running" ? t.accent : undefined }}>
                                             {trainRun?.status === "running" ? "⏳" : "▶"} Train
                                         </button>
                                     </div>
@@ -665,10 +665,10 @@ export default function AppLab() {
                                     <button onClick={handleTest}
                                         disabled={!testPrompt.trim() || trainRun?.status === "running"}
                                         className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
-                                            selectedSkill && testPrompt.trim() && trainRun?.status !== "running"
+                                            testPrompt.trim() && trainRun?.status !== "running"
                                                 ? "text-white hover:opacity-90 shadow-sm"
                                                 : "bg-stone-200 text-stone-400 cursor-not-allowed")}
-                                        style={{ backgroundColor: selectedSkill && testPrompt.trim() && trainRun?.status !== "running" ? "#059669" : undefined }}>
+                                        style={{ backgroundColor: testPrompt.trim() && trainRun?.status !== "running" ? "#059669" : undefined }}>
                                         {trainRun?.status === "running" ? "⏳" : "▶"} Test
                                     </button>
                                 </div>
