@@ -9,10 +9,10 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f4; color: #292524; }
   .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
-  
+
   h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .subtitle { font-size: 13px; color: #78716c; margin-bottom: 24px; }
-  
+
   /* Summary Cards */
   .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
   .card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e7e5e4; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s; }
@@ -25,14 +25,13 @@
   .card-value.green { color: #059669; }
   .card-value.orange { color: #ea580c; }
   .card-value.purple { color: #7c3aed; }
-  
+
   /* Charts */
   .charts { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin-bottom: 24px; }
   .chart-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e7e5e4; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; color: #44403c; }
-  
   .chart-full { grid-column: 1 / -1; }
-  
+
   /* Table */
   .table-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e7e5e4; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .search-bar { width: 100%; padding: 10px 14px; border: 1px solid #d6d3d1; border-radius: 8px; font-size: 13px; margin-bottom: 16px; outline: none; transition: border-color 0.2s; }
@@ -47,9 +46,10 @@
   .badge-green { background: #d1fae5; color: #047857; }
   .badge-orange { background: #ffedd5; color: #c2410c; }
   .badge-purple { background: #ede9fe; color: #6d28d9; }
-  
+
   .empty { text-align: center; padding: 40px; color: #a8a29e; font-size: 13px; }
-  
+  .error-banner { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+
   @keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .animate { animation: countUp 0.5s ease-out forwards; }
 </style>
@@ -57,33 +57,35 @@
 <body>
 <div class="container">
   <h1>📊 Skill Counting Report</h1>
-  <p class="subtitle">AIOC Skills 分佈統計 — <span id="updateTime"></span></p>
+  <p class="subtitle">AIOC Skills 即時統計 — <span id="updateTime">載入中...</span></p>
+
+  <div id="errorBanner" class="error-banner" style="display:none"></div>
 
   <!-- Summary Cards -->
   <div class="cards">
     <div class="card">
       <div class="card-icon">📦</div>
       <div class="card-label">Total Skills</div>
-      <div class="card-value purple animate" id="totalSkills">0</div>
+      <div class="card-value purple animate" id="totalSkills">-</div>
       <div class="card-sub">all skill types</div>
     </div>
     <div class="card">
       <div class="card-icon">📝</div>
-      <div class="card-label">Definition Skills</div>
-      <div class="card-value blue animate" id="defSkills">0</div>
-      <div class="card-sub">input-prompt / CLI 型</div>
+      <div class="card-label">Input-Prompt Skills</div>
+      <div class="card-value blue animate" id="inputPromptSkills">-</div>
+      <div class="card-sub">input-prompt 型</div>
     </div>
     <div class="card">
       <div class="card-icon">🖥️</div>
       <div class="card-label">Physical Skills</div>
-      <div class="card-value green animate" id="phySkills">0</div>
+      <div class="card-value green animate" id="physicalSkills">-</div>
       <div class="card-sub">有 UI 介面</div>
     </div>
     <div class="card">
       <div class="card-icon">🎓</div>
-      <div class="card-label">Training Templates</div>
-      <div class="card-value orange animate" id="trainSkills">0</div>
-      <div class="card-sub">training 用模板</div>
+      <div class="card-label">Apps</div>
+      <div class="card-value orange animate" id="appCount">-</div>
+      <div class="card-sub">published apps</div>
     </div>
   </div>
 
@@ -99,25 +101,18 @@
     </div>
   </div>
 
-  <!-- Chart Row 2 -->
-  <div class="charts">
-    <div class="chart-card chart-full">
-      <div class="chart-title">📈 Skill Growth Timeline</div>
-      <canvas id="growthChart" style="max-height: 220px;"></canvas>
-    </div>
-  </div>
-
   <!-- Table -->
   <div class="table-card">
-    <div class="chart-title">📋 All Skills</div>
+    <div class="chart-title">📋 All Skills (Live from API)</div>
     <input type="text" class="search-bar" id="searchInput" placeholder="搜尋 skill 名稱..." />
     <table>
       <thead>
         <tr>
           <th onclick="sortTable('name')">Name ↕</th>
-          <th onclick="sortTable('type')">Type ↕</th>
+          <th onclick="sortTable('kind')">Kind ↕</th>
           <th onclick="sortTable('category')">Category ↕</th>
           <th onclick="sortTable('id')">ID ↕</th>
+          <th onclick="sortTable('hasApp')">App ↕</th>
         </tr>
       </thead>
       <tbody id="skillTable"></tbody>
@@ -126,34 +121,15 @@
 </div>
 
 <script>
-const API = 'http://127.0.0.1:4097';
+// Auto-detect API base: use current host or fallback to localhost:4097
+const API = window.location.port === '4097'
+  ? ''
+  : (window.location.protocol + '//' + window.location.hostname + ':4097');
 
-const PHYSICAL_SKILLS = ['daily-stats'];
-const TRAINING_SKILLS = ['_template'];
-
-const CATEGORIES = {
-  'Testing':       ['test-generation','test-design','skill-testing','java-unit-test','bug-review','quality-gate','spec-check'],
-  'Design':        ['skill-design','skill-creation','skill-forging','skill-packing','draft-flow-specs'],
-  'Diagnosis':     ['diagnosis','root-cause','incident-detection','incident-support','signal-detect','health-check-design'],
-  'API':           ['api-health-check','endpoint-probe','define-api-contracts','contract-validation'],
-  'Factory':       ['factory-constitution','factory-tour','aioc-tour','quick-tour','dashboard-setup'],
-  'Code Gen':      ['node-codegen','collect-inputs','extract-user-stories'],
-  'Monitoring':    ['sla-monitor'],
-  'CLI':           ['cli-test','claude-code-test','opencode-test'],
-};
-
-function getCategory(skillId) {
-  for (const [cat, ids] of Object.entries(CATEGORIES)) {
-    if (ids.includes(skillId)) return cat;
-  }
-  return 'Other';
-}
-
-function getType(skillId) {
-  if (PHYSICAL_SKILLS.includes(skillId)) return 'Physical';
-  if (TRAINING_SKILLS.includes(skillId)) return 'Training';
-  return 'Definition';
-}
+let allSkills = [];
+let allApps = [];
+let sortKey = 'name';
+let sortAsc = true;
 
 // Count-up animation
 function animateValue(el, end, duration = 800) {
@@ -175,56 +151,51 @@ const COLORS = {
   purple: '#8b5cf6', purpleLight: '#c4b5fd',
   stone: '#78716c',
 };
-
 const CAT_COLORS = ['#3b82f6','#10b981','#f97316','#8b5cf6','#ec4899','#06b6d4','#eab308','#64748b','#a8a29e'];
 
-let allSkills = [];
-let sortKey = 'name';
-let sortAsc = true;
-
 async function init() {
-  document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-TW');
-  
+  document.getElementById('updateTime').textContent = '載入中...';
+
   try {
-    const resp = await fetch(API + '/api/skills');
-    allSkills = await resp.json();
-  } catch {
-    // Fallback mock data
-    allSkills = [
-      'aioc-tour','api-health-check','bug-review','claude-code-test','cli-test','collect-inputs',
-      'contract-validation','dashboard-setup','define-api-contracts','diagnosis','draft-flow-specs',
-      'endpoint-probe','extract-user-stories','factory-constitution','factory-tour',
-      'health-check-design','incident-detection','incident-support','java-unit-test','node-codegen',
-      'opencode-test','quality-gate','quick-tour','root-cause','signal-detect','skill-creation',
-      'skill-design','skill-forging','skill-packing','skill-testing','sla-monitor','spec-check',
-      'test-design','test-generation','daily-stats'
-    ].map((id, i) => ({ id, name: id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), description: '' }));
+    // Fetch real skills from API
+    const skillsResp = await fetch(API + '/api/skills');
+    if (!skillsResp.ok) throw new Error('Skills API 回應 ' + skillsResp.status);
+    allSkills = await skillsResp.json();
+
+    // Fetch real apps from API
+    try {
+      const appsResp = await fetch(API + '/api/apps');
+      if (appsResp.ok) allApps = await appsResp.json();
+    } catch { allApps = []; }
+
+  } catch (err) {
+    document.getElementById('errorBanner').textContent = '⚠️ 無法連接 API: ' + err.message;
+    document.getElementById('errorBanner').style.display = 'block';
+    document.getElementById('updateTime').textContent = 'API 連線失敗';
+    return;
   }
 
-  const enriched = allSkills.map(s => ({
-    ...s,
-    type: getType(s.id),
-    category: getCategory(s.id),
-  }));
+  document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-TW');
 
-  const total = enriched.length;
-  const defCount = enriched.filter(s => s.type === 'Definition').length;
-  const phyCount = enriched.filter(s => s.type === 'Physical').length;
-  const trainCount = enriched.filter(s => s.type === 'Training').length;
+  // Compute stats from real data
+  const total = allSkills.length;
+  const inputPromptCount = allSkills.filter(s => s.kind === 'input-prompt').length;
+  const physicalCount = allSkills.filter(s => s.kind === 'physical-skill').length;
+  const appCount = allApps.length;
 
   animateValue(document.getElementById('totalSkills'), total);
-  animateValue(document.getElementById('defSkills'), defCount);
-  animateValue(document.getElementById('phySkills'), phyCount);
-  animateValue(document.getElementById('trainSkills'), trainCount);
+  animateValue(document.getElementById('inputPromptSkills'), inputPromptCount);
+  animateValue(document.getElementById('physicalSkills'), physicalCount);
+  animateValue(document.getElementById('appCount'), appCount);
 
-  // Doughnut chart — Type distribution
+  // Doughnut chart — Kind distribution (real data)
   new Chart(document.getElementById('typeChart'), {
     type: 'doughnut',
     data: {
-      labels: ['Definition Skills', 'Physical Skills', 'Training Templates'],
+      labels: ['Input-Prompt', 'Physical Skill'],
       datasets: [{
-        data: [defCount, phyCount, trainCount],
-        backgroundColor: [COLORS.blue, COLORS.green, COLORS.orange],
+        data: [inputPromptCount, physicalCount],
+        backgroundColor: [COLORS.blue, COLORS.green],
         borderWidth: 0,
         hoverOffset: 8,
       }]
@@ -238,15 +209,18 @@ async function init() {
     }
   });
 
-  // Bar chart — Category
+  // Bar chart — Category (from real skill.category data)
   const catCounts = {};
-  enriched.forEach(s => { catCounts[s.category] = (catCounts[s.category] || 0) + 1; });
+  allSkills.forEach(s => {
+    const cat = s.category || 'Other';
+    catCounts[cat] = (catCounts[cat] || 0) + 1;
+  });
   const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
-  
+
   new Chart(document.getElementById('categoryChart'), {
     type: 'bar',
     data: {
-      labels: sortedCats.map(c => c[0]),
+      labels: sortedCats.map(c => c[0] || 'Other'),
       datasets: [{
         label: 'Skills',
         data: sortedCats.map(c => c[1]),
@@ -266,58 +240,40 @@ async function init() {
     }
   });
 
-  // Line chart — Growth
-  const months = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
-  const growthData = [5, 10, 16, 22, 28, total];
-  new Chart(document.getElementById('growthChart'), {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [{
-        label: 'Total Skills',
-        data: growthData,
-        borderColor: COLORS.purple,
-        backgroundColor: COLORS.purpleLight + '40',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointHoverRadius: 8,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 5 }, grid: { color: '#f5f5f4' } },
-        x: { grid: { display: false } },
-      }
-    }
-  });
-
-  renderTable(enriched);
+  renderTable();
 }
 
-function renderTable(skills) {
+function renderTable() {
   const search = document.getElementById('searchInput').value.toLowerCase();
-  let filtered = skills.filter(s =>
-    s.name.toLowerCase().includes(search) ||
-    s.id.toLowerCase().includes(search) ||
-    s.category.toLowerCase().includes(search)
+  let filtered = allSkills.filter(s =>
+    (s.name || '').toLowerCase().includes(search) ||
+    (s.id || '').toLowerCase().includes(search) ||
+    (s.category || '').toLowerCase().includes(search)
   );
-  
+
   filtered.sort((a, b) => {
-    const va = a[sortKey] || '';
-    const vb = b[sortKey] || '';
+    const va = (a[sortKey] || '').toString();
+    const vb = (b[sortKey] || '').toString();
+    if (sortKey === 'hasApp') {
+      return sortAsc ? (a.hasApp === b.hasApp ? 0 : a.hasApp ? -1 : 1) : (a.hasApp === b.hasApp ? 0 : a.hasApp ? 1 : -1);
+    }
     return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
   });
 
-  const badgeCls = { Definition: 'badge-blue', Physical: 'badge-green', Training: 'badge-orange' };
-  document.getElementById('skillTable').innerHTML = filtered.map(s => `
+  const kindBadge = {
+    'input-prompt': 'badge-blue',
+    'physical-skill': 'badge-green',
+  };
+
+  document.getElementById('skillTable').innerHTML = filtered.length === 0
+    ? '<tr><td colspan="5" class="empty">沒有符合的 skill</td></tr>'
+    : filtered.map(s => `
     <tr>
-      <td><strong>${s.name}</strong></td>
-      <td><span class="badge ${badgeCls[s.type]}">${s.type}</span></td>
-      <td>${s.category}</td>
+      <td><strong>${s.name || s.id}</strong></td>
+      <td><span class="badge ${kindBadge[s.kind] || 'badge-purple'}">${s.kind}</span></td>
+      <td>${s.category || '—'}</td>
       <td style="font-family:monospace;font-size:11px;color:#a8a29e">${s.id}</td>
+      <td>${s.hasApp ? '✅' : '—'}</td>
     </tr>
   `).join('');
 }
@@ -325,14 +281,10 @@ function renderTable(skills) {
 function sortTable(key) {
   if (sortKey === key) sortAsc = !sortAsc;
   else { sortKey = key; sortAsc = true; }
-  const enriched = allSkills.map(s => ({ ...s, type: getType(s.id), category: getCategory(s.id) }));
-  renderTable(enriched);
+  renderTable();
 }
 
-document.getElementById('searchInput').addEventListener('input', () => {
-  const enriched = allSkills.map(s => ({ ...s, type: getType(s.id), category: getCategory(s.id) }));
-  renderTable(enriched);
-});
+document.getElementById('searchInput').addEventListener('input', renderTable);
 
 init();
 </script>
