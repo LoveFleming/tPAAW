@@ -808,6 +808,51 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
+  // GET /api/report-lab/training-files — list report training files
+  if (req.method === "GET" && req.url?.startsWith("/api/report-lab/training-files")) {
+    try {
+      const skillsDir = join(AIOC_ROOT, "skills");
+      const results = [];
+      // Scan skills/training/ for report-*.md files
+      const trainingDir = join(skillsDir, "training");
+      try {
+        const tStat = await import("fs/promises").then(m => m.stat(trainingDir));
+        if (tStat.isDirectory()) {
+          const tEntries = await readdir(trainingDir);
+          for (const f of tEntries) {
+            if (/\.md$/i.test(f) && !f.startsWith("_") && /report/i.test(f)) {
+              results.push({ name: "training/" + f, path: join(trainingDir, f) });
+            }
+          }
+        }
+      } catch { /* training dir optional */ }
+      // Also scan for any training files that contain report keywords
+      try {
+        const ipDir = join(skillsDir, "input-prompt");
+        await mkdir(ipDir, { recursive: true });
+        const dirs = await readdir(ipDir);
+        for (const dir of dirs) {
+          try {
+            const stat = await import("fs/promises").then(m => m.stat(join(ipDir, dir)));
+            if (!stat.isDirectory()) continue;
+            const entries = await readdir(join(ipDir, dir));
+            for (const f of entries) {
+              if (/report/i.test(f) && /\.md$/i.test(f)) {
+                results.push({ name: `input-prompt/${dir}/${f}`, path: join(ipDir, dir, f) });
+              }
+            }
+          } catch { /* skip */ }
+        }
+      } catch { /* skip */ }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(results));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
   // PUT /api/fs/file?path=... — write file content
   if (req.method === "PUT" && req.url?.startsWith("/api/fs/file")) {
     const params = new URL(req.url, "http://localhost").searchParams;
