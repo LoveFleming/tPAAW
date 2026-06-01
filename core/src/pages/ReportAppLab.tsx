@@ -15,6 +15,18 @@ interface TrainRun {
     htmlPath?: string;
 }
 
+interface TrainingRecord {
+    id: string;
+    reportName: string;
+    skillId: string;
+    skillName: string;
+    template: string;
+    prompt: string;
+    generatedAt: string;
+    htmlPath?: string;
+    status: "trained" | "published";
+}
+
 const DEFAULT_PROMPT = `你是一個前端報表開發專家。請產出一個完整的 HTML 報表頁面。
 
 ## 報表規格
@@ -45,6 +57,126 @@ const TEMPLATES = [
     { id: "mixed", name: "Mixed", icon: "🎛️", desc: "Charts + table + AI analysis" },
 ];
 
+// ── Skill Picker Popup Dialog ──
+function SkillPickerDialog({
+    skills,
+    onSelect,
+    onClose,
+}: {
+    skills: SkillDefinition[];
+    onSelect: (sk: SkillDefinition) => void;
+    onClose: () => void;
+}) {
+    const { info: t } = useTheme();
+    const [search, setSearch] = useState("");
+    const filtered = skills.filter(sk =>
+        sk.name.toLowerCase().includes(search.toLowerCase()) ||
+        sk.id.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.35)" }}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border" style={{ borderColor: t.accentBorder }}>
+                <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "#e7e5e4" }}>
+                    <h3 className="text-sm font-bold text-stone-700">📦 選擇基底 Skill</h3>
+                    <button onClick={onClose} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
+                </div>
+                <div className="px-5 pt-3">
+                    <input
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder="搜尋 skill 名稱或 ID..."
+                        className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
+                        style={{ borderColor: "#d6d3d1" }}
+                        autoFocus
+                    />
+                </div>
+                <div className="max-h-72 overflow-y-auto p-3 space-y-1.5">
+                    {filtered.map(sk => (
+                        <button key={sk.id} onClick={() => { onSelect(sk); onClose(); }}
+                            className="w-full text-left p-3 border rounded-lg hover:shadow-sm hover:border-stone-300 transition-all text-sm"
+                            style={{ borderColor: "#e7e5e4" }}>
+                            <span className="font-semibold text-stone-700">{sk.name}</span>
+                            <span className="text-[10px] text-stone-400 ml-2 font-mono">{sk.id}</span>
+                        </button>
+                    ))}
+                    {filtered.length === 0 && (
+                        <div className="text-center text-stone-400 text-xs py-6">找不到符合的 Skill</div>
+                    )}
+                </div>
+                <div className="px-5 py-3 border-t text-xs text-stone-400" style={{ borderColor: "#e7e5e4" }}>
+                    共 {filtered.length} / {skills.length} 個 Skill
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Training File Viewer Dialog ──
+function TrainingFileDialog({
+    records,
+    onLoad,
+    onClose,
+}: {
+    records: TrainingRecord[];
+    onLoad: (rec: TrainingRecord) => void;
+    onClose: () => void;
+}) {
+    const { info: t } = useTheme();
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.35)" }}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border" style={{ borderColor: t.accentBorder }}>
+                <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "#e7e5e4" }}>
+                    <h3 className="text-sm font-bold text-stone-700">📁 訓練紀錄</h3>
+                    <button onClick={onClose} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                    {records.length === 0 ? (
+                        <div className="text-center text-stone-400 text-xs py-10">還沒有訓練紀錄</div>
+                    ) : (
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="text-left text-stone-500 border-b" style={{ borderColor: "#e7e5e4" }}>
+                                    <th className="px-4 py-2 font-semibold">Report 名稱</th>
+                                    <th className="px-4 py-2 font-semibold">基底 Skill</th>
+                                    <th className="px-4 py-2 font-semibold">Template</th>
+                                    <th className="px-4 py-2 font-semibold">狀態</th>
+                                    <th className="px-4 py-2 font-semibold">時間</th>
+                                    <th className="px-4 py-2 font-semibold">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {records.map((rec, i) => (
+                                    <tr key={rec.id || i} className="border-b hover:bg-stone-50" style={{ borderColor: "#f5f5f4" }}>
+                                        <td className="px-4 py-2 font-semibold text-stone-700">{rec.reportName}</td>
+                                        <td className="px-4 py-2 text-stone-500 font-mono text-[10px]">{rec.skillName || rec.skillId}</td>
+                                        <td className="px-4 py-2">{TEMPLATES.find(t => t.id === rec.template)?.icon || "📊"} {rec.template}</td>
+                                        <td className="px-4 py-2">
+                                            <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+                                                rec.status === "published" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700")}>
+                                                {rec.status === "published" ? "已上架" : "已訓練"}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-stone-400 whitespace-nowrap">{rec.generatedAt ? new Date(rec.generatedAt).toLocaleString() : "-"}</td>
+                                        <td className="px-4 py-2">
+                                            <button onClick={() => { onLoad(rec); onClose(); }}
+                                                className="text-[10px] px-2 py-1 rounded-md font-semibold text-white"
+                                                style={{ backgroundColor: t.accent }}>
+                                                載入
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function ReportAppLab() {
     const { info: t } = useTheme();
     const [skills, setSkills] = useState<SkillDefinition[]>([]);
@@ -58,6 +190,11 @@ export default function ReportAppLab() {
     const [published, setPublished] = useState(false);
     const [publishing, setPublishing] = useState(false);
 
+    // Dialog states
+    const [showSkillPicker, setShowSkillPicker] = useState(false);
+    const [showTrainingFiles, setShowTrainingFiles] = useState(false);
+    const [trainingRecords, setTrainingRecords] = useState<TrainingRecord[]>([]);
+
     const termRef = useRef<HTMLPreElement>(null);
     const previewRef = useRef<HTMLIFrameElement>(null);
 
@@ -65,14 +202,37 @@ export default function ReportAppLab() {
         fetch(`${API}/api/skills`).then(r => r.json()).then(setSkills).catch(() => {});
     }, []);
 
+    // Load training records from localStorage
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem("reportLab.trainingRecords");
+            if (saved) setTrainingRecords(JSON.parse(saved));
+        } catch {}
+    }, []);
+
     // Auto-scroll terminal
     useEffect(() => {
         if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
     }, [trainRun?.output]);
 
+    const saveTrainingRecord = (rec: TrainingRecord) => {
+        const updated = [rec, ...trainingRecords.filter(r => r.id !== rec.id)];
+        setTrainingRecords(updated);
+        localStorage.setItem("reportLab.trainingRecords", JSON.stringify(updated));
+    };
+
     const handleSelectSkill = (sk: SkillDefinition) => {
         setSelectedSkill(sk);
         if (!reportName) setReportName(sk.name + "-report");
+    };
+
+    const handleLoadRecord = (rec: TrainingRecord) => {
+        setReportName(rec.reportName);
+        setSelectedTemplate(rec.template);
+        setPrompt(rec.prompt || DEFAULT_PROMPT);
+        // Re-select the skill if still available
+        const sk = skills.find(s => s.id === rec.skillId);
+        if (sk) setSelectedSkill(sk);
     };
 
     const handleTrain = async () => {
@@ -123,6 +283,18 @@ export default function ReportAppLab() {
                         }
                         if (msg.type === "done") {
                             setTrainRun(prev => prev ? { ...prev, status: "done", htmlPath: msg.data?.htmlPath } : prev);
+                            // Save training record
+                            saveTrainingRecord({
+                                id: runId,
+                                reportName,
+                                skillId: selectedSkill.id,
+                                skillName: selectedSkill.name,
+                                template: selectedTemplate,
+                                prompt,
+                                generatedAt: new Date().toISOString(),
+                                htmlPath: msg.data?.htmlPath,
+                                status: "trained",
+                            });
                             if (msg.data?.htmlPath) {
                                 setRightTab("preview");
                                 loadPreview(msg.data.htmlPath);
@@ -140,7 +312,6 @@ export default function ReportAppLab() {
     };
 
     const loadPreview = (htmlPath: string) => {
-        // Load preview from API
         const timer = setInterval(() => {
             if (!previewRef.current) return;
             const doc = previewRef.current.contentDocument;
@@ -167,7 +338,15 @@ export default function ReportAppLab() {
                 }),
             });
             const data = await resp.json();
-            if (data.ok) setPublished(true);
+            if (data.ok) {
+                setPublished(true);
+                // Update training record status
+                const updated = trainingRecords.map(r =>
+                    r.htmlPath === trainRun.htmlPath ? { ...r, status: "published" as const } : r
+                );
+                setTrainingRecords(updated);
+                localStorage.setItem("reportLab.trainingRecords", JSON.stringify(updated));
+            }
         } catch {}
         setPublishing(false);
     };
@@ -176,35 +355,62 @@ export default function ReportAppLab() {
 
     return (
         <div className="h-full flex flex-col" style={{ backgroundColor: "#fafaf9" }}>
+            {/* Dialogs */}
+            {showSkillPicker && (
+                <SkillPickerDialog
+                    skills={skills}
+                    onSelect={handleSelectSkill}
+                    onClose={() => setShowSkillPicker(false)}
+                />
+            )}
+            {showTrainingFiles && (
+                <TrainingFileDialog
+                    records={trainingRecords}
+                    onLoad={handleLoadRecord}
+                    onClose={() => setShowTrainingFiles(false)}
+                />
+            )}
+
             {/* Header */}
             <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                 <span className="text-lg">🎨</span>
                 <h2 className="text-sm font-bold" style={{ color: t.accentText }}>Report App Training Lab</h2>
                 <span className="text-xs text-stone-400 ml-2">Design → Train → Preview → Publish</span>
+                {/* Training Files button in header */}
+                <button onClick={() => setShowTrainingFiles(true)}
+                    className="ml-auto px-3 py-1.5 border rounded-lg text-xs font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
+                    style={{ borderColor: t.accentBorder, color: t.accent }}>
+                    📁 訓練紀錄
+                    {trainingRecords.length > 0 && (
+                        <span className="bg-stone-200 text-stone-600 rounded-full px-1.5 py-0.5 text-[10px] font-bold">{trainingRecords.length}</span>
+                    )}
+                </button>
             </div>
 
             <div className="flex-1 flex min-h-0 overflow-hidden">
                 {/* ========== LEFT PANEL ========== */}
                 <div className="flex flex-col border-r overflow-y-auto" style={{ width: "40%", minWidth: 340, borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-                    {/* Skill Selector */}
+                    {/* Skill Selector — Popup trigger */}
                     <div className="p-4 border-b" style={{ borderColor: "#e7e5e4" }}>
                         <h3 className="text-xs font-bold text-stone-500 mb-2">📦 基底 Skill</h3>
                         {!selectedSkill ? (
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                                {skills.map(sk => (
-                                    <button key={sk.id} onClick={() => handleSelectSkill(sk)}
-                                        className="w-full text-left p-2 border rounded-lg hover:shadow-sm transition-all text-sm"
-                                        style={{ borderColor: "#e7e5e4" }}>
-                                        <span className="font-semibold text-stone-700">{sk.name}</span>
-                                        <span className="text-[10px] text-stone-400 ml-2 font-mono">{sk.id}</span>
-                                    </button>
-                                ))}
-                                {skills.length === 0 && <div className="text-stone-400 text-xs text-center py-4">No skills</div>}
-                            </div>
+                            <button onClick={() => setShowSkillPicker(true)}
+                                className="w-full p-3 border-2 border-dashed rounded-lg text-sm text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-colors flex items-center justify-center gap-2"
+                                style={{ borderColor: "#d6d3d1" }}>
+                                <span className="text-lg">+</span> 選擇 Skill...
+                            </button>
                         ) : (
                             <div className="flex items-center gap-2 p-2 rounded-lg border" style={{ borderColor: t.accent, backgroundColor: t.accentBg }}>
                                 <span className="text-sm font-bold text-stone-700">{selectedSkill.name}</span>
-                                <button onClick={() => setSelectedSkill(null)} className="ml-auto text-xs text-stone-400 hover:text-red-400">✕</button>
+                                <span className="text-[10px] text-stone-400 font-mono">{selectedSkill.id}</span>
+                                <div className="ml-auto flex gap-1">
+                                    <button onClick={() => setShowSkillPicker(true)}
+                                        className="text-[10px] px-2 py-1 rounded-md border hover:bg-stone-50"
+                                        style={{ borderColor: t.accentBorder, color: t.accent }}>
+                                        換
+                                    </button>
+                                    <button onClick={() => setSelectedSkill(null)} className="text-xs text-stone-400 hover:text-red-400">✕</button>
+                                </div>
                             </div>
                         )}
                     </div>
