@@ -468,10 +468,15 @@ function AppInner() {
           <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
             <span className="text-lg">📊</span>
             <span className="text-sm font-bold text-stone-700">{skillAppNav.find(n => n.skillId === skillId)?.label ?? skillId}</span>
-            <span className="text-xs text-stone-400 ml-2">Skill App</span>
+            <span className="text-xs text-stone-400 ml-2">App</span>
           </div>
           <iframe
-            src={`http://127.0.0.1:4097/api/skill-app/${skillId}`}
+            src={`http://127.0.0.1:4097/api/app/${skillId}`}
+            onError={() => {
+              // fallback to old skill-app API
+              const iframe = document.querySelector('iframe');
+              if (iframe) iframe.src = `http://127.0.0.1:4097/api/skill-app/${skillId}`;
+            }}
             className="flex-1 w-full border-0"
             style={{ minHeight: 400 }}
             title={skillId}
