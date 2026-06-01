@@ -545,11 +545,20 @@ const server = createServer(async (req, res) => {
 
     console.log(`[report-train] Spawning ${cliName} (${resolvedBin}) for ${reportId}, template=${template}`);
 
-    const child = spawn(resolvedBin, cliArgs, {
-      cwd: outDir,
-      env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    // Use 'script' to run CLI in a pseudo-TTY so stdout flushes immediately
+    // Without this, qwen -o text buffers all output until process exits
+    const _isMac = process.platform === "darwin";
+    const child = _isMac
+      ? spawn("script", ["-q", "/dev/null", resolvedBin, ...cliArgs], {
+          cwd: outDir,
+          env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", TERM: "dumb" },
+          stdio: ["pipe", "pipe", "pipe"],
+        })
+      : spawn(resolvedBin, cliArgs, {
+          cwd: outDir,
+          env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
+          stdio: ["pipe", "pipe", "pipe"],
+        });
 
     // Send initial status so frontend knows connection is alive
     res.write(JSON.stringify({ type: "status", data: { message: `Training ${reportId} with ${cliName}...`, runId } }) + "\n");
