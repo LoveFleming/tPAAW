@@ -59,9 +59,9 @@ function parseTrainingFile(content: string): { config: string; prompt: string; t
 
 function buildFileContent(config: string, prompt: string, test: string, reportName: string, template: string, skillId: string): string {
     const parts: string[] = [];
-    parts.push(`# Report Training: ${reportName || "untitled"}\n`);
+    parts.push(`# App Training: ${reportName || "untitled"}\n`);
     parts.push(`## 報表設定\n`);
-    parts.push(`- Report 名稱: ${reportName || "untitled"}\n`);
+    parts.push(`- App 名稱: ${reportName || "untitled"}\n`);
     parts.push(`- Template: ${template || "dashboard"}\n`);
     parts.push(`- 基底 Skill: ${skillId || ""}\n`);
     parts.push(`- 建立時間: ${new Date().toISOString()}\n`);
@@ -77,7 +77,7 @@ const DEFAULT_PROMPT = `你是一個前端報表開發專家。請產出一個�
 
 ## 報表規格
 - Template 類型: {{TEMPLATE}}
-- 報表名稱: {{REPORT_NAME}}
+- App 名稱: {{REPORT_NAME}}
 - 可用參數: {{PARAMS}}
 
 ## 技術要求
@@ -174,14 +174,14 @@ function NewFileDialog({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
             <div className="bg-white rounded-xl shadow-2xl border border-stone-200 w-96 p-5" onClick={e => e.stopPropagation()}>
-                <h3 className="text-sm font-bold text-stone-800 mb-3">📄 新增 Report Training File</h3>
+                <h3 className="text-sm font-bold text-stone-800 mb-3">📄 新增 App Training File</h3>
                 <p className="text-xs text-stone-500 mb-2">檔案會建立在 <code className="bg-stone-100 px-1 rounded">skills/training/</code> 目錄下</p>
                 <input
                     type="text"
                     value={name}
                     onChange={e => setName(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") onCreate(name); }}
-                    placeholder="檔案名稱，例：train-daily-report"
+                    placeholder="檔案名稱，例：train-daily-app"
                     className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 mb-3"
                     autoFocus
                 />
@@ -285,13 +285,13 @@ export default function ReportAppLab() {
     }, [skills]);
 
     useEffect(() => {
-        const saved = localStorage.getItem("reportLab.selectedFile");
+        const saved = localStorage.getItem("appLab.selectedFile");
         if (saved) { setSelectedFile(saved); loadFileContent(saved); }
     }, [loadFileContent]);
 
     const handleSelectFile = (path: string) => {
         setSelectedFile(path);
-        localStorage.setItem("reportLab.selectedFile", path);
+        localStorage.setItem("appLab.selectedFile", path);
         loadFileContent(path);
     };
 
@@ -346,7 +346,7 @@ export default function ReportAppLab() {
     const handleCreateFile = async (name: string) => {
         const trimmed = name.trim();
         if (!trimmed) return;
-        const fileName = trimmed.endsWith(".md") ? trimmed : `report-${trimmed}.md`;
+        const fileName = trimmed.endsWith(".md") ? trimmed : `app-${trimmed}.md`;
         const fullPath = `${workingDir || "."}/skills/training/${fileName}`;
         const sid = selectedSkill?.id || "";
         const rn = reportName || trimmed;
@@ -538,7 +538,7 @@ export default function ReportAppLab() {
             {/* Header */}
             <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                 <span className="text-lg">🎨</span>
-                <h2 className="text-sm font-bold" style={{ color: t.accentText }}>Report App Training Lab</h2>
+                <h2 className="text-sm font-bold" style={{ color: t.accentText }}>App Lab</h2>
                 <span className="text-xs text-stone-400 ml-2">Design → Train → Preview → Publish</span>
 
                 {/* Training file selector + new */}
@@ -571,7 +571,7 @@ export default function ReportAppLab() {
                     {!selectedFile ? (
                         <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
                             <span className="text-3xl">🎨</span>
-                            <p className="text-stone-400 text-sm text-center">選擇或建立一個 Report Training File 開始</p>
+                            <p className="text-stone-400 text-sm text-center">選擇或建立一個 App Training File 開始</p>
                             <button onClick={() => setShowNewFileDialog(true)}
                                 className="px-4 py-2 text-xs font-bold rounded-lg text-white"
                                 style={{ backgroundColor: t.accent }}>
@@ -608,9 +608,9 @@ export default function ReportAppLab() {
                             {/* Config */}
                             <div className="p-4 border-b space-y-3" style={{ borderColor: "#e7e5e4" }}>
                                 <div>
-                                    <label className="text-xs font-bold text-stone-500">Report 名稱</label>
+                                    <label className="text-xs font-bold text-stone-500">App 名稱</label>
                                     <input value={reportName} onChange={e => handleReportNameChange(e.target.value)}
-                                        className={inputCls} style={{ borderColor: "#d6d3d1" }} placeholder="my-report" />
+                                        className={inputCls} style={{ borderColor: "#d6d3d1" }} placeholder="my-app" />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-stone-500">Template</label>
@@ -676,7 +676,7 @@ export default function ReportAppLab() {
                                     className="flex-1 w-full px-3 py-2 text-xs font-mono resize-none focus:outline-none"
                                     style={{ minHeight: 80, lineHeight: 1.6 }}
                                     spellCheck={false}
-                                    placeholder="輸入測試 prompt，用簡單輸入驗證 report..."
+                                    placeholder="輸入測試 prompt，用簡單輸入驗證 app..."
                                 />
                             </div>
 
@@ -734,7 +734,7 @@ export default function ReportAppLab() {
                     {/* Preview Tab */}
                     {rightTab === "preview" && (
                         trainRun?.status === "done" ? (
-                            <iframe ref={previewRef} className="flex-1 w-full border-0 bg-white" title="Report Preview" />
+                            <iframe ref={previewRef} className="flex-1 w-full border-0 bg-white" title="App Preview" />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full gap-2">
                                 <span className="text-3xl">{trainRun?.status === "running" ? "⏳" : "🖼️"}</span>

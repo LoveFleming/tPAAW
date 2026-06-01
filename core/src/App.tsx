@@ -381,8 +381,8 @@ function AppInner() {
     if (pageType === "crew") return "AI Crew";
     if (pageType === "skills") return "Skill Pool";
     if (pageType.startsWith("skilllab")) return "Skill Lab";
-    if (pageType === "reportapplab") return "Report Lab";
-    if (pageType === "reportapps") return "Report Apps";
+    if (pageType === "reportapplab") return "App Lab";
+    if (pageType === "reportapps") return "App Pool";
     if (pageType === "cronjobs") return "Cron Jobs";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
@@ -688,16 +688,16 @@ function AppInner() {
             <SidebarSection title="Apps">
               <div>
                 <NavItem
-                  active={activePage.endsWith(":reportapplab")}
-                  label="App Lab"
-                  onClick={openReportAppLab}
+                  active={activePage.endsWith(":reportapps")}
+                  label="App Pool"
+                  onClick={openReportApps}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
                 <NavItem
-                  active={activePage.endsWith(":reportapps")}
-                  label="Apps"
-                  onClick={openReportApps}
+                  active={activePage.endsWith(":reportapplab")}
+                  label="App Lab"
+                  onClick={openReportAppLab}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
