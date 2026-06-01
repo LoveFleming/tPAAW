@@ -545,39 +545,57 @@ const server = createServer(async (req, res) => {
 
     console.log(`[report-train] Spawning ${cliName} (${resolvedBin}) for ${reportId}, template=${template}`);
 
-    // Use 'script' to run CLI in a pseudo-TTY so stdout flushes immediately
-    // Without this, qwen -o text buffers all output until process exits
-    const _isMac = process.platform === "darwin";
-    const child = _isMac
-      ? spawn("script", ["-q", "/dev/null", resolvedBin, ...cliArgs], {
-          cwd: outDir,
-          env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", TERM: "dumb" },
-          stdio: ["pipe", "pipe", "pipe"],
-        })
-      : spawn(resolvedBin, cliArgs, {
-          cwd: outDir,
-          env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-          stdio: ["pipe", "pipe", "pipe"],
-        });
+    // qwen -o text buffers all stdout in pipe mode until process exits.
+    // Solution: redirect stdout to a temp file, poll the file for new content.
+    const outFile = join(outDir, "_cli_output.txt");
+
+    // Use shell redirect to write stdout to file
+    const shellCmd = `${resolvedBin} ${cliArgs.map(a => `"${a.replace(/"/g, '\\"')}"`).join(" ")} > "${outFile}" 2>&1`;
+    console.log(`[report-train] Shell: ${shellCmd.substring(0, 120)}...`);
+
+    const child = spawn("/bin/sh", ["-c", shellCmd], {
+      cwd: outDir,
+      env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1" },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
     // Send initial status so frontend knows connection is alive
     res.write(JSON.stringify({ type: "status", data: { message: `Training ${reportId} with ${cliName}...`, runId } }) + "\n");
 
+    // Poll the output file for new content and stream to client
+    let lastPos = 0;
     let fullOutput = "";
-
-    child.stdout.on("data", (chunk) => {
-      const text = chunk.toString();
-      fullOutput += text;
-      res.write(JSON.stringify({ type: "stdout", data: text }) + "\n");
-    });
-
-    child.stderr.on("data", (chunk) => {
-      const text = chunk.toString();
-      fullOutput += text;
-      res.write(JSON.stringify({ type: "stderr", data: text }) + "\n");
-    });
+    const pollInterval = setInterval(async () => {
+      try {
+        const stat = await import("fs").then(f => f.stat(outFile)).catch(() => null);
+        if (!stat || stat.size <= lastPos) return;
+        const fd = await import("fs").then(f => f.open(outFile, "r"));
+        const buf = Buffer.alloc(stat.size - lastPos);
+        await fd.read(buf, 0, buf.length, lastPos);
+        await fd.close();
+        lastPos = stat.size;
+        const text = buf.toString();
+        fullOutput += text;
+        res.write(JSON.stringify({ type: "stdout", data: text }) + "\n");
+      } catch {}
+    }, 500);
 
     child.on("close", async (code) => {
+      clearInterval(pollInterval);
+
+      // Final read of output file
+      try {
+        const finalContent = await import("fs").then(f => f.readFile(outFile, "utf-8"));
+        if (finalContent.length > fullOutput.length) {
+          const newPart = finalContent.substring(fullOutput.length);
+          fullOutput = finalContent;
+          res.write(JSON.stringify({ type: "stdout", data: newPart }) + "\n");
+        }
+      } catch {}
+
+      // Cleanup temp file
+      try { await unlink(outFile); } catch {}
+
       // Extract HTML from CLI output
       let htmlContent = fullOutput;
       const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
