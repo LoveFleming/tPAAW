@@ -211,6 +211,7 @@ export default function AppLab() {
     const [reportName, setReportName] = useState("");
     const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
     const [testPrompt, setTestPrompt] = useState("");
+    const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
 
     // Training file
     const [trainingFiles, setTrainingFiles] = useState<TrainingFile[]>([]);
@@ -389,6 +390,7 @@ export default function AppLab() {
                     template: selectedTemplate,
                     prompt: filledPrompt,
                     runId,
+                    cli,
                 }),
             });
 
@@ -452,6 +454,7 @@ export default function AppLab() {
                     template: selectedTemplate,
                     prompt: filledTest,
                     runId,
+                    cli,
                 }),
             });
             const reader = resp.body!.getReader();
@@ -563,6 +566,20 @@ export default function AppLab() {
                     {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
                     {saveStatus === "saved" && selectedFile && <span className="text-[10px] text-green-500">✓</span>}
                     {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
+                </div>
+
+                {/* CLI selector */}
+                <div className="flex items-center gap-1.5 ml-2">
+                    <label className="text-[11px] font-medium text-stone-500">CLI:</label>
+                    <select
+                        value={cli}
+                        onChange={e => setCli(e.target.value as "qwen" | "claude" | "opencode")}
+                        className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-200"
+                    >
+                        <option value="qwen">Qwen</option>
+                        <option value="claude">Claude Code</option>
+                        <option value="opencode">OpenCode</option>
+                    </select>
                 </div>
             </div>
 

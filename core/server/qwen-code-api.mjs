@@ -501,7 +501,8 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const { skillId, reportName, template, prompt, runId } = parsed;
+    const { skillId, reportName, template, prompt, runId, cli: cliType } = parsed;
+    const cliName = cliType || "qwen";
 
     // Prepare output dir
     const reportId = (reportName || skillId).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || skillId;
@@ -518,17 +519,32 @@ const server = createServer(async (req, res) => {
     const { spawn } = await import("child_process");
     const htmlOutFile = join(outDir, "app.html");
 
-    // Build CLI args — positional prompt, yolo mode, stream-json output
-    const cliArgs = [
-      "--approval-mode", "yolo",
-      "-o", "text",
-      "--max-tool-calls", "3",
-      prompt,
-    ];
+    // Resolve CLI binary and args
+    const cliBins = {
+      qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" },
+      claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" },
+      opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
+    };
+    const cliEnvBins = { qwen: "QWEN_BIN", claude: "CLAUDE_BIN", opencode: "OPENCODE_BIN" };
+    const _platform = process.platform;
+    const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
+    const resolvedBin = process.env[cliEnvBins[cliName] || "QWEN_BIN"] || (cliBins[cliName] || cliBins.qwen)[_binKey];
 
-    console.log(`[report-train] Spawning qwen for ${reportId}, template=${template}`);
+    // Build CLI-specific args
+    let cliArgs;
+    if (cliName === "qwen") {
+      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "3", prompt];
+    } else if (cliName === "claude") {
+      cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", prompt, "--output-format", "text"];
+    } else if (cliName === "opencode") {
+      cliArgs = ["--non-interactive", "-p", prompt];
+    } else {
+      cliArgs = [prompt];
+    }
 
-    const child = spawn("qwen", cliArgs, {
+    console.log(`[report-train] Spawning ${cliName} (${resolvedBin}) for ${reportId}, template=${template}`);
+
+    const child = spawn(resolvedBin, cliArgs, {
       cwd: outDir,
       env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
