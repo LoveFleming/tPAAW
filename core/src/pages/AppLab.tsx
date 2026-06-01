@@ -365,10 +365,11 @@ export default function AppLab() {
 
     // ── Train ──
     const handleTrain = async () => {
-        if (!selectedSkill || !reportName) return;
+        if (!reportName) return;
 
         const runId = `train-${Date.now()}`;
-        const run: TrainRun = { id: runId, skillId: selectedSkill.id, status: "running", output: "" };
+        const skillId = selectedSkill?.id || "no-skill";
+        const run: TrainRun = { id: runId, skillId, status: "running", output: "" };
         setTrainRun(run);
         setRightTab("terminal");
         setPublished(false);
@@ -376,14 +377,14 @@ export default function AppLab() {
         const filledPrompt = prompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
-            .replace(/\{\{SKILL_ID\}\}/g, selectedSkill.id);
+            .replace(/\{\{SKILL_ID\}\}/g, skillId);
 
         try {
             const resp = await fetch(`${API}/api/report-train`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    skillId: selectedSkill.id,
+                    skillId,
                     reportName,
                     template: selectedTemplate,
                     prompt: filledPrompt,
@@ -429,14 +430,15 @@ export default function AppLab() {
 
     // ── Quick test: just send testPrompt to CLI and show in terminal ──
     const handleTest = async () => {
-        if (!selectedSkill || !testPrompt.trim()) return;
+        if (!testPrompt.trim()) return;
+        const skillId = selectedSkill?.id || "no-skill";
         const filledTest = testPrompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
-            .replace(/\{\{SKILL_ID\}\}/g, selectedSkill.id);
+            .replace(/\{\{SKILL_ID\}\}/g, skillId);
 
         const runId = `test-${Date.now()}`;
-        const run: TrainRun = { id: runId, skillId: selectedSkill.id, status: "running", output: "" };
+        const run: TrainRun = { id: runId, skillId, status: "running", output: "" };
         setTrainRun(run);
         setRightTab("terminal");
 
@@ -445,7 +447,7 @@ export default function AppLab() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    skillId: selectedSkill.id,
+                    skillId,
                     reportName: reportName + "-test",
                     template: selectedTemplate,
                     prompt: filledTest,
@@ -497,7 +499,7 @@ export default function AppLab() {
     };
 
     const handlePublish = async () => {
-        if (!trainRun?.htmlPath || !selectedSkill) return;
+        if (!trainRun?.htmlPath) return;
         setPublishing(true);
         try {
             const resp = await fetch(`${API}/api/report-publish`, {
@@ -636,7 +638,7 @@ export default function AppLab() {
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => handlePromptChange(DEFAULT_PROMPT)} className="text-[10px] text-stone-400 hover:text-stone-600">Reset</button>
                                         <button onClick={handleTrain}
-                                            disabled={!selectedSkill || !reportName || trainRun?.status === "running"}
+                                            disabled={!reportName || !prompt.trim() || trainRun?.status === "running"}
                                             className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
                                                 selectedSkill && reportName && trainRun?.status !== "running"
                                                     ? "text-white hover:opacity-90 shadow-sm"
@@ -661,7 +663,7 @@ export default function AppLab() {
                                 <div className="flex items-center justify-between px-4 py-1.5 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
                                     <span className="text-xs font-semibold text-stone-600">🧪 測試 Prompt</span>
                                     <button onClick={handleTest}
-                                        disabled={!selectedSkill || !testPrompt.trim() || trainRun?.status === "running"}
+                                        disabled={!testPrompt.trim() || trainRun?.status === "running"}
                                         className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
                                             selectedSkill && testPrompt.trim() && trainRun?.status !== "running"
                                                 ? "text-white hover:opacity-90 shadow-sm"
