@@ -399,10 +399,13 @@ export default function AppLab() {
         setSendingTrain(true);
         setRightTab("terminal");
         const skillId = selectedSkill?.id || "no-skill";
+        const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        // Append output instructions to prompt so CLI writes directly to file
+        const outputInstruction = `\n\n---\n**重要指示：** 請將最終的 HTML 結果直接寫入檔案 apps/${reportId}/app.html。使用 write_file 或 echo 等工具，不要只輸出到 terminal。完成後輸出 DONE。`;
         const filledPrompt = prompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
-            .replace(/\{\{SKILL_ID\}\}/g, skillId);
+            .replace(/\{\{SKILL_ID\}\}/g, skillId) + outputInstruction;
         sendToTerminal(filledPrompt);
         setTimeout(() => setSendingTrain(false), 300);
     };
@@ -664,8 +667,16 @@ export default function AppLab() {
                             className={cn("px-4 py-2 text-xs font-semibold transition-colors border-b-2",
                                 rightTab === "preview" ? "border-stone-700 text-stone-700" : "border-transparent text-stone-400 hover:text-stone-600")}>
                             🖼️ Preview
-                            {trainRun?.status === "done" && <span className="ml-1 text-green-500">●</span>}
                         </button>
+                        {rightTab === "preview" && (
+                            <button
+                                onClick={() => setRightTab("preview")}
+                                className="ml-auto mr-3 text-[10px] text-stone-400 hover:text-stone-600 transition-colors"
+                                title="刷新預覽"
+                            >
+                                🔄 刷新
+                            </button>
+                        )}
                     </div>
 
                     {/* Terminal Tab */}
@@ -689,18 +700,23 @@ export default function AppLab() {
                     )}
 
                     {/* Preview Tab */}
-                    {rightTab === "preview" && (
-                        trainRun?.status === "done" ? (
-                            <iframe ref={previewRef} className="flex-1 w-full border-0 bg-white" title="App Preview" />
+                    {rightTab === "preview" && (() => {
+                        const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+                        const previewUrl = reportId ? `${API}/api/app/${reportId}` : null;
+                        return previewUrl ? (
+                            <iframe
+                                key={previewUrl + "-" + Date.now()}
+                                src={previewUrl}
+                                className="flex-1 w-full border-0 bg-white"
+                                title="App Preview"
+                            />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full gap-2">
-                                <span className="text-3xl">{trainRun?.status === "running" ? "⏳" : "🖼️"}</span>
-                                <p className="text-stone-400 text-xs">
-                                    {trainRun?.status === "running" ? "訓練中，完成後自動切到這裡" : "訓練完成後這裡會顯示預覽"}
-                                </p>
+                                <span className="text-3xl">🖼️</span>
+                                <p className="text-stone-400 text-xs">請先輸入 App 名稱</p>
                             </div>
-                        )
-                    )}
+                        );
+                    })()}
                 </div>
             </div>
         </div>
