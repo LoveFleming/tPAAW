@@ -6,6 +6,23 @@ import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalCo
 
 const API = "http://127.0.0.1:4097";
 
+// Memoized terminal to prevent re-render on parent state changes (fix flicker)
+const MemoizedTerminal = React.memo(React.forwardRef(function MemoizedTerminal(
+    { consoleKey, cli, initialPrompt }: { consoleKey: string; cli: string; initialPrompt: string },
+    ref: React.Ref<TerminalConsoleHandle>
+) {
+    return (
+        <TerminalConsole
+            ref={ref}
+            key={consoleKey}
+            cwd={undefined}
+            cli={cli as any}
+            approvalMode="yolo"
+            initialPrompt={initialPrompt}
+        />
+    );
+}));
+
 type RightTab = "terminal" | "preview";
 
 interface TrainRun {
@@ -662,12 +679,10 @@ export default function AppLab() {
                                 <p className="text-stone-500 text-xs text-center">Ctrl+Enter 快速送出</p>
                             </div>
                         ) : (
-                            <TerminalConsole
+                            <MemoizedTerminal
                                 ref={terminalRef}
-                                key={`applab-${consoleKey}`}
-                                cwd={undefined}
+                                consoleKey={`applab-${consoleKey}`}
                                 cli={cli}
-                                approvalMode="yolo"
                                 initialPrompt={initialPrompt}
                             />
                         )
