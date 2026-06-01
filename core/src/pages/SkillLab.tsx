@@ -232,6 +232,26 @@ export default function SkillLab() {
         triggerAutoSave();
     }, [triggerAutoSave]);
 
+    // ── Load template and replace placeholders ──
+    const loadTemplate = async (skillName: string, fullPath: string): Promise<string> => {
+        const templatePath = `${workingDir || "."}/skills/training/_template.md`;
+        try {
+            const r = await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(templatePath)}`);
+            if (r.ok) {
+                const data = await r.json();
+                if (data?.content) {
+                    return data.content
+                        .replace(/\{\{SKILL_NAME\}\}/g, skillName)
+                        .replace(/\{\{AIOC_BASE\}\}/g, workingDir || ".")
+                        .replace(/\{\{FILE_PATH\}\}/g, fullPath);
+                }
+            }
+        } catch { /* fallback */ }
+        // Fallback if template not found
+        const base = workingDir || ".";
+        return `# Training: ${skillName}\n\n## 系統環境（System Context）\n\n你是 AIOC Skill 鍛造專家。\n- **AIOC Base**: \`${base}\`\n- **Input-Prompt Skills**: \`${base}/skills/input-prompt/\`\n- **Physical Skills**: \`${base}/skills/physical-skill/\`\n- **本檔案實體路徑**: \`${fullPath}\`\n\n---\n\n## 訓練 Prompt\n\n\n\n## 測試 Prompt\n\n`;
+    };
+
     // ── Create new training file ──
     const handleCreateFile = async () => {
         const name = newFileName.trim();
@@ -239,10 +259,11 @@ export default function SkillLab() {
         const fileName = name.endsWith(".md") ? name : `${name}.md`;
         const fullPath = `${workingDir || "."}/skills/training/${fileName}`;
         try {
+            const content = await loadTemplate(name, fullPath);
             await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content: `# Training: ${name}\n\n## 訓練 Prompt\n\n\n\n## 測試 Prompt\n\n` }),
+                body: JSON.stringify({ content }),
             });
             setShowNewFileDialog(false);
             setNewFileName("");

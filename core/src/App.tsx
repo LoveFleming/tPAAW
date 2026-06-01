@@ -6,6 +6,9 @@ import FactoryEntryPage from "./pages/FactoryEntryPage";
 import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
 import SkillLab from "./pages/SkillLab";
+import ReportAppLab from "./pages/ReportAppLab";
+import ReportAppsPage from "./pages/ReportAppsPage";
+import CronJobsPage from "./pages/CronJobsPage";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 
@@ -107,6 +110,7 @@ function AppInner() {
   const crewByFactoryRef = useRef<Record<string, Crew[]>>({});
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
   const [aiocRoot, setAiocRoot] = useState("");
+  const [skillApps, setSkillApps] = useState<{id: string; name: string}[]>([]);
 
   const loadFactories = useCallback(async () => {
     try {
@@ -141,7 +145,17 @@ function AppInner() {
     } catch {}
   }, [selectedFactoryId]);
 
-  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); }, [loadFactories, loadCrew, loadFactoryFiles]);
+  const loadSkillApps = useCallback(async () => {
+    try {
+      const resp = await fetch("http://127.0.0.1:4097/api/skills");
+      if (resp.ok) {
+        const data = await resp.json();
+        setSkillApps(data.filter((s: any) => s.hasApp).map((s: any) => ({ id: s.id, name: s.name })));
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); loadSkillApps(); }, [loadFactories, loadCrew, loadFactoryFiles, loadSkillApps]);
 
   // Auto-refresh factory docs every 3 seconds
   useEffect(() => {
@@ -326,15 +340,54 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openReportAppLab = useCallback(() => {
+    const tabId = `${currentScope}:reportapplab`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
+  const openReportApps = useCallback(() => {
+    const tabId = `${currentScope}:reportapps`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
+  const openSkillAppById = useCallback((skillId: string) => {
+    const tabId = `${currentScope}:skillapp.${skillId}`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
+  const openCronJobs = useCallback(() => {
+    const tabId = `${currentScope}:cronjobs`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const skillNav = useMemo(() => [
     { id: `${currentScope}:skills`, label: "Skill Pool" },
   ], [currentScope]);
+
+  const skillAppNav = useMemo(() =>
+    skillApps.map(s => ({
+      id: `${currentScope}:skillapp.${s.id}`,
+      label: `📊 ${s.name}`,
+      skillId: s.id,
+    })),
+  [skillApps, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return "AI Crew";
     if (pageType === "skills") return "Skill Pool";
     if (pageType.startsWith("skilllab")) return "Skill Lab";
+    if (pageType === "reportapplab") return "Report Lab";
+    if (pageType === "reportapps") return "Report Apps";
+    if (pageType === "cronjobs") return "Cron Jobs";
+    if (pageType.startsWith("skillapp.")) {
+      const appId = pageType.slice(9);
+      return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
+    }
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);
       return factoryNav.find(n => n.id === fullId)?.label ?? fileName;
@@ -398,6 +451,33 @@ function AppInner() {
     }
     if (pageType.startsWith("skilllab")) {
       return <SkillLab />;
+    }
+    if (pageType === "reportapplab") {
+      return <ReportAppLab />;
+    }
+    if (pageType === "reportapps") {
+      return <ReportAppsPage onOpenApp={openSkillAppById} />;
+    }
+    if (pageType === "cronjobs") {
+      return <CronJobsPage />;
+    }
+    if (pageType.startsWith("skillapp.")) {
+      const skillId = pageType.slice(9);
+      return (
+        <div className="h-full flex flex-col" style={{ backgroundColor: "#fafaf9" }}>
+          <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
+            <span className="text-lg">📊</span>
+            <span className="text-sm font-bold text-stone-700">{skillAppNav.find(n => n.skillId === skillId)?.label ?? skillId}</span>
+            <span className="text-xs text-stone-400 ml-2">Skill App</span>
+          </div>
+          <iframe
+            src={`http://127.0.0.1:4097/api/skill-app/${skillId}`}
+            className="flex-1 w-full border-0"
+            style={{ minHeight: 400 }}
+            title={skillId}
+          />
+        </div>
+      );
     }
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);
@@ -598,6 +678,33 @@ function AppInner() {
                   active={false}
                   label="Skill Lab"
                   onClick={openSkillLab}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+              </div>
+            </SidebarSection>
+
+            {/* Report */}
+            <SidebarSection title="Report">
+              <div>
+                <NavItem
+                  active={activePage.endsWith(":reportapplab")}
+                  label="Report Lab"
+                  onClick={openReportAppLab}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":reportapps")}
+                  label="Report Apps"
+                  onClick={openReportApps}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":cronjobs")}
+                  label="Cron Jobs"
+                  onClick={openCronJobs}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />

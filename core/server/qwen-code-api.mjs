@@ -56,6 +56,10 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
+  // Cron API
+  const handled = await cronApiHandler(req, res);
+  if (handled) return;
+
   if (req.method === "POST" && req.url === "/api/query") {
     const body = await readBody(req);
     let parsed;
@@ -231,6 +235,14 @@ const server = createServer(async (req, res) => {
       };
       await scanSkillsDir(INPUT_PROMPT_ROOT, "input-prompt");
       await scanSkillsDir(PHYSICAL_SKILL_ROOT, "physical-skill");
+      // Check hasApp for each skill
+      for (const sk of skills) {
+        try {
+          const base = sk.kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : INPUT_PROMPT_ROOT;
+          await import("fs/promises").then(m => m.access(join(base, sk.id, "app.html")));
+          sk.hasApp = true;
+        } catch { sk.hasApp = false; }
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(skills));
     } catch (err) {
@@ -285,11 +297,7 @@ const server = createServer(async (req, res) => {
   if (req.method === "PUT" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
     const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
     try {
-      const body = await new Promise<string>((resolve) => {
-        let data = "";
-        req.on("data", (chunk) => { data += chunk; });
-        req.on("end", () => resolve(data));
-      });
+      const body = await readBody(req);
       const payload = JSON.parse(body);
       const content = payload.content;
       const kind = payload.kind || "input-prompt";
@@ -326,6 +334,255 @@ const server = createServer(async (req, res) => {
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, deleted }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/skill-exec/:id — execute a skill via AI SDK and return result
+  const skillExecMatch = req.method === "POST" && req.url?.match(/^\/api\/skill-exec\/([\w.-]+)(?:\?.*)?$/);
+  if (skillExecMatch) {
+    const skillId = skillExecMatch[1];
+    const body = await readBody(req);
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const { params = {}, cli = "qwen", model } = parsed;
+
+    // Read SKILL.md
+    const roots = [PHYSICAL_SKILL_ROOT, INPUT_PROMPT_ROOT];
+    let skillPrompt = "";
+    let skillDir = "";
+    for (const root of roots) {
+      try {
+        const raw = await readFile(join(root, skillId, "SKILL.md"), "utf-8");
+        const parsedFm = parseSkillFrontmatter(raw);
+        skillPrompt = parsedFm.body || parsedFm.skillPrompt || raw;
+        skillDir = join(root, skillId);
+        break;
+      } catch { /* not here */ }
+    }
+    if (!skillPrompt) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Skill not found: " + skillId }));
+      return;
+    }
+
+    // Build prompt with params
+    const paramLines = Object.entries(params).map(([k, v]) => `- **${k}**: ${v}`).join("\n");
+    const fullPrompt = `${skillPrompt}\n\n---\n\n## 使用者指定的參數\n\n${paramLines}\n\n請執行上述 Skill 並產出完整結果。輸出請用 Markdown 格式。`;
+
+    // Stream via NDJSON
+    const queryId = `exec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const abortController = new AbortController();
+    activeQueries.set(queryId, abortController);
+
+    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked" });
+
+    try {
+      const q = query({
+        prompt: fullPrompt,
+        options: {
+          cwd: skillDir,
+          systemPrompt: { type: "preset", preset: "qwen_code" },
+          permissionMode: "yolo",
+          includePartialMessages: true,
+          abortController,
+          model: model || undefined,
+        },
+      });
+
+      let finalText = "";
+      for await (const msg of q) {
+        if (abortController.signal.aborted) break;
+        if (msg.type === "assistant" && msg.text) finalText = msg.text;
+        res.write(JSON.stringify({ type: msg.type, data: msg }) + "\n");
+      }
+
+      res.write(JSON.stringify({ type: "done", data: { queryId, result: finalText } }) + "\n");
+    } catch (err) {
+      res.write(JSON.stringify({ type: "error", data: { message: err.message } }) + "\n");
+    } finally {
+      activeQueries.delete(queryId);
+      res.end();
+    }
+    return;
+  }
+  const skillAppMatch = req.method === "GET" && req.url?.match(/^\/api\/skill-app\/([\w.-]+)(?:\?.*)?$/);
+  if (skillAppMatch) {
+    const skillId = skillAppMatch[1];
+    const roots = [PHYSICAL_SKILL_ROOT, INPUT_PROMPT_ROOT];
+    try {
+      for (const root of roots) {
+        const appPath = join(root, skillId, "app.html");
+        try {
+          const content = await readFile(appPath, "utf-8");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(content);
+          return;
+        } catch { /* not in this root */ }
+      }
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "app.html not found for skill: " + skillId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/report-templates — list available report templates
+  if (req.method === "GET" && req.url?.match(/^\/api\/report-templates(?:\?.*)?$/)) {
+    const templates = [
+      { id: "dashboard", name: "Dashboard", icon: "📊", description: "KPI cards + charts，適合概覽" },
+      { id: "table", name: "Table Report", icon: "📋", description: "純表格數據報表" },
+      { id: "chart", name: "Chart Only", icon: "📈", description: "單一圖表" },
+      { id: "mixed", name: "Mixed Report", icon: "🧩", description: "圖表 + 表格 + AI 分析" },
+    ];
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(templates));
+    return;
+  }
+
+  // POST /api/report-train — run CLI to generate app.html, stream output
+  if (req.method === "POST" && req.url === "/api/report-train") {
+    const body = await readBody(req);
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const { skillId, reportName, template, prompt, runId } = parsed;
+
+    // Prepare output dir
+    const reportId = (reportName || skillId).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || skillId;
+    const outDir = join(PHYSICAL_SKILL_ROOT, reportId);
+    await mkdir(outDir, { recursive: true });
+
+    // Write prompt to a temp file so CLI can read it
+    const promptFile = join(outDir, "_prompt.txt");
+    await writeFile(promptFile, prompt, "utf-8");
+
+    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked" });
+
+    // Use qwen CLI to generate
+    const { spawn } = await import("child_process");
+    const htmlOutFile = join(outDir, "app.html");
+
+    // Build CLI args — positional prompt, yolo mode, stream-json output
+    const cliArgs = [
+      "-y",
+      "--approval-mode", "yolo",
+      "-o", "text",
+      "--max-tool-calls", "3",
+      prompt,
+    ];
+
+    console.log(`[report-train] Spawning qwen for ${reportId}, template=${template}`);
+
+    const child = spawn("qwen", cliArgs, {
+      cwd: outDir,
+      env: { ...process.env, HOME: process.env.HOME },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let fullOutput = "";
+
+    child.stdout.on("data", (chunk) => {
+      const text = chunk.toString();
+      fullOutput += text;
+      res.write(JSON.stringify({ type: "stdout", data: text }) + "\n");
+    });
+
+    child.stderr.on("data", (chunk) => {
+      const text = chunk.toString();
+      fullOutput += text;
+      res.write(JSON.stringify({ type: "stderr", data: text }) + "\n");
+    });
+
+    child.on("close", async (code) => {
+      // Extract HTML from CLI output
+      let htmlContent = fullOutput;
+      const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) htmlContent = codeBlockMatch[1].trim();
+      let htmlMatch = htmlContent.match(/<!DOCTYPE\s+html[^>]*>[\s\S]*<\/html>/i);
+      if (htmlMatch) htmlContent = htmlMatch[0];
+      else {
+        htmlMatch = htmlContent.match(/<html[\s\S]*<\/html>/i);
+        if (htmlMatch) htmlContent = htmlMatch[0];
+      }
+
+      if (htmlContent.includes("<html")) {
+        await writeFile(htmlOutFile, htmlContent, "utf-8");
+
+        // Write report.json
+        const reportMeta = { template, status: "trained", generatedFrom: skillId, generatedAt: new Date().toISOString(), reportName };
+        await writeFile(join(outDir, "report.json"), JSON.stringify(reportMeta, null, 2), "utf-8");
+
+        res.write(JSON.stringify({ type: "done", data: { reportId, htmlPath: htmlOutFile, exitCode: code } }) + "\n");
+      } else {
+        res.write(JSON.stringify({ type: "error", data: { message: `CLI finished (code=${code}) but no valid HTML found in output (${fullOutput.length} chars)` } }) + "\n");
+      }
+
+      // Cleanup prompt file
+      try { await unlink(promptFile); } catch {}
+      res.end();
+    });
+
+    child.on("error", (err) => {
+      res.write(JSON.stringify({ type: "error", data: { message: err.message } }) + "\n");
+      res.end();
+    });
+
+    // 180s timeout
+    setTimeout(() => { try { child.kill(); } catch {} }, 180_000);
+    return;
+  }
+
+  // GET /api/report-preview — serve generated HTML for preview
+  if (req.method === "GET" && req.url?.match(/^\/api\/report-preview\?/)) {
+    const urlObj = new URL(req.url, `http://${req.headers.host}`);
+    const htmlPath = urlObj.searchParams.get("path");
+    if (!htmlPath || !htmlPath.startsWith("/")) {
+      res.writeHead(400); res.end("Missing path"); return;
+    }
+    // Safety: only allow reading from AIOC paths
+    if (!htmlPath.includes("/aioc/") && !htmlPath.includes(PHYSICAL_SKILL_ROOT)) {
+      res.writeHead(403); res.end("Forbidden"); return;
+    }
+    try {
+      const html = await readFile(htmlPath, "utf-8");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
+    } catch {
+      res.writeHead(404); res.end("Not found");
+    }
+    return;
+  }
+
+  // POST /api/report-publish — publish trained report to skill's app.html
+  if (req.method === "POST" && req.url === "/api/report-publish") {
+    const body = await readBody(req);
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const { htmlPath, skillId, reportName } = parsed;
+
+    if (!htmlPath || !htmlPath.includes("/aioc/")) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid path" })); return;
+    }
+
+    try {
+      const html = await readFile(htmlPath, "utf-8");
+      // Update report.json status
+      const reportDir = dirname(htmlPath);
+      const reportJsonPath = join(reportDir, "report.json");
+      let meta = {};
+      try { meta = JSON.parse(await readFile(reportJsonPath, "utf-8")); } catch {}
+      meta.status = "published";
+      meta.publishedAt = new Date().toISOString();
+      await writeFile(reportJsonPath, JSON.stringify(meta, null, 2), "utf-8");
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: htmlPath }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -527,7 +784,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
         if (tStat.isDirectory()) {
           const tEntries = await readdir(trainingDir);
           for (const f of tEntries) {
-            if (/.md$/i.test(f)) {
+            if (/.md$/i.test(f) && !f.startsWith("_")) {
               results.push({ name: "training/" + f, path: join(trainingDir, f) });
             }
           }
@@ -1930,6 +2187,278 @@ wss.on("connection", (ws, req) => {
 });
 
 console.log(`[PTY-WS] WebSocket server listening on ws://127.0.0.1:${WS_PORT}`);
+
+// ── Cron Job Scheduler ──
+const CRON_JOBS_FILE = resolve(AIOC_ROOT, "factories/default/cron-jobs.json");
+const CRON_LOGS_DIR = resolve(AIOC_ROOT, "logs/cron");
+const CRON_RESULTS_DIR = resolve(AIOC_ROOT, "logs/cron-results");
+
+// Simple cron expression parser: "min hour day month dow"
+function matchesCron(expr, date) {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return false;
+  const [mMin, mHour, mDay, mMon, mDow] = parts;
+  const check = (val, spec) => {
+    if (spec === "*") return true;
+    for (const s of spec.split(",")) {
+      if (s.includes("-")) {
+        const [lo, hi] = s.split("-").map(Number);
+        if (val >= lo && val <= hi) return true;
+      } else if (parseInt(s) === val) return true;
+    }
+    return false;
+  };
+  return check(date.getMinutes(), mMin) && check(date.getHours(), mHour) && check(date.getDate(), mDay) && check(date.getMonth() + 1, mMon) && check(date.getDay(), mDow);
+}
+
+async function loadCronJobs() {
+  try {
+    const raw = await readFile(CRON_JOBS_FILE, "utf-8");
+    return JSON.parse(raw);
+  } catch { return []; }
+}
+
+async function saveCronJobs(jobs) {
+  await mkdir(dirname(CRON_JOBS_FILE), { recursive: true });
+  await writeFile(CRON_JOBS_FILE, JSON.stringify(jobs, null, 2), "utf-8");
+}
+
+async function appendCronLog(jobId, entry) {
+  await mkdir(join(CRON_LOGS_DIR, jobId), { recursive: true });
+  const logFile = join(CRON_LOGS_DIR, jobId, "history.jsonl");
+  const line = JSON.stringify({ ...entry, ts: new Date().toISOString() }) + "\n";
+  await writeFile(logFile, line, { flag: "a" });
+}
+
+async function runCronJob(job) {
+  const runTs = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const runId = `${job.id}-${runTs}`;
+  console.log(`[cron] Running job: ${job.name} (${job.id}) run=${runId}`);
+
+  await appendCronLog(job.id, { runId, status: "started" });
+
+  try {
+    const { spawn } = await import("child_process");
+    // Build prompt with params
+    let prompt = job.prompt || `Execute report app ${job.reportAppId}`;
+    if (job.params && Object.keys(job.params).length > 0) {
+      prompt += `\n\nParameters:\n${Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
+    }
+
+    const appDir = resolve(AIOC_ROOT, "skills/physical-skill", job.reportAppId);
+    const child = spawn("qwen", ["-y", "--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "5", prompt], {
+      cwd: appDir,
+      env: { ...process.env, HOME: process.env.HOME },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let output = "";
+    child.stdout.on("data", c => { output += c.toString(); });
+    child.stderr.on("data", c => { output += c.toString(); });
+
+    await new Promise((resolve, reject) => {
+      child.on("close", resolve);
+      child.on("error", reject);
+    });
+
+    // Save result snapshot
+    const resultDir = join(CRON_RESULTS_DIR, job.id);
+    await mkdir(resultDir, { recursive: true });
+
+    // Extract HTML from output if present
+    let htmlContent = output;
+    const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) htmlContent = codeBlockMatch[1].trim();
+    let htmlMatch = htmlContent.match(/<!DOCTYPE\s+html[^>]*>[\s\S]*<\/html>/i);
+    if (htmlMatch) htmlContent = htmlMatch[0];
+    else {
+      htmlMatch = htmlContent.match(/<html[\s\S]*<\/html>/i);
+      if (htmlMatch) htmlContent = htmlMatch[0];
+    }
+
+    const hasHtml = htmlContent.includes("<html");
+    if (hasHtml) {
+      await writeFile(join(resultDir, `${runTs}.html`), htmlContent, "utf-8");
+    }
+
+    // Also save raw text output
+    await writeFile(join(resultDir, `${runTs}.txt`), output, "utf-8");
+
+    await appendCronLog(job.id, { runId, status: "done", outputLength: output.length, hasHtml, resultFile: `${runTs}.${hasHtml ? "html" : "txt"}` });
+
+    // Update job's lastRun
+    const jobs = await loadCronJobs();
+    const idx = jobs.findIndex(j => j.id === job.id);
+    if (idx >= 0) {
+      jobs[idx].lastRun = new Date().toISOString();
+      jobs[idx].lastStatus = "done";
+      await saveCronJobs(jobs);
+    }
+    console.log(`[cron] Job ${job.id} done, hasHtml=${hasHtml}`);
+  } catch (err) {
+    await appendCronLog(job.id, { runId, status: "error", error: err.message });
+    const jobs = await loadCronJobs();
+    const idx = jobs.findIndex(j => j.id === job.id);
+    if (idx >= 0) {
+      jobs[idx].lastRun = new Date().toISOString();
+      jobs[idx].lastStatus = "error";
+      await saveCronJobs(jobs);
+    }
+    console.log(`[cron] Job ${job.id} error:`, err.message);
+  }
+}
+
+// Check every 60s
+const lastCronMin = { min: -1 };
+setInterval(async () => {
+  const now = new Date();
+  if (now.getMinutes() === lastCronMin.min) return; // already checked this minute
+  lastCronMin.min = now.getMinutes();
+
+  try {
+    const jobs = await loadCronJobs();
+    for (const job of jobs) {
+      if (!job.enabled) continue;
+      if (matchesCron(job.schedule, now)) {
+        runCronJob(job).catch(() => {}); // fire and forget
+      }
+    }
+  } catch {}
+}, 30_000);
+
+console.log("[cron] Scheduler started, checking every 60s");
+
+// Cron API endpoints (registered inside server handler)
+const cronApiHandler = async (req, res) => {
+  // GET /api/cron-jobs
+  if (req.method === "GET" && req.url?.match(/^\/api\/cron-jobs(?:\?.*)?$/)) {
+    const jobs = await loadCronJobs();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(jobs));
+    return true;
+  }
+  // POST /api/cron-jobs
+  if (req.method === "POST" && req.url === "/api/cron-jobs") {
+    const body = await readBody(req);
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const jobs = await loadCronJobs();
+    const job = {
+      id: parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `cron-${Date.now()}`,
+      name: parsed.name,
+      reportAppId: parsed.reportAppId || "",
+      schedule: parsed.schedule || "0 * * * *",
+      prompt: parsed.prompt || "",
+      params: parsed.params || {},
+      enabled: true,
+      createdAt: new Date().toISOString(),
+      lastRun: null,
+      lastStatus: null,
+    };
+    jobs.push(job);
+    await saveCronJobs(jobs);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(job));
+    return true;
+  }
+  // PATCH /api/cron-jobs/:id
+  if (req.method === "PATCH" && req.url?.match(/^\/api\/cron-jobs\/[^/]+$/)) {
+    const id = req.url.split("/").pop();
+    const body = await readBody(req);
+    let patch;
+    try { patch = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const jobs = await loadCronJobs();
+    const idx = jobs.findIndex(j => j.id === id);
+    if (idx < 0) { res.writeHead(404); res.end("Not found"); return true; }
+    if (patch.enabled !== undefined) jobs[idx].enabled = patch.enabled;
+    if (patch.schedule) jobs[idx].schedule = patch.schedule;
+    if (patch.prompt) jobs[idx].prompt = patch.prompt;
+    if (patch.name) jobs[idx].name = patch.name;
+    if (patch.params) jobs[idx].params = patch.params;
+    if (patch.reportAppId) jobs[idx].reportAppId = patch.reportAppId;
+    await saveCronJobs(jobs);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(jobs[idx]));
+    return true;
+  }
+  // DELETE /api/cron-jobs/:id
+  if (req.method === "DELETE" && req.url?.match(/^\/api\/cron-jobs\/[^/]+$/)) {
+    const id = req.url.split("/").pop();
+    let jobs = await loadCronJobs();
+    jobs = jobs.filter(j => j.id !== id);
+    await saveCronJobs(jobs);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return true;
+  }
+  // GET /api/cron-jobs/:id/logs
+  if (req.method === "GET" && req.url?.match(/^\/api\/cron-jobs\/[^/]+\/logs$/)) {
+    const parts = req.url.split("/");
+    const id = parts[parts.length - 2];
+    const logFile = join(CRON_LOGS_DIR, id, "history.jsonl");
+    try {
+      const raw = await readFile(logFile, "utf-8");
+      const lines = raw.trim().split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(lines.slice(-50)));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify([]));
+    }
+    return true;
+  }
+  // GET /api/cron-jobs/:id/results — list result files
+  if (req.method === "GET" && req.url?.match(/^\/api\/cron-jobs\/[^/]+\/results$/)) {
+    const parts = req.url.split("/");
+    const id = parts[parts.length - 2];
+    const resultDir = join(CRON_RESULTS_DIR, id);
+    try {
+      const files = await readdir(resultDir);
+      const results = [];
+      for (const f of files.sort().reverse()) {
+        if (f.endsWith(".html") || f.endsWith(".txt")) {
+          results.push({ file: f, name: f.replace(/\.(html|txt)$/, ""), type: f.endsWith(".html") ? "html" : "text" });
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(results.slice(0, 50)));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify([]));
+    }
+    return true;
+  }
+  // GET /api/cron-result?path=... — serve a specific result file
+  if (req.method === "GET" && req.url?.match(/^\/api\/cron-result\?/)) {
+    const urlObj = new URL(req.url, `http://${req.headers.host}`);
+    const filePath = urlObj.searchParams.get("path");
+    if (!filePath || !filePath.includes("/cron-results/")) {
+      res.writeHead(403); res.end("Forbidden"); return true;
+    }
+    try {
+      const content = await readFile(filePath, "utf-8");
+      const isHtml = filePath.endsWith(".html");
+      res.writeHead(200, { "Content-Type": isHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8" });
+      res.end(content);
+    } catch {
+      res.writeHead(404); res.end("Not found");
+    }
+    return true;
+  }
+  // POST /api/cron-jobs/:id/run — manual trigger
+  if (req.method === "POST" && req.url?.match(/^\/api\/cron-jobs\/[^/]+\/run$/)) {
+    const parts = req.url.split("/");
+    const id = parts[parts.length - 2];
+    const jobs = await loadCronJobs();
+    const job = jobs.find(j => j.id === id);
+    if (!job) { res.writeHead(404); res.end("Not found"); return true; }
+    runCronJob(job).catch(() => {});
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: "Job triggered" }));
+    return true;
+  }
+  return false;
+};
 
 // Log installed CLIs on startup
 checkInstalledClis().then(clis => {

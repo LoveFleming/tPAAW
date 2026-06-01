@@ -4,13 +4,6 @@ name: AIOC 導覽
 version: 1.0.0
 description: 互動式導覽，帶領操作員認識 AIOC 的概念、架構、操作流程與核心價值
 category: tutorial
-suggestedRoles:
-  - Factory Assistant
-  - Factory Guide
-tags:
-  - aioc
-  - onboarding
-  - tutorial
 userInputs:
   - id: visitor_background
     label: 你的背景
@@ -18,15 +11,12 @@ userInputs:
     placeholder: 例：我是後端工程師 / 我是 PM，第一次用 AI 工具 / 隨便聊聊
     required: false
     type: text
-    group: 🎯 導覽偏好
   - id: tour_focus
     label: 特別想了解
     description: 有特別想知道的部分嗎？不填就從頭開始
     placeholder: 例：Skills 怎麼用 / 怎麼建團隊 / 全部都聽
     required: false
     type: text
-    group: 🎯 導覽偏好
-useSkills: []
 ---
 
 # AIOC 導覽

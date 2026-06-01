@@ -61,6 +61,8 @@ export interface SkillDefinition {
     userInputs: UserInput[];
     /** SKILL.md 完整內容 */
     fullContent?: string;
+    /** 是否有 app.html（可作為報表/App 顯示） */
+    hasApp?: boolean;
 }
 
 export interface ChatConfig {
