@@ -1,19 +1,19 @@
 /**
  * Qwen Code API Server
  *
- * Lightweight HTTP server wrapping @qwen-code/sdk for browser consumption.
- * Replaces the old `opencode serve` with direct SDK streaming.
+ * HTTP + WebSocket server for AI Factory Dashboard.
+ * Uses node-pty for CLI interaction (Qwen, Claude, OpenCode).
  *
- * Endpoints:
- *   POST /api/query   — Start a query session, streams NDJSON responses
- *   POST /api/abort   — Abort an active query
+ * Key endpoints:
+ *   POST /api/report-train   — Run CLI to generate app.html
+ *   POST /api/report-publish — Publish app to apps/ directory
+ *   WebSocket :4098         — PTY sessions for employee consoles
  */
 
 import { createServer } from "http";
 import { readdir, readFile, writeFile, mkdir, unlink, rm } from "fs/promises";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { query, isSDKAssistantMessage, isSDKResultMessage, isSDKPartialAssistantMessage } from "@qwen-code/sdk";
 import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { tmpdir } from "os";
@@ -47,8 +47,6 @@ function getConvDir(employeeId, root) {
   const hash = projectPathHash(root);
   return resolve(CONVERSATIONS_ROOT, hash, employeeId);
 }
-const activeQueries = new Map(); // id -> AbortController
-const pendingApprovals = new Map(); // queryId -> { resolve, toolName, toolInput, requestId }
 
 const server = createServer(async (req, res) => {
   // CORS
@@ -60,114 +58,6 @@ const server = createServer(async (req, res) => {
   // Cron API
   const handled = await cronApiHandler(req, res);
   if (handled) return;
-
-  if (req.method === "POST" && req.url === "/api/query") {
-    const body = await readBody(req);
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-
-    const { prompt: promptText, systemPrompt, cwd, permissionMode, sessionId: resumeId, coreTools, model } = parsed;
-    console.log(`[API] query received, systemPrompt length: ${systemPrompt?.length ?? 0}`);
-    if (!promptText) { res.writeHead(400); res.end("Missing 'prompt'"); return; }
-
-    const queryId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const abortController = new AbortController();
-    activeQueries.set(queryId, abortController);
-
-    // Helper: ask the browser for approval via the NDJSON stream
-    const askBrowserApproval = async (toolName, toolInput) => {
-      const requestId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      return new Promise((resolve) => {
-        pendingApprovals.set(queryId, { resolve, toolName, toolInput, requestId });
-        // Send approval_request event to the browser
-        res.write(JSON.stringify({
-          type: "approval_request",
-          data: { queryId, requestId, toolName, toolInput },
-        }) + "\n");
-      });
-    };
-
-    // NDJSON streaming
-    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked" });
-
-    try {
-      const q = query({
-        prompt: promptText,
-        options: {
-          cwd: cwd || resolve(process.cwd(), "../../"),
-          systemPrompt: systemPrompt
-            ? { type: "preset", preset: "qwen_code", append: systemPrompt }
-            : { type: "preset", preset: "qwen_code" },
-          permissionMode: permissionMode || "default",
-          includePartialMessages: true,
-          abortController,
-          resume: resumeId || undefined,
-          coreTools: coreTools || undefined,
-          model: model || undefined,
-          canUseTool: async (toolName, toolInput) => {
-            console.log(`[API] canUseTool: ${toolName}`);
-            return await askBrowserApproval(toolName, toolInput);
-          },
-        },
-      });
-
-      for await (const msg of q) {
-        if (abortController.signal.aborted) break;
-
-        const line = JSON.stringify({ type: msg.type, data: msg }) + "\n";
-        res.write(line);
-      }
-
-      res.write(JSON.stringify({ type: "done", data: { queryId } }) + "\n");
-    } catch (err) {
-      res.write(JSON.stringify({ type: "error", data: { message: err.message } }) + "\n");
-    } finally {
-      activeQueries.delete(queryId);
-      // Reject any pending approvals so the SDK doesn't hang
-      const pending = pendingApprovals.get(queryId);
-      if (pending) {
-        pending.resolve({ behavior: "deny", message: "Query ended." });
-        pendingApprovals.delete(queryId);
-      }
-      res.end();
-    }
-    return;
-  }
-
-  if (req.method === "POST" && req.url === "/api/abort") {
-    const body = await readBody(req);
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const { queryId } = parsed;
-    const ac = activeQueries.get(queryId);
-    if (ac) { ac.abort(); activeQueries.delete(queryId); }
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true }));
-    return;
-  }
-
-  // POST /api/approve — resolve a pending approval request from the browser
-  if (req.method === "POST" && req.url === "/api/approve") {
-    const body = await readBody(req);
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const { queryId, requestId, approved, modifiedInput } = parsed;
-    const pending = pendingApprovals.get(queryId);
-    if (!pending || pending.requestId !== requestId) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "No pending approval for this query/request" }));
-      return;
-    }
-    if (approved) {
-      pending.resolve({ behavior: "allow", updatedInput: modifiedInput || pending.toolInput });
-    } else {
-      pending.resolve({ behavior: "deny", message: "User denied this tool use." });
-    }
-    pendingApprovals.delete(queryId);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true }));
-    return;
-  }
 
   // Helper: resolve factory-scoped directory
   function factoryDir(factoryId, subdir) {
@@ -342,74 +232,6 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // POST /api/skill-exec/:id — execute a skill via AI SDK and return result
-  const skillExecMatch = req.method === "POST" && req.url?.match(/^\/api\/skill-exec\/([\w.-]+)(?:\?.*)?$/);
-  if (skillExecMatch) {
-    const skillId = skillExecMatch[1];
-    const body = await readBody(req);
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const { params = {}, cli = "qwen", model } = parsed;
-
-    // Read SKILL.md
-    const roots = [PHYSICAL_SKILL_ROOT, INPUT_PROMPT_ROOT];
-    let skillPrompt = "";
-    let skillDir = "";
-    for (const root of roots) {
-      try {
-        const raw = await readFile(join(root, skillId, "SKILL.md"), "utf-8");
-        const parsedFm = parseSkillFrontmatter(raw);
-        skillPrompt = parsedFm.body || parsedFm.skillPrompt || raw;
-        skillDir = join(root, skillId);
-        break;
-      } catch { /* not here */ }
-    }
-    if (!skillPrompt) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Skill not found: " + skillId }));
-      return;
-    }
-
-    // Build prompt with params
-    const paramLines = Object.entries(params).map(([k, v]) => `- **${k}**: ${v}`).join("\n");
-    const fullPrompt = `${skillPrompt}\n\n---\n\n## 使用者指定的參數\n\n${paramLines}\n\n請執行上述 Skill 並產出完整結果。輸出請用 Markdown 格式。`;
-
-    // Stream via NDJSON
-    const queryId = `exec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const abortController = new AbortController();
-    activeQueries.set(queryId, abortController);
-
-    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked" });
-
-    try {
-      const q = query({
-        prompt: fullPrompt,
-        options: {
-          cwd: skillDir,
-          systemPrompt: { type: "preset", preset: "qwen_code" },
-          permissionMode: "yolo",
-          includePartialMessages: true,
-          abortController,
-          model: model || undefined,
-        },
-      });
-
-      let finalText = "";
-      for await (const msg of q) {
-        if (abortController.signal.aborted) break;
-        if (msg.type === "assistant" && msg.text) finalText = msg.text;
-        res.write(JSON.stringify({ type: msg.type, data: msg }) + "\n");
-      }
-
-      res.write(JSON.stringify({ type: "done", data: { queryId, result: finalText } }) + "\n");
-    } catch (err) {
-      res.write(JSON.stringify({ type: "error", data: { message: err.message } }) + "\n");
-    } finally {
-      activeQueries.delete(queryId);
-      res.end();
-    }
-    return;
-  }
   const skillAppMatch = req.method === "GET" && req.url?.match(/^\/api\/skill-app\/([\w.-]+)(?:\?.*)?$/);
   if (skillAppMatch) {
     const skillId = skillAppMatch[1];
