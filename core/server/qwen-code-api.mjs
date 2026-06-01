@@ -530,7 +530,7 @@ const server = createServer(async (req, res) => {
 
     const child = spawn("qwen", cliArgs, {
       cwd: outDir,
-      env: { ...process.env, HOME: process.env.HOME },
+      env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     });
 
@@ -2358,7 +2358,7 @@ async function runCronJob(job) {
     const appDir = resolve(AIOC_ROOT, "skills/physical-skill", job.reportAppId);
     const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "5", prompt], {
       cwd: appDir,
-      env: { ...process.env, HOME: process.env.HOME },
+      env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     });
 

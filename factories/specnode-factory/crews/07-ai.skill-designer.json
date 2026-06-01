@@ -21,7 +21,7 @@
         "maxTokens": 4096,
         "temperature": 0.4,
         "cli": "qwen",
-        "model": "moonshotai/kimi-k2.5",
+        "model": "moonshotai/kimi-k2.6",
         "approvalMode": "yolo"
     }
 }
