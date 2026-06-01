@@ -563,7 +563,7 @@ const server = createServer(async (req, res) => {
       res.write(JSON.stringify({ type: "stdout", data }) + "\n");
     });
 
-    ptyProc.onExit(({ exitCode }) => {
+    ptyProc.onExit(async ({ exitCode }) => {
       // Extract HTML from CLI output
       let htmlContent = fullOutput;
       const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
