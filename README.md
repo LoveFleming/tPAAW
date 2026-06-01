@@ -14,27 +14,51 @@ AIOC 提供一個友善的 Dashboard，讓工程師用直覺的方式操作 AI �
 ## 目錄結構
 
 ```
-aioc/
-├── core/                   ← 主程式（Dashboard UI + API Server）
-│   ├── src/                ← React + TypeScript frontend
-│   ├── server/             ← Express API server
-│   └── public/             ← 靜態資源
-├── factories/              ← 各工廠定義
-│   ├── default/            ← 預設模板
-│   │   ├── crews/          ← 員工 JSON
-│   │   └── docs/           ← 工廠文件
-│   └── specnode-factory/   ← 範例工廠
-│       ├── crews/
-│       └── docs/
-├── skills/                 ← 共享 AI 技能（所有工廠、所有 CLI 共用）
-│   ├── cli-test/
-│   ├── dashboard-setup/
-│   ├── factory-tour/
-│   └── java-unit-test/
-└── providers/              ← 各 CLI 設定
-    ├── qwen/
-    ├── opencode/
-    └── claude/
+aieoc/
+├── core/                        ← 主程式（Dashboard UI + API Server）
+│   ├── src/                     ← React + TypeScript frontend
+│   │   ├── components/          ← UI 元件
+│   │   │   ├── orchestrator/    ← Orchestrator 相關面板
+│   │   │   └── ui/              ← 共用 UI 元件
+│   │   ├── pages/               ← 頁面元件
+│   │   │   ├── WelcomePage.tsx
+│   │   │   ├── EmployeeWorkspace.tsx
+│   │   │   ├── AgentConsole.tsx
+│   │   │   ├── SkillLab.tsx
+│   │   │   ├── CronJobsPage.tsx
+│   │   │   ├── ReportAppsPage.tsx
+│   │   │   ├── FactoryStandards.tsx
+│   │   │   ├── OrchestratorWorkspace.tsx
+│   │   │   └── ...
+│   │   ├── data/                ← Mock 資料與 factory standards
+│   │   └── types/               ← TypeScript 型別定義
+│   ├── server/                  ← Express API server (qwen-code-api.mjs)
+│   ├── conversations/           ← 對話歷史
+│   └── start-hidden.bat         ← Windows 背景啟動腳本
+├── factories/                   ← 各工廠定義
+│   ├── default/                 ← 預設工廠
+│   │   ├── crews/               ← 員工 JSON + 對話紀錄
+│   │   ├── docs/                ← 工廠文件
+│   │   └── factory.json
+│   ├── my-test-factory/         ← 測試工廠
+│   └── specnode-factory/        ← 範例工廠（完整團隊）
+│       ├── crews/               ← 7 位 AI 員工
+│       ├── docs/                ← 憲法、標準文件
+│       └── factory.json
+├── skills/                      ← 共享 AI 技能
+│   ├── input-prompt/            ← CLI 輸入型技能
+│   │   ├── aioc-tour/
+│   │   ├── skill-design/
+│   │   ├── diagnosis/
+│   │   ├── test-generation/
+│   │   └── ...（30+ 技能）
+│   ├── physical-skill/          ← 具 UI 的技能
+│   │   └── daily-stats/
+│   └── training/                ← 訓練用模板
+└── providers/                   ← 各 CLI 設定
+    ├── qwen/                    ← Qwen Code
+    ├── opencode/                ← OpenCode
+    └── claude/                  ← Claude Code
 ```
 
 > Skills 只存一份在 `skills/`，所有工廠和 CLI 共用。員工可選 0~多個技能，也可以純 Prompt 模式。
