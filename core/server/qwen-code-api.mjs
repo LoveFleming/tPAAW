@@ -520,7 +520,6 @@ const server = createServer(async (req, res) => {
 
     // Build CLI args — positional prompt, yolo mode, stream-json output
     const cliArgs = [
-      "-y",
       "--approval-mode", "yolo",
       "-o", "text",
       "--max-tool-calls", "3",
@@ -2357,7 +2356,7 @@ async function runCronJob(job) {
     }
 
     const appDir = resolve(AIOC_ROOT, "skills/physical-skill", job.reportAppId);
-    const child = spawn("qwen", ["-y", "--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "5", prompt], {
+    const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "5", prompt], {
       cwd: appDir,
       env: { ...process.env, HOME: process.env.HOME },
       stdio: ["pipe", "pipe", "pipe"],
