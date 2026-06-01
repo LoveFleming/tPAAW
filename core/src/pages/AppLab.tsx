@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import { useTheme } from "../theme";
 import { SkillDefinition } from "../types";
+import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
 
 const API = "http://127.0.0.1:4097";
 
@@ -221,6 +222,12 @@ export default function AppLab() {
     const [rightTab, setRightTab] = useState<RightTab>("terminal");
     const [trainRun, setTrainRun] = useState<TrainRun | null>(null);
     const [published, setPublished] = useState(false);
+    const [chatStarted, setChatStarted] = useState(false);
+    const [initialPrompt, setInitialPrompt] = useState("");
+    const [consoleKey, setConsoleKey] = useState(0);
+    const [sendingTrain, setSendingTrain] = useState(false);
+    const [sendingTest, setSendingTest] = useState(false);
+    const terminalRef = useRef<TerminalConsoleHandle>(null);
     const [publishing, setPublishing] = useState(false);
 
     // Dialog states
@@ -228,7 +235,6 @@ export default function AppLab() {
     const [showNewFileDialog, setShowNewFileDialog] = useState(false);
     const [workingDir, setWorkingDir] = useState<string>("");
 
-    const termRef = useRef<HTMLPreElement>(null);
     const previewRef = useRef<HTMLIFrameElement>(null);
     const loadingRef = useRef(false);
 
@@ -252,11 +258,6 @@ export default function AppLab() {
     }, []);
 
     useEffect(() => { loadTrainingFiles(); }, [loadTrainingFiles]);
-
-    // Auto-scroll terminal
-    useEffect(() => {
-        if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
-    }, [trainRun?.output]);
 
     // ── File operations ──
     const loadFileContent = useCallback((path: string) => {
@@ -364,128 +365,42 @@ export default function AppLab() {
         } catch { /* ignore */ }
     };
 
-    // ── Train ──
-    const handleTrain = async () => {
+    // ── Send prompt to PTY terminal ──
+    const sendToTerminal = useCallback((p: string) => {
+        if (!p.trim()) return;
+        if (!chatStarted) {
+            setInitialPrompt(p);
+            setChatStarted(true);
+            setConsoleKey(prev => prev + 1);
+        } else {
+            terminalRef.current?.sendPrompt(p);
+        }
+    }, [chatStarted]);
+
+    const handleTrain = () => {
         if (!reportName) return;
-
-        const runId = `train-${Date.now()}`;
-        const skillId = selectedSkill?.id || "no-skill";
-        const run: TrainRun = { id: runId, skillId, status: "running", output: "" };
-        setTrainRun(run);
+        setSendingTrain(true);
         setRightTab("terminal");
-        setPublished(false);
-
+        const skillId = selectedSkill?.id || "no-skill";
         const filledPrompt = prompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
             .replace(/\{\{SKILL_ID\}\}/g, skillId);
-
-        try {
-            const resp = await fetch(`${API}/api/report-train`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    skillId,
-                    reportName,
-                    template: selectedTemplate,
-                    prompt: filledPrompt,
-                    runId,
-                    cli,
-                }),
-            });
-
-            const reader = resp.body!.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
-
-                for (const line of lines) {
-                    if (!line.trim()) continue;
-                    try {
-                        const msg = JSON.parse(line);
-                        if (msg.type === "status") {
-                            setTrainRun(prev => prev ? { ...prev, output: prev.output + `⏳ ${msg.data?.message}\n` } : prev);
-                        } else if (msg.type === "stdout" || msg.type === "stderr") {
-                            setTrainRun(prev => prev ? { ...prev, output: prev.output + msg.data + "\n" } : prev);
-                        } else if (msg.type === "done") {
-                            setTrainRun(prev => prev ? { ...prev, status: "done", htmlPath: msg.data?.htmlPath } : prev);
-                            if (msg.data?.htmlPath) {
-                                setRightTab("preview");
-                                loadPreview(msg.data.htmlPath);
-                            }
-                        } else if (msg.type === "error") {
-                            setTrainRun(prev => prev ? { ...prev, status: "error", output: prev.output + "\n❌ " + msg.data?.message + "\n" } : prev);
-                        }
-                    } catch {}
-                }
-            }
-        } catch (err: any) {
-            setTrainRun(prev => prev ? { ...prev, status: "error", output: prev.output + "\n❌ " + err.message + "\n" } : prev);
-        }
+        sendToTerminal(filledPrompt);
+        setTimeout(() => setSendingTrain(false), 300);
     };
 
-    // ── Quick test: just send testPrompt to CLI and show in terminal ──
-    const handleTest = async () => {
+    const handleTest = () => {
         if (!testPrompt.trim()) return;
+        setSendingTest(true);
+        setRightTab("terminal");
         const skillId = selectedSkill?.id || "no-skill";
         const filledTest = testPrompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
             .replace(/\{\{SKILL_ID\}\}/g, skillId);
-
-        const runId = `test-${Date.now()}`;
-        const run: TrainRun = { id: runId, skillId, status: "running", output: "" };
-        setTrainRun(run);
-        setRightTab("terminal");
-
-        try {
-            const resp = await fetch(`${API}/api/report-train`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    skillId,
-                    reportName: reportName + "-test",
-                    template: selectedTemplate,
-                    prompt: filledTest,
-                    runId,
-                    cli,
-                }),
-            });
-            const reader = resp.body!.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
-                for (const line of lines) {
-                    if (!line.trim()) continue;
-                    try {
-                        const msg = JSON.parse(line);
-                        if (msg.type === "stdout" || msg.type === "stderr") {
-                            setTrainRun(prev => prev ? { ...prev, output: prev.output + msg.data + "\n" } : prev);
-                        }
-                        if (msg.type === "done") {
-                            setTrainRun(prev => prev ? { ...prev, status: "done", htmlPath: msg.data?.htmlPath } : prev);
-                            if (msg.data?.htmlPath) loadPreview(msg.data.htmlPath);
-                        }
-                        if (msg.type === "error") {
-                            setTrainRun(prev => prev ? { ...prev, status: "error", output: prev.output + "\n❌ " + msg.data?.message + "\n" } : prev);
-                        }
-                    } catch {}
-                }
-            }
-        } catch (err: any) {
-            setTrainRun(prev => prev ? { ...prev, status: "error", output: prev.output + "\n❌ " + err.message + "\n" } : prev);
-        }
+        sendToTerminal(filledTest);
+        setTimeout(() => setSendingTest(false), 300);
     };
 
     const loadPreview = (htmlPath: string) => {
@@ -655,13 +570,13 @@ export default function AppLab() {
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => handlePromptChange(DEFAULT_PROMPT)} className="text-[10px] text-stone-400 hover:text-stone-600">Reset</button>
                                         <button onClick={handleTrain}
-                                            disabled={!reportName || !prompt.trim() || trainRun?.status === "running"}
+                                            disabled={!reportName || !prompt.trim()}
                                             className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
-                                                reportName && prompt.trim() && trainRun?.status !== "running"
+                                                reportName && prompt.trim()
                                                     ? "text-white hover:opacity-90 shadow-sm"
                                                     : "bg-stone-200 text-stone-400 cursor-not-allowed")}
-                                            style={{ backgroundColor: reportName && prompt.trim() && trainRun?.status !== "running" ? t.accent : undefined }}>
-                                            {trainRun?.status === "running" ? "⏳" : "▶"} Train
+                                            style={{ backgroundColor: reportName && prompt.trim() ? t.accent : undefined }}>
+                                            {sendingTrain ? "⏳" : "▶"} Train
                                         </button>
                                     </div>
                                 </div>
@@ -680,13 +595,13 @@ export default function AppLab() {
                                 <div className="flex items-center justify-between px-4 py-1.5 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
                                     <span className="text-xs font-semibold text-stone-600">🧪 測試 Prompt</span>
                                     <button onClick={handleTest}
-                                        disabled={!testPrompt.trim() || trainRun?.status === "running"}
+                                        disabled={!testPrompt.trim()}
                                         className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
-                                            testPrompt.trim() && trainRun?.status !== "running"
+                                            testPrompt.trim()
                                                 ? "text-white hover:opacity-90 shadow-sm"
                                                 : "bg-stone-200 text-stone-400 cursor-not-allowed")}
-                                        style={{ backgroundColor: testPrompt.trim() && trainRun?.status !== "running" ? "#059669" : undefined }}>
-                                        {trainRun?.status === "running" ? "⏳" : "▶"} Test
+                                        style={{ backgroundColor: testPrompt.trim() ? "#059669" : undefined }}>
+                                        {sendingTest ? "⏳" : "▶"} Test
                                     </button>
                                 </div>
                                 <textarea
@@ -734,20 +649,28 @@ export default function AppLab() {
                             🖼️ Preview
                             {trainRun?.status === "done" && <span className="ml-1 text-green-500">●</span>}
                         </button>
-                        {trainRun?.status === "running" && (
-                            <span className="ml-auto text-[10px] text-stone-400 pr-3 flex items-center gap-1">
-                                <span className="inline-block w-2 h-2 bg-amber-400 rounded-full animate-pulse" /> running
-                            </span>
-                        )}
                     </div>
 
                     {/* Terminal Tab */}
                     {rightTab === "terminal" && (
-                        <pre ref={termRef}
-                            className="flex-1 p-4 text-xs font-mono text-stone-300 overflow-auto bg-stone-900 whitespace-pre-wrap"
-                            style={{ tabSize: 2 }}>
-                            {trainRun?.output || "# 選好 Training File → 選基底 Skill → 調整 Prompt → 按 Train\n# CLI 輸出會出現在這裡\n"}
-                        </pre>
+                        !chatStarted ? (
+                            <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
+                                <span className="text-4xl">🧪</span>
+                                <p className="text-stone-400 text-sm text-center">
+                                    寫好 prompt 後按 <strong>▶ Train</strong> 或 <strong>▶ Test</strong> 送出
+                                </p>
+                                <p className="text-stone-500 text-xs text-center">Ctrl+Enter 快速送出</p>
+                            </div>
+                        ) : (
+                            <TerminalConsole
+                                ref={terminalRef}
+                                key={`applab-${consoleKey}`}
+                                cwd={undefined}
+                                cli={cli}
+                                approvalMode="yolo"
+                                initialPrompt={initialPrompt}
+                            />
+                        )
                     )}
 
                     {/* Preview Tab */}
