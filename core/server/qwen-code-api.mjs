@@ -290,6 +290,135 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // POST /api/app-run/:id — run AI to generate app content on-the-fly
+  const appRunMatch = req.method === "POST" && req.url?.match(/^\/api\/app-run\/([\w.-]+)(?:\?.*)?$/);
+  if (appRunMatch) {
+    const appId = appRunMatch[1];
+    const body = await readBody(req);
+    let parsed = {};
+    try { parsed = JSON.parse(body); } catch {}
+    const { prompt: userPrompt, cli: cliType } = parsed;
+    const cliName = cliType || "qwen";
+
+    const outDir = join(APPS_ROOT, appId);
+    await mkdir(outDir, { recursive: true });
+
+    // Build the prompt: fetch live skill data and ask AI to generate a report
+    let skillData = [];
+    try {
+      const dirs = await readdir(INPUT_PROMPT_ROOT);
+      for (const dir of dirs) {
+        try {
+          const raw = await readFile(join(INPUT_PROMPT_ROOT, dir, "SKILL.md"), "utf-8");
+          const parsed = parseSkillFrontmatter(raw);
+          skillData.push({ id: dir, kind: "input-prompt", name: parsed.name || dir, description: parsed.description || "", category: parsed.category || "" });
+        } catch {}
+      }
+    } catch {}
+    try {
+      const dirs = await readdir(PHYSICAL_SKILL_ROOT);
+      for (const dir of dirs) {
+        try {
+          const raw = await readFile(join(PHYSICAL_SKILL_ROOT, dir, "SKILL.md"), "utf-8");
+          const parsed = parseSkillFrontmatter(raw);
+          skillData.push({ id: dir, kind: "physical-skill", name: parsed.name || dir, description: parsed.description || "", category: parsed.category || "" });
+        } catch {}
+      }
+    } catch {}
+
+    let appData = [];
+    try {
+      const dirs = await readdir(APPS_ROOT);
+      for (const dir of dirs) {
+        try { const s = await import("fs/promises").then(m => m.stat(join(APPS_ROOT, dir))); if (!s.isDirectory()) continue; } catch { continue; }
+        let meta = {};
+        try { meta = JSON.parse(await readFile(join(APPS_ROOT, dir, "app.json"), "utf-8")); } catch {}
+        appData.push({ id: dir, name: meta.name || dir, status: meta.status || "published" });
+      }
+    } catch {}
+
+    const systemPrompt = `你是 AIOC 的數據分析師。請根據以下即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
+
+## 即時資料
+
+### Skills (${skillData.length} 個)
+${JSON.stringify(skillData, null, 2)}
+
+### Apps (${appData.length} 個)
+${JSON.stringify(appData, null, 2)}
+
+## 輸出要求
+- 生成完整的 HTML 頁面 (<!DOCTYPE html>...<\/html>)
+- 包含統計卡片：Total Skills, Input-Prompt Skills, Physical Skills, Apps
+- 包含圓餅圖 (skill kind 分佈) 和長條圖 (category 分佈)，使用 Chart.js
+- 包含完整 skill 清單表格，可搜尋、排序
+- 樣式：Stone 色系，圓角卡片，現代感 UI
+- 所有數字必須來自上面提供的即時資料，不可編造
+- 標題顯示「載入時間」為現在
+${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
+
+    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
+    res.write(JSON.stringify({ type: "status", data: { message: `AI 正在計算 ${appId}...` } }) + "\n");
+
+    const cliBins = {
+      qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" },
+      claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" },
+      opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
+    };
+    const cliEnvBins = { qwen: "QWEN_BIN", claude: "CLAUDE_BIN", opencode: "OPENCODE_BIN" };
+    const _platform = process.platform;
+    const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
+    const resolvedBin = process.env[cliEnvBins[cliName] || "QWEN_BIN"] || (cliBins[cliName] || cliBins.qwen)[_binKey];
+
+    let cliArgs;
+    if (cliName === "qwen") {
+      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "3", systemPrompt];
+    } else if (cliName === "claude") {
+      cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", systemPrompt, "--output-format", "text"];
+    } else if (cliName === "opencode") {
+      cliArgs = ["--non-interactive", "-p", systemPrompt];
+    } else {
+      cliArgs = [systemPrompt];
+    }
+
+    const ptyProc = ptySpawn(resolvedBin, cliArgs, {
+      name: "xterm-256color",
+      cols: 200,
+      rows: 50,
+      cwd: outDir,
+      env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
+    });
+
+    let fullOutput = "";
+    ptyProc.onData((data) => {
+      fullOutput += data;
+      res.write(JSON.stringify({ type: "stdout", data }) + "\n");
+    });
+
+    ptyProc.onExit(async ({ exitCode }) => {
+      let htmlContent = fullOutput;
+      const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) htmlContent = codeBlockMatch[1].trim();
+      let htmlMatch = htmlContent.match(/<!DOCTYPE\s+html[^>]*>[\s\S]*<\/html>/i);
+      if (htmlMatch) htmlContent = htmlMatch[0];
+      else {
+        htmlMatch = htmlContent.match(/<html[\s\S]*<\/html>/i);
+        if (htmlMatch) htmlContent = htmlMatch[0];
+      }
+
+      if (htmlContent.includes("<html")) {
+        await writeFile(join(outDir, "app.html"), htmlContent, "utf-8");
+        res.write(JSON.stringify({ type: "done", data: { appId, exitCode } }) + "\n");
+      } else {
+        res.write(JSON.stringify({ type: "error", data: { message: `AI 回應中找不到有效 HTML (${fullOutput.length} chars)`, rawOutput: fullOutput.slice(-2000) } }) + "\n");
+      }
+      res.end();
+    });
+
+    setTimeout(() => { try { ptyProc.kill(); } catch {} }, 180_000);
+    return;
+  }
+
   // GET /api/app/:id — serve app.html from apps/ directory
   const appServeMatch = req.method === "GET" && req.url?.match(/^\/api\/app\/([\w.-]+)(?:\?.*)?$/);
   if (appServeMatch) {
