@@ -337,15 +337,25 @@ const server = createServer(async (req, res) => {
       }
     } catch {}
 
-    const systemPrompt = `你是 AIOC 的數據分析師。請根據以下即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
+    // Summarize data to keep prompt short — pass full data as a JSON file instead
+    const summary = {
+      totalSkills: skillData.length,
+      inputPromptSkills: skillData.filter(s => s.kind === 'input-prompt').length,
+      physicalSkills: skillData.filter(s => s.kind === 'physical-skill').length,
+      totalApps: appData.length,
+      categories: (() => { const m = {}; skillData.forEach(s => { const c = s.category || 'Other'; m[c] = (m[c] || 0) + 1; }); return m; })(),
+    };
+    const dataFile = join(outDir, "_skill_data.json");
+    await writeFile(dataFile, JSON.stringify({ skills: skillData, apps: appData }, null, 2), "utf-8");
 
-## 即時資料
+    const systemPrompt = `你是 AIOC 的數據分析師。請讀取 ${dataFile} 中的即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
 
-### Skills (${skillData.length} 個)
-${JSON.stringify(skillData, null, 2)}
-
-### Apps (${appData.length} 個)
-${JSON.stringify(appData, null, 2)}
+## 摘要
+- Total Skills: ${summary.totalSkills}
+- Input-Prompt Skills: ${summary.inputPromptSkills}
+- Physical Skills: ${summary.physicalSkills}
+- Apps: ${summary.totalApps}
+- Categories: ${JSON.stringify(summary.categories)}
 
 ## 輸出要求
 - 生成完整的 HTML 頁面 (<!DOCTYPE html>...<\/html>)
@@ -353,9 +363,14 @@ ${JSON.stringify(appData, null, 2)}
 - 包含圓餅圖 (skill kind 分佈) 和長條圖 (category 分佈)，使用 Chart.js
 - 包含完整 skill 清單表格，可搜尋、排序
 - 樣式：Stone 色系，圓角卡片，現代感 UI
-- 所有數字必須來自上面提供的即時資料，不可編造
+- 所有數字必須來自資料檔案，不可編造
 - 標題顯示「載入時間」為現在
+- 先讀取 ${dataFile} 取得完整資料，再生成 HTML
 ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
+
+    // Write prompt to temp file to avoid CLI arg length limit
+    const promptFile = join(outDir, "_prompt.txt");
+    await writeFile(promptFile, systemPrompt, "utf-8");
 
     res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
     res.write(JSON.stringify({ type: "status", data: { message: `AI 正在計算 ${appId}...` } }) + "\n");
@@ -370,9 +385,10 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
     const resolvedBin = process.env[cliEnvBins[cliName] || "QWEN_BIN"] || (cliBins[cliName] || cliBins.qwen)[_binKey];
 
+    // Use prompt via file to avoid arg length limits
     let cliArgs;
     if (cliName === "qwen") {
-      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "3", systemPrompt];
+      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "5", systemPrompt];
     } else if (cliName === "claude") {
       cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", systemPrompt, "--output-format", "text"];
     } else if (cliName === "opencode") {
