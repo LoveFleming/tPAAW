@@ -1,0 +1,273 @@
+{
+  "skills": [
+    {
+      "id": "aioc-tour",
+      "kind": "input-prompt",
+      "name": "AIOC 導覽",
+      "description": "互動式導覽，帶領操作員認識 AIOC 的概念、架構、操作流程與核心價值",
+      "category": "tutorial"
+    },
+    {
+      "id": "api-health-check",
+      "kind": "input-prompt",
+      "name": "api-health-check",
+      "description": "",
+      "category": ""
+    },
+    {
+      "id": "app-curator",
+      "kind": "input-prompt",
+      "name": "app-curator",
+      "description": "",
+      "category": ""
+    },
+    {
+      "id": "bug-review",
+      "kind": "input-prompt",
+      "name": "Bug Review",
+      "description": "分析缺陷報告，定位根因，評估影響範圍與修復建議",
+      "category": ""
+    },
+    {
+      "id": "claude-code-test",
+      "kind": "input-prompt",
+      "name": "Claude Code CLI Test",
+      "description": "使用 Claude Code CLI 測試 skill 載入與基本操作",
+      "category": ""
+    },
+    {
+      "id": "cli-test",
+      "kind": "input-prompt",
+      "name": "cli-test",
+      "description": "測試不同的 AI CLI 工具（Qwen、Claude Code、OpenCode），驗證 skill 載入與基本操作",
+      "category": ""
+    },
+    {
+      "id": "collect-inputs",
+      "kind": "input-prompt",
+      "name": "collect-inputs",
+      "description": "",
+      "category": ""
+    },
+    {
+      "id": "contract-validation",
+      "kind": "input-prompt",
+      "name": "Contract Validation",
+      "description": "驗證程式碼是否符合 node contract 規範",
+      "category": ""
+    },
+    {
+      "id": "dashboard-setup",
+      "kind": "input-prompt",
+      "name": "dashboard-setup",
+      "description": "在目標專案建立 AIOC Dashboard 所需的目錄與資料結構（.aioc/dashboard.json）",
+      "category": ""
+    },
+    {
+      "id": "define-api-contracts",
+      "kind": "input-prompt",
+      "name": "Define API Contracts",
+      "description": "定義 API 與 Data contracts（JSON Schema）",
+      "category": ""
+    },
+    {
+      "id": "diagnosis",
+      "kind": "input-prompt",
+      "name": "Diagnosis",
+      "description": "系統性診斷流程，從訊號收集到問題確認的結構化步驟",
+      "category": ""
+    },
+    {
+      "id": "draft-flow-specs",
+      "kind": "input-prompt",
+      "name": "Draft Flow Specs",
+      "description": "使用 DSL 草擬 orchestrator flow",
+      "category": ""
+    },
+    {
+      "id": "endpoint-probe",
+      "kind": "input-prompt",
+      "name": "Endpoint Probe",
+      "description": "對 API Endpoint 執行深度探測，測試各種邊界條件與錯誤處理",
+      "category": ""
+    },
+    {
+      "id": "extract-user-stories",
+      "kind": "input-prompt",
+      "name": "Extract User Stories",
+      "description": "從需求文件或 legacy code 中提取 user stories",
+      "category": ""
+    },
+    {
+      "id": "factory-constitution",
+      "kind": "input-prompt",
+      "name": "建立工廠制度",
+      "description": "協助制定工廠的憲法、標準規範、Error Code Rules 與團隊規則",
+      "category": "setup"
+    },
+    {
+      "id": "factory-tour",
+      "kind": "input-prompt",
+      "name": "factory-tour",
+      "description": "AI 軟體工廠導覽，帶領新成員了解工廠架構、流程、規範與 AI 員工團隊",
+      "category": ""
+    },
+    {
+      "id": "health-check-design",
+      "kind": "input-prompt",
+      "name": "Health Check Design",
+      "description": "為 API 服務設計標準化的 Health Check Endpoint 與監控架構",
+      "category": ""
+    },
+    {
+      "id": "incident-detection",
+      "kind": "input-prompt",
+      "name": "Incident Detection",
+      "description": "分析 API 異常數據，判斷是否為事故，提供分級與應變建議",
+      "category": ""
+    },
+    {
+      "id": "incident-support",
+      "kind": "input-prompt",
+      "name": "Incident Support",
+      "description": "在事件發生時提供即時故障排除支援，協助快速恢復服務",
+      "category": ""
+    },
+    {
+      "id": "java-unit-test",
+      "kind": "input-prompt",
+      "name": "java-unit-test",
+      "description": "為 Java 程式碼撰寫 JUnit 單元測試",
+      "category": ""
+    },
+    {
+      "id": "node-codegen",
+      "kind": "input-prompt",
+      "name": "Code Generation",
+      "description": "根據規格生成符合 contract 的節點程式",
+      "category": ""
+    },
+    {
+      "id": "opencode-test",
+      "kind": "input-prompt",
+      "name": "OpenCode CLI Test",
+      "description": "使用 OpenCode CLI 測試 skill 載入與基本操作",
+      "category": ""
+    },
+    {
+      "id": "quality-gate",
+      "kind": "input-prompt",
+      "name": "Quality Gate",
+      "description": "執行完整的品質閘門檢查，確認交付物可以進入下一階段",
+      "category": ""
+    },
+    {
+      "id": "quick-tour",
+      "kind": "input-prompt",
+      "name": "Quick Tour",
+      "description": "AIOC 快速導覽，直接進 CLI 互動式介紹工廠",
+      "category": ""
+    },
+    {
+      "id": "root-cause",
+      "kind": "input-prompt",
+      "name": "Root Cause Analysis",
+      "description": "根據異常訊號與系統架構，進行根因分析，定位問題源頭",
+      "category": ""
+    },
+    {
+      "id": "signal-detect",
+      "kind": "input-prompt",
+      "name": "Signal Detection",
+      "description": "分析系統訊號（Logs / Metrics / Traces），快速偵測異常模式",
+      "category": ""
+    },
+    {
+      "id": "skill-creation",
+      "kind": "input-prompt",
+      "name": "Skill 建立",
+      "description": "設計並建立新的 Skill 定義，產出完整的 SKILL.md 到 skills/ 目錄",
+      "category": "generation"
+    },
+    {
+      "id": "skill-design",
+      "kind": "input-prompt",
+      "name": "Skill Design",
+      "description": "使用 skill-creator 方法論設計新的 AI 技能，從需求到完整的 SKILL.md",
+      "category": ""
+    },
+    {
+      "id": "skill-forging",
+      "kind": "input-prompt",
+      "name": "Skill 鍛造",
+      "description": "從零鍛造一個完整的 Skill，涵蓋 ID 設計、Role Prompt、Inputs/Outputs、Rules、Guardrails，並可選擇打包為實體 Skill Package",
+      "category": "generation"
+    },
+    {
+      "id": "skill-packing",
+      "kind": "input-prompt",
+      "name": "Skill 打包",
+      "description": "將 input-prompt skill 打包為可部署的 physical-skill package，含目錄結構、README、腳本範本",
+      "category": "workflow"
+    },
+    {
+      "id": "skill-testing",
+      "kind": "input-prompt",
+      "name": "Skill 測試",
+      "description": "測試已建立的 Skill 定義是否正確運作，驗證 frontmatter、userInputs、prompt 輸出",
+      "category": "testing"
+    },
+    {
+      "id": "sla-monitor",
+      "kind": "input-prompt",
+      "name": "SLA Monitor",
+      "description": "定義與監控服務等級指標（SLI/SLO/SLA），追蹤服務品質達成率",
+      "category": ""
+    },
+    {
+      "id": "spec-check",
+      "kind": "input-prompt",
+      "name": "Spec Check",
+      "description": "檢查規格文件是否完整、清楚、可被工程師與 AI 理解",
+      "category": ""
+    },
+    {
+      "id": "test-design",
+      "kind": "input-prompt",
+      "name": "Test Cases Design",
+      "description": "根據規格設計完整的測試案例，覆蓋正常流程、邊界條件與錯誤情境",
+      "category": ""
+    },
+    {
+      "id": "test-generation",
+      "kind": "input-prompt",
+      "name": "Test Generation",
+      "description": "為節點程式生成完整的測試案例",
+      "category": ""
+    },
+    {
+      "id": "daily-stats",
+      "kind": "physical-skill",
+      "name": "Daily Stats",
+      "description": "每日系統統計儀表板 — AI 使用量、Build 次數、活躍工廠數",
+      "category": "dashboard"
+    }
+  ],
+  "apps": [
+    {
+      "id": "daily-stats",
+      "name": "Daily Stats",
+      "status": "published"
+    },
+    {
+      "id": "project-board",
+      "name": "Project Board",
+      "status": "published"
+    },
+    {
+      "id": "skill-counting-report",
+      "name": "Skill Counting Report",
+      "status": "published"
+    }
+  ]
+}
