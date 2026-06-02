@@ -388,7 +388,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     // Use prompt via file to avoid arg length limits
     let cliArgs;
     if (cliName === "qwen") {
-      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "5", systemPrompt];
+      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "30", systemPrompt];
     } else if (cliName === "claude") {
       cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", systemPrompt, "--output-format", "text"];
     } else if (cliName === "opencode") {
@@ -499,7 +499,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     // Build CLI-specific args
     let cliArgs;
     if (cliName === "qwen") {
-      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "3", prompt];
+      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "20", prompt];
     } else if (cliName === "claude") {
       cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", prompt, "--output-format", "text"];
     } else if (cliName === "opencode") {
@@ -2334,7 +2334,7 @@ async function runCronJob(job) {
     }
 
     const appDir = resolve(AIOC_ROOT, "skills/physical-skill", job.reportAppId);
-    const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "5", prompt], {
+    const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "20", prompt], {
       cwd: appDir,
       env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
