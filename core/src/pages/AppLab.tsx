@@ -6,122 +6,224 @@ import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalCo
 
 const API = "http://127.0.0.1:4097";
 
-// Memoized terminal to prevent re-render on parent state changes (fix flicker)
-const MemoizedTerminal = React.memo(React.forwardRef(function MemoizedTerminal(
-    { consoleKey, cli, initialPrompt }: { consoleKey: string; cli: string; initialPrompt: string },
-    ref: React.Ref<TerminalConsoleHandle>
-) {
-    return (
-        <TerminalConsole
-            ref={ref}
-            key={consoleKey}
-            cwd={undefined}
-            cli={cli as any}
-            approvalMode="yolo"
-            initialPrompt={initialPrompt}
-        />
-    );
-}));
+const TEMPLATE_ICONS: Record<string, string> = {
+    custom: "✨",
+    "sidebar-tabs": "🗂️",
+    dashboard: "📊",
+    table: "📋",
+    chart: "📈",
+    mixed: "🎛️",
+};
 
-type RightTab = "terminal" | "preview";
+// ── Types ──
+type Step = 1 | 2 | 3;
+type CliEngine = "qwen" | "claude" | "opencode";
 
-interface TrainRun {
+interface ChatMessage {
     id: string;
-    skillId: string;
-    status: "running" | "done" | "error";
-    output: string;
-    htmlPath?: string;
+    role: "user" | "assistant";
+    text: string;
+    ts: number;
 }
 
-interface TrainingFile {
+interface HistoryEntry {
+    id: string;
     name: string;
-    path: string;
+    template: string;
+    status: string;
+    generatedAt: string;
+    description: string;
 }
 
-// ── Parse training file into sections ──
-function parseTrainingFile(content: string): { config: string; prompt: string; test: string } {
-    let config = "";
-    let prompt = "";
-    let test = "";
-
-    const configIdx = content.search(/##\s*報表設定/i);
-    const promptIdx = content.search(/##\s*訓練\s*Prompt/i);
-    const testIdx = content.search(/##\s*測試\s*Prompt/i);
-
-    if (configIdx === -1 && promptIdx === -1 && testIdx === -1) {
-        // No markers — everything goes to prompt
-        prompt = content.trim();
-    } else {
-        const firstIdx = [configIdx, promptIdx, testIdx].filter(i => i >= 0).reduce((a, b) => Math.min(a, b), Infinity);
-        // Header before first section
-        if (firstIdx > 0) config = content.slice(0, firstIdx).trim();
-
-        if (configIdx !== -1) {
-            const afterConfig = content.indexOf('\n', configIdx) + 1;
-            const endConfig = [promptIdx, testIdx].filter(i => i > configIdx).reduce((a, b) => Math.min(a, b), content.length);
-            config = content.slice(afterConfig, endConfig).trim();
-        }
-        if (promptIdx !== -1) {
-            const afterPrompt = content.indexOf('\n', promptIdx) + 1;
-            const endPrompt = [testIdx].filter(i => i > promptIdx).reduce((a, b) => Math.min(a, b), content.length);
-            prompt = content.slice(afterPrompt, endPrompt).trim();
-        }
-        if (testIdx !== -1) {
-            const afterTest = content.indexOf('\n', testIdx) + 1;
-            test = content.slice(afterTest).trim();
-        }
-    }
-
-    return { config, prompt, test };
+// ── Template Data with Visual Mockups ──
+interface TemplateDef {
+    id: string;
+    name: string;
+    icon: string;
+    desc: string;
+    mockup: string; // SVG inline
 }
 
-function buildFileContent(config: string, prompt: string, test: string, reportName: string, template: string, skillId: string): string {
-    const parts: string[] = [];
-    parts.push(`# App Training: ${reportName || "untitled"}\n`);
-    parts.push(`## 報表設定\n`);
-    parts.push(`- App 名稱: ${reportName || "untitled"}\n`);
-    parts.push(`- Template: ${template || "dashboard"}\n`);
-    parts.push(`- 基底 Skill: ${skillId || ""}\n`);
-    parts.push(`- 建立時間: ${new Date().toISOString()}\n`);
-    if (config.trim()) parts.push(`\n${config.trim()}\n`);
-    parts.push(`\n## 訓練 Prompt\n`);
-    parts.push(`${prompt.trim()}\n`);
-    parts.push(`\n## 測試 Prompt\n`);
-    parts.push(`${test.trim()}\n`);
-    return parts.join("\n");
-}
+const TEMPLATES: TemplateDef[] = [
+    {
+        id: "custom",
+        name: "不選版型",
+        icon: "✨",
+        desc: "完全自由發揮，用描述決定一切",
+        mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="140" rx="6" fill="#1e293b"/>
+            <text x="100" y="60" fill="#475569" font-size="28" text-anchor="middle">✨</text>
+            <text x="100" y="85" fill="#64748b" font-size="8" text-anchor="middle">Free Style</text>
+            <text x="100" y="100" fill="#475569" font-size="6" text-anchor="middle">用描述打造你要的頁面</text>
+        </svg>`,
+    },
+    {
+        id: "sidebar-tabs",
+        name: "Sidebar + Tabs",
+        icon: "🗂️",
+        desc: "左側選單 + 右側分頁，像 Dashboard 後台",
+        mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="140" rx="6" fill="#1e293b"/>
+            <rect x="0" y="0" width="45" height="140" rx="6" fill="#0f172a"/>
+            <rect x="8" y="12" width="28" height="6" rx="2" fill="#3b82f6"/>
+            <rect x="8" y="24" width="28" height="4" rx="1" fill="#334155"/>
+            <rect x="8" y="32" width="28" height="4" rx="1" fill="#475569"/>
+            <rect x="8" y="40" width="28" height="4" rx="1" fill="#334155"/>
+            <rect x="8" y="48" width="28" height="4" rx="1" fill="#334155"/>
+            <rect x="8" y="60" width="28" height="4" rx="1" fill="#334155"/>
+            <rect x="8" y="68" width="28" height="4" rx="1" fill="#334155"/>
+            <rect x="8" y="76" width="28" height="4" rx="1" fill="#334155"/>
+            <circle cx="22" cy="125" r="8" fill="#334155"/>
+            <text x="22" y="128" fill="#94a3b8" font-size="6" text-anchor="middle">👤</text>
+            <rect x="52" y="10" width="40" height="12" rx="3" fill="#334155"/>
+            <text x="72" y="19" fill="#94a3b8" font-size="5" text-anchor="middle">Tab 1</text>
+            <rect x="96" y="10" width="40" height="12" rx="3" fill="#3b82f6"/>
+            <text x="116" y="19" fill="#f1f5f9" font-size="5" text-anchor="middle">Tab 2</text>
+            <rect x="140" y="10" width="40" height="12" rx="3" fill="#334155"/>
+            <text x="160" y="19" fill="#94a3b8" font-size="5" text-anchor="middle">Tab 3</text>
+            <rect x="52" y="28" width="65" height="50" rx="4" fill="#334155"/>
+            <text x="84" y="48" fill="#64748b" font-size="5" text-anchor="middle">Content Area</text>
+            <rect x="122" y="28" width="65" height="50" rx="4" fill="#334155"/>
+            <rect x="130" y="40" width="20" height="3" rx="1" fill="#475569"/>
+            <rect x="130" y="48" width="35" height="3" rx="1" fill="#475569"/>
+            <rect x="130" y="56" width="25" height="3" rx="1" fill="#475569"/>
+            <rect x="52" y="84" width="135" height="46" rx="4" fill="#334155"/>
+            <rect x="60" y="92" width="55" height="5" rx="1" fill="#475569"/>
+            <rect x="120" y="92" width="55" height="5" rx="1" fill="#475569"/>
+            <rect x="60" y="102" width="119" height="4" rx="1" fill="#1e293b"/>
+            <rect x="60" y="110" width="119" height="4" rx="1" fill="#1e293b"/>
+            <rect x="60" y="118" width="119" height="4" rx="1" fill="#1e293b"/>
+        </svg>`,
+    },
+    {
+        id: "dashboard",
+        name: "Dashboard",
+        icon: "📊",
+        desc: "KPI cards + charts，適合概覽",
+        mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="140" rx="6" fill="#1e293b"/>
+            <rect x="10" y="10" width="55" height="35" rx="4" fill="#334155"/>
+            <text x="38" y="25" fill="#94a3b8" font-size="5" text-anchor="middle">Tasks</text>
+            <text x="38" y="38" fill="#22c55e" font-size="12" font-weight="bold" text-anchor="middle">42</text>
+            <rect x="72" y="10" width="55" height="35" rx="4" fill="#334155"/>
+            <text x="100" y="25" fill="#94a3b8" font-size="5" text-anchor="middle">Done</text>
+            <text x="100" y="38" fill="#3b82f6" font-size="12" font-weight="bold" text-anchor="middle">18</text>
+            <rect x="134" y="10" width="55" height="35" rx="4" fill="#334155"/>
+            <text x="162" y="25" fill="#94a3b8" font-size="5" text-anchor="middle">Progress</text>
+            <text x="162" y="38" fill="#f59e0b" font-size="12" font-weight="bold" text-anchor="middle">67%</text>
+            <rect x="10" y="52" width="88" height="78" rx="4" fill="#334155"/>
+            <rect x="18" y="110" width="12" height="12" rx="2" fill="#22c55e" transform="rotate(180 24 116)"/>
+            <rect x="34" y="95" width="12" height="27" rx="2" fill="#3b82f6" transform="rotate(180 40 108)"/>
+            <rect x="50" y="85" width="12" height="37" rx="2" fill="#f59e0b" transform="rotate(180 56 103)"/>
+            <rect x="66" y="100" width="12" height="22" rx="2" fill="#8b5cf6" transform="rotate(180 72 111)"/>
+            <rect x="82" y="108" width="12" height="14" rx="2" fill="#ef4444" transform="rotate(180 88 115)"/>
+            <rect x="104" y="52" width="86" height="78" rx="4" fill="#334155"/>
+            <circle cx="147" cy="90" r="25" fill="none" stroke="#334155" stroke-width="8"/>
+            <circle cx="147" cy="90" r="25" fill="none" stroke="#22c55e" stroke-width="8" stroke-dasharray="110 47" stroke-dashoffset="0" transform="rotate(-90 147 90)"/>
+            <text x="147" y="93" fill="#f1f5f9" font-size="9" font-weight="bold" text-anchor="middle">70%</text>
+        </svg>`,
+    },
+    {
+        id: "table",
+        name: "Table",
+        icon: "📋",
+        desc: "Data table + filters，適合清單",
+        mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="140" rx="6" fill="#1e293b"/>
+            <rect x="10" y="10" width="50" height="14" rx="3" fill="#334155"/>
+            <rect x="65" y="10" width="50" height="14" rx="3" fill="#334155"/>
+            <rect x="120" y="10" width="35" height="14" rx="3" fill="#3b82f6"/>
+            <text x="137" y="20" fill="#f1f5f9" font-size="6" text-anchor="middle">Filter</text>
+            <rect x="10" y="30" width="180" height="16" rx="2" fill="#475569"/>
+            <text x="20" y="41" fill="#94a3b8" font-size="6">Name</text>
+            <text x="80" y="41" fill="#94a3b8" font-size="6">Status</text>
+            <text x="140" y="41" fill="#94a3b8" font-size="6">Date</text>
+            <rect x="10" y="50" width="180" height="14" rx="2" fill="#334155"/>
+            <rect x="73" y="53" width="30" height="8" rx="2" fill="#22c55e33"/>
+            <text x="80" y="59" fill="#22c55e" font-size="5">Done</text>
+            <rect x="10" y="68" width="180" height="14" rx="2" fill="#1e293b"/>
+            <rect x="73" y="71" width="38" height="8" rx="2" fill="#3b82f633"/>
+            <text x="80" y="77" fill="#3b82f6" font-size="5">Active</text>
+            <rect x="10" y="86" width="180" height="14" rx="2" fill="#334155"/>
+            <rect x="73" y="89" width="30" height="8" rx="2" fill="#f59e0b33"/>
+            <text x="80" y="95" fill="#f59e0b" font-size="5">Todo</text>
+            <rect x="10" y="104" width="180" height="14" rx="2" fill="#1e293b"/>
+            <rect x="73" y="107" width="30" height="8" rx="2" fill="#22c55e33"/>
+            <text x="80" y="113" fill="#22c55e" font-size="5">Done</text>
+            <rect x="60" y="124" width="22" height="8" rx="2" fill="#334155"/>
+            <rect x="85" y="124" width="22" height="8" rx="2" fill="#3b82f6"/>
+            <rect x="110" y="124" width="22" height="8" rx="2" fill="#334155"/>
+        </svg>`,
+    },
+    {
+        id: "chart",
+        name: "Chart",
+        icon: "📈",
+        desc: "Charts focused，適合趨勢分析",
+        mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="140" rx="6" fill="#1e293b"/>
+            <text x="100" y="20" fill="#94a3b8" font-size="6" text-anchor="middle">Trend Overview</text>
+            <polyline points="15,110 40,90 65,95 90,60 115,55 140,40 165,45 185,30" fill="none" stroke="#3b82f6" stroke-width="2"/>
+            <polyline points="15,115 40,100 65,105 90,80 115,75 140,65 165,70 185,55" fill="none" stroke="#22c55e" stroke-width="2"/>
+            <circle cx="90" cy="60" r="3" fill="#3b82f6"/>
+            <circle cx="140" cy="40" r="3" fill="#3b82f6"/>
+            <circle cx="185" cy="30" r="3" fill="#3b82f6"/>
+            <rect x="40" y="120" width="8" height="4" rx="1" fill="#3b82f6"/>
+            <text x="52" y="124" fill="#94a3b8" font-size="5">Series A</text>
+            <rect x="90" y="120" width="8" height="4" rx="1" fill="#22c55e"/>
+            <text x="102" y="124" fill="#94a3b8" font-size="5">Series B</text>
+        </svg>`,
+    },
+    {
+        id: "mixed",
+        name: "Mixed",
+        icon: "🎛️",
+        desc: "Charts + table + AI 分析",
+        mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="140" rx="6" fill="#1e293b"/>
+            <rect x="10" y="10" width="88" height="55" rx="4" fill="#334155"/>
+            <rect x="16" y="48" width="8" height="12" rx="1" fill="#22c55e" transform="rotate(180 20 54)"/>
+            <rect x="28" y="38" width="8" height="22" rx="1" fill="#3b82f6" transform="rotate(180 32 49)"/>
+            <rect x="40" y="42" width="8" height="18" rx="1" fill="#f59e0b" transform="rotate(180 44 51)"/>
+            <rect x="52" y="50" width="8" height="10" rx="1" fill="#8b5cf6" transform="rotate(180 56 55)"/>
+            <rect x="64" y="52" width="8" height="8" rx="1" fill="#ef4444" transform="rotate(180 68 56)"/>
+            <rect x="104" y="10" width="86" height="55" rx="4" fill="#334155"/>
+            <polyline points="112,50 130,38 150,42 170,28 180,25" fill="none" stroke="#3b82f6" stroke-width="1.5"/>
+            <circle cx="170" cy="28" r="2" fill="#3b82f6"/>
+            <rect x="10" y="72" width="180" height="58" rx="4" fill="#334155"/>
+            <rect x="16" y="78" width="50" height="5" rx="1" fill="#475569"/>
+            <rect x="80" y="78" width="35" height="5" rx="1" fill="#475569"/>
+            <rect x="125" y="78" width="55" height="5" rx="1" fill="#475569"/>
+            <rect x="16" y="90" width="168" height="6" rx="1" fill="#1e293b"/>
+            <rect x="16" y="100" width="168" height="6" rx="1" fill="#1e293b"/>
+            <rect x="16" y="110" width="168" height="6" rx="1" fill="#1e293b"/>
+            <rect x="80" y="93" width="22" height="3" rx="1" fill="#22c55e33"/>
+            <rect x="80" y="103" width="28" height="3" rx="1" fill="#3b82f633"/>
+        </svg>`,
+    },
+];
 
-const DEFAULT_PROMPT = `你是一個前端報表開發專家。請產出一個完整的 HTML 報表頁面。
+const DEFAULT_PROMPT = `你是一個前端報表開發專家。請產出一個完整的 HTML 頁面。
 
 ## 報表規格
 - Template 類型: {{TEMPLATE}}
 - App 名稱: {{REPORT_NAME}}
-- 可用參數: {{PARAMS}}
+- 需求描述: {{PARAMS}}
 
 ## 技術要求
 1. 純 HTML，所有 CSS 和 JS 都內聯
-2. 用 Chart.js (CDN: https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js) 畫圖表
-3. 用 marked.js (CDN: https://cdn.jsdelivr.net/npm/marked/marked.min.js) render markdown
-4. 頂部有 query bar：根據參數定義生成 select/input 控件 + Execute 按鈕
-5. Execute 按鈕 POST /api/skill-exec/{{SKILL_ID}}，body: { params, cli: "qwen" }
-6. 用 NDJSON 串流讀取結果，用 marked.parse() render markdown
-7. 風格：白色卡片 + stone 色系
-8. 響應式設計
-9. 用合理的假數據做 static 展示部分
+2. 可用 Chart.js (CDN: https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js) 畫圖表
+3. 可用 marked.js (CDN: https://cdn.jsdelivr.net/npm/marked/marked.min.js) render markdown
+4. 風格：深色主題（stone/slate 色系）或根據描述調整
+5. 響應式設計
+6. 用合理的假數據做 static 展示
+7. 如指定 sidebar-tabs 版型：左側固定選單（icon + 文字）+ 右側分頁切換內容
 
 ## 重要
-- 只輸出 HTML 代碼，不要用 markdown code block 包住
-- 不要任何解釋，直接輸出完整 HTML
+- 只輸出 HTML 代碼
 - HTML 開頭是 <!DOCTYPE html>`;
 
-const TEMPLATES = [
-    { id: "dashboard", name: "Dashboard", icon: "📊", desc: "KPI cards + charts" },
-    { id: "table", name: "Table", icon: "📋", desc: "Data table + filters" },
-    { id: "chart", name: "Chart", icon: "📈", desc: "Charts focused" },
-    { id: "mixed", name: "Mixed", icon: "🎛️", desc: "Charts + table + AI analysis" },
-];
-
-// ── Skill Picker Popup Dialog ──
+// ── Skill Picker Dialog ──
 function SkillPickerDialog({
     skills,
     onSelect,
@@ -139,8 +241,7 @@ function SkillPickerDialog({
     );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
-            onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border" style={{ borderColor: t.accentBorder }}
                 onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "#e7e5e4" }}>
@@ -148,19 +249,15 @@ function SkillPickerDialog({
                     <button onClick={onClose} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
                 </div>
                 <div className="px-5 pt-3">
-                    <input
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="搜尋 skill 名稱或 ID..."
+                    <input value={search} onChange={e => setSearch(e.target.value)}
+                        placeholder="搜尋 skill..." autoFocus
                         className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
-                        style={{ borderColor: "#d6d3d1" }}
-                        autoFocus
-                    />
+                        style={{ borderColor: "#d6d3d1" }} />
                 </div>
                 <div className="max-h-72 overflow-y-auto p-3 space-y-1.5">
                     {filtered.map(sk => (
                         <button key={sk.id} onClick={() => { onSelect(sk); onClose(); }}
-                            className="w-full text-left p-3 border rounded-lg hover:shadow-sm hover:border-stone-300 transition-all text-sm"
+                            className="w-full text-left p-3 border rounded-lg hover:shadow-sm transition-all text-sm"
                             style={{ borderColor: "#e7e5e4" }}>
                             <span className="font-semibold text-stone-700">{sk.name}</span>
                             <span className="text-[10px] text-stone-400 ml-2 font-mono">{sk.id}</span>
@@ -170,93 +267,105 @@ function SkillPickerDialog({
                         <div className="text-center text-stone-400 text-xs py-6">找不到符合的 Skill</div>
                     )}
                 </div>
-                <div className="px-5 py-3 border-t text-xs text-stone-400" style={{ borderColor: "#e7e5e4" }}>
-                    共 {filtered.length} / {skills.length} 個 Skill
-                </div>
             </div>
         </div>
     );
 }
 
-// ── New File Dialog ──
-function NewFileDialog({
-    onCreate,
-    onClose,
-    accent,
-}: {
-    onCreate: (name: string) => void;
-    onClose: () => void;
-    accent: string;
-}) {
-    const [name, setName] = useState("");
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-2xl border border-stone-200 w-96 p-5" onClick={e => e.stopPropagation()}>
-                <h3 className="text-sm font-bold text-stone-800 mb-3">📄 新增 App Training File</h3>
-                <p className="text-xs text-stone-500 mb-2">檔案會建立在 <code className="bg-stone-100 px-1 rounded">skills/training/</code> 目錄下</p>
-                <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") onCreate(name); }}
-                    placeholder="檔案名稱，例：train-daily-app"
-                    className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 mb-3"
-                    autoFocus
-                />
-                {!name.endsWith(".md") && name.trim() && (
-                    <p className="text-[10px] text-stone-400 mb-2">→ {name.trim()}.md</p>
-                )}
-                <div className="flex justify-end gap-2">
-                    <button onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50">取消</button>
-                    <button
-                        onClick={() => onCreate(name)}
-                        disabled={!name.trim()}
-                        className={cn("px-4 py-1.5 text-xs font-bold rounded-lg", name.trim() ? "text-white hover:opacity-90" : "bg-stone-200 text-stone-400")}
-                        style={{ backgroundColor: name.trim() ? accent : undefined }}>
-                        建立
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
+// ── Main Component ──
 export default function AppLab() {
     const { info: t } = useTheme();
-    const [skills, setSkills] = useState<SkillDefinition[]>([]);
-    const [selectedSkill, setSelectedSkill] = useState<SkillDefinition | null>(null);
-    const [selectedTemplate, setSelectedTemplate] = useState("dashboard");
+
+    // ── Flow state ──
+    const [step, setStep] = useState<Step>(1);
+    const [selectedTemplate, setSelectedTemplate] = useState<string>("");
     const [reportName, setReportName] = useState("");
-    const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
-    const [testPrompt, setTestPrompt] = useState("");
-    const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
+    const [description, setDescription] = useState("");
+    const [cli, setCli] = useState<CliEngine>("qwen");
+    const [selectedSkill, setSelectedSkill] = useState<SkillDefinition | null>(null);
 
-    // Training file
-    const [trainingFiles, setTrainingFiles] = useState<TrainingFile[]>([]);
-    const [selectedFile, setSelectedFile] = useState<string>("");
-    const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "dirty">("saved");
+    // ── Advanced settings (collapsed by default) ──
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
 
-    const [rightTab, setRightTab] = useState<RightTab>("terminal");
-    const [trainRun, setTrainRun] = useState<TrainRun | null>(null);
-    const [published, setPublished] = useState(false);
-    const [previewKey, setPreviewKey] = useState(0);
-    const [chatStarted, setChatStarted] = useState(false);
-    const [initialPrompt, setInitialPrompt] = useState("");
+    // ── Chat / Terminal state ──
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [chatInput, setChatInput] = useState("");
+    const [generating, setGenerating] = useState(false);
     const [consoleKey, setConsoleKey] = useState(0);
-    const [sendingTrain, setSendingTrain] = useState(false);
-    const [sendingTest, setSendingTest] = useState(false);
+    const [initialPrompt, setInitialPrompt] = useState("");
+    const [chatStarted, setChatStarted] = useState(false);
     const terminalRef = useRef<TerminalConsoleHandle>(null);
-    const [publishing, setPublishing] = useState(false);
 
-    // Dialog states
+    // ── Preview state ──
+    const [previewKey, setPreviewKey] = useState(0);
+    const [previewReady, setPreviewReady] = useState(false);
+    const [pollTrigger, setPollTrigger] = useState(0);
+
+    // ── Derived values (must be before effects that use them) ──
+    const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-)$/g, "");
+    const previewUrl = reportId ? `${API}/api/app/${reportId}` : null;
+
+    // ── Poll app file status until it exists with new mtime ──
+    const pollStartRef = useRef(0);
+
+    useEffect(() => {
+        if (pollTrigger === 0 || !reportId) return;
+        pollStartRef.current = Date.now();
+        setPreviewReady(false);
+        let stopped = false;
+        const timer = setInterval(() => {
+            if (stopped) return;
+            fetch(`${API}/api/app/${reportId}/status`)
+                .then(r => r.json())
+                .then(({ exists, mtime }) => {
+                    if (stopped) return;
+                    if (exists && mtime && mtime > pollStartRef.current - 2000) {
+                        clearInterval(timer);
+                        stopped = true;
+                        setPreviewReady(true);
+                        setPreviewKey(Date.now());
+                        setGenerating(false);
+                        // Auto-publish: update app.json
+                        fetch(`${API}/api/app/${reportId}/publish`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({}),
+                        }).catch(() => {});
+                        setChatMessages(prev => {
+                            const updated = [...prev];
+                            for (let i = updated.length - 1; i >= 0; i--) {
+                                if (updated[i].role === "assistant") {
+                                    updated[i] = { ...updated[i], text: "✅ 完成！" };
+                                    break;
+                                }
+                            }
+                            return updated;
+                        });
+                    }
+                })
+                .catch(() => {});
+            if (Date.now() - pollStartRef.current > 600000) {
+                clearInterval(timer);
+                stopped = true;
+            }
+        }, 2000);
+        return () => { clearInterval(timer); stopped = true; };
+    }, [pollTrigger, reportId]);
+
+    // ── Data ──
+    const [skills, setSkills] = useState<SkillDefinition[]>([]);
     const [showSkillPicker, setShowSkillPicker] = useState(false);
-    const [showNewFileDialog, setShowNewFileDialog] = useState(false);
-    const [workingDir, setWorkingDir] = useState<string>("");
+    const [history, setHistory] = useState<HistoryEntry[]>([]);
+    const [workingDir, setWorkingDir] = useState("");
 
-    const previewRef = useRef<HTMLIFrameElement>(null);
-    const loadingRef = useRef(false);
+    // ── Existing apps ──
+    const [existingApps, setExistingApps] = useState<{id: string; name: string; description: string; template: string; status: string}[]>([]);
+    const [editingAppId, setEditingAppId] = useState<string | null>(null);
+    const [showAppPicker, setShowAppPicker] = useState(false);
+    const [fullscreen, setFullscreen] = useState(false);
 
-    // ── Data loading ──
+    // ── Load skills ──
     useEffect(() => {
         fetch(`${API}/api/skills`).then(r => r.json()).then(setSkills).catch(() => {});
     }, []);
@@ -268,473 +377,519 @@ export default function AppLab() {
             .catch(() => {});
     }, []);
 
-    const loadTrainingFiles = useCallback(() => {
-        fetch(`${API}/api/report-lab/training-files`)
-            .then(r => r.ok ? r.json() : [])
-            .then((files: TrainingFile[]) => setTrainingFiles(files))
+    // ── Load existing apps (also used as history) ──
+    const loadExistingApps = useCallback(() => {
+        fetch(`${API}/api/apps`)
+            .then(r => r.json())
+            .then((apps: any[]) => {
+                setExistingApps(apps);
+                setHistory(apps.map(app => ({
+                    id: app.id,
+                    name: app.name,
+                    template: app.template,
+                    status: app.status,
+                    generatedAt: app.generatedAt,
+                    description: app.description,
+                })));
+            })
             .catch(() => {});
     }, []);
+    useEffect(() => { loadExistingApps(); }, [loadExistingApps]);
 
-    useEffect(() => { loadTrainingFiles(); }, [loadTrainingFiles]);
+    // ── Load existing app for editing ──
+    const handleEditApp = useCallback((appId: string) => {
+        setEditingAppId(appId);
+        setReportName(appId);
+        setStep(3);
+        setPreviewReady(true);
+        setPreviewKey(Date.now());
+        setChatStarted(false);
+        setChatMessages([]);
+        setShowAppPicker(false);
+    }, []);
 
-    // ── File operations ──
-    const loadFileContent = useCallback((path: string) => {
-        loadingRef.current = true;
-        fetch(`${API}/api/fs/file?path=${encodeURIComponent(path)}`)
-            .then(r => r.ok ? r.json() : null)
-            .then((data: { content?: string } | null) => {
-                const parsed = parseTrainingFile(data?.content || "");
-                setPrompt(parsed.prompt || DEFAULT_PROMPT);
-                setTestPrompt(parsed.test || "");
-                // Parse config section for reportName, template, skillId
-                if (parsed.config) {
-                    const nameMatch = parsed.config.match(/Report\s*名稱:\s*(.+)/);
-                    const tmplMatch = parsed.config.match(/Template:\s*(\w+)/);
-                    const skillMatch = parsed.config.match(/基底\s*Skill:\s*(.+)/);
-                    if (nameMatch) setReportName(nameMatch[1].trim());
-                    if (tmplMatch) setSelectedTemplate(tmplMatch[1].trim());
-                    if (skillMatch) {
-                        const sk = skills.find(s => s.id === skillMatch[1].trim());
-                        if (sk) setSelectedSkill(sk);
-                    }
-                }
-                setSaveStatus("saved");
-            })
-            .catch(() => { setPrompt(DEFAULT_PROMPT); setTestPrompt(""); })
-            .finally(() => { loadingRef.current = false; });
-    }, [skills]);
+    // ── Unpublish app ──
+    const handleUnpublish = useCallback((appId: string) => {
+        if (!confirm(`確定要下架「${appId}」嗎？app.html 會被移除，但 app.json 會保留。`)) return;
+        fetch(`${API}/api/app/${appId}`, { method: "DELETE" })
+            .then(r => r.json())
+            .then(() => loadExistingApps())
+            .catch(() => {});
+    }, [loadExistingApps]);
 
-    useEffect(() => {
-        const saved = localStorage.getItem("appLab.selectedFile");
-        if (saved) { setSelectedFile(saved); loadFileContent(saved); }
-    }, [loadFileContent]);
-
-    const handleSelectFile = (path: string) => {
-        setSelectedFile(path);
-        localStorage.setItem("appLab.selectedFile", path);
-        loadFileContent(path);
-    };
-
-    // ── Auto-save ──
-    const saveFile = useCallback(async (p: string, tp: string, rn: string, tmpl: string, sid: string) => {
-        if (!selectedFile || loadingRef.current) return;
-        setSaveStatus("saving");
-        try {
-            const content = buildFileContent("", p, tp, rn, tmpl, sid);
-            await fetch(`${API}/api/fs/file?path=${encodeURIComponent(selectedFile)}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content }),
-            });
-            setSaveStatus("saved");
-        } catch { setSaveStatus("dirty"); }
-    }, [selectedFile]);
-
-    const saveTimer = useRef<ReturnType<typeof setTimeout>>();
-    const promptRef = useRef(prompt);
-    const testPromptRef = useRef(testPrompt);
-    const reportNameRef = useRef(reportName);
-    const templateRef = useRef(selectedTemplate);
-    const skillIdRef = useRef(selectedSkill?.id || "");
-    promptRef.current = prompt;
-    testPromptRef.current = testPrompt;
-    reportNameRef.current = reportName;
-    templateRef.current = selectedTemplate;
-    skillIdRef.current = selectedSkill?.id || "";
-
-    const triggerAutoSave = useCallback(() => {
-        setSaveStatus("dirty");
-        clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(() => {
-            saveFile(promptRef.current, testPromptRef.current, reportNameRef.current, templateRef.current, skillIdRef.current);
-        }, 800);
-    }, [saveFile]);
-
-    const handlePromptChange = (v: string) => { setPrompt(v); triggerAutoSave(); };
-    const handleTestChange = (v: string) => { setTestPrompt(v); triggerAutoSave(); };
-    const handleReportNameChange = (v: string) => { setReportName(v); triggerAutoSave(); };
-    const handleTemplateChange = (v: string) => { setSelectedTemplate(v); triggerAutoSave(); };
-
-    const handleSelectSkill = (sk: SkillDefinition) => {
-        setSelectedSkill(sk);
-        if (!reportName) setReportName(sk.name + "-report");
-        skillIdRef.current = sk.id;
-        triggerAutoSave();
-    };
-
-    // ── Create new training file ──
-    const handleCreateFile = async (name: string) => {
-        const trimmed = name.trim();
-        if (!trimmed) return;
-        const fileName = trimmed.endsWith(".md") ? trimmed : `app-${trimmed}.md`;
-        const fullPath = `${workingDir || "."}/skills/training/${fileName}`;
-        const sid = selectedSkill?.id || "";
-        const rn = reportName || trimmed;
-        const content = buildFileContent("", prompt, testPrompt, rn, selectedTemplate, sid);
-        try {
-            await fetch(`${API}/api/fs/file?path=${encodeURIComponent(fullPath)}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content }),
-            });
-            setShowNewFileDialog(false);
-            loadTrainingFiles();
-            handleSelectFile(fullPath);
-        } catch { /* ignore */ }
-    };
-
-    // ── Send prompt to PTY terminal ──
-    const sendToTerminal = useCallback((p: string) => {
-        if (!p.trim()) return;
+        // ── Send to terminal ──
+    const sendToTerminal = useCallback((text: string) => {
+        if (!text.trim()) return;
         if (!chatStarted) {
-            setInitialPrompt(p);
+            setInitialPrompt(text);
             setChatStarted(true);
             setConsoleKey(prev => prev + 1);
         } else {
-            terminalRef.current?.sendPrompt(p);
+            terminalRef.current?.sendPrompt(text);
         }
     }, [chatStarted]);
 
-    const handleTrain = () => {
-        if (!reportName) return;
-        setSendingTrain(true);
-        setRightTab("terminal");
+    // ── Generate ──
+    const handleGenerate = useCallback(() => {
+        if (!reportName || !selectedTemplate) return;
+
+        setChatMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "user",
+            text: description || `用 ${selectedTemplate} 模板建立「${reportName}」`,
+            ts: Date.now(),
+        }]);
+
+        setGenerating(true);
+        setStep(3);
+        setPreviewReady(false);
+        setPollTrigger(t => t + 1);
+
         const skillId = selectedSkill?.id || "no-skill";
-        const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-        // Append output instructions to prompt so CLI writes directly to file
         const outputInstruction = `\n\n---\n**重要指示：** 請將最終的 HTML 結果直接寫入檔案 apps/${reportId}/app.html。使用 write_file 或 echo 等工具，不要只輸出到 terminal。完成後輸出 DONE。`;
-        const filledPrompt = prompt
+        const filledPrompt = systemPrompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
-            .replace(/\{\{SKILL_ID\}\}/g, skillId) + outputInstruction;
+            .replace(/\{\{SKILL_ID\}\}/g, skillId)
+            .replace(/\{\{PARAMS\}\}/g, description) + outputInstruction;
+
         sendToTerminal(filledPrompt);
-        setTimeout(() => setSendingTrain(false), 300);
 
-        // Poll for output file — auto-switch to preview when HTML appears
-        let pollCount = 0;
-        const previewUrl = `${API}/api/app/${reportId}`;
-        const pollTimer = setInterval(() => {
-            pollCount++;
-            fetch(previewUrl, { method: "HEAD" }).then(r => {
-                if (r.ok) {
-                    clearInterval(pollTimer);
-                    setPreviewKey(Date.now());
-                    setRightTab("preview");
-                }
-            }).catch(() => {});
-            // Stop polling after 3 minutes
-            if (pollCount > 360) clearInterval(pollTimer);
+        // Add assistant message placeholder
+        setTimeout(() => {
+            setChatMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                text: "🔄 正在生成中...",
+                ts: Date.now(),
+            }]);
+            setGenerating(false);
+        }, 1000);
+    }, [reportName, selectedTemplate, description, systemPrompt, selectedSkill, reportId, sendToTerminal]);
+
+    // ── Chat send (iterative refinement) ──
+    const handleChatSend = useCallback(() => {
+        const input = chatInput;
+        if (!input.trim()) return;
+        setChatInput("");
+        const msg = input.trim();
+        setChatMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "user",
+            text: msg,
+            ts: Date.now(),
+        }]);
+
+        // Send to terminal for processing
+        const refinement = `${msg}\n\n修改完成後請更新 apps/${reportId}/app.html。完成後輸出 DONE。`;
+        sendToTerminal(refinement);
+
+        // Start polling for preview update
+        setPreviewReady(false);
+        setPollTrigger(t => t + 1);
+
+        setTimeout(() => {
+            setChatMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                text: "🔄 處理中...",
+                ts: Date.now(),
+            }]);
         }, 500);
-    };
+    }, [chatInput, reportId, sendToTerminal]);
 
-    const handleTest = () => {
-        if (!testPrompt.trim()) return;
-        setSendingTest(true);
-        setRightTab("terminal");
-        const skillId = selectedSkill?.id || "no-skill";
-        const filledTest = testPrompt
-            .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
-            .replace(/\{\{REPORT_NAME\}\}/g, reportName)
-            .replace(/\{\{SKILL_ID\}\}/g, skillId);
-        sendToTerminal(filledTest);
-        setTimeout(() => setSendingTest(false), 300);
-    };
+    // ── Step indicators ──
+    const steps = [
+        { n: 1, label: "選版型", icon: "🎨" },
+        { n: 2, label: "描述需求", icon: "✏️" },
+        { n: 3, label: "生成 & 預覽", icon: "🚀" },
+    ];
 
-    const loadPreview = (htmlPath: string) => {
-        const timer = setInterval(() => {
-            if (!previewRef.current) return;
-            const doc = previewRef.current.contentDocument;
-            if (!doc) return;
-            clearInterval(timer);
-            fetch(`${API}/api/report-preview?path=${encodeURIComponent(htmlPath)}`)
-                .then(r => r.text())
-                .then(html => { doc.open(); doc.write(html); doc.close(); })
-                .catch(() => {});
-        }, 200);
-    };
-
-    const handlePublish = async () => {
-        if (!trainRun?.htmlPath) return;
-        setPublishing(true);
-        try {
-            const resp = await fetch(`${API}/api/report-publish`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    htmlPath: trainRun.htmlPath,
-                    skillId: selectedSkill.id,
-                    reportName,
-                }),
-            });
-            const data = await resp.json();
-            if (data.ok) setPublished(true);
-        } catch {}
-        setPublishing(false);
-    };
-
-    const inputCls = "w-full px-3 py-2 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-1";
-
+    // ──────────────────────────────────────────────
+    // RENDER
+    // ──────────────────────────────────────────────
     return (
         <div className="h-full flex flex-col" style={{ backgroundColor: "#fafaf9" }}>
             {/* Dialogs */}
             {showSkillPicker && (
-                <SkillPickerDialog
-                    skills={skills}
-                    onSelect={handleSelectSkill}
-                    onClose={() => setShowSkillPicker(false)}
-                />
-            )}
-            {showNewFileDialog && (
-                <NewFileDialog
-                    onCreate={handleCreateFile}
-                    onClose={() => setShowNewFileDialog(false)}
-                    accent={t.accent}
-                />
+                <SkillPickerDialog skills={skills} onSelect={(sk) => {
+                    setSelectedSkill(sk);
+                    if (!reportName) setReportName(sk.name + "-app");
+                    setShowSkillPicker(false);
+                }} onClose={() => setShowSkillPicker(false)} />
             )}
 
-            {/* Header */}
-            <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
+            {/* App Picker Dialog */}
+            {showAppPicker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowAppPicker(false)}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border" style={{ borderColor: t.accentBorder }}
+                        onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "#e7e5e4" }}>
+                            <h3 className="text-sm font-bold text-stone-700">📝 選擇現有 App 修改</h3>
+                            <button onClick={() => setShowAppPicker(false)} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
+                        </div>
+                        <div className="max-h-80 overflow-y-auto p-3 space-y-1.5">
+                            {existingApps.length === 0 && (
+                                <div className="text-center text-stone-400 text-xs py-8">還沒有 App，先建一個吧！</div>
+                            )}
+                            {existingApps.map(app => (
+                                <div key={app.id}
+                                    className="w-full text-left p-3 border rounded-lg hover:shadow-sm hover:border-stone-300 transition-all text-sm group"
+                                    style={{ borderColor: "#e7e5e4" }}>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => handleEditApp(app.id)} className="flex items-center gap-2 flex-1 min-w-0">
+                                            <span className="text-lg">{TEMPLATE_ICONS[app.template] || "📊"}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-semibold text-stone-700 truncate">{app.name}</div>
+                                                <div className="text-[10px] text-stone-400 font-mono">{app.id}</div>
+                                            </div>
+                                        </button>
+                                        <span className={cn(
+                                            "text-[10px] px-2 py-0.5 rounded-full font-semibold",
+                                            app.status === "published" ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-500"
+                                        )}>{app.status === "published" ? "Published" : "Draft"}</span>
+                                        <button onClick={() => handleEditApp(app.id)}
+                                            className="text-stone-300 group-hover:text-stone-500 transition-colors text-xs">修改 →</button>
+                                        {app.status === "published" && (
+                                            <button onClick={() => handleUnpublish(app.id)}
+                                                className="text-stone-300 group-hover:text-red-400 transition-colors text-xs ml-1"
+                                                title="下架">🗑️</button>
+                                        )}
+                                    </div>
+                                    {app.description && <div className="text-[10px] text-stone-500 mt-1 line-clamp-1">{app.description}</div>}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="px-5 py-3 border-t text-xs text-stone-400 flex justify-between" style={{ borderColor: "#e7e5e4" }}>
+                            <span>共 {existingApps.length} 個 App</span>
+                            <button onClick={() => setShowAppPicker(false)} className="text-stone-500 hover:text-stone-700">取消</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Header ── */}
+            <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0"
+                style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                 <span className="text-lg">🎨</span>
                 <h2 className="text-sm font-bold" style={{ color: t.accentText }}>App Lab</h2>
-                <span className="text-xs text-stone-400 ml-2">Design → Train → Preview → Publish</span>
 
-                {/* Training file selector + new */}
-                <div className="flex items-center gap-1.5 ml-4">
-                    <select
-                        value={selectedFile}
-                        onChange={e => handleSelectFile(e.target.value)}
-                        className="text-xs px-2 py-1 border rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-200"
-                        style={{ minWidth: 200, borderColor: "#d6d3d1" }}>
-                        <option value="">-- 選擇 Training File --</option>
-                        {trainingFiles.map(f => (
-                            <option key={f.path} value={f.path}>{f.name}</option>
-                        ))}
-                    </select>
-                    <button onClick={() => { setShowNewFileDialog(true); }}
-                        className="px-2 py-1 text-xs font-medium rounded-lg border bg-white text-stone-600 hover:bg-stone-50 transition-colors"
-                        style={{ borderColor: "#d6d3d1" }}>
-                        ＋New
-                    </button>
-                    {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
-                    {saveStatus === "saved" && selectedFile && <span className="text-[10px] text-green-500">✓</span>}
-                    {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
+                {/* Mode toggle */}
+                <div className="flex items-center gap-1 ml-3 p-0.5 rounded-lg bg-white border" style={{ borderColor: t.accentBorder }}>
+                    <button
+                        onClick={() => { setEditingAppId(null); setStep(1); setReportName(""); setDescription(""); setPreviewReady(false); setChatStarted(false); setChatMessages([]); }}
+                        className={cn("px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all", !editingAppId ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                        style={!editingAppId ? { backgroundColor: t.accent } : undefined}
+                    >✨ 新建</button>
+                    <button
+                        onClick={() => setShowAppPicker(true)}
+                        className={cn("px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1", editingAppId ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                        style={editingAppId ? { backgroundColor: t.accent } : undefined}
+                    >📝 修改{editingAppId ? `: ${editingAppId}` : ""} <span className="bg-stone-200 px-1 rounded text-[9px]">{existingApps.length}</span></button>
                 </div>
 
-                {/* CLI selector */}
-                <div className="flex items-center gap-1.5 ml-2">
-                    <label className="text-[11px] font-medium text-stone-500">CLI:</label>
-                    <select
-                        value={cli}
-                        onChange={e => setCli(e.target.value as "qwen" | "claude" | "opencode")}
-                        className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-200"
-                    >
+                {/* Step indicator */}
+                <div className="flex items-center gap-1 ml-4">
+                    {steps.map((s, i) => (
+                        <React.Fragment key={s.n}>
+                            <button
+                                onClick={() => { if (s.n < step || (s.n === 2 && selectedTemplate) || (s.n === 3 && selectedTemplate && reportName)) setStep(s.n as Step); }}
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all",
+                                    step === s.n ? "text-white shadow-sm" : step > s.n ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400 cursor-not-allowed"
+                                )}
+                                style={step === s.n ? { backgroundColor: t.accent } : undefined}
+                            >
+                                <span>{step > s.n ? "✓" : s.icon}</span>
+                                <span>{s.label}</span>
+                            </button>
+                            {i < steps.length - 1 && (
+                                <div className={cn("w-6 h-px", step > s.n ? "bg-green-300" : "bg-stone-200")} />
+                            )}
+                        </React.Fragment>
+                    ))}
+                </div>
+
+                {/* Right side: history + CLI */}
+                <div className="flex items-center gap-2 ml-auto">
+                    <div className="relative">
+                        <button onClick={() => setShowAppPicker(true)} className="flex items-center gap-1 text-xs px-2 py-1 border rounded-lg bg-white hover:bg-stone-50 transition-colors"
+                            style={{ borderColor: "#d6d3d1" }}>
+                            📜 歷史 <span className="text-[10px] bg-stone-100 px-1 rounded">{history.length}</span>
+                        </button>
+                    </div>
+                    <select value={cli} onChange={e => setCli(e.target.value as CliEngine)}
+                        className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white">
                         <option value="qwen">Qwen</option>
-                        <option value="claude">Claude Code</option>
+                        <option value="claude">Claude</option>
                         <option value="opencode">OpenCode</option>
                     </select>
                 </div>
             </div>
 
-            <div className="flex-1 flex min-h-0 overflow-hidden">
-                {/* ========== LEFT PANEL ========== */}
-                <div className="flex flex-col border-r overflow-y-auto" style={{ width: "40%", minWidth: 340, borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-
-                    {!selectedFile ? (
-                        <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
-                            <span className="text-3xl">🎨</span>
-                            <p className="text-stone-400 text-sm text-center">選擇或建立一個 App Training File 開始</p>
-                            <button onClick={() => setShowNewFileDialog(true)}
-                                className="px-4 py-2 text-xs font-bold rounded-lg text-white"
-                                style={{ backgroundColor: t.accent }}>
-                                ＋ 建立新 Training File
-                            </button>
+            {/* ── Content ── */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+                {/* ============ STEP 1: Template Gallery ============ */}
+                {step === 1 && (
+                    <div className="h-full flex flex-col items-center justify-center p-8 overflow-y-auto">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-bold text-stone-800 mb-2">選擇版型</h2>
+                            <p className="text-stone-500 text-sm">挑一個你喜歡的佈局，後面可以再微調</p>
                         </div>
-                    ) : (
-                        <>
-                            {/* Skill Selector — Popup trigger */}
-                            <div className="p-4 border-b" style={{ borderColor: "#e7e5e4" }}>
-                                <h3 className="text-xs font-bold text-stone-500 mb-2">📦 基底 Skill</h3>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 max-w-3xl w-full">
+                            {TEMPLATES.map(tmpl => (
+                                <button key={tmpl.id}
+                                    onClick={() => { setSelectedTemplate(tmpl.id); setStep(2); }}
+                                    className={cn(
+                                        "group flex flex-col border-2 rounded-xl overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5",
+                                        selectedTemplate === tmpl.id ? "border-blue-400 shadow-md" : "border-stone-200 hover:border-stone-300"
+                                    )}
+                                    style={{ backgroundColor: "#fff" }}>
+                                    {/* Mockup */}
+                                    <div className="aspect-[200/140] bg-stone-100 flex items-center justify-center p-2 transition-colors group-hover:bg-stone-50">
+                                        <div dangerouslySetInnerHTML={{ __html: tmpl.mockup }} className="w-full h-full" />
+                                    </div>
+                                    {/* Info */}
+                                    <div className="p-3 text-left">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-lg">{tmpl.icon}</span>
+                                            <span className="font-bold text-sm text-stone-800">{tmpl.name}</span>
+                                        </div>
+                                        <p className="text-[11px] text-stone-500">{tmpl.desc}</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        {/* Custom hint */}
+                        <p className="text-stone-400 text-xs mt-8">💡 選好版型後進入下一步描述你的需求</p>
+                    </div>
+                )}
+
+                {/* ============ STEP 2: Describe ============ */}
+                {step === 2 && (
+                    <div className="h-full flex flex-col items-center justify-center p-8 overflow-y-auto">
+                        <div className="w-full max-w-2xl">
+                            {/* Selected template preview (small) */}
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-32 h-20 rounded-lg border border-stone-200 overflow-hidden bg-stone-100 p-1">
+                                    {TEMPLATES.find(t => t.id === selectedTemplate) && (
+                                        <div dangerouslySetInnerHTML={{ __html: TEMPLATES.find(t => t.id === selectedTemplate)!.mockup }} className="w-full h-full" />
+                                    )}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg">{TEMPLATES.find(t => t.id === selectedTemplate)?.icon}</span>
+                                        <span className="font-bold text-stone-800">{TEMPLATES.find(t => t.id === selectedTemplate)?.name}</span>
+                                    </div>
+                                    <button onClick={() => setStep(1)} className="text-xs text-stone-400 hover:text-stone-600 mt-1">← 換一個</button>
+                                </div>
+                            </div>
+
+                            {/* App Name */}
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold text-stone-500 mb-1">App 名稱 *</label>
+                                <input value={reportName}
+                                    onChange={e => setReportName(e.target.value)}
+                                    placeholder="例：project-board"
+                                    className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                    style={{ borderColor: "#d6d3d1" }} />
+                            </div>
+
+                            {/* Description - natural language */}
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold text-stone-500 mb-1">描述你想要什麼 *</label>
+                                <textarea value={description}
+                                    onChange={e => setDescription(e.target.value)}
+                                    placeholder="用自然語言描述，例：做一個專案進度看板，深色主題，顯示各階段任務卡片，可以展開看細節..."
+                                    rows={4}
+                                    className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+                                    style={{ borderColor: "#d6d3d1", lineHeight: 1.6 }} />
+                                <p className="text-[10px] text-stone-400 mt-1">💡 越具體越好：配色、佈局、功能、資料來源...</p>
+                            </div>
+
+                            {/* Skill binding */}
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold text-stone-500 mb-1">綁定 Skill（選填）</label>
                                 {!selectedSkill ? (
                                     <button onClick={() => setShowSkillPicker(true)}
-                                        className="w-full p-3 border-2 border-dashed rounded-lg text-sm text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-colors flex items-center justify-center gap-2"
+                                        className="w-full p-3 border-2 border-dashed rounded-xl text-sm text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-colors"
                                         style={{ borderColor: "#d6d3d1" }}>
-                                        <span className="text-lg">+</span> 選擇 Skill...
+                                        + 選擇 Skill...
                                     </button>
                                 ) : (
-                                    <div className="flex items-center gap-2 p-2 rounded-lg border" style={{ borderColor: t.accent, backgroundColor: t.accentBg }}>
+                                    <div className="flex items-center gap-2 p-3 rounded-xl border"
+                                        style={{ borderColor: t.accent, backgroundColor: t.accentBg }}>
                                         <span className="text-sm font-bold text-stone-700">{selectedSkill.name}</span>
                                         <span className="text-[10px] text-stone-400 font-mono">{selectedSkill.id}</span>
                                         <div className="ml-auto flex gap-1">
-                                            <button onClick={() => setShowSkillPicker(true)}
-                                                className="text-[10px] px-2 py-1 rounded-md border hover:bg-stone-50"
-                                                style={{ borderColor: t.accentBorder, color: t.accent }}>
-                                                換
-                                            </button>
+                                            <button onClick={() => setShowSkillPicker(true)} className="text-[10px] px-2 py-1 rounded-md border"
+                                                style={{ borderColor: t.accentBorder, color: t.accent }}>換</button>
                                             <button onClick={() => setSelectedSkill(null)} className="text-xs text-stone-400 hover:text-red-400">✕</button>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Config */}
-                            <div className="p-4 border-b space-y-3" style={{ borderColor: "#e7e5e4" }}>
-                                <div>
-                                    <label className="text-xs font-bold text-stone-500">App 名稱</label>
-                                    <input value={reportName} onChange={e => handleReportNameChange(e.target.value)}
-                                        className={inputCls} style={{ borderColor: "#d6d3d1" }} placeholder="my-app" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-stone-500">Template</label>
-                                    <div className="grid grid-cols-2 gap-1.5 mt-1">
-                                        {TEMPLATES.map(tmpl => (
-                                            <button key={tmpl.id} onClick={() => handleTemplateChange(tmpl.id)}
-                                                className={cn("p-2 border rounded-lg text-left transition-all text-xs",
-                                                    selectedTemplate === tmpl.id ? "border-blue-400 bg-blue-50" : "hover:border-stone-300")}
-                                                style={selectedTemplate !== tmpl.id ? { borderColor: "#e7e5e4" } : {}}>
-                                                <span className="mr-1">{tmpl.icon}</span>
-                                                <span className="font-semibold">{tmpl.name}</span>
-                                                <div className="text-[10px] text-stone-400">{tmpl.desc}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                            {/* Advanced (collapsed) */}
+                            <div className="mb-6">
+                                <button onClick={() => setShowAdvanced(!showAdvanced)}
+                                    className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 transition-colors">
+                                    <span style={{ transform: showAdvanced ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
+                                    進階設定（System Prompt）
+                                </button>
+                                {showAdvanced && (
+                                    <textarea value={systemPrompt}
+                                        onChange={e => setSystemPrompt(e.target.value)}
+                                        rows={8}
+                                        className="w-full mt-2 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
+                                        style={{ borderColor: "#d6d3d1", lineHeight: 1.6 }} />
+                                )}
                             </div>
 
-                            {/* Training Prompt Editor */}
-                            <div className="flex flex-col flex-1 min-h-0 border-b" style={{ borderColor: "#e7e5e4" }}>
-                                <div className="flex items-center justify-between px-4 py-1.5 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
-                                    <span className="text-xs font-semibold text-stone-600">🎓 訓練 Prompt</span>
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={() => handlePromptChange(DEFAULT_PROMPT)} className="text-[10px] text-stone-400 hover:text-stone-600">Reset</button>
-                                        <button onClick={handleTrain}
-                                            disabled={!reportName || !prompt.trim()}
-                                            className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
-                                                reportName && prompt.trim()
-                                                    ? "text-white hover:opacity-90 shadow-sm"
-                                                    : "bg-stone-200 text-stone-400 cursor-not-allowed")}
-                                            style={{ backgroundColor: reportName && prompt.trim() ? t.accent : undefined }}>
-                                            {sendingTrain ? "⏳" : "▶"} Train
-                                        </button>
-                                    </div>
-                                </div>
-                                <textarea
-                                    value={prompt}
-                                    onChange={e => handlePromptChange(e.target.value)}
-                                    className="flex-1 w-full px-3 py-2 text-xs font-mono resize-none focus:outline-none"
-                                    style={{ minHeight: 120, lineHeight: 1.6 }}
-                                    spellCheck={false}
-                                    placeholder="輸入訓練 prompt..."
-                                />
-                            </div>
+                            {/* Generate button */}
+                            <button
+                                onClick={handleGenerate}
+                                disabled={!reportName.trim()}
+                                className={cn(
+                                    "w-full py-3 rounded-xl text-sm font-bold transition-all",
+                                    reportName.trim()
+                                        ? "text-white hover:opacity-90 shadow-md"
+                                        : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                                )}
+                                style={{ backgroundColor: reportName.trim() ? t.accent : undefined }}>
+                                🚀 開始生成
+                            </button>
+                        </div>
+                    </div>
+                )}
 
-                            {/* Test Prompt Editor */}
-                            <div className="flex flex-col flex-1 min-h-0">
-                                <div className="flex items-center justify-between px-4 py-1.5 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
-                                    <span className="text-xs font-semibold text-stone-600">🧪 測試 Prompt</span>
-                                    <button onClick={handleTest}
-                                        disabled={!testPrompt.trim()}
-                                        className={cn("px-2.5 py-0.5 text-[11px] font-bold rounded-md transition-colors",
-                                            testPrompt.trim()
-                                                ? "text-white hover:opacity-90 shadow-sm"
-                                                : "bg-stone-200 text-stone-400 cursor-not-allowed")}
-                                        style={{ backgroundColor: testPrompt.trim() ? "#059669" : undefined }}>
-                                        {sendingTest ? "⏳" : "▶"} Test
-                                    </button>
-                                </div>
-                                <textarea
-                                    value={testPrompt}
-                                    onChange={e => handleTestChange(e.target.value)}
-                                    className="flex-1 w-full px-3 py-2 text-xs font-mono resize-none focus:outline-none"
-                                    style={{ minHeight: 80, lineHeight: 1.6 }}
-                                    spellCheck={false}
-                                    placeholder="輸入測試 prompt，用簡單輸入驗證 app..."
-                                />
-                            </div>
-
-                            {/* Action buttons */}
-                            <div className="p-4 border-t" style={{ borderColor: "#e7e5e4" }}>
-                                <div className="flex gap-2">
-                                    {trainRun?.status === "done" && !published && (
-                                        <button onClick={handlePublish} disabled={publishing}
-                                            className="flex-1 py-2 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
-                                            {publishing ? "..." : "📤 上架"}
-                                        </button>
+                {/* ============ STEP 3: Generate & Preview ============ */}
+                {step === 3 && (
+                    <div className="h-full flex flex-col">
+                        {/* Top: Preview (always visible, takes most space) */}
+                        <div className={fullscreen ? "flex-1 min-h-0" : "flex-[3] min-h-0 border-b"} style={{ borderColor: fullscreen ? undefined : "#e7e5e4", backgroundColor: "#f5f5f4" }}>
+                            <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-white shrink-0" style={{ borderColor: "#e7e5e4" }}>
+                                <span className="text-xs font-semibold text-stone-500">🖼️ Preview</span>
+                                {previewUrl && <span className="text-[10px] text-stone-400 font-mono">{reportId}</span>}
+                                <div className="ml-auto flex gap-2">
+                                    {previewReady && (
+                                        <span className="text-[10px] text-green-500">✅ 已生成</span>
+                                    )}
+                                    {generating && (
+                                        <span className="text-[10px] text-amber-500 animate-pulse">⏳ 生成中...</span>
+                                    )}
+                                    <button onClick={() => { setPreviewReady(false); setPollTrigger(t => t + 1); setPreviewKey(Date.now()); }}
+                                        className="text-[10px] text-stone-400 hover:text-stone-600">🔄</button>
+                                    {previewReady && previewUrl && (
+                                        <button onClick={() => setFullscreen(f => !f)}
+                                            className="text-[10px] text-stone-400 hover:text-stone-600" title={fullscreen ? "退出全螢幕" : "全螢幕預覽"}>{fullscreen ? "✕" : "⛶"}</button>
                                     )}
                                 </div>
-                                {published && (
-                                    <div className="p-2 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700 font-semibold text-center">
-                                        ✅ 已上架！重啟後 sidebar Apps 會出現
+                            </div>
+                            <div className="h-full min-h-0">
+                                {previewReady && previewUrl ? (
+                                    <iframe key={previewKey} src={previewUrl}
+                                        className="w-full h-full border-0 bg-white" title="Preview" />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-stone-400 text-sm gap-3">
+                                        <span className="text-3xl">{generating ? "⏳" : "🖼️"}</span>
+                                        <p>{generating ? "正在生成中，請稍候..." : previewUrl ? "等待生成完成..." : "請先設定 App 名稱"}</p>
+                                        {generating && <p className="text-[10px] text-stone-500">生成完成後會自動顯示預覽</p>}
                                     </div>
                                 )}
                             </div>
-                        </>
-                    )}
-                </div>
+                        </div>
 
-                {/* ========== RIGHT PANEL — Tabs ========== */}
-                <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: "#f5f5f4" }}>
-                    {/* Tab Bar */}
-                    <div className="flex items-center border-b shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-                        <button onClick={() => setRightTab("terminal")}
-                            className={cn("px-4 py-2 text-xs font-semibold transition-colors border-b-2",
-                                rightTab === "terminal" ? "border-stone-700 text-stone-700" : "border-transparent text-stone-400 hover:text-stone-600")}>
-                            💻 Terminal
-                        </button>
-                        <button onClick={() => setRightTab("preview")}
-                            className={cn("px-4 py-2 text-xs font-semibold transition-colors border-b-2",
-                                rightTab === "preview" ? "border-stone-700 text-stone-700" : "border-transparent text-stone-400 hover:text-stone-600")}>
-                            🖼️ Preview
-                        </button>
-                        {rightTab === "preview" && (
-                            <button
-                                onClick={() => setPreviewKey(Date.now())}
-                                className="ml-auto mr-3 text-[10px] text-stone-400 hover:text-stone-600 transition-colors"
-                                title="刷新預覽"
-                            >
-                                🔄 刷新
-                            </button>
+                        {/* Bottom: Split — Terminal (left) + Chat (right) */}
+                        {!fullscreen && (
+                        <div className="flex-[2] min-h-0 flex" style={{ backgroundColor: "#1e1e1e" }}>
+                            {/* Terminal (takes 40%) */}
+                            <div className="flex flex-col border-r" style={{ width: "40%", borderColor: "#333" }}>
+                                <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
+                                    <span className="text-[10px] font-semibold text-stone-400">💻 Terminal</span>
+                                    <span className="text-[9px] text-stone-500">({cli})</span>
+                                </div>
+                                <div className="flex-1 min-h-0">
+                                    {chatStarted ? (
+                                        <TerminalConsole
+                                            key={`applab-${consoleKey}`}
+                                            ref={terminalRef}
+                                            cli={cli as any}
+                                            initialPrompt={initialPrompt}
+                                            approvalMode="yolo"
+                                            onCliDone={undefined}
+                                        />
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full text-stone-500 text-xs">
+                                            按「開始生成」後 terminal 會啟動
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Chat Panel (takes 60%) */}
+                            <div className="flex flex-col flex-1 min-h-0">
+                                <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
+                                    <span className="text-[10px] font-semibold text-stone-400">💬 微調指令</span>
+                                    <span className="text-[9px] text-stone-500">描述修改需求，AI 會直接更新</span>
+                                </div>
+
+                                {/* Messages */}
+                                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+                                    {chatMessages.length === 0 && (
+                                        <div className="flex items-center justify-center h-full text-stone-500 text-xs text-center px-4">
+                                            <div>
+                                                <p className="mb-2">還沒有對話</p>
+                                                <p className="text-stone-600 text-[10px]">生成完成後可以在這裡輸入微調指令：</p>
+                                                <p className="text-stone-600 text-[10px] mt-1 italic">「改成藍色系」「加一個 filter」「表格太擠，改成卡片」</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {chatMessages.map(msg => (
+                                        <div key={msg.id} className={cn(
+                                            "rounded-lg px-3 py-2 text-xs max-w-[85%]",
+                                            msg.role === "user"
+                                                ? "bg-blue-900/50 text-blue-100 ml-auto"
+                                                : "bg-stone-800/50 text-stone-300 mr-auto"
+                                        )}>
+                                            <div className={cn(
+                                                "text-[9px] mb-1 font-semibold",
+                                                msg.role === "user" ? "text-blue-300" : "text-stone-500"
+                                            )}>
+                                                {msg.role === "user" ? "你" : "AI"}
+                                            </div>
+                                            <div style={{ lineHeight: 1.5 }}>{msg.text}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Input */}
+                                <div className="shrink-0 p-2 border-t" style={{ borderColor: "#333" }}>
+                                    <div className="flex gap-2">
+                                        <textarea
+                                            value={chatInput}
+                                            onChange={e => setChatInput(e.target.value)}
+                                            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); handleChatSend(); } }}
+                                            placeholder="輸入微調指令... (Enter 送出，Shift+Enter 換行)"
+                                            rows={2}
+                                            className="flex-1 px-3 py-2 bg-stone-800 border rounded-lg text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-600 resize-none"
+                                            style={{ borderColor: "#444", lineHeight: 1.5 }}
+                                        />
+                                        <button onClick={handleChatSend}
+                                            disabled={!chatInput.trim()}
+                                            className={cn(
+                                                "px-3 py-2 rounded-lg text-xs font-bold transition-colors",
+                                                chatInput.trim() ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-stone-700 text-stone-500 cursor-not-allowed"
+                                            )}>
+                                            送出
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         )}
                     </div>
-
-                    {/* Terminal Tab */}
-                    {rightTab === "terminal" && (
-                        !chatStarted ? (
-                            <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
-                                <span className="text-4xl">🧪</span>
-                                <p className="text-stone-400 text-sm text-center">
-                                    寫好 prompt 後按 <strong>▶ Train</strong> 或 <strong>▶ Test</strong> 送出
-                                </p>
-                                <p className="text-stone-500 text-xs text-center">Ctrl+Enter 快速送出</p>
-                            </div>
-                        ) : (
-                            <MemoizedTerminal
-                                ref={terminalRef}
-                                consoleKey={`applab-${consoleKey}`}
-                                cli={cli}
-                                initialPrompt={initialPrompt}
-                            />
-                        )
-                    )}
-
-                    {/* Preview Tab */}
-                    {rightTab === "preview" && (() => {
-                        const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-                        const previewUrl = reportId ? `${API}/api/app/${reportId}` : null;
-                        return previewUrl ? (
-                            <iframe
-                                key={previewKey}
-                                src={previewUrl}
-                                className="flex-1 w-full border-0 bg-white"
-                                title="App Preview"
-                            />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full gap-2">
-                                <span className="text-3xl">🖼️</span>
-                                <p className="text-stone-400 text-xs">請先輸入 App 名稱</p>
-                            </div>
-                        );
-                    })()}
-                </div>
+                )}
             </div>
         </div>
     );

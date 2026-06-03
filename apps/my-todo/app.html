@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Todo</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+    background: linear-gradient(135deg, #fce4ec 0%, #e8eaf6 50%, #e0f7fa 100%);
+    color: #37474f; min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(12px);
+    border-bottom: 1px solid #e0e0e0;
+    padding: 14px 24px; display: flex; align-items: center; gap: 14px;
+  }
+  .header .icon { font-size: 22px; }
+  .header .title { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #5c6bc0; }
+
+  /* ── Main ── */
+  .main { max-width: 640px; margin: 24px auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 14px; background: rgba(255,255,255,0.45); }
+
+  /* ── Add Row ── */
+  .add-row {
+    display: flex; gap: 10px; margin-bottom: 20px;
+  }
+  .add-row input {
+    flex: 1; padding: 10px 14px;
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+    color: #37474f; font-size: 14px; outline: none;
+  }
+  .add-row input::placeholder { color: #b0bec5; }
+  .add-row input:focus { border-color: #7986cb; box-shadow: 0 0 0 3px rgba(121,134,203,0.15); }
+  .add-btn {
+    padding: 10px 18px; background: #7986cb; color: #fff;
+    border: none; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  .add-btn:hover { background: #5c6bc0; }
+
+  /* ── Search Row ── */
+  .search-row {
+    display: flex; gap: 10px; margin-bottom: 20px;
+  }
+  .search-row input {
+    flex: 1; padding: 9px 14px 9px 36px;
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+    color: #37474f; font-size: 14px; outline: none; position: relative;
+  }
+  .search-row input::placeholder { color: #b0bec5; }
+  .search-row input:focus { border-color: #7986cb; box-shadow: 0 0 0 3px rgba(121,134,203,0.15); }
+  .search-wrap { flex: 1; position: relative; }
+  .search-wrap .si {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #b0bec5; font-size: 13px; pointer-events: none;
+  }
+
+  /* ── Tab Bar ── */
+  .tab-bar {
+    display: flex; gap: 4px; margin-bottom: 16px;
+    background: rgba(255,255,255,0.5); border-radius: 10px; padding: 4px;
+  }
+  .tab-btn {
+    flex: 1; padding: 9px 12px;
+    background: transparent; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600; color: #90a4ae;
+    cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .tab-btn:hover { color: #5c6bc0; background: rgba(121,134,203,0.06); }
+  .tab-btn.active {
+    background: #fff; color: #5c6bc0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .tab-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 9px; font-size: 11px; font-weight: 700;
+    margin-left: 5px; vertical-align: middle;
+    background: #e8eaf6; color: #7986cb;
+    transition: all 0.2s;
+  }
+  .tab-btn.active .tab-badge {
+    background: #7986cb; color: #fff;
+  }
+  .tab-btn.tab-done.active .tab-badge {
+    background: #f06292; color: #fff;
+  }
+  .tab-btn.tab-done.active {
+    color: #e91e63;
+  }
+
+  /* ── Count ── */
+  .count {
+    font-size: 12px; color: #90a4ae; margin-bottom: 12px;
+  }
+
+  /* ── Empty ── */
+  .empty {
+    text-align: center; padding: 48px 0; color: #b0bec5; font-size: 14px;
+  }
+  .empty-icon {
+    font-size: 36px; margin-bottom: 10px; display: block;
+  }
+
+  /* ── Todo Item ── */
+  .todo-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; margin-bottom: 6px;
+    background: rgba(255,255,255,0.8); border: 1px solid #e8eaf6; border-radius: 10px;
+    transition: all 0.2s ease;
+  }
+  .todo-item:hover {
+    border-color: #c5cae9;
+    box-shadow: 0 2px 8px rgba(121,134,203,0.1);
+  }
+  .todo-item.done { opacity: 0.45; }
+  .todo-item.done .todo-text { text-decoration: line-through; }
+
+  .checkbox {
+    width: 20px; height: 20px; border-radius: 6px; border: 2px solid #b0bec5;
+    background: transparent; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .checkbox:hover { border-color: #7986cb; }
+  .checkbox.checked { background: #f06292; border-color: #f06292; }
+  .checkbox.checked::after { content: '✓'; color: #fff; font-size: 12px; font-weight: 700; }
+
+  .todo-text { flex: 1; font-size: 14px; line-height: 1.5; word-break: break-word; }
+
+  .del-btn {
+    background: none; border: none; color: #b0bec5; font-size: 16px;
+    cursor: pointer; padding: 2px 6px; border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .del-btn:hover { color: #ef5350; background: rgba(239,83,80,0.08); }
+
+  /* ── Progress Bar ── */
+  .progress-wrap {
+    margin-bottom: 20px;
+  }
+  .progress-bar-bg {
+    height: 6px; background: #e8eaf6; border-radius: 3px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #7986cb, #f06292);
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    display: flex; justify-content: space-between; margin-bottom: 6px;
+    font-size: 12px; color: #90a4ae;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center; padding: 24px; color: #b0bec5; font-size: 11px;
+  }
+
+  @media (max-width: 640px) {
+    .main { padding: 16px; }
+    .header { padding: 10px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="icon">✅</span>
+  <div class="title">My Todo</div>
+</div>
+
+<div class="main">
+  <div class="add-row">
+    <input type="text" id="addInput" placeholder="Add a new task..." />
+    <button class="add-btn" id="addBtn">Add</button>
+  </div>
+  <div class="search-row">
+    <div class="search-wrap">
+      <span class="si">🔍</span>
+      <input type="text" id="searchInput" placeholder="Search tasks..." />
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-label">
+      <span id="progressText">0% complete</span>
+      <span id="progressCount">0 / 0</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="all">All<span class="tab-badge" id="badgeAll">0</span></button>
+    <button class="tab-btn" data-tab="todo">To-do<span class="tab-badge" id="badgeTodo">0</span></button>
+    <button class="tab-btn tab-done" data-tab="done">Done<span class="tab-badge" id="badgeDone">0</span></button>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+
+<script>
+const STORAGE_KEY = 'my-todo-items';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+}
+function save(items) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+let todos = load();
+let query = '';
+let activeTab = 'all';
+
+const addInput = document.getElementById('addInput');
+const searchInput = document.getElementById('searchInput');
+const listEl = document.getElementById('list');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const progressCount = document.getElementById('progressCount');
+const badgeAll = document.getElementById('badgeAll');
+const badgeTodo = document.getElementById('badgeTodo');
+const badgeDone = document.getElementById('badgeDone');
+
+function updateBadges() {
+  const total = todos.length;
+  const doneCount = todos.filter(t => t.done).length;
+  const todoCount = total - doneCount;
+  badgeAll.textContent = total;
+  badgeTodo.textContent = todoCount;
+  badgeDone.textContent = doneCount;
+
+  const pct = total ? Math.round(doneCount / total * 100) : 0;
+  progressFill.style.width = pct + '%';
+  progressText.textContent = pct + '% complete';
+  progressCount.textContent = doneCount + ' / ' + total;
+}
+
+function getFiltered() {
+  let list = todos;
+  if (activeTab === 'todo') list = list.filter(t => !t.done);
+  else if (activeTab === 'done') list = list.filter(t => t.done);
+  if (query) list = list.filter(t => t.text.toLowerCase().includes(query.toLowerCase()));
+  return list;
+}
+
+function render() {
+  updateBadges();
+
+  const filtered = getFiltered();
+
+  if (filtered.length === 0) {
+    const emptyIcon = activeTab === 'done' ? '🎉'
+      : activeTab === 'todo' ? '☕'
+      : todos.length === 0 ? '📝' : '🔍';
+    const emptyMsg = activeTab === 'done'
+      ? 'No completed tasks yet.'
+      : activeTab === 'todo'
+        ? 'All caught up! Great job!'
+        : todos.length === 0
+          ? 'No tasks yet. Add one above!'
+          : 'No matching tasks.';
+    listEl.innerHTML = `<div class="empty"><span class="empty-icon">${emptyIcon}</span>${emptyMsg}</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(t => `
+    <div class="todo-item${t.done ? ' done' : ''}" data-id="${t.id}">
+      <div class="checkbox${t.done ? ' checked' : ''}" onclick="toggle(${t.id})"></div>
+      <span class="todo-text">${esc(t.text)}</span>
+      <button class="del-btn" onclick="del(${t.id})" title="Delete">×</button>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function addTodo() {
+  const text = addInput.value.trim();
+  if (!text) return;
+  todos.unshift({ id: Date.now(), text, done: false });
+  save(todos);
+  addInput.value = '';
+  render();
+}
+
+function toggle(id) {
+  const t = todos.find(t => t.id === id);
+  if (t) { t.done = !t.done; save(todos); render(); }
+}
+
+function del(id) {
+  todos = todos.filter(t => t.id !== id);
+  save(todos);
+  render();
+}
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    render();
+  });
+});
+
+document.getElementById('addBtn').onclick = addTodo;
+addInput.onkeydown = e => { if (e.key === 'Enter') addTodo(); };
+searchInput.oninput = () => { query = searchInput.value; render(); };
+
+render();
+</script>
+</body>
+</html>

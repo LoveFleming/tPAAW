@@ -15,6 +15,7 @@ interface TerminalConsoleProps {
     restartTrigger?: number;
     onReady?: () => void;
     onExit?: (code: number) => void;
+    onCliDone?: () => void;
 }
 
 /** Imperative handle exposed via ref */
@@ -35,6 +36,7 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
     restartTrigger,
     onReady,
     onExit,
+    onCliDone,
 }: TerminalConsoleProps, ref: React.Ref<TerminalConsoleHandle>) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [connected, setConnected] = useState(false);
@@ -195,6 +197,9 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
             } else if (msg.type === "cliReady") {
                 // Server detected CLI is truly initialized (saw ready pattern in output)
                 cliReadyRef.current = true;
+            } else if (msg.type === "cliDone") {
+                // Server detected CLI finished (saw DONE or 完成 in output)
+                onCliDone?.();
             } else if (msg.type === "exit") {
                 term.write("\r\n\x1b[33m⚠️ CLI exited. Click 🔄 Restart to start a new session.\x1b[0m\r\n");
                 setReady(false);
@@ -354,6 +359,9 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
                 }
                 else if (msg.type === "cliReady") {
                     cliReadyRef.current = true;
+                }
+                else if (msg.type === "cliDone") {
+                    onCliDone?.();
                 }
                 else if (msg.type === "exit") { setReady(false); setConnected(true); }
                 else if (msg.type === "error" && termRef.current) termRef.current.write(`\r\n\x1b[31m❌ ${msg.message}\x1b[0m\r\n`);

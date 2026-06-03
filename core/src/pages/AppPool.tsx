@@ -20,13 +20,31 @@ export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => v
     const [loading, setLoading] = useState(true);
     const [previewApp, setPreviewApp] = useState<string | null>(null);
 
-    useEffect(() => {
+    const loadApps = () => {
         fetch(`${API}/api/apps`)
             .then(r => r.json())
             .then(setApps)
             .catch(() => {})
             .finally(() => setLoading(false));
-    }, []);
+    };
+
+    useEffect(() => { loadApps(); }, []);
+
+    const handleUnpublish = (appId: string) => {
+        if (!confirm(`確定要下架「${appId}」嗎？app.html 會被移除，但 metadata 會保留。`)) return;
+        fetch(`${API}/api/app/${appId}`, { method: "DELETE" })
+            .then(r => r.json())
+            .then(() => loadApps())
+            .catch(() => {});
+    };
+
+    const handleDelete = (appId: string) => {
+        if (!confirm(`確定要完全刪除「${appId}」嗎？這個動作無法復原。`)) return;
+        fetch(`${API}/api/app/${appId}/delete`, { method: "DELETE" })
+            .then(r => r.json())
+            .then(() => loadApps())
+            .catch(() => {});
+    };
 
     const templateIcons: Record<string, string> = {
         dashboard: "📊",
@@ -91,6 +109,14 @@ export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => v
                                         style={{ borderColor: t.accentBorder, color: t.accent }}>
                                         預覽
                                     </button>
+                                    {app.status === "published" && (
+                                        <button
+                                            onClick={e => { e.stopPropagation(); handleUnpublish(app.id); }}
+                                            className="text-[10px] px-2 py-1 rounded-md font-semibold border border-stone-200 text-stone-400 hover:text-amber-600 hover:border-amber-300"
+                                            title="下架">
+                                            下架
+                                        </button>
+                                    )}
                                 </div>
                             </button>
                         ))}

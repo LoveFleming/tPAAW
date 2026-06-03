@@ -436,16 +436,80 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
   }
 
   // GET /api/app/:id — serve app.html from apps/ directory
-  const appServeMatch = req.method === "GET" && req.url?.match(/^\/api\/app\/([\w.-]+)(?:\?.*)?$/);
+  const appServeMatch = (req.method === "GET" || req.method === "HEAD") && req.url?.match(/^\/api\/app\/([\w.-]+)(?:\?.*)?$/);
   if (appServeMatch) {
     const appId = appServeMatch[1];
     try {
       const html = await readFile(join(APPS_ROOT, appId, "app.html"), "utf-8");
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(html);
+      res.end(req.method === "HEAD" ? "" : html);
     } catch {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "App not found: " + appId }));
+    }
+    return;
+  }
+
+  // DELETE /api/app/:id — unpublish/remove an app
+  const appDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/app\/([\w.-]+)(?:\?.*)?$/);
+  if (appDeleteMatch) {
+    const appId = appDeleteMatch[1];
+    const appDir = join(APPS_ROOT, appId);
+    try {
+      // Just remove app.html, keep app.json with status=draft
+      const htmlPath = join(appDir, "app.html");
+      await unlink(htmlPath).catch(() => {});
+      // Update app.json status
+      const jsonPath = join(appDir, "app.json");
+      let meta = {};
+      try { meta = JSON.parse(await readFile(jsonPath, "utf-8")); } catch {}
+      meta.status = "draft";
+      await writeFile(jsonPath, JSON.stringify(meta, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, appId, status: "draft" }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/app/:id/publish — publish/update app.json metadata
+  const appPublishMatch = req.method === "POST" && req.url?.match(/^\/api\/app\/([\w.-]+)\/publish(?:\?.*)?$/);
+  if (appPublishMatch) {
+    const appId = appPublishMatch[1];
+    const appDir = join(APPS_ROOT, appId);
+    try {
+      const jsonPath = join(appDir, "app.json");
+      let meta = {};
+      try { meta = JSON.parse(await readFile(jsonPath, "utf-8")); } catch {}
+      const body = await readBody(req);
+      let extra = {};
+      try { extra = JSON.parse(body); } catch {}
+      meta = { ...meta, ...extra, status: "published", publishedAt: new Date().toISOString() };
+      await writeFile(jsonPath, JSON.stringify(meta, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, appId, ...meta }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/app/:id/status — check if app.html exists and its mtime
+  const appStatusMatch = req.method === "GET" && req.url?.match(/^\/api\/app\/([\w.-]+)\/status(?:\?.*)?$/);
+  if (appStatusMatch) {
+    const appId = appStatusMatch[1];
+    try {
+      const { stat } = await import("fs/promises");
+      const filePath = join(APPS_ROOT, appId, "app.html");
+      const s = await stat(filePath);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ exists: true, mtime: s.mtimeMs, size: s.size }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ exists: false, mtime: null, size: 0 }));
     }
     return;
   }
@@ -2191,6 +2255,7 @@ wss.on("connection", (ws, req) => {
 
         // ── Detect when CLI is truly ready (not just PTY spawned) ──
         let cliReadyFired = false;
+        const ptyStartTime = Date.now();
         const cliReadyPatterns = {
           qwen: /(?:YOLO mode|Plan mode|Auto-edit mode|Default mode|Type your message)/,
           claude: /(?:\?>|^>?\s*$)/m,
