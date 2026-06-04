@@ -2,7 +2,7 @@ import Icon from "./components/Icon";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import FactoryEntryPage from "./pages/FactoryEntryPage";
+import ChatView from "./pages/ChatView";
 import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
 import SkillLab from "./pages/SkillLab";
@@ -11,15 +11,16 @@ import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
+import OnboardingPage from "./pages/OnboardingPage";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
-import { ThemeProvider, useTheme, THEMES, ThemeId, THEME_GROUPS } from "./theme";
+import { ThemeProvider, useTheme, THEMES, THEME_GROUPS, ThemeId } from "./theme";
 import { cn, pathBasename } from "./utils";
 
-const STORAGE_PROJECT_KEY = "aioc.project";
+const STORAGE_PROJECT_KEY = "***";
+const API_BASE = "http://127.0.0.1:4097";
 
-// Simple hash for short readable IDs
 function simpleHash(s: string): string {
   let h = 0;
   for (let i = 0; i < s.length; i++) {
@@ -28,17 +29,13 @@ function simpleHash(s: string): string {
   return Math.abs(h).toString(36).slice(0, 6);
 }
 
-// Scope key = factoryId + working base hash
 function makeScopeKey(factoryId: string, projectRoot: string | null): string {
   if (!projectRoot) return `${factoryId}:_default`;
-  // Normalize backslashes to forward slashes so Windows C:\xxx and C:/xxx
-  // always produce the same hash (stable scope key across OS path formats)
   const normalized = projectRoot.replace(/\\/g, "/");
   const dirName = normalized.split("/").pop() || "root";
   return `${factoryId}:${dirName}_${simpleHash(normalized)}`;
 }
 
-// Parse tab ID into components
 function parseTabId(tabId: string): { scopeKey: string; factoryId: string; pageType: string } {
   const firstColon = tabId.indexOf(":");
   if (firstColon === -1) return { scopeKey: "", factoryId: "", pageType: tabId };
@@ -51,7 +48,7 @@ function parseTabId(tabId: string): { scopeKey: string; factoryId: string; pageT
   return { scopeKey: `${factoryId}:${rootHash}`, factoryId, pageType };
 }
 
-// Migrate from old key name
+// Migrate from old keys
 try {
   const oldVal = localStorage.getItem("aieos.project");
   if (oldVal && !localStorage.getItem(STORAGE_PROJECT_KEY)) {
@@ -65,12 +62,32 @@ try {
   }
 } catch {}
 
-function AppInner() {
-  const STORAGE_FACTORY_KEY = "aioc.factory";
+interface UserProfile {
+  name: string;
+  intro: string;
+  style: string;
+  onboarded?: boolean;
+}
 
-  /** Normalize path to forward slashes for consistent scope keys on all OS */
+function AppInner() {
+  const STORAGE_FACTORY_KEY = "***";
   const normPath = (p: string | null): string | null => p ? p.replace(/\\/g, "/") : null;
 
+  // ── User Profile & Onboarding ──
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/tclaw/user`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.onboarded) setProfile(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  // ── Factory / Project state ──
   const [showFactoryEntry, setShowFactoryEntry] = useState(false);
 
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
@@ -81,28 +98,22 @@ function AppInner() {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
   });
 
-  // All tabs across all scopes, keyed by scopeKey = factoryId:rootHash
   const scopeStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
-  const [activePage, setActivePage] = useState<string>(() => {
-    const factoryId = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    const root = normPath(localStorage.getItem(`aioc.project.${factoryId}`));
-    return `${makeScopeKey(factoryId, root)}:crew`;
-  });
-  const [openTabs, setOpenTabs] = useState<string[]>(() => {
-    const factoryId = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    const root = normPath(localStorage.getItem(`aioc.project.${factoryId}`));
-    return [`${makeScopeKey(factoryId, root)}:crew`];
-  });
+
+  // Default active page = chat (home)
+  const [activePage, setActivePage] = useState<string>("_chat");
+  const [openTabs, setOpenTabs] = useState<string[]>(["_chat"]);
+
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
-  // visibleTabs: only tabs belonging to current scope (factory + working base)
   const visibleTabs = useMemo(() => {
-    const prefix = currentScope + ":";
-    return openTabs.filter(t => t.startsWith(prefix));
+    // Chat tab is always visible; factory-scoped tabs need matching prefix
+    return openTabs.filter(t => t === "_chat" || t.startsWith(currentScope + ":"));
   }, [openTabs, currentScope]);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem("aioc.sidebar-width");
-    return saved ? parseInt(saved, 10) : 240;
+    return saved ? parseInt(saved, 10) : 260;
   });
 
   const [factories, setFactories] = useState<{id: string; name: string; icon: string; description: string}[]>([]);
@@ -157,7 +168,6 @@ function AppInner() {
 
   useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); loadSkillApps(); }, [loadFactories, loadCrew, loadFactoryFiles, loadSkillApps]);
 
-  // Auto-refresh factory docs every 3 seconds
   useEffect(() => {
     if (!selectedFactoryId) return;
     loadFactoryFiles();
@@ -165,8 +175,8 @@ function AppInner() {
     return () => clearInterval(interval);
   }, [selectedFactoryId, loadFactoryFiles]);
 
-  const handleSelectProject = (path: string) => {
-    // Save current scope tabs
+  // ── Navigation helpers ──
+  const handleSelectProject = useCallback((path: string) => {
     const currentPrefix = currentScope + ":";
     const currentScopeTabs = openTabs.filter(t => t.startsWith(currentPrefix));
     scopeStateRef.current[currentScope] = {
@@ -174,44 +184,34 @@ function AppInner() {
       activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
       openTabs: currentScopeTabs,
     };
-
     setProjectRoot(path);
     setShowFactoryEntry(false);
-
-    // Compute new scope
     const newScope = makeScopeKey(selectedFactoryId, path);
     const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
     const existingScopeTabs = openTabs.filter(t => t.startsWith(newPrefix));
-
     if (existingScopeTabs.length > 0) {
-      // Already mounted — just switch visibility
       const savedActive = saved?.activePage && openTabs.includes(saved.activePage) ? saved.activePage : existingScopeTabs[0];
       setActivePage(savedActive);
     } else if (saved) {
-      // Restore saved tabs
       const merged = [...openTabs, ...saved.openTabs];
       const seen = new Set<string>();
       const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
       setOpenTabs(unique);
       setActivePage(saved.activePage && unique.includes(saved.activePage) ? saved.activePage : `${newScope}:crew`);
     } else {
-      // New scope — add crew tab
       const crewTab = `${newScope}:crew`;
       setOpenTabs(prev => prev.includes(crewTab) ? prev : [...prev, crewTab]);
       setActivePage(crewTab);
     }
-
-    // Save per-factory projectRoot (normalize backslashes for consistent scope keys)
     const normalized = normPath(path)!;
     localStorage.setItem(`aioc.project.${selectedFactoryId}`, normalized);
-    // Update recent projects
     try {
       const existing = JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as string[];
       const updated = [normalized, ...existing.filter((p: string) => p !== normalized)].slice(0, 10);
       localStorage.setItem("aioc.recent-projects", JSON.stringify(updated));
     } catch {}
-  };
+  }, [openTabs, activePage, currentScope, projectRoot, selectedFactoryId]);
 
   const enterFactory = (factoryId: string) => {
     switchFactory(factoryId);
@@ -224,7 +224,6 @@ function AppInner() {
   };
 
   const switchFactory = (factoryId: string) => {
-    // Save current scope's active page
     const currentPrefix = currentScope + ":";
     const currentScopeTabs = openTabs.filter(t => t.startsWith(currentPrefix));
     scopeStateRef.current[currentScope] = {
@@ -232,22 +231,15 @@ function AppInner() {
       activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
       openTabs: currentScopeTabs,
     };
-
-    // Compute new scope
     const savedRoot = normPath(localStorage.getItem(`aioc.project.${factoryId}`));
     const newScope = makeScopeKey(factoryId, savedRoot);
     const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
-
-    // Check if target scope already has tabs in openTabs
     const existingScopeTabs = openTabs.filter(t => t.startsWith(newPrefix));
-
     if (existingScopeTabs.length > 0) {
-      // Tabs already mounted — just switch visibility (no reload)
       const savedActive = saved?.activePage && openTabs.includes(saved.activePage) ? saved.activePage : existingScopeTabs[0];
       setActivePage(savedActive);
     } else {
-      // No tabs for this scope yet — restore from saved or create crew tab
       const restoredTabs = saved?.openTabs ?? [`${newScope}:crew`];
       const merged = [...openTabs, ...restoredTabs];
       const seen = new Set<string>();
@@ -255,29 +247,22 @@ function AppInner() {
       setOpenTabs(unique);
       setActivePage(saved?.activePage && unique.includes(saved.activePage) ? saved.activePage : `${newScope}:crew`);
     }
-
-    // Restore projectRoot
-    if (savedRoot) {
-      setProjectRoot(savedRoot);
-    } else {
-      setProjectRoot(null);
-    }
-
+    if (savedRoot) { setProjectRoot(savedRoot); } else { setProjectRoot(null); }
     setSelectedFactoryId(factoryId);
     localStorage.setItem(STORAGE_FACTORY_KEY, factoryId);
   };
 
   const openApp = (id: string) => {
-    // If id already contains a scope prefix (from factoryNav), use it directly
     const fullId = id.includes(":") ? id : `${currentScope}:${id}`;
     setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
     setActivePage(fullId);
   };
 
   const closeTab = (id: string) => {
+    if (id === "_chat") return; // Chat tab cannot be closed
     setOpenTabs((prev) => {
       const next = prev.filter((t) => t !== id);
-      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : `${currentScope}:crew`);
+      if (activePage === id) setActivePage(next.length > 0 ? next[next.length - 1] : "_chat");
       return next;
     });
   };
@@ -296,40 +281,24 @@ function AppInner() {
     setActivePage(fullId);
   };
 
-  const projectName = projectRoot ? pathBasename(projectRoot) : "";
-
-  const { info: themeInfo, theme, setTheme } = useTheme();
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
   const [showDirExplorer, setShowDirExplorer] = useState(false);
-  const handlePickWorkingBase = useCallback(() => {
-    setShowDirExplorer(true);
-  }, []);
 
   const handleDirSelect = useCallback((path: string) => {
     handleSelectProject(path);
     setShowDirExplorer(false);
-  }, []);
-
-  const recentProjects = useMemo(() => {
-    try {
-      return (JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as {path: string; name: string; lastOpened: string}[]);
-    } catch { return []; }
-  }, [projectRoot]);
+  }, [handleSelectProject]);
 
   const factoryNav = useMemo(() => {
-    const staticItems = [
-      { id: `${currentScope}:crew`, label: "AI Crew" },
-    ];
+    const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: "AI Crew" };
     const fileItems = factoryFiles.map(f => {
       const stripped = f.replace(/^\d{2}-/, "");
       return {
-        sortKey: f,
+        sortKey: `02-${f}`,
         id: `${currentScope}:file.${f}`,
-        label: stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        label: `📄 ${stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}`,
       };
-    }).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-    return [...fileItems, ...staticItems];
+    });
+    return [crewItem, ...fileItems].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   }, [factoryFiles, currentScope]);
 
   const skillLabCounterRef = useRef(0);
@@ -352,14 +321,14 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openSkillAppById = useCallback((skillId: string) => {
-    const tabId = `${currentScope}:skillapp.${skillId}`;
+  const openCronJobs = useCallback(() => {
+    const tabId = `${currentScope}:cronjobs`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openCronJobs = useCallback(() => {
-    const tabId = `${currentScope}:cronjobs`;
+  const openSkillAppById = useCallback((skillId: string) => {
+    const tabId = `${currentScope}:skillapp.${skillId}`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -377,6 +346,7 @@ function AppInner() {
   [skillApps, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
+    if (fullId === "_chat") return "🐾 林語晴";
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return "AI Crew";
     if (pageType === "skills") return "Skill Pool";
@@ -404,7 +374,6 @@ function AppInner() {
     return pageType;
   }, [factoryNav, crew]);
 
-  // Track which file paths are open (for sidebar highlight)
   const openFilePaths = useMemo(() => new Set(
     openTabs.filter(t => { const { pageType } = parseTabId(t); return pageType.startsWith("wfile://"); })
       .map(t => { const { pageType } = parseTabId(t); return pageType.slice(8); })
@@ -416,7 +385,6 @@ function AppInner() {
 
   const EmployeeWorkspaceLazy = useMemo(() => React.lazy(() => import("./pages/EmployeeWorkspace")), []);
 
-  // Sidebar resize handler
   const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const handleSidebarDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -430,17 +398,18 @@ function AppInner() {
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
       sidebarDragRef.current = null;
-      // Save to localStorage
-      setSidebarWidth(w => {
-        localStorage.setItem("aioc.sidebar-width", w.toString());
-        return w;
-      });
+      setSidebarWidth(w => { localStorage.setItem("aioc.sidebar-width", w.toString()); return w; });
     };
     document.addEventListener("mousemove", handleMove);
     document.addEventListener("mouseup", handleUp);
   }, [sidebarWidth]);
 
   const renderPage = useCallback((fullId: string, active?: boolean) => {
+    // ── Chat (home) ──
+    if (fullId === "_chat") {
+      return <ChatView profile={profile!} embedded />;
+    }
+
     const { scopeKey, factoryId, pageType } = parseTabId(fullId);
 
     if (pageType === "crew") {
@@ -473,7 +442,6 @@ function AppInner() {
           <iframe
             src={`http://127.0.0.1:4097/api/app/${skillId}`}
             onError={() => {
-              // fallback to old skill-app API
               const iframe = document.querySelector('iframe');
               if (iframe) iframe.src = `http://127.0.0.1:4097/api/skill-app/${skillId}`;
             }}
@@ -509,9 +477,29 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, aiocRoot, crew, selectedFactoryId]);
+  }, [projectRoot, aiocRoot, crew, selectedFactoryId, profile, skillAppNav]);
 
-  // Early return AFTER all hooks
+  // ── Theme ──
+  const { info: themeInfo, theme, setTheme } = useTheme();
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
+
+  // ── Early returns ──
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-stone-50">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-pulse">🐾</div>
+          <div className="text-stone-400 text-sm">載入中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return <OnboardingPage onComplete={(p) => setProfile(p)} />;
+  }
+
   if (showFactoryEntry) {
     return (
       <FactoryEntryPage
@@ -525,10 +513,10 @@ function AppInner() {
     );
   }
 
-
+  // ── Main Layout ──
   return (
     <div className="h-screen flex flex-col text-stone-800 font-sans overflow-hidden" style={{ backgroundColor: themeInfo.accentBg, "--tw-selection-color": themeInfo.accentLight } as React.CSSProperties}>
-      {/* ── Header ── */}
+      {/* Header */}
       <header className="h-11 flex items-center justify-between px-3 shrink-0 z-10 border-b border-stone-200" style={{ background: themeInfo.gradient }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 -ml-1 rounded-lg text-white/80 hover:bg-white/20 transition-colors">
@@ -536,16 +524,17 @@ function AppInner() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
-          <span className="text-sm font-semibold text-white" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>AI-Native Operation Center</span>
-          {/* Factory panel in header */}
+          <button onClick={() => { setActivePage("_chat"); }} className="text-sm font-semibold text-white cursor-pointer hover:text-white/80 transition-colors" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>
+            🐾 tClaw
+          </button>
+          {/* Factory switcher */}
           {factories.length > 0 && (
             <div className="relative ml-3">
               <button
                 onClick={() => setFactoryMenuOpen(!factoryMenuOpen)}
                 className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white/90 text-sm font-semibold transition-colors cursor-pointer"
-                style={{ fontFamily: "'SF Pro Display', sans-serif" }}
               >
-                {factories.find(f => f.id === selectedFactoryId)?.icon || "🏭"} {factories.find(f => f.id === selectedFactoryId)?.name || selectedFactoryId}
+                {factories.find(f => f.id === selectedFactoryId)?.icon || "🐾"} {factories.find(f => f.id === selectedFactoryId)?.name || "MyClaw"}
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={cn("w-3 h-3 transition-transform", factoryMenuOpen ? "" : "rotate-180")}>
                   <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
@@ -555,7 +544,7 @@ function AppInner() {
                   <div className="fixed inset-0 z-40" onClick={() => setFactoryMenuOpen(false)} />
                   <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
                     <div className="px-3 py-1.5 border-b border-stone-100 bg-stone-50">
-                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">🏭 AI Factory</span>
+                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">🐾 MyClaw</span>
                     </div>
                     <div className="max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
                       {factories.filter(f => f.id !== "default").map(f => (
@@ -594,23 +583,17 @@ function AppInner() {
             </div>
           )}
         </div>
-        {/* Theme dropdown */}
+        {/* Theme */}
         <div className="relative">
-          <button
-            onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-            className="flex items-center gap-1.5 w-8 h-8 rounded-full bg-white/90 hover:bg-white shadow-sm border border-stone-200 text-base justify-center transition-colors"
-          >
+          <button onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="flex items-center gap-1.5 w-8 h-8 rounded-full bg-white/90 hover:bg-white shadow-sm border border-stone-200 text-base justify-center transition-colors">
             <Icon name={theme} size={18} />
           </button>
-          {/* Dropdown */}
           {themeMenuOpen && (
             <>
-              {/* Backdrop to close on click outside */}
               <div className="fixed inset-0 z-40" onClick={() => setThemeMenuOpen(false)} />
               <div className="absolute right-0 top-full mt-1 w-72 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
                 <div className="px-4 py-2.5 border-b border-stone-100 bg-stone-50">
                   <p className="text-xs font-bold text-stone-600">🎨 選擇主題色調</p>
-                  <p className="text-[10px] text-stone-400 mt-0.5">不同色系可以舒緩不同的杏仁核狀態</p>
                 </div>
                 <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
                 {THEME_GROUPS.map(group => (
@@ -638,7 +621,6 @@ function AppInner() {
                             )}
                           </div>
                           <p className="text-[11px] text-stone-400 mt-0.5">{t.desc}</p>
-                          {t.feeling && <p className="text-[10px] text-stone-300 mt-0.5 flex items-center gap-1"><Icon name="chat" size={10} /> {t.feeling}</p>}
                         </div>
                         <div className="flex gap-0.5 mt-1 shrink-0">
                           <span className="w-3 h-3 rounded-full border border-stone-200" style={{ backgroundColor: t.accent }} />
@@ -657,15 +639,15 @@ function AppInner() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* ── Sidebar ── */}
+        {/* Sidebar */}
         <aside className={cn(
           "flex-shrink-0 flex flex-col overflow-hidden border-r",
           !sidebarOpen && "w-0"
         )} style={{ width: sidebarOpen ? sidebarWidth : 0, backgroundColor: "white", borderColor: themeInfo.accentBorder + "60", transition: sidebarDragRef.current ? "none" : "width 200ms" }}>
           <div className="flex flex-col overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
 
-            {/* Factory */}
-            <SidebarSection title="Factory">
+            {/* MyClaw — Chat Sessions + AI Crew + Docs */}
+            <SidebarSection title="🐾 MyClaw">
               <div>
                 {factoryNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -679,44 +661,20 @@ function AppInner() {
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
-                <NavItem
-                  active={false}
-                  label="Skill Lab"
-                  onClick={openSkillLab}
-                  accentColor={themeInfo.accent}
-                  accentBg={themeInfo.accentBg}
-                />
+                <NavItem active={false} label="Skill Lab" onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
             {/* Apps */}
             <SidebarSection title="Apps">
               <div>
-                <NavItem
-                  active={activePage.endsWith(":reportapps")}
-                  label="App Pool"
-                  onClick={openAppPool}
-                  accentColor={themeInfo.accent}
-                  accentBg={themeInfo.accentBg}
-                />
-                <NavItem
-                  active={activePage.endsWith(":reportapplab")}
-                  label="App Lab"
-                  onClick={openAppLab}
-                  accentColor={themeInfo.accent}
-                  accentBg={themeInfo.accentBg}
-                />
-                <NavItem
-                  active={activePage.endsWith(":cronjobs")}
-                  label="Cron Jobs"
-                  onClick={openCronJobs}
-                  accentColor={themeInfo.accent}
-                  accentBg={themeInfo.accentBg}
-                />
+                <NavItem active={activePage.endsWith(":reportapps")} label="App Pool" onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":reportapplab")} label="App Lab" onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":cronjobs")} label="Cron Jobs" onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
-            {/* Working Base — file tree */}
+            {/* Working Base */}
             <SidebarSection title="Working Base">
               {projectRoot ? (
                 <SidebarFileTree
@@ -728,7 +686,7 @@ function AppInner() {
               ) : (
                 <div className="px-2 py-3">
                   <button
-                    onClick={() => handlePickWorkingBase()}
+                    onClick={() => setShowDirExplorer(true)}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed transition-colors"
                     style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = themeInfo.accent; e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
@@ -747,7 +705,7 @@ function AppInner() {
           {/* Switch Working Base */}
           <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
-              onClick={() => handlePickWorkingBase()}
+              onClick={() => setShowDirExplorer(true)}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"
               style={{ color: themeInfo.accentHover + "99" }}
               onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
@@ -761,7 +719,7 @@ function AppInner() {
           </div>
         </aside>
 
-        {/* Sidebar resize handle */}
+        {/* Sidebar resize */}
         {sidebarOpen && (
           <div
             onMouseDown={handleSidebarDragStart}
@@ -772,27 +730,22 @@ function AppInner() {
           </div>
         )}
 
-        {/* ── Main ── */}
+        {/* Main */}
         <main className="flex-1 overflow-hidden flex flex-col">
-          {/* Tabs — multi-row wrap */}
+          {/* Tabs */}
           <div className="flex w-full items-end gap-0.5 flex-wrap px-3 pt-1.5 border-b" style={{ backgroundColor: themeInfo.accentBg, borderColor: themeInfo.accentBorder + "60" }}>
             {visibleTabs.map((tabId) => {
               const isActive = activePage === tabId;
-              const isPinned = (() => { const { pageType } = parseTabId(tabId); return pageType === "crew"; })();
+              const isPinned = tabId === "_chat";
               return (
                 <div
                   key={tabId}
                   onClick={() => setActivePage(tabId)}
                   className={cn(
                     "group relative flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-sm transition-all rounded-t-md shrink-0",
-                    isActive
-                      ? "bg-white shadow-sm"
-                      : "hover:bg-white/50"
+                    isActive ? "bg-white shadow-sm" : "hover:bg-white/50"
                   )}
-                  style={isActive
-                    ? { color: themeInfo.accentText, fontWeight: 600 }
-                    : { color: themeInfo.accentText + "88", fontWeight: 400 }
-                  }
+                  style={isActive ? { color: themeInfo.accentText, fontWeight: 600 } : { color: themeInfo.accentText + "88", fontWeight: 400 }}
                 >
                   <span className="truncate whitespace-nowrap max-w-[160px]">{labelFor(tabId)}</span>
                   {!isPinned && (
@@ -821,7 +774,7 @@ function AppInner() {
         </main>
       </div>
 
-      {/* Working Base Selection — Directory Explorer */}
+      {/* Directory Explorer */}
       {showDirExplorer && (
         <DirectoryExplorer
           initialPath={projectRoot || undefined}
@@ -833,6 +786,9 @@ function AppInner() {
     </div>
   );
 }
+
+// ── FactoryEntryPage import (kept from original) ──
+import FactoryEntryPage from "./pages/FactoryEntryPage";
 
 export default function App() {
   return (

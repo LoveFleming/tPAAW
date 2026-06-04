@@ -1,10 +1,10 @@
 {
-  "name": "aioc",
+  "name": "tclaw",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n \"UI,QWEN\" -c \"cyan,magenta\" \"vite\" \"node server/qwen-code-api.mjs\"",
+    "dev": "concurrently -k -n \"UI,API\" -c \"cyan,magenta\" \"vite\" \"node server/tclaw-server.mjs\"",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "postinstall": "npm rebuild node-pty 2>/dev/null || npm rebuild node-pty"
