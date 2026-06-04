@@ -114,7 +114,7 @@ export function buildSystemPrompt(
 
     // Inject base paths
     if (paths) {
-        const factoryPath = paths.factoryId ? `${paths.aiocRoot}/factories/${paths.factoryId}` : `${paths.aiocRoot}/factories`;
+        const factoryPath = `${paths.aiocRoot}/crews`;
         parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}\n  - Input-Prompt Skills: ${paths.aiocRoot}/skills/input-prompt/\n  - Physical Skills: ${paths.aiocRoot}/skills/physical-skill/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}${workspaces && workspaces.length > 0 ? `\n\n## Workspace 目錄\n${workspaces.map(d => `- ${d}`).join("\n")}` : ""}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
     }
 

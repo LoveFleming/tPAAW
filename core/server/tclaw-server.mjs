@@ -28,14 +28,14 @@ const execAsync = promisify(execCb);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DASHBOARD_ROOT = resolve(__dirname, "..");
-const AIOC_ROOT = resolve(__dirname, "../../");
-const CONVERSATIONS_ROOT = resolve(AIOC_ROOT, "core/conversations");
-const FACTORIES_ROOT = resolve(AIOC_ROOT, "factories");
-const SKILLS_ROOT = resolve(AIOC_ROOT, "skills");
+const TCLAW_ROOT = resolve(__dirname, "../../");
+const CONVERSATIONS_ROOT = resolve(TCLAW_ROOT, "core/conversations");
+const CREWS_ROOT = resolve(TCLAW_ROOT, "crews");
+const SKILLS_ROOT = resolve(TCLAW_ROOT, "skills");
+const DOCS_ROOT = resolve(TCLAW_ROOT, "docs");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
-const APPS_ROOT = resolve(AIOC_ROOT, "apps");
-const DEFAULT_FACTORY = "default";
+const APPS_ROOT = resolve(TCLAW_ROOT, "apps");
 
 const PORT = parseInt(process.env.TCLAW_PORT || "4097", 10);
 
@@ -65,15 +65,16 @@ const server = createServer(async (req, res) => {
   const handled = await cronApiHandler(req, res);
   if (handled) return;
 
-  // Helper: resolve factory-scoped directory
-  function factoryDir(factoryId, subdir) {
-    return resolve(FACTORIES_ROOT, factoryId, subdir);
+  // Helper: resolve directory (tClaw has flat structure, no factory nesting)
+  function factoryDir(_factoryId, subdir) {
+    if (subdir === "crews") return CREWS_ROOT;
+    if (subdir === "docs") return DOCS_ROOT;
+    return resolve(TCLAW_ROOT, subdir);
   }
 
-  // Helper: get factoryId from query param, fallback to default
+  // Helper: get factoryId from query param (kept for backward compat)
   function getFactoryId(url) {
-    const u = new URL(url, "http://localhost");
-    return u.searchParams.get("factory") || DEFAULT_FACTORY;
+    return "default";
   }
 
   // ── Skills API (global, top-level) ──
@@ -705,94 +706,20 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
 
   // ── Factory CRUD ──
 
-  // GET /api/factories — list all factories
+  // GET /api/factories — return single default "factory" (backward compat)
   if (req.method === "GET" && req.url?.match(/^\/api\/factories(?:\?.*)?$/)) {
-    try {
-      await mkdir(FACTORIES_ROOT, { recursive: true });
-      const dirs = await readdir(FACTORIES_ROOT);
-      const factories = [];
-      for (const dir of dirs) {
-        try {
-          const stat = await import("fs/promises").then(m => m.stat(join(FACTORIES_ROOT, dir)));
-          if (!stat.isDirectory()) continue;
-          const configPath = join(FACTORIES_ROOT, dir, "factory.json");
-          const raw = await readFile(configPath, "utf-8");
-          factories.push(JSON.parse(raw));
-        } catch { /* skip invalid */ }
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(factories));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify([{
+      id: "default", name: "tClaw", description: "Personal AI Assistant",
+      icon: "🐾", version: "2.0.0", createdAt: new Date().toISOString()
+    }]));
     return;
   }
 
-  // POST /api/factories — create new factory
-  if (req.method === "POST" && req.url === "/api/factories") {
-    const body = await readBody(req);
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    if (!parsed.id) { res.writeHead(400); res.end("Missing 'id'"); return; }
-    if (!parsed.name) { res.writeHead(400); res.end("Missing 'name'"); return; }
-
-    const factoryPath = join(FACTORIES_ROOT, parsed.id);
-    try {
-      await mkdir(factoryPath, { recursive: true });
-      await mkdir(join(factoryPath, "crews", "pic"), { recursive: true });
-      await mkdir(join(factoryPath, "docs"), { recursive: true });
-
-      const factoryJson = {
-        id: parsed.id,
-        name: parsed.name,
-        description: parsed.description || "",
-        icon: parsed.icon || "🏭",
-        version: "1.0.0",
-        createdAt: new Date().toISOString(),
-        settings: { defaultCli: parsed.defaultCli || "qwen" },
-      };
-      await writeFile(join(factoryPath, "factory.json"), JSON.stringify(factoryJson, null, 2), "utf-8");
-
-      // Always clone from 'default' factory (copyFrom overrides if specified)
-      const cloneSource = parsed.copyFrom || "default";
-      const srcCrews = join(FACTORIES_ROOT, cloneSource, "crews");
-      const srcDocs = join(FACTORIES_ROOT, cloneSource, "docs");
-      try {
-        const { cpSync } = await import("fs");
-        try { cpSync(srcCrews, join(factoryPath, "crews"), { recursive: true }); } catch {}
-        try { cpSync(srcDocs, join(factoryPath, "docs"), { recursive: true }); } catch {}
-      } catch {
-        // cpSync not available (Node < 16.7), skip copy
-      }
-
-      res.writeHead(201, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, factory: factoryJson }));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return;
-  }
-
-  // DELETE /api/factories/:id — delete a factory
-  const factoryDeleteMatch = req.method === "DELETE" && req.url?.match(/^\/api\/factories\/([\w.-]+)$/);
-  if (factoryDeleteMatch) {
-    const fId = factoryDeleteMatch[1];
-    if (fId === "default") {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Cannot delete the default factory" }));
-      return;
-    }
-    try {
-      const { rm } = await import("fs/promises");
-      await rm(join(FACTORIES_ROOT, fId), { recursive: true, force: true });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
+  // POST/DELETE /api/factories — disabled in tClaw (single team)
+  if (req.url?.startsWith("/api/factories") && (req.method === "POST" || req.method === "DELETE")) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, note: "tClaw uses flat crew structure" }));
     return;
   }
 
@@ -869,7 +796,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/skill-lab/training-files — list training skill files
   if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/training-files")) {
     try {
-      const skillsDir = join(AIOC_ROOT, "skills");
+      const skillsDir = join(TCLAW_ROOT, "skills");
       const results = [];
       const scanDir = async (root, kind) => {
         await mkdir(root, { recursive: true });
@@ -924,7 +851,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/report-lab/training-files — list report training files
   if (req.method === "GET" && req.url?.startsWith("/api/report-lab/training-files")) {
     try {
-      const skillsDir = join(AIOC_ROOT, "skills");
+      const skillsDir = join(TCLAW_ROOT, "skills");
       const results = [];
       // Scan skills/training/ for report-*.md files
       const trainingDir = join(skillsDir, "training");
@@ -998,17 +925,15 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/aioc-root — return AIOC base path
   if (req.method === "GET" && req.url === "/api/aioc-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ aiocRoot: AIOC_ROOT }));
+    res.end(JSON.stringify({ aiocRoot: TCLAW_ROOT }));
     return;
   }
 
-  // GET /api/factory-root — return active factory root path
+  // GET /api/factory-root — return tClaw root path
   const factoryRootMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-root(?:\?(.*))?$/);
   if (factoryRootMatch) {
-    const fId = getFactoryId(req.url);
-    const fRoot = join(FACTORIES_ROOT, fId);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ factoryRoot: fRoot, factoryId: fId }));
+    res.end(JSON.stringify({ factoryRoot: TCLAW_ROOT, factoryId: "default" }));
     return;
   }
 
@@ -1175,10 +1100,10 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aiocRoot: AIOC_ROOT, models, currentModel }));
+      res.end(JSON.stringify({ aiocRoot: TCLAW_ROOT, models, currentModel }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aiocRoot: AIOC_ROOT, models: [], currentModel: "", error: err.message }));
+      res.end(JSON.stringify({ aiocRoot: TCLAW_ROOT, models: [], currentModel: "", error: err.message }));
     }
     return;
   }
@@ -1891,11 +1816,11 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
-  // GET /api/factory/:factoryId/crews-pic/:filename — serve crew photo from factory directory
+  // GET /api/factory/:factoryId/crews-pic/:filename — serve crew photo
   const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/factory\/([\w.-]+)\/crews-pic\/(.+)$/);
   if (crewPicMatch) {
-    const [, fId, picName] = crewPicMatch;
-    const picPath = join(FACTORIES_ROOT, fId, "crews", "pic", picName);
+    const [, , picName] = crewPicMatch;
+    const picPath = join(CREWS_ROOT, "pic", picName);
     try {
       const { stat } = await import("fs/promises");
       const s = await stat(picPath);
@@ -1919,7 +1844,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   if (singleFileMatch) {
     const name = singleFileMatch[1];
     const fId = getFactoryId(req.url);
-    const factoryDir = join(FACTORIES_ROOT, fId, "docs");
+    const factoryDir = DOCS_ROOT;
     const filePath = join(factoryDir, name);
     try {
       const content = await readFile(filePath, "utf-8");
@@ -1936,7 +1861,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   const factoryContentListMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content(?:\?.*)?$/);
   if (factoryContentListMatch) {
     const fId = getFactoryId(req.url);
-    const factoryDirPath = join(FACTORIES_ROOT, fId, "docs");
+    const factoryDirPath = DOCS_ROOT;
     try {
       const files = await readdir(factoryDirPath);
       const result = files.sort().map(f => ({ filename: f }));
@@ -2138,7 +2063,7 @@ function startWatcher(root, sseRes) {
 
 // ── tClaw Personal Assistant APIs ──
 
-const TCLAW_DATA_DIR = resolve(AIOC_ROOT, "data");
+const TCLAW_DATA_DIR = resolve(TCLAW_ROOT, "data");
 const TCLAW_USER_FILE = resolve(TCLAW_DATA_DIR, "user.json");
 const TCLAW_CHAT_DIR = resolve(TCLAW_DATA_DIR, "chats");
 
@@ -2690,7 +2615,7 @@ function spawnCli(ptySpawn, opts) {
   const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
   let bin = process.env[config.envBin] || config.bins[binKey];
   const args = config.buildArgs(opts);
-  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || AIOC_ROOT;
+  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || TCLAW_ROOT;
 
   const ptyOpts = {
     name: "xterm-256color", cols: 120, rows: 30,
@@ -2862,9 +2787,9 @@ wss.on("connection", (ws, req) => {
 console.log(`[PTY-WS] WebSocket server listening on ws://127.0.0.1:${WS_PORT}`);
 
 // ── Cron Job Scheduler ──
-const CRON_JOBS_FILE = resolve(AIOC_ROOT, "factories/default/cron-jobs.json");
-const CRON_LOGS_DIR = resolve(AIOC_ROOT, "logs/cron");
-const CRON_RESULTS_DIR = resolve(AIOC_ROOT, "logs/cron-results");
+const CRON_JOBS_FILE = resolve(TCLAW_ROOT, "factories/default/cron-jobs.json");
+const CRON_LOGS_DIR = resolve(TCLAW_ROOT, "logs/cron");
+const CRON_RESULTS_DIR = resolve(TCLAW_ROOT, "logs/cron-results");
 
 // Simple cron expression parser: "min hour day month dow"
 function matchesCron(expr, date) {
@@ -2918,7 +2843,7 @@ async function runCronJob(job) {
       prompt += `\n\nParameters:\n${Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
     }
 
-    const appDir = resolve(AIOC_ROOT, "skills/physical-skill", job.reportAppId);
+    const appDir = resolve(TCLAW_ROOT, "skills/physical-skill", job.reportAppId);
     const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "20", prompt], {
       cwd: appDir,
       env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
