@@ -382,8 +382,8 @@ export default function ChatView({ profile, embedded = false }: Props) {
           /* ── Chat messages ── */
           <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
             {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`flex gap-2.5 max-w-[85%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+              <div key={i} className="flex justify-start">
+                <div className="flex gap-2.5 max-w-[90%]">
                   {/* Avatar */}
                   <div className="flex-shrink-0 mt-1">
                     {msg.role === "assistant" ? (
@@ -396,8 +396,11 @@ export default function ChatView({ profile, embedded = false }: Props) {
                   </div>
                   {/* Bubble */}
                   <div>
-                    <div className={`px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "text-white rounded-2xl rounded-tr-sm" : "bg-white rounded-2xl rounded-tl-sm shadow-sm border border-stone-100 text-stone-700"}`}
-                      style={msg.role === "user" ? { background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` } : {}}>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-medium text-stone-600">{msg.role === "assistant" ? assistantName : profile.name || "你"}</span>
+                      <span className="text-[10px] text-stone-300">{formatTime(msg.timestamp)}</span>
+                    </div>
+                    <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${msg.role === "assistant" ? "bg-white shadow-sm border border-stone-100 text-stone-700" : "bg-stone-50 text-stone-700"}`}>
                       {msg.role === "assistant" ? (
                         <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
                           {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown> : (
@@ -415,7 +418,6 @@ export default function ChatView({ profile, embedded = false }: Props) {
                         <div className="whitespace-pre-wrap">{msg.content}</div>
                       )}
                     </div>
-                    <div className={`text-[10px] text-stone-300 mt-0.5 px-1 ${msg.role === "user" ? "text-right" : ""}`}>{formatTime(msg.timestamp)}</div>
                   </div>
                 </div>
               </div>
