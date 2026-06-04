@@ -280,11 +280,15 @@ const server = createServer(async (req, res) => {
             id: dir,
             name: meta.name || dir,
             description: meta.description || "",
+            icon: meta.icon || "",
             template: meta.template || "",
             skillId: meta.skillId || "",
             hasApp: hasHtml,
             generatedAt: meta.generatedAt || "",
             status: meta.status || "published",
+            dataShape: meta.dataShape || "array",
+            schema: meta.schema || {},
+            aiPrompt: meta.aiPrompt || "",
           });
         } catch { /* skip */ }
       }

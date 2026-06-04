@@ -1,6 +1,7 @@
 // tClaw Universal App Engine
 // All apps are data-driven: defined in data/apps/*.json
-// Generic CRUD tools work for any app based on its field schema
+// Schema-based: dataShape (array|object|none) + schema defines structure
+// Generic CRUD tools work for any app based on its schema
 // New apps can be created at runtime — no code changes needed
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
@@ -11,6 +12,31 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TCLAW_DATA_DIR = resolve(__dirname, "../../../data");
 const APPS_DIR = resolve(TCLAW_DATA_DIR, "apps");
 const APP_DATA_DIR = resolve(TCLAW_DATA_DIR, "app-data");
+
+// ── Helpers to work with schema ──
+
+// Extract fields from schema (new format) or legacy fields array
+function extractFields(app) {
+  if (app.schema?.items?.properties) {
+    // New schema format: { items: { properties: { ... } } }
+    return Object.entries(app.schema.items.properties).map(([name, def]) => ({
+      name,
+      type: def.type || "string",
+      required: def.required || false,
+      label: def.label || name,
+      options: def.enum || undefined,
+      default: def.default !== undefined ? def.default : undefined,
+    }));
+  }
+  // Legacy format: fields array
+  return app.fields || [];
+}
+
+function getDataShape(app) {
+  if (app.dataShape) return app.dataShape;
+  if (app.noData) return "none";
+  return "array";
+}
 
 // ── Load all app definitions ──
 
@@ -63,7 +89,7 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "app_create",
-      description: "建立一個新的自訂 App。使用者描述想要的功能後，AI 幫他定義 fields 和提示詞。",
+      description: "建立一個新的自訂 App。使用者描述想要的功能後，AI 幫他定義 schema。",
       parameters: {
         type: "object",
         properties: {
@@ -71,26 +97,25 @@ async function buildToolDefinitions() {
           name: { type: "string", description: "App 名稱（中文）" },
           icon: { type: "string", description: "App 圖示（emoji）" },
           description: { type: "string", description: "App 描述" },
-          fields: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string", description: "欄位名稱（英文）" },
-                type: { type: "string", enum: ["string", "number", "text", "date", "enum", "array", "boolean"], description: "欄位類型" },
-                label: { type: "string", description: "欄位顯示名稱（中文）" },
-                required: { type: "boolean", description: "是否必填" },
-                options: { type: "array", items: { type: "string" }, description: "enum 選項" },
-                default: { description: "預設值" }
-              },
-              required: ["name", "type"]
-            },
-            description: "資料欄位定義"
+          dataShape: { type: "string", enum: ["array", "object"], description: "資料形態：array（清單）或 object（單一設定）" },
+          schema: {
+            type: "object",
+            description: "JSON Schema 定義資料結構",
+            properties: {
+              items: {
+                type: "object",
+                properties: {
+                  properties: {
+                    type: "object",
+                    description: "欄位定義，key 是欄位名，value 是 { type, required?, default?, enum? }"
+                  }
+                }
+              }
+            }
           },
-          prompt: { type: "string", description: "AI 操作此 App 的提示詞（怎麼判斷要用、怎麼操作）" },
-          listLabel: { type: "string", description: "列表時顯示哪個欄位" }
+          aiPrompt: { type: "string", description: "AI 操作此 App 的簡短提示（一句話）" }
         },
-        required: ["id", "name", "fields", "prompt"]
+        required: ["id", "name", "schema", "aiPrompt"]
       }
     }
   });
@@ -100,7 +125,7 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "app_edit",
-      description: "修改 App 的定義（名稱、欄位、提示詞等）",
+      description: "修改 App 的定義（名稱、schema、提示詞等）",
       parameters: {
         type: "object",
         properties: {
@@ -112,8 +137,9 @@ async function buildToolDefinitions() {
               name: { type: "string" },
               icon: { type: "string" },
               description: { type: "string" },
-              prompt: { type: "string" },
-              fields: { type: "array" }
+              aiPrompt: { type: "string" },
+              schema: { type: "object" },
+              dataShape: { type: "string", enum: ["array", "object", "none"] }
             }
           }
         },
@@ -122,86 +148,26 @@ async function buildToolDefinitions() {
     }
   });
 
-  // For each app with data fields, generate CRUD tools
+  // For each app, generate tools based on dataShape
   for (const app of apps) {
-    if (app.noData) continue;
+    const shape = getDataShape(app);
+    if (shape === "none") continue;
+
     const appId = app.id;
     const appName = app.name;
-    const fieldDesc = app.fields.map(f => `${f.name}(${f.type}${f.required ? ",必填" : ""})`).join(", ");
+    const fields = extractFields(app);
+    const fieldDesc = fields.map(f => `${f.name}(${f.type}${f.required ? ",必填" : ""})`).join(", ");
 
-    // add record
-    tools.push({
-      type: "function",
-      function: {
-        name: `${appId}_add`,
-        description: `${appName}：新增一筆資料。欄位：${fieldDesc}`,
-        parameters: {
-          type: "object",
-          properties: Object.fromEntries(app.fields.map(f => {
-            const prop = { description: f.label || f.name };
-            if (f.type === "enum") prop.enum = f.options;
-            else if (f.type === "number") prop.type = "number";
-            else if (f.type === "boolean") prop.type = "boolean";
-            else if (f.type === "array") { prop.type = "array"; prop.items = { type: "string" }; }
-            else prop.type = "string";
-            return [f.name, prop];
-          })),
-          required: app.fields.filter(f => f.required).map(f => f.name)
-        }
-      }
-    });
-
-    // list/query records
-    const filterProps = {};
-    for (const f of app.fields) {
-      if (f.type === "enum" || f.type === "boolean" || f.type === "string") {
-        filterProps[f.name] = { type: f.type === "enum" ? "string" : f.type, description: `篩選${f.label || f.name}` };
-      }
-    }
-    if (app.filterable || app.searchable) {
-      filterProps._search = { type: "string", description: "關鍵字搜尋" };
-    }
-    tools.push({
-      type: "function",
-      function: {
-        name: `${appId}_list`,
-        description: `${appName}：列出或查詢資料`,
-        parameters: {
-          type: "object",
-          properties: {
-            ...filterProps,
-            _limit: { type: "number", description: "最多回傳幾筆（預設 20）" }
-          },
-          required: []
-        }
-      }
-    });
-
-    // get single record
-    tools.push({
-      type: "function",
-      function: {
-        name: `${appId}_get`,
-        description: `${appName}：取得一筆資料的完整內容`,
-        parameters: {
-          type: "object",
-          properties: { id: { type: "string", description: "記錄 ID" } },
-          required: ["id"]
-        }
-      }
-    });
-
-    // update record
-    tools.push({
-      type: "function",
-      function: {
-        name: `${appId}_update`,
-        description: `${appName}：更新一筆資料`,
-        parameters: {
-          type: "object",
-          properties: {
-            id: { type: "string", description: "記錄 ID" },
-            ...Object.fromEntries(app.fields.map(f => {
+    if (shape === "array") {
+      // add record
+      tools.push({
+        type: "function",
+        function: {
+          name: `${appId}_add`,
+          description: `${appName}：新增一筆資料。欄位：${fieldDesc}`,
+          parameters: {
+            type: "object",
+            properties: Object.fromEntries(fields.map(f => {
               const prop = { description: f.label || f.name };
               if (f.type === "enum") prop.enum = f.options;
               else if (f.type === "number") prop.type = "number";
@@ -209,29 +175,124 @@ async function buildToolDefinitions() {
               else if (f.type === "array") { prop.type = "array"; prop.items = { type: "string" }; }
               else prop.type = "string";
               return [f.name, prop];
-            }))
-          },
-          required: ["id"]
+            })),
+            required: fields.filter(f => f.required).map(f => f.name)
+          }
         }
-      }
-    });
+      });
 
-    // delete record
-    tools.push({
-      type: "function",
-      function: {
-        name: `${appId}_delete`,
-        description: `${appName}：刪除一筆資料`,
-        parameters: {
-          type: "object",
-          properties: { id: { type: "string", description: "記錄 ID" } },
-          required: ["id"]
+      // list/query records
+      const filterProps = {};
+      for (const f of fields) {
+        if (f.type === "enum" || f.type === "boolean" || f.type === "string") {
+          filterProps[f.name] = { type: f.type === "enum" ? "string" : f.type, description: `篩選${f.label || f.name}` };
         }
       }
-    });
+      filterProps._search = { type: "string", description: "關鍵字搜尋" };
+      tools.push({
+        type: "function",
+        function: {
+          name: `${appId}_list`,
+          description: `${appName}：列出或查詢資料`,
+          parameters: {
+            type: "object",
+            properties: {
+              ...filterProps,
+              _limit: { type: "number", description: "最多回傳幾筆（預設 20）" }
+            },
+            required: []
+          }
+        }
+      });
+
+      // get single record
+      tools.push({
+        type: "function",
+        function: {
+          name: `${appId}_get`,
+          description: `${appName}：取得一筆資料的完整內容`,
+          parameters: {
+            type: "object",
+            properties: { id: { type: "string", description: "記錄 ID" } },
+            required: ["id"]
+          }
+        }
+      });
+
+      // update record
+      tools.push({
+        type: "function",
+        function: {
+          name: `${appId}_update`,
+          description: `${appName}：更新一筆資料`,
+          parameters: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "記錄 ID" },
+              ...Object.fromEntries(fields.map(f => {
+                const prop = { description: f.label || f.name };
+                if (f.type === "enum") prop.enum = f.options;
+                else if (f.type === "number") prop.type = "number";
+                else if (f.type === "boolean") prop.type = "boolean";
+                else if (f.type === "array") { prop.type = "array"; prop.items = { type: "string" }; }
+                else prop.type = "string";
+                return [f.name, prop];
+              }))
+            },
+            required: ["id"]
+          }
+        }
+      });
+
+      // delete record
+      tools.push({
+        type: "function",
+        function: {
+          name: `${appId}_delete`,
+          description: `${appName}：刪除一筆資料`,
+          parameters: {
+            type: "object",
+            properties: { id: { type: "string", description: "記錄 ID" } },
+            required: ["id"]
+          }
+        }
+      });
+    }
+
+    if (shape === "object") {
+      // Single object app: get / set
+      tools.push({
+        type: "function",
+        function: {
+          name: `${appId}_get`,
+          description: `${appName}：取得設定`,
+          parameters: { type: "object", properties: {}, required: [] }
+        }
+      });
+
+      tools.push({
+        type: "function",
+        function: {
+          name: `${appId}_set`,
+          description: `${appName}：更新設定。欄位：${fieldDesc}`,
+          parameters: {
+            type: "object",
+            properties: Object.fromEntries(fields.map(f => {
+              const prop = { description: f.label || f.name };
+              if (f.type === "enum") prop.enum = f.options;
+              else if (f.type === "number") prop.type = "number";
+              else if (f.type === "boolean") prop.type = "boolean";
+              else prop.type = "string";
+              return [f.name, prop];
+            })),
+            required: fields.filter(f => f.required).map(f => f.name)
+          }
+        }
+      });
+    }
   }
 
-  // Special tools for files app
+  // Special tools for files app (dataShape: none)
   const hasFiles = apps.find(a => a.id === "files");
   if (hasFiles) {
     tools.push({
@@ -276,158 +337,195 @@ function buildHandlers(apps) {
 
   // app_list
   handlers.app_list = async () => {
-    const list = apps.map(a => `${a.icon} **${a.name}** — ${a.description}${a.builtIn ? " (內建)" : ""}`).join("\n");
-    return { text: list || "目前沒有任何 App", apps: apps.map(a => ({ id: a.id, name: a.name, icon: a.icon })) };
+    const list = apps.map(a => `${a.icon} **${a.name}** — ${a.description}`).join("\n");
+    return { text: list || "目前沒有任何 App", apps: apps.map(a => ({ id: a.id, name: a.name, icon: a.icon, dataShape: getDataShape(a) })) };
   };
 
   // app_create — create new app at runtime!
-  handlers.app_create = async ({ id, name, icon, description, fields, prompt, listLabel }) => {
-    // Validate ID
+  handlers.app_create = async ({ id, name, icon, description, dataShape, schema, aiPrompt }) => {
     if (!/^[a-z][a-z0-9_]*$/.test(id)) {
       return { text: "❌ App ID 只能用小寫英文、數字和底線，必須以英文開頭", error: true };
     }
-    // Check if already exists
     const existing = apps.find(a => a.id === id);
     if (existing) {
       return { text: `❌ App「${name}」已經存在（ID: ${id}）`, error: true };
     }
-    const appDef = { id, name, icon: icon || "📦", description: description || name, fields, prompt, listLabel: listLabel || fields[0]?.name || "id", systemFields: ["id", "createdAt"], createdAt: new Date().toISOString() };
+    const appDef = {
+      id,
+      name,
+      icon: icon || "📦",
+      description: description || name,
+      status: "published",
+      dataShape: dataShape || "array",
+      schema,
+      aiPrompt,
+      createdAt: new Date().toISOString(),
+    };
     await mkdir(APPS_DIR, { recursive: true });
     await writeFile(resolve(APPS_DIR, `${id}.json`), JSON.stringify(appDef, null, 2), "utf-8");
-    // Initialize empty data file
-    await saveAppData(id, []);
-    return { text: `✅ 已建立 App「${name}」${icon || "📦"}！現在可以用 ${id}_add 來新增資料了。`, app: appDef };
+    // Initialize data file
+    const initialData = appDef.dataShape === "object" ? {} : [];
+    await saveAppData(id, initialData);
+    return { text: `✅ 已建立 App「${name}」${icon || "📦"}！`, app: appDef };
   };
 
   // app_edit
   handlers.app_edit = async ({ id, changes }) => {
     const appDef = apps.find(a => a.id === id);
     if (!appDef) return { text: `❌ 找不到 App: ${id}`, error: true };
-    const { readFile: rf, writeFile: wf } = await import("fs/promises");
     const fp = resolve(APPS_DIR, `${id}.json`);
-    const current = JSON.parse(await rf(fp, "utf-8"));
-    if (changes.name) current.name = changes.name;
-    if (changes.icon) current.icon = changes.icon;
-    if (changes.description) current.description = changes.description;
-    if (changes.prompt) current.prompt = changes.prompt;
-    if (changes.fields) current.fields = changes.fields;
-    await wf(fp, JSON.stringify(current, null, 2), "utf-8");
+    const current = JSON.parse(await readFile(fp, "utf-8"));
+    for (const [key, val] of Object.entries(changes)) {
+      if (val !== undefined) current[key] = val;
+    }
+    await writeFile(fp, JSON.stringify(current, null, 2), "utf-8");
+    invalidateCache();
     return { text: `✅ 已更新 App「${current.name}」`, app: current };
   };
 
-  // Generic CRUD handlers for each app
+  // Generic handlers for each app based on dataShape
   for (const app of apps) {
-    if (app.noData) continue;
+    const shape = getDataShape(app);
+    if (shape === "none") continue;
+
     const appId = app.id;
+    const fields = extractFields(app);
 
-    // add
-    handlers[`${appId}_add`] = async (args) => {
-      const data = await loadAppData(appId);
-      const id = `${appId}_${Date.now().toString(36)}`;
-      const record = { id, createdAt: new Date().toISOString() };
-      // Apply defaults and fill fields
-      for (const f of app.fields) {
-        if (args[f.name] !== undefined) record[f.name] = args[f.name];
-        else if (f.default !== undefined) record[f.name] = f.default;
-      }
-      data.push(record);
-      await saveAppData(appId, data);
-      const displayField = app.listLabel || app.fields[0]?.name || "id";
-      return { text: `✅ 已新增 ${app.icon} ${record[displayField] || id}`, record };
-    };
-
-    // list
-    handlers[`${appId}_list`] = async (args) => {
-      const data = await loadAppData(appId);
-      let filtered = data;
-      // Apply filters
-      for (const f of app.fields) {
-        if (args[f.name] !== undefined) {
-          filtered = filtered.filter(r => r[f.name] === args[f.name]);
+    if (shape === "array") {
+      // add
+      handlers[`${appId}_add`] = async (args) => {
+        const data = await loadAppData(appId);
+        const id = `${appId}_${Date.now().toString(36)}`;
+        const record = { id, createdAt: new Date().toISOString() };
+        for (const f of fields) {
+          if (args[f.name] !== undefined) record[f.name] = args[f.name];
+          else if (f.default !== undefined) record[f.name] = f.default;
         }
-      }
-      // Search
-      if (args._search) {
-        const q = args._search.toLowerCase();
-        const searchFields = app.searchable || app.fields.map(f => f.name);
-        filtered = filtered.filter(r => searchFields.some(sf => String(r[sf] || "").toLowerCase().includes(q)));
-      }
-      // Limit
-      const limit = args._limit || 20;
-      filtered = filtered.slice(0, limit);
-      if (filtered.length === 0) return { text: `${app.icon} ${app.name}沒有資料`, records: [] };
-      const displayField = app.listLabel || app.fields[0]?.name || "id";
-      const list = filtered.map(r => {
-        let line = `${app.icon} [${r.id}] ${r[displayField] || ""}`;
-        // Show status-like fields inline
-        for (const f of app.fields) {
-          if (f.name !== displayField && r[f.name] !== undefined && f.type === "enum") {
-            line += ` (${r[f.name]})`;
+        data.push(record);
+        await saveAppData(appId, data);
+        const displayField = fields[0]?.name || "id";
+        return { text: `✅ 已新增 ${app.icon} ${record[displayField] || id}`, record };
+      };
+
+      // list
+      handlers[`${appId}_list`] = async (args) => {
+        const data = await loadAppData(appId);
+        let filtered = data;
+        for (const f of fields) {
+          if (args[f.name] !== undefined) {
+            filtered = filtered.filter(r => r[f.name] === args[f.name]);
           }
         }
-        return line;
-      }).join("\n");
-      return { text: list, records: filtered };
-    };
+        if (args._search) {
+          const q = args._search.toLowerCase();
+          filtered = filtered.filter(r => fields.some(f => String(r[f.name] || "").toLowerCase().includes(q)));
+        }
+        const limit = args._limit || 20;
+        filtered = filtered.slice(0, limit);
+        if (filtered.length === 0) return { text: `${app.icon} ${app.name}沒有資料`, records: [] };
+        const displayField = fields[0]?.name || "id";
+        const list = filtered.map(r => {
+          let line = `${app.icon} [${r.id}] ${r[displayField] || ""}`;
+          for (const f of fields) {
+            if (f.name !== displayField && r[f.name] !== undefined && f.type === "enum") {
+              line += ` (${r[f.name]})`;
+            }
+          }
+          return line;
+        }).join("\n");
+        return { text: list, records: filtered };
+      };
 
-    // get
-    handlers[`${appId}_get`] = async ({ id }) => {
-      const data = await loadAppData(appId);
-      const record = data.find(r => r.id === id);
-      if (!record) return { text: `❌ 找不到 ID: ${id}`, error: true };
-      const details = Object.entries(record).map(([k, v]) => {
-        const fieldDef = app.fields.find(f => f.name === k);
-        const label = fieldDef?.label || k;
-        return `**${label}**: ${Array.isArray(v) ? v.join(", ") : v}`;
-      }).join("\n");
-      return { text: `## ${record[app.listLabel] || id}\n\n${details}`, record };
-    };
+      // get
+      handlers[`${appId}_get`] = async ({ id }) => {
+        const data = await loadAppData(appId);
+        const record = data.find(r => r.id === id);
+        if (!record) return { text: `❌ 找不到 ID: ${id}`, error: true };
+        const details = Object.entries(record).map(([k, v]) => {
+          const fieldDef = fields.find(f => f.name === k);
+          const label = fieldDef?.label || k;
+          return `**${label}**: ${Array.isArray(v) ? v.join(", ") : v}`;
+        }).join("\n");
+        return { text: `## ${record[fields[0]?.name] || id}\n\n${details}`, record };
+      };
 
-    // update
-    handlers[`${appId}_update`] = async (args) => {
-      const { id, ...updates } = args;
-      const data = await loadAppData(appId);
-      const idx = data.findIndex(r => r.id === id);
-      if (idx === -1) return { text: `❌ 找不到 ID: ${id}`, error: true };
-      for (const [k, v] of Object.entries(updates)) {
-        if (k === "id") continue;
-        data[idx][k] = v;
-      }
-      await saveAppData(appId, data);
-      const displayField = app.listLabel || app.fields[0]?.name || "id";
-      return { text: `✅ 已更新 ${app.icon} ${data[idx][displayField] || id}`, record: data[idx] };
-    };
+      // update
+      handlers[`${appId}_update`] = async (args) => {
+        const { id, ...updates } = args;
+        const data = await loadAppData(appId);
+        const idx = data.findIndex(r => r.id === id);
+        if (idx === -1) return { text: `❌ 找不到 ID: ${id}`, error: true };
+        for (const [k, v] of Object.entries(updates)) {
+          if (k === "id") continue;
+          data[idx][k] = v;
+        }
+        await saveAppData(appId, data);
+        const displayField = fields[0]?.name || "id";
+        return { text: `✅ 已更新 ${app.icon} ${data[idx][displayField] || id}`, record: data[idx] };
+      };
 
-    // delete
-    handlers[`${appId}_delete`] = async ({ id }) => {
-      let data = await loadAppData(appId);
-      const target = data.find(r => r.id === id);
-      if (!target) return { text: `❌ 找不到 ID: ${id}`, error: true };
-      data = data.filter(r => r.id !== id);
-      await saveAppData(appId, data);
-      const displayField = app.listLabel || app.fields[0]?.name || "id";
-      return { text: `🗑️ 已刪除 ${app.icon} ${target[displayField] || id}` };
-    };
+      // delete
+      handlers[`${appId}_delete`] = async ({ id }) => {
+        let data = await loadAppData(appId);
+        const target = data.find(r => r.id === id);
+        if (!target) return { text: `❌ 找不到 ID: ${id}`, error: true };
+        data = data.filter(r => r.id !== id);
+        await saveAppData(appId, data);
+        const displayField = fields[0]?.name || "id";
+        return { text: `🗑️ 已刪除 ${app.icon} ${target[displayField] || id}` };
+      };
+    }
+
+    if (shape === "object") {
+      // get — return the single object
+      handlers[`${appId}_get`] = async () => {
+        const data = await loadAppData(appId);
+        if (!data || Object.keys(data).length === 0) {
+          return { text: `${app.icon} ${app.name}尚未設定`, data: {} };
+        }
+        const details = Object.entries(data).map(([k, v]) => {
+          const fieldDef = fields.find(f => f.name === k);
+          const label = fieldDef?.label || k;
+          return `**${label}**: ${Array.isArray(v) ? v.join(", ") : v}`;
+        }).join("\n");
+        return { text: `## ${app.name}\n\n${details}`, data };
+      };
+
+      // set — update fields of the single object
+      handlers[`${appId}_set`] = async (args) => {
+        let data = await loadAppData(appId);
+        if (!data || typeof data !== "object" || Array.isArray(data)) data = {};
+        for (const f of fields) {
+          if (args[f.name] !== undefined) data[f.name] = args[f.name];
+          else if (f.default !== undefined && data[f.name] === undefined) data[f.name] = f.default;
+        }
+        data.updatedAt = new Date().toISOString();
+        await saveAppData(appId, data);
+        return { text: `✅ 已更新 ${app.icon} ${app.name}`, data };
+      };
+    }
   }
 
-  // Special: memory_save also updates MEMORY.md
+  // Special: memory_add also updates MEMORY.md
   if (handlers.memory_add) {
     const origMemoryAdd = handlers.memory_add;
     handlers.memory_add = async (args) => {
       const result = await origMemoryAdd(args);
-      // Update MEMORY.md
       try {
         const memPath = resolve(TCLAW_DATA_DIR, "MEMORY.md");
         let memContent = "";
         try { memContent = await readFile(memPath, "utf-8"); } catch {}
-        const sectionHeader = `## ${args.key}`;
-        const sectionBlock = `${sectionHeader}\n${args.content}`;
-        const sectionRegex = new RegExp(`^## ${args.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, "m");
+        const fields = extractFields(apps.find(a => a.id === "memory"));
+        const keyField = args[fields?.find(f => f.name === "key")?.name || "key"] || "untitled";
+        const contentField = args[fields?.find(f => f.name === "content")?.name || "content"] || "";
+        const sectionHeader = `## ${keyField}`;
+        const sectionBlock = `${sectionHeader}\n${contentField}`;
+        const sectionRegex = new RegExp(`^## ${keyField.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, "m");
         if (sectionRegex.test(memContent)) {
           const lines = memContent.split("\n");
           let startIdx = -1, endIdx = lines.length;
           for (let i = 0; i < lines.length; i++) {
-            if (lines[i].match(new RegExp(`^## ${args.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`))) { startIdx = i; }
+            if (lines[i].match(new RegExp(`^## ${keyField.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`))) { startIdx = i; }
             else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
           }
           if (startIdx >= 0) {
@@ -445,7 +543,7 @@ function buildHandlers(apps) {
     };
   }
 
-  // File tools (special, not data-driven)
+  // File tools (dataShape: none, special tools)
   handlers.file_list = async ({ path: dirPath = ".", workspace } = {}) => {
     try {
       const workspaces = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "workspaces.json"), "utf-8"));
@@ -479,26 +577,32 @@ function buildHandlers(apps) {
 }
 
 // ── Build system prompt section for all apps ──
+// Global rule: API is /api/app-data/{appId}, universal for all apps
+// Each app only needs: name, description, aiPrompt (short hint)
 
 function buildAppInstructions(apps) {
-  return apps.map(app => {
+  const lines = ["通用 API：/api/app-data/{appId}（GET 讀取、POST 新增、PATCH 更新、DELETE 刪除）\n"];
+  for (const app of apps) {
+    const shape = getDataShape(app);
     let desc = `${app.icon} **${app.name}** — ${app.description}`;
-    if (app.noData) {
+    if (shape === "none") {
       desc += `\n工具：${(app.tools || []).join(", ")}`;
+    } else if (shape === "object") {
+      desc += `\n工具：${app.id}_get, ${app.id}_set`;
     } else {
       desc += `\n工具：${app.id}_add, ${app.id}_list, ${app.id}_get, ${app.id}_update, ${app.id}_delete`;
-      desc += `\n欄位：${app.fields.map(f => `${f.name}(${f.label || f.name}${f.required ? ",必填" : ""})`).join(", ")}`;
     }
-    desc += `\n操作指南：${app.prompt}`;
-    return desc;
-  }).join("\n\n");
+    desc += `\n${app.aiPrompt || ""}`;
+    lines.push(desc);
+  }
+  return lines.join("\n\n");
 }
 
-// ── Cache layer: tools are built once, refreshed on demand ──
+// ── Cache layer ──
 
 let _cache = null;
 let _cacheTime = 0;
-const CACHE_TTL = 30000; // 30s cache, apps can be added without restart
+const CACHE_TTL = 30000;
 
 async function getToolsAndHandlers() {
   const now = Date.now();
@@ -512,7 +616,6 @@ async function getToolsAndHandlers() {
   return _cache;
 }
 
-// Force refresh (called after app_create)
 function invalidateCache() { _cache = null; _cacheTime = 0; }
 
 export { getToolsAndHandlers, invalidateCache, buildAppInstructions };
