@@ -24,6 +24,7 @@ interface UserProfile {
   intro: string;
   style: string;
   assistantAvatar?: string;
+  assistantName?: string;
 }
 
 interface ProviderInfo {
@@ -39,6 +40,7 @@ interface Props {
 
 export default function ChatView({ profile, embedded = false }: Props) {
   const { info: themeInfo } = useTheme();
+  const assistantName = profile.assistantName || "林語晴";
 
   // ── State ──
   const [chats, setChats] = useState<Chat[]>([]);
@@ -57,6 +59,18 @@ export default function ChatView({ profile, embedded = false }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const chatAreaRef = useRef<HTMLDivElement>(null);
+
+  // ── Assistant avatar ──
+  const avatarSrc = profile.assistantAvatar
+    ? (profile.assistantAvatar.startsWith("/") ? `${API_BASE}${profile.assistantAvatar}` : profile.assistantAvatar)
+    : null;
+
+  const AssistantAvatar = ({ size = "w-8 h-8" }: { size?: string }) => avatarSrc ? (
+    <img src={avatarSrc} className={`${size} rounded-full object-cover ring-2 ring-white shadow-md`} alt={assistantName} />
+  ) : (
+    <div className={`${size} rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center shadow-md`} style={{ fontSize: "calc(var(--avatar-size, 2rem) * 0.4)" }}>🐾</div>
+  );
 
   // ── Load providers ──
   useEffect(() => {
@@ -106,7 +120,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
     const chatId = `chat_${Date.now()}`;
     const greeting: Message = {
       role: "assistant",
-      content: `嗨${profile.name ? ` ${profile.name}` : ""}！👋 我是${profile.assistantName || "林語晴"}，你的個人助理 🌤️\n\n有什麼可以幫你的嗎？`,
+      content: `嗨${profile.name ? ` ${profile.name}` : ""}！我是${assistantName}，有什麼可以幫你的嗎？ 🌤️`,
       timestamp: new Date().toISOString(),
     };
     const newChat = { id: chatId, title: "新對話", messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -160,7 +174,6 @@ export default function ChatView({ profile, embedded = false }: Props) {
     setInput("");
     setIsLoading(true);
 
-    // Prepare assistant placeholder
     const assistantMsg: Message = { role: "assistant", content: "", timestamp: new Date().toISOString() };
     const withAssistant = [...newMessages, assistantMsg];
     setMessages(withAssistant);
@@ -188,7 +201,6 @@ export default function ChatView({ profile, embedded = false }: Props) {
         return;
       }
 
-      // Read SSE stream
       const reader = resp.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -202,7 +214,6 @@ export default function ChatView({ profile, embedded = false }: Props) {
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
-        let toolCallDisplay = "";
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
@@ -216,23 +227,19 @@ export default function ChatView({ profile, embedded = false }: Props) {
               fullContent += parsed.content;
             } else if (parsed.tool_call) {
               const tc = parsed.tool_call;
-              const icon = { todo_add: "📝", todo_list: "📋", todo_update: "✏️", todo_delete: "🗑️", note_create: "📝", note_list: "📓", note_read: "📖", note_delete: "🗑️", file_read: "📄", file_list: "📁", memory_save: "🧠", memory_read: "💭", web_search: "🔍" }[tc.name] || "🔧";
+              const icons: Record<string, string> = { todo_add: "📝", todo_list: "📋", todo_update: "✏️", todo_delete: "🗑️", note_create: "📝", note_list: "📓", note_read: "📖", note_delete: "🗑️", file_read: "📄", file_list: "📁", memory_add: "🧠", memory_list: "💭", web_search: "🔍", app_create: "🧪", app_list: "📦" };
+              const icon = icons[tc.name] || "🔧";
               const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-              if (tc.status === "executing") {
-                toolCallDisplay = `${icon} ${label}...`;
-              }
+              fullContent += `\n\n> ${icon} **${label}** ...\n`;
             } else if (parsed.tool_result) {
               const tr = parsed.tool_result;
               if (tr.result?.text) {
-                // Append tool result as a visible card
-                fullContent += `\n\n> 🔧 **${tr.name.replace(/_/g, " ")}**\n> ${tr.result.text.split("\n").join("\n> ")}\n`;
+                fullContent += `> ${tr.result.text.split("\n").join("\n> ")}\n\n`;
               }
-              toolCallDisplay = "";
             }
           } catch {}
         }
 
-        // Update message progressively
         assistantMsg.content = fullContent;
         setMessages([...newMessages, { ...assistantMsg }]);
       }
@@ -252,25 +259,16 @@ export default function ChatView({ profile, embedded = false }: Props) {
     }
   };
 
-  const handleStop = () => {
-    abortRef.current?.abort();
-  };
+  const handleStop = () => { abortRef.current?.abort(); };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); handleSend(); }
   };
 
   const formatTime = (ts: string) => new Date(ts).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
 
   const activeProvider = providers.find(p => p.id === activeProviderId);
   const activeModelName = activeProvider?.models.find(m => m.id === activeModel)?.name || activeModel;
-
-  // Assistant avatar component
-  const AssistantAvatar = ({ size = "w-7 h-7" }: { size?: string }) => profile.assistantAvatar ? (
-    <img src={profile.assistantAvatar.startsWith("/") ? `${API_BASE}${profile.assistantAvatar}` : profile.assistantAvatar} className={`${size} rounded-full shadow-sm object-cover`} alt="林語晴" />
-  ) : (
-    <div className={`${size} rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-xs shadow-sm`}>🐾</div>
-  );
 
   const switchModel = async (providerId: string, modelId: string) => {
     setActiveProviderId(providerId);
@@ -287,101 +285,141 @@ export default function ChatView({ profile, embedded = false }: Props) {
   // ── Render ──
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: themeInfo.accentBg }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-1.5 border-b shrink-0" style={{ borderColor: themeInfo.accentBorder + "30" }}>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowChatList(!showChatList)} className="text-xs px-2.5 py-1 rounded-md border transition-colors" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
-            💬 {chats.length} 則對話
-          </button>
-          {activeChatId && chats.find(c => c.id === activeChatId) && (
-            <span className="text-xs text-stone-400 truncate max-w-[200px]">{chats.find(c => c.id === activeChatId)?.title}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Model picker */}
+
+      {/* ── Header: 林語晴照片 + 名字 + 控制列 ── */}
+      <div className="shrink-0 border-b" style={{ borderColor: themeInfo.accentBorder + "30", background: "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)" }}>
+        {/* Profile bar */}
+        <div className="flex items-center gap-3 px-4 py-2.5">
           <div className="relative">
-            <button onClick={() => setShowModelPicker(!showModelPicker)} className="text-xs px-2.5 py-1 rounded-md border flex items-center gap-1 transition-colors" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
-              🤖 {activeModelName}
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-            </button>
-            {showModelPicker && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowModelPicker(false)} />
-                <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
-                  {providers.map(p => (
-                    <div key={p.id}>
-                      <div className="px-3 py-1.5 bg-stone-50 border-b border-stone-100">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{p.name}</span>
-                      </div>
-                      {p.models.map(m => (
-                        <button
-                          key={`${p.id}/${m.id}`}
-                          onClick={() => switchModel(p.id, m.id)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-stone-50 transition-colors ${activeProviderId === p.id && activeModel === m.id ? "bg-stone-50 font-medium" : ""}`}
-                        >
-                          <span className="flex-1">{m.name}</span>
-                          {activeProviderId === p.id && activeModel === m.id && <span style={{ color: themeInfo.accent }}>✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+            <AssistantAvatar size="w-10 h-10" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
           </div>
-          <button onClick={createNewChat} className="text-xs px-2.5 py-1 rounded-md text-white transition-colors" style={{ background: themeInfo.accent }}>＋ 新對話</button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-bold text-stone-800 leading-tight">{assistantName}</h2>
+            <p className="text-[11px] text-stone-400">你的個人助理 · 在線</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setShowChatList(!showChatList)} className="text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
+              💬
+            </button>
+            <div className="relative">
+              <button onClick={() => setShowModelPicker(!showModelPicker)} className="text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 flex items-center gap-1" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
+                🤖 {activeModelName}
+              </button>
+              {showModelPicker && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowModelPicker(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
+                    {providers.map(p => (
+                      <div key={p.id}>
+                        <div className="px-3 py-1.5 bg-stone-50 border-b border-stone-100">
+                          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{p.name}</span>
+                        </div>
+                        {p.models.map(m => (
+                          <button key={`${p.id}/${m.id}`} onClick={() => switchModel(p.id, m.id)}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-stone-50 transition-colors ${activeProviderId === p.id && activeModel === m.id ? "bg-stone-50 font-medium" : ""}`}>
+                            <span className="flex-1">{m.name}</span>
+                            {activeProviderId === p.id && activeModel === m.id && <span style={{ color: themeInfo.accent }}>✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <button onClick={createNewChat} className="text-[11px] px-2 py-1 rounded-lg text-white font-medium transition-colors" style={{ background: themeInfo.accent }}>＋</button>
+          </div>
         </div>
+
+        {/* Chat list dropdown */}
+        {showChatList && (
+          <div className="border-t max-h-36 overflow-y-auto bg-white" style={{ scrollbarWidth: "thin", borderColor: themeInfo.accentBorder + "20" }}>
+            {chats.length === 0 && <div className="px-4 py-3 text-center text-stone-400 text-xs">還沒有對話紀錄</div>}
+            {chats.map((chat) => (
+              <div key={chat.id} className={`group flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors text-sm ${chat.id === activeChatId ? "bg-stone-50 font-medium" : "hover:bg-stone-50"}`} onClick={() => selectChat(chat)}>
+                <span className="text-stone-400 text-xs">💬</span>
+                <span className="flex-1 truncate text-stone-600">{chat.title}</span>
+                <span className="text-[10px] text-stone-300">{formatTime(chat.updatedAt)}</span>
+                <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }} className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 transition-all">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Chat list dropdown */}
-      {showChatList && (
-        <div className="border-b shrink-0 max-h-40 overflow-y-auto bg-white" style={{ scrollbarWidth: "thin", borderColor: themeInfo.accentBorder + "30" }}>
-          {chats.length === 0 && <div className="px-4 py-3 text-center text-stone-400 text-xs">還沒有對話紀錄</div>}
-          {chats.map((chat) => (
-            <div key={chat.id} className={`group flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors text-sm ${chat.id === activeChatId ? "bg-stone-50 font-medium" : "hover:bg-stone-50"}`} onClick={() => selectChat(chat)}>
-              <span className="flex-1 truncate text-stone-600">{chat.title}</span>
-              <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }} className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 transition-all">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      {/* ── Messages area ── */}
+      <div ref={chatAreaRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+        {!activeChatId ? (
+          /* ── Empty state: welcome card ── */
+          <div className="flex flex-col items-center justify-center h-full px-4">
+            <div className="text-center max-w-sm">
+              <div className="mx-auto mb-6">
+                {avatarSrc ? (
+                  <img src={avatarSrc} className="w-24 h-24 rounded-full object-cover ring-4 ring-amber-100 shadow-lg shadow-amber-200/30 mx-auto" alt={assistantName} />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-4xl ring-4 ring-amber-100 shadow-lg shadow-amber-200/30 mx-auto">🐾</div>
+                )}
+              </div>
+              <h2 className="text-xl font-bold text-stone-800 mb-1">{assistantName}</h2>
+              <p className="text-stone-400 text-sm mb-6">你的個人 AI 助理</p>
+              <div className="space-y-2 mb-8">
+                {[
+                  { icon: "📋", text: "幫我加一個待辦事項" },
+                  { icon: "📝", text: "記一下今天的重點" },
+                  { icon: "🧠", text: "記住我喜歡 dark mode" },
+                ].map((hint, i) => (
+                  <button key={i} onClick={createNewChat} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-stone-200 text-sm text-stone-600 hover:border-stone-300 hover:shadow-sm transition-all text-left">
+                    <span>{hint.icon}</span>
+                    <span>{hint.text}</span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={createNewChat} className="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg hover:shadow-xl transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+                開始對話 →
               </button>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: "thin" }}>
-        {!activeChatId ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <AssistantAvatar size="w-16 h-16" />
-            <h2 className="text-lg font-bold text-stone-700 mb-1">嗨{profile.name ? ` ${profile.name}` : ""}！</h2>
-            <p className="text-stone-400 text-sm mb-5">我是{profile.assistantName || "林語晴"}，你的個人助理</p>
-            <button onClick={createNewChat} className="px-5 py-2 rounded-xl text-white font-medium text-sm shadow-lg transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              開始新對話
-            </button>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto space-y-4">
+          /* ── Chat messages ── */
+          <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`flex gap-2.5 max-w-[80%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                <div className={`flex gap-2.5 max-w-[85%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                  {/* Avatar */}
                   <div className="flex-shrink-0 mt-1">
                     {msg.role === "assistant" ? (
-                      <AssistantAvatar />
+                      <AssistantAvatar size="w-8 h-8" />
                     ) : (
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: themeInfo.accent }}>{profile.name?.charAt(0) || "?"}</div>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+                        {profile.name?.charAt(0) || "?"}
+                      </div>
                     )}
                   </div>
+                  {/* Bubble */}
                   <div>
-                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === "user" ? "text-white rounded-tr-md" : "bg-white border border-stone-200 text-stone-700 rounded-tl-md shadow-sm"}`} style={msg.role === "user" ? { background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` } : {}}>
+                    <div className={`px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "text-white rounded-2xl rounded-tr-sm" : "bg-white rounded-2xl rounded-tl-sm shadow-sm border border-stone-100 text-stone-700"}`}
+                      style={msg.role === "user" ? { background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` } : {}}>
                       {msg.role === "assistant" ? (
-                        <div className="prose prose-stone prose-sm max-w-none">
-                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown> : <span className="text-stone-300 animate-pulse">思考中...</span>}
+                        <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
+                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown> : (
+                            <div className="flex items-center gap-1.5 text-stone-300">
+                              <div className="flex gap-1">
+                                <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                              </div>
+                              <span className="text-xs">思考中</span>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="whitespace-pre-wrap">{msg.content}</div>
                       )}
                     </div>
-                    <div className={`text-[10px] text-stone-400 mt-0.5 ${msg.role === "user" ? "text-right" : ""}`}>{formatTime(msg.timestamp)}</div>
+                    <div className={`text-[10px] text-stone-300 mt-0.5 px-1 ${msg.role === "user" ? "text-right" : ""}`}>{formatTime(msg.timestamp)}</div>
                   </div>
                 </div>
               </div>
@@ -391,15 +429,20 @@ export default function ChatView({ profile, embedded = false }: Props) {
         )}
       </div>
 
-      {/* Input */}
+      {/* ── Input bar ── */}
       {activeChatId && (
-        <div className="px-4 py-3 border-t bg-white shrink-0" style={{ borderColor: themeInfo.accentBorder + "40" }}>
+        <div className="shrink-0 px-4 py-3 border-t bg-white/80 backdrop-blur-sm" style={{ borderColor: themeInfo.accentBorder + "30" }}>
           <div className="max-w-3xl mx-auto flex gap-2 items-end">
-            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="輸入訊息... (Enter 發送, Shift+Enter 換行)" rows={1} className="flex-1 px-3.5 py-2.5 rounded-xl border-2 border-stone-200 text-sm focus:outline-none resize-none transition-colors" style={{ maxHeight: 120 }} />
+            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+              placeholder={`跟${assistantName}說點什麼...`}
+              rows={1}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none transition-colors bg-stone-50" style={{ maxHeight: 120 }} />
             {isLoading ? (
-              <button onClick={handleStop} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm transition-all flex-shrink-0 bg-rose-500 hover:bg-rose-600">停止</button>
+              <button onClick={handleStop} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm bg-rose-500 hover:bg-rose-600 flex-shrink-0 transition-colors">停止</button>
             ) : (
-              <button onClick={handleSend} disabled={!input.trim()} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm transition-all disabled:opacity-40 flex-shrink-0" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>送出</button>
+              <button onClick={handleSend} disabled={!input.trim()} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm disabled:opacity-40 flex-shrink-0 transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" /></svg>
+              </button>
             )}
           </div>
         </div>
