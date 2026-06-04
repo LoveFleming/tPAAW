@@ -1,8 +1,0 @@
-{
-  "name": "Daily Stats",
-  "description": "每日統計報表",
-  "template": "dashboard",
-  "skillId": "daily-stats",
-  "generatedAt": "2026-05-31T19:33:00.000Z",
-  "status": "published"
-}

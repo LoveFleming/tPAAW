@@ -1,0 +1,13 @@
+{
+  "name": "我的待辦",
+  "description": "簡單實用的待辦事項管理工具，資料儲存在伺服器端",
+  "icon": "✅",
+  "template": "todo",
+  "skillId": "todo",
+  "version": "2.0.0",
+  "generatedAt": "2026-06-04T14:00:00.000Z",
+  "publishedAt": "2026-06-04T14:00:00.000Z",
+  "status": "published",
+  "dataFile": "todo.json",
+  "features": ["add", "toggle", "delete", "search", "filter"]
+}

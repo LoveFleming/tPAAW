@@ -297,6 +297,124 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── App Data API (persistent storage per app) ──
+
+  // Helper: read request body inline (readBody may not be in scope yet)
+  const _readBody = (req) => new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", c => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString()));
+    req.on("error", reject);
+  });
+
+  // GET /api/app-data/:appId — read app data
+  const appDataGetMatch = req.method === "GET" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
+  if (appDataGetMatch) {
+    const appId = appDataGetMatch[1];
+    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    await mkdir(dataDir, { recursive: true });
+    const filePath = join(dataDir, `${appId}.json`);
+    try {
+      const data = await readFile(filePath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(data);
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end("[]");
+    }
+    return;
+  }
+
+  // PUT /api/app-data/:appId — save app data (full replace)
+  const appDataPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
+  if (appDataPutMatch) {
+    const appId = appDataPutMatch[1];
+    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    await mkdir(dataDir, { recursive: true });
+    const filePath = join(dataDir, `${appId}.json`);
+    try {
+      const body = await _readBody(req);
+      JSON.parse(body); // validate JSON
+      await writeFile(filePath, body, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/app-data/:appId — add item to app data array
+  const appDataPostMatch = req.method === "POST" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
+  if (appDataPostMatch) {
+    const appId = appDataPostMatch[1];
+    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    await mkdir(dataDir, { recursive: true });
+    const filePath = join(dataDir, `${appId}.json`);
+    try {
+      let items = [];
+      try { items = JSON.parse(await readFile(filePath, "utf-8")); } catch {}
+      const newItem = JSON.parse(await _readBody(req));
+      if (!newItem.id) newItem.id = `todo_${Date.now()}`;
+      if (!newItem.createdAt) newItem.createdAt = new Date().toISOString();
+      items.push(newItem);
+      await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(newItem));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // DELETE /api/app-data/:appId/:itemId — delete item
+  const appDataDelMatch = req.method === "DELETE" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
+  if (appDataDelMatch) {
+    const [, appId, itemId] = appDataDelMatch;
+    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    await mkdir(dataDir, { recursive: true });
+    const filePath = join(dataDir, `${appId}.json`);
+    try {
+      let items = [];
+      try { items = JSON.parse(await readFile(filePath, "utf-8")); } catch {}
+      const before = items.length;
+      items = items.filter(i => i.id !== itemId);
+      await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, deleted: before - items.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // PATCH /api/app-data/:appId/:itemId — update item
+  const appDataPatchMatch = req.method === "PATCH" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
+  if (appDataPatchMatch) {
+    const [, appId, itemId] = appDataPatchMatch;
+    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    await mkdir(dataDir, { recursive: true });
+    const filePath = join(dataDir, `${appId}.json`);
+    try {
+      let items = [];
+      try { items = JSON.parse(await readFile(filePath, "utf-8")); } catch {}
+      const idx = items.findIndex(i => i.id === itemId);
+      if (idx < 0) { res.writeHead(404); res.end("Item not found"); return; }
+      const patch = JSON.parse(await _readBody(req));
+      items[idx] = { ...items[idx], ...patch, id: itemId };
+      await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(items[idx]));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // POST /api/app-run/:id — run AI to generate app content on-the-fly
   const appRunMatch = req.method === "POST" && req.url?.match(/^\/api\/app-run\/([\w.-]+)(?:\?.*)?$/);
   if (appRunMatch) {
@@ -1995,9 +2113,6 @@ async function tclawApiHandler(req, res) {
     return;
   }
 
-  res.writeHead(404);
-  res.end("Not found");
-
 async function buildTree(absRoot, currentPath, maxDepth) {
   const IGNORED = new Set([".git", "node_modules", ".DS_Store", "__pycache__", ".next", "dist", ".cache", ".turbo"]);
   const result = { name: currentPath === absRoot ? basename(absRoot) : basename(currentPath), path: currentPath, type: "dir", children: [] };
@@ -2548,6 +2663,12 @@ ${appInstructions}
 
   return false;
 }
+
+  // Main handler catch-all
+  if (!res.headersSent) {
+    res.writeHead(404);
+    res.end("Not found");
+  }
 
 });
 

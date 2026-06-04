@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Todo</title>
+<title>我的待辦</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,14 +22,18 @@
   }
   .header .icon { font-size: 22px; }
   .header .title { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #5c6bc0; }
+  .header .sync-status {
+    margin-left: auto; font-size: 11px; color: #b0bec5;
+  }
+  .header .sync-status.saving { color: #ffb74d; }
+  .header .sync-status.saved { color: #81c784; }
+  .header .sync-status.error { color: #ef5350; }
 
   /* ── Main ── */
   .main { max-width: 640px; margin: 24px auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 14px; background: rgba(255,255,255,0.45); }
 
   /* ── Add Row ── */
-  .add-row {
-    display: flex; gap: 10px; margin-bottom: 20px;
-  }
+  .add-row { display: flex; gap: 10px; margin-bottom: 20px; }
   .add-row input {
     flex: 1; padding: 10px 14px;
     background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
@@ -45,13 +49,11 @@
   .add-btn:hover { background: #5c6bc0; }
 
   /* ── Search Row ── */
-  .search-row {
-    display: flex; gap: 10px; margin-bottom: 20px;
-  }
+  .search-row { display: flex; gap: 10px; margin-bottom: 20px; }
   .search-row input {
     flex: 1; padding: 9px 14px 9px 36px;
     background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
-    color: #37474f; font-size: 14px; outline: none; position: relative;
+    color: #37474f; font-size: 14px; outline: none;
   }
   .search-row input::placeholder { color: #b0bec5; }
   .search-row input:focus { border-color: #7986cb; box-shadow: 0 0 0 3px rgba(121,134,203,0.15); }
@@ -70,42 +72,32 @@
     flex: 1; padding: 9px 12px;
     background: transparent; border: none; border-radius: 8px;
     font-size: 13px; font-weight: 600; color: #90a4ae;
-    cursor: pointer; transition: all 0.2s; position: relative;
+    cursor: pointer; transition: all 0.2s;
   }
   .tab-btn:hover { color: #5c6bc0; background: rgba(121,134,203,0.06); }
-  .tab-btn.active {
-    background: #fff; color: #5c6bc0;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  }
+  .tab-btn.active { background: #fff; color: #5c6bc0; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   .tab-badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 18px; height: 18px; padding: 0 5px;
     border-radius: 9px; font-size: 11px; font-weight: 700;
     margin-left: 5px; vertical-align: middle;
-    background: #e8eaf6; color: #7986cb;
-    transition: all 0.2s;
+    background: #e8eaf6; color: #7986cb; transition: all 0.2s;
   }
-  .tab-btn.active .tab-badge {
-    background: #7986cb; color: #fff;
-  }
-  .tab-btn.tab-done.active .tab-badge {
-    background: #f06292; color: #fff;
-  }
-  .tab-btn.tab-done.active {
-    color: #e91e63;
-  }
+  .tab-btn.active .tab-badge { background: #7986cb; color: #fff; }
+  .tab-btn.tab-done.active .tab-badge { background: #f06292; color: #fff; }
+  .tab-btn.tab-done.active { color: #e91e63; }
 
-  /* ── Count ── */
-  .count {
-    font-size: 12px; color: #90a4ae; margin-bottom: 12px;
+  /* ── Progress Bar ── */
+  .progress-wrap { margin-bottom: 20px; }
+  .progress-bar-bg { height: 6px; background: #e8eaf6; border-radius: 3px; overflow: hidden; }
+  .progress-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #7986cb, #f06292);
+    transition: width 0.4s ease;
   }
-
-  /* ── Empty ── */
-  .empty {
-    text-align: center; padding: 48px 0; color: #b0bec5; font-size: 14px;
-  }
-  .empty-icon {
-    font-size: 36px; margin-bottom: 10px; display: block;
+  .progress-label {
+    display: flex; justify-content: space-between; margin-bottom: 6px;
+    font-size: 12px; color: #90a4ae;
   }
 
   /* ── Todo Item ── */
@@ -115,10 +107,7 @@
     background: rgba(255,255,255,0.8); border: 1px solid #e8eaf6; border-radius: 10px;
     transition: all 0.2s ease;
   }
-  .todo-item:hover {
-    border-color: #c5cae9;
-    box-shadow: 0 2px 8px rgba(121,134,203,0.1);
-  }
+  .todo-item:hover { border-color: #c5cae9; box-shadow: 0 2px 8px rgba(121,134,203,0.1); }
   .todo-item.done { opacity: 0.45; }
   .todo-item.done .todo-text { text-decoration: line-through; }
 
@@ -141,27 +130,10 @@
   }
   .del-btn:hover { color: #ef5350; background: rgba(239,83,80,0.08); }
 
-  /* ── Progress Bar ── */
-  .progress-wrap {
-    margin-bottom: 20px;
-  }
-  .progress-bar-bg {
-    height: 6px; background: #e8eaf6; border-radius: 3px; overflow: hidden;
-  }
-  .progress-bar-fill {
-    height: 100%; border-radius: 3px;
-    background: linear-gradient(90deg, #7986cb, #f06292);
-    transition: width 0.4s ease;
-  }
-  .progress-label {
-    display: flex; justify-content: space-between; margin-bottom: 6px;
-    font-size: 12px; color: #90a4ae;
-  }
+  .empty { text-align: center; padding: 48px 0; color: #b0bec5; font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; display: block; }
 
-  /* ── Footer ── */
-  .footer {
-    text-align: center; padding: 24px; color: #b0bec5; font-size: 11px;
-  }
+  .footer { text-align: center; padding: 24px; color: #b0bec5; font-size: 11px; }
 
   @media (max-width: 640px) {
     .main { padding: 16px; }
@@ -173,25 +145,26 @@
 
 <div class="header">
   <span class="icon">✅</span>
-  <div class="title">My Todo</div>
+  <div class="title">我的待辦</div>
+  <div class="sync-status" id="syncStatus">載入中...</div>
 </div>
 
 <div class="main">
   <div class="add-row">
-    <input type="text" id="addInput" placeholder="Add a new task..." />
-    <button class="add-btn" id="addBtn">Add</button>
+    <input type="text" id="addInput" placeholder="輸入新的待辦事項..." />
+    <button class="add-btn" id="addBtn">新增</button>
   </div>
   <div class="search-row">
     <div class="search-wrap">
       <span class="si">🔍</span>
-      <input type="text" id="searchInput" placeholder="Search tasks..." />
+      <input type="text" id="searchInput" placeholder="搜尋待辦事項..." />
     </div>
   </div>
 
   <!-- Progress -->
   <div class="progress-wrap" id="progressWrap">
     <div class="progress-label">
-      <span id="progressText">0% complete</span>
+      <span id="progressText">0% 完成</span>
       <span id="progressCount">0 / 0</span>
     </div>
     <div class="progress-bar-bg">
@@ -201,29 +174,31 @@
 
   <!-- Tabs -->
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="all">All<span class="tab-badge" id="badgeAll">0</span></button>
-    <button class="tab-btn" data-tab="todo">To-do<span class="tab-badge" id="badgeTodo">0</span></button>
-    <button class="tab-btn tab-done" data-tab="done">Done<span class="tab-badge" id="badgeDone">0</span></button>
+    <button class="tab-btn active" data-tab="all">全部<span class="tab-badge" id="badgeAll">0</span></button>
+    <button class="tab-btn" data-tab="todo">待辦<span class="tab-badge" id="badgeTodo">0</span></button>
+    <button class="tab-btn tab-done" data-tab="done">完成<span class="tab-badge" id="badgeDone">0</span></button>
   </div>
 
   <div id="list"></div>
 </div>
 
-
 <script>
-const STORAGE_KEY = 'my-todo-items';
+const APP_ID = 'todo';
+const API_BASE = '';  // same origin
 
-function load() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
-}
-function save(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+// ── Sync status indicator ──
+const syncEl = document.getElementById('syncStatus');
+function setSync(status, text) {
+  syncEl.className = 'sync-status ' + status;
+  syncEl.textContent = text;
 }
 
-let todos = load();
+// ── Local cache ──
+let todos = [];
 let query = '';
 let activeTab = 'all';
 
+// ── DOM refs ──
 const addInput = document.getElementById('addInput');
 const searchInput = document.getElementById('searchInput');
 const listEl = document.getElementById('list');
@@ -234,6 +209,56 @@ const badgeAll = document.getElementById('badgeAll');
 const badgeTodo = document.getElementById('badgeTodo');
 const badgeDone = document.getElementById('badgeDone');
 
+// ── API helpers ──
+async function apiGet() {
+  const r = await fetch(`${API_BASE}/api/app-data/${APP_ID}`);
+  return r.json();
+}
+
+async function apiSaveAll(items) {
+  setSync('saving', '儲存中...');
+  try {
+    const r = await fetch(`${API_BASE}/api/app-data/${APP_ID}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(items),
+    });
+    if (!r.ok) throw new Error('save failed');
+    setSync('saved', '已儲存 ✓');
+    return true;
+  } catch (e) {
+    setSync('error', '儲存失敗 ✗');
+    console.error('save error:', e);
+    return false;
+  }
+}
+
+// ── Load data from server ──
+async function loadTodos() {
+  setSync('saving', '載入中...');
+  try {
+    todos = await apiGet();
+    if (!Array.isArray(todos)) todos = [];
+    setSync('saved', '已同步 ✓');
+  } catch (e) {
+    console.error('load error:', e);
+    // Fallback to localStorage
+    try { todos = JSON.parse(localStorage.getItem('tclaw-todo-fallback') || '[]'); } catch { todos = []; }
+    setSync('error', '離線模式');
+  }
+  render();
+}
+
+// ── Save with debounce ──
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => apiSaveAll(todos), 400);
+  // Also save to localStorage as backup
+  localStorage.setItem('tclaw-todo-fallback', JSON.stringify(todos));
+}
+
+// ── UI Logic ──
 function updateBadges() {
   const total = todos.length;
   const doneCount = todos.filter(t => t.done).length;
@@ -241,10 +266,9 @@ function updateBadges() {
   badgeAll.textContent = total;
   badgeTodo.textContent = todoCount;
   badgeDone.textContent = doneCount;
-
   const pct = total ? Math.round(doneCount / total * 100) : 0;
   progressFill.style.width = pct + '%';
-  progressText.textContent = pct + '% complete';
+  progressText.textContent = pct + '% 完成';
   progressCount.textContent = doneCount + ' / ' + total;
 }
 
@@ -256,62 +280,59 @@ function getFiltered() {
   return list;
 }
 
-function render() {
-  updateBadges();
-
-  const filtered = getFiltered();
-
-  if (filtered.length === 0) {
-    const emptyIcon = activeTab === 'done' ? '🎉'
-      : activeTab === 'todo' ? '☕'
-      : todos.length === 0 ? '📝' : '🔍';
-    const emptyMsg = activeTab === 'done'
-      ? 'No completed tasks yet.'
-      : activeTab === 'todo'
-        ? 'All caught up! Great job!'
-        : todos.length === 0
-          ? 'No tasks yet. Add one above!'
-          : 'No matching tasks.';
-    listEl.innerHTML = `<div class="empty"><span class="empty-icon">${emptyIcon}</span>${emptyMsg}</div>`;
-    return;
-  }
-
-  listEl.innerHTML = filtered.map(t => `
-    <div class="todo-item${t.done ? ' done' : ''}" data-id="${t.id}">
-      <div class="checkbox${t.done ? ' checked' : ''}" onclick="toggle(${t.id})"></div>
-      <span class="todo-text">${esc(t.text)}</span>
-      <button class="del-btn" onclick="del(${t.id})" title="Delete">×</button>
-    </div>
-  `).join('');
-}
-
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
 }
 
-function addTodo() {
+function render() {
+  updateBadges();
+  const filtered = getFiltered();
+  if (filtered.length === 0) {
+    const emptyIcon = activeTab === 'done' ? '🎉' : activeTab === 'todo' ? '☕' : todos.length === 0 ? '📝' : '🔍';
+    const emptyMsg = activeTab === 'done' ? '還沒有完成的待辦' : activeTab === 'todo' ? '全部完成了！太棒了！' : todos.length === 0 ? '還沒有待辦，新增一個吧！' : '找不到符合的待辦';
+    listEl.innerHTML = `<div class="empty"><span class="empty-icon">${emptyIcon}</span>${emptyMsg}</div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map(t => `
+    <div class="todo-item${t.done ? ' done' : ''}" data-id="${esc(t.id)}">
+      <div class="checkbox${t.done ? ' checked' : ''}" onclick="toggle('${esc(t.id)}')"></div>
+      <span class="todo-text">${esc(t.text)}</span>
+      <button class="del-btn" onclick="del('${esc(t.id)}')" title="刪除">×</button>
+    </div>
+  `).join('');
+}
+
+// ── Actions ──
+async function addTodo() {
   const text = addInput.value.trim();
   if (!text) return;
-  todos.unshift({ id: Date.now(), text, done: false });
-  save(todos);
+  const item = { id: 'todo_' + Date.now(), text, done: false, createdAt: new Date().toISOString() };
+  todos.unshift(item);
   addInput.value = '';
   render();
+  scheduleSave();
 }
 
 function toggle(id) {
   const t = todos.find(t => t.id === id);
-  if (t) { t.done = !t.done; save(todos); render(); }
+  if (t) {
+    t.done = !t.done;
+    if (t.done) t.completedAt = new Date().toISOString();
+    else delete t.completedAt;
+    render();
+    scheduleSave();
+  }
 }
 
 function del(id) {
   todos = todos.filter(t => t.id !== id);
-  save(todos);
   render();
+  scheduleSave();
 }
 
-// Tab switching
+// ── Events ──
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -325,7 +346,8 @@ document.getElementById('addBtn').onclick = addTodo;
 addInput.onkeydown = e => { if (e.key === 'Enter') addTodo(); };
 searchInput.oninput = () => { query = searchInput.value; render(); };
 
-render();
+// ── Init ──
+loadTodos();
 </script>
 </body>
 </html>
