@@ -4,3 +4,9 @@ dist/
 *.tsbuildinfo
 .vite/
 conversations/
+
+# tClaw data (contains API keys)
+data/providers.json
+data/chats/
+data/workspaces.json
+data/user.json

@@ -62,6 +62,15 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const [chatStarted, setChatStarted] = useState(false);
     const [taskInput, setTaskInput] = useState("");
 
+    // Load workspaces
+    const [workspaces, setWorkspaces] = useState<string[]>([]);
+    useEffect(() => {
+        fetch("http://127.0.0.1:4097/api/tclaw/workspaces")
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data?.directories) setWorkspaces(data.directories); })
+            .catch(() => {});
+    }, []);
+
     // "Running" config = what the active console is using (persisted in chatConfig)
     const savedCli = employee?.chatConfig?.cli || "qwen";
     const savedModel = employee?.chatConfig?.model || "";
@@ -332,7 +341,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const launchTask = async (dialogData: Record<string, string>) => {
         if (!employee) return;
         const allData = { ...dialogData, task: taskInput.trim() };
-        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { aiocRoot, projectRoot: projectRoot || "", factoryId });
+        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { aiocRoot, projectRoot: projectRoot || "", factoryId }, workspaces);
         setSystemPrompt(prompt);
         setFormData(allData);
         setConsoleKey(prev => prev + 1);

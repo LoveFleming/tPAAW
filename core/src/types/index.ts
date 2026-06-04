@@ -106,7 +106,8 @@ export function buildSystemPrompt(
     skillDefinitions: Map<string, SkillDefinition>,
     selectedSkillIds: string[],
     formData?: Record<string, string>,
-    paths?: { aiocRoot: string; projectRoot: string; factoryId?: string }
+    paths?: { aiocRoot: string; projectRoot: string; factoryId?: string },
+    workspaces?: string[]
 ): string {
     // 角色永遠由員工決定
     const parts: string[] = [crew.rolePrompt];
@@ -114,7 +115,7 @@ export function buildSystemPrompt(
     // Inject base paths
     if (paths) {
         const factoryPath = paths.factoryId ? `${paths.aiocRoot}/factories/${paths.factoryId}` : `${paths.aiocRoot}/factories`;
-        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}\n  - Input-Prompt Skills: ${paths.aiocRoot}/skills/input-prompt/\n  - Physical Skills: ${paths.aiocRoot}/skills/physical-skill/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
+        parts.push(`\n## 環境路徑\n- **AIOC Base**: ${paths.aiocRoot}\n  - Input-Prompt Skills: ${paths.aiocRoot}/skills/input-prompt/\n  - Physical Skills: ${paths.aiocRoot}/skills/physical-skill/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}${workspaces && workspaces.length > 0 ? `\n\n## Workspace 目錄\n${workspaces.map(d => `- ${d}`).join("\n")}` : ""}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
     }
 
     for (const skillId of selectedSkillIds) {

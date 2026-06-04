@@ -12,6 +12,7 @@
 
 import { createServer } from "http";
 import { readdir, readFile, writeFile, mkdir, unlink, rm } from "fs/promises";
+import { readFileSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -2209,6 +2210,229 @@ async function tclawApiHandler(req, res) {
     try { await unlink(resolve(TCLAW_CHAT_DIR, `${chatId}.json`)); } catch {}
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
+    return true;
+  }
+
+  // ── Provider / Model APIs ──
+
+  // GET /api/tclaw/providers — list providers + models (mask apiKey)
+  if (req.method === "GET" && path === "/api/tclaw/providers") {
+    try {
+      const config = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "providers.json"), "utf-8"));
+      const safe = { active: config.active, defaultModel: config.defaultModel, providers: {} };
+      for (const [k, v] of Object.entries(config.providers)) {
+        safe.providers[k] = { ...v, apiKey: v.apiKey ? v.apiKey.slice(0, 8) + "..." : "" };
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(safe));
+    } catch {
+      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to load providers" }));
+    }
+    return true;
+  }
+
+  // PUT /api/tclaw/providers — update active provider/model
+  if (req.method === "PUT" && path === "/api/tclaw/providers") {
+    try {
+      const filePath = resolve(TCLAW_DATA_DIR, "providers.json");
+      const config = JSON.parse(await readFile(filePath, "utf-8"));
+      const body = JSON.parse(await readBody(req));
+      if (body.active) config.active = body.active;
+      if (body.defaultModel) config.defaultModel = body.defaultModel;
+      await writeFile(filePath, JSON.stringify(config, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, active: config.active, defaultModel: config.defaultModel }));
+    } catch {
+      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to update providers" }));
+    }
+    return true;
+  }
+
+  // ── Workspaces API ──
+  const TCLAW_WORKSPACES_FILE = resolve(TCLAW_DATA_DIR, "workspaces.json");
+
+  // GET /api/tclaw/workspaces
+  if (req.method === "GET" && path === "/api/tclaw/workspaces") {
+    try {
+      const data = JSON.parse(await readFile(TCLAW_WORKSPACES_FILE, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ directories: [] }));
+    }
+    return true;
+  }
+
+  // POST /api/tclaw/workspaces — add directory
+  if (req.method === "POST" && path === "/api/tclaw/workspaces") {
+    try {
+      let data;
+      try { data = JSON.parse(await readFile(TCLAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      const body = JSON.parse(await readBody(req));
+      const dir = body.directory;
+      if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
+      if (!data.directories.includes(dir)) {
+        data.directories.push(dir);
+        await writeFile(TCLAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to add workspace" }));
+    }
+    return true;
+  }
+
+  // DELETE /api/tclaw/workspaces?dir=... — remove directory
+  if (req.method === "DELETE" && path === "/api/tclaw/workspaces") {
+    try {
+      const dir = url.searchParams.get("dir");
+      let data;
+      try { data = JSON.parse(await readFile(TCLAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      data.directories = data.directories.filter((d) => d !== dir);
+      await writeFile(TCLAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to remove workspace" }));
+    }
+    return true;
+  }
+
+  // ── Chat completion (SSE streaming) ──
+
+  // POST /api/tclaw/chat — chat completion with streaming
+  if (req.method === "POST" && path === "/api/tclaw/chat") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const { messages, model: requestedModel, provider: requestedProvider } = body;
+
+      // Load provider config
+      const config = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "providers.json"), "utf-8"));
+      const providerId = requestedProvider || config.active;
+      const provider = config.providers[providerId];
+      if (!provider) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Unknown provider: ${providerId}` }));
+        return true;
+      }
+
+      const model = requestedModel || config.defaultModel || "glm-5.1";
+      const baseURL = provider.baseURL.replace(/\/+$/, "");
+      const apiUrl = `${baseURL}/chat/completions`;
+
+      // Build system prompt
+      const userProfile = (() => {
+        try { return JSON.parse(readFileSync(TCLAW_USER_FILE, "utf-8")); } catch { return null; }
+      })();
+
+      // Load workspaces
+      const workspaces = (() => {
+        try {
+          const ws = JSON.parse(readFileSync(resolve(TCLAW_DATA_DIR, "workspaces.json"), "utf-8"));
+          return ws.directories || [];
+        } catch { return []; }
+      })();
+
+      const workspaceInfo = workspaces.length > 0
+        ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map((d, i) => `- ${d}`).join("\n")}`
+        : "";
+
+      const systemPrompt = `你是林語晴，一個友善、聰明的個人 AI 助理。
+
+使用者資訊：
+- 名字：${userProfile?.name || "未知"}
+- 介紹：${userProfile?.intro || ""}
+- 偏好風格：${userProfile?.style || "casual"}${workspaceInfo}
+
+回覆規則：
+- 用中文回覆
+- 風格自然、友善
+- 不要太囉唆，也不要太簡短
+- 有自己的想法和意見
+- 使用 Markdown 格式
+- 當使用者問到檔案或程式相關的問題時，可以參考 Workspace 目錄`;
+
+      const apiMessages = [
+        { role: "system", content: systemPrompt },
+        ...(messages || []).map((m) => ({ role: m.role, content: m.content }))
+      ];
+
+      // Set up SSE headers
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+      });
+
+      // Stream from provider API
+      const apiResp = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${provider.apiKey}`,
+          ...(providerId === "openrouter" ? { "HTTP-Referer": "https://tclaw.ai", "X-Title": "tClaw" } : {}),
+        },
+        body: JSON.stringify({
+          model,
+          messages: apiMessages,
+          stream: true,
+          max_tokens: 4096,
+        }),
+      });
+
+      if (!apiResp.ok) {
+        const errText = await apiResp.text();
+        res.write(`data: ${JSON.stringify({ error: true, message: `API error ${apiResp.status}: ${errText.slice(0, 200)}` })}\n\n`);
+        res.end();
+        return true;
+      }
+
+      const reader = apiResp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data: ")) continue;
+            const data = trimmed.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) {
+                res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.error("[tClaw] Stream error:", err.message);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (err) {
+      console.error("[tClaw] Chat error:", err.message);
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      } else {
+        res.write(`data: ${JSON.stringify({ error: true, message: err.message })}\n\n`);
+        res.end();
+      }
+    }
     return true;
   }
 

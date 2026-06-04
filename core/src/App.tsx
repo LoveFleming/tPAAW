@@ -106,8 +106,7 @@ function AppInner() {
 
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
   const visibleTabs = useMemo(() => {
-    // Chat tab is always visible; factory-scoped tabs need matching prefix
-    return openTabs.filter(t => t === "_chat" || t.startsWith(currentScope + ":"));
+    return openTabs.filter(t => t === "_chat" || t.startsWith(currentScope + ":") || t.startsWith("workspace:"));
   }, [openTabs, currentScope]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -276,12 +275,45 @@ function AppInner() {
   }, [currentScope]);
 
   const handleSelectFile = (path: string) => {
-    const fullId = `${currentScope}:wfile://${path}`;
+    const fullId = `workspace:wfile://${path}`;
     setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
     setActivePage(fullId);
   };
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
+
+  // ── Workspaces (multi-directory) ──
+  const [workspaces, setWorkspaces] = useState<string[]>([]);
+
+  const loadWorkspaces = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/tclaw/workspaces`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setWorkspaces(data.directories || []);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadWorkspaces(); }, [loadWorkspaces]);
+
+  const addWorkspace = useCallback(async (dir: string) => {
+    try {
+      await fetch(`${API_BASE}/api/tclaw/workspaces`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ directory: dir }),
+      });
+      setWorkspaces(prev => prev.includes(dir) ? prev : [...prev, dir]);
+    } catch {}
+    setShowDirExplorer(false);
+  }, []);
+
+  const removeWorkspace = useCallback(async (dir: string) => {
+    try {
+      await fetch(`${API_BASE}/api/tclaw/workspaces?dir=${encodeURIComponent(dir)}`, { method: "DELETE" });
+    } catch {}
+    setWorkspaces(prev => prev.filter(d => d !== dir));
+  }, []);
 
   const handleDirSelect = useCallback((path: string) => {
     handleSelectProject(path);
@@ -461,8 +493,7 @@ function AppInner() {
     }
     if (pageType.startsWith("wfile://")) {
       const filePath = pageType.slice(8);
-      const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot ?? projectRoot;
-      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} active={active} />;
+      return <FileViewer filePath={filePath} projectRoot={undefined} active={active} />;
     }
     if (pageType.startsWith("employee.")) {
       const employeeId = pageType.split("#")[0].slice(9);
@@ -674,16 +705,9 @@ function AppInner() {
               </div>
             </SidebarSection>
 
-            {/* Working Base */}
-            <SidebarSection title="Working Base">
-              {projectRoot ? (
-                <SidebarFileTree
-                  projectRoot={projectRoot}
-                  activeFilePath={activeFilePath}
-                  openFilePaths={openFilePaths}
-                  onSelectFile={handleSelectFile}
-                />
-              ) : (
+            {/* Workspaces */}
+            <SidebarSection title="📂 Workspaces">
+              {workspaces.length === 0 && (
                 <div className="px-2 py-3">
                   <button
                     onClick={() => setShowDirExplorer(true)}
@@ -692,17 +716,36 @@ function AppInner() {
                     onMouseEnter={e => { e.currentTarget.style.borderColor = themeInfo.accent; e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = themeInfo.accentBorder; e.currentTarget.style.color = themeInfo.accentHover; e.currentTarget.style.backgroundColor = ""; }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776" />
-                    </svg>
-                    Select Working Base
+                    ＋ 加入目錄
                   </button>
                 </div>
               )}
+              {workspaces.map((dir) => (
+                <div key={dir} className="group">
+                  <div className="flex items-center justify-between px-2 py-0.5">
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider truncate flex-1" title={dir}>
+                      {pathBasename(dir)}
+                    </span>
+                    <button
+                      onClick={() => removeWorkspace(dir)}
+                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 transition-all p-0.5"
+                      title="移除"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <SidebarFileTree
+                    projectRoot={dir}
+                    activeFilePath={activeFilePath}
+                    openFilePaths={openFilePaths}
+                    onSelectFile={handleSelectFile}
+                  />
+                </div>
+              ))}
             </SidebarSection>
           </div>
 
-          {/* Switch Working Base */}
+          {/* Add directory */}
           <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
               onClick={() => setShowDirExplorer(true)}
@@ -712,9 +755,9 @@ function AppInner() {
               onMouseLeave={e => { e.currentTarget.style.color = themeInfo.accentHover + "99"; e.currentTarget.style.backgroundColor = ""; }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              Switch Working Base
+              加入目錄
             </button>
           </div>
         </aside>
@@ -777,10 +820,10 @@ function AppInner() {
       {/* Directory Explorer */}
       {showDirExplorer && (
         <DirectoryExplorer
-          initialPath={projectRoot || undefined}
-          onSelect={handleDirSelect}
+          initialPath={workspaces[0] || undefined}
+          onSelect={addWorkspace}
           onClose={() => setShowDirExplorer(false)}
-          title="📂 選擇 Working Base"
+          title="📂 加入目錄到 Workspaces"
         />
       )}
     </div>
