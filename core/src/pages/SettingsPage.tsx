@@ -12,15 +12,15 @@ interface ProviderData {
 
 export default function SettingsPage() {
   const { info: themeInfo } = useTheme();
-  const [tab, setTab] = useState<"providers" | "profile">("providers");
+  const [tab, setTab] = useState<"profile" | "providers">("profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  // Load providers
   useEffect(() => {
     fetch(`${API_BASE}/api/tclaw/providers`)
       .then(r => r.json())
@@ -32,7 +32,6 @@ export default function SettingsPage() {
       .catch(() => {});
   }, []);
 
-  // Load profile
   useEffect(() => {
     fetch(`${API_BASE}/api/tclaw/user`)
       .then(r => r.json())
@@ -58,10 +57,7 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers }),
       });
-      if (resp.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-      }
+      if (resp.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
     } catch {}
     setSaving(false);
   };
@@ -80,6 +76,34 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = (ev.target?.result as string).split(",")[1];
+      setAvatarPreview(ev.target?.result as string);
+      try {
+        await fetch(`${API_BASE}/api/tclaw/avatar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: base64, filename: file.name }),
+        });
+        setProfile((p: any) => ({ ...p, assistantAvatar: `/api/tclaw/avatar/assistant?t=${Date.now()}` }));
+      } catch {}
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetAvatar = () => {
+    setProfile((p: any) => ({ ...p, assistantAvatar: "" }));
+    setAvatarPreview(null);
+    setSaved(false);
+  };
+
+  // Avatar display
+  const avatarSrc = avatarPreview || (profile?.assistantAvatar ? `${API_BASE}${profile.assistantAvatar}` : null);
+
   return (
     <div className="h-full overflow-y-auto p-6" style={{ backgroundColor: themeInfo.accentBg }}>
       <div className="max-w-2xl mx-auto">
@@ -87,19 +111,77 @@ export default function SettingsPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-stone-100 p-1 rounded-xl w-fit">
-          <button
-            onClick={() => setTab("providers")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "providers" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}
-          >
-            🤖 Provider
-          </button>
-          <button
-            onClick={() => setTab("profile")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "profile" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}
-          >
+          <button onClick={() => setTab("profile")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "profile" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             👤 個人資料
           </button>
+          <button onClick={() => setTab("providers")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "providers" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🤖 Provider
+          </button>
         </div>
+
+        {/* Profile tab */}
+        {tab === "profile" && profile && (
+          <div className="space-y-4">
+            {/* Assistant avatar */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">助理頭像</label>
+              <div className="flex items-center gap-4">
+                <div className="relative group">
+                  {avatarSrc ? (
+                    <img src={avatarSrc} className="w-16 h-16 rounded-full object-cover shadow-md" alt="助理頭像" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-2xl shadow-md">🐾</div>
+                  )}
+                  <label className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="white" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                    </svg>
+                  </label>
+                  <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                </div>
+                <div>
+                  <p className="text-sm text-stone-600">點擊頭像更換圖片</p>
+                  {avatarSrc && (
+                    <button onClick={handleResetAvatar} className="text-xs text-rose-400 hover:text-rose-500 mt-1">恢復預設</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* User info */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">助理名字</label>
+                  <input type="text" value={profile.assistantName || "林語晴"} onChange={(e) => { setProfile({ ...profile, assistantName: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">你的名字</label>
+                  <input type="text" value={profile.name || ""} onChange={(e) => { setProfile({ ...profile, name: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">自我介紹</label>
+                  <textarea value={profile.intro || ""} onChange={(e) => { setProfile({ ...profile, intro: e.target.value }); setSaved(false); }} rows={3} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">回覆風格</label>
+                  <div className="flex gap-2">
+                    {["concise", "detailed", "casual", "formal"].map(s => (
+                      <button key={s} onClick={() => { setProfile({ ...profile, style: s }); setSaved(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${profile.style === s ? "border-stone-400 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-400 hover:border-stone-300"}`}>
+                        {{ concise: "⚡ 簡潔", detailed: "📚 詳細", casual: "😊 輕鬆", formal: "💼 正式" }[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={handleSaveProfile} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存個人資料"}
+            </button>
+          </div>
+        )}
 
         {/* Provider tab */}
         {tab === "providers" && (
@@ -132,40 +214,8 @@ export default function SettingsPage() {
                 </div>
               </div>
             ))}
-
             <button onClick={handleSaveProviders} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 Provider 設定"}
-            </button>
-          </div>
-        )}
-
-        {/* Profile tab */}
-        {tab === "profile" && profile && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">名字</label>
-                  <input type="text" value={profile.name || ""} onChange={(e) => { setProfile({ ...profile, name: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">自我介紹</label>
-                  <textarea value={profile.intro || ""} onChange={(e) => { setProfile({ ...profile, intro: e.target.value }); setSaved(false); }} rows={3} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">回覆風格</label>
-                  <div className="flex gap-2">
-                    {["concise", "detailed", "casual", "formal"].map(s => (
-                      <button key={s} onClick={() => { setProfile({ ...profile, style: s }); setSaved(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${profile.style === s ? "border-stone-400 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-400 hover:border-stone-300"}`}>
-                        {{ concise: "⚡ 簡潔", detailed: "📚 詳細", casual: "😊 輕鬆", formal: "💼 正式" }[s]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button onClick={handleSaveProfile} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存個人資料"}
             </button>
           </div>
         )}

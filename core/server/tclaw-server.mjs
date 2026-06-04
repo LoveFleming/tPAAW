@@ -2142,6 +2142,52 @@ async function tclawApiHandler(req, res) {
     return true;
   }
 
+  // POST /api/tclaw/avatar — upload assistant avatar
+  if (req.method === "POST" && path === "/api/tclaw/avatar") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const { data: base64Data, filename } = body;
+      if (!base64Data) { res.writeHead(400); res.end(JSON.stringify({ error: "no data" })); return true; }
+      const avatarDir = resolve(TCLAW_DATA_DIR, "avatars");
+      await mkdir(avatarDir, { recursive: true });
+      const ext = (filename || "").split(".").pop() || "png";
+      const avatarName = `assistant.${ext}`;
+      const avatarPath = resolve(avatarDir, avatarName);
+      const buffer = Buffer.from(base64Data, "base64");
+      await writeFile(avatarPath, buffer);
+      // Update user profile with avatar path
+      let userProfile;
+      try { userProfile = JSON.parse(readFileSync(TCLAW_USER_FILE, "utf-8")); } catch { userProfile = {}; }
+      userProfile.assistantAvatar = `/api/tclaw/avatar/assistant`;
+      await writeFile(TCLAW_USER_FILE, JSON.stringify(userProfile, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: `/api/tclaw/avatar/assistant` }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/tclaw/avatar/assistant — serve assistant avatar
+  if (req.method === "GET" && path === "/api/tclaw/avatar/assistant") {
+    try {
+      const avatarDir = resolve(TCLAW_DATA_DIR, "avatars");
+      const files = await readdir(avatarDir);
+      const avatarFile = files.find(f => f.startsWith("assistant."));
+      if (avatarFile) {
+        const data = await readFile(resolve(avatarDir, avatarFile));
+        const ext = avatarFile.split(".").pop();
+        res.writeHead(200, { "Content-Type": `image/${ext === "jpg" ? "jpeg" : ext}` });
+        res.end(data);
+      } else {
+        res.writeHead(404); res.end("Not found");
+      }
+    } catch {
+      res.writeHead(404); res.end("Not found");
+    }
+    return true;
+  }
+
   // GET /api/tclaw/chats — list all chat sessions
   if (req.method === "GET" && path === "/api/tclaw/chats") {
     try {
@@ -2367,7 +2413,8 @@ async function tclawApiHandler(req, res) {
         ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map((d, i) => `- ${d}`).join("\n")}`
         : "";
 
-      const systemPrompt = `你是林語晴，一個友善、聰明的個人 AI 助理。
+      const assistantName = userProfile?.assistantName || "林語晴";
+      const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。
 
 使用者資訊：
 - 名字：${userProfile?.name || "未知"}

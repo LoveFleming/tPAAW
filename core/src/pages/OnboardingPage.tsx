@@ -28,7 +28,7 @@ export default function OnboardingPage({ onComplete }: Props) {
   const [style, setStyle] = useState<UserProfile["style"]>("casual");
 
   const handleFinish = async () => {
-    const profile: UserProfile = { name, intro, style };
+    const profile: UserProfile = { name, intro, style, assistantName: "林語晴", onboarded: true, onboardedAt: new Date().toISOString() };
     try {
       await fetch(`${API_BASE}/api/tclaw/user`, {
         method: "POST",

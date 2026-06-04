@@ -23,6 +23,7 @@ interface UserProfile {
   name: string;
   intro: string;
   style: string;
+  assistantAvatar?: string;
 }
 
 interface ProviderInfo {
@@ -249,6 +250,13 @@ export default function ChatView({ profile, embedded = false }: Props) {
   const activeProvider = providers.find(p => p.id === activeProviderId);
   const activeModelName = activeProvider?.models.find(m => m.id === activeModel)?.name || activeModel;
 
+  // Assistant avatar component
+  const AssistantAvatar = ({ size = "w-7 h-7" }: { size?: string }) => profile.assistantAvatar ? (
+    <img src={profile.assistantAvatar.startsWith("/") ? `${API_BASE}${profile.assistantAvatar}` : profile.assistantAvatar} className={`${size} rounded-full shadow-sm object-cover`} alt="林語晴" />
+  ) : (
+    <div className={`${size} rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-xs shadow-sm`}>🐾</div>
+  );
+
   const switchModel = async (providerId: string, modelId: string) => {
     setActiveProviderId(providerId);
     setActiveModel(modelId);
@@ -329,7 +337,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
       <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: "thin" }}>
         {!activeChatId ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-3xl shadow-lg shadow-orange-300/20 mb-5">🐾</div>
+            <AssistantAvatar size="w-16 h-16" />
             <h2 className="text-lg font-bold text-stone-700 mb-1">嗨{profile.name ? ` ${profile.name}` : ""}！</h2>
             <p className="text-stone-400 text-sm mb-5">我是林語晴，你的個人助理</p>
             <button onClick={createNewChat} className="px-5 py-2 rounded-xl text-white font-medium text-sm shadow-lg transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
@@ -343,7 +351,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
                 <div className={`flex gap-2.5 max-w-[80%] ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                   <div className="flex-shrink-0 mt-1">
                     {msg.role === "assistant" ? (
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-xs shadow-sm">🐾</div>
+                      <AssistantAvatar />
                     ) : (
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: themeInfo.accent }}>{profile.name?.charAt(0) || "?"}</div>
                     )}
