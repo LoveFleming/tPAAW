@@ -202,6 +202,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
+        let toolCallDisplay = "";
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
@@ -213,6 +214,20 @@ export default function ChatView({ profile, embedded = false }: Props) {
               fullContent += `\n❌ ${parsed.message}`;
             } else if (parsed.content) {
               fullContent += parsed.content;
+            } else if (parsed.tool_call) {
+              const tc = parsed.tool_call;
+              const icon = { todo_add: "📝", todo_list: "📋", todo_update: "✏️", todo_delete: "🗑️", note_create: "📝", note_list: "📓", note_read: "📖", note_delete: "🗑️", file_read: "📄", file_list: "📁", memory_save: "🧠", memory_read: "💭", web_search: "🔍" }[tc.name] || "🔧";
+              const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              if (tc.status === "executing") {
+                toolCallDisplay = `${icon} ${label}...`;
+              }
+            } else if (parsed.tool_result) {
+              const tr = parsed.tool_result;
+              if (tr.result?.text) {
+                // Append tool result as a visible card
+                fullContent += `\n\n> 🔧 **${tr.name.replace(/_/g, " ")}**\n> ${tr.result.text.split("\n").join("\n> ")}\n`;
+              }
+              toolCallDisplay = "";
             }
           } catch {}
         }
@@ -360,7 +375,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
                     <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === "user" ? "text-white rounded-tr-md" : "bg-white border border-stone-200 text-stone-700 rounded-tl-md shadow-sm"}`} style={msg.role === "user" ? { background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` } : {}}>
                       {msg.role === "assistant" ? (
                         <div className="prose prose-stone prose-sm max-w-none">
-                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown> : <span className="text-stone-300">思考中...</span>}
+                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown> : <span className="text-stone-300 animate-pulse">思考中...</span>}
                         </div>
                       ) : (
                         <div className="whitespace-pre-wrap">{msg.content}</div>

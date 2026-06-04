@@ -21,6 +21,7 @@ import { tmpdir } from "os";
 import { exec as execCb } from "child_process";
 import yaml from "js-yaml";
 import { promisify } from "util";
+import { toolDefinitions, toolHandlers } from "./tools/index.mjs";
 import chokidar from "chokidar";
 const execAsync = promisify(execCb);
 
@@ -2404,13 +2405,12 @@ async function tclawApiHandler(req, res) {
 
   // ── Chat completion (SSE streaming) ──
 
-  // POST /api/tclaw/chat — chat completion with streaming
+  // POST /api/tclaw/chat — chat completion with streaming + tool calling
   if (req.method === "POST" && path === "/api/tclaw/chat") {
     try {
       const body = JSON.parse(await readBody(req));
       const { messages, model: requestedModel, provider: requestedProvider } = body;
 
-      // Load provider config
       const config = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "providers.json"), "utf-8"));
       const providerId = requestedProvider || config.active;
       const provider = config.providers[providerId];
@@ -2424,12 +2424,10 @@ async function tclawApiHandler(req, res) {
       const baseURL = provider.baseURL.replace(/\/+$/, "");
       const apiUrl = `${baseURL}/chat/completions`;
 
-      // Build system prompt
       const userProfile = (() => {
         try { return JSON.parse(readFileSync(TCLAW_USER_FILE, "utf-8")); } catch { return null; }
       })();
 
-      // Load workspaces
       const workspaces = (() => {
         try {
           const ws = JSON.parse(readFileSync(resolve(TCLAW_DATA_DIR, "workspaces.json"), "utf-8"));
@@ -2438,11 +2436,11 @@ async function tclawApiHandler(req, res) {
       })();
 
       const workspaceInfo = workspaces.length > 0
-        ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map((d, i) => `- ${d}`).join("\n")}`
+        ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
         : "";
 
       const assistantName = userProfile?.assistantName || "林語晴";
-      const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你負責引導使用者認識系統功能、解答問題、協助完成工作。你熟悉所有功能，能清楚解釋運作方式。回答時使用繁體中文，技術術語保留英文。語氣親切專業，像一位值得信賴的同事。
+      const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事：管理待辦事項、寫筆記、讀檔案、記住重要資訊。當使用者提出需要操作的請求時，請使用提供的工具來完成。回答時使用繁體中文，技術術語保留英文。語氣親切專業。
 
 使用者資訊：
 - 名字：${userProfile?.name || "未知"}
@@ -2451,18 +2449,10 @@ async function tclawApiHandler(req, res) {
 
 回覆規則：
 - 用中文回覆
-- 風格自然、友善
-- 不要太囉唆，也不要太簡短
-- 有自己的想法和意見
-- 使用 Markdown 格式
-- 當使用者問到檔案或程式相關的問題時，可以參考 Workspace 目錄`;
+- 當使用者要求做事（加 todo、寫筆記等），使用工具
+- 工具執行完後，用自然語言告訴使用者結果
+- 使用 Markdown 格式`;
 
-      const apiMessages = [
-        { role: "system", content: systemPrompt },
-        ...(messages || []).map((m) => ({ role: m.role, content: m.content }))
-      ];
-
-      // Set up SSE headers
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -2470,58 +2460,125 @@ async function tclawApiHandler(req, res) {
         "Access-Control-Allow-Origin": "*",
       });
 
-      // Stream from provider API
-      const apiResp = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${provider.apiKey}`,
-          ...(providerId === "openrouter" ? { "HTTP-Referer": "https://tclaw.ai", "X-Title": "tClaw" } : {}),
-        },
-        body: JSON.stringify({
+      const apiHeaders = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${provider.apiKey}`,
+        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://tclaw.ai", "X-Title": "tClaw" } : {}),
+      };
+
+      const apiMessages = [
+        { role: "system", content: systemPrompt },
+        ...(messages || [])
+      ];
+
+      // Tool calling loop (max 5 rounds)
+      const MAX_TOOL_ROUNDS = 5;
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        const requestPayload = {
           model,
           messages: apiMessages,
-          stream: true,
           max_tokens: 4096,
-        }),
-      });
+          stream: true,
+          tools: toolDefinitions,
+          tool_choice: "auto",
+        };
 
-      if (!apiResp.ok) {
-        const errText = await apiResp.text();
-        res.write(`data: ${JSON.stringify({ error: true, message: `API error ${apiResp.status}: ${errText.slice(0, 200)}` })}\n\n`);
-        res.end();
-        return true;
-      }
+        const apiResp = await fetch(apiUrl, {
+          method: "POST",
+          headers: apiHeaders,
+          body: JSON.stringify(requestPayload),
+        });
 
-      const reader = apiResp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith("data: ")) continue;
-            const data = trimmed.slice(6);
-            if (data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data);
-              const delta = parsed.choices?.[0]?.delta?.content;
-              if (delta) {
-                res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
-              }
-            } catch {}
-          }
+        if (!apiResp.ok) {
+          const errText = await apiResp.text();
+          res.write(`data: ${JSON.stringify({ error: true, message: `API error ${apiResp.status}: ${errText.slice(0, 200)}` })}\n\n`);
+          res.end();
+          return true;
         }
-      } catch (err) {
-        console.error("[tClaw] Stream error:", err.message);
+
+        const reader = apiResp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullContent = "";
+        let toolCalls = [];
+        let currentToolCall = null;
+        let finishReason = null;
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+              const data = trimmed.slice(6);
+              if (data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data);
+                const choice = parsed.choices?.[0];
+                if (!choice) continue;
+                if (choice.finish_reason) finishReason = choice.finish_reason;
+                const delta = choice.delta?.content;
+                if (delta) {
+                  fullContent += delta;
+                  res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+                }
+                const tcDeltas = choice.delta?.tool_calls;
+                if (tcDeltas) {
+                  for (const tc of tcDeltas) {
+                    if (tc.id) {
+                      currentToolCall = { id: tc.id, name: tc.function?.name || "", arguments: tc.function?.arguments || "" };
+                      toolCalls.push(currentToolCall);
+                    } else if (currentToolCall && tc.function?.arguments) {
+                      currentToolCall.arguments += tc.function.arguments;
+                    }
+                  }
+                }
+              } catch {}
+            }
+          }
+        } catch (err) {
+          console.error("[tClaw] Stream error:", err.message);
+        }
+
+        if (toolCalls.length === 0 || finishReason !== "tool_calls") {
+          break;
+        }
+
+        // Execute tool calls
+        apiMessages.push({
+          role: "assistant",
+          content: fullContent || null,
+          tool_calls: toolCalls.map(tc => ({
+            id: tc.id,
+            type: "function",
+            function: { name: tc.name, arguments: tc.arguments }
+          }))
+        });
+
+        for (const tc of toolCalls) {
+          let args = {};
+          try { args = JSON.parse(tc.arguments); } catch { args = { raw: tc.arguments }; }
+          res.write(`data: ${JSON.stringify({ tool_call: { name: tc.name, args, status: "executing" } })}\n\n`);
+
+          let result;
+          try {
+            const handler = toolHandlers[tc.name];
+            result = handler ? await handler(args) : { text: `未知工具: ${tc.name}`, error: true };
+          } catch (err) {
+            result = { text: `工具執行錯誤: ${err.message}`, error: true };
+          }
+
+          res.write(`data: ${JSON.stringify({ tool_result: { name: tc.name, result } })}\n\n`);
+          apiMessages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify(result)
+          });
+        }
       }
 
       res.write("data: [DONE]\n\n");

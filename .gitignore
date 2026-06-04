@@ -9,3 +9,8 @@ conversations/
 data/chats/
 data/workspaces.json
 data/user.json
+data/cli-config.json
+data/todos.json
+data/notes.json
+data/memories.json
+data/avatars/
