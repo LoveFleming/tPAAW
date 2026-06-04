@@ -1,0 +1,15 @@
+{
+  "id": "memory",
+  "name": "記憶",
+  "icon": "🧠",
+  "description": "長期記憶管理，跨對話保留",
+  "builtIn": true,
+  "fields": [
+    { "name": "key", "type": "string", "required": true, "label": "分類/標題" },
+    { "name": "content", "type": "text", "required": true, "label": "內容" }
+  ],
+  "systemFields": ["id", "updatedAt"],
+  "prompt": "長期記憶。使用者說「記住」「幫我記」→ 存到記憶。記憶是跨對話的。內容要精簡有結構。重要決策、偏好、人際關係都值得記。不確定的先確認再記。同時更新 MEMORY.md。",
+  "listLabel": "key",
+  "upsertKey": "key"
+}

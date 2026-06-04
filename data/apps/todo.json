@@ -1,0 +1,18 @@
+{
+  "id": "todo",
+  "name": "待辦事項",
+  "icon": "📋",
+  "description": "管理待辦事項：新增、查看、完成、刪除",
+  "builtIn": true,
+  "fields": [
+    { "name": "text", "type": "string", "required": true, "label": "內容" },
+    { "name": "status", "type": "enum", "options": ["pending", "done"], "default": "pending", "label": "狀態" },
+    { "name": "priority", "type": "enum", "options": ["high", "medium", "low"], "default": "medium", "label": "優先級" },
+    { "name": "due", "type": "string", "label": "截止日期" }
+  ],
+  "systemFields": ["id", "createdAt"],
+  "prompt": "待辦事項管理。新增時確認內容和優先級。列出時用 ✅/🟡/🔴 區分狀態和優先級。使用者說「完成了」→ 更新 status 為 done。主動提醒快到期的待辦。",
+  "listLabel": "text",
+  "sortField": "priority",
+  "filterable": ["status", "priority"]
+}

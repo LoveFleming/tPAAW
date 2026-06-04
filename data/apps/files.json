@@ -1,0 +1,10 @@
+{
+  "id": "files",
+  "name": "檔案瀏覽",
+  "icon": "📁",
+  "description": "查看工作區檔案",
+  "builtIn": true,
+  "noData": true,
+  "prompt": "檔案瀏覽。只能讀取不能寫入刪除。列出目錄用圖示區分類型。讀檔案自動截斷過長內容。使用者問程式問題 → 先看檔案再回答。",
+  "tools": ["file_list", "file_read"]
+}

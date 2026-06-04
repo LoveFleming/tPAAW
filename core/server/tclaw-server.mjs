@@ -21,8 +21,7 @@ import { tmpdir } from "os";
 import { exec as execCb } from "child_process";
 import yaml from "js-yaml";
 import { promisify } from "util";
-import { toolDefinitions, toolHandlers } from "./tools/index.mjs";
-import { buildAppInstructions } from "./tools/app-registry.mjs";
+import { getToolsAndHandlers, invalidateCache } from "./tools/index.mjs";
 import chokidar from "chokidar";
 const execAsync = promisify(execCb);
 
@@ -2449,20 +2448,7 @@ async function tclawApiHandler(req, res) {
       } catch {}
 
       // Build app instructions
-      const appInstructions = buildAppInstructions();
-
-      // Get current todos for context
-      let todoSummary = "";
-      try {
-        const todos = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "todos.json"), "utf-8"));
-        const pending = todos.filter(t => t.status === "pending");
-        if (pending.length > 0) {
-          todoSummary = "\n目前的待辦事項：\n" + pending.map(t => {
-            const icon = t.priority === "high" ? "🔴" : t.priority === "low" ? "⚪" : "🟡";
-            return `${icon} [${t.id}] ${t.text}${t.due ? ` (截止: ${t.due})` : ""}`;
-          }).join("\n");
-        }
-      } catch {}
+      const { tools: toolDefinitions, handlers: toolHandlers, appInstructions } = await getToolsAndHandlers();
 
       const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。
 
@@ -2474,18 +2460,18 @@ async function tclawApiHandler(req, res) {
 - 偏好風格：${userProfile?.style || "casual"}${workspaceInfo}
 
 === 你的長期記憶 (MEMORY.md) ===
-每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_save 工具更新。
+每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。
 ${memoryContent || "(記憶是空白的)"}
-${todoSummary}
 
-=== App 操作指南 ===
+=== 可用的 App ===
 ${appInstructions}
 
 === 回覆規則 ===
 - 用中文回覆，風格自然友善
-- 使用者要求做事時，用工具完成，然後告訴使用者結果
+- 使用者要求做事時，用對應 App 的工具完成，然後告訴使用者結果
 - 主動運用記憶中的資訊（偏好、過去的決策、人際關係）
-- 如果學到新東西（偏好、決策、重要資訊），主動用 memory_save 記下來
+- 如果學到新東西（偏好、決策、重要資訊），主動用 memory_add 記下來
+- 使用者想建新 App 時，用 app_create 幫他建立
 - 使用 Markdown 格式`;
 
       res.writeHead(200, {
@@ -2608,6 +2594,8 @@ ${appInstructions}
           }
 
           res.write(`data: ${JSON.stringify({ tool_result: { name: tc.name, result } })}\n\n`);
+          // Invalidate cache if app was created/edited so tools refresh
+          if (tc.name === "app_create" || tc.name === "app_edit") invalidateCache();
           apiMessages.push({
             role: "tool",
             tool_call_id: tc.id,
