@@ -12,6 +12,8 @@ import CronJobsPage from "./pages/CronJobsPage";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 import OnboardingPage from "./pages/OnboardingPage";
+import ProviderSetupPage from "./pages/ProviderSetupPage";
+import SettingsPage from "./pages/SettingsPage";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -75,16 +77,25 @@ function AppInner() {
 
   // ── User Profile & Onboarding ──
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [providerConfigured, setProviderConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check user profile
     fetch(`${API_BASE}/api/tclaw/user`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data && data.onboarded) setProfile(data);
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {});
+    // Check provider config
+    fetch(`${API_BASE}/api/tclaw/providers`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.configured) setProviderConfigured(true);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   // ── Factory / Project state ──
@@ -106,7 +117,7 @@ function AppInner() {
 
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
   const visibleTabs = useMemo(() => {
-    return openTabs.filter(t => t === "_chat" || t.startsWith(currentScope + ":") || t.startsWith("workspace:"));
+    return openTabs.filter(t => t === "_chat" || t === "_settings" || t.startsWith(currentScope + ":") || t.startsWith("workspace:"));
   }, [openTabs, currentScope]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -379,6 +390,7 @@ function AppInner() {
 
   const labelFor = useCallback((fullId: string): string => {
     if (fullId === "_chat") return "🐾 林語晴";
+    if (fullId === "_settings") return "⚙️ 設定";
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return "AI Crew";
     if (pageType === "skills") return "Skill Pool";
@@ -440,6 +452,11 @@ function AppInner() {
     // ── Chat (home) ──
     if (fullId === "_chat") {
       return <ChatView profile={profile!} embedded />;
+    }
+
+    // ── Settings ──
+    if (fullId === "_settings") {
+      return <SettingsPage />;
     }
 
     const { scopeKey, factoryId, pageType } = parseTabId(fullId);
@@ -528,6 +545,10 @@ function AppInner() {
 
   if (!profile) {
     return <OnboardingPage onComplete={(p) => setProfile(p)} />;
+  }
+
+  if (!providerConfigured) {
+    return <ProviderSetupPage onComplete={() => setProviderConfigured(true)} />;
   }
 
   if (showFactoryEntry) {
@@ -689,8 +710,21 @@ function AppInner() {
             </SidebarSection>
           </div>
 
-          {/* Add directory */}
-          <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
+          {/* Add directory + Settings */}
+          <div className="px-3 py-2 border-t shrink-0 space-y-1" style={{ borderColor: themeInfo.accentBorder + "60" }}>
+            <button
+              onClick={() => {
+                if (!openTabs.includes("_settings")) setOpenTabs(prev => [...prev, "_settings"]);
+                setActivePage("_settings");
+              }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"
+              style={{ color: themeInfo.accentHover + "99" }}
+              onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
+              onMouseLeave={e => { e.currentTarget.style.color = themeInfo.accentHover + "99"; e.currentTarget.style.backgroundColor = ""; }}
+            >
+              <span>⚙️</span>
+              設定
+            </button>
             <button
               onClick={() => setShowDirExplorer(true)}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"

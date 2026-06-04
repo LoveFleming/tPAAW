@@ -2219,19 +2219,21 @@ async function tclawApiHandler(req, res) {
   if (req.method === "GET" && path === "/api/tclaw/providers") {
     try {
       const config = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "providers.json"), "utf-8"));
-      const safe = { active: config.active, defaultModel: config.defaultModel, providers: {} };
+      const hasAnyKey = Object.values(config.providers).some((p) => p.apiKey && p.apiKey.length > 0);
+      const safe = { active: config.active, defaultModel: config.defaultModel, configured: hasAnyKey, providers: {} };
       for (const [k, v] of Object.entries(config.providers)) {
         safe.providers[k] = { ...v, apiKey: v.apiKey ? v.apiKey.slice(0, 8) + "..." : "" };
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(safe));
     } catch {
-      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to load providers" }));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ active: "", defaultModel: "", configured: false, providers: {} }));
     }
     return true;
   }
 
-  // PUT /api/tclaw/providers — update active provider/model
+  // PUT /api/tclaw/providers — update provider config
   if (req.method === "PUT" && path === "/api/tclaw/providers") {
     try {
       const filePath = resolve(TCLAW_DATA_DIR, "providers.json");
@@ -2239,10 +2241,36 @@ async function tclawApiHandler(req, res) {
       const body = JSON.parse(await readBody(req));
       if (body.active) config.active = body.active;
       if (body.defaultModel) config.defaultModel = body.defaultModel;
+      // Update provider fields (apiKey, baseURL, models)
+      if (body.provider && body.providerId) {
+        const pid = body.providerId;
+        if (config.providers[pid]) {
+          if (body.provider.apiKey !== undefined) config.providers[pid].apiKey = body.provider.apiKey;
+          if (body.provider.baseURL !== undefined) config.providers[pid].baseURL = body.provider.baseURL;
+          if (body.provider.models) config.providers[pid].models = body.provider.models;
+        }
+      }
+      // Update all providers at once
+      if (body.providers) {
+        for (const [pid, pdata] of Object.entries(body.providers)) {
+          if (!config.providers[pid]) config.providers[pid] = { name: pid, baseURL: "", apiKey: "", models: [] };
+          const p = pdata;
+          if (p.apiKey !== undefined) config.providers[pid].apiKey = p.apiKey;
+          if (p.baseURL !== undefined) config.providers[pid].baseURL = p.baseURL;
+          if (p.models) config.providers[pid].models = p.models;
+          if (p.name) config.providers[pid].name = p.name;
+        }
+      }
       await writeFile(filePath, JSON.stringify(config, null, 2), "utf-8");
+      // Return masked version
+      const safe = { ok: true, active: config.active, defaultModel: config.defaultModel, providers: {} };
+      for (const [k, v] of Object.entries(config.providers)) {
+        safe.providers[k] = { ...v, apiKey: v.apiKey ? v.apiKey.slice(0, 8) + "..." : "" };
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, active: config.active, defaultModel: config.defaultModel }));
-    } catch {
+      res.end(JSON.stringify(safe));
+    } catch (err) {
+      console.error("[tClaw] Provider update error:", err);
       res.writeHead(500); res.end(JSON.stringify({ error: "Failed to update providers" }));
     }
     return true;
