@@ -5,8 +5,7 @@ dist/
 .vite/
 conversations/
 
-# tClaw data (contains API keys)
-data/providers.json
+# tClaw data (contains user data, keep chats/user local)
 data/chats/
 data/workspaces.json
 data/user.json
