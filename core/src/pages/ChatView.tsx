@@ -106,7 +106,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
     const chatId = `chat_${Date.now()}`;
     const greeting: Message = {
       role: "assistant",
-      content: `嗨${profile.name ? ` ${profile.name}` : ""}！👋 我是林語晴，有什麼可以幫你的嗎？`,
+      content: `嗨${profile.name ? ` ${profile.name}` : ""}！👋 我是${profile.assistantName || "林語晴"}，你的個人助理 🌤️\n\n有什麼可以幫你的嗎？`,
       timestamp: new Date().toISOString(),
     };
     const newChat = { id: chatId, title: "新對話", messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -339,7 +339,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <AssistantAvatar size="w-16 h-16" />
             <h2 className="text-lg font-bold text-stone-700 mb-1">嗨{profile.name ? ` ${profile.name}` : ""}！</h2>
-            <p className="text-stone-400 text-sm mb-5">我是林語晴，你的個人助理</p>
+            <p className="text-stone-400 text-sm mb-5">我是{profile.assistantName || "林語晴"}，你的個人助理</p>
             <button onClick={createNewChat} className="px-5 py-2 rounded-xl text-white font-medium text-sm shadow-lg transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               開始新對話
             </button>

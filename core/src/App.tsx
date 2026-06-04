@@ -389,7 +389,7 @@ function AppInner() {
   [skillApps, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
-    if (fullId === "_chat") return "🐾 林語晴";
+    if (fullId === "_chat") return "🐾 聊天";
     if (fullId === "_settings") return "⚙️ 設定";
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return "AI Crew";
