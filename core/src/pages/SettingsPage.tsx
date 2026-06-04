@@ -40,6 +40,8 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(data => { if (data) setProfile(data); })
       .catch(() => {});
+  }, []);
+
   // Load CLIs
   useEffect(() => {
     fetch(`${API_BASE}/api/clis`)
