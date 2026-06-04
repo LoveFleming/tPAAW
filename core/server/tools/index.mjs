@@ -4,9 +4,11 @@
 // New apps can be created at runtime — no code changes needed
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
-const TCLAW_DATA_DIR = resolve(process.cwd(), "../../data");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const TCLAW_DATA_DIR = resolve(__dirname, "../../../data");
 const APPS_DIR = resolve(TCLAW_DATA_DIR, "apps");
 const APP_DATA_DIR = resolve(TCLAW_DATA_DIR, "app-data");
 

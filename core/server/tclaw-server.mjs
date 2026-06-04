@@ -937,6 +937,10 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
+async function tclawApiHandler(req, res) {
+  const url = new URL(req.url, "http://localhost");
+  const path = url.pathname;
+
   // GET /api/tclaw/cli-config — get CLI defaults
   if (req.method === "GET" && path === "/api/tclaw/cli-config") {
     try {
@@ -1993,7 +1997,6 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
 
   res.writeHead(404);
   res.end("Not found");
-});
 
 async function buildTree(absRoot, currentPath, maxDepth) {
   const IGNORED = new Set([".git", "node_modules", ".DS_Store", "__pycache__", ".next", "dist", ".cache", ".turbo"]);
@@ -2069,10 +2072,6 @@ const TCLAW_CHAT_DIR = resolve(TCLAW_DATA_DIR, "chats");
 
 await mkdir(TCLAW_DATA_DIR, { recursive: true });
 await mkdir(TCLAW_CHAT_DIR, { recursive: true });
-
-async function tclawApiHandler(req, res) {
-  const url = new URL(req.url, "http://localhost");
-  const path = url.pathname;
 
   // GET /api/tclaw/user — get user profile
   if (req.method === "GET" && path === "/api/tclaw/user") {
@@ -2549,6 +2548,8 @@ ${appInstructions}
 
   return false;
 }
+
+});
 
 server.listen(PORT, () => {
   console.log(`[tClaw] Listening on http://127.0.0.1:${PORT}`);
