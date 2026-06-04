@@ -131,8 +131,8 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
 }
 
 // VSCode-style indent: compact steps, capped at max depth
-const BASE_INDENT = 16;
-const DEPTH_STEP = 12;
+const BASE_INDENT = 12;
+const DEPTH_STEP = 10;
 const MAX_INDENT_DEPTH = 10; // Beyond this, all items share the same indent level
 
 const TreeNodeView = React.memo(function TreeNodeView({
