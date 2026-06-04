@@ -513,7 +513,6 @@ function AppInner() {
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [factoryMenuOpen, setFactoryMenuOpen] = useState(false);
 
   // ── Early returns ──
   if (loading) {
@@ -558,61 +557,6 @@ function AppInner() {
           <button onClick={() => { setActivePage("_chat"); }} className="text-sm font-semibold text-white cursor-pointer hover:text-white/80 transition-colors" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>
             🐾 tClaw
           </button>
-          {/* Factory switcher */}
-          {factories.length > 0 && (
-            <div className="relative ml-3">
-              <button
-                onClick={() => setFactoryMenuOpen(!factoryMenuOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white/90 text-sm font-semibold transition-colors cursor-pointer"
-              >
-                {factories.find(f => f.id === selectedFactoryId)?.icon || "🐾"} {factories.find(f => f.id === selectedFactoryId)?.name || "MyClaw"}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={cn("w-3 h-3 transition-transform", factoryMenuOpen ? "" : "rotate-180")}>
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                </svg>
-              </button>
-              {factoryMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setFactoryMenuOpen(false)} />
-                  <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
-                    <div className="px-3 py-1.5 border-b border-stone-100 bg-stone-50">
-                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">🐾 MyClaw</span>
-                    </div>
-                    <div className="max-h-[300px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-                      {factories.filter(f => f.id !== "default").map(f => (
-                        <button
-                          key={f.id}
-                          onClick={() => { switchFactory(f.id); setFactoryMenuOpen(false); }}
-                          className={cn(
-                            "w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors",
-                            f.id === selectedFactoryId ? "bg-stone-50" : "hover:bg-stone-50"
-                          )}
-                        >
-                          <span className="text-sm">{f.icon}</span>
-                          <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                            <span className={cn("text-sm", f.id === selectedFactoryId ? "font-semibold text-stone-800" : "text-stone-600")}>{f.name}</span>
-                            {f.id === selectedFactoryId && (
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3" style={{ color: themeInfo.accent }}>
-                                <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="border-t border-stone-200">
-                      <button
-                        onClick={() => { setFactoryMenuOpen(false); goToFactoryEntry(); }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
-                      >
-                        <span className="text-sm">➕</span>
-                        <span>Create New Factory</span>
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
         </div>
         {/* Theme */}
         <div className="relative">
