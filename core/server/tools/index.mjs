@@ -341,6 +341,35 @@ const toolHandlers = {
     const memories = await loadJson("memories.json", {});
     memories[key] = { content, updatedAt: new Date().toISOString() };
     await saveJson("memories.json", memories);
+    // Also update MEMORY.md
+    try {
+      const memPath = resolve(TCLAW_DATA_DIR, "MEMORY.md");
+      let memContent = "";
+      try { memContent = await readFile(memPath, "utf-8"); } catch {}
+      const sectionHeader = `## ${key}`;
+      const sectionBlock = `${sectionHeader}\n${content}`;
+      // Check if section exists
+      const sectionRegex = new RegExp(`^## ${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, "m");
+      if (sectionRegex.test(memContent)) {
+        // Replace existing section (up to next ## or end)
+        const lines = memContent.split("\n");
+        let startIdx = -1, endIdx = lines.length;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].match(new RegExp(`^## ${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`))) { startIdx = i; }
+          else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
+        }
+        if (startIdx >= 0) {
+          lines.splice(startIdx, endIdx - startIdx, sectionBlock);
+          memContent = lines.join("\n");
+        }
+      } else {
+        // Append new section
+        memContent = memContent.replace(/\n*$/, "") + "\n\n" + sectionBlock + "\n";
+      }
+      await writeFile(memPath, memContent, "utf-8");
+    } catch (err) {
+      console.error("[tClaw] memory_save MEMORY.md update error:", err.message);
+    }
     return { text: `已記住「${key}」🧠` };
   },
 

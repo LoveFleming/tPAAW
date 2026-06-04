@@ -22,6 +22,7 @@ import { exec as execCb } from "child_process";
 import yaml from "js-yaml";
 import { promisify } from "util";
 import { toolDefinitions, toolHandlers } from "./tools/index.mjs";
+import { buildAppInstructions } from "./tools/app-registry.mjs";
 import chokidar from "chokidar";
 const execAsync = promisify(execCb);
 
@@ -2440,17 +2441,51 @@ async function tclawApiHandler(req, res) {
         : "";
 
       const assistantName = userProfile?.assistantName || "林語晴";
-      const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事：管理待辦事項、寫筆記、讀檔案、記住重要資訊。當使用者提出需要操作的請求時，請使用提供的工具來完成。回答時使用繁體中文，技術術語保留英文。語氣親切專業。
 
-使用者資訊：
+      // Load MEMORY.md (assistant's long-term memory)
+      let memoryContent = "";
+      try {
+        memoryContent = await readFile(resolve(TCLAW_DATA_DIR, "MEMORY.md"), "utf-8");
+      } catch {}
+
+      // Build app instructions
+      const appInstructions = buildAppInstructions();
+
+      // Get current todos for context
+      let todoSummary = "";
+      try {
+        const todos = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "todos.json"), "utf-8"));
+        const pending = todos.filter(t => t.status === "pending");
+        if (pending.length > 0) {
+          todoSummary = "\n目前的待辦事項：\n" + pending.map(t => {
+            const icon = t.priority === "high" ? "🔴" : t.priority === "low" ? "⚪" : "🟡";
+            return `${icon} [${t.id}] ${t.text}${t.due ? ` (截止: ${t.due})` : ""}`;
+          }).join("\n");
+        }
+      } catch {}
+
+      const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。
+
+回答時使用繁體中文，技術術語保留英文。語氣親切專業，像一位值得信賴的同事。
+
+=== 使用者資訊 ===
 - 名字：${userProfile?.name || "未知"}
 - 介紹：${userProfile?.intro || ""}
 - 偏好風格：${userProfile?.style || "casual"}${workspaceInfo}
 
-回覆規則：
-- 用中文回覆
-- 當使用者要求做事（加 todo、寫筆記等），使用工具
-- 工具執行完後，用自然語言告訴使用者結果
+=== 你的長期記憶 (MEMORY.md) ===
+每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_save 工具更新。
+${memoryContent || "(記憶是空白的)"}
+${todoSummary}
+
+=== App 操作指南 ===
+${appInstructions}
+
+=== 回覆規則 ===
+- 用中文回覆，風格自然友善
+- 使用者要求做事時，用工具完成，然後告訴使用者結果
+- 主動運用記憶中的資訊（偏好、過去的決策、人際關係）
+- 如果學到新東西（偏好、決策、重要資訊），主動用 memory_save 記下來
 - 使用 Markdown 格式`;
 
       res.writeHead(200, {
