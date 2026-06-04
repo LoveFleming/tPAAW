@@ -390,7 +390,7 @@ export default function ChatView({ profile, embedded = false }: Props) {
                       <AssistantAvatar size="w-8 h-8" />
                     ) : (
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-                        {profile.name?.charAt(0) || "?"}
+                        {(profile.name?.slice(0, 2) || "?")}
                       </div>
                     )}
                   </div>
