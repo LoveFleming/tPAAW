@@ -13,6 +13,7 @@ import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 import OnboardingPage from "./pages/OnboardingPage";
 import ProviderSetupPage from "./pages/ProviderSetupPage";
+import CliSetupPage from "./pages/CliSetupPage";
 import SettingsPage from "./pages/SettingsPage";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
@@ -78,6 +79,7 @@ function AppInner() {
   // ── User Profile & Onboarding ──
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [providerConfigured, setProviderConfigured] = useState(false);
+  const [cliConfigured, setCliConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -93,6 +95,13 @@ function AppInner() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.configured) setProviderConfigured(true);
+      })
+      .catch(() => {});
+    // Check CLI config
+    fetch(`${API_BASE}/api/tclaw/cli-config`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.configured) setCliConfigured(true);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -549,6 +558,10 @@ function AppInner() {
 
   if (!providerConfigured) {
     return <ProviderSetupPage onComplete={() => setProviderConfigured(true)} />;
+  }
+
+  if (!cliConfigured) {
+    return <CliSetupPage onComplete={() => setCliConfigured(true)} />;
   }
 
   if (showFactoryEntry) {

@@ -72,8 +72,18 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     }, []);
 
     // "Running" config = what the active console is using (persisted in chatConfig)
-    const savedCli = employee?.chatConfig?.cli || "qwen";
-    const savedModel = employee?.chatConfig?.model || "";
+    // Fallback chain: employee.chatConfig → global CLI config → "qwen"
+    const [globalCliConfig, setGlobalCliConfig] = useState({ defaultCli: "qwen", defaultModel: "" });
+    useEffect(() => {
+        fetch("http://127.0.0.1:4097/api/tclaw/cli-config")
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (data?.configured) setGlobalCliConfig({ defaultCli: data.defaultCli || "qwen", defaultModel: data.defaultModel || "" });
+            })
+            .catch(() => {});
+    }, []);
+    const savedCli = employee?.chatConfig?.cli || globalCliConfig.defaultCli || "qwen";
+    const savedModel = employee?.chatConfig?.model || globalCliConfig.defaultModel || "";
     const savedApproval = employee?.chatConfig?.approvalMode || "yolo";
     const [runningCli, setRunningCli] = useState(savedCli);
     const [runningModel, setRunningModel] = useState(savedModel);

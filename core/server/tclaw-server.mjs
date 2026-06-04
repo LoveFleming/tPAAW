@@ -1011,6 +1011,34 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
+  // GET /api/tclaw/cli-config — get CLI defaults
+  if (req.method === "GET" && path === "/api/tclaw/cli-config") {
+    try {
+      const filePath = resolve(TCLAW_DATA_DIR, "cli-config.json");
+      const data = JSON.parse(await readFile(filePath, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ configured: false }));
+    }
+    return true;
+  }
+
+  // POST /api/tclaw/cli-config — save CLI defaults
+  if (req.method === "POST" && path === "/api/tclaw/cli-config") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      body.configured = true;
+      await writeFile(resolve(TCLAW_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // GET /api/clis — list installed CLI tools
   if (req.method === "GET" && req.url === "/api/clis") {
     try {
