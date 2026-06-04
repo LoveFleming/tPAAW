@@ -44,8 +44,13 @@ export default function OnboardingPage({ onComplete }: Props) {
   const steps = [
     // Step 0: Welcome
     <div key="welcome" className="flex flex-col items-center text-center">
-      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-5xl shadow-lg shadow-orange-300/30 mb-8">
-        🐾
+      <div className="w-28 h-28 rounded-full overflow-hidden shadow-lg shadow-orange-300/30 mb-8 ring-4 ring-amber-100">
+        <img
+          src={`/avatars/assistant-default.png`}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.innerHTML = "<div class='w-full h-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-5xl'>🐾</div>"; }}
+          className="w-full h-full object-cover"
+          alt="林語晴"
+        />
       </div>
       <h1 className="text-3xl font-bold text-stone-800 mb-3" style={{ fontFamily: "'SF Pro Display', system-ui, sans-serif" }}>
         嗨！我是林語晴
