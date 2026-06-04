@@ -55,9 +55,11 @@ export default function OnboardingPage({ onComplete }: Props) {
       <h1 className="text-3xl font-bold text-stone-800 mb-3" style={{ fontFamily: "'SF Pro Display', system-ui, sans-serif" }}>
         嗨！我是林語晴
       </h1>
-      <p className="text-stone-500 text-lg mb-2">你的個人 AI 助理</p>
-      <p className="text-stone-400 text-sm max-w-sm">
-        在開始之前，我想先認識你一下。只需要幾個簡單的步驟就好。
+      <p className="text-stone-500 text-base mb-2">
+        在開始之前，讓我先認識你一下 ✨
+      </p>
+      <p className="text-stone-400 text-sm">
+        只需要幾個簡單的步驟
       </p>
       <button
         onClick={() => setStep(1)}
@@ -151,7 +153,7 @@ export default function OnboardingPage({ onComplete }: Props) {
 
   return (
     <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: themeInfo.accentBg }}>
-      <div className="w-full max-w-lg mx-4 px-6 py-12">
+      <div className="w-full max-w-xl mx-4 px-6 py-12">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-10">
           {[0, 1, 2, 3].map((i) => (
