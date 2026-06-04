@@ -64,12 +64,11 @@ export default function ChatView({ profile, embedded = false }: Props) {
   // ── Assistant avatar ──
   const avatarSrc = profile.assistantAvatar
     ? (profile.assistantAvatar.startsWith("/") ? `${API_BASE}${profile.assistantAvatar}` : profile.assistantAvatar)
-    : null;
+    : "/avatars/assistant-default.png";
 
-  const AssistantAvatar = ({ size = "w-8 h-8" }: { size?: string }) => avatarSrc ? (
-    <img src={avatarSrc} className={`${size} rounded-full object-cover ring-2 ring-white shadow-md`} alt={assistantName} />
-  ) : (
-    <div className={`${size} rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center shadow-md`} style={{ fontSize: "calc(var(--avatar-size, 2rem) * 0.4)" }}>🐾</div>
+  const AssistantAvatar = ({ size = "w-8 h-8" }: { size?: string }) => (
+    <img src={avatarSrc} className={`${size} rounded-full object-cover ring-2 ring-white shadow-md`} alt={assistantName}
+      onError={(e) => { const el = e.currentTarget; el.style.display = "none"; }} />
   );
 
   // ── Load providers ──
@@ -357,11 +356,8 @@ export default function ChatView({ profile, embedded = false }: Props) {
           <div className="flex flex-col items-center justify-center h-full px-4">
             <div className="text-center max-w-sm">
               <div className="mx-auto mb-6">
-                {avatarSrc ? (
-                  <img src={avatarSrc} className="w-24 h-24 rounded-full object-cover ring-4 ring-amber-100 shadow-lg shadow-amber-200/30 mx-auto" alt={assistantName} />
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-4xl ring-4 ring-amber-100 shadow-lg shadow-amber-200/30 mx-auto">🐾</div>
-                )}
+                <img src={avatarSrc} className="w-24 h-24 rounded-full object-cover ring-4 ring-amber-100 shadow-lg shadow-amber-200/30 mx-auto" alt={assistantName}
+                  onError={(e) => { const el = e.currentTarget; el.style.display = "none"; }} />
               </div>
               <h2 className="text-xl font-bold text-stone-800 mb-1">{assistantName}</h2>
               <p className="text-stone-400 text-sm mb-6">你的個人 AI 助理</p>
