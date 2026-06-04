@@ -79,7 +79,7 @@ export default function OnboardingPage({ onComplete }: Props) {
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) setStep(2); }}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const val = e.currentTarget.value.trim(); if (val) { setName(val); setStep(2); } } }}
         placeholder="輸入你的名字..."
         className="w-full px-5 py-4 rounded-xl border-2 text-lg text-center focus:outline-none transition-colors"
         style={{ borderColor: name ? themeInfo.accent : "#e7e5e4", color: "#1c1917" }}
