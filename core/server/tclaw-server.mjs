@@ -1821,7 +1821,7 @@ async function tclawApiHandler(req, res) {
       return;
     }
     try {
-      const tree = await buildTree(absRoot, absRoot, 10);
+      const tree = await buildTree(absRoot, absRoot, 2);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(tree));
     } catch (err) {
@@ -2131,7 +2131,12 @@ async function buildTree(absRoot, currentPath, maxDepth) {
       if (!a.isDirectory() && b.isDirectory()) return 1;
       return a.name.localeCompare(b.name);
     });
-  for (const entry of sorted) {
+  // Cap at 200 entries per directory to avoid perf issues
+  const capped = sorted.slice(0, 200);
+  if (sorted.length > 200) {
+    result.children.push({ name: `... and ${sorted.length - 200} more`, path: "__truncated__", type: "file" });
+  }
+  for (const entry of capped) {
     const fullPath = join(currentPath, entry.name);
     if (entry.isDirectory()) {
       const child = await buildTree(absRoot, fullPath, maxDepth - 1);

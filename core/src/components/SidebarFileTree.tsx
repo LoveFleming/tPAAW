@@ -284,7 +284,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     return merged;
   }, []);
 
-  // ── Auto-refresh tree every 3 seconds ──
+  // ── Auto-refresh tree every 10 seconds ──
   const refreshTree = useCallback(() => {
     if (!projectRoot) return;
     fetch(`${API_BASE}/api/fs/tree?root=${encodeURIComponent(projectRoot)}`)
@@ -298,7 +298,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   useEffect(() => {
     if (!projectRoot) return;
     refreshTree();
-    const interval = setInterval(refreshTree, 3000);
+    const interval = setInterval(refreshTree, 10000);
     return () => clearInterval(interval);
   }, [projectRoot, refreshTree]);
 
