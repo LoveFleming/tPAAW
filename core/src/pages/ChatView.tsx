@@ -99,6 +99,12 @@ export default function ChatView({ profile, embedded = false }: Props) {
 
   useEffect(() => { loadChats(); }, []);
 
+  // Poll for new messages every 5s
+  useEffect(() => {
+    const interval = setInterval(loadChats, 5000);
+    return () => clearInterval(interval);
+  }, [loadChats]);
+
   useEffect(() => {
     if (!activeChatId) return;
     const chat = chats.find(c => c.id === activeChatId);

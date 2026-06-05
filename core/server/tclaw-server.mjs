@@ -2964,6 +2964,45 @@ async function runCronJob(job) {
 
   await appendCronLog(job.id, { runId, status: "started" });
 
+  // ── Reminder type: inject message into chat ──
+  if (job.type === "reminder") {
+    try {
+      const files = await readdir(TCLAW_CHAT_DIR);
+      const chatFiles = files.filter(f => f.endsWith(".json")).sort().reverse();
+      if (chatFiles.length > 0) {
+        const chatPath = resolve(TCLAW_CHAT_DIR, chatFiles[0]);
+        const chat = JSON.parse(await readFile(chatPath, "utf-8"));
+        chat.messages.push({
+          role: "assistant",
+          content: `⏰ **提醒**：${job.reminderText || job.name}`,
+          timestamp: new Date().toISOString(),
+        });
+        chat.updatedAt = new Date().toISOString();
+        await writeFile(chatPath, JSON.stringify(chat, null, 2), "utf-8");
+      }
+      await appendCronLog(job.id, { runId, status: "done", reminderDelivered: true });
+      const jobs = await loadCronJobs();
+      const idx = jobs.findIndex(j => j.id === job.id);
+      if (idx >= 0) {
+        jobs[idx].lastRun = new Date().toISOString();
+        jobs[idx].lastStatus = "done";
+        await saveCronJobs(jobs);
+      }
+      console.log(`[cron] Reminder ${job.id} delivered`);
+    } catch (err) {
+      await appendCronLog(job.id, { runId, status: "error", error: err.message });
+      const jobs = await loadCronJobs();
+      const idx = jobs.findIndex(j => j.id === job.id);
+      if (idx >= 0) {
+        jobs[idx].lastRun = new Date().toISOString();
+        jobs[idx].lastStatus = "error";
+        await saveCronJobs(jobs);
+      }
+    }
+    return;
+  }
+
+  // ── Report type: run CLI ──
   try {
     const { spawn } = await import("child_process");
     // Build prompt with params
@@ -3073,6 +3112,8 @@ const cronApiHandler = async (req, res) => {
     const job = {
       id: parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `cron-${Date.now()}`,
       name: parsed.name,
+      type: parsed.type || "report", // "report" or "reminder"
+      reminderText: parsed.reminderText || "",
       reportAppId: parsed.reportAppId || "",
       schedule: parsed.schedule || "0 * * * *",
       prompt: parsed.prompt || "",

@@ -6,6 +6,8 @@ const API = "http://127.0.0.1:4097";
 interface CronJob {
     id: string;
     name: string;
+    type: "report" | "reminder";
+    reminderText?: string;
     reportAppId: string;
     schedule: string;
     prompt: string;
@@ -60,9 +62,11 @@ export default function CronJobsPage() {
     const [viewingResult, setViewingResult] = useState<string | null>(null);
 
     const [formName, setFormName] = useState("");
+    const [formType, setFormType] = useState<"report" | "reminder">("reminder");
     const [formAppId, setFormAppId] = useState("");
-    const [formSchedule, setFormSchedule] = useState("0 * * * *");
+    const [formSchedule, setFormSchedule] = useState("0 9 * * *");
     const [formPrompt, setFormPrompt] = useState("");
+    const [formReminderText, setFormReminderText] = useState("");
     const [formParams, setFormParams] = useState<{ key: string; value: string }[]>([]);
 
     const resultIframeRef = useRef<HTMLIFrameElement>(null);
@@ -94,15 +98,24 @@ export default function CronJobsPage() {
     };
 
     const handleCreate = async () => {
-        if (!formName || !formAppId) return;
+        if (!formName) return;
+        if (formType === "report" && !formAppId) return;
         const params: Record<string, string> = {};
         formParams.forEach(p => { if (p.key) params[p.key] = p.value; });
         await fetch(`${API}/api/cron-jobs`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: formName, reportAppId: formAppId, schedule: formSchedule, prompt: formPrompt, params }),
+            body: JSON.stringify({
+                name: formName,
+                type: formType,
+                reminderText: formReminderText,
+                reportAppId: formAppId,
+                schedule: formSchedule,
+                prompt: formPrompt,
+                params,
+            }),
         });
-        setFormName(""); setFormAppId(""); setFormSchedule("0 * * * *"); setFormPrompt(""); setFormParams([]);
+        setFormName(""); setFormType("reminder"); setFormAppId(""); setFormSchedule("0 9 * * *"); setFormPrompt(""); setFormReminderText(""); setFormParams([]);
         setShowCreate(false);
         reload();
     };
@@ -175,13 +188,33 @@ export default function CronJobsPage() {
                 {/* Create Form */}
                 {showCreate && (
                     <div className="p-4 border-b space-y-3" style={{ borderColor: "#e7e5e4", backgroundColor: "#fafaf9" }}>
-                        <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Job 名稱"
+                        <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Job 名稱（例如：吃保健品提醒）"
                             className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }} />
-                        <select value={formAppId} onChange={e => setFormAppId(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }}>
-                            <option value="">選擇 Report App</option>
-                            {apps.map(a => <option key={a.id} value={a.id}>{a.name} ({a.id})</option>)}
-                        </select>
+                        {/* Type selector */}
+                        <div className="flex gap-2">
+                            <button onClick={() => setFormType("reminder")}
+                                className={`flex-1 py-2 rounded-lg text-sm font-bold border ${formType === "reminder" ? "border-amber-400 bg-amber-50 text-amber-700" : "border-stone-200 text-stone-400"}`}>
+                                ⏰ 提醒
+                            </button>
+                            <button onClick={() => setFormType("report")}
+                                className={`flex-1 py-2 rounded-lg text-sm font-bold border ${formType === "report" ? "border-blue-400 bg-blue-50 text-blue-700" : "border-stone-200 text-stone-400"}`}>
+                                📊 報告
+                            </button>
+                        </div>
+                        {formType === "reminder" ? (
+                            <input value={formReminderText} onChange={e => setFormReminderText(e.target.value)} placeholder="提醒內容（例如：該吃保健品了！）"
+                                className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }} />
+                        ) : (
+                            <>
+                                <select value={formAppId} onChange={e => setFormAppId(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }}>
+                                    <option value="">選擇 Report App</option>
+                                    {apps.map(a => <option key={a.id} value={a.id}>{a.name} ({a.id})</option>)}
+                                </select>
+                                <textarea value={formPrompt} onChange={e => setFormPrompt(e.target.value)} placeholder="Prompt (可選)"
+                                    className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none" rows={2} style={{ borderColor: "#d6d3d1" }} />
+                            </>
+                        )}
                         <div>
                             <div className="text-xs text-stone-500 mb-1.5 font-semibold">排程</div>
                             <input value={formSchedule} onChange={e => setFormSchedule(e.target.value)}
@@ -211,10 +244,8 @@ export default function CronJobsPage() {
                                 </div>
                             ))}
                         </div>
-                        <textarea value={formPrompt} onChange={e => setFormPrompt(e.target.value)} placeholder="Prompt (可選)"
-                            className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none" rows={2} style={{ borderColor: "#d6d3d1" }} />
                         <div className="flex gap-2">
-                            <button onClick={handleCreate} disabled={!formName || !formAppId}
+                            <button onClick={handleCreate} disabled={!formName || (formType === "report" && !formAppId)}
                                 className="flex-1 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-50"
                                 style={{ backgroundColor: t.accent }}>建立</button>
                             <button onClick={() => setShowCreate(false)}
@@ -238,6 +269,7 @@ export default function CronJobsPage() {
                             style={{ borderColor: "#e7e5e4", borderLeftColor: selectedJob === job.id ? t.accent : undefined }}>
                             <div className="flex items-center gap-2">
                                 <span className="text-sm">{statusIcon(job.lastStatus)}</span>
+                                <span className="text-sm">{job.type === "reminder" ? "⏰" : "📊"}</span>
                                 <span className="text-sm font-semibold text-stone-700 flex-1 truncate">{job.name}</span>
                                 <button onClick={e => { e.stopPropagation(); handleToggle(job); }}
                                     className={`text-xs px-2 py-0.5 rounded-md font-semibold ${job.enabled ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400"}`}>
@@ -276,7 +308,10 @@ export default function CronJobsPage() {
                                 <div className="text-xs text-stone-400 mt-0.5">
                                     <span className="font-mono">{selectedJobData?.schedule}</span>
                                     <span className="mx-1.5 text-stone-300">→</span>
-                                    <span className="text-stone-500">{selectedJobData?.reportAppId}</span>
+                                    <span className="text-stone-500">{selectedJobData?.type === "reminder" ? "⏰ 提醒" : selectedJobData?.reportAppId}</span>
+                                    {selectedJobData?.type === "reminder" && selectedJobData?.reminderText && (
+                                        <span className="ml-2 text-amber-600">{selectedJobData.reminderText}</span>
+                                    )}
                                     {selectedJobData?.params && Object.keys(selectedJobData.params).length > 0 && (
                                         <>
                                             <span className="mx-1.5 text-stone-300">|</span>
