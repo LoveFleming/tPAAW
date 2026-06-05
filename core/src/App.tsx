@@ -286,6 +286,7 @@ function AppInner() {
   };
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
+  const [wsCtxMenu, setWsCtxMenu] = useState<{ x: number; y: number; dir: string } | null>(null);
 
   // ── Workspaces (multi-directory) ──
   const [workspaces, setWorkspaces] = useState<string[]>([]);
@@ -677,17 +678,15 @@ function AppInner() {
               )}
               {workspaces.map((dir) => (
                 <div key={dir} className="group">
-                  <div className="flex items-center justify-between px-2 py-0.5">
+                  <div className="flex items-center justify-between px-2 py-0.5"
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setWsCtxMenu({ x: e.clientX, y: e.clientY, dir });
+                    }}
+                  >
                     <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider truncate flex-1" title={dir}>
                       📂 {pathBasename(dir)}
                     </span>
-                    <button
-                      onClick={() => removeWorkspace(dir)}
-                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-rose-500 transition-all p-0.5"
-                      title="移除"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
                   </div>
                   <div style={{ paddingLeft: 8 }}>
                   <SidebarFileTree
@@ -695,6 +694,7 @@ function AppInner() {
                     activeFilePath={activeFilePath}
                     openFilePaths={openFilePaths}
                     onSelectFile={handleSelectFile}
+                    startDepth={1}
                   />
                   </div>
                 </div>
@@ -795,6 +795,36 @@ function AppInner() {
           onClose={() => setShowDirExplorer(false)}
           title="📂 加入目錄到 Workspaces"
         />
+      )}
+
+      {/* Workspace right-click context menu */}
+      {wsCtxMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setWsCtxMenu(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: wsCtxMenu.x,
+              top: wsCtxMenu.y,
+              zIndex: 9999,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+              padding: "4px 0",
+              minWidth: 160,
+            }}
+          >
+            <div
+              style={{ padding: "8px 16px", fontSize: 13, cursor: "pointer", color: "#ef4444", whiteSpace: "nowrap" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              onClick={() => { removeWorkspace(wsCtxMenu.dir); setWsCtxMenu(null); }}
+            >
+              🗑️ 移除目錄
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

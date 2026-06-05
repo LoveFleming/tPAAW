@@ -223,9 +223,10 @@ interface Props {
   activeFilePath: string | null;
   openFilePaths: Set<string>;
   onSelectFile: (path: string) => void;
+  startDepth?: number;
 }
 
-export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile }: Props) {
+export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0 }: Props) {
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -348,22 +349,30 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
 
   if (!tree?.children) return null;
 
+  // Render children from startDepth (skip root node itself)
+  const renderItems = startDepth > 0 && tree.children
+    ? tree.children
+    : [tree];
+
   return (
     <div
       className="overflow-y-auto"
       style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)" }}
       onContextMenu={e => e.preventDefault()}
     >
-      <TreeNodeView
-        node={tree}
-        depth={0}
-        activeFilePath={activeFilePath}
-        openFilePaths={openFilePaths}
-        onSelectFile={onSelectFile}
-        onToggleDir={handleToggleDir}
-        expandedPaths={expandedPaths}
-        projectRoot={projectRoot}
-      />
+      {renderItems.map((child, i) => (
+        <TreeNodeView
+          key={child.path || i}
+          node={child}
+          depth={startDepth > 0 ? startDepth : 0}
+          activeFilePath={activeFilePath}
+          openFilePaths={openFilePaths}
+          onSelectFile={onSelectFile}
+          onToggleDir={handleToggleDir}
+          expandedPaths={expandedPaths}
+          projectRoot={projectRoot}
+        />
+      ))}
       {ctxMenu && <ContextMenu menu={ctxMenu} onDelete={(m) => { setCtxMenu(null); setConfirmDelete(m); }} onClose={() => setCtxMenu(null)} />}
       {confirmDelete && (
         <div
