@@ -11,9 +11,10 @@ interface CtxMenuState {
   relativePath: string;
   isDir: boolean;
   name: string;
+  isWsRoot?: boolean;
 }
 
-function ContextMenu({ menu, onDelete, onClose }: { menu: CtxMenuState; onDelete: (menu: CtxMenuState) => void; onClose: () => void }) {
+function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace }: { menu: CtxMenuState; onDelete: (menu: CtxMenuState) => void; onClose: () => void; onRemoveWorkspace?: (dir: string) => void; }) {
   const { info: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -61,31 +62,44 @@ function ContextMenu({ menu, onDelete, onClose }: { menu: CtxMenuState; onDelete
         overflow: "hidden",
       }}
     >
-      <div
-        style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
-        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-        onClick={() => copy(menu.fullPath)}
-      >
-        📋 Copy Path
-      </div>
-      <div
-        style={itemStyle}
-        onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
-        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-        onClick={() => copy(menu.relativePath)}
-      >
-        📄 Copy Relative Path
-      </div>
-      <div style={{ height: 1, background: t.border, margin: "4px 0" }} />
-      <div
-        style={{ ...itemStyle, color: "#ef4444" }}
-        onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
-        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-        onClick={() => { onDelete(menu); }}
-      >
-        🗑️ Delete{menu.isDir ? " Folder" : ""}
-      </div>
+      {menu.isWsRoot ? (
+        <div
+          style={{ ...itemStyle, color: "#ef4444" }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          onClick={() => { onRemoveWorkspace?.(menu.fullPath); onClose(); }}
+        >
+          🗑️ 移除目錄
+        </div>
+      ) : (
+        <>
+          <div
+            style={itemStyle}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            onClick={() => copy(menu.fullPath)}
+          >
+            📋 Copy Path
+          </div>
+          <div
+            style={itemStyle}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            onClick={() => copy(menu.relativePath)}
+          >
+            📄 Copy Relative Path
+          </div>
+          <div style={{ height: 1, background: t.border, margin: "4px 0" }} />
+          <div
+            style={{ ...itemStyle, color: "#ef4444" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            onClick={() => { onDelete(menu); }}
+          >
+            🗑️ Delete{menu.isDir ? " Folder" : ""}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -137,10 +151,13 @@ const MAX_INDENT_DEPTH = 10; // Beyond this, all items share the same indent lev
 
 const TreeNodeView = React.memo(function TreeNodeView({
   node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths, projectRoot,
+  isWorkspaceRoot, onRemoveWorkspace,
 }: {
   node: TreeNode; depth: number; activeFilePath: string | null; openFilePaths: Set<string>;
   onSelectFile: (path: string) => void; onToggleDir: (path: string) => void; expandedPaths: Set<string>;
   projectRoot: string;
+  isWorkspaceRoot?: boolean;
+  onRemoveWorkspace?: (dir: string) => void;
 }) {
   const { info: t } = useTheme();
   const isDir = node.type === "dir";
@@ -155,10 +172,15 @@ const TreeNodeView = React.memo(function TreeNodeView({
   const handleCtx = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isWorkspaceRoot && onRemoveWorkspace) {
+      closeGlobalCtxMenu();
+      globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: "", isDir: true, name: node.name, isWsRoot: true });
+      return;
+    }
     const relPath = relativePath(node.path, projectRoot);
     closeGlobalCtxMenu();
     globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath, isDir: node.type === "dir", name: node.name });
-  }, [node.path, projectRoot]);
+  }, [node.path, projectRoot, isWorkspaceRoot, onRemoveWorkspace]);
 
   // Show depth indicator for deeply nested items (dots to indicate skipped levels)
   const showDepthHint = depth > MAX_INDENT_DEPTH;
@@ -224,9 +246,10 @@ interface Props {
   openFilePaths: Set<string>;
   onSelectFile: (path: string) => void;
   startDepth?: number;
+  onRemoveWorkspace?: (dir: string) => void;
 }
 
-export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0 }: Props) {
+export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace }: Props) {
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -349,31 +372,25 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
 
   if (!tree?.children) return null;
 
-  // Render children from startDepth (skip root node itself)
-  const renderItems = startDepth > 0 && tree.children
-    ? tree.children
-    : [tree];
-
   return (
     <div
       className="overflow-y-auto"
       style={{ scrollbarWidth: "thin", maxHeight: "calc(100vh - 300px)" }}
       onContextMenu={e => e.preventDefault()}
     >
-      {renderItems.map((child, i) => (
-        <TreeNodeView
-          key={child.path || i}
-          node={child}
-          depth={startDepth > 0 ? startDepth : 0}
-          activeFilePath={activeFilePath}
-          openFilePaths={openFilePaths}
-          onSelectFile={onSelectFile}
-          onToggleDir={handleToggleDir}
-          expandedPaths={expandedPaths}
-          projectRoot={projectRoot}
-        />
-      ))}
-      {ctxMenu && <ContextMenu menu={ctxMenu} onDelete={(m) => { setCtxMenu(null); setConfirmDelete(m); }} onClose={() => setCtxMenu(null)} />}
+      <TreeNodeView
+        node={tree}
+        depth={0}
+        activeFilePath={activeFilePath}
+        openFilePaths={openFilePaths}
+        onSelectFile={onSelectFile}
+        onToggleDir={onToggleDir}
+        expandedPaths={expandedPaths}
+        projectRoot={projectRoot}
+        isWorkspaceRoot={true}
+        onRemoveWorkspace={onRemoveWorkspace}
+      />
+      {ctxMenu && <ContextMenu menu={ctxMenu} onDelete={(m) => { setCtxMenu(null); setConfirmDelete(m); }} onClose={() => setCtxMenu(null)} onRemoveWorkspace={onRemoveWorkspace} />}
       {confirmDelete && (
         <div
           style={{

@@ -286,7 +286,6 @@ function AppInner() {
   };
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
-  const [wsCtxMenu, setWsCtxMenu] = useState<{ x: number; y: number; dir: string } | null>(null);
 
   // ── Workspaces (multi-directory) ──
   const [workspaces, setWorkspaces] = useState<string[]>([]);
@@ -677,26 +676,14 @@ function AppInner() {
                 </div>
               )}
               {workspaces.map((dir) => (
-                <div key={dir} className="group">
-                  <div className="flex items-center justify-between px-2 py-0.5"
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setWsCtxMenu({ x: e.clientX, y: e.clientY, dir });
-                    }}
-                  >
-                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider truncate flex-1" title={dir}>
-                      📂 {pathBasename(dir)}
-                    </span>
-                  </div>
-                  <div style={{ paddingLeft: 8 }}>
+                <div key={dir}>
                   <SidebarFileTree
                     projectRoot={dir}
                     activeFilePath={activeFilePath}
                     openFilePaths={openFilePaths}
                     onSelectFile={handleSelectFile}
-                    startDepth={1}
+                    onRemoveWorkspace={removeWorkspace}
                   />
-                  </div>
                 </div>
               ))}
             </SidebarSection>
@@ -797,35 +784,6 @@ function AppInner() {
         />
       )}
 
-      {/* Workspace right-click context menu */}
-      {wsCtxMenu && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setWsCtxMenu(null)} />
-          <div
-            style={{
-              position: "fixed",
-              left: wsCtxMenu.x,
-              top: wsCtxMenu.y,
-              zIndex: 9999,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
-              padding: "4px 0",
-              minWidth: 160,
-            }}
-          >
-            <div
-              style={{ padding: "8px 16px", fontSize: 13, cursor: "pointer", color: "#ef4444", whiteSpace: "nowrap" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-              onClick={() => { removeWorkspace(wsCtxMenu.dir); setWsCtxMenu(null); }}
-            >
-              🗑️ 移除目錄
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
