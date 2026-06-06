@@ -371,9 +371,9 @@ export default function AppLab() {
     }, []);
 
     useEffect(() => {
-        fetch(`${API}/api/aioc-root`)
+        fetch(`${API}/api/tagent-root`)
             .then(r => r.ok ? r.json() : {})
-            .then((d: { aiocRoot?: string }) => { if (d.aiocRoot) setWorkingDir(d.aiocRoot); })
+            .then((d: { tagentRoot?: string }) => { if (d.tagentRoot) setWorkingDir(d.tagentRoot); })
             .catch(() => {});
     }, []);
 

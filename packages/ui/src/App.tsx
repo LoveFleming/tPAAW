@@ -58,8 +58,8 @@ try {
     localStorage.removeItem("aieos.project");
   }
   const oldRecent = localStorage.getItem("aieos.recent-projects");
-  if (oldRecent && !localStorage.getItem("aioc.recent-projects")) {
-    localStorage.setItem("aioc.recent-projects", oldRecent);
+  if (oldRecent && !localStorage.getItem("tagent.recent-projects")) {
+    localStorage.setItem("tagent.recent-projects", oldRecent);
     localStorage.removeItem("aieos.recent-projects");
   }
 } catch {}
@@ -99,7 +99,7 @@ function AppInner() {
 
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
     const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    return normPath(localStorage.getItem(`aioc.project.${lastFactory}`));
+    return normPath(localStorage.getItem(`tagent.project.${lastFactory}`));
   });
   const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
@@ -118,7 +118,7 @@ function AppInner() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem("aioc.sidebar-width");
+    const saved = localStorage.getItem("tagent.sidebar-width");
     return saved ? parseInt(saved, 10) : 260;
   });
 
@@ -126,7 +126,7 @@ function AppInner() {
   const [crew, setCrew] = useState<Crew[]>([]);
   const crewByFactoryRef = useRef<Record<string, Crew[]>>({});
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
-  const [aiocRoot, setAiocRoot] = useState("");
+  const [tagentRoot, setTagentRoot] = useState("");
   const [skillApps, setSkillApps] = useState<{id: string; name: string}[]>([]);
 
   const loadFactories = useCallback(async () => {
@@ -158,7 +158,7 @@ function AppInner() {
     try {
       const r = await fetch("http://127.0.0.1:4097/api/models?cli=qwen");
       const d = await r.json();
-      if (d.aiocRoot) setAiocRoot(d.aiocRoot);
+      if (d.tagentRoot) setTagentRoot(d.tagentRoot);
     } catch {}
   }, [selectedFactoryId]);
 
@@ -211,11 +211,11 @@ function AppInner() {
       setActivePage(crewTab);
     }
     const normalized = normPath(path)!;
-    localStorage.setItem(`aioc.project.${selectedFactoryId}`, normalized);
+    localStorage.setItem(`tagent.project.${selectedFactoryId}`, normalized);
     try {
-      const existing = JSON.parse(localStorage.getItem("aioc.recent-projects") || "[]") as string[];
+      const existing = JSON.parse(localStorage.getItem("tagent.recent-projects") || "[]") as string[];
       const updated = [normalized, ...existing.filter((p: string) => p !== normalized)].slice(0, 10);
-      localStorage.setItem("aioc.recent-projects", JSON.stringify(updated));
+      localStorage.setItem("tagent.recent-projects", JSON.stringify(updated));
     } catch {}
   }, [openTabs, activePage, currentScope, projectRoot, selectedFactoryId]);
 
@@ -237,7 +237,7 @@ function AppInner() {
       activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
       openTabs: currentScopeTabs,
     };
-    const savedRoot = normPath(localStorage.getItem(`aioc.project.${factoryId}`));
+    const savedRoot = normPath(localStorage.getItem(`tagent.project.${factoryId}`));
     const newScope = makeScopeKey(factoryId, savedRoot);
     const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
@@ -438,7 +438,7 @@ function AppInner() {
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
       sidebarDragRef.current = null;
-      setSidebarWidth(w => { localStorage.setItem("aioc.sidebar-width", w.toString()); return w; });
+      setSidebarWidth(w => { localStorage.setItem("tagent.sidebar-width", w.toString()); return w; });
     };
     document.addEventListener("mousemove", handleMove);
     document.addEventListener("mouseup", handleUp);
@@ -499,8 +499,8 @@ function AppInner() {
     }
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);
-      if (!aiocRoot || !factoryId) return <div className="p-8 text-stone-400">Loading...</div>;
-      const filePath = `${aiocRoot}/factories/${factoryId}/docs/${fileName}`;
+      if (!tagentRoot || !factoryId) return <div className="p-8 text-stone-400">Loading...</div>;
+      const filePath = `${tagentRoot}/factories/${factoryId}/docs/${fileName}`;
       const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot ?? projectRoot;
       return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} active={active} />;
     }
@@ -512,7 +512,7 @@ function AppInner() {
       const employeeId = pageType.split("#")[0].slice(9);
       const tabCrew = crewByFactoryRef.current[factoryId] ?? crew;
       const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot
-        ?? normPath(localStorage.getItem(`aioc.project.${factoryId}`))
+        ?? normPath(localStorage.getItem(`tagent.project.${factoryId}`))
         ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
@@ -521,7 +521,7 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, aiocRoot, crew, selectedFactoryId, profile, skillAppNav]);
+  }, [projectRoot, tagentRoot, crew, selectedFactoryId, profile, skillAppNav]);
 
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();
@@ -550,7 +550,7 @@ function AppInner() {
         selectedFactoryId={selectedFactoryId}
         onSelect={enterFactory}
         onBack={() => setShowFactoryEntry(false)}
-        aiocRoot={aiocRoot}
+        tagentRoot={tagentRoot}
         onFactoriesChanged={loadFactories}
       />
     );

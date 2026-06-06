@@ -161,9 +161,9 @@ export default function SkillLab() {
     useEffect(() => { loadTrainingFiles(); }, [loadTrainingFiles]);
 
     useEffect(() => {
-        fetch(`${API_BASE}/api/aioc-root`)
+        fetch(`${API_BASE}/api/tagent-root`)
             .then(r => r.ok ? r.json() : {})
-            .then((d: { aiocRoot?: string }) => { if (d.aiocRoot) setWorkingDir(d.aiocRoot); })
+            .then((d: { tagentRoot?: string }) => { if (d.tagentRoot) setWorkingDir(d.tagentRoot); })
             .catch(() => {});
     }, []);
 
@@ -242,14 +242,14 @@ export default function SkillLab() {
                 if (data?.content) {
                     return data.content
                         .replace(/\{\{SKILL_NAME\}\}/g, skillName)
-                        .replace(/\{\{AIOC_BASE\}\}/g, workingDir || ".")
+                        .replace(/\{\{TAGENT_BASE\}\}/g, workingDir || ".")
                         .replace(/\{\{FILE_PATH\}\}/g, fullPath);
                 }
             }
         } catch { /* fallback */ }
         // Fallback if template not found
         const base = workingDir || ".";
-        return `# Training: ${skillName}\n\n## 系統環境（System Context）\n\n你是 AIOC Skill 鍛造專家。\n- **AIOC Base**: \`${base}\`\n- **Input-Prompt Skills**: \`${base}/skills/input-prompt/\`\n- **Physical Skills**: \`${base}/skills/physical-skill/\`\n- **本檔案實體路徑**: \`${fullPath}\`\n\n---\n\n## 訓練 Prompt\n\n\n\n## 測試 Prompt\n\n`;
+        return `# Training: ${skillName}\n\n## 系統環境（System Context）\n\n你是 tAgent Skill 鍛造專家。\n- **tAgent Base**: \`${base}\`\n- **Input-Prompt Skills**: \`${base}/skills/input-prompt/\`\n- **Physical Skills**: \`${base}/skills/physical-skill/\`\n- **本檔案實體路徑**: \`${fullPath}\`\n\n---\n\n## 訓練 Prompt\n\n\n\n## 測試 Prompt\n\n`;
     };
 
     // ── Create new training file ──

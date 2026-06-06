@@ -144,7 +144,7 @@ export default function CronJobsPage() {
         if (!selectedJob) return;
         setViewingResult(file);
         setRightTab("result-view");
-        const path = `${API}/api/cron-result?path=${encodeURIComponent(`/Users/steward/App/aioc/logs/cron-results/${selectedJob}/${file}`)}`;
+        const path = `${API}/api/cron-result?path=${encodeURIComponent(`/Users/steward/App/tAgent/logs/cron-results/${selectedJob}/${file}`)}`;
         setTimeout(() => {
             if (!resultIframeRef.current) return;
             const doc = resultIframeRef.current.contentDocument;

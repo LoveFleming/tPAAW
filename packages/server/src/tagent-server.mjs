@@ -477,7 +477,7 @@ const server = createServer(async (req, res) => {
     const dataFile = join(outDir, "_skill_data.json");
     await writeFile(dataFile, JSON.stringify({ skills: skillData, apps: appData }, null, 2), "utf-8");
 
-    const systemPrompt = `你是 AIOC 的數據分析師。請讀取 ${dataFile} 中的即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
+    const systemPrompt = `你是 tAgent 的數據分析師。請讀取 ${dataFile} 中的即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
 
 ## 摘要
 - Total Skills: ${summary.totalSkills}
@@ -765,8 +765,8 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     if (!htmlPath || !htmlPath.startsWith("/")) {
       res.writeHead(400); res.end("Missing path"); return;
     }
-    // Safety: only allow reading from AIOC paths
-    if (!htmlPath.includes("/aioc/") && !htmlPath.includes(PHYSICAL_SKILL_ROOT)) {
+    // Safety: only allow reading from tAgent paths
+    if (!htmlPath.includes("/tagent/") && !htmlPath.includes(PHYSICAL_SKILL_ROOT)) {
       res.writeHead(403); res.end("Forbidden"); return;
     }
     try {
@@ -786,7 +786,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const { htmlPath, skillId, reportName } = parsed;
 
-    if (!htmlPath || !htmlPath.includes("/aioc/")) {
+    if (!htmlPath || !htmlPath.includes("/tagent/")) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid path" })); return;
     }
@@ -1044,10 +1044,10 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
-  // GET /api/aioc-root — return AIOC base path
-  if (req.method === "GET" && req.url === "/api/aioc-root") {
+  // GET /api/tagent-root — return tAgent base path
+  if (req.method === "GET" && req.url === "/api/tagent-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT, aiocRoot: TAGENT_ROOT }));
+    res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT }));
     return;
   }
 
@@ -1226,10 +1226,10 @@ async function tagentApiHandler(req, res) {
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aiocRoot: TAGENT_ROOT, models, currentModel }));
+      res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT, models, currentModel }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aiocRoot: TAGENT_ROOT, models: [], currentModel: "", error: err.message }));
+      res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT, models: [], currentModel: "", error: err.message }));
     }
     return;
   }

@@ -205,9 +205,9 @@ export default function SkillBuilder() {
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/aioc-root`)
+    fetch(`${API_BASE}/api/tagent-root`)
       .then(r => r.ok ? r.json() : {})
-      .then((d: { aiocRoot?: string }) => { if (d.aiocRoot) setWorkingDir(d.aiocRoot); })
+      .then((d: { tagentRoot?: string }) => { if (d.tagentRoot) setWorkingDir(d.tagentRoot); })
       .catch(() => {});
   }, []);
 
