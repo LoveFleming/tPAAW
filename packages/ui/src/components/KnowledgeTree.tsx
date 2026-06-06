@@ -374,24 +374,6 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
 
   return (
     <div className="flex flex-col" onContextMenu={e => e.preventDefault()}>
-      {/* Header with actions */}
-      <div className="flex items-center justify-between px-3 py-1.5">
-        <span className="text-[10px] font-medium text-stone-400 uppercase tracking-wider">
-          {t("sidebar.knowledge")}
-        </span>
-        <div className="flex gap-0.5">
-          <button onClick={() => setNewItem({ parentPath: ROOT, type: "folder" })}
-            className="px-1 py-0.5 text-[10px] text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded transition-colors"
-            title="New Folder">📁+</button>
-          <button onClick={() => setNewItem({ parentPath: ROOT, type: "file" })}
-            className="px-1 py-0.5 text-[10px] text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded transition-colors"
-            title="New File">📄+</button>
-          <button onClick={refresh}
-            className="px-1 py-0.5 text-[10px] text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded transition-colors"
-            title="Refresh">🔄</button>
-        </div>
-      </div>
-
       {/* Tree */}
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
         {tree?.children && tree.children.map(child => (
