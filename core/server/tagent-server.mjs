@@ -1,7 +1,7 @@
 /**
- * tClaw Server
+ * tAgent Server
  *
- * HTTP + WebSocket server for tClaw Personal AI Assistant.
+ * HTTP + WebSocket server for tAgent Personal AI Assistant.
  * Uses node-pty for CLI interaction.
  *
  * Key endpoints:
@@ -28,16 +28,16 @@ const execAsync = promisify(execCb);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DASHBOARD_ROOT = resolve(__dirname, "..");
-const TCLAW_ROOT = resolve(__dirname, "../../");
-const CONVERSATIONS_ROOT = resolve(TCLAW_ROOT, "core/conversations");
-const CREWS_ROOT = resolve(TCLAW_ROOT, "crews");
-const SKILLS_ROOT = resolve(TCLAW_ROOT, "skills");
-const DOCS_ROOT = resolve(TCLAW_ROOT, "docs");
+const TAGENT_ROOT = resolve(__dirname, "../../");
+const CONVERSATIONS_ROOT = resolve(TAGENT_ROOT, "core/conversations");
+const CREWS_ROOT = resolve(TAGENT_ROOT, "crews");
+const SKILLS_ROOT = resolve(TAGENT_ROOT, "skills");
+const DOCS_ROOT = resolve(TAGENT_ROOT, "docs");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
-const APPS_ROOT = resolve(TCLAW_ROOT, "apps");
+const APPS_ROOT = resolve(TAGENT_ROOT, "apps");
 
-const PORT = parseInt(process.env.TCLAW_PORT || "4097", 10);
+const PORT = parseInt(process.env.TAGENT_PORT || "4097", 10);
 
 // Simple path hash: replace non-alphanumeric with underscore
 function projectPathHash(path) {
@@ -57,19 +57,19 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
-  // tClaw API
-  const tclawHandled = await tclawApiHandler(req, res);
-  if (tclawHandled) return;
+  // tAgent API
+  const tagentHandled = await tagentApiHandler(req, res);
+  if (tagentHandled) return;
 
   // Cron API
   const handled = await cronApiHandler(req, res);
   if (handled) return;
 
-  // Helper: resolve directory (tClaw has flat structure, no factory nesting)
+  // Helper: resolve directory (tAgent has flat structure, no factory nesting)
   function factoryDir(_factoryId, subdir) {
     if (subdir === "crews") return CREWS_ROOT;
     if (subdir === "docs") return DOCS_ROOT;
-    return resolve(TCLAW_ROOT, subdir);
+    return resolve(TAGENT_ROOT, subdir);
   }
 
   // Helper: get factoryId from query param (kept for backward compat)
@@ -315,7 +315,7 @@ const server = createServer(async (req, res) => {
   const appDataGetMatch = req.method === "GET" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
   if (appDataGetMatch) {
     const appId = appDataGetMatch[1];
-    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -333,7 +333,7 @@ const server = createServer(async (req, res) => {
   const appDataPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
   if (appDataPutMatch) {
     const appId = appDataPutMatch[1];
-    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -353,7 +353,7 @@ const server = createServer(async (req, res) => {
   const appDataPostMatch = req.method === "POST" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
   if (appDataPostMatch) {
     const appId = appDataPostMatch[1];
-    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -377,7 +377,7 @@ const server = createServer(async (req, res) => {
   const appDataDelMatch = req.method === "DELETE" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
   if (appDataDelMatch) {
     const [, appId, itemId] = appDataDelMatch;
-    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -399,7 +399,7 @@ const server = createServer(async (req, res) => {
   const appDataPatchMatch = req.method === "PATCH" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
   if (appDataPatchMatch) {
     const [, appId, itemId] = appDataPatchMatch;
-    const dataDir = resolve(TCLAW_ROOT, "data/app-data");
+    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -832,16 +832,16 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
   if (req.method === "GET" && req.url?.match(/^\/api\/factories(?:\?.*)?$/)) {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify([{
-      id: "default", name: "tClaw", description: "Personal AI Assistant",
+      id: "default", name: "tAgent", description: "Personal AI Assistant",
       icon: "🐾", version: "2.0.0", createdAt: new Date().toISOString()
     }]));
     return;
   }
 
-  // POST/DELETE /api/factories — disabled in tClaw (single team)
+  // POST/DELETE /api/factories — disabled in tAgent (single team)
   if (req.url?.startsWith("/api/factories") && (req.method === "POST" || req.method === "DELETE")) {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, note: "tClaw uses flat crew structure" }));
+    res.end(JSON.stringify({ ok: true, note: "tAgent uses flat crew structure" }));
     return;
   }
 
@@ -918,7 +918,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/skill-lab/training-files — list training skill files
   if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/training-files")) {
     try {
-      const skillsDir = join(TCLAW_ROOT, "skills");
+      const skillsDir = join(TAGENT_ROOT, "skills");
       const results = [];
       const scanDir = async (root, kind) => {
         await mkdir(root, { recursive: true });
@@ -973,7 +973,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/report-lab/training-files — list report training files
   if (req.method === "GET" && req.url?.startsWith("/api/report-lab/training-files")) {
     try {
-      const skillsDir = join(TCLAW_ROOT, "skills");
+      const skillsDir = join(TAGENT_ROOT, "skills");
       const results = [];
       // Scan skills/training/ for report-*.md files
       const trainingDir = join(skillsDir, "training");
@@ -1047,26 +1047,26 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/aioc-root — return AIOC base path
   if (req.method === "GET" && req.url === "/api/aioc-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ aiocRoot: TCLAW_ROOT }));
+    res.end(JSON.stringify({ aiocRoot: TAGENT_ROOT }));
     return;
   }
 
-  // GET /api/factory-root — return tClaw root path
+  // GET /api/factory-root — return tAgent root path
   const factoryRootMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-root(?:\?(.*))?$/);
   if (factoryRootMatch) {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ factoryRoot: TCLAW_ROOT, factoryId: "default" }));
+    res.end(JSON.stringify({ factoryRoot: TAGENT_ROOT, factoryId: "default" }));
     return;
   }
 
-async function tclawApiHandler(req, res) {
+async function tagentApiHandler(req, res) {
   const url = new URL(req.url, "http://localhost");
   const path = url.pathname;
 
-  // GET /api/tclaw/cli-config — get CLI defaults
-  if (req.method === "GET" && path === "/api/tclaw/cli-config") {
+  // GET /api/tagent/cli-config — get CLI defaults
+  if (req.method === "GET" && path === "/api/tagent/cli-config") {
     try {
-      const filePath = resolve(TCLAW_DATA_DIR, "cli-config.json");
+      const filePath = resolve(TAGENT_DATA_DIR, "cli-config.json");
       const data = JSON.parse(await readFile(filePath, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
@@ -1077,12 +1077,12 @@ async function tclawApiHandler(req, res) {
     return true;
   }
 
-  // POST /api/tclaw/cli-config — save CLI defaults
-  if (req.method === "POST" && path === "/api/tclaw/cli-config") {
+  // POST /api/tagent/cli-config — save CLI defaults
+  if (req.method === "POST" && path === "/api/tagent/cli-config") {
     try {
       const body = JSON.parse(await readBody(req));
       body.configured = true;
-      await writeFile(resolve(TCLAW_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
+      await writeFile(resolve(TAGENT_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
     } catch (err) {
@@ -1226,10 +1226,10 @@ async function tclawApiHandler(req, res) {
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aiocRoot: TCLAW_ROOT, models, currentModel }));
+      res.end(JSON.stringify({ aiocRoot: TAGENT_ROOT, models, currentModel }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ aiocRoot: TCLAW_ROOT, models: [], currentModel: "", error: err.message }));
+      res.end(JSON.stringify({ aiocRoot: TAGENT_ROOT, models: [], currentModel: "", error: err.message }));
     }
     return;
   }
@@ -2188,19 +2188,19 @@ function startWatcher(root, sseRes) {
 }
 
 
-// ── tClaw Personal Assistant APIs ──
+// ── tAgent Personal Assistant APIs ──
 
-const TCLAW_DATA_DIR = resolve(TCLAW_ROOT, "data");
-const TCLAW_USER_FILE = resolve(TCLAW_DATA_DIR, "user.json");
-const TCLAW_CHAT_DIR = resolve(TCLAW_DATA_DIR, "chats");
+const TAGENT_DATA_DIR = resolve(TAGENT_ROOT, "data");
+const TAGENT_USER_FILE = resolve(TAGENT_DATA_DIR, "user.json");
+const TAGENT_CHAT_DIR = resolve(TAGENT_DATA_DIR, "chats");
 
-await mkdir(TCLAW_DATA_DIR, { recursive: true });
-await mkdir(TCLAW_CHAT_DIR, { recursive: true });
+await mkdir(TAGENT_DATA_DIR, { recursive: true });
+await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
-  // GET /api/tclaw/user — get user profile
-  if (req.method === "GET" && path === "/api/tclaw/user") {
+  // GET /api/tagent/user — get user profile
+  if (req.method === "GET" && path === "/api/tagent/user") {
     try {
-      const data = JSON.parse(await readFile(TCLAW_USER_FILE, "utf-8"));
+      const data = JSON.parse(await readFile(TAGENT_USER_FILE, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2210,22 +2210,22 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // POST /api/tclaw/user — save user profile (onboarding)
-  if (req.method === "POST" && path === "/api/tclaw/user") {
+  // POST /api/tagent/user — save user profile (onboarding)
+  if (req.method === "POST" && path === "/api/tagent/user") {
     const body = JSON.parse(await readBody(req));
-    await writeFile(TCLAW_USER_FILE, JSON.stringify(body, null, 2), "utf-8");
+    await writeFile(TAGENT_USER_FILE, JSON.stringify(body, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
     return true;
   }
 
-  // POST /api/tclaw/avatar — upload assistant avatar
-  if (req.method === "POST" && path === "/api/tclaw/avatar") {
+  // POST /api/tagent/avatar — upload assistant avatar
+  if (req.method === "POST" && path === "/api/tagent/avatar") {
     try {
       const body = JSON.parse(await readBody(req));
       const { data: base64Data, filename } = body;
       if (!base64Data) { res.writeHead(400); res.end(JSON.stringify({ error: "no data" })); return true; }
-      const avatarDir = resolve(TCLAW_DATA_DIR, "avatars");
+      const avatarDir = resolve(TAGENT_DATA_DIR, "avatars");
       await mkdir(avatarDir, { recursive: true });
       const ext = (filename || "").split(".").pop() || "png";
       const avatarName = `assistant.${ext}`;
@@ -2234,21 +2234,21 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
       await writeFile(avatarPath, buffer);
       // Update user profile with avatar path
       let userProfile;
-      try { userProfile = JSON.parse(readFileSync(TCLAW_USER_FILE, "utf-8")); } catch { userProfile = {}; }
-      userProfile.assistantAvatar = `/api/tclaw/avatar/assistant`;
-      await writeFile(TCLAW_USER_FILE, JSON.stringify(userProfile, null, 2), "utf-8");
+      try { userProfile = JSON.parse(readFileSync(TAGENT_USER_FILE, "utf-8")); } catch { userProfile = {}; }
+      userProfile.assistantAvatar = `/api/tagent/avatar/assistant`;
+      await writeFile(TAGENT_USER_FILE, JSON.stringify(userProfile, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, path: `/api/tclaw/avatar/assistant` }));
+      res.end(JSON.stringify({ ok: true, path: `/api/tagent/avatar/assistant` }));
     } catch (err) {
       res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }
 
-  // GET /api/tclaw/avatar/assistant — serve assistant avatar
-  if (req.method === "GET" && path === "/api/tclaw/avatar/assistant") {
+  // GET /api/tagent/avatar/assistant — serve assistant avatar
+  if (req.method === "GET" && path === "/api/tagent/avatar/assistant") {
     try {
-      const avatarDir = resolve(TCLAW_DATA_DIR, "avatars");
+      const avatarDir = resolve(TAGENT_DATA_DIR, "avatars");
       const files = await readdir(avatarDir);
       const avatarFile = files.find(f => f.startsWith("assistant."));
       if (avatarFile) {
@@ -2265,14 +2265,14 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // GET /api/tclaw/chats — list all chat sessions
-  if (req.method === "GET" && path === "/api/tclaw/chats") {
+  // GET /api/tagent/chats — list all chat sessions
+  if (req.method === "GET" && path === "/api/tagent/chats") {
     try {
-      const files = await readdir(TCLAW_CHAT_DIR);
+      const files = await readdir(TAGENT_CHAT_DIR);
       const chats = [];
       for (const f of files.filter(f => f.endsWith(".json")).sort().reverse()) {
         try {
-          const raw = JSON.parse(await readFile(resolve(TCLAW_CHAT_DIR, f), "utf-8"));
+          const raw = JSON.parse(await readFile(resolve(TAGENT_CHAT_DIR, f), "utf-8"));
           chats.push({ id: raw.id, title: raw.title || "新對話", createdAt: raw.createdAt, updatedAt: raw.updatedAt });
         } catch {}
       }
@@ -2285,11 +2285,11 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // GET /api/tclaw/chats/:id — get single chat
-  if (req.method === "GET" && path.startsWith("/api/tclaw/chats/")) {
+  // GET /api/tagent/chats/:id — get single chat
+  if (req.method === "GET" && path.startsWith("/api/tagent/chats/")) {
     const chatId = path.split("/").pop().replace(".json", "");
     try {
-      const data = JSON.parse(await readFile(resolve(TCLAW_CHAT_DIR, `${chatId}.json`), "utf-8"));
+      const data = JSON.parse(await readFile(resolve(TAGENT_CHAT_DIR, `${chatId}.json`), "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2298,21 +2298,21 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // POST /api/tclaw/chats — create new chat
-  if (req.method === "POST" && path === "/api/tclaw/chats") {
+  // POST /api/tagent/chats — create new chat
+  if (req.method === "POST" && path === "/api/tagent/chats") {
     const body = JSON.parse(await readBody(req));
     const chatId = body.id || `chat_${Date.now()}`;
     const chatData = { id: chatId, title: body.title || "新對話", messages: body.messages || [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    await writeFile(resolve(TCLAW_CHAT_DIR, `${chatId}.json`), JSON.stringify(chatData, null, 2), "utf-8");
+    await writeFile(resolve(TAGENT_CHAT_DIR, `${chatId}.json`), JSON.stringify(chatData, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(chatData));
     return true;
   }
 
-  // PUT /api/tclaw/chats/:id — update chat (add messages, rename)
-  if (req.method === "PUT" && path.startsWith("/api/tclaw/chats/")) {
+  // PUT /api/tagent/chats/:id — update chat (add messages, rename)
+  if (req.method === "PUT" && path.startsWith("/api/tagent/chats/")) {
     const chatId = path.split("/").pop().replace(".json", "");
-    const filePath = resolve(TCLAW_CHAT_DIR, `${chatId}.json`);
+    const filePath = resolve(TAGENT_CHAT_DIR, `${chatId}.json`);
     let existing;
     try {
       existing = JSON.parse(await readFile(filePath, "utf-8"));
@@ -2327,10 +2327,10 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // DELETE /api/tclaw/chats/:id — delete chat
-  if (req.method === "DELETE" && path.startsWith("/api/tclaw/chats/")) {
+  // DELETE /api/tagent/chats/:id — delete chat
+  if (req.method === "DELETE" && path.startsWith("/api/tagent/chats/")) {
     const chatId = path.split("/").pop().replace(".json", "");
-    try { await unlink(resolve(TCLAW_CHAT_DIR, `${chatId}.json`)); } catch {}
+    try { await unlink(resolve(TAGENT_CHAT_DIR, `${chatId}.json`)); } catch {}
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
     return true;
@@ -2338,10 +2338,10 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
 
   // ── Provider / Model APIs ──
 
-  // GET /api/tclaw/providers — list providers + models (mask apiKey)
-  if (req.method === "GET" && path === "/api/tclaw/providers") {
+  // GET /api/tagent/providers — list providers + models (mask apiKey)
+  if (req.method === "GET" && path === "/api/tagent/providers") {
     try {
-      const config = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "providers.json"), "utf-8"));
+      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "providers.json"), "utf-8"));
       const hasAnyKey = Object.values(config.providers).some((p) => p.apiKey && p.apiKey.length > 0);
       const safe = { active: config.active, defaultModel: config.defaultModel, configured: hasAnyKey, providers: {} };
       for (const [k, v] of Object.entries(config.providers)) {
@@ -2356,10 +2356,10 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // PUT /api/tclaw/providers — update provider config
-  if (req.method === "PUT" && path === "/api/tclaw/providers") {
+  // PUT /api/tagent/providers — update provider config
+  if (req.method === "PUT" && path === "/api/tagent/providers") {
     try {
-      const filePath = resolve(TCLAW_DATA_DIR, "providers.json");
+      const filePath = resolve(TAGENT_DATA_DIR, "providers.json");
       const config = JSON.parse(await readFile(filePath, "utf-8"));
       const body = JSON.parse(await readBody(req));
       if (body.active) config.active = body.active;
@@ -2393,19 +2393,19 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(safe));
     } catch (err) {
-      console.error("[tClaw] Provider update error:", err);
+      console.error("[tAgent] Provider update error:", err);
       res.writeHead(500); res.end(JSON.stringify({ error: "Failed to update providers" }));
     }
     return true;
   }
 
   // ── Workspaces API ──
-  const TCLAW_WORKSPACES_FILE = resolve(TCLAW_DATA_DIR, "workspaces.json");
+  const TAGENT_WORKSPACES_FILE = resolve(TAGENT_DATA_DIR, "workspaces.json");
 
-  // GET /api/tclaw/workspaces
-  if (req.method === "GET" && path === "/api/tclaw/workspaces") {
+  // GET /api/tagent/workspaces
+  if (req.method === "GET" && path === "/api/tagent/workspaces") {
     try {
-      const data = JSON.parse(await readFile(TCLAW_WORKSPACES_FILE, "utf-8"));
+      const data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2415,17 +2415,17 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // POST /api/tclaw/workspaces — add directory
-  if (req.method === "POST" && path === "/api/tclaw/workspaces") {
+  // POST /api/tagent/workspaces — add directory
+  if (req.method === "POST" && path === "/api/tagent/workspaces") {
     try {
       let data;
-      try { data = JSON.parse(await readFile(TCLAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      try { data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
       const body = JSON.parse(await readBody(req));
       const dir = body.directory;
       if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
       if (!data.directories.includes(dir)) {
         data.directories.push(dir);
-        await writeFile(TCLAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+        await writeFile(TAGENT_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
@@ -2435,14 +2435,14 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // DELETE /api/tclaw/workspaces?dir=... — remove directory
-  if (req.method === "DELETE" && path === "/api/tclaw/workspaces") {
+  // DELETE /api/tagent/workspaces?dir=... — remove directory
+  if (req.method === "DELETE" && path === "/api/tagent/workspaces") {
     try {
       const dir = url.searchParams.get("dir");
       let data;
-      try { data = JSON.parse(await readFile(TCLAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      try { data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
       data.directories = data.directories.filter((d) => d !== dir);
-      await writeFile(TCLAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+      await writeFile(TAGENT_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2453,13 +2453,13 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
 
   // ── Chat completion (SSE streaming) ──
 
-  // POST /api/tclaw/chat — chat completion with streaming + tool calling
-  if (req.method === "POST" && path === "/api/tclaw/chat") {
+  // POST /api/tagent/chat — chat completion with streaming + tool calling
+  if (req.method === "POST" && path === "/api/tagent/chat") {
     try {
       const body = JSON.parse(await readBody(req));
       const { messages, model: requestedModel, provider: requestedProvider } = body;
 
-      const config = JSON.parse(await readFile(resolve(TCLAW_DATA_DIR, "providers.json"), "utf-8"));
+      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "providers.json"), "utf-8"));
       const providerId = requestedProvider || config.active;
       const provider = config.providers[providerId];
       if (!provider) {
@@ -2473,12 +2473,12 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
       const apiUrl = `${baseURL}/chat/completions`;
 
       const userProfile = (() => {
-        try { return JSON.parse(readFileSync(TCLAW_USER_FILE, "utf-8")); } catch { return null; }
+        try { return JSON.parse(readFileSync(TAGENT_USER_FILE, "utf-8")); } catch { return null; }
       })();
 
       const workspaces = (() => {
         try {
-          const ws = JSON.parse(readFileSync(resolve(TCLAW_DATA_DIR, "workspaces.json"), "utf-8"));
+          const ws = JSON.parse(readFileSync(resolve(TAGENT_DATA_DIR, "workspaces.json"), "utf-8"));
           return ws.directories || [];
         } catch { return []; }
       })();
@@ -2492,7 +2492,7 @@ await mkdir(TCLAW_CHAT_DIR, { recursive: true });
       // Load MEMORY.md (assistant's long-term memory)
       let memoryContent = "";
       try {
-        memoryContent = await readFile(resolve(TCLAW_DATA_DIR, "MEMORY.md"), "utf-8");
+        memoryContent = await readFile(resolve(TAGENT_DATA_DIR, "MEMORY.md"), "utf-8");
       } catch {}
 
       // Build app instructions
@@ -2535,7 +2535,7 @@ ${appInstructions}
       const apiHeaders = {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${provider.apiKey}`,
-        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://tclaw.ai", "X-Title": "tClaw" } : {}),
+        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://tagent.ai", "X-Title": "tAgent" } : {}),
       };
 
       const apiMessages = [
@@ -2613,7 +2613,7 @@ ${appInstructions}
             }
           }
         } catch (err) {
-          console.error("[tClaw] Stream error:", err.message);
+          console.error("[tAgent] Stream error:", err.message);
         }
 
         if (toolCalls.length === 0 || finishReason !== "tool_calls") {
@@ -2658,7 +2658,7 @@ ${appInstructions}
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (err) {
-      console.error("[tClaw] Chat error:", err.message);
+      console.error("[tAgent] Chat error:", err.message);
       if (!res.headersSent) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));
@@ -2682,11 +2682,11 @@ ${appInstructions}
 });
 
 server.listen(PORT, () => {
-  console.log(`[tClaw] Listening on http://127.0.0.1:${PORT}`);
+  console.log(`[tAgent] Listening on http://127.0.0.1:${PORT}`);
 });
 
 // ── WebSocket server for PTY (Qwen CLI) ──
-const WS_PORT = parseInt(process.env.TCLAW_WS_PORT || "4098", 10);
+const WS_PORT = parseInt(process.env.TAGENT_WS_PORT || "4098", 10);
 const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
 const ptySessions = new Map(); // ws -> { pty, id }
 
@@ -2749,7 +2749,7 @@ function spawnCli(ptySpawn, opts) {
   const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
   let bin = process.env[config.envBin] || config.bins[binKey];
   const args = config.buildArgs(opts);
-  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || TCLAW_ROOT;
+  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || TAGENT_ROOT;
 
   const ptyOpts = {
     name: "xterm-256color", cols: 120, rows: 30,
@@ -2921,9 +2921,9 @@ wss.on("connection", (ws, req) => {
 console.log(`[PTY-WS] WebSocket server listening on ws://127.0.0.1:${WS_PORT}`);
 
 // ── Cron Job Scheduler ──
-const CRON_JOBS_FILE = resolve(TCLAW_ROOT, "factories/default/cron-jobs.json");
-const CRON_LOGS_DIR = resolve(TCLAW_ROOT, "logs/cron");
-const CRON_RESULTS_DIR = resolve(TCLAW_ROOT, "logs/cron-results");
+const CRON_JOBS_FILE = resolve(TAGENT_ROOT, "factories/default/cron-jobs.json");
+const CRON_LOGS_DIR = resolve(TAGENT_ROOT, "logs/cron");
+const CRON_RESULTS_DIR = resolve(TAGENT_ROOT, "logs/cron-results");
 
 // Simple cron expression parser: "min hour day month dow"
 function matchesCron(expr, date) {
@@ -2972,10 +2972,10 @@ async function runCronJob(job) {
   // ── Reminder type: inject message into chat ──
   if (job.type === "reminder") {
     try {
-      const files = await readdir(TCLAW_CHAT_DIR);
+      const files = await readdir(TAGENT_CHAT_DIR);
       const chatFiles = files.filter(f => f.endsWith(".json")).sort().reverse();
       if (chatFiles.length > 0) {
-        const chatPath = resolve(TCLAW_CHAT_DIR, chatFiles[0]);
+        const chatPath = resolve(TAGENT_CHAT_DIR, chatFiles[0]);
         const chat = JSON.parse(await readFile(chatPath, "utf-8"));
         chat.messages.push({
           role: "assistant",
@@ -3016,7 +3016,7 @@ async function runCronJob(job) {
       prompt += `\n\nParameters:\n${Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
     }
 
-    const appDir = resolve(TCLAW_ROOT, "skills/physical-skill", job.reportAppId);
+    const appDir = resolve(TAGENT_ROOT, "skills/physical-skill", job.reportAppId);
     const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "20", prompt], {
       cwd: appDir,
       env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },

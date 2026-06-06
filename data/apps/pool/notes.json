@@ -1,0 +1,16 @@
+{
+  "id": "notes",
+  "name": "筆記",
+  "icon": "📝",
+  "description": "建立和管理筆記",
+  "builtIn": true,
+  "fields": [
+    { "name": "title", "type": "string", "required": true, "label": "標題" },
+    { "name": "content", "type": "text", "required": true, "label": "內容" },
+    { "name": "tags", "type": "array", "items": "string", "label": "標籤" }
+  ],
+  "systemFields": ["id", "createdAt"],
+  "prompt": "筆記管理。使用者說「記一下」「寫個筆記」→ 建立筆記。自動整理標題。支援標籤分類。使用者說「我之前記過...」→ 搜尋筆記。",
+  "listLabel": "title",
+  "searchable": ["title", "content", "tags"]
+}

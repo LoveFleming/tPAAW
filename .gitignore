@@ -1,16 +1,46 @@
+# Dependencies
 node_modules/
-dist/
-.DS_Store
-*.tsbuildinfo
-.vite/
-conversations/
+**/node_modules/
 
-# tClaw data (contains API keys + user data)
-data/providers.json
+# Build output
+dist/
+**/dist/
+
+# OS files
+.DS_Store
+**/.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
+
+# Runtime data (NOT versioned)
+data/db/*.sqlite
+data/db/*.sqlite-wal
+data/db/*.sqlite-shm
+data/uploads/
 data/chats/
-data/workspaces.json
-data/user.json
-data/cli-config.json
 data/app-data/
-data/avatars/
 data/cron/
+
+# Personal lab data (NOT versioned)
+data/skills/lab/
+data/apps/lab/
+
+# Package lock files (use pnpm)
+package-lock.json
+**/package-lock.json
+
+# Conversations
+core/conversations/
+crews/conversation/
+data/config/providers.json
+data/providers.json
