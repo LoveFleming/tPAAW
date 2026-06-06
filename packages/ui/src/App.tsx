@@ -17,6 +17,7 @@ import SettingsPage from "./pages/SettingsPage";
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
 import { ThemeProvider, useTheme, THEMES, THEME_GROUPS, ThemeId } from "./theme";
+import { useI18n } from "./i18n";
 import { cn, pathBasename } from "./utils";
 
 const STORAGE_PROJECT_KEY = "***";
@@ -71,6 +72,7 @@ interface UserProfile {
 }
 
 function AppInner() {
+  const { t } = useI18n();
   const STORAGE_FACTORY_KEY = "***";
   const normPath = (p: string | null): string | null => p ? p.replace(/\\/g, "/") : null;
 
@@ -326,7 +328,7 @@ function AppInner() {
   }, [handleSelectProject]);
 
   const factoryNav = useMemo(() => {
-    const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: "AI Crew" };
+    const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: t("sidebar.aiCrew") };
     const fileItems = factoryFiles.map(f => {
       const stripped = f.replace(/^\d{2}-/, "");
       return {
@@ -336,7 +338,7 @@ function AppInner() {
       };
     });
     return [crewItem, ...fileItems].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-  }, [factoryFiles, currentScope]);
+  }, [factoryFiles, currentScope, t]);
 
   const skillLabCounterRef = useRef(0);
   const openSkillLab = useCallback(() => {
@@ -371,8 +373,8 @@ function AppInner() {
   }, [currentScope]);
 
   const skillNav = useMemo(() => [
-    { id: `${currentScope}:skills`, label: "Skill Pool" },
-  ], [currentScope]);
+    { id: `${currentScope}:skills`, label: t("sidebar.skillPool") },
+  ], [currentScope, t]);
 
   const skillAppNav = useMemo(() =>
     skillApps.map(s => ({
@@ -383,15 +385,15 @@ function AppInner() {
   [skillApps, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
-    if (fullId === "_chat") return "🐾 聊天";
-    if (fullId === "_settings") return "⚙️ 設定";
+    if (fullId === "_chat") return "🐾 " + t("chat.newChat");
+    if (fullId === "_settings") return t("sidebar.settings");
     const { factoryId, pageType } = parseTabId(fullId);
-    if (pageType === "crew") return "AI Crew";
-    if (pageType === "skills") return "Skill Pool";
-    if (pageType.startsWith("skilllab")) return "Skill Lab";
-    if (pageType === "reportapplab") return "App Lab";
-    if (pageType === "reportapps") return "App Pool";
-    if (pageType === "cronjobs") return "Cron Jobs";
+    if (pageType === "crew") return t("sidebar.aiCrew");
+    if (pageType === "skills") return t("sidebar.skillPool");
+    if (pageType.startsWith("skilllab")) return t("sidebar.skillLab");
+    if (pageType === "reportapplab") return t("sidebar.appLab");
+    if (pageType === "reportapps") return t("sidebar.appPool");
+    if (pageType === "cronjobs") return t("sidebar.cronJobs");
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -410,7 +412,7 @@ function AppInner() {
       return pathBasename(pageType.slice(8));
     }
     return pageType;
-  }, [factoryNav, crew]);
+  }, [factoryNav, crew, t]);
 
   const openFilePaths = useMemo(() => new Set(
     openTabs.filter(t => { const { pageType } = parseTabId(t); return pageType.startsWith("wfile://"); })
@@ -633,7 +635,7 @@ function AppInner() {
           <div className="flex flex-col overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
 
             {/* MyClaw — Chat Sessions + AI Crew + Docs */}
-            <SidebarSection title="🐾 MyClaw">
+            <SidebarSection title={t("sidebar.myClaw")}>
               <div>
                 {factoryNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -642,26 +644,26 @@ function AppInner() {
             </SidebarSection>
 
             {/* Skills */}
-            <SidebarSection title="Skills">
+            <SidebarSection title={t("sidebar.skills")}>
               <div>
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
-                <NavItem active={false} label="Skill Lab" onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={false} label={t("sidebar.skillLab")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
             {/* Apps */}
-            <SidebarSection title="Apps">
+            <SidebarSection title={t("sidebar.apps")}>
               <div>
-                <NavItem active={activePage.endsWith(":reportapps")} label="App Pool" onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":reportapplab")} label="App Lab" onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":cronjobs")} label="Cron Jobs" onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":reportapplab")} label={t("sidebar.appLab")} onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
             {/* Workspaces */}
-            <SidebarSection title="📂 Workspaces">
+            <SidebarSection title={t("sidebar.workspaces")}>
               {workspaces.length === 0 && (
                 <div className="px-2 py-3">
                   <button

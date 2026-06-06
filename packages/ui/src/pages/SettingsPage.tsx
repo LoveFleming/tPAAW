@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../theme";
+import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
 
 const API_BASE = "http://127.0.0.1:4097";
 
@@ -12,7 +13,8 @@ interface ProviderData {
 
 export default function SettingsPage() {
   const { info: themeInfo } = useTheme();
-  const [tab, setTab] = useState<"profile" | "providers" | "cli">("profile");
+  const { t, locale, setLocale } = useI18n();
+  const [tab, setTab] = useState<"profile" | "providers" | "cli" | "language">("profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -164,6 +166,9 @@ export default function SettingsPage() {
           <button onClick={() => setTab("cli")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "cli" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🛠️ CLI
           </button>
+          <button onClick={() => setTab("language")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "language" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🌐 {t("settings.language")}
+          </button>
         </div>
 
         {/* Profile tab */}
@@ -311,6 +316,35 @@ export default function SettingsPage() {
             <button onClick={handleSaveCli} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 CLI 設定"}
             </button>
+          </div>
+        )}
+        {/* Language tab */}
+        {tab === "language" && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-stone-800">🌐 {t("settings.language")}</h3>
+            <p className="text-sm text-stone-500">{t("settings.language")}</p>
+            <div className="space-y-2">
+              {(Object.entries(LOCALE_LABELS) as [Locale, string][]).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setLocale(key)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
+                    locale === key
+                      ? "border-stone-800 bg-stone-50 shadow-sm"
+                      : "border-stone-200 hover:border-stone-300 hover:bg-stone-50"
+                  }`
+                }
+                >
+                  <span className="text-2xl">
+                    {key === "zh-mix" ? "🇹🇼" : key === "en" ? "🇺🇸" : key === "zh" ? "🇨🇳" : "🇯🇵"}
+                  </span>
+                  <div>
+                    <div className={`font-medium ${locale === key ? "text-stone-800" : "text-stone-600"}`}>{label}</div>
+                  </div>
+                  {locale === key && <span className="ml-auto text-stone-800">✓</span>}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
