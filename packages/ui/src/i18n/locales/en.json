@@ -59,5 +59,12 @@
   "onboarding.start": "Get Started",
   "theme.dark": "Dark",
   "theme.light": "Light",
-  "theme.auto": "Auto"
+  "theme.auto": "Auto",
+  "knowledge.newFolder": "New Folder",
+  "knowledge.newFile": "New File",
+  "knowledge.rename": "Rename",
+  "knowledge.copy": "Duplicate",
+  "knowledge.delete": "Delete",
+  "knowledge.confirmDelete": "Delete",
+  "knowledge.empty": "Empty, right-click or + to add"
 }

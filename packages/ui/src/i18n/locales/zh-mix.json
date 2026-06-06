@@ -59,5 +59,12 @@
   "onboarding.start": "開始使用",
   "theme.dark": "深色",
   "theme.light": "淺色",
-  "theme.auto": "自動"
+  "theme.auto": "自動",
+  "knowledge.newFolder": "新增資料夾",
+  "knowledge.newFile": "新增檔案",
+  "knowledge.rename": "重新命名",
+  "knowledge.copy": "複製",
+  "knowledge.delete": "刪除",
+  "knowledge.confirmDelete": "確定要刪除",
+  "knowledge.empty": "空目錄，右鍵或點 + 新增"
 }

@@ -59,5 +59,12 @@
   "onboarding.start": "始める",
   "theme.dark": "ダーク",
   "theme.light": "ライト",
-  "theme.auto": "自動"
+  "theme.auto": "自動",
+  "knowledge.newFolder": "新しいフォルダ",
+  "knowledge.newFile": "新しいファイル",
+  "knowledge.rename": "名前変更",
+  "knowledge.copy": "複製",
+  "knowledge.delete": "削除",
+  "knowledge.confirmDelete": "削除しますか",
+  "knowledge.empty": "空、右クリックまたは + で追加"
 }

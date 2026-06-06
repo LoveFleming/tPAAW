@@ -11,6 +11,7 @@ import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
+import KnowledgeTree from "./components/KnowledgeTree";
 import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
 
@@ -637,11 +638,7 @@ function AppInner() {
 
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
-              <div>
-                {factoryNav.filter(item => !item.id.includes(":crew")).map((item) => (
-                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                ))}
-              </div>
+              <KnowledgeTree onOpenFile={handleSelectFile} />
             </SidebarSection>
 
             {/* 🏗 Build Capabilities */}

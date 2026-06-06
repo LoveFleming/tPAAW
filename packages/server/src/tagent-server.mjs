@@ -1879,6 +1879,84 @@ async function tagentApiHandler(req, res) {
     return;
   }
 
+  // POST /api/fs/mkdir — create directory
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/mkdir")) {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { path: dirPath } = JSON.parse(body);
+      if (!dirPath) throw new Error("Missing path");
+      const abs = resolve(dirPath);
+      await mkdir(abs, { recursive: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: abs }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/fs/create-file — create empty file
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/create-file")) {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { path: filePath, content = "" } = JSON.parse(body);
+      if (!filePath) throw new Error("Missing path");
+      const abs = resolve(filePath);
+      await mkdir(dirname(abs), { recursive: true });
+      const { writeFile } = await import("fs/promises");
+      await writeFile(abs, content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: abs }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/fs/rename — rename/move file or folder
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/rename")) {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { oldPath, newPath } = JSON.parse(body);
+      if (!oldPath || !newPath) throw new Error("Missing oldPath or newPath");
+      const absOld = resolve(oldPath);
+      const absNew = resolve(newPath);
+      const { rename } = await import("fs/promises");
+      await rename(absOld, absNew);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, oldPath: absOld, newPath: absNew }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/fs/copy — copy file or folder
+  if (req.method === "POST" && req.url?.startsWith("/api/fs/copy")) {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { srcPath, destPath } = JSON.parse(body);
+      if (!srcPath || !destPath) throw new Error("Missing srcPath or destPath");
+      const absSrc = resolve(srcPath);
+      const absDest = resolve(destPath);
+      const { cp } = await import("fs/promises");
+      await cp(absSrc, absDest, { recursive: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, srcPath: absSrc, destPath: absDest }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // DELETE /api/fs/item?path=... — delete file or folder (recursive)
   if (req.method === "DELETE" && req.url?.startsWith("/api/fs/item")) {
     const params = new URL(req.url, "http://localhost").searchParams;
