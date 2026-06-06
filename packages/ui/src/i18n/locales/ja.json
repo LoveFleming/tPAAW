@@ -1,44 +1,39 @@
 {
   "app.name": "AI 能力プラットフォーム",
   "app.tagline": "AI能力を構築・管理・実行",
-
-  "sidebar.myClaw": "🐾 マイクロー",
-  "sidebar.skills": "スキル",
+  "sidebar.knowledge": "📚 ナレッジ",
+  "sidebar.build": "🏗 ビルド",
+  "sidebar.manage": "📦 管理",
+  "sidebar.execution": "▶ 実行",
   "sidebar.skillPool": "スキルプール",
   "sidebar.skillBuilder": "スキルビルダー",
-  "sidebar.apps": "アプリ",
   "sidebar.appPool": "アプリプール",
   "sidebar.appLab": "アプリラボ",
   "sidebar.cronJobs": "定期実行",
   "sidebar.workspaces": "📂 ワークスペース",
   "sidebar.settings": "⚙️ 設定",
   "sidebar.aiCrew": "AIチーム",
-
   "chat.newChat": "新しい会話",
   "chat.placeholder": "語晴に話しかけてください...",
   "chat.send": "送信",
   "chat.welcome": "こんにちは！語晴です 🦞、何かお手伝いできますか？",
-
   "skill.pool.title": "スキルプール",
   "skill.pool.empty": "スキルがまだありません",
   "skill.builder.title": "スキルラボ",
   "skill.builder.new": "新規スキル",
   "skill.builder.test": "テスト",
   "skill.builder.publish": "公開",
-
   "app.pool.title": "アプリプール",
   "app.pool.empty": "アプリがまだありません",
   "app.lab.title": "アプリラボ",
   "app.lab.new": "新規アプリ",
   "app.lab.preview": "プレビュー",
-
   "cron.title": "定期実行",
   "cron.new": "新規スケジュール",
   "cron.enabled": "有効",
   "cron.disabled": "無効",
   "cron.lastRun": "前回実行",
   "cron.nextRun": "次回実行",
-
   "settings.title": "設定",
   "settings.language": "言語 / Language",
   "settings.theme": "テーマ",
@@ -47,7 +42,6 @@
   "settings.language.en": "English",
   "settings.language.zh": "全中文",
   "settings.language.ja": "日本語",
-
   "common.save": "保存",
   "common.cancel": "キャンセル",
   "common.delete": "削除",
@@ -59,13 +53,11 @@
   "common.noData": "データがありません",
   "common.confirm": "確認",
   "common.back": "戻る",
-
   "onboarding.welcome": "tAgentへようこそ！",
   "onboarding.name": "お名前",
   "onboarding.intro": "自己紹介",
   "onboarding.style": "コミュニケーションスタイル",
   "onboarding.start": "始める",
-
   "theme.dark": "ダーク",
   "theme.light": "ライト",
   "theme.auto": "自動"

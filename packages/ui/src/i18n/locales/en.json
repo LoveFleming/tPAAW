@@ -1,44 +1,39 @@
 {
   "app.name": "AI Capability Platform",
   "app.tagline": "Build, Manage and Execute AI Capabilities",
-
-  "sidebar.myClaw": "🐾 MyClaw",
-  "sidebar.skills": "Skills",
+  "sidebar.knowledge": "📚 Knowledge",
+  "sidebar.build": "🏗 Build",
+  "sidebar.manage": "📦 Manage",
+  "sidebar.execution": "▶ Execution",
   "sidebar.skillPool": "Skill Pool",
   "sidebar.skillBuilder": "Skill Builder",
-  "sidebar.apps": "Apps",
   "sidebar.appPool": "App Pool",
   "sidebar.appLab": "App Lab",
   "sidebar.cronJobs": "Cron Jobs",
   "sidebar.workspaces": "📂 Workspaces",
   "sidebar.settings": "⚙️ Settings",
   "sidebar.aiCrew": "AI Crew",
-
   "chat.newChat": "New Chat",
   "chat.placeholder": "Talk to Yuqing...",
   "chat.send": "Send",
   "chat.welcome": "Hi! I'm Yuqing 🦞, how can I help you?",
-
   "skill.pool.title": "Skill Pool",
   "skill.pool.empty": "No skills yet",
   "skill.builder.title": "Skill Lab",
   "skill.builder.new": "New Skill",
   "skill.builder.test": "Test",
   "skill.builder.publish": "Publish",
-
   "app.pool.title": "App Pool",
   "app.pool.empty": "No apps yet",
   "app.lab.title": "App Lab",
   "app.lab.new": "New App",
   "app.lab.preview": "Preview",
-
   "cron.title": "Cron Jobs",
   "cron.new": "New Schedule",
   "cron.enabled": "Enabled",
   "cron.disabled": "Disabled",
   "cron.lastRun": "Last Run",
   "cron.nextRun": "Next Run",
-
   "settings.title": "Settings",
   "settings.language": "Language",
   "settings.theme": "Theme",
@@ -47,7 +42,6 @@
   "settings.language.en": "English",
   "settings.language.zh": "全中文",
   "settings.language.ja": "日本語",
-
   "common.save": "Save",
   "common.cancel": "Cancel",
   "common.delete": "Delete",
@@ -59,13 +53,11 @@
   "common.noData": "No data",
   "common.confirm": "Confirm",
   "common.back": "Back",
-
   "onboarding.welcome": "Welcome to tAgent!",
   "onboarding.name": "Your name",
   "onboarding.intro": "Tell us about yourself",
   "onboarding.style": "Preferred communication style",
   "onboarding.start": "Get Started",
-
   "theme.dark": "Dark",
   "theme.light": "Light",
   "theme.auto": "Auto"

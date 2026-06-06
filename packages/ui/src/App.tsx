@@ -635,8 +635,8 @@ function AppInner() {
         )} style={{ width: sidebarOpen ? sidebarWidth : 0, backgroundColor: "white", borderColor: themeInfo.accentBorder + "60", transition: sidebarDragRef.current ? "none" : "width 200ms" }}>
           <div className="flex flex-col overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
 
-            {/* MyClaw — Chat Sessions + AI Crew + Docs */}
-            <SidebarSection title={t("sidebar.myClaw")}>
+            {/* 📚 Knowledge */}
+            <SidebarSection title={t("sidebar.knowledge")}>
               <div>
                 {factoryNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -644,26 +644,32 @@ function AppInner() {
               </div>
             </SidebarSection>
 
-            {/* Skills */}
-            <SidebarSection title={t("sidebar.skills")}>
+            {/* 🏗 Build Capabilities */}
+            <SidebarSection title={t("sidebar.build")}>
+              <div>
+                <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":reportapplab")} label={t("sidebar.appLab")} onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+              </div>
+            </SidebarSection>
+
+            {/* 📦 Manage Capabilities */}
+            <SidebarSection title={t("sidebar.manage")}>
               <div>
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
-                <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
-            {/* Apps */}
-            <SidebarSection title={t("sidebar.apps")}>
+            {/* ▶ Execution */}
+            <SidebarSection title={t("sidebar.execution")}>
               <div>
-                <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":reportapplab")} label={t("sidebar.appLab")} onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
-            {/* Workspaces */}
+            {/* 📁 Workspaces */}
             <SidebarSection title={t("sidebar.workspaces")}>
               {workspaces.length === 0 && (
                 <div className="px-2 py-3">

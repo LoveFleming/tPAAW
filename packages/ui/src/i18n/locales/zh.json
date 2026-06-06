@@ -1,44 +1,39 @@
 {
   "app.name": "AI 能力平台",
   "app.tagline": "建構、管理與執行 AI 能力",
-
-  "sidebar.myClaw": "🐾 我的助理",
-  "sidebar.skills": "技能",
+  "sidebar.knowledge": "📚 知識庫",
+  "sidebar.build": "🏗 建構能力",
+  "sidebar.manage": "📦 管理能力",
+  "sidebar.execution": "▶ 執行",
   "sidebar.skillPool": "技能池",
   "sidebar.skillBuilder": "技能建構器",
-  "sidebar.apps": "應用程式",
   "sidebar.appPool": "應用程式池",
   "sidebar.appLab": "應用程式實驗室",
   "sidebar.cronJobs": "排程任務",
   "sidebar.workspaces": "📂 工作區",
   "sidebar.settings": "⚙️ 設定",
   "sidebar.aiCrew": "AI 團隊",
-
   "chat.newChat": "新對話",
   "chat.placeholder": "跟語晴說話...",
   "chat.send": "送出",
   "chat.welcome": "嗨！我是語晴 🦞，有什麼可以幫你的？",
-
   "skill.pool.title": "技能池",
   "skill.pool.empty": "還沒有技能",
   "skill.builder.title": "技能實驗室",
   "skill.builder.new": "新建技能",
   "skill.builder.test": "測試",
   "skill.builder.publish": "發佈",
-
   "app.pool.title": "應用程式池",
   "app.pool.empty": "還沒有應用程式",
   "app.lab.title": "應用程式實驗室",
   "app.lab.new": "新建應用程式",
   "app.lab.preview": "預覽",
-
   "cron.title": "排程任務",
   "cron.new": "新建排程",
   "cron.enabled": "啟用",
   "cron.disabled": "停用",
   "cron.lastRun": "上次執行",
   "cron.nextRun": "下次執行",
-
   "settings.title": "設定",
   "settings.language": "語言",
   "settings.theme": "主題",
@@ -47,7 +42,6 @@
   "settings.language.en": "English",
   "settings.language.zh": "全中文",
   "settings.language.ja": "日本語",
-
   "common.save": "儲存",
   "common.cancel": "取消",
   "common.delete": "刪除",
@@ -59,13 +53,11 @@
   "common.noData": "沒有資料",
   "common.confirm": "確認",
   "common.back": "返回",
-
   "onboarding.welcome": "歡迎使用 tAgent！",
   "onboarding.name": "你的名字",
   "onboarding.intro": "簡單介紹一下自己",
   "onboarding.style": "偏好溝通風格",
   "onboarding.start": "開始使用",
-
   "theme.dark": "深色",
   "theme.light": "淺色",
   "theme.auto": "自動"
