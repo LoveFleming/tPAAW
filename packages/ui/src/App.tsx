@@ -638,7 +638,7 @@ function AppInner() {
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
               <div>
-                {factoryNav.map((item) => (
+                {factoryNav.filter(item => !item.id.includes(":crew")).map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
               </div>
@@ -652,19 +652,16 @@ function AppInner() {
               </div>
             </SidebarSection>
 
-            {/* 📦 Manage Capabilities */}
-            <SidebarSection title={t("sidebar.manage")}>
+            {/* ▶ Execution */}
+            <SidebarSection title={t("sidebar.execution")}>
               <div>
+                {factoryNav.filter(item => item.id.includes(":crew")).map((item) => (
+                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                ))}
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-              </div>
-            </SidebarSection>
-
-            {/* ▶ Execution */}
-            <SidebarSection title={t("sidebar.execution")}>
-              <div>
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
