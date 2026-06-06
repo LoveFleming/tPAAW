@@ -21,10 +21,11 @@ interface SkillForm {
   runner: "prompt" | "data" | "api" | "script";
   inputs: InputField[];
   // Structured prompt fields (for normal users)
-  purpose: string;         // 這個 Skill 做什麼？
-  steps: string;           // AI 應該怎麼做？一步一步
-  outputFormat: string;    // 輸出長什麼樣子？
-  tips: string;            // 注意事項 / 限制
+  purpose: string;         // Purpose — 這個 Skill 做什麼
+  steps: string;           // Steps — AI 應該怎麼做
+  outputFormat: string;    // Output — 輸出長什麼樣子
+  guardrails: string;      // Guardrails — 安全限制
+  validation: string;      // Validation — 怎麼確認結果正確
   // Raw prompt (for expert mode)
   systemPrompt: string;
   tags: string;
@@ -51,7 +52,8 @@ const EMPTY_SKILL: SkillForm = {
   purpose: "",
   steps: "",
   outputFormat: "",
-  tips: "",
+  guardrails: "",
+  validation: "",
   systemPrompt: "",
   tags: "",
   visibility: "private",
@@ -60,15 +62,16 @@ const EMPTY_SKILL: SkillForm = {
 // ── Build structured prompt from fields ──
 function buildPromptFromFields(form: SkillForm): string {
   const parts: string[] = [];
-  if (form.purpose) parts.push(`## 目的\n${form.purpose}`);
+  if (form.purpose) parts.push(`## Purpose\n${form.purpose}`);
   if (form.inputs.length > 0) {
-    parts.push("## 使用者輸入\n" + form.inputs.map(inp =>
-      `- **${inp.label}**${inp.required ? "（必填）" : "（選填）"}: ${inp.description || inp.placeholder}`
+    parts.push("## Inputs\n" + form.inputs.map(inp =>
+      `- **${inp.label}**${inp.required ? " (required)" : " (optional)"}: ${inp.description || inp.placeholder}`
     ).join("\n"));
   }
-  if (form.steps) parts.push(`## 執行步驟\n${form.steps}`);
-  if (form.outputFormat) parts.push(`## 輸出格式\n${form.outputFormat}`);
-  if (form.tips) parts.push(`## 注意事項\n${form.tips}`);
+  if (form.steps) parts.push(`## Steps\n${form.steps}`);
+  if (form.outputFormat) parts.push(`## Output\n${form.outputFormat}`);
+  if (form.guardrails) parts.push(`## Guardrails\n${form.guardrails}`);
+  if (form.validation) parts.push(`## Validation\n${form.validation}`);
   return parts.join("\n\n");
 }
 
@@ -123,17 +126,20 @@ function parseSkillMd(content: string): SkillForm {
   }
 
   // Try to parse structured sections from body
-  const purposeM = body.match(/## 目的\n([\s\S]*?)(?=\n## |\n*$)/);
+  const purposeM = body.match(/## Purpose\n([\s\S]*?)(?=\n## |\n*$)/);
   if (purposeM) form.purpose = purposeM[1].trim();
 
-  const stepsM = body.match(/## 執行步驟\n([\s\S]*?)(?=\n## |\n*$)/);
+  const stepsM = body.match(/## Steps\n([\s\S]*?)(?=\n## |\n*$)/);
   if (stepsM) form.steps = stepsM[1].trim();
 
-  const outputM = body.match(/## 輸出格式\n([\s\S]*?)(?=\n## |\n*$)/);
+  const outputM = body.match(/## Output\n([\s\S]*?)(?=\n## |\n*$)/);
   if (outputM) form.outputFormat = outputM[1].trim();
 
-  const tipsM = body.match(/## 注意事項\n([\s\S]*?)(?=\n## |\n*$)/);
-  if (tipsM) form.tips = tipsM[1].trim();
+  const guardM = body.match(/## Guardrails\n([\s\S]*?)(?=\n## |\n*$)/);
+  if (guardM) form.guardrails = guardM[1].trim();
+
+  const valM = body.match(/## Validation\n([\s\S]*?)(?=\n## |\n*$)/);
+  if (valM) form.validation = valM[1].trim();
 
   return form;
 }
@@ -522,8 +528,8 @@ export default function SkillBuilder() {
             /* ── Simple Mode: step-by-step ── */
             <div className="p-5 space-y-4">
 
-              {/* Step 1: 這個 Skill 做什麼？ */}
-              <StepCard number={1} icon="🎯" title="這個 Skill 做什麼？" hint="用一句話描述" required>
+              {/* Step 1: Purpose */}
+              <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required>
                 <textarea value={form.purpose}
                   onChange={e => update("purpose", e.target.value)}
                   placeholder={"例：根據錯誤訊息和 log，分析問題的根因並產生報告\n\n例：將會議錄音轉成結構化的會議紀錄\n\n例：每週自動整理專案進度，寄出摘要信"}
@@ -533,8 +539,8 @@ export default function SkillBuilder() {
                 <p className="text-[11px] text-stone-400"> 💡 想像你在跟一個新同事解釋這個任務</p>
               </StepCard>
 
-              {/* Step 2: 需要使用者提供什麼？ */}
-              <StepCard number={2} icon="📝" title="需要使用者提供什麼？" hint="輸入欄位">
+              {/* Step 2: Inputs */}
+              <StepCard number={2} icon="📝" title="Inputs" hint="需要使用者提供什麼？">
                 {form.inputs.length === 0 && (
                   <div className="text-center py-4">
                     <p className="text-xs text-stone-400 mb-3">這個 Skill 需要使用者輸入什麼資訊？</p>
@@ -559,19 +565,19 @@ export default function SkillBuilder() {
                 <p className="text-[11px] text-stone-400"> 💡 如果不需要使用者輸入，可以跳過這步</p>
               </StepCard>
 
-              {/* Step 3: AI 應該怎麼做？ */}
-              <StepCard number={3} icon="🧠" title="AI 應該怎麼做？" hint="一步一步寫清楚">
+              {/* Step 3: Steps */}
+              <StepCard number={3} icon="🧠" title="Steps" hint="AI 應該怎麼做？一步一步寫清楚" required>
                 <textarea value={form.steps}
                   onChange={e => update("steps", e.target.value)}
-                  placeholder={"寫下 AI 應該遵循的步驟，一步一步來：\n\n1. 讀取使用者提供的錯誤訊息\n2. 分析可能的錯誤類型（網路、權限、資料格式...）\n3. 根據系統架構圖，追蹤相關的服務鏈\n4. 比對近期的 log，找出時間相關的事件\n5. 綜合以上資訊，產生根因分析報告"}
+                  placeholder={"寫下 AI 應該遵循的步驟：\n\n1. 讀取使用者提供的錯誤訊息\n2. 分析可能的錯誤類型（網路、權限、資料格式...）\n3. 根據系統架構圖，追蹤相關的服務鏈\n4. 比對近期的 log，找出時間相關的事件\n5. 綜合以上資訊，產生根因分析報告"}
                   rows={8}
                   className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
                   style={{ lineHeight: 1.6 }} />
                 <p className="text-[11px] text-stone-400"> 💡 像寫 SOP 一樣，步驟越清楚，AI 表現越好</p>
               </StepCard>
 
-              {/* Step 4: 輸出長什麼樣子？ */}
-              <StepCard number={4} icon="📋" title="輸出長什麼樣子？" hint="範例或格式">
+              {/* Step 4: Output */}
+              <StepCard number={4} icon="📋" title="Output" hint="輸出長什麼樣子？給個範例">
                 <textarea value={form.outputFormat}
                   onChange={e => update("outputFormat", e.target.value)}
                   placeholder={"描述你期望的輸出格式：\n\n## 根因分析報告\n\n### 問題摘要\n（一句話描述問題）\n\n### 影響範圍\n- 受影響服務：...\n- 使用者影響：...\n\n### 根因\n- 直接原因：...\n- 根本原因：...\n\n### 建議\n1. ...\n2. ..."}
@@ -581,14 +587,26 @@ export default function SkillBuilder() {
                 <p className="text-[11px] text-stone-400"> 💡 給一個範例，AI 就知道你想要的格式</p>
               </StepCard>
 
-              {/* Step 5: 有什麼要注意的？ */}
-              <StepCard number={5} icon="⚠️" title="有什麼要注意的？" hint="限制與注意事項（選填）">
-                <textarea value={form.tips}
-                  onChange={e => update("tips", e.target.value)}
-                  placeholder={"例：\n- 只分析最近 7 天的 log\n- 不要猜測沒有證據支持的原因\n- 如果資訊不足，明確說明需要什麼額外資訊\n- 輸出語言跟使用者輸入一致"}
-                  rows={4}
+              {/* Step 5: Guardrails */}
+              <StepCard number={5} icon="🛡️" title="Guardrails" hint="安全限制與注意事項">
+                <textarea value={form.guardrails}
+                  onChange={e => update("guardrails", e.target.value)}
+                  placeholder={"什麼不能做？什麼要特別小心？\n\n例：\n- 只分析最近 7 天的 log\n- 不要猜測沒有證據支持的原因\n- 如果資訊不足，明確說明需要什麼額外資訊\n- 不要刪除或修改任何檔案\n- 輸出語言跟使用者輸入一致\n- 超過 1000 筆資料時只取樣分析，並說明"}
+                  rows={5}
                   className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
                   style={{ lineHeight: 1.6 }} />
+                <p className="text-[11px] text-stone-400"> 💡 定義邊界，防止 AI 做出不預期的事</p>
+              </StepCard>
+
+              {/* Step 6: Validation */}
+              <StepCard number={6} icon="✅" title="Validation" hint="怎麼確認結果是正確的？">
+                <textarea value={form.validation}
+                  onChange={e => update("validation", e.target.value)}
+                  placeholder={"怎麼驗證 AI 的輸出品質？\n\n例：\n- 報告必須包含「根因」和「建議」兩個區塊\n- 所有提到的數據都要有出處\n- 如果找不到明確根因，必須標注為「待確認」\n- 執行時間不應超過 30 秒\n- 輸出不能是空的"}
+                  rows={5}
+                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+                  style={{ lineHeight: 1.6 }} />
+                <p className="text-[11px] text-stone-400"> 💡 清楚的驗證條件 = 可信賴的結果</p>
               </StepCard>
 
               {/* Preview */}
