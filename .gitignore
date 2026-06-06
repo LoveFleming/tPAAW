@@ -44,3 +44,4 @@ core/conversations/
 crews/conversation/
 data/config/providers.json
 data/providers.json
+packages/data/
