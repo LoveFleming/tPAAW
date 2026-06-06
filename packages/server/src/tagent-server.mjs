@@ -1047,7 +1047,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/aioc-root — return AIOC base path
   if (req.method === "GET" && req.url === "/api/aioc-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT }));
+    res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT, aiocRoot: TAGENT_ROOT }));
     return;
   }
 

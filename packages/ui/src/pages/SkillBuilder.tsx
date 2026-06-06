@@ -285,8 +285,8 @@ export default function SkillBuilder() {
   const handleCreate = async () => {
     const name = newFileName.trim();
     if (!name) return;
-    const fileName = name.endsWith(".md") ? name : `${name}.md`;
-    const slug = name.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase();
+    const slug = name.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "");
+    const fileName = name.endsWith(".md") ? name : `build-${slug}.md`;
     const fullPath = `${workingDir || "."}/skills/training/${fileName}`;
 
     const newForm: SkillForm = {
@@ -349,7 +349,7 @@ export default function SkillBuilder() {
             onClick={() => { setShowNewDialog(true); setNewFileName(""); }}
             className="px-2 py-1 text-xs font-medium rounded-lg border border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
           >
-            ＋New
+            ＋ Build New Skill
           </button>
           {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
           {saveStatus === "saved" && selectedPath && <span className="text-[10px] text-green-500">✓ saved</span>}
@@ -401,12 +401,12 @@ export default function SkillBuilder() {
               type="text" value={newFileName}
               onChange={e => setNewFileName(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") handleCreate(); }}
-              placeholder="skill 名稱，例：root-cause"
+              placeholder="skill 名稱，例：root-cause（檔案會自動命名為 build-root-cause.md）"
               className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 mb-3"
               autoFocus
             />
             {!newFileName.endsWith(".md") && newFileName.trim() && (
-              <p className="text-[10px] text-stone-400 mb-2">→ {newFileName.trim()}.md</p>
+              <p className="text-[10px] text-stone-400 mb-2">→ build-{newFileName.trim().replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "")}.md</p>
             )}
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowNewDialog(false)} className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50">{t("common.cancel")}</button>
