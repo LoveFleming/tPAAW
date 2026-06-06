@@ -915,52 +915,22 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
-  // GET /api/skill-lab/training-files — list training skill files
-  if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/training-files")) {
+  // GET /api/skill-lab/build-files — list skill build files
+  if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/build-files")) {
     try {
       const skillsDir = join(TAGENT_ROOT, "data/skills");
       const results = [];
-      const scanDir = async (root, kind) => {
-        await mkdir(root, { recursive: true });
-        const dirs = await readdir(root);
-        for (const dir of dirs) {
-          try {
-            const stat = await import("fs/promises").then(m => m.stat(join(root, dir)));
-            if (!stat.isDirectory()) continue;
-            const entries = await readdir(join(root, dir));
-            for (const f of entries) {
-              // Match *-training.md or *-training.skill.md or training*.md
-              if (/training/i.test(f) && /\.md$/i.test(f)) {
-                results.push({ name: `${kind}/${dir}/${f}`, path: join(root, dir, f) });
-              }
-            }
-          } catch { /* skip */ }
-        }
-      };
-      await scanDir(join(skillsDir, "input-prompt"), "input-prompt");
-      await scanDir(join(skillsDir, "physical-skill"), "physical-skill");
-      // Also scan skills/training/ directory
+      // Scan skills/building/ directory for build-*.md files
       try {
-        const trainingDir = join(skillsDir, "training");
-        const tStat = await import("fs/promises").then(m => m.stat(trainingDir));
-        if (tStat.isDirectory()) {
-          const tEntries = await readdir(trainingDir);
-          for (const f of tEntries) {
-            if (/.md$/i.test(f) && !f.startsWith("_")) {
-              results.push({ name: "training/" + f, path: join(trainingDir, f) });
-            }
+        const buildingDir = join(skillsDir, "building");
+        await mkdir(buildingDir, { recursive: true });
+        const bEntries = await readdir(buildingDir);
+        for (const f of bEntries) {
+          if (/\.md$/i.test(f) && !f.startsWith("_")) {
+            results.push({ name: "building/" + f, path: join(buildingDir, f) });
           }
         }
-      } catch { /* training dir optional */ }
-      // Also check skills root
-      try {
-        const rootEntries = await readdir(skillsDir);
-        for (const f of rootEntries) {
-          if (/training/i.test(f) && /\.md$/i.test(f)) {
-            results.push({ name: f, path: join(skillsDir, f) });
-          }
-        }
-      } catch { /* skip */ }
+      } catch { /* building dir optional */ }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(results));
     } catch (err) {

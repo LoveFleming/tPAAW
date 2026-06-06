@@ -196,7 +196,7 @@ export default function SkillBuilder() {
 
   // ── Data loading ──
   const loadFiles = useCallback(() => {
-    fetch(`${API_BASE}/api/skill-lab/training-files`)
+    fetch(`${API_BASE}/api/skill-lab/build-files`)
       .then(r => r.ok ? r.json() : [])
       .then((f: TrainingFile[]) => setFiles(f))
       .catch(() => {});
@@ -287,7 +287,7 @@ export default function SkillBuilder() {
     if (!name) return;
     const slug = name.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "");
     const fileName = name.endsWith(".md") ? name : `build-${slug}.md`;
-    const fullPath = `${workingDir || "."}/skills/training/${fileName}`;
+    const fullPath = `${workingDir || "."}/skills/building/${fileName}`;
 
     const newForm: SkillForm = {
       ...EMPTY_SKILL,
@@ -395,8 +395,8 @@ export default function SkillBuilder() {
       {showNewDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowNewDialog(false)}>
           <div className="bg-white rounded-xl shadow-2xl border border-stone-200 w-96 p-5" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold text-stone-800 mb-3">📄 新增 Skill</h3>
-            <p className="text-xs text-stone-500 mb-2">檔案會建立在 <code className="bg-stone-100 px-1 rounded">skills/training/</code></p>
+            <h3 className="text-sm font-bold text-stone-800 mb-3">📄 建立新的 Skill</h3>
+            <p className="text-xs text-stone-500 mb-2">檔案會建立在 <code className="bg-stone-100 px-1 rounded">skills/building/</code></p>
             <input
               type="text" value={newFileName}
               onChange={e => setNewFileName(e.target.value)}
