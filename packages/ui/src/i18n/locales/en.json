@@ -5,7 +5,7 @@
   "sidebar.myClaw": "🐾 MyClaw",
   "sidebar.skills": "Skills",
   "sidebar.skillPool": "Skill Pool",
-  "sidebar.skillLab": "Skill Lab",
+  "sidebar.skillBuilder": "Skill Builder",
   "sidebar.apps": "Apps",
   "sidebar.appPool": "App Pool",
   "sidebar.appLab": "App Lab",
@@ -21,10 +21,10 @@
 
   "skill.pool.title": "Skill Pool",
   "skill.pool.empty": "No skills yet",
-  "skill.lab.title": "Skill Lab",
-  "skill.lab.new": "New Skill",
-  "skill.lab.test": "Test",
-  "skill.lab.publish": "Publish",
+  "skill.builder.title": "Skill Lab",
+  "skill.builder.new": "New Skill",
+  "skill.builder.test": "Test",
+  "skill.builder.publish": "Publish",
 
   "app.pool.title": "App Pool",
   "app.pool.empty": "No apps yet",

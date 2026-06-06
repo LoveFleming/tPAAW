@@ -5,7 +5,7 @@
   "sidebar.myClaw": "🐾 マイクロー",
   "sidebar.skills": "スキル",
   "sidebar.skillPool": "スキルプール",
-  "sidebar.skillLab": "スキルラボ",
+  "sidebar.skillBuilder": "スキルビルダー",
   "sidebar.apps": "アプリ",
   "sidebar.appPool": "アプリプール",
   "sidebar.appLab": "アプリラボ",
@@ -21,10 +21,10 @@
 
   "skill.pool.title": "スキルプール",
   "skill.pool.empty": "スキルがまだありません",
-  "skill.lab.title": "スキルラボ",
-  "skill.lab.new": "新規スキル",
-  "skill.lab.test": "テスト",
-  "skill.lab.publish": "公開",
+  "skill.builder.title": "スキルラボ",
+  "skill.builder.new": "新規スキル",
+  "skill.builder.test": "テスト",
+  "skill.builder.publish": "公開",
 
   "app.pool.title": "アプリプール",
   "app.pool.empty": "アプリがまだありません",

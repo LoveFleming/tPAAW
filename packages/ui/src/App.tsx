@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ChatView from "./pages/ChatView";
 import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
-import SkillLab from "./pages/SkillLab";
+import SkillBuilder from "./pages/SkillBuilder";
 import AppLab from "./pages/AppLab";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
@@ -340,9 +340,9 @@ function AppInner() {
     return [crewItem, ...fileItems].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   }, [factoryFiles, currentScope, t]);
 
-  const skillLabCounterRef = useRef(0);
+  const skillBuilderCounterRef = useRef(0);
   const openSkillLab = useCallback(() => {
-    const count = skillLabCounterRef.current++;
+    const count = skillBuilderCounterRef.current++;
     const tabId = `${currentScope}:skilllab#${count}`;
     setOpenTabs((prev) => [...prev, tabId]);
     setActivePage(tabId);
@@ -390,7 +390,7 @@ function AppInner() {
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return t("sidebar.aiCrew");
     if (pageType === "skills") return t("sidebar.skillPool");
-    if (pageType.startsWith("skilllab")) return t("sidebar.skillLab");
+    if (pageType.startsWith("skilllab")) return t("sidebar.skillBuilder");
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
@@ -464,7 +464,7 @@ function AppInner() {
       return <SkillsPage />;
     }
     if (pageType.startsWith("skilllab")) {
-      return <SkillLab />;
+      return <SkillBuilder />;
     }
     if (pageType === "reportapplab") {
       return <AppLab />;
@@ -650,7 +650,7 @@ function AppInner() {
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
-                <NavItem active={false} label={t("sidebar.skillLab")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 

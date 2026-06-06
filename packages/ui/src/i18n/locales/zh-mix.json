@@ -5,7 +5,7 @@
   "sidebar.myClaw": "🐾 MyClaw",
   "sidebar.skills": "Skills",
   "sidebar.skillPool": "Skill Pool",
-  "sidebar.skillLab": "Skill Lab",
+  "sidebar.skillBuilder": "Skill Builder",
   "sidebar.apps": "Apps",
   "sidebar.appPool": "App Pool",
   "sidebar.appLab": "App Lab",
@@ -21,10 +21,10 @@
 
   "skill.pool.title": "Skill Pool",
   "skill.pool.empty": "還沒有 skill",
-  "skill.lab.title": "Skill Lab",
-  "skill.lab.new": "新建 Skill",
-  "skill.lab.test": "測試",
-  "skill.lab.publish": "發佈",
+  "skill.builder.title": "Skill Lab",
+  "skill.builder.new": "新建 Skill",
+  "skill.builder.test": "測試",
+  "skill.builder.publish": "發佈",
 
   "app.pool.title": "App Pool",
   "app.pool.empty": "還沒有 app",

@@ -5,7 +5,7 @@
   "sidebar.myClaw": "🐾 我的助理",
   "sidebar.skills": "技能",
   "sidebar.skillPool": "技能池",
-  "sidebar.skillLab": "技能實驗室",
+  "sidebar.skillBuilder": "技能建構器",
   "sidebar.apps": "應用程式",
   "sidebar.appPool": "應用程式池",
   "sidebar.appLab": "應用程式實驗室",
@@ -21,10 +21,10 @@
 
   "skill.pool.title": "技能池",
   "skill.pool.empty": "還沒有技能",
-  "skill.lab.title": "技能實驗室",
-  "skill.lab.new": "新建技能",
-  "skill.lab.test": "測試",
-  "skill.lab.publish": "發佈",
+  "skill.builder.title": "技能實驗室",
+  "skill.builder.new": "新建技能",
+  "skill.builder.test": "測試",
+  "skill.builder.publish": "發佈",
 
   "app.pool.title": "應用程式池",
   "app.pool.empty": "還沒有應用程式",
