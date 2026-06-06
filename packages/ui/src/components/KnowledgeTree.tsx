@@ -372,11 +372,21 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
     onOpenFile?.(path);
   }, [onOpenFile]);
 
+  // Root context menu handler — works on empty area too
+  const handleRootCtx = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!ROOT) return;
+    // Fake a root directory node so context menu works on empty space
+    const rootNode: TreeNode = { name: "knowledge", path: ROOT, type: "dir", children: tree?.children ?? [] };
+    setCtxMenu({ x: e.clientX, y: e.clientY, node: rootNode, parentPath: ROOT });
+  }, [ROOT, tree]);
+
   return (
-    <div className="flex flex-col" onContextMenu={e => e.preventDefault()}>
+    <div className="flex flex-col h-full" onContextMenu={handleRootCtx}>
       {/* Tree */}
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
-        {tree?.children && tree.children.map(child => (
+        {tree?.children && tree.children.length > 0 && tree.children.map(child => (
           <NodeView
             key={child.path} node={child} depth={1}
             expandedPaths={expandedPaths} onToggle={handleToggle}
@@ -387,7 +397,7 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
         ))}
         {(!tree?.children || tree.children.length === 0) && (
           <div className="px-4 py-6 text-xs text-stone-400 text-center">
-            {t("knowledge.empty", "空目錄，右鍵或點 + 新增")}
+            {t("knowledge.empty", "右鍵新增檔案或資料夾")}
           </div>
         )}
 
