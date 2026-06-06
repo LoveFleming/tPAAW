@@ -1,6 +1,6 @@
 {
-  "app.name": "tAgent",
-  "app.tagline": "AIエージェントプラットフォーム",
+  "app.name": "AI 能力プラットフォーム",
+  "app.tagline": "AI能力を構築・管理・実行",
 
   "sidebar.myClaw": "🐾 マイクロー",
   "sidebar.skills": "スキル",

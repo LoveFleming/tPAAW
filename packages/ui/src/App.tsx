@@ -567,8 +567,9 @@ function AppInner() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
-          <button onClick={() => { setActivePage("_chat"); }} className="text-sm font-semibold text-white cursor-pointer hover:text-white/80 transition-colors" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>
-            🐾 tAgent
+          <button onClick={() => { setActivePage("_chat"); }} className="flex flex-col leading-tight cursor-pointer hover:text-white/80 transition-colors" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>
+            <span className="text-sm font-semibold text-white tracking-tight">AI Capability Platform</span>
+            <span className="text-[10px] font-normal text-white/50">Build, Manage and Execute AI Capabilities</span>
           </button>
         </div>
         {/* Theme */}
