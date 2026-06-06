@@ -10,7 +10,7 @@
     "migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
-    "@tagent/shared": "workspace:*",
+    "@tagent/shared": "*",
     "better-sqlite3": "^11.7.0",
     "kysely": "^0.29.2"
   },

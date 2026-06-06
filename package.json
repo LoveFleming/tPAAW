@@ -3,11 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "description": "知識工作者將工作轉化為 AI Agent 能力，並持續累積與重用的平台",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "concurrently -k -n \"UI,API\" -c \"cyan,magenta\" \"pnpm --filter @tagent/ui dev\" \"pnpm --filter @tagent/server dev\"",
-    "dev:ui": "pnpm --filter @tagent/ui dev",
-    "dev:server": "pnpm --filter @tagent/server dev",
-    "build": "pnpm --filter @tagent/ui build",
+    "dev": "concurrently -k -n \"UI,API\" -c \"cyan,magenta\" \"npm run dev -w @tagent/ui\" \"npm run dev -w @tagent/server\"",
+    "dev:ui": "npm run dev -w @tagent/ui",
+    "dev:server": "npm run dev -w @tagent/server",
+    "build": "npm run build -w @tagent/ui",
+    "migrate": "npm run migrate -w @tagent/db",
     "clean": "find . -name node_modules -type d -prune -exec rm -rf {} \\;"
   },
   "devDependencies": {

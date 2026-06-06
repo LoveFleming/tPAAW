@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tagent/shared": "workspace:*",
-    "@tagent/db": "workspace:*"
+    "@tagent/shared": "*",
+    "@tagent/db": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.4"
