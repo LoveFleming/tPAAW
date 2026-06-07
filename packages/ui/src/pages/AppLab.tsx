@@ -297,6 +297,51 @@ export default function AppLab() {
     const [chatStarted, setChatStarted] = useState(false);
     const terminalRef = useRef<TerminalConsoleHandle>(null);
 
+    // ── CLI done handler ──
+    const handleCliDone = useCallback(() => {
+        // CLI said DONE — refresh preview
+        setPreviewReady(true);
+        setPreviewKey(Date.now());
+        setGenerating(false);
+        setChatMessages(prev => {
+            const updated = [...prev];
+            for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].role === "assistant" && updated[i].text.includes("處理中")) {
+                    updated[i] = { ...updated[i], text: "✅ 完成！" };
+                    break;
+                }
+            }
+            // Save updated chat to server
+            saveAppChat(reportId, updated);
+            return updated;
+        });
+    }, [reportId, saveAppChat]);
+
+    // ── Save app builder chat to server ──
+    const saveAppChat = useCallback(async (appId: string, msgs: ChatMessage[]) => {
+        if (!appId || msgs.length === 0) return;
+        try {
+            await fetch(`${API}/api/tagent/app-chat/${appId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: msgs }),
+            });
+        } catch {}
+    }, []);
+
+    // ── Load app builder chat from server ──
+    const loadAppChat = useCallback(async (appId: string): Promise<ChatMessage[]> => {
+        if (!appId) return [];
+        try {
+            const resp = await fetch(`${API}/api/tagent/app-chat/${appId}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                return data.messages || [];
+            }
+        } catch {}
+        return [];
+    }, []);
+
     // ── Preview state ──
     const [previewKey, setPreviewKey] = useState(0);
     const [previewReady, setPreviewReady] = useState(false);
@@ -340,6 +385,7 @@ export default function AppLab() {
                                     break;
                                 }
                             }
+                            saveAppChat(reportId, updated);
                             return updated;
                         });
                     }
@@ -397,16 +443,23 @@ export default function AppLab() {
     useEffect(() => { loadExistingApps(); }, [loadExistingApps]);
 
     // ── Load existing app for editing ──
-    const handleEditApp = useCallback((appId: string) => {
+    const handleEditApp = useCallback(async (appId: string) => {
         setEditingAppId(appId);
         setReportName(appId);
         setStep(3);
         setPreviewReady(true);
         setPreviewKey(Date.now());
-        setChatStarted(false);
-        setChatMessages([]);
         setShowAppPicker(false);
-    }, []);
+        // Load previous chat messages from server
+        const savedChat = await loadAppChat(appId);
+        if (savedChat.length > 0) {
+            setChatStarted(true);
+            setChatMessages(savedChat);
+        } else {
+            setChatStarted(false);
+            setChatMessages([]);
+        }
+    }, [loadAppChat]);
 
     // ── Unpublish app ──
     const handleUnpublish = useCallback((appId: string) => {
@@ -496,7 +549,7 @@ export default function AppLab() {
                 ts: Date.now(),
             }]);
         }, 500);
-    }, [chatInput, reportId, sendToTerminal]);
+    }, [chatInput, reportId, sendToTerminal, saveAppChat]);
 
     // ── Step indicators ──
     const steps = [
@@ -817,7 +870,7 @@ export default function AppLab() {
                                             cli={cli as any}
                                             initialPrompt={initialPrompt}
                                             approvalMode="yolo"
-                                            onCliDone={undefined}
+                                            onCliDone={handleCliDone}
                                         />
                                     ) : (
                                         <div className="flex items-center justify-center h-full text-stone-500 text-xs">

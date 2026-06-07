@@ -722,6 +722,40 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     return;
   }
 
+  // GET /api/tagent/app-chat/:appId — get app builder chat history
+  const appChatGetMatch = req.method === "GET" && path?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
+  if (appChatGetMatch) {
+    const appId = appChatGetMatch[1];
+    try {
+      const chatPath = join(APPS_ROOT, appId, "builder-chat.json");
+      const data = await readFile(chatPath, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(data);
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: [] }));
+    }
+    return true;
+  }
+
+  // PUT /api/tagent/app-chat/:appId — save app builder chat history
+  const appChatPutMatch = req.method === "PUT" && path?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
+  if (appChatPutMatch) {
+    const appId = appChatPutMatch[1];
+    try {
+      const body = JSON.parse(await readBody(req));
+      const appDir = join(APPS_ROOT, appId);
+      await mkdir(appDir, { recursive: true });
+      await writeFile(join(appDir, "builder-chat.json"), JSON.stringify({ messages: body.messages || [] }, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // POST /api/app/:id/publish — publish/update app.json metadata
   const appPublishMatch = req.method === "POST" && req.url?.match(/^\/api\/app\/([\w.-]+)\/publish(?:\?.*)?$/);
   if (appPublishMatch) {
