@@ -3207,6 +3207,8 @@ wss.on("connection", (ws, req) => {
               if (ws.readyState === 1) {
                 ws.send(JSON.stringify({ type: "cliDone" }));
               }
+              // Reset after 3s so next task's DONE can be detected
+              setTimeout(() => { cliDoneFired = false; }, 3000);
             }
           }
         });

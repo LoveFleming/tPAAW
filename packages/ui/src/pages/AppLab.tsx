@@ -364,23 +364,29 @@ export default function AppLab() {
         setPreviewReady(false);
         let stopped = false;
         let lastSeenMtime = 0;
+        let pollCount = 0;
         const timer = setInterval(() => {
             if (stopped || pollStoppedRef.current) return;
+            pollCount++;
             fetch(`${API}/api/app/${reportId}/status`)
                 .then(r => r.json())
                 .then(({ exists, mtime }) => {
-                    if (stopped) return;
-                    if (!lastSeenMtime && exists) {
-                        // First poll: record current mtime as baseline
+                    if (stopped || pollStoppedRef.current) return;
+                    // Skip first 2 polls (4s warmup)
+                    if (pollCount <= 2) return;
+                    if (!exists || !mtime) return;
+                    if (!lastSeenMtime) {
                         lastSeenMtime = mtime;
+                        console.log(`[Poll #${pollCount}] baseline mtime=${mtime}`);
+                        return;
                     }
-                    if (exists && mtime && lastSeenMtime && mtime > lastSeenMtime) {
+                    if (mtime > lastSeenMtime) {
+                        console.log(`[Poll #${pollCount}] mtime changed ${lastSeenMtime} → ${mtime} → DONE`);
                         clearInterval(timer);
                         stopped = true;
                         setPreviewReady(true);
                         setPreviewKey(Date.now());
                         setGenerating(false);
-                        // Auto-publish: update app.json
                         fetch(`${API}/api/app/${reportId}/publish`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -525,7 +531,6 @@ export default function AppLab() {
                 text: "🔄 正在生成中...",
                 ts: Date.now(),
             }]);
-            setGenerating(false);
         }, 1000);
     }, [reportName, selectedTemplate, description, systemPrompt, selectedSkill, reportId, sendToTerminal]);
 
@@ -547,6 +552,7 @@ export default function AppLab() {
         sendToTerminal(refinement);
 
         // Start polling for preview update
+        setGenerating(true);
         setPreviewReady(false);
         setPollTrigger(t => t + 1);
 
