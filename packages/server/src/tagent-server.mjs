@@ -743,7 +743,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
   if (appChatPutMatch) {
     const appId = appChatPutMatch[1];
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await _readBody(req));
       const appDir = join(APPS_ROOT, appId);
       await mkdir(appDir, { recursive: true });
       await writeFile(join(appDir, "builder-chat.json"), JSON.stringify({ messages: body.messages || [] }, null, 2), "utf-8");

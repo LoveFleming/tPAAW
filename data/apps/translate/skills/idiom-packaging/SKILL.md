@@ -73,6 +73,7 @@ useSkills: []
    - 附上例句的中文翻譯
 
 3. **生成趣味內容**
+   - 必須用目標語言撰寫
    - 二選一：
      - **笑話/趣味用法**：跟這個詞相關的幽默記憶法
      - **記憶口訣**：幫助記住這個詞的聯想方式
@@ -110,12 +111,12 @@ useSkills: []
   "part_of_speech": "idiom",
   "definition": "祝好運（特別用於表演前）",
   "classic_sentence": {
-    "en": "You're going to be amazing tonight — break a leg!",
-    "zh": "你今晚一定會很棒的——祝好運！"
+    "sentence": "You're going to be amazing tonight — break a leg!",
+    "translation": "你今晚一定會很棒的——祝好運！"
   },
   "fun_fact": {
     "type": "joke|mnemonic|origin",
-    "content": "為什麼表演前要說 break a leg？因為如果說 good luck，反而會帶來壞運氣！所以用反話來祝福。"
+    "content": "Why do actors say 'break a leg' instead of 'good luck'? Because wishing someone 'good luck' is considered bad luck in theater — so they use reverse psychology!"
   }
 }
 ```

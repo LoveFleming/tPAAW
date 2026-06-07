@@ -890,7 +890,7 @@ export default function AppLab() {
                                             cli={cli as any}
                                             initialPrompt={initialPrompt}
                                             approvalMode="yolo"
-                                            onCliDone={handleCliDone}
+                                            onCliDone={undefined}
                                         />
                                     ) : (
                                         <div className="flex items-center justify-center h-full text-stone-500 text-xs">

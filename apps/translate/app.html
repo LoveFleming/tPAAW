@@ -613,10 +613,12 @@ function renderSingleWord(output, data) {
 
   const cs = pkg?.classic_sentence;
   if (cs) {
+    const sent = cs.sentence || cs.en || '';
+    const trans = cs.translation || cs.zh || '';
     html += '<div class="t-section-title">📖 經典例句</div>';
     html += '<table class="t-table">';
-    html += `<tr><th>EN</th><td class="t-sentence">${escHtml(cs.en || '')}</td></tr>`;
-    if (cs.zh) html += `<tr><th>ZH</th><td class="t-sentence-zh">${escHtml(cs.zh)}</td></tr>`;
+    html += `<tr><th>例句</th><td class="t-sentence">${escHtml(sent)}</td></tr>`;
+    if (trans) html += `<tr><th>翻譯</th><td class="t-sentence-zh">${escHtml(trans)}</td></tr>`;
     html += '</table>';
   }
 
@@ -673,9 +675,11 @@ function renderParagraph(output, data) {
         html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">釋義</div><div class="p-vocab-detail-value">${escHtml(pkg.definition)}</div></div>`;
       }
       if (pkg?.classic_sentence) {
-        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">📖 例句</div><div class="p-vocab-detail-value">${escHtml(pkg.classic_sentence.en || '')}</div></div>`;
-        if (pkg.classic_sentence.zh) {
-          html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-value" style="color:var(--text2)">${escHtml(pkg.classic_sentence.zh)}</div></div>`;
+        const sent = pkg.classic_sentence.sentence || pkg.classic_sentence.en || '';
+        const trans = pkg.classic_sentence.translation || pkg.classic_sentence.zh || '';
+        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">📖 例句</div><div class="p-vocab-detail-value">${escHtml(sent)}</div></div>`;
+        if (trans) {
+          html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-value" style="color:var(--text2)">${escHtml(trans)}</div></div>`;
         }
       }
       if (pkg?.fun_fact?.content) {
