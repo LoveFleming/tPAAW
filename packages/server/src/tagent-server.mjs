@@ -689,7 +689,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     const appId = appServeMatch[1];
     try {
       const html = await readFile(join(APPS_ROOT, appId, "app.html"), "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate" });
       res.end(req.method === "HEAD" ? "" : html);
     } catch {
       res.writeHead(404, { "Content-Type": "application/json" });

@@ -295,10 +295,10 @@
 </div>
 
 <script>
+
 // ── State ──
 const API_BASE = window.location.origin;
-let history = JSON.parse(localStorage.getItem('translate_history') || '[]');
-let serverHistory = [];
+let history = [];
 let currentTab = 'result';
 
 // ── Init ──
@@ -306,31 +306,25 @@ const sourceInput = document.getElementById('sourceInput');
 const charCount = document.getElementById('charCount');
 const translateBtn = document.getElementById('translateBtn');
 
-// Load server-side history from app-data API
+// Load history from server (app-data API)
 async function loadServerHistory() {
   try {
     const resp = await fetch(`${API_BASE}/api/app-data/translate`);
     if (resp.ok) {
-      serverHistory = await resp.json();
-      // Merge: server data is source of truth, localStorage is supplement
-      const serverIds = new Set(serverHistory.map(r => r.id));
-      const localOnly = history.filter(h => !serverIds.has(`translate_${h.id.toString(36)}`) && !serverIds.some(s => s.source_text === h.source && s.translated_text === (h.result?.translation || '')));
-      // Use server history as the main list
-      const merged = [
-        ...serverHistory.map(r => ({
-          id: r.id,
-          source: r.source_text || '',
-          result: { translation: r.translated_text || '', special_words: r.highlights ? r.highlights.split(' | ').map(h => { const m = h.match(/(.+) \((.+)\) → (.+)/); return m ? { word: m[1], type: m[2], translation: m[3] } : { word: h }; }) : [] },
-          sourceLang: r.source_lang || 'zh-TW',
-          targetLang: r.target_lang || 'en',
-          ts: r.createdAt || new Date().toISOString(),
-        })),
-      ];
-      history = merged;
+      const data = await resp.json();
+      history = data.map(r => ({
+        id: r.id,
+        source: r.source_text || '',
+        result: { translation: r.translated_text || '', special_words: [] },
+        sourceLang: r.source_lang || 'zh-TW',
+        targetLang: r.target_lang || 'en',
+        ts: r.createdAt || new Date().toISOString(),
+      }));
       document.getElementById('historyCount').textContent = history.length;
+      if (currentTab === 'history') renderHistory();
     }
   } catch (err) {
-    console.log('Load server history failed, using localStorage:', err.message);
+    console.error('[translate] Load history failed:', err);
   }
 }
 loadServerHistory();
@@ -353,173 +347,6 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   if (tab === 'history') renderHistory();
   else renderResult();
-}
-
-// ── Swap languages ──
-function swapLangs() {
-  const s = document.getElementById('sourceLang');
-  const t = document.getElementById('targetLang');
-  const tmp = s.value;
-  s.value = t.value;
-  t.value = tmp;
-}
-
-// ── Translate ──
-async function doTranslate() {
-  const text = sourceInput.value.trim();
-  if (!text) return;
-
-  const sourceLang = document.getElementById('sourceLang').value;
-  const targetLang = document.getElementById('targetLang').value;
-
-  translateBtn.disabled = true;
-  translateBtn.textContent = '⏳ Skill 執行中...';
-
-  switchTab('result');
-  const output = document.getElementById('outputContent');
-  output.innerHTML = '<div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div><p style="margin-top:12px;color:var(--text2);font-size:12px">Skill → CLI 執行中...</p></div>';
-
-  try {
-    const res = await fetch('/api/app/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source_text: text,
-        source_lang: sourceLang,
-        target_lang: targetLang
-      })
-    });
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    // Read NDJSON stream
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let ndjson = '';
-    let lastResult = null;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      ndjson += decoder.decode(value, { stream: true });
-
-      // Parse each line
-      const lines = ndjson.split('\n');
-      ndjson = lines.pop() || ''; // keep incomplete line
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const msg = JSON.parse(line);
-          if (msg.type === 'result') {
-            lastResult = msg.data;
-          }
-        } catch {}
-      }
-    }
-
-    // Also try to parse the last remaining ndjson
-    if (ndjson.trim()) {
-      try {
-        const msg = JSON.parse(ndjson);
-        if (msg.type === 'result') lastResult = msg.data;
-      } catch {}
-    }
-
-    if (!lastResult) throw new Error('No result from skill execution');
-
-    // Save to history
-    const entry = {
-      id: Date.now(),
-      source: text,
-      result: lastResult,
-      sourceLang, targetLang,
-      ts: new Date().toISOString()
-    };
-    history.unshift(entry);
-    if (history.length > 50) history = history.slice(0, 50);
-    localStorage.setItem('translate_history', JSON.stringify(history));
-    document.getElementById('historyCount').textContent = history.length;
-
-    renderTranslation(lastResult);
-  } catch (err) {
-    output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${err.message}</div></div>`;
-  } finally {
-    translateBtn.disabled = false;
-    translateBtn.textContent = '🌐 翻譯 Translate';
-  }
-}
-
-// ── Render ──
-function renderTranslation(data) {
-  const output = document.getElementById('outputContent');
-  let html = '';
-
-  // Main translation
-  html += `<div class="translation-box">
-    <button class="copy-btn" onclick="copyText(this, '${escapeAttr(data.translation)}')">📋 複製</button>
-    <div class="translation-label">Translation</div>
-    <div class="translation-text">${escHtml(data.translation)}</div>
-  </div>`;
-
-  // Special words
-  if (data.special_words && data.special_words.length > 0) {
-    html += `<div class="special-section">
-      <div class="special-title">✨ 特殊詞彙 Highlight</div>`;
-    data.special_words.forEach(w => {
-      html += `<div class="special-card">
-        <div class="special-word">
-          ${escHtml(w.word)}
-          <span class="type-badge type-${w.type}">${w.type}</span>
-        </div>
-        <div class="special-trans">${escHtml(w.translation)}</div>`;
-
-      if (w.packaged) {
-        if (w.packaged.classic_sentence) {
-          html += `<div class="example-box">
-            <div class="example-label">📖 經典例句</div>
-            <div class="example-en">${escHtml(w.packaged.classic_sentence.en || w.packaged.classic_sentence)}</div>
-            ${w.packaged.classic_sentence.zh ? `<div class="example-zh">${escHtml(w.packaged.classic_sentence.zh)}</div>` : ''}
-          </div>`;
-        }
-        if (w.packaged.joke) {
-          html += `<div class="fun-box">
-            <div class="fun-label">😄 趣味記憶</div>
-            <div class="fun-content">${escHtml(w.packaged.joke)}</div>
-          </div>`;
-        }
-      }
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-
-  output.innerHTML = html;
-}
-
-function renderDemoResult(text, sLang, tLang) {
-  // Demo mock for when API is not available
-  const mockData = {
-    translation: `[Demo] "${text}" → This is a demo translation. Connect to the Translate API for real results.`,
-    source_lang: sLang,
-    target_lang: tLang,
-    source_text: text,
-    special_words: [
-      {
-        word: "重要",
-        translation: "important / crucial / vital",
-        type: "culture",
-        packaged: {
-          classic_sentence: {
-            en: "This meeting is of crucial importance to our company's future.",
-            zh: "這場會議對我們公司的未來至關重要。"
-          },
-          joke: "📝 記憶法：important 有 \"import\"（進口），進口的東西都很重要！所以 important = 重要的。"
-        }
-      }
-    ],
-    pronunciation: { phonetic: null, audio_url: null }
-  };
-  renderTranslation(mockData);
 }
 
 function renderResult() {
@@ -558,6 +385,154 @@ function replayHistory(id) {
   renderTranslation(result);
 }
 
+// ── Translate ──
+async function doTranslate() {
+  const text = sourceInput.value.trim();
+  if (!text) return;
+
+  const sourceLang = document.getElementById('sourceLang').value;
+  const targetLang = document.getElementById('targetLang').value;
+
+  translateBtn.disabled = true;
+  translateBtn.textContent = '⏳ 翻譯中...';
+
+  const output = document.getElementById('outputContent');
+
+  try {
+    const resp = await fetch('/api/app/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_text: text, source_lang: sourceLang, target_lang: targetLang })
+    });
+
+    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let ndjson = '';
+    let lastResult = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      ndjson += decoder.decode(value, { stream: true });
+
+      // Parse each line
+      const lines = ndjson.split('\n');
+      ndjson = lines.pop() || ''; // keep incomplete line
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.type === 'result') {
+            lastResult = msg.data;
+          }
+        } catch {}
+      }
+    }
+
+    // Also try to parse the last remaining ndjson
+    if (ndjson.trim()) {
+      try {
+        const msg = JSON.parse(ndjson);
+        if (msg.type === 'result') lastResult = msg.data;
+      } catch {}
+    }
+
+    if (!lastResult) throw new Error('No result from skill execution');
+
+    // Save to server (via app-data API)
+    try {
+      await fetch(`${API_BASE}/api/app-data/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: text,
+          source_lang: sourceLang,
+          target_lang: targetLang,
+          translated_text: lastResult.translation || '',
+          highlights: (lastResult.special_words || []).map(w => `${w.word} (${w.type}) → ${w.translation}`).join(' | ')
+        })
+      });
+      // Reload history from server
+      loadServerHistory();
+    } catch {}
+
+    renderTranslation(lastResult);
+  } catch (err) {
+    output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${err.message}</div></div>`;
+  } finally {
+    translateBtn.disabled = false;
+    translateBtn.textContent = '🌐 翻譯 Translate';
+  }
+}
+
+// ── Render ──
+function renderTranslation(data) {
+  const output = document.getElementById('outputContent');
+  let html = '';
+
+  // Main translation
+  html += `<div class="translation-box">
+    <button class="copy-btn" onclick="copyText(this, '${escapeAttr(data.translation)}')">📋 複製</button>
+    <div class="translation-label">Translation</div>
+    <div class="translation-text">${escHtml(data.translation)}</div>
+  </div>`;
+
+  // Special words
+  if (data.special_words && data.special_words.length > 0) {
+    html += `<div class="special-section">
+      <div class="special-title">✨ 特殊詞彙 Highlight</div>`;
+    data.special_words.forEach(w => {
+      html += `<div class="special-card">
+        <div class="special-word">
+          ${escHtml(w.word)}
+          <span class="special-tag">${w.type}</span>
+        </div>
+        <div class="special-translation">→ ${escHtml(w.translation)}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Single word mode
+  if (data.single_word_mode) {
+    const sw = data.single_word_mode;
+    if (sw.phonetic) html += `<div class="info-chip">🔊 ${escHtml(sw.phonetic)}</div>`;
+    if (sw.common_usage && sw.common_usage.length > 0) {
+      html += '<div class="usage-section"><div class="usage-title">📝 常見用法</div>';
+      sw.common_usage.forEach(u => { html += `<div class="usage-item">• ${escHtml(u)}</div>`; });
+      html += '</div>';
+    }
+    if (sw.synonyms) html += `<div class="info-chip">同義詞：${escHtml(sw.synonyms.join('、'))}</div>`;
+    if (sw.antonyms) html += `<div class="info-chip">反義詞：${escHtml(sw.antonyms.join('、'))}</div>`;
+  }
+
+  // Packaged content (idiom jokes, classic sentences)
+  if (data.special_words) {
+    for (const w of data.special_words) {
+      if (w.packaged) {
+        if (w.packaged.classic_sentence) {
+          const cs = w.packaged.classic_sentence;
+          html += `<div class="packaged-card">
+            <div class="packaged-label">📖 經典例句</div>
+            <div class="packaged-en">${escHtml(cs.en || '')}</div>
+            <div class="packaged-zh">${escHtml(cs.zh || '')}</div>
+          </div>`;
+        }
+        if (w.packaged.joke) {
+          html += `<div class="packaged-card joke">
+            <div class="packaged-label">😄 記憶法</div>
+            <div class="packaged-text">${escHtml(w.packaged.joke)}</div>
+          </div>`;
+        }
+      }
+    }
+  }
+
+  output.innerHTML = html;
+}
+
 // ── Helpers ──
 function escHtml(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escapeAttr(s) { if (!s) return ''; return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
@@ -569,7 +544,8 @@ function copyText(btn, text) {
 }
 
 // Init history count (will be updated by loadServerHistory)
-document.getElementById('historyCount').textContent = history.length;
+document.getElementById('historyCount').textContent = '...';
+
 </script>
 </body>
 </html>
