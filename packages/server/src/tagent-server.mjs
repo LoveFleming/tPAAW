@@ -3172,6 +3172,7 @@ wss.on("connection", (ws, req) => {
 
         // ── Detect when CLI is truly ready (not just PTY spawned) ──
         let cliReadyFired = false;
+        let cliDoneFired = false;
         const ptyStartTime = Date.now();
         const cliReadyPatterns = {
           qwen: /(?:YOLO mode|Plan mode|Auto-edit mode|Default mode|Type your message)/,
@@ -3194,6 +3195,17 @@ wss.on("connection", (ws, req) => {
               console.log(`[PTY] CLI ready detected: ${cliType} (${sessionId})`);
               if (ws.readyState === 1) {
                 ws.send(JSON.stringify({ type: "cliReady" }));
+              }
+            }
+          }
+          // Detect CLI task done (saw DONE in output)
+          if (!cliDoneFired) {
+            const plain = stripAnsi(data);
+            if (/\bDONE\b|✅ 完成|^完成$/.test(plain)) {
+              cliDoneFired = true;
+              console.log(`[PTY] CLI done detected (${sessionId})`);
+              if (ws.readyState === 1) {
+                ws.send(JSON.stringify({ type: "cliDone" }));
               }
             }
           }
