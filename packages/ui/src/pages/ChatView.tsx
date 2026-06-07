@@ -36,9 +36,10 @@ interface ProviderInfo {
 interface Props {
   profile: UserProfile;
   embedded?: boolean;
+  onTitleChange?: (title: string) => void;
 }
 
-export default function ChatView({ profile, embedded = false }: Props) {
+export default function ChatView({ profile, embedded = false, onTitleChange }: Props) {
   const { info: themeInfo } = useTheme();
   const assistantName = profile.assistantName || "林語晴";
 
@@ -108,6 +109,28 @@ export default function ChatView({ profile, embedded = false }: Props) {
   }, [activeChatId, isLoading]);
 
   useEffect(() => { loadChats(); }, []);
+
+  // Auto-select most recent chat on first load
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (initialLoadDone.current || chats.length === 0) return;
+    if (!activeChatId && chats.length > 0) {
+      initialLoadDone.current = true;
+      const latest = chats[0]; // chats are sorted newest first
+      setActiveChatId(latest.id);
+      setMessages(latest.messages || []);
+    }
+  }, [chats]);
+
+  // Notify parent of current chat title
+  useEffect(() => {
+    if (onTitleChange && activeChatId) {
+      const chat = chats.find(c => c.id === activeChatId);
+      onTitleChange(chat?.title || "新對話");
+    } else if (onTitleChange && !activeChatId) {
+      onTitleChange("新對話");
+    }
+  }, [activeChatId, chats, onTitleChange]);
 
   // Poll for updates every 5s
   useEffect(() => {

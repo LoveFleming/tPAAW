@@ -111,6 +111,7 @@ function AppInner() {
   // Default active page = chat (home)
   const [activePage, setActivePage] = useState<string>("_chat");
   const [openTabs, setOpenTabs] = useState<string[]>(["_chat"]);
+  const [chatTitle, setChatTitle] = useState<string>("新對話");
 
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
   const visibleTabs = useMemo(() => {
@@ -386,7 +387,7 @@ function AppInner() {
   [skillApps, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
-    if (fullId === "_chat") return "🐾 " + t("chat.newChat");
+    if (fullId === "_chat") return "🐾 " + chatTitle;
     if (fullId === "_settings") return t("sidebar.settings");
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return t("sidebar.aiCrew");
@@ -413,7 +414,7 @@ function AppInner() {
       return pathBasename(pageType.slice(8));
     }
     return pageType;
-  }, [factoryNav, crew, t]);
+  }, [factoryNav, crew, t, chatTitle]);
 
   const openFilePaths = useMemo(() => new Set(
     openTabs.filter(t => { const { pageType } = parseTabId(t); return pageType.startsWith("wfile://"); })
@@ -448,7 +449,7 @@ function AppInner() {
   const renderPage = useCallback((fullId: string, active?: boolean) => {
     // ── Chat (home) ──
     if (fullId === "_chat") {
-      return <ChatView profile={profile!} embedded />;
+      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} />;
     }
 
     // ── Settings ──
