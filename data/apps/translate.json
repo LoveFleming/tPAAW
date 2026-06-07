@@ -1,0 +1,20 @@
+{
+  "id": "translate",
+  "name": "翻譯器",
+  "icon": "🌐",
+  "description": "多國語言翻譯器，預設中翻英，特殊詞彙自動包裝成經典例句或笑話",
+  "status": "published",
+  "dataShape": "none",
+  "type": "skill-based",
+  "triggers": ["幫我翻譯", "help me translate", "translate", "翻譯"],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "source_text": { "type": "string", "description": "要翻譯的文字", "required": true },
+      "target_lang": { "type": "string", "description": "目標語言代碼", "default": "en" },
+      "source_lang": { "type": "string", "description": "來源語言代碼", "default": "zh-TW" }
+    },
+    "required": ["source_text"]
+  },
+  "aiPrompt": "翻譯工具。使用者說「幫我翻譯」「translate」時呼叫。會用 Skill + CLI 執行，回傳翻譯結果 + 特殊詞彙例句/笑話。"
+}

@@ -1166,7 +1166,7 @@ async function tagentApiHandler(req, res) {
   // POST /api/tagent/cli-config — save CLI defaults
   if (req.method === "POST" && path === "/api/tagent/cli-config") {
     try {
-      const body = JSON.parse(await _readBody(req));
+      const body = JSON.parse(await readBody(req));
       body.configured = true;
       await writeFile(resolve(TAGENT_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -2369,7 +2369,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
   // POST /api/tagent/user — save user profile (onboarding)
   if (req.method === "POST" && path === "/api/tagent/user") {
-    const body = JSON.parse(await _readBody(req));
+    const body = JSON.parse(await readBody(req));
     await writeFile(TAGENT_USER_FILE, JSON.stringify(body, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
@@ -2379,7 +2379,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
   // POST /api/tagent/avatar — upload assistant avatar
   if (req.method === "POST" && path === "/api/tagent/avatar") {
     try {
-      const body = JSON.parse(await _readBody(req));
+      const body = JSON.parse(await readBody(req));
       const { data: base64Data, filename } = body;
       if (!base64Data) { res.writeHead(400); res.end(JSON.stringify({ error: "no data" })); return true; }
       const avatarDir = resolve(TAGENT_DATA_DIR, "avatars");
@@ -2457,7 +2457,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
   // POST /api/tagent/chats — create new chat
   if (req.method === "POST" && path === "/api/tagent/chats") {
-    const body = JSON.parse(await _readBody(req));
+    const body = JSON.parse(await readBody(req));
     const chatId = body.id || `chat_${Date.now()}`;
     const chatData = { id: chatId, title: body.title || "新對話", messages: body.messages || [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     await writeFile(resolve(TAGENT_CHAT_DIR, `${chatId}.json`), JSON.stringify(chatData, null, 2), "utf-8");
@@ -2476,7 +2476,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     } catch {
       existing = { id: chatId, title: "新對話", messages: [], createdAt: new Date().toISOString() };
     }
-    const body = JSON.parse(await _readBody(req));
+    const body = JSON.parse(await readBody(req));
     const updated = { ...existing, ...body, updatedAt: new Date().toISOString() };
     await writeFile(filePath, JSON.stringify(updated, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -2498,7 +2498,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
   // GET /api/tagent/providers — list providers + models (mask apiKey)
   if (req.method === "GET" && path === "/api/tagent/providers") {
     try {
-      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "providers.json"), "utf-8"));
+      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "config/providers.json"), "utf-8"));
       const hasAnyKey = Object.values(config.providers).some((p) => p.apiKey && p.apiKey.length > 0);
       const safe = { active: config.active, defaultModel: config.defaultModel, configured: hasAnyKey, providers: {} };
       for (const [k, v] of Object.entries(config.providers)) {
@@ -2516,9 +2516,9 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
   // PUT /api/tagent/providers — update provider config
   if (req.method === "PUT" && path === "/api/tagent/providers") {
     try {
-      const filePath = resolve(TAGENT_DATA_DIR, "providers.json");
+      const filePath = resolve(TAGENT_DATA_DIR, "config/providers.json");
       const config = JSON.parse(await readFile(filePath, "utf-8"));
-      const body = JSON.parse(await _readBody(req));
+      const body = JSON.parse(await readBody(req));
       if (body.active) config.active = body.active;
       if (body.defaultModel) config.defaultModel = body.defaultModel;
       // Update provider fields (apiKey, baseURL, models)
@@ -2577,7 +2577,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     try {
       let data;
       try { data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
-      const body = JSON.parse(await _readBody(req));
+      const body = JSON.parse(await readBody(req));
       const dir = body.directory;
       if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
       if (!data.directories.includes(dir)) {
@@ -2613,10 +2613,10 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
   // POST /api/tagent/chat — chat completion with streaming + tool calling
   if (req.method === "POST" && path === "/api/tagent/chat") {
     try {
-      const body = JSON.parse(await _readBody(req));
+      const body = JSON.parse(await readBody(req));
       const { messages, model: requestedModel, provider: requestedProvider } = body;
 
-      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "providers.json"), "utf-8"));
+      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "config/providers.json"), "utf-8"));
       const providerId = requestedProvider || config.active;
       const provider = config.providers[providerId];
       if (!provider) {
@@ -2674,7 +2674,8 @@ ${appInstructions}
 === 回覆規則 ===
 - 用中文回覆，風格自然友善
 - 使用者問「我有什麼 App」→ 用 app_list 工具查詢，不要猜
-- 使用者要求做事時，用對應 App 的工具完成，然後告訴使用者結果
+- 使用者要求做事時，先檢查有沒有對應的 App，用 App 的工具完成
+- 如果使用者說的話包含某個 App 的觸發關鍵字（如「幫我翻譯」「translate」→ translate_exec），直接呼叫該 App 的工具
 - 主動運用記憶中的資訊（偏好、過去的決策、人際關係）
 - 如果學到新東西（偏好、決策、重要資訊），主動用 memory_add 記下來
 - 使用者想建新 App 時，用 app_create 幫他建立
