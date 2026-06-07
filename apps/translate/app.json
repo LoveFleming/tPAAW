@@ -1,0 +1,51 @@
+{
+  "name": "翻譯器",
+  "description": "多國語言翻譯器，預設中翻英，特殊詞彙自動包裝成經典例句或笑話",
+  "icon": "🌐",
+  "template": "custom",
+  "version": "1.0.0",
+  "generatedAt": "2026-06-07T02:32:00.000Z",
+  "status": "draft",
+  "skills": [
+    {
+      "id": "translate",
+      "path": "./skills/translate/SKILL.md",
+      "role": "main"
+    },
+    {
+      "id": "idiom-packaging",
+      "path": "./skills/idiom-packaging/SKILL.md",
+      "role": "support"
+    }
+  ],
+  "triggers": {
+    "chat": [
+      "幫我翻譯",
+      "help me translate",
+      "translate",
+      "翻譯"
+    ]
+  },
+  "api": {
+    "endpoint": "/api/app/translate",
+    "methods": ["POST"],
+    "description": "POST body: { source_text, target_lang?, source_lang? } → 回傳翻譯結果 + 特殊詞彙包裝"
+  },
+  "schema": {
+    "type": "object",
+    "properties": {
+      "source_text": { "type": "string", "description": "要翻譯的文字", "required": true },
+      "target_lang": { "type": "string", "description": "目標語言代碼", "default": "en" },
+      "source_lang": { "type": "string", "description": "來源語言代碼", "default": "zh-TW" }
+    },
+    "required": ["source_text"]
+  },
+  "aiContext": {
+    "humanName": "翻譯器",
+    "summary": "使用者在聊天中說「幫我翻譯」或「help me translate」時，呼叫此 app 的 API 執行翻譯",
+    "examples": {
+      "translate": "POST /api/app/translate, body: {\"source_text\":\"這很重要\"} → 翻譯 + 特殊詞彙包裝",
+      "translate_word": "POST /api/app/translate, body: {\"source_text\":\"機會\"} → 單字模式：翻譯+音標+例句+笑話"
+    }
+  }
+}
