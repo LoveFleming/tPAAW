@@ -332,11 +332,12 @@ async function buildToolDefinitions() {
     const triggerHint = app.triggers?.length
       ? `觸發關鍵字：${app.triggers.join("、")}。`
       : "";
-    // Build parameters from app.schema (or use defaults)
+    // Build parameters from app.execSchema or app.schema (or use defaults)
     const props = {};
     const required = [];
-    if (app.schema?.properties) {
-      for (const [key, def] of Object.entries(app.schema.properties)) {
+    const execSchema = app.execSchema?.properties || app.schema?.properties;
+    if (execSchema) {
+      for (const [key, def] of Object.entries(execSchema)) {
         props[key] = {
           type: def.type || "string",
           description: def.description || key,
@@ -669,10 +670,11 @@ function buildHandlers(apps) {
     handlers[`${appId}_exec`] = async (args) => {
       const { _raw_output, ...inputArgs } = args;
 
-      // Resolve defaults from app schema
+      // Resolve defaults from execSchema or schema
       const resolvedArgs = {};
-      if (app.schema?.properties) {
-        for (const [key, def] of Object.entries(app.schema.properties)) {
+      const execSchema = app.execSchema?.properties || app.schema?.properties;
+      if (execSchema) {
+        for (const [key, def] of Object.entries(execSchema)) {
           resolvedArgs[key] = inputArgs[key] ?? def.default ?? undefined;
         }
       }

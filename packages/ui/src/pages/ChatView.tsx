@@ -138,7 +138,34 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     return () => clearInterval(interval);
   }, [loadChats]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  // Auto-scroll: only scroll when user sends a message or receives AI reply
+  // Don't scroll on initial load or polling updates
+  const userScrolledRef = useRef(false);
+  const chatContainerRef = useRef(null);
+
+  // Detect if user has scrolled up
+  useEffect(() => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+      userScrolledRef.current = !atBottom;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Scroll to bottom only when sending or receiving (not on poll)
+  const prevMsgCountRef = useRef(0);
+  useEffect(() => {
+    if (messages.length > prevMsgCountRef.current) {
+      // New message added — scroll only if user was at bottom
+      if (!userScrolledRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -383,7 +410,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       </div>
 
       {/* ── Messages area ── */}
-      <div ref={chatAreaRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+      <div ref={el => { chatAreaRef.current = el; chatContainerRef.current = el; }} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
         {!activeChatId ? (
           /* ── Empty state: welcome card ── */
           <div className="flex flex-col items-center justify-center h-full px-4">

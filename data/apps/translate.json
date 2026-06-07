@@ -6,39 +6,25 @@
   "status": "published",
   "dataShape": "array",
   "type": "skill-based",
-  "triggers": [
-    "幫我翻譯",
-    "help me translate",
-    "translate",
-    "翻譯"
-  ],
+  "triggers": ["幫我翻譯", "help me translate", "translate", "翻譯"],
   "schema": {
     "items": {
       "properties": {
-        "source_text": {
-          "type": "string",
-          "required": true
-        },
-        "source_lang": {
-          "type": "string",
-          "required": false,
-          "default": "zh-TW"
-        },
-        "target_lang": {
-          "type": "string",
-          "required": false,
-          "default": "en"
-        },
-        "translated_text": {
-          "type": "string",
-          "required": true
-        },
-        "highlights": {
-          "type": "string",
-          "required": false
-        }
+        "source_text": { "type": "string", "required": true },
+        "source_lang": { "type": "string", "required": false, "default": "zh-TW" },
+        "target_lang": { "type": "string", "required": false, "default": "en" },
+        "translated_text": { "type": "string", "required": true },
+        "highlights": { "type": "string", "required": false }
       }
     }
+  },
+  "execSchema": {
+    "properties": {
+      "source_text": { "type": "string", "description": "要翻譯的文字", "required": true },
+      "source_lang": { "type": "string", "description": "來源語言（預設 zh-TW）", "default": "zh-TW" },
+      "target_lang": { "type": "string", "description": "目標語言（預設 en）", "default": "en" }
+    },
+    "required": ["source_text"]
   },
   "aiPrompt": "翻譯工具。使用者說「幫我翻譯」「translate」時呼叫。會用 Skill + CLI 執行，回傳翻譯結果 + 特殊詞彙例句/笑話。"
 }

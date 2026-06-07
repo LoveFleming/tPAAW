@@ -412,6 +412,15 @@ let history = [];
 let currentTab = 'result';
 let lastTranslation = null;
 
+function parseHighlights(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } catch {}
+  return raw.split(' | ').filter(Boolean).map(seg => {
+    const m = seg.match(/^(.+?)\s*\((.+?)\)\s*→\s*(.+)$/);
+    return m ? { word: m[1].trim(), type: m[2].trim(), translation: m[3].trim() } : null;
+  }).filter(Boolean);
+}
+
 // ── Init ──
 const sourceInput = document.getElementById('sourceInput');
 const charCount = document.getElementById('charCount');
@@ -423,15 +432,18 @@ async function loadServerHistory() {
     const resp = await fetch(`${API_BASE}/api/app-data/translate`);
     if (resp.ok) {
       const data = await resp.json();
-      history = data.map(r => ({
-        id: r.id,
-        source: r.source_text || '',
-        result: { translation: r.translated_text || '', special_words: [] },
-        sourceLang: r.source_lang || 'zh-TW',
-        targetLang: r.target_lang || 'en',
-        ts: r.createdAt || new Date().toISOString(),
-        highlights: r.highlights || '',
-      }));
+      history = data.map(r => {
+        const words = parseHighlights(r.highlights || '');
+        return {
+          id: r.id,
+          source: r.source_text || '',
+          result: { translation: r.translated_text || '', special_words: words },
+          sourceLang: r.source_lang || 'zh-TW',
+          targetLang: r.target_lang || 'en',
+          ts: r.createdAt || new Date().toISOString(),
+          highlights: r.highlights || '',
+        };
+      });
       document.getElementById('historyCount').textContent = history.length;
       if (currentTab === 'history') renderHistory();
     }
@@ -534,7 +546,7 @@ async function doTranslate() {
           source_lang: sourceLang,
           target_lang: targetLang,
           translated_text: lastResult.translation || '',
-          highlights: (lastResult.special_words || []).map(w => `${w.word} (${w.type}) → ${w.translation}`).join(' | ')
+          highlights: JSON.stringify((lastResult.special_words || []).map(w => ({ word: w.word, type: w.type, translation: w.translation })))
         })
       });
       loadServerHistory();
@@ -722,6 +734,15 @@ function renderHistory() {
     const translation = h.result?.translation || h.translated_text || '';
     const source = h.source || h.source_text || '';
     const highlights = h.highlights || '';
+    const words = (h.result?.special_words && h.result.special_words.length > 0) ? h.result.special_words : parseHighlights(highlights);
+    let vocabHtml = '';
+    if (words.length > 0) {
+      vocabHtml = `<div class="history-detail-row"><div class="history-detail-label">詞彙</div><div class="history-detail-value"><table class="t-table" style="margin:0"><tbody>`;
+      words.forEach(w => {
+        vocabHtml += `<tr><th>${escHtml(w.word)}</th><td><span class="t-chip">${escHtml(w.type)}</span> ${escHtml(w.translation)}</td></tr>`;
+      });
+      vocabHtml += `</tbody></table></div></div>`;
+    }
     html += `<div class="history-card" onclick="toggleHistoryCard(this)">
       <div class="history-card-preview">
         <div class="history-card-body">
@@ -745,7 +766,7 @@ function renderHistory() {
         </div>
         ${h.sourceLang ? `<div class="history-detail-row"><div class="history-detail-label">來源</div><div class="history-detail-value">${escHtml(h.sourceLang)}</div></div>` : ''}
         ${h.targetLang ? `<div class="history-detail-row"><div class="history-detail-label">目標</div><div class="history-detail-value">${escHtml(h.targetLang)}</div></div>` : ''}
-        ${highlights ? `<div class="history-detail-row"><div class="history-detail-label">詞彙</div><div class="history-detail-value">${escHtml(highlights)}</div></div>` : ''}
+        ${vocabHtml}
       </div>
     </div>`;
   });

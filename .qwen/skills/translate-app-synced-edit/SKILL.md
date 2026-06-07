@@ -34,12 +34,29 @@ Before editing, read:
 2. **`_api_prompt.txt`** — contains the same skill definitions pasted inline; apply identical changes
 3. **`app.html`** — update rendering code to match new output schema
 
-### 3. Backward-compatible schema changes
-When renaming JSON keys in the Output Contract (e.g. `en` → `sentence`, `zh` → `translation`), update the HTML rendering to accept both old and new keys using fallback patterns:
+### 3. Backward-compatible data format changes
+When changing how data is stored or parsed (e.g. switching `highlights` from a flat `"word (type) → translation | ..."` string to a JSON array), you **must** write a dual-format parser so existing records aren't lost:
+
+```js
+function parseHighlights(raw) {
+  if (!raw) return [];
+  // Try new format first (JSON array)
+  try { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } catch {}
+  // Fall back to legacy flat format
+  return raw.split(' | ').filter(Boolean).map(seg => {
+    const m = seg.match(/^(.+?)\s*\((.+?)\)\s*→\s*(.+)$/);
+    return m ? { word: m[1].trim(), type: m[2].trim(), translation: m[3].trim() } : null;
+  }).filter(Boolean);
+}
+```
+
+The same principle applies when renaming JSON keys in the Output Contract — use fallback patterns:
 ```js
 const sent = cs.sentence || cs.en || '';
 const trans = cs.translation || cs.zh || '';
 ```
+
+**Why this matters:** The translate app stores history on the server. Old records persist with the old format. If `JSON.parse` is the only path and it fails on legacy strings, all existing vocabulary content silently disappears from history cards. Always parse both formats.
 
 ### 4. Sync app.html
 After all edits to `apps/translate/app.html`, copy it to the runtime location:
@@ -55,3 +72,4 @@ Use `grep` or targeted reads to confirm the same rule text appears in all releva
 - Updating `apps/` SKILL.md but not `data/` SKILL.md (or vice versa)
 - Changing Output Contract JSON keys without updating app.html rendering
 - Not syncing app.html to data/ after edits
+- **Changing stored data format without backward-compatible parsing** — old server records will silently lose content. Always write a dual-format parser (try new format, fall back to legacy format).
