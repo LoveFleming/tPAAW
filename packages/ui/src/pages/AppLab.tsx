@@ -765,9 +765,9 @@ export default function AppLab() {
 
                 {/* ============ STEP 3: Generate & Preview ============ */}
                 {step === 3 && (
-                    <div className="h-full flex flex-col">
-                        {/* Top: Preview (always visible, takes most space) */}
-                        <div className={fullscreen ? "flex-1 min-h-0" : "flex-[3] min-h-0 border-b"} style={{ borderColor: fullscreen ? undefined : "#e7e5e4", backgroundColor: "#f5f5f4" }}>
+                    <div className={"h-full " + (fullscreen ? "flex flex-col" : "grid grid-rows-2")}>
+                        {/* Top: Preview */}
+                        <div className={fullscreen ? "flex-1 min-h-0" : "min-h-0 border-b"} style={{ borderColor: fullscreen ? undefined : "#e7e5e4", backgroundColor: "#f5f5f4" }}>
                             <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-white shrink-0" style={{ borderColor: "#e7e5e4" }}>
                                 <span className="text-xs font-semibold text-stone-500">🖼️ Preview</span>
                                 {previewUrl && <span className="text-[10px] text-stone-400 font-mono">{reportId}</span>}
@@ -800,11 +800,11 @@ export default function AppLab() {
                             </div>
                         </div>
 
-                        {/* Bottom: Split — Terminal (left) + Chat (right) */}
+                        {/* Top-Right: Terminal */}
                         {!fullscreen && (
-                        <div className="flex-[2] min-h-0 flex" style={{ backgroundColor: "#1e1e1e" }}>
-                            {/* Terminal (takes 40%) */}
-                            <div className="flex flex-col border-r" style={{ width: "40%", borderColor: "#333" }}>
+                        <div className="min-h-0 flex" style={{ backgroundColor: "#1e1e1e" }}>
+                            {/* Terminal (left half) */}
+                            <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#333" }}>
                                 <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
                                     <span className="text-[10px] font-semibold text-stone-400">💻 Terminal</span>
                                     <span className="text-[9px] text-stone-500">({cli})</span>
@@ -827,12 +827,8 @@ export default function AppLab() {
                                 </div>
                             </div>
 
-                            {/* Chat Panel (takes 60%) */}
+                            {/* Chat Panel (right half) */}
                             <div className="flex flex-col flex-1 min-h-0">
-                                <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
-                                    <span className="text-[10px] font-semibold text-stone-400">💬 微調指令</span>
-                                    <span className="text-[9px] text-stone-500">描述修改需求，AI 會直接更新</span>
-                                </div>
 
                                 {/* Messages */}
                                 <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">

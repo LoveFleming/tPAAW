@@ -178,7 +178,7 @@
 
 
 ## === 執行參數 ===
-- source_text: "機會難得"
+- source_text: "AI 幻覺"
 - source_lang: zh-TW
 - target_lang: en
 
