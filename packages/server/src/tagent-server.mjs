@@ -195,7 +195,6 @@ const server = createServer(async (req, res) => {
   if (req.method === "PUT" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
     const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
     try {
-      const body = await readBody(req);
       const payload = JSON.parse(body);
       const content = payload.content;
       const kind = payload.kind || "input-prompt";
@@ -337,7 +336,6 @@ const server = createServer(async (req, res) => {
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
-      const body = await _readBody(req);
       JSON.parse(body); // validate JSON
       await writeFile(filePath, body, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -419,11 +417,123 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // POST /api/app/translate — translate text using AI
+  if (req.method === "POST" && req.url?.match(/^\/api\/app\/translate(?:\?.*)?$/)) {
+    try {
+      let parsed = {};
+      try { parsed = JSON.parse(body); } catch {}
+      const { source_text, source_lang = "zh-TW", target_lang = "en" } = parsed;
+      if (!source_text || !source_text.trim()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "請提供要翻譯的文字" }));
+        return;
+      }
+
+      // Load provider config
+      
+      let providerConfig;
+      try {
+      } catch {
+        try {
+          providerConfig = JSON.parse(await readFile(resolve(TAGENT_ROOT, "data/providers.json"), "utf-8"));
+        } catch {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "No AI provider configured" }));
+          return;
+        }
+      }
+
+      const activeKey = providerConfig.active || Object.keys(providerConfig.providers)[0];
+      const provider = providerConfig.providers[activeKey];
+      if (!provider || !provider.apiKey) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No API key for provider: " + activeKey }));
+        return;
+      }
+
+      const isSingleWord = source_text.trim().length <= 5;
+      const systemPrompt = `你是一個專業翻譯器。將用戶提供的文字從 ${source_lang} 翻譯成 ${target_lang}。
+
+規則：
+1. 翻譯要自然流暢，不要直譯
+2. 保留原文語氣和情感
+3. 專有名詞保留原文（附翻譯）
+4. 如果是單字（≤5字），提供：音標、詞性、常見用法、反義詞
+5. 從原文中找出特殊詞彙（成語、俚語、雙關語、專業術語、文化特定詞）
+6. 對每個特殊詞彙，提供一個經典例句和一個趣味記憶法或笑話
+
+你必須回傳 JSON（不要 markdown code block）：
+{
+  "translation": "翻譯結果",
+  "source_lang": "${source_lang}",
+  "target_lang": "${target_lang}",
+  "source_text": "原文",
+  "special_words": [
+    {
+      "word": "特殊詞彙",
+      "translation": "翻譯",
+      "type": "idiom|slang|jargon|culture|pun",
+      "packaged": {
+        "classic_sentence": { "en": "英文例句", "zh": "中文翻譯" },
+        "joke": "趣味記憶法或笑話"
+      }
+    }
+  ],
+  "pronunciation": { "phonetic": "音標", "audio_url": null }
+}`;
+
+      const modelId = provider.models?.[0]?.id || "glm-5.1";
+      const fullModelId = activeKey === "zai" ? modelId : `${activeKey}/${modelId}`;
+      const baseURL = provider.baseURL || "https://api.z.ai/api/coding/paas/v4";
+
+      const aiResp = await fetch(`${baseURL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${provider.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: fullModelId,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: source_text }
+          ],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!aiResp.ok) {
+        const errText = await aiResp.text();
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `AI API error: ${aiResp.status}`, detail: errText.slice(0, 200) }));
+        return;
+      }
+
+      const aiData = await aiResp.json();
+      let content = aiData.choices?.[0]?.message?.content || "";
+      // Strip markdown code block if present
+      content = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+
+      let result;
+      try {
+        result = JSON.parse(content);
+      } catch {
+        result = { translation: content, source_lang, target_lang, source_text, special_words: [], pronunciation: { phonetic: null, audio_url: null } };
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // POST /api/app-run/:id — run AI to generate app content on-the-fly
   const appRunMatch = req.method === "POST" && req.url?.match(/^\/api\/app-run\/([\w.-]+)(?:\?.*)?$/);
   if (appRunMatch) {
     const appId = appRunMatch[1];
-    const body = await readBody(req);
     let parsed = {};
     try { parsed = JSON.parse(body); } catch {}
     const { prompt: userPrompt, cli: cliType } = parsed;
@@ -612,7 +722,6 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
       const jsonPath = join(appDir, "app.json");
       let meta = {};
       try { meta = JSON.parse(await readFile(jsonPath, "utf-8")); } catch {}
-      const body = await readBody(req);
       let extra = {};
       try { extra = JSON.parse(body); } catch {}
       meta = { ...meta, ...extra, status: "published", publishedAt: new Date().toISOString() };
@@ -658,7 +767,6 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
 
   // POST /api/report-train — run CLI to generate app.html, stream output
   if (req.method === "POST" && req.url === "/api/report-train") {
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const { skillId, reportName, template, prompt, runId, cli: cliType } = parsed;
@@ -781,7 +889,6 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
 
   // POST /api/report-publish — publish trained report to skill's app.html
   if (req.method === "POST" && req.url === "/api/report-publish") {
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const { htmlPath, skillId, reportName } = parsed;
@@ -1050,7 +1157,7 @@ async function tagentApiHandler(req, res) {
   // POST /api/tagent/cli-config — save CLI defaults
   if (req.method === "POST" && path === "/api/tagent/cli-config") {
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await _readBody(req));
       body.configured = true;
       await writeFile(resolve(TAGENT_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -1206,7 +1313,6 @@ async function tagentApiHandler(req, res) {
 
   // POST /api/opencode/prompt — send prompt to OpenCode via term.paste
   if (req.method === "POST" && req.url === "/api/opencode/prompt") {
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     // This API just signals the frontend to use term.paste()
@@ -1218,7 +1324,6 @@ async function tagentApiHandler(req, res) {
 
   // PATCH /api/opencode/config — switch model via OpenCode server
   if (req.method === "PATCH" && req.url === "/api/opencode/config") {
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
@@ -1320,7 +1425,6 @@ async function tagentApiHandler(req, res) {
 
   // POST /api/crew — create new crew member
   if (req.method === "POST" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     if (!parsed.id) { res.writeHead(400); res.end("Missing 'id'"); return; }
@@ -1358,7 +1462,6 @@ async function tagentApiHandler(req, res) {
   const crewPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/crew\/([\w.-]+)(?:\?.*)?$/);
   if (crewPutMatch) {
     const crewId = crewPutMatch[1];
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
 
@@ -1479,7 +1582,6 @@ async function tagentApiHandler(req, res) {
     const employeeId = convSaveMatch[1];
     const u = new URL(req.url, "http://localhost");
     const root = u.searchParams.get("root") || "";
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const { id, title, messages, model, systemPrompt } = parsed;
@@ -1577,7 +1679,6 @@ async function tagentApiHandler(req, res) {
     const employeeId = savedInputsPostMatch[1];
     const u = new URL(req.url, "http://localhost");
     const root = u.searchParams.get("root") || "";
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const { hash: inputHash, skillId, data } = parsed;
@@ -2071,7 +2172,6 @@ async function tagentApiHandler(req, res) {
 
   // POST /api/hello-world — Hello World AI Node Demo
   if (req.method === "POST" && req.url === "/api/hello-world") {
-    const body = await readBody(req);
     let parsed;
     try {
       parsed = JSON.parse(body);
@@ -2260,7 +2360,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
   // POST /api/tagent/user — save user profile (onboarding)
   if (req.method === "POST" && path === "/api/tagent/user") {
-    const body = JSON.parse(await readBody(req));
+    const body = JSON.parse(await _readBody(req));
     await writeFile(TAGENT_USER_FILE, JSON.stringify(body, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
@@ -2270,7 +2370,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
   // POST /api/tagent/avatar — upload assistant avatar
   if (req.method === "POST" && path === "/api/tagent/avatar") {
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await _readBody(req));
       const { data: base64Data, filename } = body;
       if (!base64Data) { res.writeHead(400); res.end(JSON.stringify({ error: "no data" })); return true; }
       const avatarDir = resolve(TAGENT_DATA_DIR, "avatars");
@@ -2348,7 +2448,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
   // POST /api/tagent/chats — create new chat
   if (req.method === "POST" && path === "/api/tagent/chats") {
-    const body = JSON.parse(await readBody(req));
+    const body = JSON.parse(await _readBody(req));
     const chatId = body.id || `chat_${Date.now()}`;
     const chatData = { id: chatId, title: body.title || "新對話", messages: body.messages || [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     await writeFile(resolve(TAGENT_CHAT_DIR, `${chatId}.json`), JSON.stringify(chatData, null, 2), "utf-8");
@@ -2367,7 +2467,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     } catch {
       existing = { id: chatId, title: "新對話", messages: [], createdAt: new Date().toISOString() };
     }
-    const body = JSON.parse(await readBody(req));
+    const body = JSON.parse(await _readBody(req));
     const updated = { ...existing, ...body, updatedAt: new Date().toISOString() };
     await writeFile(filePath, JSON.stringify(updated, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -2409,7 +2509,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     try {
       const filePath = resolve(TAGENT_DATA_DIR, "providers.json");
       const config = JSON.parse(await readFile(filePath, "utf-8"));
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await _readBody(req));
       if (body.active) config.active = body.active;
       if (body.defaultModel) config.defaultModel = body.defaultModel;
       // Update provider fields (apiKey, baseURL, models)
@@ -2468,7 +2568,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     try {
       let data;
       try { data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await _readBody(req));
       const dir = body.directory;
       if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
       if (!data.directories.includes(dir)) {
@@ -2504,7 +2604,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
   // POST /api/tagent/chat — chat completion with streaming + tool calling
   if (req.method === "POST" && path === "/api/tagent/chat") {
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(await _readBody(req));
       const { messages, model: requestedModel, provider: requestedProvider } = body;
 
       const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "providers.json"), "utf-8"));
@@ -3158,7 +3258,6 @@ const cronApiHandler = async (req, res) => {
   }
   // POST /api/cron-jobs
   if (req.method === "POST" && req.url === "/api/cron-jobs") {
-    const body = await readBody(req);
     let parsed;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
     const jobs = await loadCronJobs();
@@ -3185,7 +3284,6 @@ const cronApiHandler = async (req, res) => {
   // PATCH /api/cron-jobs/:id
   if (req.method === "PATCH" && req.url?.match(/^\/api\/cron-jobs\/[^/]+$/)) {
     const id = req.url.split("/").pop();
-    const body = await readBody(req);
     let patch;
     try { patch = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
     const jobs = await loadCronJobs();
