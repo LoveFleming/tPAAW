@@ -737,6 +737,34 @@ ${inputSection}
       if (jsonMatch) {
         try {
           const result = JSON.parse(jsonMatch[0]);
+          // Auto-save result to app data (so history shows in app UI)
+          if (app.dataShape !== "none") {
+            try {
+              const record = {
+                id: `${appId}_${Date.now().toString(36)}`,
+                createdAt: new Date().toISOString(),
+              };
+              // Map common result fields to schema fields
+              const schemaProps = app.schema?.items?.properties || app.schema?.properties || {};
+              for (const [key] of Object.entries(schemaProps)) {
+                if (result[key] !== undefined) record[key] = result[key];
+              }
+              // Also store source args
+              for (const [key, val] of Object.entries(resolvedArgs)) {
+                if (val !== undefined) record[key] = val;
+              }
+              // Extract translation/highlights from skill result
+              if (result.translation) record.translated_text = result.translation;
+              if (result.special_words?.length) {
+                record.highlights = result.special_words.map(w => `${w.word} (${w.type}) → ${w.translation}`).join(" | ");
+              }
+              const data = await loadAppData(appId);
+              data.push(record);
+              await saveAppData(appId, data);
+            } catch (saveErr) {
+              console.error(`[skillExec] Failed to save app data for ${appId}:`, saveErr.message);
+            }
+          }
           return { text: formatSkillResult(app, result), result };
         } catch {}
       }

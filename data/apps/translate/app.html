@@ -296,13 +296,44 @@
 
 <script>
 // ── State ──
+const API_BASE = window.location.origin;
 let history = JSON.parse(localStorage.getItem('translate_history') || '[]');
+let serverHistory = [];
 let currentTab = 'result';
 
 // ── Init ──
 const sourceInput = document.getElementById('sourceInput');
 const charCount = document.getElementById('charCount');
 const translateBtn = document.getElementById('translateBtn');
+
+// Load server-side history from app-data API
+async function loadServerHistory() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/app-data/translate`);
+    if (resp.ok) {
+      serverHistory = await resp.json();
+      // Merge: server data is source of truth, localStorage is supplement
+      const serverIds = new Set(serverHistory.map(r => r.id));
+      const localOnly = history.filter(h => !serverIds.has(`translate_${h.id.toString(36)}`) && !serverIds.some(s => s.source_text === h.source && s.translated_text === (h.result?.translation || '')));
+      // Use server history as the main list
+      const merged = [
+        ...serverHistory.map(r => ({
+          id: r.id,
+          source: r.source_text || '',
+          result: { translation: r.translated_text || '', special_words: r.highlights ? r.highlights.split(' | ').map(h => { const m = h.match(/(.+) \((.+)\) → (.+)/); return m ? { word: m[1], type: m[2], translation: m[3] } : { word: h }; }) : [] },
+          sourceLang: r.source_lang || 'zh-TW',
+          targetLang: r.target_lang || 'en',
+          ts: r.createdAt || new Date().toISOString(),
+        })),
+      ];
+      history = merged;
+      document.getElementById('historyCount').textContent = history.length;
+    }
+  } catch (err) {
+    console.log('Load server history failed, using localStorage:', err.message);
+  }
+}
+loadServerHistory();
 
 sourceInput.addEventListener('input', () => {
   charCount.textContent = sourceInput.value.length;
@@ -504,9 +535,11 @@ function renderHistory() {
   let html = '<div class="history-list">';
   history.forEach(h => {
     const time = new Date(h.ts).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    html += `<div class="history-item" onclick="replayHistory(${h.id})">
-      <div class="history-source">${escHtml(h.source)} <span style="float:right;opacity:0.4;font-size:10px">${time}</span></div>
-      <div class="history-result">${escHtml(h.result.translation || '')}</div>
+    const translation = h.result?.translation || h.translated_text || '';
+    const source = h.source || h.source_text || '';
+    html += `<div class="history-item" onclick="replayHistory('${h.id}')">
+      <div class="history-source">${escHtml(source)} <span style="float:right;opacity:0.4;font-size:10px">${time}</span></div>
+      <div class="history-result">${escHtml(translation)}</div>
     </div>`;
   });
   html += '</div>';
@@ -514,14 +547,15 @@ function renderHistory() {
 }
 
 function replayHistory(id) {
-  const h = history.find(x => x.id === id);
+  const h = history.find(x => String(x.id) === String(id));
   if (!h) return;
-  sourceInput.value = h.source;
-  charCount.textContent = h.source.length;
-  document.getElementById('sourceLang').value = h.sourceLang;
-  document.getElementById('targetLang').value = h.targetLang;
+  sourceInput.value = h.source || h.source_text || '';
+  charCount.textContent = sourceInput.value.length;
+  if (h.sourceLang) document.getElementById('sourceLang').value = h.sourceLang;
+  if (h.targetLang) document.getElementById('targetLang').value = h.targetLang;
   switchTab('result');
-  renderTranslation(h.result);
+  const result = h.result || { translation: h.translated_text || '' };
+  renderTranslation(result);
 }
 
 // ── Helpers ──
@@ -534,7 +568,7 @@ function copyText(btn, text) {
   });
 }
 
-// Init history count
+// Init history count (will be updated by loadServerHistory)
 document.getElementById('historyCount').textContent = history.length;
 </script>
 </body>
