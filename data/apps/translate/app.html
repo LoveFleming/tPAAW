@@ -155,10 +155,14 @@
   .type-jargon { background: #60a5fa20; color: #60a5fa; }
   .type-culture { background: #f8717120; color: #f87171; }
   .type-pun { background: #4ade8020; color: #4ade80; }
-
-  .special-trans {
-    font-size: 13px; color: var(--text2); margin-top: 4px; margin-bottom: 12px;
+  .special-tag {
+    font-size: 10px; padding: 2px 8px; border-radius: 99px;
+    font-weight: 600;
   }
+  .special-translation {
+    font-size: 13px; color: var(--text2); margin-top: 4px;
+  }
+
   .example-box {
     background: var(--surface2); border-radius: 8px; padding: 12px;
     margin-top: 8px;
@@ -180,6 +184,40 @@
     text-transform: uppercase; margin-bottom: 6px;
   }
   .fun-content { font-size: 13px; line-height: 1.6; color: var(--text); }
+
+  /* Packaged cards */
+  .packaged-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; margin-top: 8px;
+  }
+  .packaged-card.joke {
+    background: linear-gradient(135deg, #7c5cfc10, #fbbf2410);
+  }
+  .packaged-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .packaged-card:not(.joke) .packaged-label { color: var(--accent); }
+  .packaged-card.joke .packaged-label { color: var(--amber); }
+  .packaged-en { font-size: 14px; color: var(--text); line-height: 1.6; }
+  .packaged-zh { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .packaged-text { font-size: 13px; line-height: 1.6; color: var(--text); }
+
+  /* Single word mode */
+  .info-chip {
+    display: inline-block; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; margin: 4px 4px 4px 0;
+    font-size: 12px; color: var(--text);
+  }
+  .usage-section { margin-top: 12px; }
+  .usage-title {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .usage-item {
+    font-size: 13px; color: var(--text2); padding: 4px 0;
+    line-height: 1.6;
+  }
 
   /* History */
   .history-list { display: flex; flex-direction: column; gap: 8px; }
@@ -203,15 +241,17 @@
 
   /* Loading */
   .loading {
-    display: flex; align-items: center; justify-content: center;
-    height: 200px; gap: 8px;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 200px; gap: 8px;
   }
+  .loading-dots { display: flex; gap: 8px; }
   .loading-dot {
     width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
     animation: bounce 1.4s infinite ease-in-out both;
   }
   .loading-dot:nth-child(1) { animation-delay: -0.32s; }
   .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+  .loading-hint { margin-top: 12px; color: var(--text2); font-size: 12px; }
   @keyframes bounce {
     0%, 80%, 100% { transform: scale(0); }
     40% { transform: scale(1); }
@@ -295,11 +335,11 @@
 </div>
 
 <script>
-
 // ── State ──
 const API_BASE = window.location.origin;
 let history = [];
 let currentTab = 'result';
+let lastTranslation = null;
 
 // ── Init ──
 const sourceInput = document.getElementById('sourceInput');
@@ -349,8 +389,164 @@ function switchTab(tab) {
   else renderResult();
 }
 
+// ── Swap languages ──
+function swapLangs() {
+  const s = document.getElementById('sourceLang');
+  const t = document.getElementById('targetLang');
+  const tmp = s.value;
+  s.value = t.value;
+  t.value = tmp;
+}
+
+// ── Translate ──
+async function doTranslate() {
+  const text = sourceInput.value.trim();
+  if (!text) return;
+
+  const sourceLang = document.getElementById('sourceLang').value;
+  const targetLang = document.getElementById('targetLang').value;
+
+  translateBtn.disabled = true;
+  translateBtn.textContent = '⏳ 翻譯中...';
+
+  switchTab('result');
+  const output = document.getElementById('outputContent');
+  output.innerHTML = '<div class="loading"><div class="loading-dots"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div><p class="loading-hint">Skill 執行中...</p></div>';
+
+  try {
+    const resp = await fetch('/api/app/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_text: text, source_lang: sourceLang, target_lang: targetLang })
+    });
+
+    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let ndjson = '';
+    let lastResult = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      ndjson += decoder.decode(value, { stream: true });
+
+      const lines = ndjson.split('\n');
+      ndjson = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.type === 'result') lastResult = msg.data;
+        } catch {}
+      }
+    }
+
+    if (ndjson.trim()) {
+      try {
+        const msg = JSON.parse(ndjson);
+        if (msg.type === 'result') lastResult = msg.data;
+      } catch {}
+    }
+
+    if (!lastResult) throw new Error('No result from skill execution');
+
+    // Save to server (via app-data API)
+    try {
+      await fetch(`${API_BASE}/api/app-data/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: text,
+          source_lang: sourceLang,
+          target_lang: targetLang,
+          translated_text: lastResult.translation || '',
+          highlights: (lastResult.special_words || []).map(w => `${w.word} (${w.type}) → ${w.translation}`).join(' | ')
+        })
+      });
+      loadServerHistory();
+    } catch {}
+
+    lastTranslation = lastResult;
+    renderTranslation(lastResult);
+  } catch (err) {
+    output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${escHtml(err.message)}</div></div>`;
+  } finally {
+    translateBtn.disabled = false;
+    translateBtn.textContent = '🌐 翻譯 Translate';
+  }
+}
+
+// ── Render ──
+function renderTranslation(data) {
+  const output = document.getElementById('outputContent');
+  let html = '';
+
+  // Main translation
+  html += `<div class="translation-box">
+    <button class="copy-btn" onclick="copyText(this, '${escapeAttr(data.translation)}')">📋 複製</button>
+    <div class="translation-label">Translation</div>
+    <div class="translation-text">${escHtml(data.translation)}</div>
+  </div>`;
+
+  // Special words
+  if (data.special_words && data.special_words.length > 0) {
+    html += `<div class="special-section">
+      <div class="special-title">✨ 特殊詞彙 Highlight</div>`;
+    data.special_words.forEach(w => {
+      html += `<div class="special-card">
+        <div class="special-word">
+          ${escHtml(w.word)}
+          <span class="type-badge type-${w.type}">${escHtml(w.type)}</span>
+        </div>
+        <div class="special-translation">→ ${escHtml(w.translation)}</div>`;
+
+      if (w.packaged) {
+        if (w.packaged.classic_sentence) {
+          const cs = w.packaged.classic_sentence;
+          html += `<div class="example-box">
+            <div class="example-label">📖 經典例句</div>
+            <div class="example-en">${escHtml(cs.en || '')}</div>
+            ${cs.zh ? `<div class="example-zh">${escHtml(cs.zh)}</div>` : ''}
+          </div>`;
+        }
+        if (w.packaged.joke) {
+          html += `<div class="fun-box">
+            <div class="fun-label">😄 趣味記憶</div>
+            <div class="fun-content">${escHtml(w.packaged.joke)}</div>
+          </div>`;
+        }
+        if (w.packaged.fun_fact && w.packaged.fun_fact.content) {
+          html += `<div class="fun-box">
+            <div class="fun-label">😄 趣味記憶</div>
+            <div class="fun-content">${escHtml(w.packaged.fun_fact.content)}</div>
+          </div>`;
+        }
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Single word mode
+  if (data.single_word_mode) {
+    const sw = data.single_word_mode;
+    if (sw.phonetic) html += `<div class="info-chip">🔊 ${escHtml(sw.phonetic)}</div>`;
+    if (sw.common_usage && sw.common_usage.length > 0) {
+      html += '<div class="usage-section"><div class="usage-title">📝 常見用法</div>';
+      sw.common_usage.forEach(u => { html += `<div class="usage-item">• ${escHtml(u)}</div>`; });
+      html += '</div>';
+    }
+    if (sw.synonyms) html += `<div class="info-chip">同義詞：${escHtml(sw.synonyms.join('、'))}</div>`;
+    if (sw.antonyms) html += `<div class="info-chip">反義詞：${escHtml(sw.antonyms.join('、'))}</div>`;
+  }
+
+  output.innerHTML = html;
+}
+
 function renderResult() {
-  // Re-render current result if available
+  if (lastTranslation) renderTranslation(lastTranslation);
 }
 
 function renderHistory() {
@@ -385,157 +581,9 @@ function replayHistory(id) {
   renderTranslation(result);
 }
 
-// ── Translate ──
-async function doTranslate() {
-  const text = sourceInput.value.trim();
-  if (!text) return;
-
-  const sourceLang = document.getElementById('sourceLang').value;
-  const targetLang = document.getElementById('targetLang').value;
-
-  translateBtn.disabled = true;
-  translateBtn.textContent = '⏳ 翻譯中...';
-
-  const output = document.getElementById('outputContent');
-
-  try {
-    const resp = await fetch('/api/app/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source_text: text, source_lang: sourceLang, target_lang: targetLang })
-    });
-
-    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let ndjson = '';
-    let lastResult = null;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      ndjson += decoder.decode(value, { stream: true });
-
-      // Parse each line
-      const lines = ndjson.split('\n');
-      ndjson = lines.pop() || ''; // keep incomplete line
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const msg = JSON.parse(line);
-          if (msg.type === 'result') {
-            lastResult = msg.data;
-          }
-        } catch {}
-      }
-    }
-
-    // Also try to parse the last remaining ndjson
-    if (ndjson.trim()) {
-      try {
-        const msg = JSON.parse(ndjson);
-        if (msg.type === 'result') lastResult = msg.data;
-      } catch {}
-    }
-
-    if (!lastResult) throw new Error('No result from skill execution');
-
-    // Save to server (via app-data API)
-    try {
-      await fetch(`${API_BASE}/api/app-data/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source_text: text,
-          source_lang: sourceLang,
-          target_lang: targetLang,
-          translated_text: lastResult.translation || '',
-          highlights: (lastResult.special_words || []).map(w => `${w.word} (${w.type}) → ${w.translation}`).join(' | ')
-        })
-      });
-      // Reload history from server
-      loadServerHistory();
-    } catch {}
-
-    renderTranslation(lastResult);
-  } catch (err) {
-    output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${err.message}</div></div>`;
-  } finally {
-    translateBtn.disabled = false;
-    translateBtn.textContent = '🌐 翻譯 Translate';
-  }
-}
-
-// ── Render ──
-function renderTranslation(data) {
-  const output = document.getElementById('outputContent');
-  let html = '';
-
-  // Main translation
-  html += `<div class="translation-box">
-    <button class="copy-btn" onclick="copyText(this, '${escapeAttr(data.translation)}')">📋 複製</button>
-    <div class="translation-label">Translation</div>
-    <div class="translation-text">${escHtml(data.translation)}</div>
-  </div>`;
-
-  // Special words
-  if (data.special_words && data.special_words.length > 0) {
-    html += `<div class="special-section">
-      <div class="special-title">✨ 特殊詞彙 Highlight</div>`;
-    data.special_words.forEach(w => {
-      html += `<div class="special-card">
-        <div class="special-word">
-          ${escHtml(w.word)}
-          <span class="special-tag">${w.type}</span>
-        </div>
-        <div class="special-translation">→ ${escHtml(w.translation)}</div>
-      </div>`;
-    });
-    html += '</div>';
-  }
-
-  // Single word mode
-  if (data.single_word_mode) {
-    const sw = data.single_word_mode;
-    if (sw.phonetic) html += `<div class="info-chip">🔊 ${escHtml(sw.phonetic)}</div>`;
-    if (sw.common_usage && sw.common_usage.length > 0) {
-      html += '<div class="usage-section"><div class="usage-title">📝 常見用法</div>';
-      sw.common_usage.forEach(u => { html += `<div class="usage-item">• ${escHtml(u)}</div>`; });
-      html += '</div>';
-    }
-    if (sw.synonyms) html += `<div class="info-chip">同義詞：${escHtml(sw.synonyms.join('、'))}</div>`;
-    if (sw.antonyms) html += `<div class="info-chip">反義詞：${escHtml(sw.antonyms.join('、'))}</div>`;
-  }
-
-  // Packaged content (idiom jokes, classic sentences)
-  if (data.special_words) {
-    for (const w of data.special_words) {
-      if (w.packaged) {
-        if (w.packaged.classic_sentence) {
-          const cs = w.packaged.classic_sentence;
-          html += `<div class="packaged-card">
-            <div class="packaged-label">📖 經典例句</div>
-            <div class="packaged-en">${escHtml(cs.en || '')}</div>
-            <div class="packaged-zh">${escHtml(cs.zh || '')}</div>
-          </div>`;
-        }
-        if (w.packaged.joke) {
-          html += `<div class="packaged-card joke">
-            <div class="packaged-label">😄 記憶法</div>
-            <div class="packaged-text">${escHtml(w.packaged.joke)}</div>
-          </div>`;
-        }
-      }
-    }
-  }
-
-  output.innerHTML = html;
-}
-
 // ── Helpers ──
 function escHtml(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function escapeAttr(s) { if (!s) return ''; return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+function escapeAttr(s) { if (!s) return ''; return s.replace(/\\/g,'\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 function copyText(btn, text) {
   navigator.clipboard.writeText(text).then(() => {
     btn.textContent = '✅ 已複製';
@@ -545,7 +593,6 @@ function copyText(btn, text) {
 
 // Init history count (will be updated by loadServerHistory)
 document.getElementById('historyCount').textContent = '...';
-
 </script>
 </body>
 </html>

@@ -155,10 +155,14 @@
   .type-jargon { background: #60a5fa20; color: #60a5fa; }
   .type-culture { background: #f8717120; color: #f87171; }
   .type-pun { background: #4ade8020; color: #4ade80; }
-
-  .special-trans {
-    font-size: 13px; color: var(--text2); margin-top: 4px; margin-bottom: 12px;
+  .special-tag {
+    font-size: 10px; padding: 2px 8px; border-radius: 99px;
+    font-weight: 600;
   }
+  .special-translation {
+    font-size: 13px; color: var(--text2); margin-top: 4px;
+  }
+
   .example-box {
     background: var(--surface2); border-radius: 8px; padding: 12px;
     margin-top: 8px;
@@ -180,6 +184,40 @@
     text-transform: uppercase; margin-bottom: 6px;
   }
   .fun-content { font-size: 13px; line-height: 1.6; color: var(--text); }
+
+  /* Packaged cards */
+  .packaged-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; margin-top: 8px;
+  }
+  .packaged-card.joke {
+    background: linear-gradient(135deg, #7c5cfc10, #fbbf2410);
+  }
+  .packaged-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .packaged-card:not(.joke) .packaged-label { color: var(--accent); }
+  .packaged-card.joke .packaged-label { color: var(--amber); }
+  .packaged-en { font-size: 14px; color: var(--text); line-height: 1.6; }
+  .packaged-zh { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .packaged-text { font-size: 13px; line-height: 1.6; color: var(--text); }
+
+  /* Single word mode */
+  .info-chip {
+    display: inline-block; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; margin: 4px 4px 4px 0;
+    font-size: 12px; color: var(--text);
+  }
+  .usage-section { margin-top: 12px; }
+  .usage-title {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .usage-item {
+    font-size: 13px; color: var(--text2); padding: 4px 0;
+    line-height: 1.6;
+  }
 
   /* History */
   .history-list { display: flex; flex-direction: column; gap: 8px; }
@@ -203,15 +241,17 @@
 
   /* Loading */
   .loading {
-    display: flex; align-items: center; justify-content: center;
-    height: 200px; gap: 8px;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 200px; gap: 8px;
   }
+  .loading-dots { display: flex; gap: 8px; }
   .loading-dot {
     width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
     animation: bounce 1.4s infinite ease-in-out both;
   }
   .loading-dot:nth-child(1) { animation-delay: -0.32s; }
   .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+  .loading-hint { margin-top: 12px; color: var(--text2); font-size: 12px; }
   @keyframes bounce {
     0%, 80%, 100% { transform: scale(0); }
     40% { transform: scale(1); }
@@ -296,13 +336,38 @@
 
 <script>
 // ── State ──
-let history = JSON.parse(localStorage.getItem('translate_history') || '[]');
+const API_BASE = window.location.origin;
+let history = [];
 let currentTab = 'result';
+let lastTranslation = null;
 
 // ── Init ──
 const sourceInput = document.getElementById('sourceInput');
 const charCount = document.getElementById('charCount');
 const translateBtn = document.getElementById('translateBtn');
+
+// Load history from server (app-data API)
+async function loadServerHistory() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/app-data/translate`);
+    if (resp.ok) {
+      const data = await resp.json();
+      history = data.map(r => ({
+        id: r.id,
+        source: r.source_text || '',
+        result: { translation: r.translated_text || '', special_words: [] },
+        sourceLang: r.source_lang || 'zh-TW',
+        targetLang: r.target_lang || 'en',
+        ts: r.createdAt || new Date().toISOString(),
+      }));
+      document.getElementById('historyCount').textContent = history.length;
+      if (currentTab === 'history') renderHistory();
+    }
+  } catch (err) {
+    console.error('[translate] Load history failed:', err);
+  }
+}
+loadServerHistory();
 
 sourceInput.addEventListener('input', () => {
   charCount.textContent = sourceInput.value.length;
@@ -342,27 +407,22 @@ async function doTranslate() {
   const targetLang = document.getElementById('targetLang').value;
 
   translateBtn.disabled = true;
-  translateBtn.textContent = '⏳ Skill 執行中...';
+  translateBtn.textContent = '⏳ 翻譯中...';
 
   switchTab('result');
   const output = document.getElementById('outputContent');
-  output.innerHTML = '<div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div><p style="margin-top:12px;color:var(--text2);font-size:12px">Skill → CLI 執行中...</p></div>';
+  output.innerHTML = '<div class="loading"><div class="loading-dots"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div><p class="loading-hint">Skill 執行中...</p></div>';
 
   try {
-    const res = await fetch('/api/app/translate', {
+    const resp = await fetch('/api/app/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source_text: text,
-        source_lang: sourceLang,
-        target_lang: targetLang
-      })
+      body: JSON.stringify({ source_text: text, source_lang: sourceLang, target_lang: targetLang })
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
 
-    // Read NDJSON stream
-    const reader = res.body.getReader();
+    const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let ndjson = '';
     let lastResult = null;
@@ -372,21 +432,17 @@ async function doTranslate() {
       if (done) break;
       ndjson += decoder.decode(value, { stream: true });
 
-      // Parse each line
       const lines = ndjson.split('\n');
-      ndjson = lines.pop() || ''; // keep incomplete line
+      ndjson = lines.pop() || '';
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
           const msg = JSON.parse(line);
-          if (msg.type === 'result') {
-            lastResult = msg.data;
-          }
+          if (msg.type === 'result') lastResult = msg.data;
         } catch {}
       }
     }
 
-    // Also try to parse the last remaining ndjson
     if (ndjson.trim()) {
       try {
         const msg = JSON.parse(ndjson);
@@ -396,22 +452,26 @@ async function doTranslate() {
 
     if (!lastResult) throw new Error('No result from skill execution');
 
-    // Save to history
-    const entry = {
-      id: Date.now(),
-      source: text,
-      result: lastResult,
-      sourceLang, targetLang,
-      ts: new Date().toISOString()
-    };
-    history.unshift(entry);
-    if (history.length > 50) history = history.slice(0, 50);
-    localStorage.setItem('translate_history', JSON.stringify(history));
-    document.getElementById('historyCount').textContent = history.length;
+    // Save to server (via app-data API)
+    try {
+      await fetch(`${API_BASE}/api/app-data/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: text,
+          source_lang: sourceLang,
+          target_lang: targetLang,
+          translated_text: lastResult.translation || '',
+          highlights: (lastResult.special_words || []).map(w => `${w.word} (${w.type}) → ${w.translation}`).join(' | ')
+        })
+      });
+      loadServerHistory();
+    } catch {}
 
+    lastTranslation = lastResult;
     renderTranslation(lastResult);
   } catch (err) {
-    output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${err.message}</div></div>`;
+    output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${escHtml(err.message)}</div></div>`;
   } finally {
     translateBtn.disabled = false;
     translateBtn.textContent = '🌐 翻譯 Translate';
@@ -438,16 +498,17 @@ function renderTranslation(data) {
       html += `<div class="special-card">
         <div class="special-word">
           ${escHtml(w.word)}
-          <span class="type-badge type-${w.type}">${w.type}</span>
+          <span class="type-badge type-${w.type}">${escHtml(w.type)}</span>
         </div>
-        <div class="special-trans">${escHtml(w.translation)}</div>`;
+        <div class="special-translation">→ ${escHtml(w.translation)}</div>`;
 
       if (w.packaged) {
         if (w.packaged.classic_sentence) {
+          const cs = w.packaged.classic_sentence;
           html += `<div class="example-box">
             <div class="example-label">📖 經典例句</div>
-            <div class="example-en">${escHtml(w.packaged.classic_sentence.en || w.packaged.classic_sentence)}</div>
-            ${w.packaged.classic_sentence.zh ? `<div class="example-zh">${escHtml(w.packaged.classic_sentence.zh)}</div>` : ''}
+            <div class="example-en">${escHtml(cs.en || '')}</div>
+            ${cs.zh ? `<div class="example-zh">${escHtml(cs.zh)}</div>` : ''}
           </div>`;
         }
         if (w.packaged.joke) {
@@ -456,43 +517,36 @@ function renderTranslation(data) {
             <div class="fun-content">${escHtml(w.packaged.joke)}</div>
           </div>`;
         }
+        if (w.packaged.fun_fact && w.packaged.fun_fact.content) {
+          html += `<div class="fun-box">
+            <div class="fun-label">😄 趣味記憶</div>
+            <div class="fun-content">${escHtml(w.packaged.fun_fact.content)}</div>
+          </div>`;
+        }
       }
       html += '</div>';
     });
     html += '</div>';
   }
 
+  // Single word mode
+  if (data.single_word_mode) {
+    const sw = data.single_word_mode;
+    if (sw.phonetic) html += `<div class="info-chip">🔊 ${escHtml(sw.phonetic)}</div>`;
+    if (sw.common_usage && sw.common_usage.length > 0) {
+      html += '<div class="usage-section"><div class="usage-title">📝 常見用法</div>';
+      sw.common_usage.forEach(u => { html += `<div class="usage-item">• ${escHtml(u)}</div>`; });
+      html += '</div>';
+    }
+    if (sw.synonyms) html += `<div class="info-chip">同義詞：${escHtml(sw.synonyms.join('、'))}</div>`;
+    if (sw.antonyms) html += `<div class="info-chip">反義詞：${escHtml(sw.antonyms.join('、'))}</div>`;
+  }
+
   output.innerHTML = html;
 }
 
-function renderDemoResult(text, sLang, tLang) {
-  // Demo mock for when API is not available
-  const mockData = {
-    translation: `[Demo] "${text}" → This is a demo translation. Connect to the Translate API for real results.`,
-    source_lang: sLang,
-    target_lang: tLang,
-    source_text: text,
-    special_words: [
-      {
-        word: "重要",
-        translation: "important / crucial / vital",
-        type: "culture",
-        packaged: {
-          classic_sentence: {
-            en: "This meeting is of crucial importance to our company's future.",
-            zh: "這場會議對我們公司的未來至關重要。"
-          },
-          joke: "📝 記憶法：important 有 \"import\"（進口），進口的東西都很重要！所以 important = 重要的。"
-        }
-      }
-    ],
-    pronunciation: { phonetic: null, audio_url: null }
-  };
-  renderTranslation(mockData);
-}
-
 function renderResult() {
-  // Re-render current result if available
+  if (lastTranslation) renderTranslation(lastTranslation);
 }
 
 function renderHistory() {
@@ -504,9 +558,11 @@ function renderHistory() {
   let html = '<div class="history-list">';
   history.forEach(h => {
     const time = new Date(h.ts).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    html += `<div class="history-item" onclick="replayHistory(${h.id})">
-      <div class="history-source">${escHtml(h.source)} <span style="float:right;opacity:0.4;font-size:10px">${time}</span></div>
-      <div class="history-result">${escHtml(h.result.translation || '')}</div>
+    const translation = h.result?.translation || h.translated_text || '';
+    const source = h.source || h.source_text || '';
+    html += `<div class="history-item" onclick="replayHistory('${h.id}')">
+      <div class="history-source">${escHtml(source)} <span style="float:right;opacity:0.4;font-size:10px">${time}</span></div>
+      <div class="history-result">${escHtml(translation)}</div>
     </div>`;
   });
   html += '</div>';
@@ -514,19 +570,20 @@ function renderHistory() {
 }
 
 function replayHistory(id) {
-  const h = history.find(x => x.id === id);
+  const h = history.find(x => String(x.id) === String(id));
   if (!h) return;
-  sourceInput.value = h.source;
-  charCount.textContent = h.source.length;
-  document.getElementById('sourceLang').value = h.sourceLang;
-  document.getElementById('targetLang').value = h.targetLang;
+  sourceInput.value = h.source || h.source_text || '';
+  charCount.textContent = sourceInput.value.length;
+  if (h.sourceLang) document.getElementById('sourceLang').value = h.sourceLang;
+  if (h.targetLang) document.getElementById('targetLang').value = h.targetLang;
   switchTab('result');
-  renderTranslation(h.result);
+  const result = h.result || { translation: h.translated_text || '' };
+  renderTranslation(result);
 }
 
 // ── Helpers ──
 function escHtml(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function escapeAttr(s) { if (!s) return ''; return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+function escapeAttr(s) { if (!s) return ''; return s.replace(/\\/g,'\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 function copyText(btn, text) {
   navigator.clipboard.writeText(text).then(() => {
     btn.textContent = '✅ 已複製';
@@ -534,8 +591,8 @@ function copyText(btn, text) {
   });
 }
 
-// Init history count
-document.getElementById('historyCount').textContent = history.length;
+// Init history count (will be updated by loadServerHistory)
+document.getElementById('historyCount').textContent = '...';
 </script>
 </body>
 </html>

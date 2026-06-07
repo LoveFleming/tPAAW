@@ -90,7 +90,7 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "app_create",
-      description: "建立一個新的自訂 App。使用者描述想要的功能後，AI 幫他定義 schema。",
+      description: "建立一個新的 App。支援 Data App 和 Skill-based App。Skill-based App 會自動產生聊天 Tool + 觸發關鍵字路由。",
       parameters: {
         type: "object",
         properties: {
@@ -98,23 +98,19 @@ async function buildToolDefinitions() {
           name: { type: "string", description: "App 名稱（中文）" },
           icon: { type: "string", description: "App 圖示（emoji）" },
           description: { type: "string", description: "App 描述" },
-          dataShape: { type: "string", enum: ["array", "object"], description: "資料形態：array（清單）或 object（單一設定）" },
+          type: { type: "string", enum: ["data", "skill-based"], description: "App 類型：data（純資料）或 skill-based（AI 執行）" },
+          dataShape: { type: "string", enum: ["array", "object", "none"], description: "資料形態" },
+          triggers: { type: "array", items: { type: "string" }, description: "觸發關鍵字（聊天中說這些詞會自動路由到此 App）" },
           schema: {
             type: "object",
             description: "JSON Schema 定義資料結構",
-            properties: {
-              items: {
-                type: "object",
-                properties: {
-                  properties: {
-                    type: "object",
-                    description: "欄位定義，key 是欄位名，value 是 { type, required?, default?, enum? }"
-                  }
-                }
-              }
-            }
           },
-          aiPrompt: { type: "string", description: "AI 操作此 App 的簡短提示（一句話）" }
+          aiPrompt: { type: "string", description: "AI 操作此 App 的簡短提示（一句話）" },
+          skills: {
+            type: "object",
+            description: "Skill 定義（skill-based 時使用），key 是 skill 名稱，value 是 SKILL.md 內容",
+            additionalProperties: { type: "string" }
+          },
         },
         required: ["id", "name", "schema", "aiPrompt"]
       }
@@ -437,7 +433,7 @@ function buildHandlers(apps) {
   };
 
   // app_create — create new app at runtime!
-  handlers.app_create = async ({ id, name, icon, description, dataShape, schema, aiPrompt }) => {
+  handlers.app_create = async ({ id, name, icon, description, dataShape, schema, aiPrompt, type, triggers, skills }) => {
     if (!/^[a-z][a-z0-9_]*$/.test(id)) {
       return { text: "❌ App ID 只能用小寫英文、數字和底線，必須以英文開頭", error: true };
     }
@@ -451,17 +447,42 @@ function buildHandlers(apps) {
       icon: icon || "📦",
       description: description || name,
       status: "published",
-      dataShape: dataShape || "array",
+      type: type || "data",
+      dataShape: dataShape || (type === "skill-based" ? "array" : "array"),
+      ...(triggers?.length ? { triggers } : {}),
       schema,
       aiPrompt,
       createdAt: new Date().toISOString(),
     };
     await mkdir(APPS_DIR, { recursive: true });
     await writeFile(resolve(APPS_DIR, `${id}.json`), JSON.stringify(appDef, null, 2), "utf-8");
+
+    // Create app directory for skill-based apps
+    if (type === "skill-based") {
+      const appDir = join(resolve(TAGENT_DATA_DIR, "apps"), id);
+      await mkdir(appDir, { recursive: true });
+
+      // Auto-generate SKILL.md if skills provided
+      if (skills && typeof skills === "object") {
+        for (const [skillName, skillContent] of Object.entries(skills)) {
+          const skillDir = join(appDir, "skills", skillName);
+          await mkdir(skillDir, { recursive: true });
+          await writeFile(join(skillDir, "SKILL.md"), skillContent, "utf-8");
+        }
+      } else {
+        // Auto-generate a default skill from schema
+        const defaultSkill = `# ${name} Skill\n\n## Purpose\n${description || name}\n\n## Inputs\n${Object.entries(schema?.properties || {}).map(([k, v]) => `- ${k}: ${v.type || "string"} — ${v.description || k}`).join("\n") || "- input: string — 輸入"}\n\n## Deterministic Script\n\n### Execution Steps\n1. 接收輸入參數\n2. 處理並產生結果\n3. 回傳 JSON\n\n## Output Contract\n\`\`\`json\n{ "result": "..." }\n\`\`\`\n`;
+        const skillDir = join(appDir, "skills", id);
+        await mkdir(skillDir, { recursive: true });
+        await writeFile(join(skillDir, "SKILL.md"), defaultSkill, "utf-8");
+      }
+    }
+
     // Initialize data file
     const initialData = appDef.dataShape === "object" ? {} : [];
     await saveAppData(id, initialData);
-    return { text: `✅ 已建立 App「${name}」${icon || "📦"}！`, app: appDef };
+    invalidateCache();
+    return { text: `✅ 已建立 App「${name}」${icon || "📦"}${type === "skill-based" ? "（Skill-based，已自動產生 Tool + SKILL.md）" : ""}`, app: appDef };
   };
 
   // app_edit

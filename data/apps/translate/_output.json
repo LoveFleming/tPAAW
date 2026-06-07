@@ -1,0 +1,30 @@
+{
+  "translation": "AI hallucination",
+  "source_lang": "zh-TW",
+  "target_lang": "en",
+  "source_text": "ai 幻覺",
+  "special_words": [
+    {
+      "word": "AI 幻覺",
+      "translation": "AI hallucination",
+      "type": "jargon",
+      "packaged": {
+        "phonetic": "/ˌeɪ.aɪ həˌluːsɪˈneɪ.ʃən/",
+        "part_of_speech": "noun (technical term)",
+        "definition": "指人工智慧模型生成看似合理但實際不正確、虛構或無依據的內容",
+        "classic_sentence": {
+          "en": "The chatbot confidently cited a non-existent research paper — a classic case of AI hallucination.",
+          "zh": "聊天機器人自信地引用了一篇不存在的研究論文——這是典型的 AI 幻覺案例。"
+        },
+        "fun_fact": {
+          "type": "mnemonic",
+          "content": "想像 AI 戴上 VR 眼鏡，看到不存在的東西還很認真地描述——這就是 hallucination（幻覺）。跟人類一樣，AI 越自信的錯誤越危險，所以看到 AI 絕對肯定的答案時，記得多查證。"
+        }
+      }
+    }
+  ],
+  "pronunciation": {
+    "phonetic": "/ˌeɪ.aɪ həˌluːsɪˈneɪ.ʃən/",
+    "audio_url": null
+  }
+}

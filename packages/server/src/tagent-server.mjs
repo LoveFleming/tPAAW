@@ -2493,6 +2493,121 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
+  // ── App Builder Rules API ──
+  const APP_RULES_PATH = resolve(TAGENT_ROOT, "data/config/app-builder-rules.md");
+
+  // GET /api/tagent/app-rules
+  if (req.method === "GET" && path === "/api/tagent/app-rules") {
+    try {
+      const rules = await readFile(APP_RULES_PATH, "utf-8");
+      res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
+      res.end(rules);
+    } catch {
+      res.writeHead(404);
+      res.end("App builder rules not found");
+    }
+    return true;
+  }
+
+  // PUT /api/tagent/app-rules
+  if (req.method === "PUT" && path === "/api/tagent/app-rules") {
+    try {
+      const body = await readBody(req);
+      await mkdir(resolve(TAGENT_ROOT, "data/config"), { recursive: true });
+      await writeFile(APP_RULES_PATH, body, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: "Rules updated" }));
+    } catch (err) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── App Import/Export API ──
+
+  // GET /api/tagent/apps/:id/export — export app as shareable bundle
+  const appExportMatch = req.method === "GET" && path.match(/^\/api\/tagent\/apps\/([\w.-]+)\/export$/);
+  if (appExportMatch) {
+    const appId = appExportMatch[1];
+    const bundle = {
+      manifest: "tagent-app-v1",
+      exportedAt: new Date().toISOString(),
+      app: null,
+      skills: {},
+      html: null,
+      data: null,
+    };
+    try {
+      // App definition
+      bundle.app = JSON.parse(await readFile(resolve(TAGENT_ROOT, "data/apps", `${appId}.json`), "utf-8"));
+    } catch {}
+    if (!bundle.app) {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: `App not found: ${appId}` }));
+      return true;
+    }
+    try {
+      // Skills
+      const skillsDir = resolve(TAGENT_ROOT, "data/apps", appId, "skills");
+      const skillDirs = await readdir(skillsDir);
+      for (const sd of skillDirs) {
+        try { bundle.skills[sd] = await readFile(resolve(skillsDir, sd, "SKILL.md"), "utf-8"); } catch {}
+      }
+    } catch {}
+    try { bundle.html = await readFile(resolve(TAGENT_ROOT, "data/apps", appId, "app.html"), "utf-8"); } catch {}
+    try { bundle.data = JSON.parse(await readFile(resolve(TAGENT_ROOT, "data/app-data", `${appId}.json`), "utf-8")); } catch {}
+
+    res.writeHead(200, { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="${appId}-bundle.json"` });
+    res.end(JSON.stringify(bundle, null, 2));
+    return true;
+  }
+
+  // POST /api/tagent/apps/import — import app from bundle
+  if (req.method === "POST" && path === "/api/tagent/apps/import") {
+    try {
+      const bundle = JSON.parse(await readBody(req));
+      if (bundle.manifest !== "tagent-app-v1") {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: "Invalid bundle format. Expected manifest: tagent-app-v1" }));
+        return true;
+      }
+      const app = bundle.app;
+      if (!app?.id) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: "Missing app.id" }));
+        return true;
+      }
+      // Write app definition
+      await writeFile(resolve(TAGENT_ROOT, "data/apps", `${app.id}.json`), JSON.stringify(app, null, 2), "utf-8");
+      // Write skills
+      if (bundle.skills) {
+        for (const [skillName, skillContent] of Object.entries(bundle.skills)) {
+          const skillDir = resolve(TAGENT_ROOT, "data/apps", app.id, "skills", skillName);
+          await mkdir(skillDir, { recursive: true });
+          await writeFile(resolve(skillDir, "SKILL.md"), skillContent, "utf-8");
+        }
+      }
+      // Write app.html
+      if (bundle.html) {
+        const appDir = resolve(TAGENT_ROOT, "data/apps", app.id);
+        await mkdir(appDir, { recursive: true });
+        await writeFile(resolve(appDir, "app.html"), bundle.html, "utf-8");
+      }
+      // Write app data
+      if (bundle.data) {
+        await writeFile(resolve(TAGENT_ROOT, "data/app-data", `${app.id}.json`), JSON.stringify(bundle.data, null, 2), "utf-8");
+      }
+      invalidateCache();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: `App「${app.name}」imported successfully`, app }));
+    } catch (err) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // ── Provider / Model APIs ──
 
   // GET /api/tagent/providers — list providers + models (mask apiKey)
@@ -2676,6 +2791,12 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
         }
       } catch {}
 
+      // Load app builder rules (dynamic, not hardcoded)
+      let appBuilderRules = "";
+      try {
+        appBuilderRules = await readFile(resolve(TAGENT_ROOT, "data/config/app-builder-rules.md"), "utf-8");
+      } catch {}
+
       const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。
 
 回答時使用繁體中文，技術術語保留英文。語氣親切專業，像一位值得信賴的同事。
@@ -2692,6 +2813,10 @@ ${memoryContent || "(記憶是空白的)"}
 === 可用的 App ===
 ${appInstructions}
 
+=== App 建構規則 ===
+當使用者想建新 App 或修改 App 時，遵循以下規則：
+${appBuilderRules || "(尚未設定 App 建構規則)"}
+
 === 回覆規則 ===
 - 用中文回覆，風格自然友善
 - 使用者問「我有什麼 App」→ 用 app_list 工具查詢，不要猜
@@ -2699,7 +2824,7 @@ ${appInstructions}
 - 如果使用者說的話包含某個 App 的觸發關鍵字（如「幫我翻譯」「translate」→ translate_exec），直接呼叫該 App 的工具
 - 主動運用記憶中的資訊（偏好、過去的決策、人際關係）
 - 如果學到新東西（偏好、決策、重要資訊），主動用 memory_add 記下來
-- 使用者想建新 App 時，用 app_create 幫他建立
+- 使用者想建新 App 時，遵循 App 建構規則，用 app_create 幫他建立
 - Workspace 是檔案目錄，App 是資料工具，兩者不同
 - 不確定的事情就用工具查，不要用猜的
 - 使用 Markdown 格式${recentChatSummary}`;
