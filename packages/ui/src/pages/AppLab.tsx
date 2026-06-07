@@ -297,25 +297,9 @@ export default function AppLab() {
     const [chatStarted, setChatStarted] = useState(false);
     const terminalRef = useRef<TerminalConsoleHandle>(null);
 
-    // ── CLI done handler ──
-    const handleCliDone = useCallback(() => {
-        // CLI said DONE — refresh preview
-        setPreviewReady(true);
-        setPreviewKey(Date.now());
-        setGenerating(false);
-        setChatMessages(prev => {
-            const updated = [...prev];
-            for (let i = updated.length - 1; i >= 0; i--) {
-                if (updated[i].role === "assistant" && updated[i].text.includes("處理中")) {
-                    updated[i] = { ...updated[i], text: "✅ 完成！" };
-                    break;
-                }
-            }
-            // Save updated chat to server
-            saveAppChat(reportId, updated);
-            return updated;
-        });
-    }, [reportId, saveAppChat]);
+        // ── Derived values (must be before everything that uses them) ──
+    const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-)$/g, "");
+    const previewUrl = reportId ? `${API}/api/app/${reportId}` : null;
 
     // ── Save app builder chat to server ──
     const saveAppChat = useCallback(async (appId: string, msgs: ChatMessage[]) => {
@@ -342,14 +326,30 @@ export default function AppLab() {
         return [];
     }, []);
 
+    // ── CLI done handler ──
+    const handleCliDone = useCallback(() => {
+        // CLI said DONE — refresh preview
+        setPreviewReady(true);
+        setPreviewKey(Date.now());
+        setGenerating(false);
+        setChatMessages(prev => {
+            const updated = [...prev];
+            for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].role === "assistant" && updated[i].text.includes("處理中")) {
+                    updated[i] = { ...updated[i], text: "✅ 完成！" };
+                    break;
+                }
+            }
+            // Save updated chat to server
+            saveAppChat(reportId, updated);
+            return updated;
+        });
+    }, [reportId, saveAppChat]);
+
     // ── Preview state ──
     const [previewKey, setPreviewKey] = useState(0);
     const [previewReady, setPreviewReady] = useState(false);
     const [pollTrigger, setPollTrigger] = useState(0);
-
-    // ── Derived values (must be before effects that use them) ──
-    const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-)$/g, "");
-    const previewUrl = reportId ? `${API}/api/app/${reportId}` : null;
 
     // ── Poll app file status until it exists with new mtime ──
     const pollStartRef = useRef(0);
