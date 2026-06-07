@@ -89,29 +89,31 @@ export default function ChatView({ profile, embedded = false }: Props) {
       .catch(() => {});
   }, []);
 
-  // ── Load chats ──
+  // ── Load chats (with messages) ──
   const loadChats = useCallback(async () => {
     try {
       const resp = await fetch(`${API_BASE}/api/tagent/chats`);
-      if (resp.ok) setChats(await resp.json());
+      if (resp.ok) {
+        const data = await resp.json();
+        setChats(data);
+        // If we have an active chat, update its messages from server
+        if (activeChatId && !isLoading) {
+          const current = data.find((c: Chat) => c.id === activeChatId);
+          if (current?.messages) {
+            setMessages(current.messages);
+          }
+        }
+      }
     } catch {}
-  }, []);
+  }, [activeChatId, isLoading]);
 
   useEffect(() => { loadChats(); }, []);
 
-  // Poll for new messages every 5s
+  // Poll for updates every 5s
   useEffect(() => {
     const interval = setInterval(loadChats, 5000);
     return () => clearInterval(interval);
   }, [loadChats]);
-
-  useEffect(() => {
-    if (!activeChatId) return;
-    // Don't overwrite messages while streaming or loading
-    if (isLoading) return;
-    const chat = chats.find(c => c.id === activeChatId);
-    if (chat) setMessages(chat.messages || []);
-  }, [activeChatId, chats]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
