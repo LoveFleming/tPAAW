@@ -723,7 +723,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
   }
 
   // GET /api/tagent/app-chat/:appId — get app builder chat history
-  const appChatGetMatch = req.method === "GET" && path?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
+  const appChatGetMatch = req.method === "GET" && req.url?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
   if (appChatGetMatch) {
     const appId = appChatGetMatch[1];
     try {
@@ -739,7 +739,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
   }
 
   // PUT /api/tagent/app-chat/:appId — save app builder chat history
-  const appChatPutMatch = req.method === "PUT" && path?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
+  const appChatPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
   if (appChatPutMatch) {
     const appId = appChatPutMatch[1];
     try {
