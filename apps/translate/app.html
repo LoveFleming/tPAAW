@@ -157,6 +157,82 @@
     line-height: 1.7;
   }
 
+  /* Paragraph Mode */
+  .p-translation-block {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 22px;
+    font-size: 16px; line-height: 1.9; color: var(--text);
+    margin-bottom: 16px; white-space: pre-wrap; word-break: break-word;
+    position: relative;
+  }
+  .p-source-label {
+    font-size: 11px; color: var(--text2); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .p-source-text {
+    font-size: 14px; color: var(--text2); line-height: 1.7;
+    margin-bottom: 14px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--border); white-space: pre-wrap;
+  }
+  .p-divider {
+    height: 1px; background: var(--border); margin: 16px 0;
+  }
+
+  /* Vocab Cards */
+  .p-vocab-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px; margin-top: 10px;
+  }
+  .p-vocab-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; cursor: pointer;
+    transition: all 0.25s ease; position: relative;
+  }
+  .p-vocab-card:hover {
+    border-color: var(--accent); box-shadow: 0 2px 12px rgba(124, 92, 252, 0.1);
+  }
+  .p-vocab-card.expanded {
+    grid-column: 1 / -1; border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(124, 92, 252, 0.15);
+  }
+  .p-vocab-word {
+    font-size: 14px; font-weight: 700; color: var(--text);
+  }
+  .p-vocab-trans {
+    font-size: 12px; color: var(--green); margin-top: 2px;
+  }
+  .p-vocab-type {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 1px 8px; border-radius: 4px; margin-top: 6px;
+    background: var(--surface2); color: var(--text2); border: 1px solid var(--border);
+  }
+  .p-vocab-type.idiom    { color: #a78bfa; border-color: #a78bfa44; background: #a78bfa12; }
+  .p-vocab-type.slang    { color: #f472b6; border-color: #f472b644; background: #f472b612; }
+  .p-vocab-type.jargon   { color: #38bdf8; border-color: #38bdf844; background: #38bdf812; }
+  .p-vocab-type.culture  { color: #fb923c; border-color: #fb923c44; background: #fb923c12; }
+  .p-vocab-detail {
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.3s ease, margin-top 0.3s ease;
+    margin-top: 0;
+  }
+  .p-vocab-card.expanded .p-vocab-detail {
+    max-height: 400px; margin-top: 12px;
+  }
+  .p-vocab-detail-inner {
+    border-top: 1px solid var(--border); padding-top: 12px;
+    font-size: 13px; line-height: 1.7;
+  }
+  .p-vocab-detail-row {
+    margin-bottom: 6px;
+  }
+  .p-vocab-detail-label {
+    font-size: 11px; color: var(--text2); font-weight: 600; margin-bottom: 2px;
+  }
+  .p-vocab-detail-value {
+    color: var(--text);
+  }
+
   /* History — Zoomable Cards */
   .history-list { display: flex; flex-direction: column; gap: 10px; }
   .history-card {
@@ -477,15 +553,23 @@ async function doTranslate() {
 // ── Render Translation Result ──
 function renderTranslation(data) {
   const output = document.getElementById('outputContent');
-  const pkg = data.special_words?.[0]?.packaged;
   const swm = data.single_word_mode;
+  if (swm) {
+    renderSingleWord(output, data);
+  } else {
+    renderParagraph(output, data);
+  }
+}
+
+// ── Single Word Mode (unchanged) ──
+function renderSingleWord(output, data) {
+  const pkg = data.special_words?.[0]?.packaged;
   let html = '';
 
   html += `<div style="text-align:right;margin-bottom:8px">
     <button class="copy-btn" onclick="copyText(this, '${escapeAttr(data.translation)}')">📋 複製</button>
   </div>`;
 
-  // Main translation table
   html += '<table class="t-table">';
   html += `<tr><th>原文</th><td>${escHtml(data.source_text)}</td></tr>`;
   html += `<tr><th>Translation</th><td class="t-highlight">${escHtml(data.translation)}</td></tr>`;
@@ -497,7 +581,6 @@ function renderTranslation(data) {
     html += `<tr><th>釋義</th><td>${escHtml(pkg.definition)}</td></tr>`;
   html += '</table>';
 
-  // Synonyms / Antonyms
   if (swm?.synonyms?.length || swm?.antonyms?.length) {
     html += '<table class="t-table">';
     if (swm.synonyms?.length)
@@ -507,7 +590,6 @@ function renderTranslation(data) {
     html += '</table>';
   }
 
-  // Common usage
   if (swm?.common_usage?.length) {
     html += '<div class="t-section-title">📝 常見用法</div>';
     html += '<table class="t-table"><tr><th style="width:auto">用法</th><th style="width:auto">意思</th></tr>';
@@ -518,7 +600,6 @@ function renderTranslation(data) {
     html += '</table>';
   }
 
-  // Collocations
   if (swm?.collocations?.length) {
     html += '<div class="t-section-title">🔗 搭配詞</div>';
     html += '<table class="t-table"><tr><th style="width:auto">搭配</th><th style="width:auto">意思</th></tr>';
@@ -530,7 +611,6 @@ function renderTranslation(data) {
     html += '</table>';
   }
 
-  // Classic sentence
   const cs = pkg?.classic_sentence;
   if (cs) {
     html += '<div class="t-section-title">📖 經典例句</div>';
@@ -540,7 +620,6 @@ function renderTranslation(data) {
     html += '</table>';
   }
 
-  // Fun fact
   const ff = pkg?.fun_fact;
   if (ff?.content) {
     html += '<div class="t-section-title">💡 趣味記憶</div>';
@@ -551,6 +630,75 @@ function renderTranslation(data) {
   }
 
   output.innerHTML = html;
+}
+
+// ── Paragraph Mode ──
+function renderParagraph(output, data) {
+  const words = data.special_words || [];
+  let html = '';
+
+  html += `<div style="text-align:right;margin-bottom:8px">
+    <button class="copy-btn" onclick="copyText(this, '${escapeAttr(data.translation)}')">📋 複製翻譯</button>
+  </div>`;
+
+  // Source text
+  html += '<div class="p-source-label">原文</div>';
+  html += `<div class="p-source-text">${escHtml(data.source_text)}</div>`;
+
+  // Translation block
+  html += '<div class="p-source-label">Translation</div>';
+  html += `<div class="p-translation-block">${escHtml(data.translation)}</div>`;
+
+  // Key vocabulary
+  if (words.length > 0) {
+    html += '<div class="t-section-title">🔑 重點詞彙 <span style="font-weight:400;font-size:11px;color:var(--text2)">點擊展開</span></div>';
+    html += '<div class="p-vocab-grid">';
+    words.forEach((w, i) => {
+      const pkg = w.packaged;
+      const typeClass = w.type || '';
+      html += `<div class="p-vocab-card" onclick="toggleVocabCard(this)">`;
+      html += `<div class="p-vocab-word">${escHtml(w.word)}</div>`;
+      html += `<div class="p-vocab-trans">${escHtml(w.translation)}</div>`;
+      if (w.type) html += `<span class="p-vocab-type ${typeClass}">${escHtml(w.type)}</span>`;
+
+      // Expandable detail
+      html += '<div class="p-vocab-detail"><div class="p-vocab-detail-inner">';
+      if (pkg?.phonetic) {
+        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">🔊 音標</div><div class="p-vocab-detail-value">${escHtml(pkg.phonetic)}</div></div>`;
+      }
+      if (pkg?.part_of_speech) {
+        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">詞性</div><div class="p-vocab-detail-value">${escHtml(pkg.part_of_speech)}</div></div>`;
+      }
+      if (pkg?.definition) {
+        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">釋義</div><div class="p-vocab-detail-value">${escHtml(pkg.definition)}</div></div>`;
+      }
+      if (pkg?.classic_sentence) {
+        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">📖 例句</div><div class="p-vocab-detail-value">${escHtml(pkg.classic_sentence.en || '')}</div></div>`;
+        if (pkg.classic_sentence.zh) {
+          html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-value" style="color:var(--text2)">${escHtml(pkg.classic_sentence.zh)}</div></div>`;
+        }
+      }
+      if (pkg?.fun_fact?.content) {
+        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">💡 ${escHtml(pkg.fun_fact.type || '趣味')}</div><div class="p-vocab-detail-value">${escHtml(pkg.fun_fact.content)}</div></div>`;
+      }
+      if (pkg?.joke) {
+        html += `<div class="p-vocab-detail-row"><div class="p-vocab-detail-label">😂 笑話</div><div class="p-vocab-detail-value">${escHtml(pkg.joke)}</div></div>`;
+      }
+      html += '</div></div>'; // detail-inner + detail
+      html += '</div>'; // card
+    });
+    html += '</div>';
+  }
+
+  output.innerHTML = html;
+}
+
+function toggleVocabCard(card) {
+  const wasExpanded = card.classList.contains('expanded');
+  document.querySelectorAll('.p-vocab-card.expanded').forEach(c => {
+    if (c !== card) c.classList.remove('expanded');
+  });
+  card.classList.toggle('expanded', !wasExpanded);
 }
 
 function renderResult() {

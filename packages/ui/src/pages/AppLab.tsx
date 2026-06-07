@@ -292,6 +292,7 @@ export default function AppLab() {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [chatInput, setChatInput] = useState("");
     const [generating, setGenerating] = useState(false);
+    const generatingRef = useRef(false);
     const [consoleKey, setConsoleKey] = useState(0);
     const [initialPrompt, setInitialPrompt] = useState("");
     const [chatStarted, setChatStarted] = useState(false);
@@ -328,12 +329,16 @@ export default function AppLab() {
 
     // ── CLI done handler ──
     const handleCliDone = useCallback(() => {
-        // CLI said DONE — stop polling, refresh preview
+        // Only accept cliDone if we're actively generating
+        if (!generatingRef.current) {
+            console.log('[AppBuilder] Ignored cliDone — not generating');
+            return;
+        }
         console.log('[AppBuilder] cliDone fired — refreshing preview');
         pollStoppedRef.current = true;
         setPreviewReady(true);
         setPreviewKey(Date.now());
-        setGenerating(false);
+        setGenerating(false); generatingRef.current = false;
         setChatMessages(prev => {
             const updated = [...prev];
             for (let i = updated.length - 1; i >= 0; i--) {
@@ -386,7 +391,7 @@ export default function AppLab() {
                         stopped = true;
                         setPreviewReady(true);
                         setPreviewKey(Date.now());
-                        setGenerating(false);
+                        setGenerating(false); generatingRef.current = false;
                         fetch(`${API}/api/app/${reportId}/publish`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -508,7 +513,7 @@ export default function AppLab() {
             ts: Date.now(),
         }]);
 
-        setGenerating(true);
+        setGenerating(true); generatingRef.current = true;
         setStep(3);
         setPreviewReady(false);
         setPollTrigger(t => t + 1);
@@ -552,7 +557,7 @@ export default function AppLab() {
         sendToTerminal(refinement);
 
         // Start polling for preview update
-        setGenerating(true);
+        setGenerating(true); generatingRef.current = true;
         setPreviewReady(false);
         setPollTrigger(t => t + 1);
 
