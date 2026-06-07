@@ -328,7 +328,13 @@ export default function AppLab() {
 
     // ── CLI done handler ──
     const handleCliDone = useCallback(() => {
-        // CLI said DONE — refresh preview
+        // CLI said DONE — but ignore if fired too quickly (CLI just started)
+        const elapsed = Date.now() - (pollStartRef.current || Date.now());
+        if (elapsed < 5000) {
+            console.log('[AppBuilder] Ignored cliDone — too early (' + elapsed + 'ms)');
+            return;
+        }
+        // Refresh preview
         setPreviewReady(true);
         setPreviewKey(Date.now());
         setGenerating(false);
@@ -363,6 +369,7 @@ export default function AppLab() {
         const timer = setInterval(() => {
             if (stopped) return;
             fetch(`${API}/api/app/${reportId}/status`)
+                .then(r => r.json())
                 .then(({ exists, mtime }) => {
                     if (stopped) return;
                     if (!lastSeenMtime && exists) {
