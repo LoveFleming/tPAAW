@@ -3198,10 +3198,10 @@ wss.on("connection", (ws, req) => {
               }
             }
           }
-          // Detect CLI task done (saw DONE in output)
+          // Detect CLI task done (multiple patterns)
           if (!cliDoneFired) {
             const plain = stripAnsi(data);
-            if (/\bDONE\b|✅ 完成|^完成$/.test(plain)) {
+            if (/\bDONE\b|已完成|完成！|✅.*完成|^完成$|Task completed|finished/i.test(plain)) {
               cliDoneFired = true;
               console.log(`[PTY] CLI done detected (${sessionId})`);
               if (ws.readyState === 1) {

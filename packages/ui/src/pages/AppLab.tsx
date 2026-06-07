@@ -328,13 +328,13 @@ export default function AppLab() {
 
     // ── CLI done handler ──
     const handleCliDone = useCallback(() => {
-        // CLI said DONE — but ignore if fired too quickly (CLI just started)
+        // CLI said DONE — refresh preview
         const elapsed = Date.now() - (pollStartRef.current || Date.now());
-        if (elapsed < 5000) {
+        if (elapsed < 3000) {
             console.log('[AppBuilder] Ignored cliDone — too early (' + elapsed + 'ms)');
             return;
         }
-        // Refresh preview
+        console.log('[AppBuilder] cliDone fired after ' + elapsed + 'ms — refreshing preview');
         setPreviewReady(true);
         setPreviewKey(Date.now());
         setGenerating(false);
