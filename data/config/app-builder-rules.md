@@ -165,7 +165,23 @@
 
 ---
 
-## 七、品質守門
+## 七、安全邊界
+
+**CLI 只能改目標 App 的檔案，不能動其他目錄的資料。**
+
+- ✅ 只能寫入 `data/apps/{appId}/` 目錄（app.html、SKILL.md 等）
+- ✅ 只能寫入 `data/apps/{appId}.json`（app 定義）
+- ❌ **禁止修改** `data/app-data/`（那是使用者資料）
+- ❌ **禁止修改** `data/chats/`（那是聊天記錄）
+- ❌ **禁止修改** `data/config/`（那是系統設定）
+- ❌ **禁止修改** `packages/`（那是程式碼）
+- ❌ **禁止修改** `core/`（那是程式碼）
+
+一句話：**只改 app 本身的 code，不要碰別的 app 或系統檔。**
+
+---
+
+## 八、品質守門
 
 每個新建的 App 都應該：
 1. 有清楚的 `description`

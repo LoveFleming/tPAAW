@@ -510,7 +510,7 @@ export default function AppLab() {
         setPollTrigger(t => t + 1);
 
         const skillId = selectedSkill?.id || "no-skill";
-        const outputInstruction = `\n\n---\n**重要指示：** 請將最終的 HTML 結果直接寫入檔案 apps/${reportId}/app.html。使用 write_file 或 echo 等工具，不要只輸出到 terminal。完成後輸出 DONE。`;
+        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 apps/${reportId}/app.html。\n4. 完成後輸出 DONE。`;
         const filledPrompt = systemPrompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
