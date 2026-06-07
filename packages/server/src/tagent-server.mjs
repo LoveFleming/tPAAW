@@ -417,9 +417,13 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // POST /api/app/translate — translate text using AI
+  // POST /api/app/translate — Skill-based translation (AI as a Service)
+  // Input → Skill (deterministic script) → CLI → Output
   if (req.method === "POST" && req.url?.match(/^\/api\/app\/translate(?:\?.*)?$/)) {
+    const appId = "translate";
+    const appDir = join(APPS_ROOT, appId);
     try {
+      const body = await _readBody(req);
       let parsed = {};
       try { parsed = JSON.parse(body); } catch {}
       const { source_text, source_lang = "zh-TW", target_lang = "en" } = parsed;
@@ -429,100 +433,105 @@ const server = createServer(async (req, res) => {
         return;
       }
 
-      // Load provider config
-      
-      let providerConfig;
+      // ── 1. Load Skills from app directory ──
+      // Skills live alongside the app: apps/translate/skills/translate/SKILL.md
+      const skillsDir = join(appDir, "skills");
+      let mainSkillContent = "";
+      let supportSkillContent = "";
       try {
-      } catch {
-        try {
-          providerConfig = JSON.parse(await readFile(resolve(TAGENT_ROOT, "data/providers.json"), "utf-8"));
-        } catch {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "No AI provider configured" }));
-          return;
-        }
-      }
+        mainSkillContent = await readFile(join(skillsDir, "translate", "SKILL.md"), "utf-8");
+      } catch {}
+      try {
+        supportSkillContent = await readFile(join(skillsDir, "idiom-packaging", "SKILL.md"), "utf-8");
+      } catch {}
 
-      const activeKey = providerConfig.active || Object.keys(providerConfig.providers)[0];
-      const provider = providerConfig.providers[activeKey];
-      if (!provider || !provider.apiKey) {
+      if (!mainSkillContent) {
         res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "No API key for provider: " + activeKey }));
+        res.end(JSON.stringify({ error: "Translate skill not found at " + join(skillsDir, "translate", "SKILL.md") }));
         return;
       }
 
-      const isSingleWord = source_text.trim().length <= 5;
-      const systemPrompt = `你是一個專業翻譯器。將用戶提供的文字從 ${source_lang} 翻譯成 ${target_lang}。
+      // ── 2. Build system prompt from Skill (deterministic script) ──
+      // Extract the skill body (everything after frontmatter ---...---)
+      const skillBody = mainSkillContent.replace(/^---[\s\S]*?---\n*/, "");
+      const supportBody = supportSkillContent.replace(/^---[\s\S]*?---\n*/, "");
 
-規則：
-1. 翻譯要自然流暢，不要直譯
-2. 保留原文語氣和情感
-3. 專有名詞保留原文（附翻譯）
-4. 如果是單字（≤5字），提供：音標、詞性、常見用法、反義詞
-5. 從原文中找出特殊詞彙（成語、俚語、雙關語、專業術語、文化特定詞）
-6. 對每個特殊詞彙，提供一個經典例句和一個趣味記憶法或笑話
+      const systemPrompt = `你是 Translate App 的執行引擎。你必須嚴格按照以下 Skill 定義（就像 deterministic script）來處理翻譯請求。
 
-你必須回傳 JSON（不要 markdown code block）：
-{
-  "translation": "翻譯結果",
-  "source_lang": "${source_lang}",
-  "target_lang": "${target_lang}",
-  "source_text": "原文",
-  "special_words": [
-    {
-      "word": "特殊詞彙",
-      "translation": "翻譯",
-      "type": "idiom|slang|jargon|culture|pun",
-      "packaged": {
-        "classic_sentence": { "en": "英文例句", "zh": "中文翻譯" },
-        "joke": "趣味記憶法或笑話"
-      }
-    }
-  ],
-  "pronunciation": { "phonetic": "音標", "audio_url": null }
-}`;
+## === Translate Skill (主 Skill — 你是這個) ===
+${skillBody}
 
-      const modelId = provider.models?.[0]?.id || "glm-5.1";
-      const fullModelId = activeKey === "zai" ? modelId : `${activeKey}/${modelId}`;
-      const baseURL = provider.baseURL || "https://api.z.ai/api/coding/paas/v4";
+${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞彙時叫用) ===\n${supportBody}` : ""}
 
-      const aiResp = await fetch(`${baseURL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${provider.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: fullModelId,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: source_text }
-          ],
-          temperature: 0.3,
-        }),
+## === 執行參數 ===
+- source_text: ${JSON.stringify(source_text)}
+- source_lang: ${source_lang}
+- target_lang: ${target_lang}
+
+## === 執行指示 ===
+1. 按照 Translate Skill 的 Deterministic Script 步驟執行
+2. 遇到特殊詞彙時，按照 Idiom Packaging Skill 處理
+3. 最終輸出必須符合 Output Contract 的 JSON 格式
+4. 只輸出 JSON，不要加 markdown code block，不要加解釋`;
+
+      // ── 3. Execute via CLI (qwen) — AI as a Service ──
+      const cliName = "qwen";
+      const cliBins = {
+        qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" },
+        claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" },
+      };
+      const _platform = process.platform;
+      const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
+      const resolvedBin = process.env["QWEN_BIN"] || cliBins.qwen[_binKey];
+
+      // Write prompt to temp file (avoid arg length limit)
+      const promptFile = join(appDir, "_api_prompt.txt");
+      await writeFile(promptFile, systemPrompt, "utf-8");
+
+      // Stream response as NDJSON
+      res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
+      res.write(JSON.stringify({ type: "status", data: { message: "Translate: skill 執行中..." } }) + "\n");
+
+      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", systemPrompt];
+
+      const ptyProc = ptySpawn(resolvedBin, cliArgs, {
+        name: "xterm-256color",
+        cols: 200,
+        rows: 30,
+        cwd: appDir,
+        env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
       });
 
-      if (!aiResp.ok) {
-        const errText = await aiResp.text();
-        res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: `AI API error: ${aiResp.status}`, detail: errText.slice(0, 200) }));
-        return;
-      }
+      let fullOutput = "";
+      ptyProc.onData((data) => {
+        fullOutput += data;
+        res.write(JSON.stringify({ type: "stdout", data }) + "\n");
+      });
 
-      const aiData = await aiResp.json();
-      let content = aiData.choices?.[0]?.message?.content || "";
-      // Strip markdown code block if present
-      content = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      ptyProc.onExit(({ exitCode }) => {
+        try {
+          // Extract JSON from CLI output
+          let content = fullOutput;
+          // Try to find JSON in output
+          const jsonMatch = content.match(/\{[\s\S]*"translation"[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              const result = JSON.parse(jsonMatch[0]);
+              res.write(JSON.stringify({ type: "result", data: result }) + "\n");
+            } catch {
+              // JSON parse failed, return raw translation
+              res.write(JSON.stringify({ type: "result", data: { translation: content.trim(), source_lang, target_lang, source_text, special_words: [], pronunciation: { phonetic: null, audio_url: null } } }) + "\n");
+            }
+          } else {
+            res.write(JSON.stringify({ type: "result", data: { translation: content.trim(), source_lang, target_lang, source_text, special_words: [], pronunciation: { phonetic: null, audio_url: null } } }) + "\n");
+          }
+          res.write(JSON.stringify({ type: "done", data: { exitCode } }) + "\n");
+        } catch (err) {
+          res.write(JSON.stringify({ type: "error", data: { error: err.message } }) + "\n");
+        }
+        res.end();
+      });
 
-      let result;
-      try {
-        result = JSON.parse(content);
-      } catch {
-        result = { translation: content, source_lang, target_lang, source_text, special_words: [], pronunciation: { phonetic: null, audio_url: null } };
-      }
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(result));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

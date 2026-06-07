@@ -342,11 +342,11 @@ async function doTranslate() {
   const targetLang = document.getElementById('targetLang').value;
 
   translateBtn.disabled = true;
-  translateBtn.textContent = '⏳ 翻譯中...';
+  translateBtn.textContent = '⏳ Skill 執行中...';
 
   switchTab('result');
   const output = document.getElementById('outputContent');
-  output.innerHTML = '<div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>';
+  output.innerHTML = '<div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div><p style="margin-top:12px;color:var(--text2);font-size:12px">Skill → CLI 執行中...</p></div>';
 
   try {
     const res = await fetch('/api/app/translate', {
@@ -360,13 +360,47 @@ async function doTranslate() {
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+
+    // Read NDJSON stream
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let ndjson = '';
+    let lastResult = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      ndjson += decoder.decode(value, { stream: true });
+
+      // Parse each line
+      const lines = ndjson.split('\n');
+      ndjson = lines.pop() || ''; // keep incomplete line
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.type === 'result') {
+            lastResult = msg.data;
+          }
+        } catch {}
+      }
+    }
+
+    // Also try to parse the last remaining ndjson
+    if (ndjson.trim()) {
+      try {
+        const msg = JSON.parse(ndjson);
+        if (msg.type === 'result') lastResult = msg.data;
+      } catch {}
+    }
+
+    if (!lastResult) throw new Error('No result from skill execution');
 
     // Save to history
     const entry = {
       id: Date.now(),
       source: text,
-      result: data,
+      result: lastResult,
       sourceLang, targetLang,
       ts: new Date().toISOString()
     };
@@ -375,14 +409,9 @@ async function doTranslate() {
     localStorage.setItem('translate_history', JSON.stringify(history));
     document.getElementById('historyCount').textContent = history.length;
 
-    renderTranslation(data);
+    renderTranslation(lastResult);
   } catch (err) {
-    // Fallback: if API not available, show mock demo
-    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-      renderDemoResult(text, sourceLang, targetLang);
-    } else {
-      output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${err.message}</div></div>`;
-    }
+    output.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">翻譯失敗：${err.message}</div></div>`;
   } finally {
     translateBtn.disabled = false;
     translateBtn.textContent = '🌐 翻譯 Translate';
