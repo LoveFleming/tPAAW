@@ -178,7 +178,7 @@
 
 
 ## === 執行參數 ===
-- source_text: "ai 幻覺"
+- source_text: "心悸"
 - source_lang: zh-TW
 - target_lang: en
 

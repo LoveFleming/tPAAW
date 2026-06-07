@@ -262,6 +262,43 @@
     .output-panel { height: 55%; }
   }
 
+  /* Translation Tables */
+  .t-table {
+    width: 100%; border-collapse: collapse; margin-bottom: 16px;
+    background: var(--surface); border-radius: var(--radius); overflow: hidden;
+  }
+  .t-table th, .t-table td {
+    padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border);
+    font-size: 13px; line-height: 1.6; vertical-align: top;
+  }
+  .t-table th {
+    width: 90px; color: var(--text2); font-weight: 600; font-size: 12px;
+    white-space: nowrap; background: var(--surface2);
+  }
+  .t-table td { color: var(--text); }
+  .t-table tr:last-child th, .t-table tr:last-child td { border-bottom: none; }
+  .t-highlight {
+    font-size: 18px !important; font-weight: 700; color: var(--green) !important;
+    letter-spacing: 0.3px;
+  }
+  .t-chip {
+    display: inline-block; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 10px; margin: 2px 4px 2px 0;
+    font-size: 12px; color: var(--text);
+  }
+  .t-section-title {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+    margin: 16px 0 8px 2px; display: flex; align-items: center; gap: 6px;
+  }
+  .t-usage { font-weight: 600; color: var(--text); }
+  .t-colloc { font-weight: 600; color: var(--blue); }
+  .t-sentence { font-size: 14px !important; color: var(--text) !important; line-height: 1.8 !important; }
+  .t-sentence-zh { color: var(--text2) !important; }
+  .t-table.t-fun td {
+    background: linear-gradient(135deg, #7c5cfc08, #fbbf2408);
+    line-height: 1.7;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -474,65 +511,78 @@ async function doTranslate() {
 // ── Render ──
 function renderTranslation(data) {
   const output = document.getElementById('outputContent');
+  const pkg = data.special_words?.[0]?.packaged;
+  const swm = data.single_word_mode;
   let html = '';
 
-  // Main translation
-  html += `<div class="translation-box">
+  // Copy button
+  html += `<div style="text-align:right;margin-bottom:8px">
     <button class="copy-btn" onclick="copyText(this, '${escapeAttr(data.translation)}')">📋 複製</button>
-    <div class="translation-label">Translation</div>
-    <div class="translation-text">${escHtml(data.translation)}</div>
   </div>`;
 
-  // Special words
-  if (data.special_words && data.special_words.length > 0) {
-    html += `<div class="special-section">
-      <div class="special-title">✨ 特殊詞彙 Highlight</div>`;
-    data.special_words.forEach(w => {
-      html += `<div class="special-card">
-        <div class="special-word">
-          ${escHtml(w.word)}
-          <span class="type-badge type-${w.type}">${escHtml(w.type)}</span>
-        </div>
-        <div class="special-translation">→ ${escHtml(w.translation)}</div>`;
+  // ── Main translation table ──
+  html += '<table class="t-table">';
+  html += `<tr><th>原文</th><td>${escHtml(data.source_text)}</td></tr>`;
+  html += `<tr><th>Translation</th><td class="t-highlight">${escHtml(data.translation)}</td></tr>`;
+  if (pkg?.phonetic || swm?.phonetic)
+    html += `<tr><th>音標</th><td>🔊 ${escHtml(pkg?.phonetic || swm?.phonetic)}</td></tr>`;
+  if (pkg?.part_of_speech || swm?.part_of_speech)
+    html += `<tr><th>詞性</th><td>${escHtml(pkg?.part_of_speech || swm?.part_of_speech)}</td></tr>`;
+  if (pkg?.definition)
+    html += `<tr><th>釋義</th><td>${escHtml(pkg.definition)}</td></tr>`;
+  html += '</table>';
 
-      if (w.packaged) {
-        if (w.packaged.classic_sentence) {
-          const cs = w.packaged.classic_sentence;
-          html += `<div class="example-box">
-            <div class="example-label">📖 經典例句</div>
-            <div class="example-en">${escHtml(cs.en || '')}</div>
-            ${cs.zh ? `<div class="example-zh">${escHtml(cs.zh)}</div>` : ''}
-          </div>`;
-        }
-        if (w.packaged.joke) {
-          html += `<div class="fun-box">
-            <div class="fun-label">😄 趣味記憶</div>
-            <div class="fun-content">${escHtml(w.packaged.joke)}</div>
-          </div>`;
-        }
-        if (w.packaged.fun_fact && w.packaged.fun_fact.content) {
-          html += `<div class="fun-box">
-            <div class="fun-label">😄 趣味記憶</div>
-            <div class="fun-content">${escHtml(w.packaged.fun_fact.content)}</div>
-          </div>`;
-        }
-      }
-      html += '</div>';
-    });
-    html += '</div>';
+  // ── Synonyms / Antonyms ──
+  if (swm?.synonyms?.length || swm?.antonyms?.length) {
+    html += '<table class="t-table">';
+    if (swm.synonyms?.length)
+      html += `<tr><th>同義詞</th><td>${swm.synonyms.map(s => `<span class="t-chip">${escHtml(s)}</span>`).join('')}</td></tr>`;
+    if (swm.antonyms?.length)
+      html += `<tr><th>反義詞</th><td>${swm.antonyms.map(s => `<span class="t-chip">${escHtml(s)}</span>`).join('')}</td></tr>`;
+    html += '</table>';
   }
 
-  // Single word mode
-  if (data.single_word_mode) {
-    const sw = data.single_word_mode;
-    if (sw.phonetic) html += `<div class="info-chip">🔊 ${escHtml(sw.phonetic)}</div>`;
-    if (sw.common_usage && sw.common_usage.length > 0) {
-      html += '<div class="usage-section"><div class="usage-title">📝 常見用法</div>';
-      sw.common_usage.forEach(u => { html += `<div class="usage-item">• ${escHtml(u)}</div>`; });
-      html += '</div>';
-    }
-    if (sw.synonyms) html += `<div class="info-chip">同義詞：${escHtml(sw.synonyms.join('、'))}</div>`;
-    if (sw.antonyms) html += `<div class="info-chip">反義詞：${escHtml(sw.antonyms.join('、'))}</div>`;
+  // ── Common usage table ──
+  if (swm?.common_usage?.length) {
+    html += '<div class="t-section-title">📝 常見用法</div>';
+    html += '<table class="t-table"><tr><th style="width:auto">用法</th><th style="width:auto">意思</th></tr>';
+    swm.common_usage.forEach(u => {
+      const parts = u.split(' — ');
+      html += `<tr><td class="t-usage">${escHtml(parts[0])}</td><td>${escHtml(parts[1] || '')}</td></tr>`;
+    });
+    html += '</table>';
+  }
+
+  // ── Collocations table ──
+  if (swm?.collocations?.length) {
+    html += '<div class="t-section-title">🔗 搭配詞</div>';
+    html += '<table class="t-table"><tr><th style="width:auto">搭配</th><th style="width:auto">意思</th></tr>';
+    swm.collocations.forEach(c => {
+      const m = c.match(/^(\S+)\s+(.+)$/);
+      if (m) html += `<tr><td class="t-colloc">${escHtml(m[1])}</td><td>${escHtml(m[2])}</td></tr>`;
+      else html += `<tr><td colspan="2">${escHtml(c)}</td></tr>`;
+    });
+    html += '</table>';
+  }
+
+  // ── Classic sentence table ──
+  const cs = pkg?.classic_sentence;
+  if (cs) {
+    html += '<div class="t-section-title">📖 經典例句</div>';
+    html += '<table class="t-table">';
+    html += `<tr><th>EN</th><td class="t-sentence">${escHtml(cs.en || '')}</td></tr>`;
+    if (cs.zh) html += `<tr><th>ZH</th><td class="t-sentence-zh">${escHtml(cs.zh)}</td></tr>`;
+    html += '</table>';
+  }
+
+  // ── Fun fact table ──
+  const ff = pkg?.fun_fact;
+  if (ff?.content) {
+    html += '<div class="t-section-title">💡 趣味記憶</div>';
+    html += '<table class="t-table t-fun">';
+    if (ff.type) html += `<tr><th>${escHtml(ff.type)}</th><td>${escHtml(ff.content)}</td></tr>`;
+    else html += `<tr><td>${escHtml(ff.content)}</td></tr>`;
+    html += '</table>';
   }
 
   output.innerHTML = html;

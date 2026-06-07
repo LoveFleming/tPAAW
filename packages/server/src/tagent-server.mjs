@@ -3198,8 +3198,8 @@ wss.on("connection", (ws, req) => {
               }
             }
           }
-          // Detect CLI task done (multiple patterns)
-          if (!cliDoneFired) {
+          // Detect CLI task done — ONLY after cliReady (avoid false positive during startup)
+          if (cliReadyFired && !cliDoneFired) {
             const plain = stripAnsi(data);
             if (/\bDONE\b|已完成|完成！|✅.*完成|^完成$|Task completed|finished/i.test(plain)) {
               cliDoneFired = true;

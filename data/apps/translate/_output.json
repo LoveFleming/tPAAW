@@ -1,30 +1,47 @@
 {
-  "translation": "AI hallucination",
+  "translation": "palpitation",
   "source_lang": "zh-TW",
   "target_lang": "en",
-  "source_text": "ai 幻覺",
+  "source_text": "心悸",
   "special_words": [
     {
-      "word": "AI 幻覺",
-      "translation": "AI hallucination",
+      "word": "心悸",
+      "translation": "palpitation",
       "type": "jargon",
       "packaged": {
-        "phonetic": "/ˌeɪ.aɪ həˌluːsɪˈneɪ.ʃən/",
-        "part_of_speech": "noun (technical term)",
-        "definition": "指人工智慧模型生成看似合理但實際不正確、虛構或無依據的內容",
+        "word": "palpitation",
+        "phonetic": "/ˌpælpɪˈteɪʃən/",
+        "part_of_speech": "noun",
+        "definition": "心跳異常加速或不規則的感覺，常因緊張、興奮或疾病引起",
         "classic_sentence": {
-          "en": "The chatbot confidently cited a non-existent research paper — a classic case of AI hallucination.",
-          "zh": "聊天機器人自信地引用了一篇不存在的研究論文——這是典型的 AI 幻覺案例。"
+          "en": "She felt a sudden palpitation in her chest before the interview.",
+          "zh": "面試前她突然感到一陣心悸。"
         },
         "fun_fact": {
           "type": "mnemonic",
-          "content": "想像 AI 戴上 VR 眼鏡，看到不存在的東西還很認真地描述——這就是 hallucination（幻覺）。跟人類一樣，AI 越自信的錯誤越危險，所以看到 AI 絕對肯定的答案時，記得多查證。"
+          "content": "palpitation 來自拉丁文 palpitare（頻繁跳動）。記法：pal（朋友）+ pit（坑）+ ation — 朋友掉進坑裡嚇到你，心臟狂跳不止，這就是 palpitation！另外，日常口語中更常說 \"heart pounding\" 或 \"heart racing\"，palpitation 偏醫學正式用語。"
         }
       }
     }
   ],
   "pronunciation": {
-    "phonetic": "/ˌeɪ.aɪ həˌluːsɪˈneɪ.ʃən/",
+    "phonetic": "/ˌpælpɪˈteɪʃən/",
     "audio_url": null
+  },
+  "single_word_mode": {
+    "phonetic": "/ˌpælpɪˈteɪʃən/",
+    "part_of_speech": "noun (可數)",
+    "common_usage": [
+      "heart palpitations — 心悸（複數形式更常用）",
+      "have palpitations — 感到心悸",
+      "cause palpitations — 引起心悸"
+    ],
+    "synonyms": ["heartbeat", "thumping", "flutter"],
+    "antonyms": ["calm", "resting heart rate"],
+    "collocations": [
+      "severe palpitations 嚴重心悸",
+      "sudden palpitation 突發心悸",
+      "anxiety-induced palpitations 焦慮引起的心悸"
+    ]
   }
 }

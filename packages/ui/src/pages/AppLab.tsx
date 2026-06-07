@@ -328,13 +328,9 @@ export default function AppLab() {
 
     // ── CLI done handler ──
     const handleCliDone = useCallback(() => {
-        // CLI said DONE — refresh preview
-        const elapsed = Date.now() - (pollStartRef.current || Date.now());
-        if (elapsed < 3000) {
-            console.log('[AppBuilder] Ignored cliDone — too early (' + elapsed + 'ms)');
-            return;
-        }
-        console.log('[AppBuilder] cliDone fired after ' + elapsed + 'ms — refreshing preview');
+        // CLI said DONE — stop polling, refresh preview
+        console.log('[AppBuilder] cliDone fired — refreshing preview');
+        pollStoppedRef.current = true;
         setPreviewReady(true);
         setPreviewKey(Date.now());
         setGenerating(false);
@@ -359,15 +355,17 @@ export default function AppLab() {
 
     // ── Poll app file status until it exists with new mtime ──
     const pollStartRef = useRef(0);
+    const pollStoppedRef = useRef(false);
 
     useEffect(() => {
         if (pollTrigger === 0 || !reportId) return;
         pollStartRef.current = Date.now();
+        pollStoppedRef.current = false;
         setPreviewReady(false);
         let stopped = false;
         let lastSeenMtime = 0;
         const timer = setInterval(() => {
-            if (stopped) return;
+            if (stopped || pollStoppedRef.current) return;
             fetch(`${API}/api/app/${reportId}/status`)
                 .then(r => r.json())
                 .then(({ exists, mtime }) => {
