@@ -359,13 +359,17 @@ export default function AppLab() {
         pollStartRef.current = Date.now();
         setPreviewReady(false);
         let stopped = false;
+        let lastSeenMtime = 0;
         const timer = setInterval(() => {
             if (stopped) return;
             fetch(`${API}/api/app/${reportId}/status`)
-                .then(r => r.json())
                 .then(({ exists, mtime }) => {
                     if (stopped) return;
-                    if (exists && mtime && mtime > pollStartRef.current - 2000) {
+                    if (!lastSeenMtime && exists) {
+                        // First poll: record current mtime as baseline
+                        lastSeenMtime = mtime;
+                    }
+                    if (exists && mtime && lastSeenMtime && mtime > lastSeenMtime) {
                         clearInterval(timer);
                         stopped = true;
                         setPreviewReady(true);

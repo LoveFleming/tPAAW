@@ -78,7 +78,6 @@
     font-family: inherit;
   }
   .source-input:focus { outline: none; border-color: var(--accent); }
-  .source-input::placeholder { color: var(--text2); }
 
   .action-bar { display: flex; gap: 8px; align-items: center; }
   .translate-btn {
@@ -306,9 +305,7 @@
         </select>
       </div>
       <div class="input-area">
-        <textarea class="source-input" id="sourceInput"
-          placeholder=""
-        ></textarea>
+        <textarea class="source-input" id="sourceInput"></textarea>
         <div class="char-count"><span id="charCount">0</span> 字</div>
         <div class="action-bar">
           <button class="translate-btn" id="translateBtn" onclick="doTranslate()">🌐 翻譯 Translate</button>
