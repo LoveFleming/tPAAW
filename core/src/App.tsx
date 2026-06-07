@@ -389,7 +389,7 @@ function AppInner() {
     if (pageType === "crew") return "AI Crew";
     if (pageType === "skills") return "Skill Pool";
     if (pageType.startsWith("skilllab")) return "Skill Lab";
-    if (pageType === "reportapplab") return "App Lab";
+    if (pageType === "reportapplab") return "App Builder";
     if (pageType === "reportapps") return "App Pool";
     if (pageType === "cronjobs") return "Cron Jobs";
     if (pageType.startsWith("skillapp.")) {
@@ -655,7 +655,7 @@ function AppInner() {
             <SidebarSection title="Apps">
               <div>
                 <NavItem active={activePage.endsWith(":reportapps")} label="App Pool" onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":reportapplab")} label="App Lab" onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":reportapplab")} label="App Builder" onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label="Cron Jobs" onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>

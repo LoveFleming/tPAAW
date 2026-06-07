@@ -572,7 +572,7 @@ export default function AppLab() {
             <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0"
                 style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                 <span className="text-lg">🎨</span>
-                <h2 className="text-sm font-bold" style={{ color: t.accentText }}>App Lab</h2>
+                <h2 className="text-sm font-bold" style={{ color: t.accentText }}>App Builder</h2>
 
                 {/* Mode toggle */}
                 <div className="flex items-center gap-1 ml-3 p-0.5 rounded-lg bg-white border" style={{ borderColor: t.accentBorder }}>
