@@ -2430,7 +2430,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
       for (const f of files.filter(f => f.endsWith(".json")).sort().reverse()) {
         try {
           const raw = JSON.parse(await readFile(resolve(TAGENT_CHAT_DIR, f), "utf-8"));
-          chats.push({ id: raw.id, title: raw.title || "新對話", createdAt: raw.createdAt, updatedAt: raw.updatedAt });
+          chats.push({ id: raw.id, title: raw.title || "新對話", messages: raw.messages || [], createdAt: raw.createdAt, updatedAt: raw.updatedAt });
         } catch {}
       }
       res.writeHead(200, { "Content-Type": "application/json" });

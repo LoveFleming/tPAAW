@@ -107,8 +107,10 @@ export default function ChatView({ profile, embedded = false }: Props) {
 
   useEffect(() => {
     if (!activeChatId) return;
+    // Don't overwrite messages while streaming or loading
+    if (isLoading) return;
     const chat = chats.find(c => c.id === activeChatId);
-    if (chat) setMessages(chat.messages);
+    if (chat) setMessages(chat.messages || []);
   }, [activeChatId, chats]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -146,13 +148,13 @@ export default function ChatView({ profile, embedded = false }: Props) {
     if (activeChatId === chatId) {
       const remaining = chats.filter(c => c.id !== chatId);
       setActiveChatId(remaining.length > 0 ? remaining[0].id : null);
-      setMessages(remaining.length > 0 ? remaining[0].messages : []);
+      setMessages(remaining.length > 0 ? (remaining[0].messages || []) : []);
     }
   };
 
   const selectChat = (chat: Chat) => {
     setActiveChatId(chat.id);
-    setMessages(chat.messages);
+    setMessages(chat.messages || []);
     setShowChatList(false);
   };
 
