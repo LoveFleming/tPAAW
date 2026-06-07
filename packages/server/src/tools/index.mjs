@@ -328,28 +328,101 @@ async function buildToolDefinitions() {
     });
   }
 
-  // ── Skill-based apps: translate_exec ──
-  const translateApp = apps.find(a => a.id === "translate");
-  if (translateApp) {
+  // ── Skill-based apps: auto-generate {appId}_exec tool ──
+  // Any app with type=skill-based + schema + triggers gets an exec tool automatically
+  for (const app of apps) {
+    if (app.type !== "skill-based") continue;
+    const appId = app.id;
+    const triggerHint = app.triggers?.length
+      ? `觸發關鍵字：${app.triggers.join("、")}。`
+      : "";
+    // Build parameters from app.schema (or use defaults)
+    const props = {};
+    const required = [];
+    if (app.schema?.properties) {
+      for (const [key, def] of Object.entries(app.schema.properties)) {
+        props[key] = {
+          type: def.type || "string",
+          description: def.description || key,
+          ...(def.default !== undefined ? { default: def.default } : {}),
+        };
+        if (def.required) required.push(key);
+      }
+    }
+    // Every skill-based exec also gets a _raw_output flag
+    props._raw_output = { type: "boolean", description: "回傳原始 CLI 輸出（除錯用）" };
+
     tools.push({
       type: "function",
       function: {
-        name: "translate_exec",
-        description: "🌐 翻譯器：將文字翻譯為目標語言（預設中→英），特殊詞彙自動包裝成經典例句或笑話。使用者說「幫我翻譯」「translate」時呼叫。",
+        name: `${appId}_exec`,
+        description: `${app.icon || "🔧"} ${app.name}：${app.description}。${triggerHint}Skill + CLI 執行。`,
         parameters: {
           type: "object",
-          properties: {
-            source_text: { type: "string", description: "要翻譯的文字" },
-            source_lang: { type: "string", description: "來源語言（預設 zh-TW）" },
-            target_lang: { type: "string", description: "目標語言（預設 en）" }
-          },
-          required: ["source_text"]
-        }
-      }
+          properties: props,
+          required: required.length ? required : undefined,
+        },
+      },
     });
   }
 
   return { tools, apps };
+}
+
+// ── Generic skill result formatter ──
+// Turns structured JSON from any skill-based app into readable text
+function formatSkillResult(app, result) {
+  if (typeof result === "string") return result;
+
+  // Special formatting for translate app
+  if (app.id === "translate" && result.translation) {
+    let text = `**${result.translation}**`;
+    if (result.special_words?.length > 0) {
+      for (const w of result.special_words) {
+        text += `\n\n✨ **${w.word}** (${w.type}) → ${w.translation}`;
+        if (w.packaged?.classic_sentence) {
+          const cs = w.packaged.classic_sentence;
+          text += `\n📖 ${cs.en || cs}`;
+          if (cs.zh) text += ` → ${cs.zh}`;
+        }
+        if (w.packaged?.joke) text += `\n😄 ${w.packaged.joke}`;
+      }
+    }
+    if (result.single_word_mode) {
+      const sw = result.single_word_mode;
+      if (sw.phonetic) text += `\n🔊 ${sw.phonetic}`;
+      if (sw.common_usage?.length) {
+        text += `\n\n**常見用法：**`;
+        for (const u of sw.common_usage) text += `\n- ${u}`;
+      }
+      if (sw.synonyms?.length) text += `\n\n**同義詞：** ${sw.synonyms.join("、")}`;
+      if (sw.antonyms?.length) text += `\n**反義詞：** ${sw.antonyms.join("、")}`;
+    }
+    return text;
+  }
+
+  // Generic formatting for any other app
+  const lines = [];
+  for (const [key, value] of Object.entries(result)) {
+    if (Array.isArray(value)) {
+      lines.push(`**${key}：**`);
+      for (const item of value) {
+        if (typeof item === "object" && item !== null) {
+          lines.push(`- ${Object.values(item).join(" | ")}`);
+        } else {
+          lines.push(`- ${item}`);
+        }
+      }
+    } else if (typeof value === "object" && value !== null) {
+      lines.push(`**${key}：**`);
+      for (const [k, v] of Object.entries(value)) {
+        lines.push(`  - ${k}: ${v}`);
+      }
+    } else {
+      lines.push(`**${key}：** ${value}`);
+    }
+  }
+  return lines.join("\n") || JSON.stringify(result, null, 2);
 }
 
 // ── Tool execution handlers ──
@@ -565,102 +638,115 @@ function buildHandlers(apps) {
     };
   }
 
-  // ── Skill-based translate_exec handler ──
-  const translateApp = apps.find(a => a.id === "translate");
-  if (translateApp) {
-    handlers.translate_exec = async ({ source_text, source_lang = "zh-TW", target_lang = "en" }) => {
-      if (!source_text || !source_text.trim()) {
-        return { text: "❌ 請提供要翻譯的文字" };
-      }
+  // ── Skill-based apps: generic skillExec handler ──
+  // Any app with type=skill-based gets an auto-generated {appId}_exec handler
+  // It reads skills from data/apps/{appId}/skills/*/SKILL.md, builds prompt, runs CLI
+  for (const app of apps) {
+    if (app.type !== "skill-based") continue;
+    const appId = app.id;
 
+    handlers[`${appId}_exec`] = async (args) => {
+      const { _raw_output, ...inputArgs } = args;
+
+      // Resolve defaults from app schema
+      const resolvedArgs = {};
+      if (app.schema?.properties) {
+        for (const [key, def] of Object.entries(app.schema.properties)) {
+          resolvedArgs[key] = inputArgs[key] ?? def.default ?? undefined;
+        }
+      }
+      // Merge any extra args not in schema
+      Object.assign(resolvedArgs, inputArgs);
+
+      // 1. Locate app directory (data/apps/{appId}/)
       const APPS_ROOT = resolve(TAGENT_DATA_DIR, "apps");
-      const appDir = join(APPS_ROOT, "translate");
+      const appDir = join(APPS_ROOT, appId);
       const skillsDir = join(appDir, "skills");
 
-      // 1. Load skills
-      let mainSkillContent = "";
-      let supportSkillContent = "";
-      try { mainSkillContent = await readFile(join(skillsDir, "translate", "SKILL.md"), "utf-8"); } catch {}
-      try { supportSkillContent = await readFile(join(skillsDir, "idiom-packaging", "SKILL.md"), "utf-8"); } catch {}
+      // 2. Load ALL skills from data/apps/{appId}/skills/*/SKILL.md
+      const skillContents = [];
+      try {
+        const skillDirs = await readdir(skillsDir);
+        for (const sd of skillDirs) {
+          try {
+            const content = await readFile(join(skillsDir, sd, "SKILL.md"), "utf-8");
+            const body = content.replace(/^---[\s\S]*?---\n*/, ""); // strip YAML frontmatter
+            skillContents.push({ name: sd, body });
+          } catch {}
+        }
+      } catch {}
 
-      if (!mainSkillContent) {
-        return { text: "❌ Translate skill not found" };
+      if (skillContents.length === 0) {
+        return { text: `❌ App「${app.name}」沒有 Skill 定義。請在 ${skillsDir} 放置 SKILL.md。` };
       }
 
-      // 2. Build system prompt from skill
-      const skillBody = mainSkillContent.replace(/^---[\s\S]*?---\n*/, "");
-      const supportBody = supportSkillContent.replace(/^---[\s\S]*?---\n*/, "");
+      // 3. Build system prompt from all skills
+      const skillsSection = skillContents
+        .map(s => `## === Skill: ${s.name} ===\n${s.body}`)
+        .join("\n\n");
 
-      const systemPrompt = `你是 Translate App 的執行引擎。你必須嚴格按照以下 Skill 定義（deterministic script）來處理翻譯。
+      const inputSection = Object.entries(resolvedArgs)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`)
+        .join("\n");
 
-## === Translate Skill ===
-${skillBody}
+      const systemPrompt = `你是「${app.name}」App 的執行引擎。
+你必須嚴格按照以下 Skill 定義（deterministic script）來處理。
 
-${supportBody ? `## === Idiom Packaging Skill ===\n${supportBody}` : ""}
+${skillsSection}
 
-## === 執行參數 ===
-- source_text: ${JSON.stringify(source_text)}
-- source_lang: ${source_lang}
-- target_lang: ${target_lang}
+## === 輸入參數 ===
+${inputSection}
 
 ## === 輸出指示 ===
-只輸出 JSON，不要加 markdown code block，不要加解釋`;
+只輸出結果。如果是結構化資料，輸出 JSON（不要加 markdown code block）。不要加解釋。`;
 
-      // 3. Execute via CLI
+      // 4. Execute via CLI
       const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";
       const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", systemPrompt];
 
-      const fullOutput = await new Promise((resolve, reject) => {
-        let output = "";
-        const proc = spawn(resolvedBin, cliArgs, {
-          name: "xterm-256color",
-          cols: 200,
-          rows: 30,
-          cwd: appDir,
-          env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
+      let fullOutput;
+      try {
+        fullOutput = await new Promise((pResolve, reject) => {
+          let output = "";
+          const proc = spawn(resolvedBin, cliArgs, {
+            name: "xterm-256color",
+            cols: 200,
+            rows: 30,
+            cwd: appDir,
+            env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
+          });
+          proc.onData((data) => { output += data; });
+          proc.onExit(({ exitCode }) => {
+            if (exitCode === 0) pResolve(output);
+            else reject(new Error(`CLI exited with code ${exitCode}`));
+          });
+          setTimeout(() => { try { proc.kill(); } catch {} reject(new Error("Timeout (90s)")); }, 90000);
         });
-        proc.onData((data) => { output += data; });
-        proc.onExit(({ exitCode }) => {
-          if (exitCode === 0) resolve(output);
-          else reject(new Error(`CLI exited with code ${exitCode}`));
-        });
-        // Timeout after 90s
-        setTimeout(() => { try { proc.kill(); } catch {} reject(new Error("Timeout")); }, 90000);
-      });
+      } catch (err) {
+        return { text: `❌ 執行失敗：${err.message}` };
+      }
 
-      // 4. Parse result
-      const jsonMatch = fullOutput.match(/\{[\s\S]*"translation"[\s\S]*\}/);
+      // 5. Return result
+      if (_raw_output) {
+        return { text: fullOutput.trim().slice(0, 2000), raw: true };
+      }
+
+      // Try to parse as JSON for structured output
+      const jsonMatch = fullOutput.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           const result = JSON.parse(jsonMatch[0]);
-          let text = `**${result.translation}**`;
-          if (result.special_words?.length > 0) {
-            for (const w of result.special_words) {
-              text += `\n\n✨ **${w.word}** (${w.type}) → ${w.translation}`;
-              if (w.packaged?.classic_sentence) {
-                const cs = w.packaged.classic_sentence;
-                text += `\n📖 ${cs.en || cs}`;
-                if (cs.zh) text += ` → ${cs.zh}`;
-              }
-              if (w.packaged?.joke) {
-                text += `\n😄 ${w.packaged.joke}`;
-              }
-            }
-          }
-          if (result.single_word_mode) {
-            const sw = result.single_word_mode;
-            if (sw.phonetic) text += `\n🔊 ${sw.phonetic}`;
-            if (sw.common_usage?.length) {
-              text += `\n\n**常見用法：**`;
-              for (const u of sw.common_usage) text += `\n- ${u}`;
-            }
-            if (sw.synonyms?.length) text += `\n\n**同義詞：** ${sw.synonyms.join("、")}`;
-            if (sw.antonyms?.length) text += `\n**反義詞：** ${sw.antonyms.join("、")}`;
-          }
-          return { text, result };
+          return { text: formatSkillResult(app, result), result };
         } catch {}
       }
-      return { text: fullOutput.trim().slice(0, 500) || "翻譯完成但無法解析結果" };
+
+      // Fallback: return raw text (cleaned)
+      const clean = fullOutput
+        .replace(/\x1b\[[0-9;]*[mGKH]/g, "") // strip ANSI
+        .replace(/^\s+|\s+$/g, "")
+        .slice(0, 1500);
+      return { text: clean || "執行完成但無輸出" };
     };
   }
 
