@@ -50,15 +50,23 @@ export function CodeBlock({ text }: { text: string }) {
 
 // ── Nav Icon helper ──
 const NAV_ICONS: Record<string, string> = {
-    "Constitution": "nav-scroll",
-    "Standards":    "nav-ruler",
-    "AI Crew":      "nav-crew",
-    "Skills":       "lightning",
-    "Skill Pool":   "lightning",
-    "Skill Lab":    "flask",
-    "Report Lab":   "flask",
-    "Report Apps":  "chart-bar",
-    "Cron Jobs":    "clock",
+    "Constitution":    "nav-scroll",
+    "Standards":       "nav-ruler",
+    "AI Crew":         "nav-crew",
+    "Skills":          "lightning",
+    "Skill Pool":      "lightning",
+    "Skill Builder":   "brain",
+    "App Builder":     "rocket",
+    "Workflow Builder": "plan",
+    "Apps":            "chart-bar",
+    "App Pool":        "chart-bar",
+    "Report Apps":     "chart-bar",
+    "Report Lab":      "flask",
+    "Workflows":       "expand",
+    "Workflow Exec":   "expand",
+    "Schedules":       "clock",
+    "Cron Jobs":       "clock",
+    "Skill Lab":       "flask",
 };
 
 export function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -119,7 +127,7 @@ export function NavItem({
             onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
-                {iconName ? <Icon name={iconName} size={14} /> : <Icon name="file-default" size={14} />}
+                {iconName ? <Icon name={iconName} size={14} style={{ color: active ? accentColor : undefined }} /> : <Icon name="file-default" size={14} style={{ color: active ? accentColor : undefined }} />}
                 <span className="truncate">{label}</span>
             </div>
             {right}
