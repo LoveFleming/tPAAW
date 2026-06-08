@@ -582,7 +582,7 @@ export default function AppLab() {
     // RENDER
     // ──────────────────────────────────────────────
     return (
-        <div className="h-full flex flex-col" style={{ backgroundColor: "#fafaf9" }}>
+        <div className="h-full flex flex-col w-full" style={{ backgroundColor: "#fafaf9" }}>
             {/* Dialogs */}
             {showSkillPicker && (
                 <SkillPickerDialog skills={skills} onSelect={(sk) => {

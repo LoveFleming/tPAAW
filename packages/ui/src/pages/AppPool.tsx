@@ -54,7 +54,7 @@ export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => v
     };
 
     return (
-        <div className="h-full flex" style={{ backgroundColor: "#fafaf9" }}>
+        <div className="h-full flex w-full" style={{ backgroundColor: "#fafaf9" }}>
             {/* App Grid */}
             <div className={`${previewApp ? "w-1/2" : "w-full"} flex flex-col overflow-hidden transition-all`}>
                 <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>

@@ -171,7 +171,7 @@ export default function CronJobsPage() {
     const selectedJobData = jobs.find(j => j.id === selectedJob);
 
     return (
-        <div className="h-full flex" style={{ backgroundColor: "#fafaf9" }}>
+        <div className="h-full flex w-full" style={{ backgroundColor: "#fafaf9" }}>
             {/* Left: Job List */}
             <div className="w-96 flex flex-col border-r" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
                 <div className="flex items-center gap-3 px-5 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>

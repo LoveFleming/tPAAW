@@ -417,7 +417,7 @@ export default function SkillBuilder() {
 
   // ── Render ──
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: "#fafaf9" }}>
+    <div className="flex flex-col h-full w-full overflow-hidden" style={{ backgroundColor: "#fafaf9" }}>
       {/* ── Header ── */}
       <div className="shrink-0 px-5 py-2.5 border-b flex items-center gap-3 bg-white" style={{ borderColor: "#e7e5e4" }}>
         <span className="text-lg">🔨</span>
