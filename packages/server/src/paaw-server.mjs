@@ -2769,7 +2769,7 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
     }
   }
 
-  async function saveUiState(state: any) {
+  async function saveUiState(state) {
     await writeFile(UI_STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
   }
 
