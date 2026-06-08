@@ -2564,15 +2564,15 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
   // GET /api/paaw/app-skills — list apps with their skills
   if (req.method === "GET" && path === "/api/paaw/app-skills") {
     try {
-      const appFiles = await readdir(APPS_DIR);
+      const appFiles = await readdir(APPS_ROOT);
       const result = [];
       for (const f of appFiles) {
         if (!f.endsWith(".json")) continue;
         try {
-          const app = JSON.parse(await readFile(resolve(APPS_DIR, f), "utf-8"));
+          const app = JSON.parse(await readFile(resolve(APPS_ROOT, f), "utf-8"));
           // Find skills for this app
           const skills = [];
-          const appSkillsDir = resolve(APPS_DIR, app.id, "skills");
+          const appSkillsDir = resolve(APPS_ROOT, app.id, "skills");
           try {
             const dirs = await readdir(appSkillsDir);
             for (const d of dirs) {

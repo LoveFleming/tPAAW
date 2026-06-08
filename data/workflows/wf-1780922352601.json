@@ -1,0 +1,32 @@
+{
+  "id": "wf-1780922352601",
+  "name": "新 Workflow",
+  "description": "",
+  "icon": "🔗",
+  "nodes": [
+    {
+      "id": "node-1780922356308",
+      "type": "skill",
+      "skillId": "",
+      "name": "新積木",
+      "position": {
+        "x": 358.4613948003639,
+        "y": 101.93789698288673
+      },
+      "config": {
+        "inputMapping": {}
+      }
+    }
+  ],
+  "edges": [],
+  "inputSchema": {
+    "properties": {
+      "text": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "text"
+    ]
+  }
+}
