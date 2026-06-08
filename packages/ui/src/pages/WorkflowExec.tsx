@@ -277,7 +277,7 @@ export default function WorkflowExec() {
       {/* Left: Workflow list + History */}
       <div className="w-56 border-r border-stone-200 bg-white flex flex-col">
         <div className="p-3 border-b border-stone-200">
-          <h3 className="font-semibold text-sm text-stone-700">▶ Workflow Exec</h3>
+          <h3 className="font-semibold text-sm text-stone-700">▶ Workflows</h3>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">

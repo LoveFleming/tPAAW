@@ -176,7 +176,7 @@ export default function CronJobsPage() {
             <div className="w-96 flex flex-col border-r" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
                 <div className="flex items-center gap-3 px-5 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                     <span className="text-xl">⏰</span>
-                    <h2 className="text-sm font-bold" style={{ color: t.accentText }}>Cron Jobs</h2>
+                    <h2 className="text-sm font-bold" style={{ color: t.accentText }}>Schedules</h2>
                     <span className="text-xs text-stone-400 ml-1">{jobs.length}</span>
                     <button onClick={() => setShowCreate(!showCreate)}
                         className="ml-auto text-sm font-bold px-3 py-1 rounded-lg text-white"

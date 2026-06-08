@@ -163,7 +163,7 @@ export default function SkillsPage() {
             {/* Center: Skill Cards */}
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-2.5 border-b border-stone-200 bg-white shrink-0">
-                    <h2 className="font-semibold text-sm text-stone-700">Skills 共享技能池</h2>
+                    <h2 className="font-semibold text-sm text-stone-700">Skills</h2>
                     <span className="text-xs text-stone-400">{skills.length} skills</span>
                     <span className="text-[10px] text-stone-300">input-prompt + physical-skill</span>
                 </div>

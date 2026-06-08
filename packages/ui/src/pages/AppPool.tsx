@@ -74,7 +74,7 @@ export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => v
                         <div className="flex flex-col items-center justify-center h-64 gap-3">
                             <span className="text-4xl">📭</span>
                             <p className="text-stone-400 text-sm">還沒有 App</p>
-                            <p className="text-stone-400 text-xs">去 App Lab 訓練一個吧！</p>
+                            <p className="text-stone-400 text-xs">去 App Builder 建立一個吧！</p>
                         </div>
                     )}
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
