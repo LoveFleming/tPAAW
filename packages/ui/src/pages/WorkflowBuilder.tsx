@@ -303,7 +303,7 @@ export default function WorkflowBuilder() {
 
   // ── Render ──
   return (
-    <div className="flex h-full">
+    <div className="flex h-full w-full">
       {/* ── Left: Workflow List ── */}
       <div className="w-56 border-r border-stone-200 bg-stone-50 flex flex-col">
         <div className="p-3 border-b border-stone-200">
