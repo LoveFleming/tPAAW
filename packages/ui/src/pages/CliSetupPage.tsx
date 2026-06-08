@@ -68,7 +68,7 @@ export default function CliSetupPage({ onComplete }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`${API_BASE}/api/tagent/cli-config`, {
+      await fetch(`${API_BASE}/api/paaw/cli-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

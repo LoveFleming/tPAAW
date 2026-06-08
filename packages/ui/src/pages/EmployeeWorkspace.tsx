@@ -65,7 +65,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     // Load workspaces
     const [workspaces, setWorkspaces] = useState<string[]>([]);
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/tagent/workspaces")
+        fetch("http://127.0.0.1:4097/api/paaw/workspaces")
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data?.directories) setWorkspaces(data.directories); })
             .catch(() => {});
@@ -75,7 +75,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     // Fallback chain: employee.chatConfig → global CLI config → "qwen"
     const [globalCliConfig, setGlobalCliConfig] = useState({ defaultCli: "qwen", defaultModel: "" });
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/tagent/cli-config")
+        fetch("http://127.0.0.1:4097/api/paaw/cli-config")
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (data?.configured) setGlobalCliConfig({ defaultCli: data.defaultCli || "qwen", defaultModel: data.defaultModel || "" });
@@ -100,7 +100,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
             fetchModels(savedCli, savedModel);
         }
     }, [employee?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-    const [tagentRoot, setTagentRoot] = useState("");
+    const [paawRoot, setPaawRoot] = useState("");
 
         const [formData, setFormData] = useState<Record<string, string>>({});
     const [models, setModels] = useState<ModelOption[]>([]);
@@ -123,7 +123,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         fetch(`http://127.0.0.1:4097/api/models?cli=${cli}`)
             .then(r => r.json())
             .then(data => {
-                if (data.tagentRoot) setTagentRoot(data.tagentRoot);
+                if (data.paawRoot) setPaawRoot(data.paawRoot);
                 const list: ModelOption[] = data.models || [];
                 setModels(list);
                 // Prefer saved model if it exists in the list
@@ -281,7 +281,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 body: JSON.stringify(updated),
             });
         } catch (err) {
-            console.error("[tAgent] Failed to save skill config:", err);
+            console.error("[PAAW] Failed to save skill config:", err);
         }
     }, [employee, selectedSkillIds]);
 
@@ -304,7 +304,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 body: JSON.stringify(updated),
             });
         } catch (err) {
-            console.error("[tAgent] Failed to save config:", err);
+            console.error("[PAAW] Failed to save config:", err);
         }
         // Update running state
         setRunningCli(effectiveCli);
@@ -351,7 +351,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const launchTask = async (dialogData: Record<string, string>) => {
         if (!employee) return;
         const allData = { ...dialogData, task: taskInput.trim() };
-        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { tagentRoot, projectRoot: projectRoot || "", factoryId }, workspaces);
+        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces);
         setSystemPrompt(prompt);
         setFormData(allData);
         setConsoleKey(prev => prev + 1);

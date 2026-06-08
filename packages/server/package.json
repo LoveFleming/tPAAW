@@ -1,11 +1,11 @@
 {
-  "name": "@tagent/server",
+  "name": "@paaw/server",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node src/tagent-server.mjs",
-    "start": "node src/tagent-server.mjs"
+    "dev": "node src/paaw-server.mjs",
+    "start": "node src/paaw-server.mjs"
   },
   "dependencies": {
     "@opencode-ai/sdk": "^1.2.12",

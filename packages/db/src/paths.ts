@@ -1,7 +1,7 @@
 import { resolve } from "path";
 
 /**
- * Get the tAgent project root path.
+ * Get the PAAW project root path.
  * Works regardless of whether running via tsx, node, or pnpm.
  */
 export function getProjectRoot(): string {
@@ -11,6 +11,6 @@ export function getProjectRoot(): string {
   return fromCwd;
 }
 
-export function getDbPath(dbName: string = "tagent.sqlite"): string {
+export function getDbPath(dbName: string = "paaw.sqlite"): string {
   return resolve(getProjectRoot(), "data/db", dbName);
 }

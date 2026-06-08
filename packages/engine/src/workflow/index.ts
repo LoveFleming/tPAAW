@@ -3,9 +3,9 @@
  * 
  * MVP: linear pipeline only. Each node's output feeds into the next node's input.
  */
-import type { RunContext, RunResult, WorkflowNodeState } from "@tagent/shared";
-import { resolveTemplateObj, generateId, nowISO, measureMs } from "@tagent/shared";
-import type { RunsRepo } from "@tagent/db";
+import type { RunContext, RunResult, WorkflowNodeState } from "@paaw/shared";
+import { resolveTemplateObj, generateId, nowISO, measureMs } from "@paaw/shared";
+import type { RunsRepo } from "@paaw/db";
 import { executeSkill } from "../runner/index";
 
 export interface WorkflowNodeDef {

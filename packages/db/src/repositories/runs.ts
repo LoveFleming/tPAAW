@@ -1,12 +1,12 @@
 /**
- * tAgent Runs Repository
+ * PAAW Runs Repository
  */
 import type { Kysely } from "kysely";
-import type { tAgentDB, RunsTable } from "../types";
-import { generateId, nowISO, measureMs } from "@tagent/shared";
+import type { PaawDB, RunsTable } from "../types";
+import { generateId, nowISO, measureMs } from "@paaw/shared";
 
 export class RunsRepo {
-  constructor(private db: Kysely<tAgentDB>) {}
+  constructor(private db: Kysely<PaawDB>) {}
 
   async create(params: {
     skillId: string;

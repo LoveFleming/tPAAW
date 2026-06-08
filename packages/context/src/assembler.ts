@@ -5,8 +5,8 @@
  * who the user is, what they've been doing, and what's relevant now.
  */
 import type { Kysely } from "kysely";
-import type { tAgentDB } from "@tagent/db";
-import type { ContextBundle } from "@tagent/shared";
+import type { PaawDB } from "@paaw/db";
+import type { ContextBundle } from "@paaw/shared";
 import { MemoryStore } from "../memory/memory-store";
 
 // Token budget constants (rough estimates)
@@ -29,7 +29,7 @@ function truncateToTokens(text: string, maxTokens: number): string {
 
 export class ContextAssembler {
   constructor(
-    private db: Kysely<tAgentDB>,
+    private db: Kysely<PaawDB>,
     private memory: MemoryStore,
   ) {}
 

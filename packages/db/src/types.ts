@@ -1,5 +1,5 @@
 /**
- * tAgent Database Types — Kysely table definitions
+ * PAAW Database Types — Kysely table definitions
  */
 import type { ColumnType } from "kysely";
 
@@ -129,7 +129,7 @@ export interface SkillMetaTable {
 
 // ── Database interface ──────────────────────────────────
 
-export interface tAgentDB {
+export interface PaawDB {
   runs: RunsTable;
   conversations: ConversationsTable;
   chat_messages: ChatMessagesTable;

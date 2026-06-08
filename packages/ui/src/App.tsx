@@ -59,8 +59,8 @@ try {
     localStorage.removeItem("aieos.project");
   }
   const oldRecent = localStorage.getItem("aieos.recent-projects");
-  if (oldRecent && !localStorage.getItem("tagent.recent-projects")) {
-    localStorage.setItem("tagent.recent-projects", oldRecent);
+  if (oldRecent && !localStorage.getItem("paaw.recent-projects")) {
+    localStorage.setItem("paaw.recent-projects", oldRecent);
     localStorage.removeItem("aieos.recent-projects");
   }
 } catch {}
@@ -83,15 +83,15 @@ function AppInner() {
 
   useEffect(() => {
     // Check user profile
-    fetch(`${API_BASE}/api/tagent/user`)
+    fetch(`${API_BASE}/api/paaw/user`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data && data.onboarded) setProfile(data);
       })
       .catch(() => {});
     // Check provider & CLI config (info only, no blocking)
-    fetch(`${API_BASE}/api/tagent/providers`).catch(() => {});
-    fetch(`${API_BASE}/api/tagent/cli-config`).catch(() => {});
+    fetch(`${API_BASE}/api/paaw/providers`).catch(() => {});
+    fetch(`${API_BASE}/api/paaw/cli-config`).catch(() => {});
     setLoading(false);
   }, []);
 
@@ -100,7 +100,7 @@ function AppInner() {
 
   const [projectRoot, setProjectRoot] = useState<string | null>(() => {
     const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    return normPath(localStorage.getItem(`tagent.project.${lastFactory}`));
+    return normPath(localStorage.getItem(`paaw.project.${lastFactory}`));
   });
   const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
     return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
@@ -120,7 +120,7 @@ function AppInner() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem("tagent.sidebar-width");
+    const saved = localStorage.getItem("paaw.sidebar-width");
     return saved ? parseInt(saved, 10) : 260;
   });
 
@@ -128,7 +128,7 @@ function AppInner() {
   const [crew, setCrew] = useState<Crew[]>([]);
   const crewByFactoryRef = useRef<Record<string, Crew[]>>({});
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
-  const [tagentRoot, setTagentRoot] = useState("");
+  const [paawRoot, setPaawRoot] = useState("");
   const [skillApps, setSkillApps] = useState<{id: string; name: string}[]>([]);
 
   const loadFactories = useCallback(async () => {
@@ -160,7 +160,7 @@ function AppInner() {
     try {
       const r = await fetch("http://127.0.0.1:4097/api/models?cli=qwen");
       const d = await r.json();
-      if (d.tagentRoot) setTagentRoot(d.tagentRoot);
+      if (d.paawRoot) setPaawRoot(d.paawRoot);
     } catch {}
   }, [selectedFactoryId]);
 
@@ -213,11 +213,11 @@ function AppInner() {
       setActivePage(crewTab);
     }
     const normalized = normPath(path)!;
-    localStorage.setItem(`tagent.project.${selectedFactoryId}`, normalized);
+    localStorage.setItem(`paaw.project.${selectedFactoryId}`, normalized);
     try {
-      const existing = JSON.parse(localStorage.getItem("tagent.recent-projects") || "[]") as string[];
+      const existing = JSON.parse(localStorage.getItem("paaw.recent-projects") || "[]") as string[];
       const updated = [normalized, ...existing.filter((p: string) => p !== normalized)].slice(0, 10);
-      localStorage.setItem("tagent.recent-projects", JSON.stringify(updated));
+      localStorage.setItem("paaw.recent-projects", JSON.stringify(updated));
     } catch {}
   }, [openTabs, activePage, currentScope, projectRoot, selectedFactoryId]);
 
@@ -239,7 +239,7 @@ function AppInner() {
       activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
       openTabs: currentScopeTabs,
     };
-    const savedRoot = normPath(localStorage.getItem(`tagent.project.${factoryId}`));
+    const savedRoot = normPath(localStorage.getItem(`paaw.project.${factoryId}`));
     const newScope = makeScopeKey(factoryId, savedRoot);
     const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
@@ -296,7 +296,7 @@ function AppInner() {
 
   const loadWorkspaces = useCallback(async () => {
     try {
-      const resp = await fetch(`${API_BASE}/api/tagent/workspaces`);
+      const resp = await fetch(`${API_BASE}/api/paaw/workspaces`);
       if (resp.ok) {
         const data = await resp.json();
         setWorkspaces(data.directories || []);
@@ -308,7 +308,7 @@ function AppInner() {
 
   const addWorkspace = useCallback(async (dir: string) => {
     try {
-      await fetch(`${API_BASE}/api/tagent/workspaces`, {
+      await fetch(`${API_BASE}/api/paaw/workspaces`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ directory: dir }),
       });
@@ -319,7 +319,7 @@ function AppInner() {
 
   const removeWorkspace = useCallback(async (dir: string) => {
     try {
-      await fetch(`${API_BASE}/api/tagent/workspaces?dir=${encodeURIComponent(dir)}`, { method: "DELETE" });
+      await fetch(`${API_BASE}/api/paaw/workspaces?dir=${encodeURIComponent(dir)}`, { method: "DELETE" });
     } catch {}
     setWorkspaces(prev => prev.filter(d => d !== dir));
   }, []);
@@ -440,7 +440,7 @@ function AppInner() {
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
       sidebarDragRef.current = null;
-      setSidebarWidth(w => { localStorage.setItem("tagent.sidebar-width", w.toString()); return w; });
+      setSidebarWidth(w => { localStorage.setItem("paaw.sidebar-width", w.toString()); return w; });
     };
     document.addEventListener("mousemove", handleMove);
     document.addEventListener("mouseup", handleUp);
@@ -501,8 +501,8 @@ function AppInner() {
     }
     if (pageType.startsWith("file.")) {
       const fileName = pageType.slice(5);
-      if (!tagentRoot || !factoryId) return <div className="p-8 text-stone-400">Loading...</div>;
-      const filePath = `${tagentRoot}/factories/${factoryId}/docs/${fileName}`;
+      if (!paawRoot || !factoryId) return <div className="p-8 text-stone-400">Loading...</div>;
+      const filePath = `${paawRoot}/factories/${factoryId}/docs/${fileName}`;
       const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot ?? projectRoot;
       return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} active={active} />;
     }
@@ -514,7 +514,7 @@ function AppInner() {
       const employeeId = pageType.split("#")[0].slice(9);
       const tabCrew = crewByFactoryRef.current[factoryId] ?? crew;
       const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot
-        ?? normPath(localStorage.getItem(`tagent.project.${factoryId}`))
+        ?? normPath(localStorage.getItem(`paaw.project.${factoryId}`))
         ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
@@ -523,7 +523,7 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, tagentRoot, crew, selectedFactoryId, profile, skillAppNav]);
+  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav]);
 
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();
@@ -552,7 +552,7 @@ function AppInner() {
         selectedFactoryId={selectedFactoryId}
         onSelect={enterFactory}
         onBack={() => setShowFactoryEntry(false)}
-        tagentRoot={tagentRoot}
+        paawRoot={paawRoot}
         onFactoriesChanged={loadFactories}
       />
     );

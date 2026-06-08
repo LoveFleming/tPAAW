@@ -295,9 +295,9 @@ export default function SkillBuilder() {
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/tagent-root`)
+    fetch(`${API_BASE}/api/paaw-root`)
       .then(r => r.ok ? r.json() : {})
-      .then((d: { tagentRoot?: string }) => { if (d.tagentRoot) setWorkingDir(d.tagentRoot); })
+      .then((d: { paawRoot?: string }) => { if (d.paawRoot) setWorkingDir(d.paawRoot); })
       .catch(() => {});
   }, []);
 

@@ -1,12 +1,12 @@
 /**
- * tAgent Data Store Repository — CRUD for data runner
+ * PAAW Data Store Repository — CRUD for data runner
  */
 import type { Kysely } from "kysely";
-import type { tAgentDB } from "../types";
-import { generateId, nowISO } from "@tagent/shared";
+import type { PaawDB } from "../types";
+import { generateId, nowISO } from "@paaw/shared";
 
 export class DataStoreRepo {
-  constructor(private db: Kysely<tAgentDB>) {}
+  constructor(private db: Kysely<PaawDB>) {}
 
   async create(modelId: string, userId: string, data: Record<string, any>): Promise<string> {
     const id = generateId("ds");

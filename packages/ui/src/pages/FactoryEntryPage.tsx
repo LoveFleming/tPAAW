@@ -15,11 +15,11 @@ interface Props {
   selectedFactoryId: string;
   onSelect: (factoryId: string) => void;
   onBack: () => void;
-  tagentRoot: string;
+  paawRoot: string;
   onFactoriesChanged: () => void;
 }
 
-function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, tagentRoot, onFactoriesChanged }: Props) {
+function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, paawRoot, onFactoriesChanged }: Props) {
   const { info: t, theme, setTheme } = useTheme();
   const [creating, setCreating] = useState(false);
   const [newFactory, setNewFactory] = useState({

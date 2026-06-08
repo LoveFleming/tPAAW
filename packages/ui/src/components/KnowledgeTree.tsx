@@ -206,11 +206,11 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
 
   const [rootPath, setRootPath] = useState("");
 
-  // Resolve knowledge root from tagent-root API
+  // Resolve knowledge root from paaw-root API
   useEffect(() => {
-    fetch(`${API_BASE}/api/tagent-root`)
+    fetch(`${API_BASE}/api/paaw-root`)
       .then(r => r.json())
-      .then(d => { if (d.tagentRoot) setRootPath(`${d.tagentRoot}/data/knowledge`); })
+      .then(d => { if (d.paawRoot) setRootPath(`${d.paawRoot}/data/knowledge`); })
       .catch(() => {});
   }, []);
 

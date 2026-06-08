@@ -2,8 +2,8 @@
  * Memory Store — manages all memory layers for a user
  */
 import type { Kysely } from "kysely";
-import type { tAgentDB } from "@tagent/db";
-import { generateId, nowISO } from "@tagent/shared";
+import type { PaawDB } from "@paaw/db";
+import { generateId, nowISO } from "@paaw/shared";
 
 export interface MemoryEntry {
   id: string;
@@ -17,7 +17,7 @@ export interface MemoryEntry {
 }
 
 export class MemoryStore {
-  constructor(private db: Kysely<tAgentDB>) {}
+  constructor(private db: Kysely<PaawDB>) {}
 
   /**
    * Store a memory entry

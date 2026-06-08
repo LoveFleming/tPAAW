@@ -1,5 +1,5 @@
 {
-  "name": "@tagent/db",
+  "name": "@paaw/db",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
-    "@tagent/shared": "*",
+    "@paaw/shared": "*",
     "better-sqlite3": "^11.7.0",
     "kysely": "^0.29.2"
   },

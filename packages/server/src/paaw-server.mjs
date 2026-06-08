@@ -1,7 +1,7 @@
 /**
- * tAgent Server
+ * PAAW Server
  *
- * HTTP + WebSocket server for tAgent Personal AI Assistant.
+ * HTTP + WebSocket server for PAAW — Personal AI Assistant Workspace.
  * Uses node-pty for CLI interaction.
  *
  * Key endpoints:
@@ -28,16 +28,16 @@ const execAsync = promisify(execCb);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DASHBOARD_ROOT = resolve(__dirname, "../../ui");
-const TAGENT_ROOT = resolve(__dirname, "../../../");
-const CONVERSATIONS_ROOT = resolve(TAGENT_ROOT, "data/crews/conversation");
-const CREWS_ROOT = resolve(TAGENT_ROOT, "data/crews");
-const SKILLS_ROOT = resolve(TAGENT_ROOT, "data/skills");
-const DOCS_ROOT = resolve(TAGENT_ROOT, "docs");
+const PAAW_ROOT = resolve(__dirname, "../../../");
+const CONVERSATIONS_ROOT = resolve(PAAW_ROOT, "data/crews/conversation");
+const CREWS_ROOT = resolve(PAAW_ROOT, "data/crews");
+const SKILLS_ROOT = resolve(PAAW_ROOT, "data/skills");
+const DOCS_ROOT = resolve(PAAW_ROOT, "docs");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
-const APPS_ROOT = resolve(TAGENT_ROOT, "data/apps");
+const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
 
-const PORT = parseInt(process.env.TAGENT_PORT || "4097", 10);
+const PORT = parseInt(process.env.PAAW_PORT || "4097", 10);
 
 // Simple path hash: replace non-alphanumeric with underscore
 function projectPathHash(path) {
@@ -57,19 +57,19 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
-  // tAgent API
-  const tagentHandled = await tagentApiHandler(req, res);
-  if (tagentHandled) return;
+  // PAAW API
+  const paawHandled = await paawApiHandler(req, res);
+  if (paawHandled) return;
 
   // Cron API
   const handled = await cronApiHandler(req, res);
   if (handled) return;
 
-  // Helper: resolve directory (tAgent has flat structure, no factory nesting)
+  // Helper: resolve directory (PAAW has flat structure, no factory nesting)
   function factoryDir(_factoryId, subdir) {
     if (subdir === "crews") return CREWS_ROOT;
     if (subdir === "docs") return DOCS_ROOT;
-    return resolve(TAGENT_ROOT, subdir);
+    return resolve(PAAW_ROOT, subdir);
   }
 
   // Helper: get factoryId from query param (kept for backward compat)
@@ -314,7 +314,7 @@ const server = createServer(async (req, res) => {
   const appDataGetMatch = req.method === "GET" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
   if (appDataGetMatch) {
     const appId = appDataGetMatch[1];
-    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
+    const dataDir = resolve(PAAW_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -332,7 +332,7 @@ const server = createServer(async (req, res) => {
   const appDataPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
   if (appDataPutMatch) {
     const appId = appDataPutMatch[1];
-    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
+    const dataDir = resolve(PAAW_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -351,7 +351,7 @@ const server = createServer(async (req, res) => {
   const appDataPostMatch = req.method === "POST" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
   if (appDataPostMatch) {
     const appId = appDataPostMatch[1];
-    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
+    const dataDir = resolve(PAAW_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -375,7 +375,7 @@ const server = createServer(async (req, res) => {
   const appDataDelMatch = req.method === "DELETE" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
   if (appDataDelMatch) {
     const [, appId, itemId] = appDataDelMatch;
-    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
+    const dataDir = resolve(PAAW_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -397,7 +397,7 @@ const server = createServer(async (req, res) => {
   const appDataPatchMatch = req.method === "PATCH" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
   if (appDataPatchMatch) {
     const [, appId, itemId] = appDataPatchMatch;
-    const dataDir = resolve(TAGENT_ROOT, "data/app-data");
+    const dataDir = resolve(PAAW_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
     try {
@@ -596,7 +596,7 @@ ${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞�
     const dataFile = join(outDir, "_skill_data.json");
     await writeFile(dataFile, JSON.stringify({ skills: skillData, apps: appData }, null, 2), "utf-8");
 
-    const systemPrompt = `你是 tAgent 的數據分析師。請讀取 ${dataFile} 中的即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
+    const systemPrompt = `你是 PAAW 的數據分析師。請讀取 ${dataFile} 中的即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
 
 ## 摘要
 - Total Skills: ${summary.totalSkills}
@@ -722,8 +722,8 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     return;
   }
 
-  // GET /api/tagent/app-chat/:appId — get app builder chat history
-  const appChatGetMatch = req.method === "GET" && req.url?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
+  // GET /api/paaw/app-chat/:appId — get app builder chat history
+  const appChatGetMatch = req.method === "GET" && req.url?.match(/^\/api\/paaw\/app-chat\/([\w.-]+)$/);
   if (appChatGetMatch) {
     const appId = appChatGetMatch[1];
     try {
@@ -738,8 +738,8 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     return true;
   }
 
-  // PUT /api/tagent/app-chat/:appId — save app builder chat history
-  const appChatPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/tagent\/app-chat\/([\w.-]+)$/);
+  // PUT /api/paaw/app-chat/:appId — save app builder chat history
+  const appChatPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/paaw\/app-chat\/([\w.-]+)$/);
   if (appChatPutMatch) {
     const appId = appChatPutMatch[1];
     try {
@@ -916,8 +916,8 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     if (!htmlPath || !htmlPath.startsWith("/")) {
       res.writeHead(400); res.end("Missing path"); return;
     }
-    // Safety: only allow reading from tAgent paths
-    if (!htmlPath.includes("/tagent/") && !htmlPath.includes(PHYSICAL_SKILL_ROOT)) {
+    // Safety: only allow reading from PAAW paths
+    if (!htmlPath.includes("/paaw/") && !htmlPath.includes(PHYSICAL_SKILL_ROOT)) {
       res.writeHead(403); res.end("Forbidden"); return;
     }
     try {
@@ -936,7 +936,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
     const { htmlPath, skillId, reportName } = parsed;
 
-    if (!htmlPath || !htmlPath.includes("/tagent/")) {
+    if (!htmlPath || !htmlPath.includes("/paaw/")) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid path" })); return;
     }
@@ -982,16 +982,16 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
   if (req.method === "GET" && req.url?.match(/^\/api\/factories(?:\?.*)?$/)) {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify([{
-      id: "default", name: "tAgent", description: "Personal AI Assistant",
+      id: "default", name: "PAAW", description: "Personal AI Assistant",
       icon: "🐾", version: "2.0.0", createdAt: new Date().toISOString()
     }]));
     return;
   }
 
-  // POST/DELETE /api/factories — disabled in tAgent (single team)
+  // POST/DELETE /api/factories — disabled in PAAW (single team)
   if (req.url?.startsWith("/api/factories") && (req.method === "POST" || req.method === "DELETE")) {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, note: "tAgent uses flat crew structure" }));
+    res.end(JSON.stringify({ ok: true, note: "PAAW uses flat crew structure" }));
     return;
   }
 
@@ -1068,7 +1068,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/skill-lab/build-files — list skill build files
   if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/build-files")) {
     try {
-      const skillsDir = join(TAGENT_ROOT, "data/skills");
+      const skillsDir = join(PAAW_ROOT, "data/skills");
       const results = [];
       // Scan skills/building/ directory for build-*.md files
       try {
@@ -1093,7 +1093,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   // GET /api/report-lab/training-files — list report training files
   if (req.method === "GET" && req.url?.startsWith("/api/report-lab/training-files")) {
     try {
-      const skillsDir = join(TAGENT_ROOT, "data/skills");
+      const skillsDir = join(PAAW_ROOT, "data/skills");
       const results = [];
       // Scan skills/training/ for report-*.md files
       const trainingDir = join(skillsDir, "training");
@@ -1164,29 +1164,29 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
-  // GET /api/tagent-root — return tAgent base path
-  if (req.method === "GET" && req.url === "/api/tagent-root") {
+  // GET /api/paaw-root — return PAAW base path
+  if (req.method === "GET" && req.url === "/api/paaw-root") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT }));
+    res.end(JSON.stringify({ paawRoot: PAAW_ROOT }));
     return;
   }
 
-  // GET /api/factory-root — return tAgent root path
+  // GET /api/factory-root — return PAAW root path
   const factoryRootMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-root(?:\?(.*))?$/);
   if (factoryRootMatch) {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ factoryRoot: TAGENT_ROOT, factoryId: "default" }));
+    res.end(JSON.stringify({ factoryRoot: PAAW_ROOT, factoryId: "default" }));
     return;
   }
 
-async function tagentApiHandler(req, res) {
+async function paawApiHandler(req, res) {
   const url = new URL(req.url, "http://localhost");
   const path = url.pathname;
 
-  // GET /api/tagent/cli-config — get CLI defaults
-  if (req.method === "GET" && path === "/api/tagent/cli-config") {
+  // GET /api/paaw/cli-config — get CLI defaults
+  if (req.method === "GET" && path === "/api/paaw/cli-config") {
     try {
-      const filePath = resolve(TAGENT_DATA_DIR, "cli-config.json");
+      const filePath = resolve(PAAW_DATA_DIR, "cli-config.json");
       const data = JSON.parse(await readFile(filePath, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
@@ -1197,12 +1197,12 @@ async function tagentApiHandler(req, res) {
     return true;
   }
 
-  // POST /api/tagent/cli-config — save CLI defaults
-  if (req.method === "POST" && path === "/api/tagent/cli-config") {
+  // POST /api/paaw/cli-config — save CLI defaults
+  if (req.method === "POST" && path === "/api/paaw/cli-config") {
     try {
       const body = JSON.parse(await readBody(req));
       body.configured = true;
-      await writeFile(resolve(TAGENT_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
+      await writeFile(resolve(PAAW_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
     } catch (err) {
@@ -1346,10 +1346,10 @@ async function tagentApiHandler(req, res) {
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT, models, currentModel }));
+      res.end(JSON.stringify({ paawRoot: PAAW_ROOT, models, currentModel }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ tagentRoot: TAGENT_ROOT, models: [], currentModel: "", error: err.message }));
+      res.end(JSON.stringify({ paawRoot: PAAW_ROOT, models: [], currentModel: "", error: err.message }));
     }
     return;
   }
@@ -2379,19 +2379,19 @@ function startWatcher(root, sseRes) {
 }
 
 
-// ── tAgent Personal Assistant APIs ──
+// ── PAAW Personal Assistant APIs ──
 
-const TAGENT_DATA_DIR = resolve(TAGENT_ROOT, "data");
-const TAGENT_USER_FILE = resolve(TAGENT_DATA_DIR, "user.json");
-const TAGENT_CHAT_DIR = resolve(TAGENT_DATA_DIR, "chats");
+const PAAW_DATA_DIR = resolve(PAAW_ROOT, "data");
+const PAAW_USER_FILE = resolve(PAAW_DATA_DIR, "user.json");
+const PAAW_CHAT_DIR = resolve(PAAW_DATA_DIR, "chats");
 
-await mkdir(TAGENT_DATA_DIR, { recursive: true });
-await mkdir(TAGENT_CHAT_DIR, { recursive: true });
+await mkdir(PAAW_DATA_DIR, { recursive: true });
+await mkdir(PAAW_CHAT_DIR, { recursive: true });
 
-  // GET /api/tagent/user — get user profile
-  if (req.method === "GET" && path === "/api/tagent/user") {
+  // GET /api/paaw/user — get user profile
+  if (req.method === "GET" && path === "/api/paaw/user") {
     try {
-      const data = JSON.parse(await readFile(TAGENT_USER_FILE, "utf-8"));
+      const data = JSON.parse(await readFile(PAAW_USER_FILE, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2401,22 +2401,22 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // POST /api/tagent/user — save user profile (onboarding)
-  if (req.method === "POST" && path === "/api/tagent/user") {
+  // POST /api/paaw/user — save user profile (onboarding)
+  if (req.method === "POST" && path === "/api/paaw/user") {
     const body = JSON.parse(await readBody(req));
-    await writeFile(TAGENT_USER_FILE, JSON.stringify(body, null, 2), "utf-8");
+    await writeFile(PAAW_USER_FILE, JSON.stringify(body, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
     return true;
   }
 
-  // POST /api/tagent/avatar — upload assistant avatar
-  if (req.method === "POST" && path === "/api/tagent/avatar") {
+  // POST /api/paaw/avatar — upload assistant avatar
+  if (req.method === "POST" && path === "/api/paaw/avatar") {
     try {
       const body = JSON.parse(await readBody(req));
       const { data: base64Data, filename } = body;
       if (!base64Data) { res.writeHead(400); res.end(JSON.stringify({ error: "no data" })); return true; }
-      const avatarDir = resolve(TAGENT_DATA_DIR, "avatars");
+      const avatarDir = resolve(PAAW_DATA_DIR, "avatars");
       await mkdir(avatarDir, { recursive: true });
       const ext = (filename || "").split(".").pop() || "png";
       const avatarName = `assistant.${ext}`;
@@ -2425,21 +2425,21 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
       await writeFile(avatarPath, buffer);
       // Update user profile with avatar path
       let userProfile;
-      try { userProfile = JSON.parse(readFileSync(TAGENT_USER_FILE, "utf-8")); } catch { userProfile = {}; }
-      userProfile.assistantAvatar = `/api/tagent/avatar/assistant`;
-      await writeFile(TAGENT_USER_FILE, JSON.stringify(userProfile, null, 2), "utf-8");
+      try { userProfile = JSON.parse(readFileSync(PAAW_USER_FILE, "utf-8")); } catch { userProfile = {}; }
+      userProfile.assistantAvatar = `/api/paaw/avatar/assistant`;
+      await writeFile(PAAW_USER_FILE, JSON.stringify(userProfile, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, path: `/api/tagent/avatar/assistant` }));
+      res.end(JSON.stringify({ ok: true, path: `/api/paaw/avatar/assistant` }));
     } catch (err) {
       res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }
 
-  // GET /api/tagent/avatar/assistant — serve assistant avatar
-  if (req.method === "GET" && path === "/api/tagent/avatar/assistant") {
+  // GET /api/paaw/avatar/assistant — serve assistant avatar
+  if (req.method === "GET" && path === "/api/paaw/avatar/assistant") {
     try {
-      const avatarDir = resolve(TAGENT_DATA_DIR, "avatars");
+      const avatarDir = resolve(PAAW_DATA_DIR, "avatars");
       const files = await readdir(avatarDir);
       const avatarFile = files.find(f => f.startsWith("assistant."));
       if (avatarFile) {
@@ -2456,14 +2456,14 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // GET /api/tagent/chats — list all chat sessions
-  if (req.method === "GET" && path === "/api/tagent/chats") {
+  // GET /api/paaw/chats — list all chat sessions
+  if (req.method === "GET" && path === "/api/paaw/chats") {
     try {
-      const files = await readdir(TAGENT_CHAT_DIR);
+      const files = await readdir(PAAW_CHAT_DIR);
       const chats = [];
       for (const f of files.filter(f => f.endsWith(".json")).sort().reverse()) {
         try {
-          const raw = JSON.parse(await readFile(resolve(TAGENT_CHAT_DIR, f), "utf-8"));
+          const raw = JSON.parse(await readFile(resolve(PAAW_CHAT_DIR, f), "utf-8"));
           chats.push({ id: raw.id, title: raw.title || "新對話", messages: raw.messages || [], createdAt: raw.createdAt, updatedAt: raw.updatedAt });
         } catch {}
       }
@@ -2476,11 +2476,11 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // GET /api/tagent/chats/:id — get single chat
-  if (req.method === "GET" && path.startsWith("/api/tagent/chats/")) {
+  // GET /api/paaw/chats/:id — get single chat
+  if (req.method === "GET" && path.startsWith("/api/paaw/chats/")) {
     const chatId = path.split("/").pop().replace(".json", "");
     try {
-      const data = JSON.parse(await readFile(resolve(TAGENT_CHAT_DIR, `${chatId}.json`), "utf-8"));
+      const data = JSON.parse(await readFile(resolve(PAAW_CHAT_DIR, `${chatId}.json`), "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2489,21 +2489,21 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // POST /api/tagent/chats — create new chat
-  if (req.method === "POST" && path === "/api/tagent/chats") {
+  // POST /api/paaw/chats — create new chat
+  if (req.method === "POST" && path === "/api/paaw/chats") {
     const body = JSON.parse(await readBody(req));
     const chatId = body.id || `chat_${Date.now()}`;
     const chatData = { id: chatId, title: body.title || "新對話", messages: body.messages || [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    await writeFile(resolve(TAGENT_CHAT_DIR, `${chatId}.json`), JSON.stringify(chatData, null, 2), "utf-8");
+    await writeFile(resolve(PAAW_CHAT_DIR, `${chatId}.json`), JSON.stringify(chatData, null, 2), "utf-8");
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(chatData));
     return true;
   }
 
-  // PUT /api/tagent/chats/:id — update chat (add messages, rename)
-  if (req.method === "PUT" && path.startsWith("/api/tagent/chats/")) {
+  // PUT /api/paaw/chats/:id — update chat (add messages, rename)
+  if (req.method === "PUT" && path.startsWith("/api/paaw/chats/")) {
     const chatId = path.split("/").pop().replace(".json", "");
-    const filePath = resolve(TAGENT_CHAT_DIR, `${chatId}.json`);
+    const filePath = resolve(PAAW_CHAT_DIR, `${chatId}.json`);
     let existing;
     try {
       existing = JSON.parse(await readFile(filePath, "utf-8"));
@@ -2518,20 +2518,20 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // DELETE /api/tagent/chats/:id — delete chat
-  if (req.method === "DELETE" && path.startsWith("/api/tagent/chats/")) {
+  // DELETE /api/paaw/chats/:id — delete chat
+  if (req.method === "DELETE" && path.startsWith("/api/paaw/chats/")) {
     const chatId = path.split("/").pop().replace(".json", "");
-    try { await unlink(resolve(TAGENT_CHAT_DIR, `${chatId}.json`)); } catch {}
+    try { await unlink(resolve(PAAW_CHAT_DIR, `${chatId}.json`)); } catch {}
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
     return true;
   }
 
   // ── App Builder Rules API ──
-  const APP_RULES_PATH = resolve(TAGENT_ROOT, "data/config/app-builder-rules.md");
+  const APP_RULES_PATH = resolve(PAAW_ROOT, "data/config/app-builder-rules.md");
 
-  // GET /api/tagent/app-rules
-  if (req.method === "GET" && path === "/api/tagent/app-rules") {
+  // GET /api/paaw/app-rules
+  if (req.method === "GET" && path === "/api/paaw/app-rules") {
     try {
       const rules = await readFile(APP_RULES_PATH, "utf-8");
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
@@ -2543,11 +2543,11 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // PUT /api/tagent/app-rules
-  if (req.method === "PUT" && path === "/api/tagent/app-rules") {
+  // PUT /api/paaw/app-rules
+  if (req.method === "PUT" && path === "/api/paaw/app-rules") {
     try {
       const body = await readBody(req);
-      await mkdir(resolve(TAGENT_ROOT, "data/config"), { recursive: true });
+      await mkdir(resolve(PAAW_ROOT, "data/config"), { recursive: true });
       await writeFile(APP_RULES_PATH, body, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: "Rules updated" }));
@@ -2560,12 +2560,12 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
   // ── App Import/Export API ──
 
-  // GET /api/tagent/apps/:id/export — export app as shareable bundle
-  const appExportMatch = req.method === "GET" && path.match(/^\/api\/tagent\/apps\/([\w.-]+)\/export$/);
+  // GET /api/paaw/apps/:id/export — export app as shareable bundle
+  const appExportMatch = req.method === "GET" && path.match(/^\/api\/paaw\/apps\/([\w.-]+)\/export$/);
   if (appExportMatch) {
     const appId = appExportMatch[1];
     const bundle = {
-      manifest: "tagent-app-v1",
+      manifest: "paaw-app-v1",
       exportedAt: new Date().toISOString(),
       app: null,
       skills: {},
@@ -2574,7 +2574,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     };
     try {
       // App definition
-      bundle.app = JSON.parse(await readFile(resolve(TAGENT_ROOT, "data/apps", `${appId}.json`), "utf-8"));
+      bundle.app = JSON.parse(await readFile(resolve(PAAW_ROOT, "data/apps", `${appId}.json`), "utf-8"));
     } catch {}
     if (!bundle.app) {
       res.writeHead(404);
@@ -2583,27 +2583,27 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     }
     try {
       // Skills
-      const skillsDir = resolve(TAGENT_ROOT, "data/apps", appId, "skills");
+      const skillsDir = resolve(PAAW_ROOT, "data/apps", appId, "skills");
       const skillDirs = await readdir(skillsDir);
       for (const sd of skillDirs) {
         try { bundle.skills[sd] = await readFile(resolve(skillsDir, sd, "SKILL.md"), "utf-8"); } catch {}
       }
     } catch {}
-    try { bundle.html = await readFile(resolve(TAGENT_ROOT, "data/apps", appId, "app.html"), "utf-8"); } catch {}
-    try { bundle.data = JSON.parse(await readFile(resolve(TAGENT_ROOT, "data/app-data", `${appId}.json`), "utf-8")); } catch {}
+    try { bundle.html = await readFile(resolve(PAAW_ROOT, "data/apps", appId, "app.html"), "utf-8"); } catch {}
+    try { bundle.data = JSON.parse(await readFile(resolve(PAAW_ROOT, "data/app-data", `${appId}.json`), "utf-8")); } catch {}
 
     res.writeHead(200, { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="${appId}-bundle.json"` });
     res.end(JSON.stringify(bundle, null, 2));
     return true;
   }
 
-  // POST /api/tagent/apps/import — import app from bundle
-  if (req.method === "POST" && path === "/api/tagent/apps/import") {
+  // POST /api/paaw/apps/import — import app from bundle
+  if (req.method === "POST" && path === "/api/paaw/apps/import") {
     try {
       const bundle = JSON.parse(await readBody(req));
-      if (bundle.manifest !== "tagent-app-v1") {
+      if (bundle.manifest !== "paaw-app-v1") {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: "Invalid bundle format. Expected manifest: tagent-app-v1" }));
+        res.end(JSON.stringify({ error: "Invalid bundle format. Expected manifest: paaw-app-v1" }));
         return true;
       }
       const app = bundle.app;
@@ -2613,24 +2613,24 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
         return true;
       }
       // Write app definition
-      await writeFile(resolve(TAGENT_ROOT, "data/apps", `${app.id}.json`), JSON.stringify(app, null, 2), "utf-8");
+      await writeFile(resolve(PAAW_ROOT, "data/apps", `${app.id}.json`), JSON.stringify(app, null, 2), "utf-8");
       // Write skills
       if (bundle.skills) {
         for (const [skillName, skillContent] of Object.entries(bundle.skills)) {
-          const skillDir = resolve(TAGENT_ROOT, "data/apps", app.id, "skills", skillName);
+          const skillDir = resolve(PAAW_ROOT, "data/apps", app.id, "skills", skillName);
           await mkdir(skillDir, { recursive: true });
           await writeFile(resolve(skillDir, "SKILL.md"), skillContent, "utf-8");
         }
       }
       // Write app.html
       if (bundle.html) {
-        const appDir = resolve(TAGENT_ROOT, "data/apps", app.id);
+        const appDir = resolve(PAAW_ROOT, "data/apps", app.id);
         await mkdir(appDir, { recursive: true });
         await writeFile(resolve(appDir, "app.html"), bundle.html, "utf-8");
       }
       // Write app data
       if (bundle.data) {
-        await writeFile(resolve(TAGENT_ROOT, "data/app-data", `${app.id}.json`), JSON.stringify(bundle.data, null, 2), "utf-8");
+        await writeFile(resolve(PAAW_ROOT, "data/app-data", `${app.id}.json`), JSON.stringify(bundle.data, null, 2), "utf-8");
       }
       invalidateCache();
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -2644,10 +2644,10 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
   // ── Provider / Model APIs ──
 
-  // GET /api/tagent/providers — list providers + models (mask apiKey)
-  if (req.method === "GET" && path === "/api/tagent/providers") {
+  // GET /api/paaw/providers — list providers + models (mask apiKey)
+  if (req.method === "GET" && path === "/api/paaw/providers") {
     try {
-      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "config/providers.json"), "utf-8"));
+      const config = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
       const hasAnyKey = Object.values(config.providers).some((p) => p.apiKey && p.apiKey.length > 0);
       const safe = { active: config.active, defaultModel: config.defaultModel, configured: hasAnyKey, providers: {} };
       for (const [k, v] of Object.entries(config.providers)) {
@@ -2662,10 +2662,10 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // PUT /api/tagent/providers — update provider config
-  if (req.method === "PUT" && path === "/api/tagent/providers") {
+  // PUT /api/paaw/providers — update provider config
+  if (req.method === "PUT" && path === "/api/paaw/providers") {
     try {
-      const filePath = resolve(TAGENT_DATA_DIR, "config/providers.json");
+      const filePath = resolve(PAAW_DATA_DIR, "config/providers.json");
       const config = JSON.parse(await readFile(filePath, "utf-8"));
       const body = JSON.parse(await readBody(req));
       if (body.active) config.active = body.active;
@@ -2699,19 +2699,19 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(safe));
     } catch (err) {
-      console.error("[tAgent] Provider update error:", err);
+      console.error("[PAAW] Provider update error:", err);
       res.writeHead(500); res.end(JSON.stringify({ error: "Failed to update providers" }));
     }
     return true;
   }
 
   // ── Workspaces API ──
-  const TAGENT_WORKSPACES_FILE = resolve(TAGENT_DATA_DIR, "workspaces.json");
+  const PAAW_WORKSPACES_FILE = resolve(PAAW_DATA_DIR, "workspaces.json");
 
-  // GET /api/tagent/workspaces
-  if (req.method === "GET" && path === "/api/tagent/workspaces") {
+  // GET /api/paaw/workspaces
+  if (req.method === "GET" && path === "/api/paaw/workspaces") {
     try {
-      const data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8"));
+      const data = JSON.parse(await readFile(PAAW_WORKSPACES_FILE, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2721,17 +2721,17 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // POST /api/tagent/workspaces — add directory
-  if (req.method === "POST" && path === "/api/tagent/workspaces") {
+  // POST /api/paaw/workspaces — add directory
+  if (req.method === "POST" && path === "/api/paaw/workspaces") {
     try {
       let data;
-      try { data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      try { data = JSON.parse(await readFile(PAAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
       const body = JSON.parse(await readBody(req));
       const dir = body.directory;
       if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
       if (!data.directories.includes(dir)) {
         data.directories.push(dir);
-        await writeFile(TAGENT_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+        await writeFile(PAAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
@@ -2741,14 +2741,14 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // DELETE /api/tagent/workspaces?dir=... — remove directory
-  if (req.method === "DELETE" && path === "/api/tagent/workspaces") {
+  // DELETE /api/paaw/workspaces?dir=... — remove directory
+  if (req.method === "DELETE" && path === "/api/paaw/workspaces") {
     try {
       const dir = url.searchParams.get("dir");
       let data;
-      try { data = JSON.parse(await readFile(TAGENT_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      try { data = JSON.parse(await readFile(PAAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
       data.directories = data.directories.filter((d) => d !== dir);
-      await writeFile(TAGENT_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+      await writeFile(PAAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     } catch {
@@ -2759,13 +2759,13 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
 
   // ── Chat completion (SSE streaming) ──
 
-  // POST /api/tagent/chat — chat completion with streaming + tool calling
-  if (req.method === "POST" && path === "/api/tagent/chat") {
+  // POST /api/paaw/chat — chat completion with streaming + tool calling
+  if (req.method === "POST" && path === "/api/paaw/chat") {
     try {
       const body = JSON.parse(await readBody(req));
       const { messages, model: requestedModel, provider: requestedProvider } = body;
 
-      const config = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "config/providers.json"), "utf-8"));
+      const config = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
       const providerId = requestedProvider || config.active;
       const provider = config.providers[providerId];
       if (!provider) {
@@ -2779,12 +2779,12 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
       const apiUrl = `${baseURL}/chat/completions`;
 
       const userProfile = (() => {
-        try { return JSON.parse(readFileSync(TAGENT_USER_FILE, "utf-8")); } catch { return null; }
+        try { return JSON.parse(readFileSync(PAAW_USER_FILE, "utf-8")); } catch { return null; }
       })();
 
       const workspaces = (() => {
         try {
-          const ws = JSON.parse(readFileSync(resolve(TAGENT_DATA_DIR, "workspaces.json"), "utf-8"));
+          const ws = JSON.parse(readFileSync(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
           return ws.directories || [];
         } catch { return []; }
       })();
@@ -2798,7 +2798,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
       // Load MEMORY.md (assistant's long-term memory)
       let memoryContent = "";
       try {
-        memoryContent = await readFile(resolve(TAGENT_DATA_DIR, "MEMORY.md"), "utf-8");
+        memoryContent = await readFile(resolve(PAAW_DATA_DIR, "MEMORY.md"), "utf-8");
       } catch {}
 
       // Build app instructions
@@ -2807,12 +2807,12 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
       // Load recent chat history for context continuity
       let recentChatSummary = "";
       try {
-        const chatFiles = await readdir(TAGENT_CHAT_DIR);
+        const chatFiles = await readdir(PAAW_CHAT_DIR);
         const sorted = chatFiles.filter(f => f.endsWith(".json")).sort().reverse();
         const recentChats = [];
         for (const f of sorted.slice(0, 5)) {  // Last 5 chats
           try {
-            const chat = JSON.parse(await readFile(resolve(TAGENT_CHAT_DIR, f), "utf-8"));
+            const chat = JSON.parse(await readFile(resolve(PAAW_CHAT_DIR, f), "utf-8"));
             if (chat.messages?.length > 0) {
               const lastMsgs = chat.messages.slice(-4);  // Last 4 messages per chat
               const summary = lastMsgs.map(m => `${m.role === "user" ? "👤" : "🤖"} ${m.content.slice(0, 100)}`).join("\n");
@@ -2828,7 +2828,7 @@ await mkdir(TAGENT_CHAT_DIR, { recursive: true });
       // Load app builder rules (dynamic, not hardcoded)
       let appBuilderRules = "";
       try {
-        appBuilderRules = await readFile(resolve(TAGENT_ROOT, "data/config/app-builder-rules.md"), "utf-8");
+        appBuilderRules = await readFile(resolve(PAAW_ROOT, "data/config/app-builder-rules.md"), "utf-8");
       } catch {}
 
       const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。
@@ -2873,7 +2873,7 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
       const apiHeaders = {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${provider.apiKey}`,
-        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://tagent.ai", "X-Title": "tAgent" } : {}),
+        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
       };
 
       const apiMessages = [
@@ -2951,7 +2951,7 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
             }
           }
         } catch (err) {
-          console.error("[tAgent] Stream error:", err.message);
+          console.error("[PAAW] Stream error:", err.message);
         }
 
         if (toolCalls.length === 0 || finishReason !== "tool_calls") {
@@ -2996,7 +2996,7 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (err) {
-      console.error("[tAgent] Chat error:", err.message);
+      console.error("[PAAW] Chat error:", err.message);
       if (!res.headersSent) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));
@@ -3020,11 +3020,11 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
 });
 
 server.listen(PORT, () => {
-  console.log(`[tAgent] Listening on http://127.0.0.1:${PORT}`);
+  console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
 });
 
 // ── WebSocket server for PTY (Qwen CLI) ──
-const WS_PORT = parseInt(process.env.TAGENT_WS_PORT || "4098", 10);
+const WS_PORT = parseInt(process.env.PAAW_WS_PORT || "4098", 10);
 const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
 const ptySessions = new Map(); // ws -> { pty, id }
 
@@ -3087,7 +3087,7 @@ function spawnCli(ptySpawn, opts) {
   const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
   let bin = process.env[config.envBin] || config.bins[binKey];
   const args = config.buildArgs(opts);
-  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || TAGENT_ROOT;
+  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
 
   const ptyOpts = {
     name: "xterm-256color", cols: 120, rows: 30,
@@ -3273,9 +3273,9 @@ wss.on("connection", (ws, req) => {
 console.log(`[PTY-WS] WebSocket server listening on ws://127.0.0.1:${WS_PORT}`);
 
 // ── Cron Job Scheduler ──
-const CRON_JOBS_FILE = resolve(TAGENT_ROOT, "factories/default/cron-jobs.json");
-const CRON_LOGS_DIR = resolve(TAGENT_ROOT, "logs/cron");
-const CRON_RESULTS_DIR = resolve(TAGENT_ROOT, "logs/cron-results");
+const CRON_JOBS_FILE = resolve(PAAW_ROOT, "factories/default/cron-jobs.json");
+const CRON_LOGS_DIR = resolve(PAAW_ROOT, "logs/cron");
+const CRON_RESULTS_DIR = resolve(PAAW_ROOT, "logs/cron-results");
 
 // Simple cron expression parser: "min hour day month dow"
 function matchesCron(expr, date) {
@@ -3324,10 +3324,10 @@ async function runCronJob(job) {
   // ── Reminder type: inject message into chat ──
   if (job.type === "reminder") {
     try {
-      const files = await readdir(TAGENT_CHAT_DIR);
+      const files = await readdir(PAAW_CHAT_DIR);
       const chatFiles = files.filter(f => f.endsWith(".json")).sort().reverse();
       if (chatFiles.length > 0) {
-        const chatPath = resolve(TAGENT_CHAT_DIR, chatFiles[0]);
+        const chatPath = resolve(PAAW_CHAT_DIR, chatFiles[0]);
         const chat = JSON.parse(await readFile(chatPath, "utf-8"));
         chat.messages.push({
           role: "assistant",
@@ -3368,7 +3368,7 @@ async function runCronJob(job) {
       prompt += `\n\nParameters:\n${Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
     }
 
-    const appDir = resolve(TAGENT_ROOT, "skills/physical-skill", job.reportAppId);
+    const appDir = resolve(PAAW_ROOT, "skills/physical-skill", job.reportAppId);
     const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "20", prompt], {
       cwd: appDir,
       env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },

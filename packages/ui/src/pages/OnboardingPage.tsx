@@ -31,7 +31,7 @@ export default function OnboardingPage({ onComplete }: Props) {
   const handleFinish = async () => {
     const profile: UserProfile = { name, intro, style, assistantName: "林語晴", onboarded: true, onboardedAt: new Date().toISOString() };
     try {
-      await fetch(`${API_BASE}/api/tagent/user`, {
+      await fetch(`${API_BASE}/api/paaw/user`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...profile, onboarded: true, onboardedAt: new Date().toISOString() }),

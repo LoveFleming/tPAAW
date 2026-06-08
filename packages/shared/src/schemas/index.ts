@@ -1,5 +1,5 @@
 /**
- * tAgent Shared Schemas — Data Contracts
+ * PAAW Shared Schemas — Data Contracts
  * 
  * Every API has a TypeBox schema here. This IS the data contract.
  * Schemas include descriptions for AI context generation.

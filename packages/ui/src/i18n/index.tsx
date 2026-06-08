@@ -1,5 +1,5 @@
 /**
- * tAgent i18n — lightweight internationalization
+ * PAAW i18n — lightweight internationalization
  * 
  * No heavy library needed. Just a React context + JSON locale files.
  * 
@@ -38,7 +38,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
 
 // ── Storage ────────────────────────────────────────────
 
-const STORAGE_KEY = "tagent.locale";
+const STORAGE_KEY = "paaw.locale";
 
 function getStoredLocale(): Locale {
   try {

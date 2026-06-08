@@ -1,5 +1,5 @@
 /**
- * tAgent Shared Types
+ * PAAW Shared Types
  */
 
 // ── Run Status ──────────────────────────────────────────

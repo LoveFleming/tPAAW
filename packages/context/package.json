@@ -1,5 +1,5 @@
 {
-  "name": "@tagent/context",
+  "name": "@paaw/context",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tagent/shared": "*",
-    "@tagent/db": "*"
+    "@paaw/shared": "*",
+    "@paaw/db": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.4"

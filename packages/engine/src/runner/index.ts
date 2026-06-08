@@ -4,9 +4,9 @@
  * All skill runs go through this, regardless of trigger source.
  * Dispatches to the correct runner based on skill.execution.runner.
  */
-import type { RunContext, RunResult, RunnerType } from "@tagent/shared";
-import { generateId, nowISO, measureMs } from "@tagent/shared";
-import type { RunsRepo } from "@tagent/db";
+import type { RunContext, RunResult, RunnerType } from "@paaw/shared";
+import { generateId, nowISO, measureMs } from "@paaw/shared";
+import type { RunsRepo } from "@paaw/db";
 
 // ── Runner Interface ────────────────────────────────────
 

@@ -1,14 +1,14 @@
 /**
- * tAgent Database Migrations
+ * PAAW Database Migrations
  * 
- * Run with: pnpm --filter @tagent/db migrate
+ * Run with: pnpm --filter @paaw/db migrate
  */
 import Database from "better-sqlite3";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { mkdirSync } from "fs";
 import { getDbPath } from "./paths";
-import type { tAgentDB } from "./types";
+import type { PaawDB } from "./types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

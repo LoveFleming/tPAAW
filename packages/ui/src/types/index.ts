@@ -106,7 +106,7 @@ export function buildSystemPrompt(
     skillDefinitions: Map<string, SkillDefinition>,
     selectedSkillIds: string[],
     formData?: Record<string, string>,
-    paths?: { tagentRoot: string; projectRoot: string; factoryId?: string },
+    paths?: { paawRoot: string; projectRoot: string; factoryId?: string },
     workspaces?: string[]
 ): string {
     // 角色永遠由員工決定
@@ -114,8 +114,8 @@ export function buildSystemPrompt(
 
     // Inject base paths
     if (paths) {
-        const factoryPath = `${paths.tagentRoot}/crews`;
-        parts.push(`\n## 環境路徑\n- **tAgent Base**: ${paths.tagentRoot}\n  - Input-Prompt Skills: ${paths.tagentRoot}/skills/input-prompt/\n  - Physical Skills: ${paths.tagentRoot}/skills/physical-skill/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}${workspaces && workspaces.length > 0 ? `\n\n## Workspace 目錄\n${workspaces.map(d => `- ${d}`).join("\n")}` : ""}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
+        const factoryPath = `${paths.paawRoot}/crews`;
+        parts.push(`\n## 環境路徑\n- **PAAW Base**: ${paths.paawRoot}\n  - Input-Prompt Skills: ${paths.paawRoot}/skills/input-prompt/\n  - Physical Skills: ${paths.paawRoot}/skills/physical-skill/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}${workspaces && workspaces.length > 0 ? `\n\n## Workspace 目錄\n${workspaces.map(d => `- ${d}`).join("\n")}` : ""}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
     }
 
     for (const skillId of selectedSkillIds) {
@@ -129,13 +129,13 @@ export function buildSystemPrompt(
 
         // ── 2. useSkills — 注入檔案路徑讓 CLI 讀取 ──
         if (skillDef.useSkills.length > 0 && paths) {
-            const skillPaths = skillDef.useSkills.map(id => `- ${paths.tagentRoot}/skills/input-prompt/${id}/SKILL.md`);
+            const skillPaths = skillDef.useSkills.map(id => `- ${paths.paawRoot}/skills/input-prompt/${id}/SKILL.md`);
             parts.push(`\n### 參考技能\n請先讀取以下技能檔案：\n${skillPaths.join("\n")}`);
         }
 
         // ── 2b. usePhysicalSkills — 注入 physical skill 路徑 ──
         if (skillDef.usePhysicalSkills?.length > 0 && paths) {
-            const psPaths = skillDef.usePhysicalSkills.map(id => `- ${paths.tagentRoot}/skills/physical-skill/${id}/`);
+            const psPaths = skillDef.usePhysicalSkills.map(id => `- ${paths.paawRoot}/skills/physical-skill/${id}/`);
             parts.push(`\n### 實體技能\n請載入以下實體技能目錄：\n${psPaths.join("\n")}`);
         }
     }

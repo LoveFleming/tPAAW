@@ -1,12 +1,12 @@
 /**
- * tAgent Chat / Conversations Repository
+ * PAAW Chat / Conversations Repository
  */
 import type { Kysely } from "kysely";
-import type { tAgentDB } from "../types";
-import { generateId, nowISO } from "@tagent/shared";
+import type { PaawDB } from "../types";
+import { generateId, nowISO } from "@paaw/shared";
 
 export class ChatsRepo {
-  constructor(private db: Kysely<tAgentDB>) {}
+  constructor(private db: Kysely<PaawDB>) {}
 
   async createConversation(params: {
     userId: string;

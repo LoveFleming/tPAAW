@@ -27,7 +27,7 @@ export default function SettingsPage() {
   const [cliModels, setCliModels] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/tagent/providers`)
+    fetch(`${API_BASE}/api/paaw/providers`)
       .then(r => r.json())
       .then(data => {
         if (data.providers) setProviders(data.providers);
@@ -38,7 +38,7 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/tagent/user`)
+    fetch(`${API_BASE}/api/paaw/user`)
       .then(r => r.json())
       .then(data => { if (data) setProfile(data); })
       .catch(() => {});
@@ -50,7 +50,7 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(data => setInstalledClis(data))
       .catch(() => {});
-    fetch(`${API_BASE}/api/tagent/cli-config`)
+    fetch(`${API_BASE}/api/paaw/cli-config`)
       .then(r => r.json())
       .then(data => {
         if (data?.configured) setCliConfig({ defaultCli: data.defaultCli || "", defaultModel: data.defaultModel || "" });
@@ -71,7 +71,7 @@ export default function SettingsPage() {
   const handleSaveProviders = async () => {
     setSaving(true);
     try {
-      const resp = await fetch(`${API_BASE}/api/tagent/providers`, {
+      const resp = await fetch(`${API_BASE}/api/paaw/providers`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers }),
@@ -84,7 +84,7 @@ export default function SettingsPage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      await fetch(`${API_BASE}/api/tagent/user`, {
+      await fetch(`${API_BASE}/api/paaw/user`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile),
@@ -111,7 +111,7 @@ export default function SettingsPage() {
   const handleSaveCli = async () => {
     setSaving(true);
     try {
-      await fetch(`${API_BASE}/api/tagent/cli-config`, {
+      await fetch(`${API_BASE}/api/paaw/cli-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cliConfig),
@@ -130,12 +130,12 @@ export default function SettingsPage() {
       const base64 = (ev.target?.result as string).split(",")[1];
       setAvatarPreview(ev.target?.result as string);
       try {
-        await fetch(`${API_BASE}/api/tagent/avatar`, {
+        await fetch(`${API_BASE}/api/paaw/avatar`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: base64, filename: file.name }),
         });
-        setProfile((p: any) => ({ ...p, assistantAvatar: `/api/tagent/avatar/assistant?t=${Date.now()}` }));
+        setProfile((p: any) => ({ ...p, assistantAvatar: `/api/paaw/avatar/assistant?t=${Date.now()}` }));
       } catch {}
     };
     reader.readAsDataURL(file);

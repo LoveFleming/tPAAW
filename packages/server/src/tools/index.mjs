@@ -1,4 +1,4 @@
-// tAgent Universal App Engine
+// PAAW Universal App Engine
 // All apps are data-driven: defined in data/apps/*.json
 // Schema-based: dataShape (array|object|none) + schema defines structure
 // Generic CRUD tools work for any app based on its schema
@@ -10,9 +10,9 @@ import { fileURLToPath } from "url";
 import { spawn } from "node-pty";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TAGENT_DATA_DIR = resolve(__dirname, "../../../../data");
-const APPS_DIR = resolve(TAGENT_DATA_DIR, "apps");
-const APP_DATA_DIR = resolve(TAGENT_DATA_DIR, "app-data");
+const PAAW_DATA_DIR = resolve(__dirname, "../../../../data");
+const APPS_DIR = resolve(PAAW_DATA_DIR, "apps");
+const APP_DATA_DIR = resolve(PAAW_DATA_DIR, "app-data");
 
 // ── Helpers to work with schema ──
 
@@ -460,7 +460,7 @@ function buildHandlers(apps) {
 
     // Create app directory for skill-based apps
     if (type === "skill-based") {
-      const appDir = join(resolve(TAGENT_DATA_DIR, "apps"), id);
+      const appDir = join(resolve(PAAW_DATA_DIR, "apps"), id);
       await mkdir(appDir, { recursive: true });
 
       // Auto-generate SKILL.md if skills provided
@@ -629,7 +629,7 @@ function buildHandlers(apps) {
     handlers.memory_add = async (args) => {
       const result = await origMemoryAdd(args);
       try {
-        const memPath = resolve(TAGENT_DATA_DIR, "MEMORY.md");
+        const memPath = resolve(PAAW_DATA_DIR, "MEMORY.md");
         let memContent = "";
         try { memContent = await readFile(memPath, "utf-8"); } catch {}
         const fields = extractFields(apps.find(a => a.id === "memory"));
@@ -654,7 +654,7 @@ function buildHandlers(apps) {
         }
         await writeFile(memPath, memContent, "utf-8");
       } catch (err) {
-        console.error("[tAgent] memory MEMORY.md update error:", err.message);
+        console.error("[PAAW] memory MEMORY.md update error:", err.message);
       }
       return result;
     };
@@ -682,7 +682,7 @@ function buildHandlers(apps) {
       Object.assign(resolvedArgs, inputArgs);
 
       // 1. Locate app directory (data/apps/{appId}/)
-      const APPS_ROOT = resolve(TAGENT_DATA_DIR, "apps");
+      const APPS_ROOT = resolve(PAAW_DATA_DIR, "apps");
       const appDir = join(APPS_ROOT, appId);
       const skillsDir = join(appDir, "skills");
 
@@ -804,7 +804,7 @@ ${inputSection}
   // File tools (dataShape: none, special tools)
   handlers.file_list = async ({ path: dirPath = ".", workspace } = {}) => {
     try {
-      const workspaces = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "workspaces.json"), "utf-8"));
+      const workspaces = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
       const ws = workspace ? workspaces.directories?.find(w => w === workspace || w.includes(workspace)) : workspaces.directories?.[0];
       if (!ws) return { text: "沒有設定工作區，請先在設定中加入", error: true };
       const { readdir: rd } = await import("fs/promises");
@@ -819,7 +819,7 @@ ${inputSection}
 
   handlers.file_read = async ({ path: filePath, workspace }) => {
     try {
-      const workspaces = JSON.parse(await readFile(resolve(TAGENT_DATA_DIR, "workspaces.json"), "utf-8"));
+      const workspaces = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
       const ws = workspace ? workspaces.directories?.find(w => w === workspace || w.includes(workspace)) : workspaces.directories?.[0];
       if (!ws) return { text: "沒有設定工作區", error: true };
       const fullPath = resolve(ws, filePath);

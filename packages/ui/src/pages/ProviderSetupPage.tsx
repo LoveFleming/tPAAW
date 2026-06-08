@@ -23,7 +23,7 @@ export default function ProviderSetupPage({ onComplete }: Props) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/tagent/providers`)
+    fetch(`${API_BASE}/api/paaw/providers`)
       .then(r => r.json())
       .then(data => {
         if (data.providers) setProviders(data.providers as Record<string, ProviderData>);
@@ -51,7 +51,7 @@ export default function ProviderSetupPage({ onComplete }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const resp = await fetch(`${API_BASE}/api/tagent/providers`, {
+      const resp = await fetch(`${API_BASE}/api/paaw/providers`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

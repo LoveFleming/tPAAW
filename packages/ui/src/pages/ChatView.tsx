@@ -74,7 +74,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
 
   // ── Load providers ──
   useEffect(() => {
-    fetch(`${API_BASE}/api/tagent/providers`)
+    fetch(`${API_BASE}/api/paaw/providers`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
@@ -93,7 +93,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
   // ── Load chats (with messages) ──
   const loadChats = useCallback(async () => {
     try {
-      const resp = await fetch(`${API_BASE}/api/tagent/chats`);
+      const resp = await fetch(`${API_BASE}/api/paaw/chats`);
       if (resp.ok) {
         const data = await resp.json();
         setChats(data);
@@ -184,7 +184,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     };
     const newChat = { id: chatId, title: "新對話", messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     try {
-      await fetch(`${API_BASE}/api/tagent/chats`, {
+      await fetch(`${API_BASE}/api/paaw/chats`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChat),
       });
     } catch {}
@@ -195,7 +195,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
   };
 
   const deleteChat = async (chatId: string) => {
-    try { await fetch(`${API_BASE}/api/tagent/chats/${chatId}`, { method: "DELETE" }); } catch {}
+    try { await fetch(`${API_BASE}/api/paaw/chats/${chatId}`, { method: "DELETE" }); } catch {}
     setChats(prev => prev.filter(c => c.id !== chatId));
     if (activeChatId === chatId) {
       const remaining = chats.filter(c => c.id !== chatId);
@@ -214,7 +214,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     const firstUserMsg = msgs.find(m => m.role === "user");
     const title = firstUserMsg ? firstUserMsg.content.slice(0, 30) + (firstUserMsg.content.length > 30 ? "..." : "") : "新對話";
     try {
-      await fetch(`${API_BASE}/api/tagent/chats/${chatId}`, {
+      await fetch(`${API_BASE}/api/paaw/chats/${chatId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: msgs, title }),
       });
@@ -241,7 +241,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
-      const resp = await fetch(`${API_BASE}/api/tagent/chat`, {
+      const resp = await fetch(`${API_BASE}/api/paaw/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -334,7 +334,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     setActiveModel(modelId);
     setShowModelPicker(false);
     try {
-      await fetch(`${API_BASE}/api/tagent/providers`, {
+      await fetch(`${API_BASE}/api/paaw/providers`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: providerId, defaultModel: modelId }),
       });

@@ -306,7 +306,7 @@ export default function AppLab() {
     const saveAppChat = useCallback(async (appId: string, msgs: ChatMessage[]) => {
         if (!appId || msgs.length === 0) return;
         try {
-            await fetch(`${API}/api/tagent/app-chat/${appId}`, {
+            await fetch(`${API}/api/paaw/app-chat/${appId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ messages: msgs }),
@@ -318,7 +318,7 @@ export default function AppLab() {
     const loadAppChat = useCallback(async (appId: string): Promise<ChatMessage[]> => {
         if (!appId) return [];
         try {
-            const resp = await fetch(`${API}/api/tagent/app-chat/${appId}`);
+            const resp = await fetch(`${API}/api/paaw/app-chat/${appId}`);
             if (resp.ok) {
                 const data = await resp.json();
                 return data.messages || [];
@@ -437,9 +437,9 @@ export default function AppLab() {
     }, []);
 
     useEffect(() => {
-        fetch(`${API}/api/tagent-root`)
+        fetch(`${API}/api/paaw-root`)
             .then(r => r.ok ? r.json() : {})
-            .then((d: { tagentRoot?: string }) => { if (d.tagentRoot) setWorkingDir(d.tagentRoot); })
+            .then((d: { paawRoot?: string }) => { if (d.paawRoot) setWorkingDir(d.paawRoot); })
             .catch(() => {});
     }, []);
 

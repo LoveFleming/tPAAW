@@ -7,13 +7,13 @@
  *   - Weekly: insights, patterns, index rebuild
  */
 import type { Kysely } from "kysely";
-import type { tAgentDB } from "@tagent/db";
-import { generateId, nowISO, todayStr } from "@tagent/shared";
+import type { PaawDB } from "@paaw/db";
+import { generateId, nowISO, todayStr } from "@paaw/shared";
 import { MemoryStore } from "../memory/memory-store";
 
 export class Refinery {
   constructor(
-    private db: Kysely<tAgentDB>,
+    private db: Kysely<PaawDB>,
     private memory: MemoryStore,
   ) {}
 
