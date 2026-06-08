@@ -3185,7 +3185,8 @@ ${body}
 ${inputSection}
 
 ## 輸出指示
-只輸出結果 JSON（不要加 markdown code block）。不要加解釋。`;
+只輸出結果 JSON（不要加 markdown code block）。不要加解釋。
+${skillId === "idiom-packaging" ? "\n額外要求：在 JSON 中加入一個 \"html\" 欄位，把結果包裝成一個自給自足的 HTML 卡片（含內聯 CSS），風格：溫暖配色、圓角卡片、清晰排版、適合學習記憶。" : ""}`;
 
       // Execute via CLI
       const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";

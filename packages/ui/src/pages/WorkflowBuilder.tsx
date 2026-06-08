@@ -62,6 +62,7 @@ function previewText(output: any): string {
   if (output.translation) return output.translation.slice(0, 30);
   if (output.cards) return `${output.cards.length} 張卡片`;
   if (output.idioms) return `${output.idioms.length} 個片語`;
+  if (output.html) return "HTML 卡片";
   const str = JSON.stringify(output);
   return str.slice(0, 30);
 }
@@ -84,9 +85,15 @@ function SkillNode({ data, selected }: NodeProps) {
   const preview = data.output ? previewText(data.output) : "";
 
   return (
-    <div className={`px-4 py-3 rounded-xl shadow-sm border transition-all cursor-pointer ${
-      selected ? "border-violet-400 shadow-md ring-2 ring-violet-100" : "border-stone-200 hover:border-stone-300 hover:shadow-sm"
-    } bg-white`}>
+    <div className={`px-4 py-3 rounded-xl shadow-sm border-2 transition-all cursor-pointer ${
+      selected
+        ? "border-violet-500 shadow-lg ring-4 ring-violet-200 bg-violet-50"
+        : status === "success"
+        ? "border-emerald-300 bg-emerald-50/50"
+        : status === "error"
+        ? "border-red-300 bg-red-50/50"
+        : "border-stone-200 hover:border-stone-300 bg-white"
+    }`}>
       <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-stone-300 !border-2 !border-white" />
       <div className="flex items-center gap-2">
         <div className={`w-2.5 h-2.5 rounded-full ${statusColor} ${status === "running" ? "animate-pulse" : ""}`} />
@@ -106,94 +113,90 @@ function SkillNode({ data, selected }: NodeProps) {
 
 const nodeTypes = { skill: SkillNode };
 
-// ── Result Panel ──
-function ResultPanel({ entry, nodeName, onClose }: { entry: ExecLogEntry | null; nodeName: string; onClose: () => void }) {
-  if (!entry || !entry.output) return null;
-
-  const output = entry.output;
-
-  // Try to render structured output nicely
-  const renderOutput = () => {
-    // Translation result
-    if (output.translation) {
-      return (
-        <div className="space-y-3">
-          <div>
-            <div className="text-xs font-semibold text-stone-500 mb-1">翻譯結果</div>
-            <div className="text-sm text-stone-800 bg-white rounded-lg p-3 border border-stone-100">{output.translation}</div>
-          </div>
-          {output.special_words && output.special_words.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-stone-500 mb-1">特殊詞 ({output.special_words.length})</div>
-              <div className="space-y-1">
-                {output.special_words.map((w: any, i: number) => (
-                  <div key={i} className="text-xs bg-white rounded-lg p-2 border border-stone-100 flex justify-between">
-                    <span className="font-medium text-stone-700">{w.word}</span>
-                    <span className="text-stone-400">{w.type} → {w.translation}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // Idiom/Card result
-    if (output.cards || output.idioms) {
-      const items = output.cards || output.idioms || [];
-      return (
-        <div className="space-y-3">
-          <div className="text-xs font-semibold text-stone-500 mb-1">
-            {output.cards ? `學習卡 (${items.length})` : `片語 (${items.length})`}
-          </div>
-          <div className="space-y-2">
-            {items.map((card: any, i: number) => (
-              <div key={i} className="bg-white rounded-lg p-3 border border-stone-100 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm text-stone-800">{card.word || card.phrase}</span>
-                  {card.phonetic && <span className="text-xs text-stone-400">{card.phonetic}</span>}
-                  {card.translation && <span className="text-xs text-stone-500">→ {card.translation}</span>}
-                </div>
-                {card.classic_sentence && (
-                  <div className="text-xs text-stone-600">
-                    <span className="text-stone-400">例句：</span>
-                    {typeof card.classic_sentence === "object"
-                      ? `${card.classic_sentence.en || ""} — ${card.classic_sentence.zh || ""}`
-                      : card.classic_sentence}
-                  </div>
-                )}
-                {card.joke && (
-                  <div className="text-xs text-amber-600 italic">😄 {card.joke}</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // Generic JSON output
+// ── Render structured output as cards ──
+function ResultCards({ output }: { output: any }) {
+  // HTML card from idiom-packaging
+  if (output.html) {
     return (
-      <pre className="text-xs bg-white rounded-lg p-3 border border-stone-100 overflow-auto max-h-[60vh] whitespace-pre-wrap text-stone-700">
-        {JSON.stringify(output, null, 2)}
-      </pre>
+      <div className="rounded-lg overflow-hidden border border-stone-200 shadow-sm">
+        <iframe
+          srcDoc={output.html}
+          className="w-full border-0"
+          style={{ minHeight: 300 }}
+          sandbox="allow-same-origin"
+          title="result card"
+        />
+      </div>
     );
-  };
+  }
 
-  return (
-    <div className="w-80 border-l border-stone-200 bg-stone-50 flex flex-col">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-white">
-        <div>
-          <div className="text-sm font-semibold text-stone-800">{nodeName}</div>
-          {entry.durationMs != null && <div className="text-xs text-stone-400">{entry.durationMs}ms</div>}
+  // Translation result
+  if (output.translation) {
+    return (
+      <div className="space-y-3">
+        <div className="bg-white rounded-lg p-3 border border-stone-100">
+          <div className="text-xs font-semibold text-stone-500 mb-1">翻譯結果</div>
+          <div className="text-sm text-stone-800">{output.translation}</div>
         </div>
-        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+        {output.special_words && output.special_words.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold text-stone-500 mb-2">特殊詞彙 ({output.special_words.length})</div>
+            <div className="space-y-2">
+              {output.special_words.map((w: any, i: number) => (
+                <div key={i} className="bg-white rounded-lg p-3 border border-stone-100">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm text-stone-800">{w.word}</span>
+                    <span className="text-xs text-stone-400">{w.type}</span>
+                  </div>
+                  <div className="text-xs text-stone-500 mt-1">→ {w.translation}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {renderOutput()}
+    );
+  }
+
+  // Learning cards / idioms
+  if (output.cards || output.idioms) {
+    const items = output.cards || output.idioms || [];
+    return (
+      <div className="space-y-2">
+        <div className="text-xs font-semibold text-stone-500 mb-1">
+          {output.cards ? `學習卡 (${items.length})` : `片語 (${items.length})`}
+        </div>
+        {items.map((card: any, i: number) => (
+          <div key={i} className="bg-white rounded-lg p-3 border border-stone-100 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-stone-800">{card.word || card.phrase}</span>
+              {card.phonetic && <span className="text-xs text-stone-400">{card.phonetic}</span>}
+              {card.translation && <span className="text-xs text-stone-500">→ {card.translation}</span>}
+            </div>
+            {card.classic_sentence && (
+              <div className="text-xs text-stone-600">
+                {typeof card.classic_sentence === "object"
+                  ? `${card.classic_sentence.en || ""} — ${card.classic_sentence.zh || ""}`
+                  : card.classic_sentence}
+              </div>
+            )}
+            {card.fun_fact && (
+              <div className="text-xs text-amber-600 italic">😄 {card.fun_fact.content || card.fun_fact}</div>
+            )}
+            {card.joke && (
+              <div className="text-xs text-amber-600 italic">😄 {card.joke}</div>
+            )}
+          </div>
+        ))}
       </div>
-    </div>
+    );
+  }
+
+  // Fallback: raw JSON
+  return (
+    <pre className="text-xs bg-white rounded-lg p-3 border border-stone-100 overflow-auto max-h-[60vh] whitespace-pre-wrap text-stone-700">
+      {JSON.stringify(output, null, 2)}
+    </pre>
   );
 }
 
@@ -211,11 +214,17 @@ export default function WorkflowBuilder() {
   const [execLog, setExecLog] = useState<ExecLogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [workflowInput, setWorkflowInput] = useState("");
-  const [showLog, setShowLog] = useState(true);
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const [showResult, setShowResult] = useState(false);
 
-  // Selected node for Result Panel
+  // Selected node for result view
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  // Toast
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2000);
+  };
 
   // Derived: selected log entry
   const selectedLogEntry = useMemo(() => {
@@ -223,7 +232,6 @@ export default function WorkflowBuilder() {
     return execLog.find(e => e.nodeId === selectedNodeId && (e.status === "success" || e.status === "error")) || null;
   }, [selectedNodeId, execLog]);
 
-  // Derived: selected node name
   const selectedNodeName = useMemo(() => {
     if (!selectedNodeId || !currentWf) return "";
     return currentWf.nodes.find(n => n.id === selectedNodeId)?.name || "";
@@ -248,6 +256,7 @@ export default function WorkflowBuilder() {
         setCurrentWf(wf);
         setExecLog([]);
         setSelectedNodeId(null);
+        setShowResult(false);
         const nodes: Node[] = wf.nodes.map(n => ({
           id: n.id,
           type: "skill",
@@ -271,6 +280,7 @@ export default function WorkflowBuilder() {
   // ── Handle node click ──
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNodeId(prev => prev === node.id ? null : node.id);
+    setShowResult(true);
   }, []);
 
   // ── Handle pane click (deselect) ──
@@ -278,7 +288,7 @@ export default function WorkflowBuilder() {
     setSelectedNodeId(null);
   }, []);
 
-  // ── Connect nodes via drag ──
+  // ── Connect nodes ──
   const onConnect = useCallback((connection: Connection) => {
     setRfEdges(eds => addEdge({
       ...connection,
@@ -288,7 +298,7 @@ export default function WorkflowBuilder() {
     }, eds));
   }, [setRfEdges]);
 
-  // ── Resolve template values ──
+  // ── Resolve template ──
   function resolveTemplate(template: string, context: Record<string, any>): any {
     if (!template.startsWith("{{") || !template.endsWith("}}")) return template;
     const path = template.slice(2, -2).trim();
@@ -310,6 +320,7 @@ export default function WorkflowBuilder() {
     setIsRunning(true);
     setExecLog([]);
     setSelectedNodeId(null);
+    setShowResult(true);
 
     const ctx: Record<string, any> = { workflow: { input }, node: {} };
     const sorted = topologicalSort(currentWf.nodes, currentWf.edges);
@@ -370,7 +381,6 @@ export default function WorkflowBuilder() {
     }
 
     setIsRunning(false);
-    // Auto-select last successful node
     if (lastSuccessId) {
       setSelectedNodeId(lastSuccessId);
     }
@@ -402,16 +412,6 @@ export default function WorkflowBuilder() {
     return sorted;
   }
 
-  // Auto-scroll log
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [execLog]);
-
-  const totalMs = useMemo(() =>
-    execLog.reduce((sum, e) => sum + (e.durationMs || 0), 0),
-    [execLog]
-  );
-
   // ── Save workflow ──
   const saveWorkflow = useCallback(() => {
     if (!currentWf) return;
@@ -430,12 +430,22 @@ export default function WorkflowBuilder() {
     }).then(() => {
       setCurrentWf(updated);
       setWorkflows(wfs => wfs.map(w => w.id === updated.id ? updated : w));
+      showToast("✅ Saved!");
+    }).catch(() => {
+      showToast("❌ Save failed");
     });
   }, [currentWf, rfNodes, rfEdges]);
 
   // ── Render ──
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full relative">
+      {/* ── Toast ── */}
+      {toast && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-stone-800 text-white text-sm rounded-lg shadow-lg animate-pulse">
+          {toast}
+        </div>
+      )}
+
       {/* ── Left: Workflow List ── */}
       <div className="w-56 border-r border-stone-200 bg-stone-50 flex flex-col">
         <div className="p-3 border-b border-stone-200">
@@ -459,7 +469,7 @@ export default function WorkflowBuilder() {
         </div>
       </div>
 
-      {/* ── Center: Canvas + Log ── */}
+      {/* ── Center: Canvas ── */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-stone-200 bg-white">
@@ -522,65 +532,81 @@ export default function WorkflowBuilder() {
           </div>
         </div>
 
-        {/* Execution Log */}
-        {showLog && execLog.length > 0 && (
-          <div className="h-44 border-t border-stone-200 bg-white overflow-y-auto">
-            <div className="flex items-center justify-between px-3 py-1.5 bg-stone-50 border-b border-stone-100 sticky top-0">
-              <span className="text-xs font-semibold text-stone-600">
-                Execution Log
-                {totalMs > 0 && <span className="ml-2 text-stone-400">{totalMs}ms</span>}
-              </span>
-              <button onClick={() => setShowLog(false)} className="text-stone-400 hover:text-stone-600 text-xs">✕</button>
+        {/* ── Bottom: Result Cards ── */}
+        {showResult && selectedLogEntry && (
+          <div className="h-64 border-t-2 border-violet-200 bg-stone-50 overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-stone-100 sticky top-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-stone-800">{selectedNodeName}</span>
+                {selectedLogEntry.durationMs != null && (
+                  <span className="text-xs text-stone-400">{selectedLogEntry.durationMs}ms</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {execLog.filter(e => e.status === "success").map(e => (
+                  <button
+                    key={e.nodeId}
+                    onClick={() => setSelectedNodeId(e.nodeId)}
+                    className={`text-xs px-2 py-1 rounded transition-colors ${
+                      selectedNodeId === e.nodeId
+                        ? "bg-violet-100 text-violet-700 font-medium"
+                        : "text-stone-500 hover:bg-stone-100"
+                    }`}
+                  >
+                    {e.nodeName}
+                  </button>
+                ))}
+                <button onClick={() => { setShowResult(false); setSelectedNodeId(null); }} className="text-stone-400 hover:text-stone-600 text-sm ml-2">✕</button>
+              </div>
             </div>
-            <div className="p-2 space-y-1 text-xs font-mono">
-              {execLog.map((entry, i) => (
-                <div
-                  key={i}
-                  onClick={() => { if (entry.output) setSelectedNodeId(entry.nodeId); }}
-                  className={`flex items-start gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${
-                    selectedNodeId === entry.nodeId ? "ring-1 ring-violet-300 bg-violet-50" :
-                    entry.status === "success" ? "bg-emerald-50 hover:bg-emerald-100" :
-                    entry.status === "error" ? "bg-red-50" :
-                    entry.status === "running" ? "bg-amber-50" :
-                    "bg-stone-50"
-                  }`}
-                >
-                  <span className="mt-0.5">
-                    {entry.status === "success" ? "✅" : entry.status === "error" ? "❌" : entry.status === "running" ? "⏳" : "⬜"}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-stone-700">{entry.nodeName}</span>
-                      {entry.durationMs != null && <span className="text-stone-400">{entry.durationMs}ms</span>}
-                    </div>
-                    {entry.error && (
-                      <div className="text-red-600 mt-0.5">{entry.error}</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <div ref={logEndRef} />
+            <div className="p-4">
+              <ResultCards output={selectedLogEntry.output} />
             </div>
           </div>
         )}
-        {!showLog && execLog.length > 0 && (
-          <button
-            onClick={() => setShowLog(true)}
-            className="absolute bottom-4 right-4 px-3 py-1.5 bg-stone-800 text-white text-xs rounded-lg shadow-lg hover:bg-stone-700"
-          >
-            📋 Show Log
-          </button>
-        )}
       </div>
 
-      {/* ── Right: Result Panel ── */}
-      {selectedLogEntry && (
-        <ResultPanel
-          entry={selectedLogEntry}
-          nodeName={selectedNodeName}
-          onClose={() => setSelectedNodeId(null)}
-        />
+      {/* ── Right: Execution Log ── */}
+      {execLog.length > 0 && (
+        <div className="w-56 border-l border-stone-200 bg-white flex flex-col">
+          <div className="px-3 py-2 border-b border-stone-200 bg-stone-50">
+            <div className="text-xs font-semibold text-stone-600">
+              Execution Log
+              {totalMs > 0 && <span className="ml-1.5 text-stone-400">{totalMs}ms</span>}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {execLog.map((entry, i) => (
+              <div
+                key={i}
+                onClick={() => { if (entry.output || entry.error) { setSelectedNodeId(entry.nodeId); setShowResult(true); } }}
+                className={`flex items-start gap-1.5 px-2 py-2 rounded-lg cursor-pointer transition-colors ${
+                  selectedNodeId === entry.nodeId ? "bg-violet-50 ring-1 ring-violet-300" :
+                  entry.status === "success" ? "bg-emerald-50 hover:bg-emerald-100" :
+                  entry.status === "error" ? "bg-red-50" :
+                  entry.status === "running" ? "bg-amber-50" :
+                  "bg-stone-50"
+                }`}
+              >
+                <span className="text-xs mt-0.5">
+                  {entry.status === "success" ? "✅" : entry.status === "error" ? "❌" : entry.status === "running" ? "⏳" : "⬜"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-stone-700 truncate">{entry.nodeName}</div>
+                  {entry.durationMs != null && <div className="text-[10px] text-stone-400">{entry.durationMs}ms</div>}
+                  {entry.error && <div className="text-[10px] text-red-500 truncate">{entry.error}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
+
+  // Total duration
+  function totalMsCalc() {
+    return execLog.reduce((sum, e) => sum + (e.durationMs || 0), 0);
+  }
+  const totalMs = totalMsCalc();
 }

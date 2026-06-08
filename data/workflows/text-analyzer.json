@@ -12,8 +12,8 @@
       "appName": "translate",
       "name": "翻譯",
       "position": {
-        "x": 120,
-        "y": 160
+        "x": 48,
+        "y": 64
       },
       "config": {
         "inputMapping": {
@@ -29,8 +29,8 @@
       "appName": "translate",
       "name": "重點包裝",
       "position": {
-        "x": 928,
-        "y": 160
+        "x": 432,
+        "y": 144
       },
       "config": {
         "inputMapping": {
