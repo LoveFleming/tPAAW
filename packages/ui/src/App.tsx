@@ -54,6 +54,7 @@ function parseTabId(tabId: string): { scopeKey: string; factoryId: string; pageT
 
 // Migrate from old keys
 try {
+  // aieos → paaw
   const oldVal = localStorage.getItem("aieos.project");
   if (oldVal && !localStorage.getItem(STORAGE_PROJECT_KEY)) {
     localStorage.setItem(STORAGE_PROJECT_KEY, oldVal);
@@ -64,6 +65,36 @@ try {
     localStorage.setItem("paaw.recent-projects", oldRecent);
     localStorage.removeItem("aieos.recent-projects");
   }
+  // tagent → paaw
+  const tagentProject = localStorage.getItem("tagent.project");
+  if (tagentProject && !localStorage.getItem(STORAGE_PROJECT_KEY)) {
+    localStorage.setItem(STORAGE_PROJECT_KEY, tagentProject);
+    localStorage.removeItem("tagent.project");
+  }
+  const tagentRecent = localStorage.getItem("tagent.recent-projects");
+  if (tagentRecent && !localStorage.getItem("paaw.recent-projects")) {
+    localStorage.setItem("paaw.recent-projects", tagentRecent);
+    localStorage.removeItem("tagent.recent-projects");
+  }
+  // Migrate tagent.project.* keys
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("tagent.project.")) {
+      const newKey = key.replace("tagent.", "paaw.");
+      if (!localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, localStorage.getItem(key)!);
+        keysToRemove.push(key);
+      }
+    }
+    if (key && key === "tagent.sidebar-width") {
+      if (!localStorage.getItem("paaw.sidebar-width")) {
+        localStorage.setItem("paaw.sidebar-width", localStorage.getItem(key)!);
+      }
+      keysToRemove.push(key);
+    }
+  }
+  for (const k of keysToRemove) localStorage.removeItem(k);
 } catch {}
 
 interface UserProfile {
