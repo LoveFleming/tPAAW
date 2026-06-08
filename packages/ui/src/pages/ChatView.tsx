@@ -343,7 +343,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
 
   // ── Render ──
   return (
-    <div className="h-full flex flex-col" style={{ backgroundColor: themeInfo.accentBg }}>
+    <div className="h-full w-full flex flex-col" style={{ backgroundColor: themeInfo.accentBg }}>
 
       {/* ── Header: 林語晴照片 + 名字 + 控制列 ── */}
       <div className="shrink-0 border-b" style={{ borderColor: themeInfo.accentBorder + "30", background: "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)" }}>
