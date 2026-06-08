@@ -11,7 +11,7 @@
       "skillId": "translate",
       "appName": "translate",
       "name": "Translate",
-      "position": { "x": 80, "y": 180 },
+      "position": { "x": 120, "y": 160 },
       "config": {
         "inputMapping": {
           "source_text": "{{workflow.input.text}}"
@@ -24,7 +24,7 @@
       "skillId": "idiom-packaging",
       "appName": "translate",
       "name": "Idiom Packaging",
-      "position": { "x": 480, "y": 180 },
+      "position": { "x": 440, "y": 160 },
       "config": {
         "inputMapping": {
           "word": "{{node-1.output.special_words.0.word}}",

@@ -65,21 +65,21 @@ function SkillNode({ data, selected }: NodeProps) {
     "bg-stone-400";
 
   return (
-    <div className={`px-3 py-2 rounded-lg shadow-md border-2 min-w-[140px] transition-all ${
-      selected ? "border-violet-500 shadow-violet-200" : "border-stone-200"
+    <div className={`px-4 py-3 rounded-xl shadow-md border transition-all ${
+      selected ? "border-violet-400 shadow-violet-100" : "border-stone-200 hover:border-stone-300"
     } bg-white`}>
-      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-stone-400 !border-2 !border-white" />
-      <div className="flex items-center gap-1.5">
-        <div className={`w-2 h-2 rounded-full ${statusColor} ${status === "running" ? "animate-pulse" : ""}`} />
-        <span className="font-medium text-xs text-stone-800">{data.label as string}</span>
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-stone-300 !border-2 !border-white" />
+      <div className="flex items-center gap-2 mb-0.5">
+        <div className={`w-2.5 h-2.5 rounded-full ${statusColor} ${status === "running" ? "animate-pulse" : ""}`} />
+        <span className="font-semibold text-sm text-stone-800">{data.label as string}</span>
       </div>
-      <div className="text-[10px] text-stone-400 mt-0.5">{data.skillId as string}</div>
+      <div className="text-xs text-stone-400 ml-[18px]">{data.skillId as string}</div>
       {data.output && (
-        <div className="mt-1.5 text-[10px] bg-stone-50 rounded p-1 max-h-12 overflow-hidden font-mono">
-          {typeof data.output === "string" ? data.output : JSON.stringify(data.output).slice(0, 60) + "..."}
+        <div className="mt-2 text-xs bg-stone-50 rounded-lg p-2 max-h-16 overflow-hidden font-mono border border-stone-100">
+          {typeof data.output === "string" ? data.output : JSON.stringify(data.output).slice(0, 80) + "..."}
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-stone-400 !border-2 !border-white" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-stone-300 !border-2 !border-white" />
     </div>
   );
 }
@@ -376,10 +376,11 @@ export default function WorkflowBuilder() {
             onEdgesChange={onRfEdgesChange}
             onConnect={onConnect}
             nodeTypes={nodeTypes}
-            fitView
+            defaultViewport={{ x: 40, y: 80, zoom: 1 }}
             snapToGrid
             snapGrid={[16, 16]}
             proOptions={{ hideAttribution: true }}
+            className="bg-stone-50"
           >
             <Controls position="bottom-right" />
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d6d3d1" />

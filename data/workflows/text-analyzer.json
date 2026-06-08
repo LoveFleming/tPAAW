@@ -11,7 +11,7 @@
       "skillId": "translate",
       "appName": "translate",
       "name": "翻譯",
-      "position": { "x": 80, "y": 180 },
+      "position": { "x": 120, "y": 160 },
       "config": {
         "inputMapping": {
           "source_text": "{{workflow.input.text}}",
@@ -25,7 +25,7 @@
       "skillId": "idiom-packaging",
       "appName": "translate",
       "name": "重點包裝",
-      "position": { "x": 480, "y": 180 },
+      "position": { "x": 440, "y": 160 },
       "config": {
         "inputMapping": {
           "word": "{{workflow.input.text}}",
