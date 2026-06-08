@@ -36,6 +36,7 @@ const DOCS_ROOT = resolve(PAAW_ROOT, "docs");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
 const SKILL_POOL_ROOT = resolve(SKILLS_ROOT, "pool");
+const SYSTEM_DIR = resolve(PAAW_ROOT, "data/system");
 const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
 const WORKFLOWS_ROOT = resolve(PAAW_ROOT, "data/workflows");
 
@@ -59,7 +60,21 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
-  // PAAW API
+  // ── Modular routes (take priority) ──
+  try {
+    const modSkill = await import("./routes/skill.mjs");
+    if (await modSkill.default(req, res)) return;
+  } catch {}
+  try {
+    const modWorkflow = await import("./routes/workflow.mjs");
+    if (await modWorkflow.default(req, res)) return;
+  } catch {}
+  try {
+    const modChat = await import("./routes/chat.mjs");
+    if (await modChat.default(req, res)) return;
+  } catch {}
+
+  // ── Legacy routes (everything else) ──
   const paawHandled = await paawApiHandler(req, res);
   if (paawHandled) return;
 
@@ -3385,8 +3400,12 @@ ${skillId === "idiom-packaging" ? "\n額外要求：在 JSON 中加入一個 \"h
 
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
+  // Ensure system prompt directory exists
+  await mkdir(SYSTEM_DIR, { recursive: true });
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
+  console.log(`[PAAW] System prompts: ${SYSTEM_DIR}`);
+  console.log(`[PAAW] Modular routes: skill, workflow, chat`);
 });
 
 // ── WebSocket server for PTY (Qwen CLI) ──
