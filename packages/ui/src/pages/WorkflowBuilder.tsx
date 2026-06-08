@@ -328,7 +328,7 @@ export default function WorkflowBuilder() {
       </div>
 
       {/* ── Center: Canvas + Log ── */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-stone-200 bg-white">
           <span className="mr-1">{currentWf?.icon}</span>
@@ -367,7 +367,8 @@ export default function WorkflowBuilder() {
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" style={{ minHeight: 0 }}>
+          <div className="w-full h-full">
           <ReactFlow
             nodes={rfNodes}
             edges={rfEdges}
@@ -379,11 +380,11 @@ export default function WorkflowBuilder() {
             snapToGrid
             snapGrid={[16, 16]}
             proOptions={{ hideAttribution: true }}
-            className="bg-stone-50"
           >
             <Controls position="bottom-right" />
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d6d3d1" />
           </ReactFlow>
+          </div>
         </div>
 
         {/* Execution Log */}
