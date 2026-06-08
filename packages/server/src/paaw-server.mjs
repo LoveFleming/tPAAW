@@ -2758,6 +2758,59 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
+  // ── UI State API (server-side storage, replaces localStorage) ──
+  const UI_STATE_FILE = resolve(PAAW_DATA_DIR, "ui-state.json");
+
+  async function loadUiState() {
+    try {
+      return JSON.parse(await readFile(UI_STATE_FILE, "utf-8"));
+    } catch {
+      return { recentProjects: [], projectPaths: {} };
+    }
+  }
+
+  async function saveUiState(state: any) {
+    await writeFile(UI_STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
+  }
+
+  // GET /api/paaw/ui-state
+  if (req.method === "GET" && path === "/api/paaw/ui-state") {
+    const state = await loadUiState();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(state));
+    return true;
+  }
+
+  // PUT /api/paaw/ui-state
+  if (req.method === "PUT" && path === "/api/paaw/ui-state") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      await saveUiState(body);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // PATCH /api/paaw/ui-state
+  if (req.method === "PATCH" && path === "/api/paaw/ui-state") {
+    try {
+      const patch = JSON.parse(await readBody(req));
+      const state = await loadUiState();
+      for (const [key, val] of Object.entries(patch)) {
+        state[key] = val;
+      }
+      await saveUiState(state);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // ── Chat completion (SSE streaming) ──
 
   // POST /api/paaw/chat — chat completion with streaming + tool calling

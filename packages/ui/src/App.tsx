@@ -84,16 +84,42 @@ function AppInner() {
     setLoading(false);
   }, []);
 
+  // ── UI State (server-side) ──
+  const uiStateRef = useRef<{ recentProjects: string[]; projectPaths: Record<string, string>; lastFactory: string } | null>(null);
+
+  const loadUiState = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/paaw/ui-state`);
+      if (resp.ok) {
+        const state = await resp.json();
+        uiStateRef.current = state;
+        // Apply to state
+        const lastFactory = state.lastFactory || "default";
+        const projectPath = state.projectPaths?.[lastFactory] || null;
+        setSelectedFactoryId(lastFactory);
+        if (projectPath) setProjectRoot(normPath(projectPath));
+      }
+    } catch {}
+  }, []);
+
+  const saveUiState = useCallback(async (patch: Record<string, any>) => {
+    try {
+      if (uiStateRef.current) {
+        for (const [k, v] of Object.entries(patch)) uiStateRef.current[k] = v;
+      }
+      await fetch(`${API_BASE}/api/paaw/ui-state`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+    } catch {}
+  }, []);
+
   // ── Factory / Project state ──
   const [showFactoryEntry, setShowFactoryEntry] = useState(false);
 
-  const [projectRoot, setProjectRoot] = useState<string | null>(() => {
-    const lastFactory = localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-    return normPath(localStorage.getItem(`paaw.project.${lastFactory}`));
-  });
-  const [selectedFactoryId, setSelectedFactoryId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_FACTORY_KEY) || "default";
-  });
+  const [projectRoot, setProjectRoot] = useState<string | null>(null);
+  const [selectedFactoryId, setSelectedFactoryId] = useState<string>("default");
 
   const scopeStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
 
@@ -163,7 +189,7 @@ function AppInner() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); loadSkillApps(); }, [loadFactories, loadCrew, loadFactoryFiles, loadSkillApps]);
+  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); loadSkillApps(); loadUiState(); }, [loadFactories, loadCrew, loadFactoryFiles, loadSkillApps, loadUiState]);
 
   useEffect(() => {
     if (!selectedFactoryId) return;
@@ -202,11 +228,12 @@ function AppInner() {
       setActivePage(crewTab);
     }
     const normalized = normPath(path)!;
-    localStorage.setItem(`paaw.project.${selectedFactoryId}`, normalized);
+    // Save to server
+    const projectPaths = { ...(uiStateRef.current?.projectPaths || {}), [selectedFactoryId]: normalized };
     try {
-      const existing = JSON.parse(localStorage.getItem("paaw.recent-projects") || "[]") as string[];
+      const existing = uiStateRef.current?.recentProjects || [];
       const updated = [normalized, ...existing.filter((p: string) => p !== normalized)].slice(0, 10);
-      localStorage.setItem("paaw.recent-projects", JSON.stringify(updated));
+      saveUiState({ projectPaths, recentProjects: updated, lastFactory: selectedFactoryId });
     } catch {}
   }, [openTabs, activePage, currentScope, projectRoot, selectedFactoryId]);
 
@@ -228,7 +255,7 @@ function AppInner() {
       activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
       openTabs: currentScopeTabs,
     };
-    const savedRoot = normPath(localStorage.getItem(`paaw.project.${factoryId}`));
+    const savedRoot = normPath(uiStateRef.current?.projectPaths?.[factoryId] || null);
     const newScope = makeScopeKey(factoryId, savedRoot);
     const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
@@ -246,7 +273,7 @@ function AppInner() {
     }
     if (savedRoot) { setProjectRoot(savedRoot); } else { setProjectRoot(null); }
     setSelectedFactoryId(factoryId);
-    localStorage.setItem(STORAGE_FACTORY_KEY, factoryId);
+    saveUiState({ lastFactory: factoryId });
   };
 
   const openApp = (id: string) => {
@@ -513,7 +540,7 @@ function AppInner() {
       const employeeId = pageType.split("#")[0].slice(9);
       const tabCrew = crewByFactoryRef.current[factoryId] ?? crew;
       const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot
-        ?? normPath(localStorage.getItem(`paaw.project.${factoryId}`))
+        ?? normPath(uiStateRef.current?.projectPaths?.[factoryId] || null)
         ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>

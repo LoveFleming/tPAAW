@@ -4,7 +4,6 @@ import Icon from "../components/Icon";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import { pathBasename } from "../utils";
 
-const STORAGE_KEY = "paaw.project";
 const API_BASE = "http://127.0.0.1:4097";
 
 interface RecentProject {
@@ -15,20 +14,6 @@ interface RecentProject {
 
 
 
-function getRecentProjects(): RecentProject[] {
-  try {
-    const raw = localStorage.getItem("paaw.recent-projects");
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function addRecentProject(path: string) {
-  const projects = getRecentProjects().filter(p => p.path !== path);
-  const name = pathBasename(path);
-  projects.unshift({ path, name, lastOpened: new Date().toISOString() });
-  localStorage.setItem("paaw.recent-projects", JSON.stringify(projects.slice(0, 10)));
-}
-
 // ── Main Welcome Page ──
 interface Props {
   onSelect: (path: string) => void;
@@ -37,13 +22,30 @@ interface Props {
 export default function WelcomePage({ onSelect }: Props) {
   const [inputPath, setInputPath] = useState("");
   const [error, setError] = useState("");
-  const recentProjects = getRecentProjects();
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/ui-state`)
+      .then(r => r.json())
+      .then(state => {
+        const paths: string[] = state.recentProjects || [];
+        setRecentProjects(paths.map(p => ({ path: p, name: pathBasename(p), lastOpened: "" })));
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSelect = (path: string) => {
     const trimmed = path.trim();
     if (!trimmed) { setError("Please enter or select a path"); return; }
-    addRecentProject(trimmed);
-    localStorage.setItem(STORAGE_KEY, trimmed);
+    // Save via API
+    fetch(`${API_BASE}/api/paaw/ui-state`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lastProject: trimmed,
+        recentProjects: [trimmed, ...recentProjects.filter(p => p.path !== trimmed).map(p => p.path)].slice(0, 10),
+      }),
+    }).catch(() => {});
     onSelect(trimmed);
   };
 
