@@ -3227,6 +3227,52 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
     return true;
   }
 
+  // GET /api/paaw/skills/:appId/:skillId/inputs — get skill's userInputs
+  const skillInputsMatch = path.match(/^\/api\/paaw\/skills\/([^/]+)\/([^/]+)\/inputs$/);
+  if (req.method === "GET" && skillInputsMatch) {
+    try {
+      const [, appId, skillId] = skillInputsMatch;
+      let skillPath = resolve(PAAW_ROOT, "data/apps", appId, "skills", skillId, "SKILL.md");
+      let content;
+      try { content = await readFile(skillPath, "utf-8"); } catch {
+        skillPath = resolve(PAAW_ROOT, "data/skills/pool", skillId, "SKILL.md");
+        try { content = await readFile(skillPath, "utf-8"); } catch {
+          res.writeHead(404); res.end(JSON.stringify({ error: "Skill not found" })); return true;
+        }
+      }
+      // Parse frontmatter
+      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      let userInputs = [];
+      if (fmMatch) {
+        const fm = yaml.load(fmMatch[1]);
+        userInputs = fm.userInputs || [];
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ skillId, appId, userInputs }));
+    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+    return true;
+  }
+
+  // POST /api/paaw/workflow-output-chat — send workflow result to chat
+  if (req.method === "POST" && path === "/api/paaw/workflow-output-chat") {
+    try {
+      const { chatId, content: msgContent, workflowName } = JSON.parse(await readBody(req));
+      const cid = chatId || "default";
+      const filePath = resolve(PAAW_CHAT_DIR, `${cid}.json`);
+      let chat;
+      try { chat = JSON.parse(await readFile(filePath, "utf-8")); } catch {
+        chat = { id: cid, title: "PAAW 交談", messages: [], createdAt: new Date().toISOString() };
+      }
+      const text = typeof msgContent === "string" ? msgContent : JSON.stringify(msgContent, null, 2);
+      chat.messages.push({ role: "assistant", content: `🔗 **Workflow: ${workflowName || "未命名"}**\n\n${text}`, timestamp: new Date().toISOString() });
+      chat.updatedAt = new Date().toISOString();
+      await writeFile(filePath, JSON.stringify(chat, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, chatId: cid }));
+    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+    return true;
+  }
+
   // POST /api/paaw/file-write — write file for workflow end node (file output)
   if (req.method === "POST" && path === "/api/paaw/file-write") {
     try {
