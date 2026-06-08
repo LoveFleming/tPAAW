@@ -3,7 +3,6 @@ import {
   ReactFlow,
   Controls,
   Background,
-  MiniMap,
   useNodesState,
   useEdgesState,
   addEdge,
@@ -377,19 +376,15 @@ export default function WorkflowBuilder() {
             onConnect={onConnect}
             nodeTypes={nodeTypes}
             fitView
+            fitViewOptions={{ padding: 0.3 }}
             snapToGrid
             snapGrid={[16, 16]}
             proOptions={{ hideAttribution: true }}
             className="bg-stone-50"
+            style={{ width: "100%", height: "100%" }}
           >
             <Controls position="bottom-right" />
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d6d3d1" />
-            <MiniMap
-              nodeStrokeWidth={3}
-              pannable
-              zoomable
-              className="!bg-white !border-stone-200"
-            />
           </ReactFlow>
         </div>
 
