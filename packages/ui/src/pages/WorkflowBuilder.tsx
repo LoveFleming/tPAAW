@@ -367,7 +367,8 @@ export default function WorkflowBuilder() {
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" style={{ minHeight: 0 }}>
+          <div className="absolute inset-0">
           <ReactFlow
             nodes={rfNodes}
             edges={rfEdges}
@@ -381,11 +382,11 @@ export default function WorkflowBuilder() {
             snapGrid={[16, 16]}
             proOptions={{ hideAttribution: true }}
             className="bg-stone-50"
-            style={{ width: "100%", height: "100%" }}
           >
             <Controls position="bottom-right" />
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d6d3d1" />
           </ReactFlow>
+          </div>
         </div>
 
         {/* Execution Log */}
