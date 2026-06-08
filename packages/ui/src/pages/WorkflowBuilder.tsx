@@ -66,21 +66,21 @@ function SkillNode({ data, selected }: NodeProps) {
     "bg-stone-400";
 
   return (
-    <div className={`px-4 py-3 rounded-xl shadow-lg border-2 min-w-[180px] transition-all ${
+    <div className={`px-3 py-2 rounded-lg shadow-md border-2 min-w-[140px] transition-all ${
       selected ? "border-violet-500 shadow-violet-200" : "border-stone-200"
     } bg-white`}>
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-stone-400 !border-2 !border-white" />
-      <div className="flex items-center gap-2 mb-1">
-        <div className={`w-2.5 h-2.5 rounded-full ${statusColor} ${status === "running" ? "animate-pulse" : ""}`} />
-        <span className="font-semibold text-sm text-stone-800">{data.label as string}</span>
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-stone-400 !border-2 !border-white" />
+      <div className="flex items-center gap-1.5">
+        <div className={`w-2 h-2 rounded-full ${statusColor} ${status === "running" ? "animate-pulse" : ""}`} />
+        <span className="font-medium text-xs text-stone-800">{data.label as string}</span>
       </div>
-      <div className="text-xs text-stone-500">{data.skillId as string}</div>
+      <div className="text-[10px] text-stone-400 mt-0.5">{data.skillId as string}</div>
       {data.output && (
-        <div className="mt-2 text-xs bg-stone-50 rounded p-1.5 max-h-16 overflow-hidden font-mono">
-          {typeof data.output === "string" ? data.output : JSON.stringify(data.output).slice(0, 80) + "..."}
+        <div className="mt-1.5 text-[10px] bg-stone-50 rounded p-1 max-h-12 overflow-hidden font-mono">
+          {typeof data.output === "string" ? data.output : JSON.stringify(data.output).slice(0, 60) + "..."}
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-stone-400 !border-2 !border-white" />
+      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-stone-400 !border-2 !border-white" />
     </div>
   );
 }
@@ -332,8 +332,8 @@ export default function WorkflowBuilder() {
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-stone-200 bg-white">
-          <span className="text-lg mr-1">{currentWf?.icon}</span>
-          <h2 className="font-semibold text-stone-800">{currentWf?.name || "Workflow Builder"}</h2>
+          <span className="mr-1">{currentWf?.icon}</span>
+          <h2 className="font-semibold text-sm text-stone-800">{currentWf?.name || "Workflow Builder"}</h2>
           <span className="text-xs text-stone-400 ml-2">{currentWf?.description}</span>
           <div className="flex-1" />
           <button
