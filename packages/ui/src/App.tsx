@@ -9,7 +9,8 @@ import SkillBuilder from "./pages/SkillBuilder";
 import AppLab from "./pages/AppLab";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
-import WorkflowBuilder from "./pages/WorkflowBuilder";
+import WorkflowEditor from "./pages/WorkflowEditor";
+import WorkflowExec from "./pages/WorkflowExec";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 import KnowledgeTree from "./components/KnowledgeTree";
@@ -384,8 +385,14 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openWorkflowBuilder = useCallback(() => {
-    const tabId = `${currentScope}:workflow`;
+  const openWorkflowEditor = useCallback(() => {
+    const tabId = `${currentScope}:wf-editor`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
+  const openWorkflowExec = useCallback(() => {
+    const tabId = `${currentScope}:wf-exec`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -418,7 +425,8 @@ function AppInner() {
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
-    if (pageType === "workflow") return "Workflow Builder";
+    if (pageType === "wf-editor") return "Workflow Editor";
+    if (pageType === "wf-exec") return "Workflow Exec";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -500,8 +508,11 @@ function AppInner() {
     if (pageType === "cronjobs") {
       return <CronJobsPage />;
     }
-    if (pageType === "workflow") {
-      return <WorkflowBuilder />;
+    if (pageType === "wf-editor") {
+      return <WorkflowEditor />;
+    }
+    if (pageType === "wf-exec") {
+      return <WorkflowExec />;
     }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
@@ -673,6 +684,7 @@ function AppInner() {
               <div>
                 <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":reportapplab")} label={t("sidebar.appLab")} onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":wf-editor")} label="Workflow Editor" onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
@@ -686,7 +698,7 @@ function AppInner() {
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":workflow")} label="Workflow Builder" onClick={openWorkflowBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":wf-exec")} label="Workflow Exec" onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
