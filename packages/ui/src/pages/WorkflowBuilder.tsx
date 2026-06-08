@@ -100,7 +100,7 @@ export default function WorkflowBuilder() {
   // Execution
   const [execLog, setExecLog] = useState<ExecLogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [workflowInput, setWorkflowInput] = useState("{}");
+  const [workflowInput, setWorkflowInput] = useState("");
   const [showLog, setShowLog] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -170,7 +170,7 @@ export default function WorkflowBuilder() {
   const runWorkflow = useCallback(async () => {
     if (!currentWf) return;
     let input: any = {};
-    try { input = JSON.parse(workflowInput); } catch { input = {}; }
+    try { input = JSON.parse(workflowInput); } catch { input = { text: workflowInput }; }
 
     setIsRunning(true);
     setExecLog([]);
@@ -360,17 +360,9 @@ export default function WorkflowBuilder() {
           <span className="text-xs text-stone-500 font-medium">Input:</span>
           <input
             type="text"
-            value={workflowInput === "{}" ? "" : workflowInput}
-            onChange={e => {
-              const v = e.target.value;
-              try {
-                JSON.parse(v);
-                setWorkflowInput(v);
-              } catch {
-                setWorkflowInput(JSON.stringify({ text: v }));
-              }
-            }}
-            placeholder='{"text": "蘋果"} 或直接輸入文字'
+            value={workflowInput}
+            onChange={e => setWorkflowInput(e.target.value)}
+            placeholder='輸入文字，例如：蘋果'
             className="flex-1 px-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300"
           />
         </div>
