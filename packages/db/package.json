@@ -11,11 +11,10 @@
   },
   "dependencies": {
     "@paaw/shared": "*",
-    "better-sqlite3": "^11.7.0",
-    "kysely": "^0.29.2"
+    "kysely": "^0.29.2",
+    "sql.js": "^1.14.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "typescript": "^5.5.4"
   }
 }

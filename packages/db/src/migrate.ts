@@ -1,29 +1,24 @@
 /**
- * PAAW Database Migrations
- * 
+ * PAAW Database Migrations (sql.js — zero native deps)
+ *
  * Run with: pnpm --filter @paaw/db migrate
  */
-import Database from "better-sqlite3";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-import { mkdirSync } from "fs";
+import initSqlJs, { type Database } from "sql.js";
+import { dirname } from "path";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import { getDbPath } from "./paths";
-import type { PaawDB } from "./types";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export async function migrate(dbPath?: string): Promise<void> {
   const path = dbPath || getDbPath();
   mkdirSync(dirname(path), { recursive: true });
 
-  const sqlite = new Database(path);
-  sqlite.pragma("journal_mode=WAL");
-  sqlite.pragma("foreign_keys=ON");
+  const SQL = await initSqlJs();
+  const dbData = existsSync(path) ? readFileSync(path) : undefined;
+  const db = new SQL.Database(dbData);
 
   console.log("[db] Running migrations...");
 
-  // Create all tables
-  sqlite.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY,
       skill_id TEXT NOT NULL,
@@ -149,8 +144,7 @@ export async function migrate(dbPath?: string): Promise<void> {
     );
   `);
 
-  // Create indexes
-  sqlite.exec(`
+  db.run(`
     CREATE INDEX IF NOT EXISTS idx_runs_skill_id ON runs(skill_id);
     CREATE INDEX IF NOT EXISTS idx_runs_user_id ON runs(user_id);
     CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
@@ -164,7 +158,11 @@ export async function migrate(dbPath?: string): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_daily_summaries_user_date ON daily_summaries(user_id, date);
   `);
 
-  sqlite.close();
+  // Save to disk
+  const data = db.export();
+  writeFileSync(path, Buffer.from(data));
+  db.close();
+
   console.log("[db] Migrations complete ✅");
 }
 
