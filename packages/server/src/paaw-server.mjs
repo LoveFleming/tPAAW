@@ -3190,6 +3190,43 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
     return true;
   }
 
+  // ── Workflow Execution History ──
+
+  // GET /api/paaw/workflows/:id/exec-history
+  const wfExecMatch = path.match(/^\/api\/paaw\/workflows\/([^/]+)\/exec-history$/);
+  if (req.method === "GET" && wfExecMatch) {
+    try {
+      const wfId = wfExecMatch[1];
+      const histDir = resolve(WORKFLOWS_ROOT, "_exec-history");
+      await mkdir(histDir, { recursive: true });
+      const histFile = resolve(histDir, wfId + ".json");
+      let history = [];
+      try { history = JSON.parse(await readFile(histFile, "utf-8")); } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(history));
+    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+    return true;
+  }
+
+  // POST /api/paaw/workflows/:id/exec-history — save execution result
+  if (req.method === "POST" && wfExecMatch) {
+    try {
+      const wfId = wfExecMatch[1];
+      const entry = JSON.parse(await readBody(req));
+      const histDir = resolve(WORKFLOWS_ROOT, "_exec-history");
+      await mkdir(histDir, { recursive: true });
+      const histFile = resolve(histDir, wfId + ".json");
+      let history = [];
+      try { history = JSON.parse(await readFile(histFile, "utf-8")); } catch {}
+      history.unshift(entry); // newest first
+      if (history.length > 50) history = history.slice(0, 50);
+      await writeFile(histFile, JSON.stringify(history, null, 2));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+    return true;
+  }
+
   // POST /api/paaw/file-write — write file for workflow end node (file output)
   if (req.method === "POST" && path === "/api/paaw/file-write") {
     try {

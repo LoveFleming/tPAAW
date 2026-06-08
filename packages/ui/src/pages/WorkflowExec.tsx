@@ -14,7 +14,14 @@ interface WorkflowDef {
   nodes: WFNode[]; edges: WFEdge[];
   inputSchema: { properties: Record<string, any>; required: string[] };
 }
-interface ExecLogEntry { nodeId: string; nodeName: string; status: "running" | "success" | "error" | "pending"; input?: any; output?: any; error?: string; durationMs?: number; type?: WFNodeType; }
+interface ExecLogEntry {
+  nodeId: string; nodeName: string; status: "running" | "success" | "error" | "pending";
+  input?: any; output?: any; error?: string; durationMs?: number; type?: WFNodeType;
+}
+interface ExecHistoryEntry {
+  id: string; timestamp: string; input: string; log: ExecLogEntry[];
+  totalMs: number; success: boolean;
+}
 
 const API = "http://127.0.0.1:4097";
 
@@ -50,11 +57,16 @@ function resolveTemplate(t: string, ctx: Record<string, any>): any {
   for (const p of parts) { if (v == null) return undefined; v = v[p]; } return v;
 }
 
-// ── Node type icon ──
 function typeIcon(type?: WFNodeType) {
   if (type === "start") return "🟢";
   if (type === "end") return "🔴";
   return "⚡";
+}
+
+function formatTime(ts: string) {
+  const d = new Date(ts);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 // ── Main ──
@@ -66,6 +78,8 @@ export default function WorkflowExec() {
   const [workflowInput, setWorkflowInput] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [execHistory, setExecHistory] = useState<ExecHistoryEntry[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2000); };
 
@@ -73,25 +87,56 @@ export default function WorkflowExec() {
   const successCount = useMemo(() => execLog.filter(e => e.status === "success").length, [execLog]);
   const errorCount = useMemo(() => execLog.filter(e => e.status === "error").length, [execLog]);
   const selectedLogEntry = useMemo(() => { if (!selectedNodeId) return null; return execLog.find(e => e.nodeId === selectedNodeId) || null; }, [selectedNodeId, execLog]);
-
-  // Find end node config
   const endNode = useMemo(() => currentWf?.nodes.find(n => n.type === "end"), [currentWf]);
   const outputTarget = endNode?.config.outputTarget || "chat";
+  const fullFlow = useMemo(() => currentWf ? topoSort(currentWf.nodes, currentWf.edges) : [], [currentWf]);
 
+  // Viewing history entry?
+  const viewingHistory = useMemo(() => {
+    if (!selectedHistoryId) return null;
+    return execHistory.find(h => h.id === selectedHistoryId) || null;
+  }, [selectedHistoryId, execHistory]);
+  const historyLog = viewingHistory?.log || [];
+  const historySelectedEntry = useMemo(() => {
+    if (!selectedNodeId || !viewingHistory) return null;
+    return historyLog.find(e => e.nodeId === selectedNodeId) || null;
+  }, [selectedNodeId, viewingHistory, historyLog]);
+
+  // Load workflow list
   useEffect(() => { fetch(`${API}/api/paaw/workflows`).then(r => r.json()).then((l: WorkflowDef[]) => { setWorkflows(l); }).catch(() => {}); }, []);
+
+  // Load exec history when workflow changes
+  const loadHistory = useCallback((wfId: string) => {
+    fetch(`${API}/api/paaw/workflows/${wfId}/exec-history`).then(r => r.json()).then((h: ExecHistoryEntry[]) => { setExecHistory(h); }).catch(() => { setExecHistory([]); });
+  }, []);
 
   const selectWf = useCallback((id: string) => {
     fetch(`${API}/api/paaw/workflows/${id}`).then(r => r.json()).then((wf: WorkflowDef) => {
-      setCurrentWf(wf); setExecLog([]); setSelectedNodeId(null);
+      setCurrentWf(wf); setExecLog([]); setSelectedNodeId(null); setSelectedHistoryId(null);
+      loadHistory(id);
     }).catch(() => {});
-  }, []);
+  }, [loadHistory]);
+
+  const saveHistory = useCallback(async (wfId: string, input: string, log: ExecLogEntry[], totalMs: number) => {
+    const entry: ExecHistoryEntry = {
+      id: "exec-" + Date.now(),
+      timestamp: new Date().toISOString(),
+      input,
+      log,
+      totalMs,
+      success: !log.some(l => l.status === "error"),
+    };
+    await fetch(`${API}/api/paaw/workflows/${wfId}/exec-history`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry),
+    });
+    loadHistory(wfId);
+  }, [loadHistory]);
 
   const runWorkflow = useCallback(async () => {
     if (!currentWf) return;
     let input: any = {}; try { input = JSON.parse(workflowInput); } catch { input = { text: workflowInput }; }
-    setIsRunning(true); setExecLog([]); setSelectedNodeId(null);
+    setIsRunning(true); setExecLog([]); setSelectedNodeId(null); setSelectedHistoryId(null);
     const ctx: Record<string, any> = { workflow: { input }, node: {} };
-    // Filter out start/end from execution — only run skill nodes
     const skillNodes = currentWf.nodes.filter(n => n.type === "skill");
     const skillEdges = currentWf.edges.filter(e => { const sn = currentWf.nodes.find(n => n.id === e.source); const tn = currentWf.nodes.find(n => n.id === e.target); return sn?.type === "skill" && tn?.type === "skill"; });
     const sorted = topoSort(skillNodes, skillEdges);
@@ -111,119 +156,160 @@ export default function WorkflowExec() {
       setExecLog([...log]);
     }
 
-    // Handle end node output
+    // Handle end node file output
     const endCfg = currentWf.nodes.find(n => n.type === "end")?.config;
     if (endCfg?.outputTarget === "file" && endCfg.outputFilePath && lastId) {
       const lastOutput = ctx.node[lastId]?.output;
       if (lastOutput) {
         try {
-          const filePath = endCfg.outputFilePath.replace(/\{\{workflow\.input\.(.+?)\}\}/g, (_, k) => input[k] || "");
+          const filePath = endCfg.outputFilePath.replace(/\{\{workflow\.input\.(.+?)\}\}/g, (_: string, k: string) => input[k] || "");
           await fetch(`${API}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: filePath, content: typeof lastOutput === "string" ? lastOutput : JSON.stringify(lastOutput, null, 2) }) });
           log.push({ nodeId: "end", nodeName: "End", status: "success", output: { file: filePath }, durationMs: 0, type: "end" });
-        } catch (err: any) {
-          log.push({ nodeId: "end", nodeName: "End", status: "error", error: err.message, durationMs: 0, type: "end" });
-        }
+        } catch (err: any) { log.push({ nodeId: "end", nodeName: "End", status: "error", error: err.message, durationMs: 0, type: "end" }); }
         setExecLog([...log]);
       }
     }
 
     setIsRunning(false);
+    const runTotalMs = log.reduce((s, e) => s + (e.durationMs || 0), 0);
     if (lastId) setSelectedNodeId(lastId);
     showToast(log.some(l => l.status === "error") ? "❌ 執行失敗" : "✅ 執行完成");
-  }, [currentWf, workflowInput]);
+    // Save to history
+    saveHistory(currentWf.id, workflowInput, log, runTotalMs);
+  }, [currentWf, workflowInput, saveHistory]);
 
-  // Full flow for visualization (includes start/end)
-  const fullFlow = useMemo(() => {
-    if (!currentWf) return [];
-    return topoSort(currentWf.nodes, currentWf.edges);
-  }, [currentWf]);
+  // Click history entry → load its log
+  const viewHistory = useCallback((entry: ExecHistoryEntry) => {
+    setSelectedHistoryId(entry.id);
+    setExecLog([]); // clear current run log
+    setSelectedNodeId(null);
+  }, []);
+
+  const exitHistory = useCallback(() => {
+    setSelectedHistoryId(null);
+    setSelectedNodeId(null);
+  }, []);
+
+  // Which log to display
+  const displayLog = viewingHistory ? historyLog : execLog;
+  const displaySelectedEntry = viewingHistory ? historySelectedEntry : selectedLogEntry;
 
   return (
     <div className="flex h-full w-full relative bg-stone-50">
-      {toast && <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-stone-800 text-white text-sm rounded-lg shadow-lg">{toast}</div>}
+      {toast && <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-stone-800 text-white text-sm rounded-lg shadow-lg z-50">{toast}</div>}
 
-      {/* Left: Workflow list */}
+      {/* Left: Workflow list + History */}
       <div className="w-56 border-r border-stone-200 bg-white flex flex-col">
         <div className="p-3 border-b border-stone-200">
           <h3 className="font-semibold text-sm text-stone-700">▶ Workflow Exec</h3>
-          <div className="text-[10px] text-stone-400 mt-0.5">選擇 → 輸入 → 執行</div>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {workflows.map(wf => {
-            const hasStart = wf.nodes.some(n => n.type === "start");
-            const hasEnd = wf.nodes.some(n => n.type === "end");
-            const skillCount = wf.nodes.filter(n => n.type === "skill").length;
-            return (
-              <button key={wf.id} onClick={() => selectWf(wf.id)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${currentWf?.id === wf.id ? "bg-violet-100 text-violet-800" : "hover:bg-stone-50 text-stone-600"}`}>
-                <div className="flex items-center gap-2">
-                  <span>{wf.icon}</span>
-                  <span className={currentWf?.id === wf.id ? "font-medium" : ""}>{wf.name}</span>
-                </div>
-                <div className="text-[10px] text-stone-400 mt-0.5 ml-6 flex items-center gap-1.5">
-                  {hasStart && <span>🟢</span>}{skillCount > 0 && <span>⚡{skillCount}</span>}{hasEnd && <span>🔴</span>}
-                  {!hasStart || !hasEnd ? <span className="text-amber-500">⚠️缺{!hasStart ? "Start" : "End"}</span> : null}
-                </div>
-              </button>
-            );
-          })}
+        <div className="flex-1 overflow-y-auto">
+          {/* Workflow list */}
+          <div className="p-2 space-y-1">
+            {workflows.map(wf => {
+              const hasStart = wf.nodes.some(n => n.type === "start");
+              const hasEnd = wf.nodes.some(n => n.type === "end");
+              const skillCount = wf.nodes.filter(n => n.type === "skill").length;
+              return (
+                <button key={wf.id} onClick={() => selectWf(wf.id)} className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentWf?.id === wf.id ? "bg-violet-100 text-violet-800" : "hover:bg-stone-50 text-stone-600"}`}>
+                  <div className="flex items-center gap-2">
+                    <span>{wf.icon}</span>
+                    <span className={currentWf?.id === wf.id ? "font-medium" : ""}>{wf.name}</span>
+                  </div>
+                  <div className="text-[10px] text-stone-400 mt-0.5 ml-6 flex items-center gap-1.5">
+                    {hasStart && <span>🟢</span>}{skillCount > 0 && <span>⚡{skillCount}</span>}{hasEnd && <span>🔴</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Execution History */}
+          {currentWf && execHistory.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 border-t border-b border-stone-100 bg-stone-50">
+                <div className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">執行紀錄</div>
+              </div>
+              <div className="p-2 space-y-1">
+                {execHistory.map(h => (
+                  <button key={h.id} onClick={() => viewHistory(h)}
+                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors ${selectedHistoryId === h.id ? "bg-violet-100 ring-1 ring-violet-300" : "hover:bg-stone-50"}`}>
+                    <div className="flex items-center gap-1.5">
+                      <span>{h.success ? "✅" : "❌"}</span>
+                      <span className="font-medium text-stone-700">{formatTime(h.timestamp)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 ml-5">
+                      <span className="text-stone-400">{h.totalMs}ms</span>
+                      <span className="text-stone-300 truncate">{h.input}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Center */}
       <div className="flex-1 flex flex-col min-h-0">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-stone-200 bg-white">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">{currentWf?.icon || "🔗"}</span>
-            <div>
-              <h2 className="font-bold text-stone-800">{currentWf?.name || "選擇一個 Workflow"}</h2>
-              <div className="text-xs text-stone-400">{currentWf?.description || "從左側選擇要執行的 Workflow"}</div>
-            </div>
+        {/* Header + Input (compact) */}
+        <div className="shrink-0 border-b border-stone-200 bg-white">
+          <div className="flex items-center gap-3 px-4 py-2">
+            <span className="text-xl">{currentWf?.icon || "🔗"}</span>
+            <h2 className="font-bold text-sm text-stone-800">{currentWf?.name || "選擇 Workflow"}</h2>
             {outputTarget && currentWf && (
-              <div className="ml-4 text-xs px-2.5 py-1 rounded-full bg-stone-100 text-stone-500">
-                輸出: {outputTarget === "chat" ? "💬 聊天" : "📁 檔案"}
-              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">
+                {outputTarget === "chat" ? "💬 聊天" : "📁 檔案"}
+              </span>
+            )}
+            <div className="flex-1" />
+            {viewingHistory && (
+              <button onClick={exitHistory} className="text-xs text-violet-600 hover:text-violet-800 font-medium px-2 py-1 rounded-lg hover:bg-violet-50">← 回到執行</button>
             )}
           </div>
-          {execLog.length > 0 && (
-            <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5 text-xs"><span className="text-stone-400">Steps:</span><span className="font-semibold text-stone-700">{execLog.length}</span></div>
-              <div className="flex items-center gap-1.5 text-xs"><span className="text-stone-400">✅:</span><span className="font-semibold text-emerald-600">{successCount}</span></div>
-              {errorCount > 0 && <div className="flex items-center gap-1.5 text-xs"><span className="text-stone-400">❌:</span><span className="font-semibold text-red-600">{errorCount}</span></div>}
-              <div className="flex items-center gap-1.5 text-xs"><span className="text-stone-400">⏱:</span><span className="font-semibold text-stone-700">{totalMs}ms</span></div>
+          {/* Input + Run bar */}
+          {!viewingHistory && (
+            <div className="flex items-center gap-2 px-4 pb-2">
+              <span className="text-xs text-stone-400 shrink-0">🟢</span>
+              <input type="text" value={workflowInput} onChange={e => setWorkflowInput(e.target.value)} placeholder='輸入文字，例如：蘋果' className="flex-1 px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
+              <button onClick={runWorkflow} disabled={isRunning || !currentWf} className={`px-4 py-1.5 text-xs rounded-lg font-medium transition-colors shrink-0 ${isRunning ? "bg-amber-100 text-amber-700 cursor-wait" : "bg-violet-600 hover:bg-violet-700 text-white"}`}>
+                {isRunning ? "⏳" : "▶ Run"}
+              </button>
+            </div>
+          )}
+          {/* History viewing indicator */}
+          {viewingHistory && (
+            <div className="flex items-center gap-2 px-4 pb-2">
+              <span className="text-xs text-stone-400">📋 檢視歷史執行 — {formatTime(viewingHistory.timestamp)}</span>
+              <span className="text-xs text-stone-300">{viewingHistory.input}</span>
+              {viewingHistory.success ? <span className="text-xs text-emerald-500 font-medium">✅ 成功</span> : <span className="text-xs text-red-500 font-medium">❌ 失敗</span>}
+              <span className="text-xs text-stone-400">{viewingHistory.totalMs}ms</span>
             </div>
           )}
         </div>
 
-        {/* Input + Run */}
-        <div className="px-6 py-3 border-b border-stone-100 bg-stone-50 flex items-center gap-3">
-          <span className="text-xs text-stone-500 font-medium shrink-0">🟢 輸入:</span>
-          <input type="text" value={workflowInput} onChange={e => setWorkflowInput(e.target.value)} placeholder='輸入文字，例如：蘋果' className="flex-1 px-3 py-2 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
-          <button onClick={runWorkflow} disabled={isRunning || !currentWf} className={`px-5 py-2 text-sm rounded-lg font-medium transition-colors shrink-0 ${isRunning ? "bg-amber-100 text-amber-700 cursor-wait" : "bg-violet-600 hover:bg-violet-700 text-white"}`}>
-            {isRunning ? "⏳ Running..." : "▶ Run"}
-          </button>
-        </div>
-
-        {/* Flow visualization */}
+        {/* Upper: Flow visualization (1/4) */}
         {currentWf && fullFlow.length > 0 && (
-          <div className="px-6 py-3 border-b border-stone-100 bg-white">
-            <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          <div className="shrink-0 border-b border-stone-200 bg-white" style={{ height: "25%" }}>
+            <div className="flex items-center gap-1 overflow-x-auto h-full px-4 py-2">
               {fullFlow.map((node, i) => {
-                const logEntry = execLog.find(e => e.nodeId === node.id);
+                const logEntry = displayLog.find(e => e.nodeId === node.id);
                 const status = logEntry?.status || "pending";
                 const isStart = node.type === "start";
                 const isEnd = node.type === "end";
                 const statusStyle = isStart ? "border-emerald-300 bg-emerald-50" : isEnd ? "border-rose-300 bg-rose-50" : status === "running" ? "border-amber-400 bg-amber-50" : status === "success" ? "border-emerald-400 bg-emerald-50" : status === "error" ? "border-red-400 bg-red-50" : "border-stone-200 bg-white";
                 const statusIcon = isStart ? "🟢" : isEnd ? "🔴" : status === "running" ? "⏳" : status === "success" ? "✅" : status === "error" ? "❌" : "⚡";
                 return (
-                  <div key={node.id} className="flex items-center">
-                    <button onClick={() => { if (logEntry?.output || logEntry?.error) setSelectedNodeId(node.id); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-colors ${statusStyle} ${selectedNodeId === node.id ? "ring-2 ring-violet-300" : ""} ${!isStart && !isEnd ? "cursor-pointer" : ""}`}>
-                      <span>{statusIcon}</span>
-                      <span className="text-stone-700">{node.name}</span>
-                      {!isStart && !isEnd && node.skillId && <span className="text-stone-400">{node.skillId}</span>}
-                      {isEnd && <span className="text-stone-400">{(node.config.outputTarget || "chat") === "chat" ? "💬" : "📁"}</span>}
+                  <div key={node.id} className="flex items-center shrink-0">
+                    <button onClick={() => { if (logEntry?.output || logEntry?.error) setSelectedNodeId(node.id); }}
+                      className={`flex flex-col items-center gap-1 px-4 py-3 rounded-xl border-2 text-xs font-medium transition-all ${statusStyle} ${selectedNodeId === node.id ? "ring-2 ring-violet-400 shadow-sm" : ""}`}>
+                      <span className="text-base">{statusIcon}</span>
+                      <span className="text-stone-700 font-semibold">{node.name}</span>
+                      {!isStart && !isEnd && node.skillId && <span className="text-stone-400 text-[10px]">{node.skillId}</span>}
+                      {isEnd && <span className="text-[10px]">{(node.config.outputTarget || "chat") === "chat" ? "💬" : "📁"}</span>}
+                      {logEntry?.durationMs != null && <span className="text-[10px] text-stone-400">{logEntry.durationMs}ms</span>}
                     </button>
-                    {i < fullFlow.length - 1 && <span className="text-stone-300 mx-1">→</span>}
+                    {i < fullFlow.length - 1 && <span className="text-stone-300 mx-2 text-lg">→</span>}
                   </div>
                 );
               })}
@@ -231,73 +317,58 @@ export default function WorkflowExec() {
           </div>
         )}
 
-        {/* Result area */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Lower: Result area (3/4) */}
+        <div className="flex-1 overflow-y-auto bg-white" style={{ minHeight: 0 }}>
           {!currentWf && (
-            <div className="flex items-center justify-center h-full"><div className="text-center text-stone-400"><div className="text-4xl mb-3">🔗</div><div className="text-sm">從左側選擇一個 Workflow 開始</div></div></div>
+            <div className="flex items-center justify-center h-full"><div className="text-center text-stone-400"><div className="text-4xl mb-3">🔗</div><div className="text-sm">從左側選擇一個 Workflow</div></div></div>
           )}
-          {currentWf && execLog.length === 0 && !isRunning && (
-            <div className="flex items-center justify-center h-full"><div className="text-center text-stone-400"><div className="text-4xl mb-3">▶</div><div className="text-sm">輸入資料，按 Run 執行 Workflow</div><div className="text-xs mt-1">🟢 Start → {currentWf.nodes.filter(n => n.type === "skill").length} 個積木 → 🔴 End</div></div></div>
+          {currentWf && displayLog.length === 0 && !isRunning && (
+            <div className="flex items-center justify-center h-full"><div className="text-center text-stone-400"><div className="text-4xl mb-3">▶</div><div className="text-sm">輸入資料，按 Run 執行</div></div></div>
           )}
-          {isRunning && execLog.length > 0 && (
-            <div className="p-6 space-y-3">
-              <div className="text-xs font-semibold text-stone-500">執行中...</div>
-              {execLog.map((entry, i) => (
-                <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-lg border ${entry.status === "running" ? "border-amber-200 bg-amber-50" : entry.status === "success" ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
-                  <span className="text-sm">{typeIcon(entry.type)}</span>
-                  <div className="flex-1"><div className="text-sm font-medium text-stone-700">{entry.nodeName}</div>{entry.error && <div className="text-xs text-red-500 mt-0.5">{entry.error}</div>}</div>
+          {isRunning && displayLog.length > 0 && (
+            <div className="p-5 space-y-2">
+              <div className="text-xs font-semibold text-stone-500 mb-2">執行中...</div>
+              {displayLog.map((entry, i) => (
+                <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border ${entry.status === "running" ? "border-amber-200 bg-amber-50" : entry.status === "success" ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                  <span>{typeIcon(entry.type)}</span>
+                  <div className="flex-1"><span className="text-sm font-medium text-stone-700">{entry.nodeName}</span></div>
+                  {entry.status === "running" && <span className="text-xs text-amber-600 animate-pulse">⏳</span>}
                   {entry.durationMs != null && <span className="text-xs text-stone-400">{entry.durationMs}ms</span>}
                 </div>
               ))}
             </div>
           )}
-          {!isRunning && execLog.length > 0 && (
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="text-sm font-semibold text-stone-700">執行結果</div>
-                <div className="flex items-center gap-2">
-                  {execLog.filter(e => e.output || e.error).map(e => (
-                    <button key={e.nodeId} onClick={() => setSelectedNodeId(e.nodeId)} className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${selectedNodeId === e.nodeId ? "bg-violet-100 text-violet-700 font-medium" : "text-stone-500 hover:bg-stone-100"}`}>
-                      {typeIcon(e.type)} {e.nodeName}
-                    </button>
-                  ))}
-                </div>
+          {!isRunning && displayLog.length > 0 && (
+            <div className="h-full flex flex-col">
+              {/* Result tabs */}
+              <div className="flex items-center gap-1 px-4 py-2 border-b border-stone-100 bg-stone-50/50 shrink-0">
+                <span className="text-xs font-semibold text-stone-500 mr-2">結果:</span>
+                {displayLog.filter(e => e.output || e.error).map(e => (
+                  <button key={e.nodeId} onClick={() => setSelectedNodeId(e.nodeId)}
+                    className={`text-xs px-3 py-1 rounded-lg transition-colors ${selectedNodeId === e.nodeId ? "bg-violet-100 text-violet-700 font-semibold" : "text-stone-500 hover:bg-stone-100"}`}>
+                    {typeIcon(e.type)} {e.nodeName}
+                  </button>
+                ))}
+                {/* Stats */}
+                <div className="flex-1" />
+                <span className="text-[10px] text-stone-400">✅{successCount} {errorCount > 0 && <span className="text-red-400">❌{errorCount}</span>} ⏱{viewingHistory ? viewingHistory.totalMs : totalMs}ms</span>
               </div>
-              {/* File output indicator */}
-              {selectedLogEntry?.output?.file && (
-                <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 flex items-center gap-2">
-                  <span>📁</span>
-                  <span className="text-sm text-amber-700">結果已寫入：<code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs">{selectedLogEntry.output.file}</code></span>
-                </div>
-              )}
-              {selectedLogEntry?.output && !selectedLogEntry.output.file && <ResultCards output={selectedLogEntry.output} />}
-              {selectedLogEntry?.error && <div className="bg-red-50 rounded-lg p-4 border border-red-200"><div className="text-sm font-medium text-red-700">錯誤</div><div className="text-xs text-red-600 mt-1">{selectedLogEntry.error}</div></div>}
-              {!selectedLogEntry && execLog.length > 0 && <div className="text-xs text-stone-400 italic">點擊上方步驟查看結果</div>}
+              {/* Result content */}
+              <div className="flex-1 overflow-y-auto p-5">
+                {displaySelectedEntry?.output?.file && (
+                  <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 flex items-center gap-2 mb-3">
+                    <span>📁</span>
+                    <span className="text-sm text-amber-700">結果已寫入：<code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs">{displaySelectedEntry.output.file}</code></span>
+                  </div>
+                )}
+                {displaySelectedEntry?.output && !displaySelectedEntry.output.file && <ResultCards output={displaySelectedEntry.output} />}
+                {displaySelectedEntry?.error && <div className="bg-red-50 rounded-lg p-4 border border-red-200"><div className="text-sm font-medium text-red-700">錯誤</div><div className="text-xs text-red-600 mt-1">{displaySelectedEntry.error}</div></div>}
+                {!displaySelectedEntry && <div className="text-xs text-stone-400 italic">點擊上方步驟查看結果</div>}
+              </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* Right: Execution Log */}
-      {execLog.length > 0 && (
-        <div className="w-56 border-l border-stone-200 bg-white flex flex-col">
-          <div className="px-3 py-2.5 border-b border-stone-200 bg-stone-50">
-            <div className="text-xs font-semibold text-stone-600">Execution Log {totalMs > 0 && <span className="ml-1.5 text-stone-400">{totalMs}ms</span>}</div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {execLog.map((entry, i) => (
-              <button key={i} onClick={() => setSelectedNodeId(entry.nodeId)} className={`w-full flex items-start gap-1.5 px-2 py-2 rounded-lg text-left transition-colors ${selectedNodeId === entry.nodeId ? "bg-violet-50 ring-1 ring-violet-300" : entry.status === "success" ? "bg-emerald-50/50 hover:bg-emerald-100" : entry.status === "error" ? "bg-red-50/50" : entry.status === "running" ? "bg-amber-50/50" : "bg-stone-50"}`}>
-                <span className="text-xs mt-0.5">{typeIcon(entry.type)}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-stone-700 truncate">{entry.nodeName}</div>
-                  {entry.durationMs != null && <div className="text-[10px] text-stone-400">{entry.durationMs}ms</div>}
-                  {entry.error && <div className="text-[10px] text-red-500 truncate">{entry.error}</div>}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
