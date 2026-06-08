@@ -440,7 +440,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
           </div>
         ) : (
           /* ── Chat messages ── */
-          <div className="max-w-5xl mx-auto px-4 py-4 space-y-3">
+          <div className="w-full px-4 py-4 space-y-3">
             {messages.map((msg, i) => (
               <div key={i} className="flex justify-start">
                 <div className="flex gap-2.5 max-w-[95%]">
@@ -490,7 +490,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       {/* ── Input bar ── */}
       {activeChatId && (
         <div className="shrink-0 px-4 py-3 border-t bg-white/80 backdrop-blur-sm" style={{ borderColor: themeInfo.accentBorder + "30" }}>
-          <div className="max-w-5xl mx-auto flex gap-2 items-end">
+          <div className="flex gap-2 items-end">
             <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
               placeholder={`跟${assistantName}說點什麼...`}
               rows={1}
