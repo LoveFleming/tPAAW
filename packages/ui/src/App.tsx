@@ -416,7 +416,7 @@ function AppInner() {
   [skillApps, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
-    if (fullId === "_chat") return "🐾 " + chatTitle;
+    if (fullId === "_chat") return "💬 交談";
     if (fullId === "_settings") return t("sidebar.settings");
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return t("sidebar.aiCrew");

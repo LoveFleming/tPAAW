@@ -47,13 +47,13 @@ function EndNode({ data, selected }: NodeProps) {
   const target = (data.outputTarget as string) || "chat";
   return (
     <div className={`px-5 py-3 rounded-2xl shadow-sm border-2 transition-all ${
-      selected ? "border-rose-500 shadow-lg ring-4 ring-rose-200 bg-rose-50" : "border-rose-300 bg-rose-50/80"}`}>
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-rose-400 !border-2 !border-white" />
+      selected ? "border-indigo-500 shadow-lg ring-4 ring-indigo-200 bg-rose-50" : "border-indigo-300 bg-indigo-50/80"}`}>
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-indigo-400 !border-2 !border-white" />
       <div className="flex items-center gap-2">
-        <span className="text-lg">🔴</span>
+        <span className="text-lg">🔵</span>
         <div>
-          <div className="font-bold text-sm text-rose-800">End</div>
-          <div className="text-[10px] text-rose-600">{target === "chat" ? "💬 輸出到聊天" : "📁 輸出到檔案"}</div>
+          <div className="font-bold text-sm text-indigo-800">End</div>
+          <div className="text-[10px] text-indigo-600">{target === "chat" ? "💬 輸出到交談" : "📁 輸出到檔案"}</div>
         </div>
       </div>
     </div>
@@ -119,14 +119,14 @@ function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
     return (
       <div className="w-72 border-l border-stone-200 bg-white flex flex-col">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-rose-50">
-          <span className="text-sm font-semibold text-rose-800">🔴 End 設定</span>
+          <span className="text-sm font-semibold text-indigo-800">🔵 End 設定</span>
           <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div>
             <label className="text-xs font-semibold text-stone-500 block mb-1">名稱</label>
             <input type="text" value={node.name} onChange={e => onUpdate({ name: e.target.value })}
-              className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300" />
+              className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" />
           </div>
           <div>
             <label className="text-xs font-semibold text-stone-500 block mb-2">輸出目的地</label>
@@ -136,7 +136,7 @@ function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
                 <input type="radio" name="outputTarget" value="chat" checked={(node.config.outputTarget || "chat") === "chat"}
                   onChange={() => onUpdate({ config: { ...node.config, outputTarget: "chat" } })} className="accent-violet-600" />
                 <div>
-                  <div className="text-sm font-medium text-stone-800">💬 聊天視窗</div>
+                  <div className="text-sm font-medium text-stone-800">💬 交談視窗</div>
                   <div className="text-[10px] text-stone-500">結果顯示在 PAAW 聊天視窗</div>
                 </div>
               </label>
@@ -161,11 +161,11 @@ function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
               <div className="text-[10px] text-stone-400 mt-1">支援 <code className="bg-stone-100 px-1 rounded">{"{{workflow.input.xxx}}"}</code> 模板</div>
             </div>
           )}
-          <div className="bg-rose-50 rounded-lg p-3 border border-rose-200">
-            <div className="text-xs font-semibold text-rose-700 mb-1">💡 說明</div>
-            <div className="text-xs text-rose-600 space-y-1">
+          <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+            <div className="text-xs font-semibold text-indigo-700 mb-1">💡 說明</div>
+            <div className="text-xs text-indigo-600 space-y-1">
               <div>End 是 workflow 的終點，前一個積木的輸出會送到這裡。</div>
-              <div>選「聊天視窗」→ 結果顯示在 PAAW chat</div>
+              <div>選「聊天視窗」→ 結果顯示在 PAAW 交談視窗</div>
               <div>選「檔案路徑」→ 結果寫入指定檔案</div>
             </div>
           </div>

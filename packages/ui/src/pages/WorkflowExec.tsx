@@ -59,7 +59,7 @@ function resolveTemplate(t: string, ctx: Record<string, any>): any {
 
 function typeIcon(type?: WFNodeType) {
   if (type === "start") return "🟢";
-  if (type === "end") return "🔴";
+  if (type === "end") return "🔵";
   return "⚡";
 }
 
@@ -217,7 +217,7 @@ export default function WorkflowExec() {
                     <span className={currentWf?.id === wf.id ? "font-medium" : ""}>{wf.name}</span>
                   </div>
                   <div className="text-[10px] text-stone-400 mt-0.5 ml-6 flex items-center gap-1.5">
-                    {hasStart && <span>🟢</span>}{skillCount > 0 && <span>⚡{skillCount}</span>}{hasEnd && <span>🔴</span>}
+                    {hasStart && <span>🟢</span>}{skillCount > 0 && <span>⚡{skillCount}</span>}{hasEnd && <span>🔵</span>}
                   </div>
                 </button>
               );
@@ -259,7 +259,7 @@ export default function WorkflowExec() {
             <h2 className="font-bold text-sm text-stone-800">{currentWf?.name || "選擇 Workflow"}</h2>
             {outputTarget && currentWf && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">
-                {outputTarget === "chat" ? "💬 聊天" : "📁 檔案"}
+                {outputTarget === "chat" ? "💬 交談" : "📁 檔案"}
               </span>
             )}
             <div className="flex-1" />
@@ -297,8 +297,8 @@ export default function WorkflowExec() {
                 const status = logEntry?.status || "pending";
                 const isStart = node.type === "start";
                 const isEnd = node.type === "end";
-                const statusStyle = isStart ? "border-emerald-300 bg-emerald-50" : isEnd ? "border-rose-300 bg-rose-50" : status === "running" ? "border-amber-400 bg-amber-50" : status === "success" ? "border-emerald-400 bg-emerald-50" : status === "error" ? "border-red-400 bg-red-50" : "border-stone-200 bg-white";
-                const statusIcon = isStart ? "🟢" : isEnd ? "🔴" : status === "running" ? "⏳" : status === "success" ? "✅" : status === "error" ? "❌" : "⚡";
+                const statusStyle = isStart ? "border-emerald-300 bg-emerald-50" : isEnd ? "border-indigo-300 bg-indigo-50" : status === "running" ? "border-amber-400 bg-amber-50" : status === "success" ? "border-emerald-400 bg-emerald-50" : status === "error" ? "border-red-400 bg-red-50" : "border-stone-200 bg-white";
+                const statusIcon = isStart ? "🟢" : isEnd ? "🔵" : status === "running" ? "⏳" : status === "success" ? "✅" : status === "error" ? "❌" : "⚡";
                 return (
                   <div key={node.id} className="flex items-center shrink-0">
                     <button onClick={() => { if (logEntry?.output || logEntry?.error) setSelectedNodeId(node.id); }}
@@ -362,7 +362,24 @@ export default function WorkflowExec() {
                   </div>
                 )}
                 {displaySelectedEntry?.output && !displaySelectedEntry.output.file && <ResultCards output={displaySelectedEntry.output} />}
-                {displaySelectedEntry?.error && <div className="bg-red-50 rounded-lg p-4 border border-red-200"><div className="text-sm font-medium text-red-700">錯誤</div><div className="text-xs text-red-600 mt-1">{displaySelectedEntry.error}</div></div>}
+                {displaySelectedEntry?.error && (
+                  <div className="bg-red-50 rounded-xl p-4 border border-red-200 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">❌</span>
+                      <div className="text-sm font-semibold text-red-800">{displaySelectedEntry.nodeName} — 執行失敗</div>
+                    </div>
+                    <div className="bg-white/80 rounded-lg p-3 border border-red-100">
+                      <div className="text-xs font-semibold text-red-600 mb-1">Error Log</div>
+                      <pre className="text-xs text-red-700 whitespace-pre-wrap break-words">{displaySelectedEntry.error}</pre>
+                    </div>
+                    {displaySelectedEntry.input && (
+                      <div className="bg-white/80 rounded-lg p-3 border border-stone-200">
+                        <div className="text-xs font-semibold text-stone-500 mb-1">Input</div>
+                        <pre className="text-xs text-stone-600 whitespace-pre-wrap break-words">{JSON.stringify(displaySelectedEntry.input, null, 2)}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {!displaySelectedEntry && <div className="text-xs text-stone-400 italic">點擊上方步驟查看結果</div>}
               </div>
             </div>
