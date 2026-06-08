@@ -12,7 +12,7 @@
 
 import { createServer } from "http";
 import { readdir, readFile, writeFile, mkdir, unlink, rm } from "fs/promises";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -2555,6 +2555,48 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
     } catch (err) {
       res.writeHead(500);
       res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── App/Skill list for Workflow Builder ──
+
+  // GET /api/paaw/app-skills — list apps with their skills
+  if (req.method === "GET" && path === "/api/paaw/app-skills") {
+    try {
+      const appFiles = await readdir(APPS_DIR);
+      const result = [];
+      for (const f of appFiles) {
+        if (!f.endsWith(".json")) continue;
+        try {
+          const app = JSON.parse(await readFile(resolve(APPS_DIR, f), "utf-8"));
+          // Find skills for this app
+          const skills = [];
+          const appSkillsDir = resolve(APPS_DIR, app.id, "skills");
+          try {
+            const dirs = await readdir(appSkillsDir);
+            for (const d of dirs) {
+              if (existsSync(resolve(appSkillsDir, d, "SKILL.md"))) skills.push(d);
+            }
+          } catch {}
+          result.push({ id: app.id, name: app.name || app.id, icon: app.icon || "📦", skills });
+        } catch {}
+      }
+      // Also add skills from pool
+      const poolSkills = [];
+      try {
+        const dirs = await readdir(resolve(PAAW_ROOT, "data/skills/pool"));
+        for (const d of dirs) {
+          if (existsSync(resolve(PAAW_ROOT, "data/skills/pool", d, "SKILL.md"))) poolSkills.push(d);
+        }
+      } catch {}
+      if (poolSkills.length > 0) {
+        result.push({ id: "_pool", name: "Skill Pool", icon: "🗂️", skills: poolSkills });
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }
