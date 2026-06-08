@@ -425,7 +425,7 @@ function AppInner() {
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
-    if (pageType === "wf-editor") return "Workflow Editor";
+    if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflow Exec";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
@@ -684,7 +684,7 @@ function AppInner() {
               <div>
                 <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":reportapplab")} label={t("sidebar.appLab")} onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":wf-editor")} label="Workflow Editor" onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":wf-editor")} label="Workflow Builder" onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
