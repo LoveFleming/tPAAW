@@ -55,6 +55,17 @@ interface ExecLogEntry {
 // ── API base ──
 const API = "http://127.0.0.1:4097";
 
+// ── Preview text helper ──
+function previewText(output: any): string {
+  if (!output) return "";
+  if (typeof output === "string") return output.slice(0, 30);
+  if (output.translation) return output.translation.slice(0, 30);
+  if (output.cards) return `${output.cards.length} 張卡片`;
+  if (output.idioms) return `${output.idioms.length} 個片語`;
+  const str = JSON.stringify(output);
+  return str.slice(0, 30);
+}
+
 // ── Custom Skill Node ──
 function SkillNode({ data, selected }: NodeProps) {
   const status = data.status as string || "idle";
@@ -62,21 +73,30 @@ function SkillNode({ data, selected }: NodeProps) {
     status === "running" ? "bg-amber-400" :
     status === "success" ? "bg-emerald-500" :
     status === "error" ? "bg-red-500" :
-    "bg-stone-400";
+    "bg-stone-300";
+
+  const statusIcon =
+    status === "running" ? "⏳" :
+    status === "success" ? "✅" :
+    status === "error" ? "❌" :
+    "";
+
+  const preview = data.output ? previewText(data.output) : "";
 
   return (
-    <div className={`px-4 py-3 rounded-xl shadow-md border transition-all ${
-      selected ? "border-violet-400 shadow-violet-100" : "border-stone-200 hover:border-stone-300"
+    <div className={`px-4 py-3 rounded-xl shadow-sm border transition-all cursor-pointer ${
+      selected ? "border-violet-400 shadow-md ring-2 ring-violet-100" : "border-stone-200 hover:border-stone-300 hover:shadow-sm"
     } bg-white`}>
       <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-stone-300 !border-2 !border-white" />
-      <div className="flex items-center gap-2 mb-0.5">
+      <div className="flex items-center gap-2">
         <div className={`w-2.5 h-2.5 rounded-full ${statusColor} ${status === "running" ? "animate-pulse" : ""}`} />
         <span className="font-semibold text-sm text-stone-800">{data.label as string}</span>
+        {statusIcon && <span className="text-xs">{statusIcon}</span>}
       </div>
       <div className="text-xs text-stone-400 ml-[18px]">{data.skillId as string}</div>
-      {data.output && (
-        <div className="mt-2 text-xs bg-stone-50 rounded-lg p-2 max-h-16 overflow-hidden font-mono border border-stone-100">
-          {typeof data.output === "string" ? data.output : JSON.stringify(data.output).slice(0, 80) + "..."}
+      {preview && (
+        <div className="mt-1.5 text-xs text-stone-500 ml-[18px] truncate">
+          {preview}
         </div>
       )}
       <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-stone-300 !border-2 !border-white" />
@@ -85,6 +105,97 @@ function SkillNode({ data, selected }: NodeProps) {
 }
 
 const nodeTypes = { skill: SkillNode };
+
+// ── Result Panel ──
+function ResultPanel({ entry, nodeName, onClose }: { entry: ExecLogEntry | null; nodeName: string; onClose: () => void }) {
+  if (!entry || !entry.output) return null;
+
+  const output = entry.output;
+
+  // Try to render structured output nicely
+  const renderOutput = () => {
+    // Translation result
+    if (output.translation) {
+      return (
+        <div className="space-y-3">
+          <div>
+            <div className="text-xs font-semibold text-stone-500 mb-1">翻譯結果</div>
+            <div className="text-sm text-stone-800 bg-white rounded-lg p-3 border border-stone-100">{output.translation}</div>
+          </div>
+          {output.special_words && output.special_words.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-stone-500 mb-1">特殊詞 ({output.special_words.length})</div>
+              <div className="space-y-1">
+                {output.special_words.map((w: any, i: number) => (
+                  <div key={i} className="text-xs bg-white rounded-lg p-2 border border-stone-100 flex justify-between">
+                    <span className="font-medium text-stone-700">{w.word}</span>
+                    <span className="text-stone-400">{w.type} → {w.translation}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Idiom/Card result
+    if (output.cards || output.idioms) {
+      const items = output.cards || output.idioms || [];
+      return (
+        <div className="space-y-3">
+          <div className="text-xs font-semibold text-stone-500 mb-1">
+            {output.cards ? `學習卡 (${items.length})` : `片語 (${items.length})`}
+          </div>
+          <div className="space-y-2">
+            {items.map((card: any, i: number) => (
+              <div key={i} className="bg-white rounded-lg p-3 border border-stone-100 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-stone-800">{card.word || card.phrase}</span>
+                  {card.phonetic && <span className="text-xs text-stone-400">{card.phonetic}</span>}
+                  {card.translation && <span className="text-xs text-stone-500">→ {card.translation}</span>}
+                </div>
+                {card.classic_sentence && (
+                  <div className="text-xs text-stone-600">
+                    <span className="text-stone-400">例句：</span>
+                    {typeof card.classic_sentence === "object"
+                      ? `${card.classic_sentence.en || ""} — ${card.classic_sentence.zh || ""}`
+                      : card.classic_sentence}
+                  </div>
+                )}
+                {card.joke && (
+                  <div className="text-xs text-amber-600 italic">😄 {card.joke}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Generic JSON output
+    return (
+      <pre className="text-xs bg-white rounded-lg p-3 border border-stone-100 overflow-auto max-h-[60vh] whitespace-pre-wrap text-stone-700">
+        {JSON.stringify(output, null, 2)}
+      </pre>
+    );
+  };
+
+  return (
+    <div className="w-80 border-l border-stone-200 bg-stone-50 flex flex-col">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-white">
+        <div>
+          <div className="text-sm font-semibold text-stone-800">{nodeName}</div>
+          {entry.durationMs != null && <div className="text-xs text-stone-400">{entry.durationMs}ms</div>}
+        </div>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {renderOutput()}
+      </div>
+    </div>
+  );
+}
 
 // ── Main Component ──
 export default function WorkflowBuilder() {
@@ -102,6 +213,21 @@ export default function WorkflowBuilder() {
   const [workflowInput, setWorkflowInput] = useState("");
   const [showLog, setShowLog] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  // Selected node for Result Panel
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  // Derived: selected log entry
+  const selectedLogEntry = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return execLog.find(e => e.nodeId === selectedNodeId && (e.status === "success" || e.status === "error")) || null;
+  }, [selectedNodeId, execLog]);
+
+  // Derived: selected node name
+  const selectedNodeName = useMemo(() => {
+    if (!selectedNodeId || !currentWf) return "";
+    return currentWf.nodes.find(n => n.id === selectedNodeId)?.name || "";
+  }, [selectedNodeId, currentWf]);
 
   // ── Load workflow list ──
   useEffect(() => {
@@ -121,7 +247,7 @@ export default function WorkflowBuilder() {
       .then((wf: WorkflowDef) => {
         setCurrentWf(wf);
         setExecLog([]);
-        // Convert to React Flow nodes
+        setSelectedNodeId(null);
         const nodes: Node[] = wf.nodes.map(n => ({
           id: n.id,
           type: "skill",
@@ -141,6 +267,16 @@ export default function WorkflowBuilder() {
       })
       .catch(() => {});
   }, [setRfNodes, setRfEdges]);
+
+  // ── Handle node click ──
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    setSelectedNodeId(prev => prev === node.id ? null : node.id);
+  }, []);
+
+  // ── Handle pane click (deselect) ──
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
 
   // ── Connect nodes via drag ──
   const onConnect = useCallback((connection: Connection) => {
@@ -173,24 +309,20 @@ export default function WorkflowBuilder() {
 
     setIsRunning(true);
     setExecLog([]);
+    setSelectedNodeId(null);
 
-    // Build execution context
     const ctx: Record<string, any> = { workflow: { input }, node: {} };
-
-    // Topological sort (linear for now: follow edges order)
     const sorted = topologicalSort(currentWf.nodes, currentWf.edges);
-
     const log: ExecLogEntry[] = [];
+    let lastSuccessId: string | null = null;
 
     for (const node of sorted) {
-      // Mark running
       setRfNodes(nds => nds.map(n =>
         n.id === node.id ? { ...n, data: { ...n.data, status: "running" } } : n
       ));
       log.push({ nodeId: node.id, nodeName: node.name, status: "running" });
       setExecLog([...log]);
 
-      // Resolve inputs
       const resolvedInput: Record<string, any> = {};
       for (const [key, template] of Object.entries(node.config.inputMapping || {})) {
         resolvedInput[key] = resolveTemplate(template, ctx);
@@ -198,7 +330,6 @@ export default function WorkflowBuilder() {
 
       const start = Date.now();
       try {
-        // Call the skill exec endpoint
         const resp = await fetch(`${API}/api/paaw/skill-exec`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -214,18 +345,16 @@ export default function WorkflowBuilder() {
         if (result.error) {
           log[log.length - 1] = { nodeId: node.id, nodeName: node.name, status: "error", error: result.error, durationMs };
           setRfNodes(nds => nds.map(n =>
-            n.id === node.id ? { ...n, data: { ...n.data, status: "error", output: result.error } } : n
+            n.id === node.id ? { ...n, data: { ...n.data, status: "error" } } : n
           ));
           break;
         }
 
         const output = result.result || result;
         log[log.length - 1] = { nodeId: node.id, nodeName: node.name, status: "success", input: resolvedInput, output, durationMs };
-
-        // Update context
         ctx.node[node.id] = { output };
+        lastSuccessId = node.id;
 
-        // Update node visual
         setRfNodes(nds => nds.map(n =>
           n.id === node.id ? { ...n, data: { ...n.data, status: "success", output } } : n
         ));
@@ -241,9 +370,13 @@ export default function WorkflowBuilder() {
     }
 
     setIsRunning(false);
+    // Auto-select last successful node
+    if (lastSuccessId) {
+      setSelectedNodeId(lastSuccessId);
+    }
   }, [currentWf, workflowInput, setRfNodes]);
 
-  // ── Topological sort (simple DAG) ──
+  // ── Topological sort ──
   function topologicalSort(nodes: WFNode[], edges: WFEdge[]): WFNode[] {
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     const inDegree = new Map(nodes.map(n => [n.id, 0]));
@@ -274,13 +407,12 @@ export default function WorkflowBuilder() {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [execLog]);
 
-  // Total duration
   const totalMs = useMemo(() =>
     execLog.reduce((sum, e) => sum + (e.durationMs || 0), 0),
     [execLog]
   );
 
-  // ── Save workflow (node positions) ──
+  // ── Save workflow ──
   const saveWorkflow = useCallback(() => {
     if (!currentWf) return;
     const updated = {
@@ -375,6 +507,8 @@ export default function WorkflowBuilder() {
             onNodesChange={onRfNodesChange}
             onEdgesChange={onRfEdgesChange}
             onConnect={onConnect}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             defaultViewport={{ x: 40, y: 80, zoom: 1 }}
             snapToGrid
@@ -390,7 +524,7 @@ export default function WorkflowBuilder() {
 
         {/* Execution Log */}
         {showLog && execLog.length > 0 && (
-          <div className="h-48 border-t border-stone-200 bg-white overflow-y-auto">
+          <div className="h-44 border-t border-stone-200 bg-white overflow-y-auto">
             <div className="flex items-center justify-between px-3 py-1.5 bg-stone-50 border-b border-stone-100 sticky top-0">
               <span className="text-xs font-semibold text-stone-600">
                 Execution Log
@@ -400,12 +534,17 @@ export default function WorkflowBuilder() {
             </div>
             <div className="p-2 space-y-1 text-xs font-mono">
               {execLog.map((entry, i) => (
-                <div key={i} className={`flex items-start gap-2 px-2 py-1.5 rounded ${
-                  entry.status === "success" ? "bg-emerald-50" :
-                  entry.status === "error" ? "bg-red-50" :
-                  entry.status === "running" ? "bg-amber-50" :
-                  "bg-stone-50"
-                }`}>
+                <div
+                  key={i}
+                  onClick={() => { if (entry.output) setSelectedNodeId(entry.nodeId); }}
+                  className={`flex items-start gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${
+                    selectedNodeId === entry.nodeId ? "ring-1 ring-violet-300 bg-violet-50" :
+                    entry.status === "success" ? "bg-emerald-50 hover:bg-emerald-100" :
+                    entry.status === "error" ? "bg-red-50" :
+                    entry.status === "running" ? "bg-amber-50" :
+                    "bg-stone-50"
+                  }`}
+                >
                   <span className="mt-0.5">
                     {entry.status === "success" ? "✅" : entry.status === "error" ? "❌" : entry.status === "running" ? "⏳" : "⬜"}
                   </span>
@@ -414,16 +553,8 @@ export default function WorkflowBuilder() {
                       <span className="font-semibold text-stone-700">{entry.nodeName}</span>
                       {entry.durationMs != null && <span className="text-stone-400">{entry.durationMs}ms</span>}
                     </div>
-                    {entry.output && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-stone-500 hover:text-stone-700">output</summary>
-                        <pre className="mt-1 text-[10px] bg-white rounded p-2 overflow-x-auto max-h-32">
-                          {JSON.stringify(entry.output, null, 2)}
-                        </pre>
-                      </details>
-                    )}
                     {entry.error && (
-                      <div className="text-red-600 mt-1">{entry.error}</div>
+                      <div className="text-red-600 mt-0.5">{entry.error}</div>
                     )}
                   </div>
                 </div>
@@ -441,6 +572,15 @@ export default function WorkflowBuilder() {
           </button>
         )}
       </div>
+
+      {/* ── Right: Result Panel ── */}
+      {selectedLogEntry && (
+        <ResultPanel
+          entry={selectedLogEntry}
+          nodeName={selectedNodeName}
+          onClose={() => setSelectedNodeId(null)}
+        />
+      )}
     </div>
   );
 }

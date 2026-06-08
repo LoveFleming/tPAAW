@@ -11,7 +11,10 @@
       "skillId": "translate",
       "appName": "translate",
       "name": "翻譯",
-      "position": { "x": 120, "y": 160 },
+      "position": {
+        "x": 120,
+        "y": 160
+      },
       "config": {
         "inputMapping": {
           "source_text": "{{workflow.input.text}}",
@@ -25,7 +28,10 @@
       "skillId": "idiom-packaging",
       "appName": "translate",
       "name": "重點包裝",
-      "position": { "x": 440, "y": 160 },
+      "position": {
+        "x": 928,
+        "y": 160
+      },
       "config": {
         "inputMapping": {
           "word": "{{workflow.input.text}}",
@@ -36,12 +42,21 @@
     }
   ],
   "edges": [
-    { "id": "e1-2", "source": "node-1", "target": "node-2" }
+    {
+      "id": "e1-2",
+      "source": "node-1",
+      "target": "node-2"
+    }
   ],
   "inputSchema": {
     "properties": {
-      "text": { "type": "string", "description": "要分析的文字" }
+      "text": {
+        "type": "string",
+        "description": "要分析的文字"
+      }
     },
-    "required": ["text"]
+    "required": [
+      "text"
+    ]
   }
 }
