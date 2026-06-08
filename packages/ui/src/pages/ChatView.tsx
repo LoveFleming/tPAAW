@@ -97,11 +97,18 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       if (resp.ok) {
         const data = await resp.json();
         setChats(data);
-        // If we have an active chat, update its messages from server
+        // Only update messages from server when NOT streaming/loading
+        // This prevents scroll jumps from polling
         if (activeChatId && !isLoading) {
           const current = data.find((c: Chat) => c.id === activeChatId);
           if (current?.messages) {
-            setMessages(current.messages);
+            // Only set if message count changed (new message from elsewhere)
+            setMessages(prev => {
+              if (current.messages.length !== prev.length) {
+                return current.messages;
+              }
+              return prev;
+            });
           }
         }
       }
@@ -138,34 +145,27 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     return () => clearInterval(interval);
   }, [loadChats]);
 
-  // Auto-scroll: only scroll when user sends a message or receives AI reply
-  // Don't scroll on initial load or polling updates
-  const userScrolledRef = useRef(false);
-  const chatContainerRef = useRef(null);
+  // Auto-scroll: only when user sends/receives, not on polling
+  const isNearBottomRef = useRef(true);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Detect if user has scrolled up
+  // Track whether user is near bottom
   useEffect(() => {
     const el = chatContainerRef.current;
     if (!el) return;
     const onScroll = () => {
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-      userScrolledRef.current = !atBottom;
+      isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Scroll to bottom only when sending or receiving (not on poll)
-  const prevMsgCountRef = useRef(0);
-  useEffect(() => {
-    if (messages.length > prevMsgCountRef.current) {
-      // New message added — scroll only if user was at bottom
-      if (!userScrolledRef.current) {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-    prevMsgCountRef.current = messages.length;
-  }, [messages]);
+  // Scroll to bottom — only when explicitly requested (send/receive)
+  const scrollToBottom = useCallback((smooth = true) => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
+    });
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -232,6 +232,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    scrollToBottom(false);
 
     const assistantMsg: Message = { role: "assistant", content: "", timestamp: new Date().toISOString() };
     const withAssistant = [...newMessages, assistantMsg];
@@ -301,10 +302,12 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
 
         assistantMsg.content = fullContent;
         setMessages([...newMessages, { ...assistantMsg }]);
+        if (isNearBottomRef.current) scrollToBottom(true);
       }
 
       assistantMsg.content = fullContent;
       setMessages([...newMessages, { ...assistantMsg }]);
+      scrollToBottom(true);
       await saveMessages(activeChatId, [...newMessages, assistantMsg]);
     } catch (err: any) {
       if (err.name !== "AbortError") {
