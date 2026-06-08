@@ -3190,6 +3190,22 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
     return true;
   }
 
+  // POST /api/paaw/file-write — write file for workflow end node (file output)
+  if (req.method === "POST" && path === "/api/paaw/file-write") {
+    try {
+      const { path: filePath, content } = JSON.parse(await readBody(req));
+      if (!filePath) { res.writeHead(400); res.end(JSON.stringify({ error: "path required" })); return true; }
+      const dir = dirname(filePath);
+      await mkdir(dir, { recursive: true });
+      await writeFile(filePath, content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: filePath }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // POST /api/paaw/skill-exec — execute a single skill (for workflow nodes)
   if (req.method === "POST" && path === "/api/paaw/skill-exec") {
     try {

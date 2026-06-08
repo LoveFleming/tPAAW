@@ -1,17 +1,64 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
-  ReactFlow, Controls, Background, useNodesState, useEdgesState,
+  ReactFlow, Controls, Background, useNodesState, useEdgesState, addEdge,
   Handle, Position, type NodeProps, type Node, type Edge,
   BackgroundVariant, MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-interface WFNode { id: string; type: "skill"; skillId: string; appName?: string; name: string; position: { x: number; y: number }; config: { inputMapping: Record<string, string> }; }
+// ── Types ──
+type WFNodeType = "start" | "end" | "skill";
+type EndOutputTarget = "chat" | "file";
+
+interface WFNode {
+  id: string; type: WFNodeType; skillId?: string; appName?: string; name: string;
+  position: { x: number; y: number };
+  config: { inputMapping: Record<string, string>; outputTarget?: EndOutputTarget; outputFilePath?: string };
+}
 interface WFEdge { id: string; source: string; target: string; }
-interface WorkflowDef { id: string; name: string; description: string; icon: string; nodes: WFNode[]; edges: WFEdge[]; inputSchema: { properties: Record<string, any>; required: string[] }; }
+interface WorkflowDef {
+  id: string; name: string; description: string; icon: string;
+  nodes: WFNode[]; edges: WFEdge[];
+  inputSchema: { properties: Record<string, any>; required: string[] };
+}
 interface AppSkill { id: string; name: string; icon: string; skills: string[]; }
 
 const API = "http://127.0.0.1:4097";
+
+// ── Start Node ──
+function StartNode({ data, selected }: NodeProps) {
+  return (
+    <div className={`px-5 py-3 rounded-2xl shadow-sm border-2 transition-all ${
+      selected ? "border-emerald-500 shadow-lg ring-4 ring-emerald-200 bg-emerald-50" : "border-emerald-300 bg-emerald-50/80"}`}>
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-emerald-400 !border-2 !border-white" />
+      <div className="flex items-center gap-2">
+        <span className="text-lg">🟢</span>
+        <div>
+          <div className="font-bold text-sm text-emerald-800">Start</div>
+          <div className="text-[10px] text-emerald-600">輸入起點</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── End Node ──
+function EndNode({ data, selected }: NodeProps) {
+  const target = (data.outputTarget as string) || "chat";
+  return (
+    <div className={`px-5 py-3 rounded-2xl shadow-sm border-2 transition-all ${
+      selected ? "border-rose-500 shadow-lg ring-4 ring-rose-200 bg-rose-50" : "border-rose-300 bg-rose-50/80"}`}>
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-rose-400 !border-2 !border-white" />
+      <div className="flex items-center gap-2">
+        <span className="text-lg">🔴</span>
+        <div>
+          <div className="font-bold text-sm text-rose-800">End</div>
+          <div className="text-[10px] text-rose-600">{target === "chat" ? "💬 輸出到聊天" : "📁 輸出到檔案"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Skill Node ──
 function SkillNode({ data, selected }: NodeProps) {
@@ -29,7 +76,8 @@ function SkillNode({ data, selected }: NodeProps) {
     </div>
   );
 }
-const nodeTypes = { skill: SkillNode };
+
+const nodeTypes = { start: StartNode, end: EndNode, skill: SkillNode };
 
 // ── Node Config Panel ──
 function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
@@ -39,6 +87,94 @@ function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
   const selApp = appSkills.find(a => a.id === node.appName);
   const availSkills = selApp ? selApp.skills : [];
   const poolApp = appSkills.find(a => a.id === "_pool");
+
+  // Start node config
+  if (node.type === "start") {
+    return (
+      <div className="w-72 border-l border-stone-200 bg-white flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-emerald-50">
+          <span className="text-sm font-semibold text-emerald-800">🟢 Start 設定</span>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-stone-500 block mb-1">名稱</label>
+            <input type="text" value={node.name} onChange={e => onUpdate({ name: e.target.value })}
+              className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+          </div>
+          <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+            <div className="text-xs font-semibold text-emerald-700 mb-1">💡 說明</div>
+            <div className="text-xs text-emerald-600 space-y-1">
+              <div>Start 是 workflow 的入口，使用者輸入的資料從這裡開始。</div>
+              <div>後面的積木用 <code className="bg-emerald-100 px-1 rounded">{"{{workflow.input.xxx}}"}</code> 取得輸入值。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // End node config
+  if (node.type === "end") {
+    return (
+      <div className="w-72 border-l border-stone-200 bg-white flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-rose-50">
+          <span className="text-sm font-semibold text-rose-800">🔴 End 設定</span>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-stone-500 block mb-1">名稱</label>
+            <input type="text" value={node.name} onChange={e => onUpdate({ name: e.target.value })}
+              className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-stone-500 block mb-2">輸出目的地</label>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                (node.config.outputTarget || "chat") === "chat" ? "border-violet-400 bg-violet-50" : "border-stone-200 hover:border-stone-300"}`}>
+                <input type="radio" name="outputTarget" value="chat" checked={(node.config.outputTarget || "chat") === "chat"}
+                  onChange={() => onUpdate({ config: { ...node.config, outputTarget: "chat" } })} className="accent-violet-600" />
+                <div>
+                  <div className="text-sm font-medium text-stone-800">💬 聊天視窗</div>
+                  <div className="text-[10px] text-stone-500">結果顯示在 PAAW 聊天視窗</div>
+                </div>
+              </label>
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
+                node.config.outputTarget === "file" ? "border-amber-400 bg-amber-50" : "border-stone-200 hover:border-stone-300"}`}>
+                <input type="radio" name="outputTarget" value="file" checked={node.config.outputTarget === "file"}
+                  onChange={() => onUpdate({ config: { ...node.config, outputTarget: "file" } })} className="accent-amber-600" />
+                <div>
+                  <div className="text-sm font-medium text-stone-800">📁 檔案路徑</div>
+                  <div className="text-[10px] text-stone-500">結果寫入指定檔案</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          {node.config.outputTarget === "file" && (
+            <div>
+              <label className="text-xs font-semibold text-stone-500 block mb-1">檔案路徑</label>
+              <input type="text" value={node.config.outputFilePath || ""}
+                onChange={e => onUpdate({ config: { ...node.config, outputFilePath: e.target.value } })}
+                className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 font-mono"
+                placeholder="/path/to/output.json" />
+              <div className="text-[10px] text-stone-400 mt-1">支援 <code className="bg-stone-100 px-1 rounded">{"{{workflow.input.xxx}}"}</code> 模板</div>
+            </div>
+          )}
+          <div className="bg-rose-50 rounded-lg p-3 border border-rose-200">
+            <div className="text-xs font-semibold text-rose-700 mb-1">💡 說明</div>
+            <div className="text-xs text-rose-600 space-y-1">
+              <div>End 是 workflow 的終點，前一個積木的輸出會送到這裡。</div>
+              <div>選「聊天視窗」→ 結果顯示在 PAAW chat</div>
+              <div>選「檔案路徑」→ 結果寫入指定檔案</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Skill node config (original)
   return (
     <div className="w-72 border-l border-stone-200 bg-white flex flex-col">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-stone-50">
@@ -117,10 +253,16 @@ export default function WorkflowEditor() {
     }).catch(() => {});
   }, []);
 
+  const toRFNode = (n: WFNode): Node => {
+    if (n.type === "start") return { id: n.id, type: "start", position: n.position, data: { label: "Start" } };
+    if (n.type === "end") return { id: n.id, type: "end", position: n.position, data: { label: "End", outputTarget: n.config.outputTarget || "chat" } };
+    return { id: n.id, type: "skill", position: n.position, data: { label: n.name, skillId: n.skillId || "" } };
+  };
+
   const loadWorkflow = useCallback((id: string) => {
     fetch(`${API}/api/paaw/workflows/${id}`).then(r => r.json()).then((wf: WorkflowDef) => {
       setCurrentWf(wf); setSelectedNodeId(null);
-      setRfNodes(wf.nodes.map(n => ({ id: n.id, type: "skill", position: n.position, data: { label: n.name, skillId: n.skillId } })));
+      setRfNodes(wf.nodes.map(toRFNode));
       setRfEdges(wf.edges.map(e => ({ id: e.id, source: e.source, target: e.target, animated: true, markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 }, style: { stroke: "#a1a1aa", strokeWidth: 2 } })));
     }).catch(() => {});
   }, [setRfNodes, setRfEdges]);
@@ -136,36 +278,48 @@ export default function WorkflowEditor() {
 
   const handleNodeUpdate = useCallback((patch: Partial<WFNode>) => {
     if (!currentWf || !selectedNodeId) return;
-    const updated = { ...currentWf, nodes: currentWf.nodes.map(n => n.id === selectedNodeId ? { ...n, ...patch } : n) };
+    const updated = { ...currentWf, nodes: currentWf.nodes.map(n => n.id === selectedNodeId ? { ...n, ...patch, config: patch.config ? { ...n.config, ...patch.config } : n.config } : n) };
     setCurrentWf(updated);
-    if (patch.name) setRfNodes(nds => nds.map(n => n.id === selectedNodeId ? { ...n, data: { ...n.data, label: patch.name } } : n));
-    if (patch.skillId) setRfNodes(nds => nds.map(n => n.id === selectedNodeId ? { ...n, data: { ...n.data, skillId: patch.skillId } } : n));
+    // Update ReactFlow visual
+    setRfNodes(nds => nds.map(n => {
+      if (n.id !== selectedNodeId) return n;
+      const d = { ...n.data };
+      if (patch.name) d.label = patch.name;
+      if (patch.skillId) d.skillId = patch.skillId;
+      if (patch.config?.outputTarget) d.outputTarget = patch.config.outputTarget;
+      return { ...n, data: d };
+    }));
     autoSave(updated); showToast("✅ Saved!");
   }, [currentWf, selectedNodeId, autoSave, setRfNodes]);
 
   const handleNodeDelete = useCallback(() => {
     if (!currentWf || !selectedNodeId) return;
+    const node = currentWf.nodes.find(n => n.id === selectedNodeId);
+    if (node?.type === "start" || node?.type === "end") { showToast("⚠️ 不能刪除 Start/End"); return; }
     const updated = { ...currentWf, nodes: currentWf.nodes.filter(n => n.id !== selectedNodeId), edges: currentWf.edges.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId) };
     setCurrentWf(updated); setRfNodes(nds => nds.filter(n => n.id !== selectedNodeId)); setRfEdges(eds => eds.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId));
     setSelectedNodeId(null); autoSave(updated); showToast("🗑 已刪除");
   }, [currentWf, selectedNodeId, autoSave, setRfNodes, setRfEdges]);
 
-  // Add new node
   const addNode = useCallback(() => {
     if (!currentWf) return;
     const id = "node-" + Date.now();
-    const newNode: WFNode = { id, type: "skill", skillId: "", name: "新積木", position: { x: 200 + Math.random() * 200, y: 100 + Math.random() * 150 }, config: { inputMapping: {} } };
+    const newNode: WFNode = { id, type: "skill", skillId: "", name: "新積木", position: { x: 300 + Math.random() * 200, y: 80 + Math.random() * 120 }, config: { inputMapping: {} } };
     const updated = { ...currentWf, nodes: [...currentWf.nodes, newNode] };
     setCurrentWf(updated);
-    setRfNodes(nds => [...nds, { id, type: "skill", position: newNode.position, data: { label: newNode.name, skillId: "" } }]);
-    autoSave(updated);
-    setSelectedNodeId(id);
+    setRfNodes(nds => [...nds, toRFNode(newNode)]);
+    autoSave(updated); setSelectedNodeId(id);
   }, [currentWf, autoSave, setRfNodes]);
 
-  // Add new workflow
   const addWorkflow = useCallback(async () => {
     const id = "wf-" + Date.now();
-    const wf: WorkflowDef = { id, name: "新 Workflow", description: "", icon: "🔗", nodes: [], edges: [], inputSchema: { properties: { text: { type: "string" } }, required: ["text"] } };
+    const startNode: WFNode = { id: "start", type: "start", name: "Start", position: { x: 50, y: 120 }, config: { inputMapping: {} } };
+    const endNode: WFNode = { id: "end", type: "end", name: "End", position: { x: 700, y: 120 }, config: { inputMapping: {}, outputTarget: "chat" } };
+    const wf: WorkflowDef = {
+      id, name: "新 Workflow", description: "", icon: "🔗",
+      nodes: [startNode, endNode], edges: [],
+      inputSchema: { properties: { text: { type: "string" } }, required: ["text"] },
+    };
     await fetch(`${API}/api/paaw/workflows`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(wf) });
     setWorkflows(prev => [...prev, wf]);
     loadWorkflow(id);
@@ -201,7 +355,8 @@ export default function WorkflowEditor() {
         </div>
         <div className="flex-1 relative" style={{ minHeight: 0 }}>
           <div className="w-full h-full">
-            <ReactFlow nodes={rfNodes} edges={rfEdges} onNodesChange={onRfNodesChange} onEdgesChange={onRfEdgesChange} onConnect={onConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick} nodeTypes={nodeTypes} defaultViewport={{ x: 40, y: 80, zoom: 1 }} snapToGrid snapGrid={[16, 16]} proOptions={{ hideAttribution: true }} className="bg-stone-50">
+            <ReactFlow nodes={rfNodes} edges={rfEdges} onNodesChange={onRfNodesChange} onEdgesChange={onRfEdgesChange} onConnect={onConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick}
+              nodeTypes={nodeTypes} defaultViewport={{ x: 40, y: 80, zoom: 1 }} snapToGrid snapGrid={[16, 16]} proOptions={{ hideAttribution: true }} className="bg-stone-50">
               <Controls position="bottom-right" />
               <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d6d3d1" />
             </ReactFlow>
