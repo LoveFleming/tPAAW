@@ -35,6 +35,7 @@ const SKILLS_ROOT = resolve(PAAW_ROOT, "data/skills");
 const DOCS_ROOT = resolve(PAAW_ROOT, "docs");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
+const SKILL_POOL_ROOT = resolve(SKILLS_ROOT, "pool");
 const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
 const WORKFLOWS_ROOT = resolve(PAAW_ROOT, "data/workflows");
 
@@ -134,10 +135,11 @@ const server = createServer(async (req, res) => {
       };
       await scanSkillsDir(INPUT_PROMPT_ROOT, "input-prompt");
       await scanSkillsDir(PHYSICAL_SKILL_ROOT, "physical-skill");
+      await scanSkillsDir(SKILL_POOL_ROOT, "skill-pool");
       // Check hasApp for each skill
       for (const sk of skills) {
         try {
-          const base = sk.kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : INPUT_PROMPT_ROOT;
+          const base = sk.kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : sk.kind === "skill-pool" ? SKILL_POOL_ROOT : INPUT_PROMPT_ROOT;
           await import("fs/promises").then(m => m.access(join(base, sk.id, "app.html")));
           sk.hasApp = true;
         } catch { sk.hasApp = false; }
@@ -156,7 +158,7 @@ const server = createServer(async (req, res) => {
   if (skillGetMatch) {
     const skillId = skillGetMatch[1];
     // Search in both input-prompt and physical-skill
-    const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT];
+    const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT];
     let found = null;
     for (const root of roots) {
       const skillPath = join(root, skillId, "SKILL.md");
@@ -204,7 +206,7 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: "Missing content or skillId" }));
         return;
       }
-      const baseRoot = kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : INPUT_PROMPT_ROOT;
+      const baseRoot = kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : kind === "skill-pool" ? SKILL_POOL_ROOT : INPUT_PROMPT_ROOT;
       const skillDir = join(baseRoot, skillId);
       await mkdir(skillDir, { recursive: true });
       await writeFile(join(skillDir, "SKILL.md"), content, "utf-8");
@@ -221,7 +223,7 @@ const server = createServer(async (req, res) => {
   if (req.method === "DELETE" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
     const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
     try {
-      const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT];
+      const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT];
       let deleted = false;
       for (const root of roots) {
         const skillDir = join(root, skillId);
