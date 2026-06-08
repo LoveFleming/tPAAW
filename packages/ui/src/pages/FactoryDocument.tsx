@@ -34,7 +34,7 @@ export default function FactoryDocument({ file, headerIcon = "document", headerT
     const slides = content ? parseSlides(content) : [];
 
     return (
-        <div className="h-full overflow-y-auto" style={{ backgroundColor: t.accentBg }}>
+        <div className="h-full w-full overflow-y-auto" style={{ backgroundColor: t.accentBg }}>
             <div className="max-w-5xl mx-auto py-8 px-6">
                 <div className="mb-8">
                     <h1 className="text-sm font-semibold text-stone-800 flex items-center gap-2"><Icon name={headerIcon} size={16} style={{ color: t.accent }} /> {headerTitle || file}</h1>

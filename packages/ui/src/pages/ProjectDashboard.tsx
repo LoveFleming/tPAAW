@@ -55,7 +55,7 @@ export default function ProjectDashboard({ projectRoot, openEmployee }: { projec
   const hasData = data?.scannedAt != null;
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: t.accentBg }}>
+    <div className="h-full w-full overflow-y-auto" style={{ backgroundColor: t.accentBg }}>
       <div className="max-w-5xl mx-auto py-6 px-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

@@ -103,7 +103,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
     }
 
     return (
-        <div className="flex flex-col space-y-4 h-full overflow-y-auto px-6" style={{ backgroundColor: t.accentBg }}>
+        <div className="flex flex-col space-y-4 h-full w-full overflow-y-auto px-6" style={{ backgroundColor: t.accentBg }}>
             {/* Header with Add button */}
             <div className="flex items-center justify-between pt-2">
                 <div>

@@ -9,7 +9,7 @@ interface GatesProps {
 
 export default function Gates({ runSkill }: GatesProps) {
     return (
-        <div className="h-full overflow-y-auto space-y-4 px-6">
+        <div className="h-full w-full overflow-y-auto space-y-4 px-6">
             <Card title="Gates & Lints">
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     {SKILLS.filter((s) => ["ai.contract", "ai.unit", "ai.coverage", "ai.e2e", "ai.runbook"].includes(s.id)).map((s) => (

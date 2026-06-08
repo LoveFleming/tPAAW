@@ -438,7 +438,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const allSkillDefs = (employee?.skillIds || []).map(id => skillDefinitions.get(id)).filter(Boolean) as SkillDefinition[];
 
     return (
-        <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+        <div className="flex flex-col lg:flex-row h-full w-full overflow-hidden">
             {/* ===== Input Dialog Modal ===== */}
             {showInputDialog && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowInputDialog(false)}>

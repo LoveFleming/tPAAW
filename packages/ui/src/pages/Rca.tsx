@@ -25,7 +25,7 @@ export default function Rca({ selectedIncidentId, setSelectedIncidentId, runSkil
     );
 
     return (
-        <div className="h-full overflow-y-auto space-y-4 px-6">
+        <div className="h-full w-full overflow-y-auto space-y-4 px-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <Card
                     title="Incident Bundles"
@@ -38,7 +38,7 @@ export default function Rca({ selectedIncidentId, setSelectedIncidentId, runSkil
                         />
                     }
                 >
-                    <div className="h-full overflow-y-auto space-y-2">
+                    <div className="h-full w-full overflow-y-auto space-y-2">
                         {incidentsFiltered.map((i) => (
                             <button
                                 key={i.id}
@@ -59,7 +59,7 @@ export default function Rca({ selectedIncidentId, setSelectedIncidentId, runSkil
                     </div>
                 </Card>
 
-                <div className="h-full overflow-y-auto space-y-4 lg:col-span-2">
+                <div className="h-full w-full overflow-y-auto space-y-4 lg:col-span-2">
                     <Card
                         title="Investigation Workspace"
                         right={
@@ -74,7 +74,7 @@ export default function Rca({ selectedIncidentId, setSelectedIncidentId, runSkil
                         {!selectedIncident ? (
                             <div className="text-sm text-zinc-500">Select an incident bundle to inspect.</div>
                         ) : (
-                            <div className="h-full overflow-y-auto space-y-3">
+                            <div className="h-full w-full overflow-y-auto space-y-3">
                                 <div className="rounded-xl border border-zinc-200 bg-white p-3">
                                     <div className="text-sm font-semibold">{selectedIncident.id}</div>
                                     <div className="mt-1 text-xs text-zinc-600">{selectedIncident.summary}</div>

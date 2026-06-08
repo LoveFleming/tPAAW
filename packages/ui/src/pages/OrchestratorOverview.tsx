@@ -35,7 +35,7 @@ export default function OrchestratorOverview({ openApp }: { openApp: (id: string
     }, [filtered]);
 
     return (
-        <div className="h-full overflow-y-auto space-y-6 animate-in fade-in duration-300 px-6">
+        <div className="h-full w-full overflow-y-auto space-y-6 animate-in fade-in duration-300 px-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Orchestrator Registry</h1>
@@ -69,7 +69,7 @@ export default function OrchestratorOverview({ openApp }: { openApp: (id: string
                 </div>
             </div>
 
-            <div className="h-full overflow-y-auto space-y-8 px-6">
+            <div className="h-full w-full overflow-y-auto space-y-8 px-6">
                 {Array.from(grouped.entries()).map(([domain, items]) => (
                     <div key={domain} className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
                         <div className="bg-zinc-50 border-b border-zinc-200 px-4 py-3 flex items-center gap-2">

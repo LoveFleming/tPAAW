@@ -517,7 +517,7 @@ function AppInner() {
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
       return (
-        <div className="h-full flex flex-col" style={{ backgroundColor: "#fafaf9" }}>
+        <div className="h-full w-full flex flex-col" style={{ backgroundColor: "#fafaf9" }}>
           <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
             <span className="text-lg">📊</span>
             <span className="text-sm font-bold text-stone-700">{skillAppNav.find(n => n.skillId === skillId)?.label ?? skillId}</span>

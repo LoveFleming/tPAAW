@@ -229,7 +229,7 @@ export default function ReleaseUnitExplorer({ projectRoot }: Props) {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full w-full overflow-hidden">
       {/* File Tree Panel */}
       <div className="w-72 border-r border-stone-200 flex flex-col bg-white shrink-0">
         <div className="px-3 py-2 border-b border-stone-100 bg-stone-50">

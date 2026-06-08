@@ -319,7 +319,7 @@ export default function FactoryStandards({ initialTab }: { initialTab?: string }
   const selected = ALL_STANDARDS.find(s => s.id === selectedId) ?? ALL_STANDARDS[0];
 
   return (
-    <div className="h-full overflow-y-auto px-6">
+    <div className="h-full w-full overflow-y-auto px-6">
       <div className="max-w-5xl mx-auto py-6 px-2">
         {/* Header */}
         <div className="mb-6">

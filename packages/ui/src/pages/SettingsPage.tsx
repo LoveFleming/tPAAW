@@ -151,7 +151,7 @@ export default function SettingsPage() {
   const avatarSrc = avatarPreview || (profile?.assistantAvatar ? `${API_BASE}${profile.assistantAvatar}` : null);
 
   return (
-    <div className="h-full overflow-y-auto p-6" style={{ backgroundColor: themeInfo.accentBg }}>
+    <div className="h-full w-full overflow-y-auto p-6" style={{ backgroundColor: themeInfo.accentBg }}>
       <div className="max-w-2xl mx-auto">
         <h1 className="text-xl font-bold text-stone-800 mb-6">⚙️ 設定</h1>
 

@@ -145,7 +145,7 @@ function CodeView({ content, fileName }: { content: string; fileName: string }) 
   const lineNumWidth = Math.max(3, String(lineCount).length) * 10 + 16;
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full w-full">
       {/* Line numbers */}
       <div
         ref={lineNumRef}

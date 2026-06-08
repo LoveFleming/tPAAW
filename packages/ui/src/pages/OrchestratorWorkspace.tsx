@@ -40,7 +40,7 @@ export default function OrchestratorWorkspace({
     };
 
     return (
-        <div className="flex h-full gap-6 max-w-[1400px] mx-auto animate-in fade-in duration-300 px-6">
+        <div className="flex h-full w-full gap-6 max-w-[1400px] mx-auto animate-in fade-in duration-300 px-6">
             {/* Main Content Scrollable Area */}
             <div className="flex-1 overflow-y-auto pr-6 custom-scrollbar pb-24 h-full relative" style={{ height: "calc(100vh - 120px)" }}>
                 <div className="space-y-8">
