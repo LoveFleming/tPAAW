@@ -3196,7 +3196,7 @@ ${inputSection}
       try {
         fullOutput = await new Promise((pResolve, reject) => {
           let output = "";
-          const proc = spawn(resolvedBin, cliArgs, {
+          const proc = ptySpawn(resolvedBin, cliArgs, {
             name: "xterm-256color",
             cols: 200, rows: 30,
             cwd: appDir,
