@@ -1,0 +1,46 @@
+{
+  "id": "word-learner",
+  "name": "單字學習卡",
+  "description": "翻譯單字 → 打包成學習卡（含例句、笑話）",
+  "icon": "📚",
+  "status": "published",
+  "nodes": [
+    {
+      "id": "node-1",
+      "type": "skill",
+      "skillId": "translate",
+      "appName": "translate",
+      "name": "Translate",
+      "position": { "x": 80, "y": 180 },
+      "config": {
+        "inputMapping": {
+          "source_text": "{{workflow.input.text}}"
+        }
+      }
+    },
+    {
+      "id": "node-2",
+      "type": "skill",
+      "skillId": "idiom-packaging",
+      "appName": "translate",
+      "name": "Idiom Packaging",
+      "position": { "x": 480, "y": 180 },
+      "config": {
+        "inputMapping": {
+          "word": "{{node-1.output.special_words.0.word}}",
+          "word_type": "{{node-1.output.special_words.0.type}}",
+          "context": "{{workflow.input.text}}"
+        }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1-2", "source": "node-1", "target": "node-2" }
+  ],
+  "inputSchema": {
+    "properties": {
+      "text": { "type": "string", "description": "英文單字或句子" }
+    },
+    "required": ["text"]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "text-analyzer",
+  "name": "文字分析器",
+  "description": "提取重點 → 產生摘要報告",
+  "icon": "📊",
+  "status": "published",
+  "nodes": [
+    {
+      "id": "node-1",
+      "type": "skill",
+      "skillId": "translate",
+      "appName": "translate",
+      "name": "翻譯",
+      "position": { "x": 80, "y": 180 },
+      "config": {
+        "inputMapping": {
+          "source_text": "{{workflow.input.text}}",
+          "target_lang": "en"
+        }
+      }
+    },
+    {
+      "id": "node-2",
+      "type": "skill",
+      "skillId": "idiom-packaging",
+      "appName": "translate",
+      "name": "重點包裝",
+      "position": { "x": 480, "y": 180 },
+      "config": {
+        "inputMapping": {
+          "word": "{{workflow.input.text}}",
+          "word_type": "jargon",
+          "context": "{{node-1.output.translation}}"
+        }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1-2", "source": "node-1", "target": "node-2" }
+  ],
+  "inputSchema": {
+    "properties": {
+      "text": { "type": "string", "description": "要分析的文字" }
+    },
+    "required": ["text"]
+  }
+}

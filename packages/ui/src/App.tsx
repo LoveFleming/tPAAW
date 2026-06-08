@@ -9,6 +9,7 @@ import SkillBuilder from "./pages/SkillBuilder";
 import AppLab from "./pages/AppLab";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
+import WorkflowBuilder from "./pages/WorkflowBuilder";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 import KnowledgeTree from "./components/KnowledgeTree";
@@ -368,6 +369,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openWorkflowBuilder = useCallback(() => {
+    const tabId = `${currentScope}:workflow`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openSkillAppById = useCallback((skillId: string) => {
     const tabId = `${currentScope}:skillapp.${skillId}`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -396,6 +403,7 @@ function AppInner() {
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
+    if (pageType === "workflow") return "Workflow Builder";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -476,6 +484,9 @@ function AppInner() {
     }
     if (pageType === "cronjobs") {
       return <CronJobsPage />;
+    }
+    if (pageType === "workflow") {
+      return <WorkflowBuilder />;
     }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
@@ -660,6 +671,7 @@ function AppInner() {
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":workflow")} label="Workflow Builder" onClick={openWorkflowBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>

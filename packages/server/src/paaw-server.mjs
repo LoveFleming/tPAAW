@@ -36,6 +36,7 @@ const DOCS_ROOT = resolve(PAAW_ROOT, "docs");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
 const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
+const WORKFLOWS_ROOT = resolve(PAAW_ROOT, "data/workflows");
 
 const PORT = parseInt(process.env.PAAW_PORT || "4097", 10);
 
@@ -3004,6 +3005,174 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
         res.write(`data: ${JSON.stringify({ error: true, message: err.message })}\n\n`);
         res.end();
       }
+    }
+    return true;
+  }
+
+  // ── Workflow API ──
+
+  // GET /api/paaw/workflows — list all workflows
+  if (req.method === "GET" && path === "/api/paaw/workflows") {
+    try {
+      await mkdir(WORKFLOWS_ROOT, { recursive: true });
+      const files = await readdir(WORKFLOWS_ROOT);
+      const wfs = [];
+      for (const f of files) {
+        if (!f.endsWith(".json")) continue;
+        try {
+          const data = JSON.parse(await readFile(resolve(WORKFLOWS_ROOT, f), "utf-8"));
+          wfs.push(data);
+        } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(wfs));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/paaw/workflows/:id — get single workflow
+  const wfGetMatch = req.method === "GET" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
+  if (wfGetMatch) {
+    try {
+      const wfId = wfGetMatch[1];
+      const data = JSON.parse(await readFile(resolve(WORKFLOWS_ROOT, `${wfId}.json`), "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(404); res.end(JSON.stringify({ error: "Workflow not found" }));
+    }
+    return true;
+  }
+
+  // PUT /api/paaw/workflows/:id — update workflow
+  const wfPutMatch = req.method === "PUT" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
+  if (wfPutMatch) {
+    try {
+      const wfId = wfPutMatch[1];
+      const body = JSON.parse(await readBody(req));
+      await mkdir(WORKFLOWS_ROOT, { recursive: true });
+      await writeFile(resolve(WORKFLOWS_ROOT, `${wfId}.json`), JSON.stringify(body, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/paaw/workflows — create workflow
+  if (req.method === "POST" && path === "/api/paaw/workflows") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      if (!body.id || !body.name) {
+        res.writeHead(400); res.end(JSON.stringify({ error: "id and name required" }));
+        return true;
+      }
+      await mkdir(WORKFLOWS_ROOT, { recursive: true });
+      await writeFile(resolve(WORKFLOWS_ROOT, `${body.id}.json`), JSON.stringify(body, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/paaw/workflows/:id — delete workflow
+  const wfDelMatch = req.method === "DELETE" && path.match(/^\/api\/paaw\/workflows\/([\w.-]+)$/);
+  if (wfDelMatch) {
+    try {
+      const wfId = wfDelMatch[1];
+      const fp = resolve(WORKFLOWS_ROOT, `${wfId}.json`);
+      await unlink(fp);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(404); res.end(JSON.stringify({ error: "Workflow not found" }));
+    }
+    return true;
+  }
+
+  // POST /api/paaw/skill-exec — execute a single skill (for workflow nodes)
+  if (req.method === "POST" && path === "/api/paaw/skill-exec") {
+    try {
+      const { appId, skillId, input } = JSON.parse(await readBody(req));
+      if (!appId || !skillId) {
+        res.writeHead(400); res.end(JSON.stringify({ error: "appId and skillId required" }));
+        return true;
+      }
+
+      // Load skill content
+      const skillPath = resolve(PAAW_ROOT, "data/apps", appId, "skills", skillId, "SKILL.md");
+      let skillContent;
+      try {
+        skillContent = await readFile(skillPath, "utf-8");
+      } catch {
+        const poolPath = resolve(PAAW_ROOT, "data/skills/pool", skillId, "SKILL.md");
+        try { skillContent = await readFile(poolPath, "utf-8"); } catch {
+          res.writeHead(404); res.end(JSON.stringify({ error: `Skill not found: ${skillId}` }));
+          return true;
+        }
+      }
+
+      const body = skillContent.replace(/^---[\s\S]*?---\n*/, "");
+      const inputSection = Object.entries(input || {})
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`)
+        .join("\n");
+
+      const systemPrompt = `你是 Skill 執行引擎。
+你必須嚴格按照以下 Skill 定義來處理。
+
+${body}
+
+## 輸入參數
+${inputSection}
+
+## 輸出指示
+只輸出結果 JSON（不要加 markdown code block）。不要加解釋。`;
+
+      // Execute via CLI
+      const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";
+      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", systemPrompt];
+      const appDir = resolve(PAAW_ROOT, "data/apps", appId);
+
+      let fullOutput;
+      try {
+        fullOutput = await new Promise((pResolve, reject) => {
+          let output = "";
+          const proc = spawn(resolvedBin, cliArgs, {
+            name: "xterm-256color",
+            cols: 200, rows: 30,
+            cwd: appDir,
+            env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
+          });
+          proc.onData((data) => { output += data; });
+          proc.onExit(({ exitCode }) => {
+            if (exitCode === 0) pResolve(output); else reject(new Error(`CLI exited ${exitCode}`));
+          });
+          setTimeout(() => { try { proc.kill(); } catch {} reject(new Error("Timeout (90s)")); }, 90000);
+        });
+      } catch (err) {
+        res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+        return true;
+      }
+
+      const clean = fullOutput.replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      let result;
+      if (jsonMatch) {
+        try { result = JSON.parse(jsonMatch[0]); } catch { result = clean.slice(0, 1500); }
+      } else {
+        result = clean.slice(0, 1500);
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ result }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }
