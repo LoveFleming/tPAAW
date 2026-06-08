@@ -68,7 +68,7 @@ export function SidebarSection({ title, children }: { title: string; children: R
         <div className="mt-1">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex w-full items-center px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-stone-400 hover:text-stone-600 transition-colors"
+                className="flex w-full items-center px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-stone-500 hover:text-stone-700 transition-colors"
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
