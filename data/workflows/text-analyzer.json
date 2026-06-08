@@ -6,6 +6,18 @@
   "status": "published",
   "nodes": [
     {
+      "id": "start",
+      "type": "start",
+      "name": "Start",
+      "position": {
+        "x": 50,
+        "y": 120
+      },
+      "config": {
+        "inputMapping": {}
+      }
+    },
+    {
       "id": "node-1",
       "type": "skill",
       "skillId": "translate",
@@ -39,13 +51,36 @@
           "context": "{{node-1.output.translation}}"
         }
       }
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "End",
+      "position": {
+        "x": 682,
+        "y": 120
+      },
+      "config": {
+        "inputMapping": {},
+        "outputTarget": "chat"
+      }
     }
   ],
   "edges": [
     {
+      "id": "e-start-node-1",
+      "source": "start",
+      "target": "node-1"
+    },
+    {
       "id": "e1-2",
       "source": "node-1",
       "target": "node-2"
+    },
+    {
+      "id": "e-node-2-end",
+      "source": "node-2",
+      "target": "end"
     }
   ],
   "inputSchema": {

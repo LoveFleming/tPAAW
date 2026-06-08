@@ -6,12 +6,27 @@
   "status": "published",
   "nodes": [
     {
+      "id": "start",
+      "type": "start",
+      "name": "Start",
+      "position": {
+        "x": 50,
+        "y": 120
+      },
+      "config": {
+        "inputMapping": {}
+      }
+    },
+    {
       "id": "node-1",
       "type": "skill",
       "skillId": "translate",
       "appName": "translate",
       "name": "Translate",
-      "position": { "x": 120, "y": 160 },
+      "position": {
+        "x": 120,
+        "y": 160
+      },
       "config": {
         "inputMapping": {
           "source_text": "{{workflow.input.text}}"
@@ -24,7 +39,10 @@
       "skillId": "idiom-packaging",
       "appName": "translate",
       "name": "Idiom Packaging",
-      "position": { "x": 440, "y": 160 },
+      "position": {
+        "x": 440,
+        "y": 160
+      },
       "config": {
         "inputMapping": {
           "word": "{{node-1.output.special_words.0.word}}",
@@ -32,15 +50,47 @@
           "context": "{{workflow.input.text}}"
         }
       }
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "End",
+      "position": {
+        "x": 690,
+        "y": 120
+      },
+      "config": {
+        "inputMapping": {},
+        "outputTarget": "chat"
+      }
     }
   ],
   "edges": [
-    { "id": "e1-2", "source": "node-1", "target": "node-2" }
+    {
+      "id": "e-start-node-1",
+      "source": "start",
+      "target": "node-1"
+    },
+    {
+      "id": "e1-2",
+      "source": "node-1",
+      "target": "node-2"
+    },
+    {
+      "id": "e-node-2-end",
+      "source": "node-2",
+      "target": "end"
+    }
   ],
   "inputSchema": {
     "properties": {
-      "text": { "type": "string", "description": "英文單字或句子" }
+      "text": {
+        "type": "string",
+        "description": "英文單字或句子"
+      }
     },
-    "required": ["text"]
+    "required": [
+      "text"
+    ]
   }
 }

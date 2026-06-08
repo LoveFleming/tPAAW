@@ -5,6 +5,18 @@
   "icon": "🔗",
   "nodes": [
     {
+      "id": "start",
+      "type": "start",
+      "name": "Start",
+      "position": {
+        "x": 108.4613948003639,
+        "y": 120
+      },
+      "config": {
+        "inputMapping": {}
+      }
+    },
+    {
       "id": "node-1780922356308",
       "type": "skill",
       "skillId": "",
@@ -16,9 +28,33 @@
       "config": {
         "inputMapping": {}
       }
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "End",
+      "position": {
+        "x": 608.4613948003639,
+        "y": 120
+      },
+      "config": {
+        "inputMapping": {},
+        "outputTarget": "chat"
+      }
     }
   ],
-  "edges": [],
+  "edges": [
+    {
+      "id": "e-start-node-1780922356308",
+      "source": "start",
+      "target": "node-1780922356308"
+    },
+    {
+      "id": "e-node-1780922356308-end",
+      "source": "node-1780922356308",
+      "target": "end"
+    }
+  ],
   "inputSchema": {
     "properties": {
       "text": {
