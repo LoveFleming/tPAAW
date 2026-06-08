@@ -679,7 +679,7 @@ function AppInner() {
               <KnowledgeTree onOpenFile={handleSelectFile} />
             </SidebarSection>
 
-            {/* 🏗 Build Capabilities */}
+            {/* 🏗 Build */}
             <SidebarSection title={t("sidebar.build")}>
               <div>
                 <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -694,12 +694,18 @@ function AppInner() {
                 {factoryNav.filter(item => item.id.includes(":crew")).map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
-                {skillNav.map((item) => (
-                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":wf-exec")} label="Workflow Exec" onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+              </div>
+            </SidebarSection>
+
+            {/* ⚙️ Management */}
+            <SidebarSection title={t("sidebar.management")}>
+              <div>
+                {skillNav.map((item) => (
+                  <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                ))}
               </div>
             </SidebarSection>
 
