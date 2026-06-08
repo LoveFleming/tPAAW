@@ -126,6 +126,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       const latest = chats[0]; // chats are sorted newest first
       setActiveChatId(latest.id);
       setMessages(latest.messages || []);
+      // Scroll to bottom after initial load
+      setTimeout(() => scrollToBottom(false), 50);
     }
   }, [chats]);
 
@@ -208,6 +210,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     setActiveChatId(chat.id);
     setMessages(chat.messages || []);
     setShowChatList(false);
+    setTimeout(() => scrollToBottom(false), 50);
   };
 
   const saveMessages = async (chatId: string, msgs: Message[]) => {
