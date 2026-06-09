@@ -69,10 +69,7 @@ const server = createServer(async (req, res) => {
     const modWorkflow = await import("./routes/workflow.mjs");
     if (await modWorkflow.default(req, res)) return;
   } catch {}
-  try {
-    const modChat = await import("./routes/chat.mjs");
-    if (await modChat.default(req, res)) return;
-  } catch {}
+  // chat.mjs removed — all chat routes handled in paaw-server.mjs
 
   // ── Legacy routes (everything else) ──
   const paawHandled = await paawApiHandler(req, res);
