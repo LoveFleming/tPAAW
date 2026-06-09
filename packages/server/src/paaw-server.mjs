@@ -1245,16 +1245,20 @@ async function paawApiHandler(req, res) {
         "--approval-mode", "yolo",
         "-o", "text",
         "--max-tool-calls", String(maxToolCalls),
-        prompt,
+        "/dev/stdin",
       ];
 
-      console.log(`[cli-run] Spawning ${resolvedBin} with ${prompt.length}char prompt`);
+      console.log(`[cli-run] Spawning ${resolvedBin} with ${prompt.length}char prompt via stdin`);
 
       const child = spawn(resolvedBin, cliArgs, {
         cwd: runCwd || PAAW_ROOT,
         env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
         stdio: ["pipe", "pipe", "pipe"],
       });
+
+      // Write prompt to stdin
+      child.stdin.write(prompt);
+      child.stdin.end();
 
       let stdout = "";
       let stderr = "";
