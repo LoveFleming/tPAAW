@@ -1,13 +1,7 @@
 /**
- * Chat routes — CRUD + SSE streaming with memory + tools
- *
- * All chat functionality in one modular file:
- * - CRUD for chat sessions (/api/paaw/chats)
- * - Streaming chat completion (/api/paaw/chat)
- * - Loads user profile, MEMORY.md, tools, app instructions
+ * Chat routes — CRUD + SSE streaming with Context Engine
  */
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
-import { readFileSync } from "fs";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 
@@ -121,93 +115,13 @@ export default async function chatRoutes(req, res) {
       const baseURL = provider.baseURL.replace(/\/+$/, "");
       const apiUrl = `${baseURL}/chat/completions`;
 
-      // ── Load user profile ──
-      const userProfile = (() => {
-        try { return JSON.parse(readFileSync(PAAW_USER_FILE, "utf-8")); } catch { return null; }
-      })();
-
-      // ── Load workspaces ──
-      const workspaces = (() => {
-        try {
-          const ws = JSON.parse(readFileSync(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
-          return ws.directories || [];
-        } catch { return []; }
-      })();
-      const workspaceInfo = workspaces.length > 0
-        ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
-        : "";
-
-      const assistantName = userProfile?.assistantName || "林語晴";
-
-      // ── Load MEMORY.md ──
-      let memoryContent = "";
-      try {
-        memoryContent = await readFile(resolve(PAAW_DATA_DIR, "MEMORY.md"), "utf-8");
-      } catch {}
+      // ── Context Engine: unified context assembly ──
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "chat" });
 
       // ── Load tools ──
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
-      const { tools: toolDefinitions, handlers: toolHandlers, appInstructions } = await getToolsAndHandlers();
-
-      // ── Load recent chat history ──
-      let recentChatSummary = "";
-      try {
-        const chatFiles = await readdir(PAAW_CHAT_DIR);
-        const sorted = chatFiles.filter(f => f.endsWith(".json")).sort().reverse();
-        const recentChats = [];
-        for (const f of sorted.slice(0, 5)) {
-          try {
-            const chat = JSON.parse(await readFile(resolve(PAAW_CHAT_DIR, f), "utf-8"));
-            if (chat.messages?.length > 0) {
-              const lastMsgs = chat.messages.slice(-4);
-              const summary = lastMsgs.map(m => `${m.role === "user" ? "👤" : "🤖"} ${m.content.slice(0, 100)}`).join("\n");
-              recentChats.push(`### ${chat.title}\n${summary}`);
-            }
-          } catch {}
-        }
-        if (recentChats.length > 0) {
-          recentChatSummary = `\n=== 最近對話摘要 ===\n以下是你和使用者最近的對話，幫助你延續記憶。不要重複提及這些內容，除非使用者問起。\n\n${recentChats.join("\n\n")}`;
-        }
-      } catch {}
-
-      // ── Load app builder rules ──
-      let appBuilderRules = "";
-      try {
-        appBuilderRules = await readFile(resolve(PAAW_ROOT, "data/config/app-builder-rules.md"), "utf-8");
-      } catch {}
-
-      // ── Build system prompt ──
-      const systemPrompt = `你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。
-
-回答時使用繁體中文，技術術語保留英文。語氣親切專業，像一位值得信賴的同事。
-
-=== 使用者資訊 ===
-- 名字：${userProfile?.name || "未知"}
-- 介紹：${userProfile?.intro || ""}
-- 偏好風格：${userProfile?.style || "casual"}${workspaceInfo}
-
-=== 你的長期記憶 (MEMORY.md) ===
-每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。
-${memoryContent || "(記憶是空白的)"}
-
-=== 可用的 App ===
-${appInstructions}
-
-=== App 建構規則 ===
-當使用者想建新 App 或修改 App 時，遵循以下規則：
-${appBuilderRules || "(尚未設定 App 建構規則)"}
-
-=== 回覆規則 ===
-- 用中文回覆，風格自然友善
-- 使用者問「我有什麼 App」→ 用 app_list 工具查詢，不要猜
-- 使用者要求做事時，先檢查有沒有對應的 App，用 App 的工具完成
-- 如果使用者說的話包含某個 App 的觸發關鍵字（如「幫我翻譯」「translate」→ translate_exec），直接呼叫該 App 的工具
-- 主動運用記憶中的資訊（偏好、過去的決策、人際關係）
-- 如果學到新東西（偏好、決策、重要資訊），主動用 memory_add 記下來
-- 使用者想建新 App 時，遵循 App 建構規則，用 app_create 幫他建立
-- Workspace 是檔案目錄，App 是資料工具，兩者不同
-- 不確定的事情就用工具查，不要用猜的
-- 使用 Markdown 格式${recentChatSummary}`;
+      const { tools: toolDefinitions, handlers: toolHandlers } = await getToolsAndHandlers();
 
       // ── SSE response ──
       res.writeHead(200, {
@@ -224,7 +138,7 @@ ${appBuilderRules || "(尚未設定 App 建構規則)"}
       };
 
       const apiMessages = [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: ctx.systemPrompt },
         ...(messages || [])
       ];
 
