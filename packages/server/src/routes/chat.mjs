@@ -81,18 +81,31 @@ export default async function chatRoutes(req, res) {
       let providerConfig = null;
       try {
         const config = JSON.parse(await readFile(join(PATHS.CONFIG_ROOT, "providers.json"), "utf-8"));
-        if (provider) {
-          providerConfig = config.providers?.find(p => p.id === provider);
+        // providers can be an object (keyed by id) or an array
+        const providers = config.providers;
+        if (provider && providers) {
+          if (Array.isArray(providers)) {
+            providerConfig = providers.find(p => p.id === provider);
+          } else {
+            providerConfig = providers[provider];
+          }
         }
-        if (!providerConfig) providerConfig = config.providers?.[0];
+        if (!providerConfig && providers) {
+          if (Array.isArray(providers)) {
+            providerConfig = providers[0];
+          } else {
+            const activeId = config.active || Object.keys(providers)[0];
+            providerConfig = providers[activeId];
+          }
+        }
       } catch {}
 
       const apiKey = providerConfig?.apiKey || process.env.OPENAI_API_KEY || "";
-      const chatModel = model || providerConfig?.model || process.env.PAAW_MODEL || "gpt-4o-mini";
-      const baseUrl = providerConfig?.baseUrl || "https://api.openai.com/v1";
+      const chatModel = model || providerConfig?.models?.[0]?.id || process.env.PAAW_MODEL || "gpt-4o-mini";
+      const baseUrl = providerConfig?.baseURL || providerConfig?.baseUrl || "https://api.openai.com/v1";
 
-      if (!apiKey) {
-        json(res, { error: "No API key" }, 400);
+      if (!apiKey || apiKey === "na") {
+        json(res, { error: "No API key configured for provider" }, 400);
         return true;
       }
 

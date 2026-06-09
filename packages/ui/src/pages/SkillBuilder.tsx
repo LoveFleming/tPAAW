@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // ── Types ──
 interface InputField {
@@ -284,6 +286,11 @@ export default function SkillBuilder() {
   const terminalRef = useRef<TerminalConsoleHandle>(null);
   const loadingRef = useRef(false);
 
+  // Right panel mode: build (CLI) or test (result)
+  const [mode, setMode] = useState<"build" | "test">("build");
+  const [resultContent, setResultContent] = useState("");
+  const [resultType, setResultType] = useState<"markdown" | "html">("markdown");
+
   // ── Data loading ──
   const loadFiles = useCallback(() => {
     fetch(`${API_BASE}/api/skill-lab/build-files`)
@@ -400,6 +407,7 @@ export default function SkillBuilder() {
 
   // Build
   const handleBuild = () => {
+    setMode("build");
     setSending(true);
     const prompt = buildSkillMd(form, expertMode);
     if (!chatStarted) {
@@ -410,6 +418,11 @@ export default function SkillBuilder() {
       terminalRef.current?.sendPrompt(prompt);
     }
     setTimeout(() => setSending(false), 300);
+  };
+
+  // Test
+  const handleTest = () => {
+    setMode("test");
   };
 
   // Check if skill is buildable
@@ -458,14 +471,25 @@ export default function SkillBuilder() {
           <option value="opencode">OpenCode</option>
         </select>
 
-        <button onClick={handleBuild} disabled={!canBuild}
-          className={cn("ml-auto px-5 py-1.5 text-sm font-bold rounded-lg transition-colors",
-            canBuild ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm" : "bg-stone-200 text-stone-400 cursor-not-allowed"
-          )}>
-          🔨 Build
-        </button>
+        {/* Mode buttons */}
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={handleBuild} disabled={!canBuild}
+            className={cn("px-5 py-1.5 text-sm font-bold rounded-lg transition-colors",
+              canBuild
+                ? mode === "build" ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm" : "bg-stone-200 text-stone-700 hover:bg-stone-300"
+                : "bg-stone-200 text-stone-400 cursor-not-allowed"
+            )}>
+            🔨 Build
+          </button>
+          <button onClick={handleTest}
+            className={cn("px-5 py-1.5 text-sm font-bold rounded-lg transition-colors",
+              mode === "test" ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm" : "bg-stone-200 text-stone-700 hover:bg-stone-300"
+            )}>
+            ▶️ Test
+          </button>
+        </div>
 
-        {chatStarted && (
+        {chatStarted && mode === "build" && (
           <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }}
             className="px-2 py-1 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">✕</button>
         )}
@@ -627,27 +651,85 @@ export default function SkillBuilder() {
           )}
         </div>
 
-        {/* Right: Terminal */}
+        {/* Right panel: Build = CLI, Test = Result */}
         <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
-          {!chatStarted ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
-              <span className="text-5xl opacity-30">🔨</span>
-              <div className="text-center">
-                <p className="text-stone-400 text-sm">
-                  填好左邊的表單，按 <strong className="text-white">🔨 Build</strong>
-                </p>
-                <p className="text-stone-500 text-xs mt-2">AI 會根據你的定義生成完整 skill</p>
+          {mode === "build" ? (
+            /* ── Build Mode: CLI ── */
+            !chatStarted ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
+                <span className="text-5xl opacity-30">🔨</span>
+                <div className="text-center">
+                  <p className="text-stone-400 text-sm">
+                    填好左邊的表單，按 <strong className="text-white">🔨 Build</strong>
+                  </p>
+                  <p className="text-stone-500 text-xs mt-2">AI 會根據你的定義生成完整 skill</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <TerminalConsole
+                ref={terminalRef}
+                key={`builder-${consoleKey}`}
+                cwd={workingDir || undefined}
+                cli={cli}
+                approvalMode="yolo"
+                initialPrompt={initialPrompt}
+              />
+            )
           ) : (
-            <TerminalConsole
-              ref={terminalRef}
-              key={`builder-${consoleKey}`}
-              cwd={workingDir || undefined}
-              cli={cli}
-              approvalMode="yolo"
-              initialPrompt={initialPrompt}
-            />
+            /* ── Test Mode: Result viewer ── */
+            <>
+              {/* Result type bar */}
+              <div className="shrink-0 flex items-center border-b px-3 py-1.5" style={{ borderColor: "#30363d", backgroundColor: "#0d1117" }}>
+                <span className="text-[10px] text-[#8b949e] mr-2">格式：</span>
+                <button
+                  onClick={() => setResultType("markdown")}
+                  className={cn("px-2 py-0.5 text-[10px] rounded font-medium transition-colors",
+                    resultType === "markdown" ? "bg-blue-600 text-white" : "bg-[#21262d] text-[#8b949e] hover:text-white")}
+                  style={{ border: "1px solid #30363d" }}
+                >Markdown</button>
+                <button
+                  onClick={() => setResultType("html")}
+                  className={cn("px-2 py-0.5 text-[10px] rounded font-medium transition-colors ml-1",
+                    resultType === "html" ? "bg-blue-600 text-white" : "bg-[#21262d] text-[#8b949e] hover:text-white")}
+                  style={{ border: "1px solid #30363d" }}
+                >HTML</button>
+              </div>
+
+              {/* Result content */}
+              <div className="flex-1 overflow-auto p-5" style={{ backgroundColor: "#0d1117" }}>
+                {!resultContent ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-4">
+                    <span className="text-5xl opacity-30">▶️</span>
+                    <div className="text-center">
+                      <p className="text-[#8b949e] text-sm">尚無 Test Result</p>
+                      <p className="text-[#484f58] text-xs mt-2">Build 完成後，切到 Test 模式查看結果</p>
+                      <p className="text-[#484f58] text-xs mt-1">或貼上內容：</p>
+                      <textarea
+                        value={resultContent}
+                        onChange={e => setResultContent(e.target.value)}
+                        placeholder="貼上 Markdown 或 HTML 內容..."
+                        className="mt-3 w-full max-w-lg h-32 px-3 py-2 text-xs font-mono rounded-lg border resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        style={{ backgroundColor: "#161b22", borderColor: "#30363d", color: "#e0e0e0" }}
+                      />
+                    </div>
+                  </div>
+                ) : resultType === "html" ? (
+                  <iframe
+                    srcDoc={resultContent}
+                    className="w-full rounded-lg border bg-white"
+                    style={{ minHeight: "calc(100vh - 200px)", borderColor: "#30363d" }}
+                    sandbox="allow-scripts"
+                    title="Test Result HTML"
+                  />
+                ) : (
+                  <div className="prose prose-invert max-w-none" style={{ color: "#e0e0e0" }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {resultContent}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
