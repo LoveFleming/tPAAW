@@ -1,8 +1,8 @@
 ---
-id: aioc-tour
-name: AIOC 導覽
+id: paaw-tour
+name: PAAW 導覽
 version: 1.0.0
-description: 互動式導覽，帶領操作員認識 AIOC 的概念、架構、操作流程與核心價值
+description: 互動式導覽，帶領操作員認識 PAAW 的概念、架構、操作流程與核心價值
 category: tutorial
 userInputs:
   - id: visitor_background
@@ -19,26 +19,26 @@ userInputs:
     type: text
 ---
 
-# AIOC 導覽
+# PAAW 導覽
 
 ## 目的
-讓新操作員在 15 分鐘內理解 AIOC 是什麼、怎麼用、為什麼 Skills 是最重要的資產。
+讓新操作員在 15 分鐘內理解 PAAW 是什麼、怎麼用、為什麼 Skills 是最重要的資產。
 
 ## 觸發時機
-- 操作員第一次使用 AIOC
-- 操作員想了解 AIOC 的整體概念
+- 操作員第一次使用 PAAW
+- 操作員想了解 PAAW 的整體概念
 - 工廠特助判斷操作員需要基礎認識
 
 ## 執行步驟
 
 互動式導覽，每次介紹一站，等操作員回應後再繼續。
 
-### 第 1 站：AIOC 是什麼
+### 第 1 站：PAAW 是什麼
 用一句話開場：
-> 「AIOC 是你的 AI 作戰中心。你在這裡管理 AI 團隊、累積工作技能、指派任務。」
+> 「PAAW 是你的 AI 作戰中心。你在這裡管理 AI 團隊、累積工作技能、指派任務。」
 
 解說重點：
-- AIOC = AI-Native Operation Center
+- PAAW = Personal AI Assistant Workspace
 - 不是另一個 AI 聊天工具，是一套**讓人跟 AI 協作的作業模式**
 - 核心理念：你累積的 Skills 才是資產，AI 只是執行者
 
@@ -50,7 +50,7 @@ userInputs:
 
 ### 第 3 站：工作流程
 ```
-開 AIOC → 選工廠 → 選 Working Base → 選員工 → 選技能（或純對話）→ AI 開始工作
+開 PAAW → 選工廠 → 選 Working Base → 選員工 → 選技能（或純對話）→ AI 開始工作
 ```
 
 ### 第 4 站：Skills 為什麼是最重要的資產
@@ -66,7 +66,7 @@ Skill 生命週期：
 
 ### 第 5 站：目錄結構
 ```
-aioc/
+paaw/
 ├── core/        ← Dashboard 主程式
 ├── factories/   ← 各工廠（員工、文件）
 ├── skills/      ← 共享技能池
@@ -81,7 +81,7 @@ aioc/
 - 想建 Skill？→ 找小春（AI Skill Creator）
 
 ## 產出
-操作員理解 AIOC 核心概念，知道下一步要做什麼。
+操作員理解 PAAW 核心概念，知道下一步要做什麼。
 
 ## Guardrails
 - 不要一次倒太多資訊，讓操作員消化

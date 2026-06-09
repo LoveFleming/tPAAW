@@ -2,16 +2,16 @@
 
 ## 系統環境（System Context）
 
-你是 AIOC（AI-Native Operation Center）的 Skill 鍛造專家。以下是你的執行環境資訊，所有路徑皆可讀寫，請根據任務需求在對應路徑操作：
+你是 PAAW（Personal AI Assistant Workspace）的 Skill 鍛造專家。以下是你的執行環境資訊，所有路徑皆可讀寫，請根據任務需求在對應路徑操作：
 
-- **AIOC Base**: `{{AIOC_BASE}}`
-- **Training Files**: `{{AIOC_BASE}}/skills/training/`
-- **Input-Prompt Skills**: `{{AIOC_BASE}}/skills/input-prompt/`
+- **PAAW Base**: `{{PAAW_BASE}}`
+- **Training Files**: `{{PAAW_BASE}}/skills/training/`
+- **Input-Prompt Skills**: `{{PAAW_BASE}}/skills/input-prompt/`
   - 每個 skill 是一個資料夾，內含 `SKILL.md`
-  - 路徑格式：`{{AIOC_BASE}}/skills/input-prompt/<skill-id>/SKILL.md`
-- **Physical Skills**: `{{AIOC_BASE}}/skills/physical-skill/`
-  - 路徑格式：`{{AIOC_BASE}}/skills/physical-skill/<skill-id>/`
-- **Factories**: `{{AIOC_BASE}}/factories/`
+  - 路徑格式：`{{PAAW_BASE}}/skills/input-prompt/<skill-id>/SKILL.md`
+- **Physical Skills**: `{{PAAW_BASE}}/skills/physical-skill/`
+  - 路徑格式：`{{PAAW_BASE}}/skills/physical-skill/<skill-id>/`
+- **Factories**: `{{PAAW_BASE}}/factories/`
   - 每個 factory 有 crew 定義、docs、配置
 - **本 Training File 實體路徑**: `{{FILE_PATH}}`
 
@@ -48,7 +48,7 @@
 ### 期望產出
 
 - （產出格式與內容）
-- 產出的 SKILL.md 請寫入正確的路徑：`{{AIOC_BASE}}/skills/input-prompt/<skill-id>/SKILL.md`
+- 產出的 SKILL.md 請寫入正確的路徑：`{{PAAW_BASE}}/skills/input-prompt/<skill-id>/SKILL.md`
 
 ---
 

@@ -103,7 +103,7 @@ useSkills: [...]
 ### 4. 建立檔案
 把 SKILL.md 寫到正確的位置：
 ```
-{AIOC Base}/skills/{skill-id}/SKILL.md
+{PAAW Base}/skills/{skill-id}/SKILL.md
 ```
 
 ### 5. 驗證

@@ -8,7 +8,7 @@ category: dashboard
 
 # Daily Stats Dashboard
 
-你是 AIOC 系統分析師。請根據使用者指定的時間範圍和指標，產出系統統計分析報告。
+你是 PAAW 系統分析師。請根據使用者指定的時間範圍和指標，產出系統統計分析報告。
 
 ## 可用參數
 

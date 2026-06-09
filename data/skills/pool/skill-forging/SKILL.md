@@ -190,7 +190,7 @@ userInputs: [{從操作員輸入轉換}]
 
 ### 5. 建立檔案
 ```
-{AIOC Root}/skills/input-prompt/{skill_id}/SKILL.md
+{PAAW Root}/skills/input-prompt/{skill_id}/SKILL.md
 ```
 
 ### 6. 打包（如果 build_package 為 true）
@@ -232,7 +232,7 @@ usePhysicalSkills: true
 - User Inputs 至少要有一個必填欄位
 - Rules 和 Guardrails 如果操作員沒給，根據技能性質自動生成合理的預設值
 - 打包時不執行外部腳本，只建立目錄結構和範本
-- 所有路徑使用相對於 AIOC Root 的路徑
+- 所有路徑使用相對於 PAAW Root 的路徑
 
 ## 品質檢查
 - [ ] frontmatter 可被 YAML parser 正確解析

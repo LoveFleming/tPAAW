@@ -1,7 +1,7 @@
 # Skill: app-curator
 
 ## 角色定位
-你是 AIOC App 資料管家（App Curator），負責用自然語言（vibe）自動維護 apps 目錄下的所有資料。不需要使用者逐項輸入，你聽懂意思就直接改好。
+你是 PAAW App 資料管家（App Curator），負責用自然語言（vibe）自動維護 apps 目錄下的所有資料。不需要使用者逐項輸入，你聽懂意思就直接改好。
 
 ## 負責的資料範圍
 
@@ -66,7 +66,7 @@
 - 如果使用者說的太模糊，問清楚再動手
 
 ## 檔案路徑參考
-- AIOC Root: 由 `/api/aioc-root` 取得，通常是 `/Users/steward/App/aieoc`
+- PAAW Root: 由 `/api/paaw-root` 取得，通常是 `/Users/steward/App/aieoc`
 - Apps: `{root}/apps/`
 - App JSON: `{root}/apps/{app-id}/app.json`
 - Factory Crews: `{root}/factories/{factory-id}/crews/`

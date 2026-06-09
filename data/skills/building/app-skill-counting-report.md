@@ -37,7 +37,7 @@
   - "Design" 類：skill-design, skill-creation, skill-forging, skill-packing, draft-flow-specs
   - "Diagnosis" 類：diagnosis, root-cause, incident-detection, incident-support, signal-detect, health-check-design
   - "API" 類：api-health-check, endpoint-probe, define-api-contracts, contract-validation
-  - "Factory" 類：factory-constitution, factory-tour, aioc-tour, quick-tour, dashboard-setup
+  - "Factory" 類：factory-constitution, factory-tour, paaw-tour, quick-tour, dashboard-setup
   - "Code Gen" 類：node-codegen, collect-inputs, extract-user-stories
   - "Monitoring" 類：sla-monitor
   - "CLI" 類：cli-test, claude-code-test, opencode-test

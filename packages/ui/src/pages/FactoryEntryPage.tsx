@@ -87,7 +87,7 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, paa
           🏭 AI Factory
         </h1>
         <p className="text-stone-500 text-sm">選擇一個 AI Factory 開始工作</p>
-        <p className="text-stone-400 text-xs mt-1">AI-Native Operation Center</p>
+        <p className="text-stone-400 text-xs mt-1">Personal AI Assistant Workspace</p>
       </div>
 
       {/* Factory grid */}
