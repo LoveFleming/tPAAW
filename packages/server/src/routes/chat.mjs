@@ -100,12 +100,15 @@ export default async function chatRoutes(req, res) {
         }
       } catch {}
 
+      console.log("[chat] provider=", provider, "active=", config.active, "resolved=", providerConfig ? Object.keys(providerConfig) : null);
       const apiKey = providerConfig?.apiKey || process.env.OPENAI_API_KEY || "";
       const chatModel = model || providerConfig?.models?.[0]?.id || process.env.PAAW_MODEL || "gpt-4o-mini";
       const baseUrl = providerConfig?.baseURL || providerConfig?.baseUrl || "https://api.openai.com/v1";
+      console.log("[chat] apiKey=", apiKey ? `${apiKey.slice(0, 8)}...` : "(empty)", "model=", chatModel, "baseUrl=", baseUrl);
 
       if (!apiKey || apiKey === "na") {
-        json(res, { error: "No API key configured for provider" }, 400);
+        console.error("[chat] No API key. providerConfig=", JSON.stringify(providerConfig, null, 2));
+        json(res, { error: "No API key configured for provider", debug: { provider, active: config.active, resolved: !!providerConfig, providerKeys: providerConfig ? Object.keys(providerConfig) : [] } }, 400);
         return true;
       }
 
