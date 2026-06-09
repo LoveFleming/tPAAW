@@ -72,11 +72,12 @@ function parseSkillMd(content: string): SkillForm {
     else if (key === "tags") form.tags = val.trim();
     else if (key === "visibility") form.visibility = val.trim() as SkillForm["visibility"];
   }
-  const inputsMatch = fm.match(/userInputs:\s*\n((?:\s+- .+\n?)*)/);
+  const inputsMatch = fm.match(/userInputs:\s*\n([\s\S]*?)(?=\n\S|\s*$)/);
   if (inputsMatch) {
-    for (const block of inputsMatch[1].split(/\n\s*-\s+id:/).filter(Boolean)) {
+    const blocks = inputsMatch[1].split(/\s*-\s+id:\s*/).filter(Boolean);
+    for (const block of blocks) {
       const field: InputField = { ...EMPTY_FIELD };
-      const idM = block.match(/^(\S+)/); if (idM) field.id = idM[1];
+      const idM = block.match(/^(\S+)/); if (idM) field.id = idM[1].trim();
       const labelM = block.match(/label:\s*(.+)/); if (labelM) field.label = labelM[1].trim();
       const descM = block.match(/description:\s*(.+)/); if (descM) field.description = descM[1].trim();
       const phM = block.match(/placeholder:\s*"([^"]*)"/); if (phM) field.placeholder = phM[1];
