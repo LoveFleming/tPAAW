@@ -1229,50 +1229,78 @@ async function paawApiHandler(req, res) {
     return true;
   }
 
-  // POST /api/skill-test/prepare — create temp dir for test output
-  if (req.method === "POST" && req.url === "/api/skill-test/prepare") {
-    try {
-      const body = JSON.parse(await readBody(req));
-      const skillId = body.skillId || "unknown";
-      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const testDir = resolve(PAAW_ROOT, "data/skills/building", skillId, "test-" + ts);
-      await mkdir(testDir, { recursive: true });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, testDir, testDirRelative: `data/skills/building/${skillId}/test-${ts}` }));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
+  // POST /api/skill-test/run — non-interactive CLI test: create dir → run → scan files → SSE result
+  if (req.method === "POST" && req.url === "/api/skill-test/run") {
+    const body = JSON.parse(await readBody(req));
+    const { skillId, prompt, cwd, cli = "qwen", timeout = 120, maxToolCalls = 10 } = body;
+    // 1. Create temp dir
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const testDir = resolve(PAAW_ROOT, "data/skills/building", skillId || "unknown", "test-" + ts);
+    await mkdir(testDir, { recursive: true });
+    // 2. SSE headers
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
+    const sendEvent = (obj) => { res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    // 3. Build full prompt with output dir
+    const fullPrompt = `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${testDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
+    // 4. Spawn CLI non-interactively
+    const cliBin = process.env.QWEN_BIN || "qwen";
+    const args = ["-o", "text", "--approval-mode", "yolo", "--max-tool-calls", String(maxToolCalls), "/dev/stdin"];
+    const child = spawn(cliBin, args, { cwd: cwd || PAAW_ROOT, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] });
+    let stderr = "";
+    let stdout = "";
+    child.stdout.on("data", (d) => { stdout += d.toString(); });
+    child.stderr.on("data", (d) => { stderr += d.toString(); });
+    // Heartbeat every 5s
+    const heartbeat = setInterval(() => sendEvent({ type: "heartbeat" }), 5000);
+    const timer = setTimeout(() => {
+      child.kill();
+      clearInterval(heartbeat);
+      sendEvent({ type: "error", message: `Timeout after ${timeout}s` });
+      res.end();
+    }, timeout * 1000);
+    child.stdin.write(fullPrompt);
+    child.stdin.end();
+    child.on("close", async (code) => {
+      clearTimeout(timer);
+      clearInterval(heartbeat);
+      // 5. Scan test dir for output files
+      try {
+        const entries = await readdir(testDir);
+        const files = [];
+        for (const name of entries) {
+          const fp = join(testDir, name);
+          const s = await stat(fp);
+          if (s.isFile()) {
+            const ext = name.split(".").pop()?.toLowerCase() || "";
+            let type = "text";
+            if (["json", "jsonl"].includes(ext)) type = "json";
+            else if (["html", "htm"].includes(ext)) type = "html";
+            else if (["md", "markdown"].includes(ext)) type = "markdown";
+            else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
+            else if (["csv"].includes(ext)) type = "csv";
+            else if (["yaml", "yml"].includes(ext)) type = "yaml";
+            else if (["txt", "log"].includes(ext)) type = "text";
+            files.push({ name, path: fp, size: s.size, type, ext });
+          }
+        }
+        sendEvent({ type: "done", exitCode: code, testDir, files, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
+      } catch (err) {
+        sendEvent({ type: "done", exitCode: code, testDir, files: [], error: err.message, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
+      }
+      res.end();
+    });
     return true;
   }
 
-  // GET /api/skill-test/files — list files in test output dir
-  if (req.method === "GET" && req.url?.startsWith("/api/skill-test/files")) {
+  // GET /api/skill-test/file-content — read a single output file
+  if (req.method === "GET" && req.url?.startsWith("/api/skill-test/file-content")) {
     try {
       const qs = new URL(req.url, "http://localhost").searchParams;
-      const dir = qs.get("dir");
-      if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "Missing dir" })); return true; }
-      const absDir = resolve(dir);
-      const entries = await readdir(absDir);
-      const files = [];
-      for (const name of entries) {
-        const fp = join(absDir, name);
-        const s = await stat(fp);
-        if (s.isFile()) {
-          const ext = name.split(".").pop()?.toLowerCase() || "";
-          let type = "text";
-          if (["json", "jsonl"].includes(ext)) type = "json";
-          else if (["html", "htm"].includes(ext)) type = "html";
-          else if (["md", "markdown"].includes(ext)) type = "markdown";
-          else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
-          else if (["csv"].includes(ext)) type = "csv";
-          else if (["txt", "log"].includes(ext)) type = "text";
-          else if (["yaml", "yml"].includes(ext)) type = "yaml";
-          files.push({ name, path: fp, size: s.size, type, ext });
-        }
-      }
+      const filePath = qs.get("path");
+      if (!filePath) { res.writeHead(400); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+      const content = await readFile(resolve(filePath), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, dir: absDir, files }));
+      res.end(JSON.stringify({ ok: true, content }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

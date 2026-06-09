@@ -154,11 +154,10 @@ function StepCard({ number, icon, title, hint, children, required, accent, accen
 }
 
 // ── Input Field Card ──
-function InputFieldCard({ field, index, onUpdate, onRemove, accent }: {
+function InputFieldCard({ field, index, onUpdate, onRemove }: {
   field: InputField; index: number;
   onUpdate: (idx: number, patch: Partial<InputField>) => void;
   onRemove: (idx: number) => void;
-  accent: string;
 }) {
   return (
     <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 relative group">
@@ -185,17 +184,11 @@ function InputFieldCard({ field, index, onUpdate, onRemove, accent }: {
   );
 }
 
-// ── Content Viewer ──
+// ── Content Viewer (right side, dark bg) ──
 function ContentViewer({ file, content, accent }: { file: OutputFile; content: string; accent: string }) {
   const [mode, setMode] = useState<"rendered" | "raw">("rendered");
-
-  const toggleBtn = (label: string, active: boolean) => (
-    <button onClick={() => setMode(active ? mode : (mode === "rendered" ? "raw" : "rendered"))}
-      className={cn("px-2 py-0.5 text-[10px] rounded border transition-colors", active ? "text-white" : "text-stone-400 border-stone-600 hover:bg-stone-700")}
-      style={active ? { background: accent, borderColor: accent } : {}}>
-      {label}
-    </button>
-  );
+  // Reset mode when file changes
+  useEffect(() => { setMode("rendered"); }, [file.path]);
 
   if (file.type === "image") {
     return (
@@ -205,14 +198,18 @@ function ContentViewer({ file, content, accent }: { file: OutputFile; content: s
     );
   }
 
+  const showToggle = ["html", "json", "markdown", "csv"].includes(file.type);
+
   return (
     <div className="flex flex-col h-full">
-      <div className="shrink-0 px-4 py-1.5 border-b border-stone-700 flex items-center gap-2">
-        <span className="text-[10px] text-stone-500">{typeIcon(file.type)} {file.type.toUpperCase()}</span>
-        <div className="flex-1" />
-        {toggleBtn("Rendered", mode === "rendered")}
-        {toggleBtn("Raw", mode === "raw")}
-      </div>
+      {showToggle && (
+        <div className="shrink-0 px-4 py-1.5 border-b border-stone-700 flex items-center gap-2">
+          <span className="text-[10px] text-stone-500">{typeIcon(file.type)} {file.type.toUpperCase()}</span>
+          <div className="flex-1" />
+          <button onClick={() => setMode("rendered")} className={cn("px-2 py-0.5 text-[10px] rounded transition-colors", mode === "rendered" ? "text-white" : "text-stone-400 border border-stone-600 hover:bg-stone-700")} style={mode === "rendered" ? { background: accent } : {}}>Rendered</button>
+          <button onClick={() => setMode("raw")} className={cn("px-2 py-0.5 text-[10px] rounded transition-colors", mode === "raw" ? "text-white" : "text-stone-400 border border-stone-600 hover:bg-stone-700")} style={mode === "raw" ? { background: accent } : {}}>Raw</button>
+        </div>
+      )}
       <div className="flex-1 overflow-auto">
         {mode === "raw" ? (
           <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap break-words p-4" style={{ lineHeight: 1.6 }}>{content}</pre>
@@ -256,7 +253,7 @@ export default function SkillBuilder() {
   const [workingDir, setWorkingDir] = useState("");
   const [expertMode, setExpertMode] = useState(false);
 
-  // CLI
+  // Builder CLI (interactive)
   const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
   const [consoleKey, setConsoleKey] = useState(0);
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
@@ -269,15 +266,15 @@ export default function SkillBuilder() {
 
   // Test state
   const [testInputs, setTestInputs] = useState<Record<string, string>>({});
-  const [testDir, setTestDir] = useState<string>("");
+  const [testRunning, setTestRunning] = useState(false);
+  const [testElapsed, setTestElapsed] = useState(0);
   const [outputFiles, setOutputFiles] = useState<OutputFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<OutputFile | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
-  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [testError, setTestError] = useState<string>("");
 
   // Tabs
   const [tab, setTab] = useState<"builder" | "test">("builder");
-  const [rightTab, setRightTab] = useState<"cli" | "files">("cli");
 
   // Theme shortcuts
   const bg = theme.accentBg;
@@ -356,7 +353,7 @@ export default function SkillBuilder() {
     setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm); setSaveStatus("saved"); setTab("builder");
   };
 
-  // ── Build ──
+  // ── Build: interactive CLI ──
   const handleBuild = () => {
     const skillDef = buildSkillMd(form, expertMode);
     const prompt = skillCreatorContent ? `${skillCreatorContent}\n\n---\n\n請根據以下 Skill 描述，建立完整的 SKILL.md：\n\n${skillDef}` : skillDef;
@@ -364,55 +361,80 @@ export default function SkillBuilder() {
     else { terminalRef.current?.sendPrompt(prompt); }
   };
 
-  // ── Test ──
+  // ── Test: non-interactive CLI → SSE → auto show files ──
   const handleTest = async () => {
-    const prepareRes = await fetch(`${API_BASE}/api/skill-test/prepare`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skillId: form.id || "untitled" }),
-    });
-    const prepareData = await prepareRes.json();
-    const outDir = prepareData.testDir;
-    setTestDir(outDir);
+    setTestRunning(true);
+    setTestError("");
     setOutputFiles([]);
     setSelectedFile(null);
     setFileContent("");
-    setRightTab("cli");
+    setTestElapsed(0);
 
+    // Timer for elapsed seconds
+    const startTime = Date.now();
+    const elapsedTimer = setInterval(() => setTestElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+
+    // Build test prompt
     const skillDef = buildSkillMd(form, expertMode);
-    let testPrompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${outDir}\n\n### Skill 定義\n${skillDef}`;
+    let prompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### Skill 定義\n${skillDef}`;
     if (form.inputs.length > 0) {
       const inputSection = form.inputs.map(inp => `**${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`).join("\n");
-      testPrompt += `\n\n### 測試輸入\n${inputSection}`;
+      prompt += `\n\n### 測試輸入\n${inputSection}`;
     }
-    testPrompt += `\n\n### 指示\n1. 執行這個 Skill\n2. 將結果存成適當格式的檔案到 ${outDir}（JSON、Markdown、HTML 等都可以）\n3. 如果有多個輸出，分別存成不同檔案`;
 
-    if (!chatStarted) { setInitialPrompt(testPrompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
-    else { terminalRef.current?.sendPrompt(testPrompt); }
-  };
-
-  // ── Check output files ──
-  const handleCheckFiles = async () => {
-    if (!testDir) return;
-    setLoadingFiles(true);
     try {
-      const res = await fetch(`${API_BASE}/api/skill-test/files?dir=${encodeURIComponent(testDir)}`);
-      const data = await res.json();
-      if (data.ok) {
-        setOutputFiles(data.files);
-        setRightTab("files");
-        if (data.files.length > 0) handleSelectOutputFile(data.files[0]);
+      const res = await fetch(`${API_BASE}/api/skill-test/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined }),
+      });
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "done") {
+              clearInterval(elapsedTimer);
+              if (event.files && event.files.length > 0) {
+                setOutputFiles(event.files);
+                // Auto-select first file
+                loadFileContent(event.files[0]);
+              } else if (event.error) {
+                setTestError(`CLI 完成但沒有輸出檔案：${event.error}`);
+              } else {
+                setTestError("CLI 完成但沒有輸出檔案。CLI 可能沒有正確儲存到指定目錄。");
+              }
+            } else if (event.type === "error") {
+              clearInterval(elapsedTimer);
+              setTestError(event.message || "CLI 執行失敗");
+            }
+          } catch {}
+        }
       }
-    } catch (err) {
-      console.error("[SkillBuilder] check files error:", err);
+    } catch (err: any) {
+      clearInterval(elapsedTimer);
+      setTestError(`API 錯誤: ${err.message}`);
     } finally {
-      setLoadingFiles(false);
+      setTestRunning(false);
     }
   };
 
-  const handleSelectOutputFile = async (file: OutputFile) => {
+  const loadFileContent = async (file: OutputFile) => {
     setSelectedFile(file);
     try {
-      const res = await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(file.path)}`);
+      const res = await fetch(`${API_BASE}/api/skill-test/file-content?path=${encodeURIComponent(file.path)}`);
       const data = await res.json();
       setFileContent(data.content || "");
     } catch {
@@ -435,10 +457,7 @@ export default function SkillBuilder() {
             <option value="">-- {t("common.select", "選擇")} Skill --</option>
             {files.map(f => <option key={f.path} value={f.path}>{f.name}</option>)}
           </select>
-          <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ background: accent }}>
-            ＋ New
-          </button>
+          <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ background: accent }}>＋ New</button>
           {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
           {saveStatus === "saved" && selectedPath && <span className="text-[10px] text-green-500">✓</span>}
           {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
@@ -483,7 +502,6 @@ export default function SkillBuilder() {
 
         {/* ━━ Left Panel ━━ */}
         <div className="flex flex-col border-r" style={{ width: "50%", borderColor: border + "30", backgroundColor: bg }}>
-          {/* Tab Bar */}
           <div className="shrink-0 flex border-b bg-white" style={{ borderColor: border + "30" }}>
             <button onClick={() => setTab("builder")}
               className={cn("flex-1 py-2.5 text-xs font-bold transition-colors text-center", tab === "builder" ? "border-b-2" : "text-stone-500 hover:text-stone-700")}
@@ -520,7 +538,7 @@ export default function SkillBuilder() {
                   </StepCard>
                   <StepCard number={2} icon="📝" title="Inputs" hint="需要使用者提供什麼？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     {form.inputs.length === 0 && (<div className="text-center py-4"><p className="text-xs text-stone-400 mb-3">這個 Skill 需要使用者輸入什麼資訊？</p><button onClick={addInput} className="px-4 py-2 text-sm font-medium border rounded-xl hover:opacity-80" style={{ color: accent, borderColor: accent + "40" }}>＋ 新增輸入欄位</button></div>)}
-                    <div className="space-y-3">{form.inputs.map((inp, idx) => <InputFieldCard key={idx} field={inp} index={idx} onUpdate={updateInput} onRemove={removeInput} accent={accent} />)}</div>
+                    <div className="space-y-3">{form.inputs.map((inp, idx) => <InputFieldCard key={idx} field={inp} index={idx} onUpdate={updateInput} onRemove={removeInput} />)}</div>
                     {form.inputs.length > 0 && <button onClick={addInput} className="w-full py-2.5 text-sm font-medium border border-dashed rounded-xl hover:opacity-80" style={{ color: accent, borderColor: accent + "40" }}>＋ 新增欄位</button>}
                   </StepCard>
                   <StepCard number={3} icon="🧠" title="Steps" hint="AI 應該怎麼做？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
@@ -565,28 +583,10 @@ export default function SkillBuilder() {
                       </div>
                     </div>
 
-                    {/* Output Files */}
-                    {outputFiles.length > 0 && (
-                      <div className="border rounded-2xl overflow-hidden bg-white" style={{ borderColor: accent + "30" }}>
-                        <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: accent + "15", background: theme.accentLight + "30" }}>
-                          <span className="text-xs font-bold" style={{ color: accentText }}>📁 輸出檔案</span>
-                          <span className="text-[10px] text-stone-400">{outputFiles.length} files</span>
-                        </div>
-                        <div className="divide-y divide-stone-100">
-                          {outputFiles.map(f => (
-                            <button key={f.path} onClick={() => handleSelectOutputFile(f)}
-                              className={cn("w-full flex items-center gap-3 px-4 py-2.5 text-left hover:opacity-80 transition-colors",
-                                selectedFile?.path === f.path ? "" : "")}
-                              style={selectedFile?.path === f.path ? { background: theme.accentLight + "40" } : {}}>
-                              <span className="text-base">{typeIcon(f.type)}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-stone-700 truncate">{f.name}</p>
-                                <p className="text-[10px] text-stone-400">{f.type.toUpperCase()} · {formatSize(f.size)}</p>
-                              </div>
-                              <span className="text-[10px] text-stone-300">→</span>
-                            </button>
-                          ))}
-                        </div>
+                    {testError && (
+                      <div className="border border-rose-200 rounded-xl p-4 bg-rose-50">
+                        <p className="text-sm font-medium text-rose-700">❌ 測試失敗</p>
+                        <p className="text-xs text-rose-500 mt-1">{testError}</p>
                       </div>
                     )}
                   </>
@@ -601,7 +601,7 @@ export default function SkillBuilder() {
               {tab === "builder" && (
                 <>
                   <button onClick={handleBuild} disabled={!canBuild}
-                    className={cn("px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm")}
+                    className="px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm"
                     style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     🔨 Build
                   </button>
@@ -610,21 +610,12 @@ export default function SkillBuilder() {
                 </>
               )}
               {tab === "test" && (
-                <>
-                  <button onClick={handleTest} disabled={!canBuild}
-                    className="px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm"
-                    style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
-                    ▶️ 執行測試
-                  </button>
-                  {testDir && (
-                    <button onClick={handleCheckFiles} disabled={loadingFiles}
-                      className="px-5 py-2.5 text-sm font-bold rounded-xl text-white border transition-all"
-                      style={loadingFiles ? { background: "#e7e5e4", color: "#a8a29e", borderColor: "#e7e5e4" } : { background: `linear-gradient(135deg, ${accentHover}, ${accent})`, borderColor: accent }}>
-                      {loadingFiles ? "⏳ 掃描中..." : "📁 Check Files"}
-                    </button>
-                  )}
-                  {chatStarted && <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }} className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">✕ 重置</button>}
-                </>
+                <button onClick={handleTest} disabled={!canBuild || testRunning}
+                  className="px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm flex items-center gap-2"
+                  style={!canBuild || testRunning ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
+                  {testRunning && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  {testRunning ? `執行中... ${testElapsed}s` : "▶️ 執行測試"}
+                </button>
               )}
             </div>
           )}
@@ -632,32 +623,15 @@ export default function SkillBuilder() {
 
         {/* ━━ Right Panel ━━ */}
         <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
-          {/* Right Tab Bar (Test mode) */}
-          {tab === "test" && (
-            <div className="shrink-0 flex border-b border-stone-700">
-              <button onClick={() => setRightTab("cli")}
-                className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center", rightTab === "cli" ? "border-b-2" : "text-stone-500 hover:text-stone-300")}
-                style={rightTab === "cli" ? { color: accent, borderColor: accent, background: theme.accentLight + "15" } : {}}>
-                📟 CLI
-              </button>
-              <button onClick={() => setRightTab("files")}
-                className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center", rightTab === "files" ? "border-b-2" : "text-stone-500 hover:text-stone-300")}
-                style={rightTab === "files" ? { color: accent, borderColor: accent, background: theme.accentLight + "15" } : {}}>
-                📋 Preview{selectedFile ? `: ${selectedFile.name}` : ""}
-              </button>
-            </div>
-          )}
 
-          {/* CLI Console */}
-          {(tab === "builder" || rightTab === "cli") && (
+          {/* Builder: interactive CLI */}
+          {tab === "builder" && (
             !chatStarted ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
-                <span className="text-5xl opacity-30">{tab === "builder" ? "🔨" : "▶️"}</span>
+                <span className="text-5xl opacity-30">🔨</span>
                 <div className="text-center">
-                  <p className="text-stone-400 text-sm">
-                    {tab === "builder" ? <>按底部 <strong className="text-white">🔨 Build</strong> 開始</> : <>填入輸入，按 <strong className="text-white">▶️ 執行測試</strong></>}
-                  </p>
-                  <p className="text-stone-500 text-xs mt-2">{tab === "builder" ? "Skill Creator 幫你產出 SKILL.md" : "CLI 會把結果存到 temp 目錄"}</p>
+                  <p className="text-stone-400 text-sm">按底部 <strong className="text-white">🔨 Build</strong> 開始</p>
+                  <p className="text-stone-500 text-xs mt-2">Skill Creator 幫你產出 SKILL.md</p>
                 </div>
               </div>
             ) : (
@@ -665,23 +639,66 @@ export default function SkillBuilder() {
             )
           )}
 
-          {/* File Preview */}
-          {tab === "test" && rightTab === "files" && (
-            selectedFile ? (
-              <div className="flex flex-col flex-1 overflow-auto">
-                <div className="shrink-0 px-4 py-2 border-b border-stone-700 flex items-center gap-2">
-                  <span>{typeIcon(selectedFile.type)}</span>
-                  <span className="text-xs font-medium text-stone-300">{selectedFile.name}</span>
-                  <span className="text-[10px] text-stone-500">{selectedFile.type.toUpperCase()} · {formatSize(selectedFile.size)}</span>
+          {/* Test: spinner → file list + content viewer */}
+          {tab === "test" && (
+            testRunning ? (
+              /* ── Running: spinner with elapsed ── */
+              <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 rounded-full animate-spin" style={{ borderColor: accent + "30", borderTopColor: accent }} />
+                  <span className="absolute inset-0 flex items-center justify-center text-lg font-bold" style={{ color: accent }}>{testElapsed}</span>
                 </div>
-                <div className="flex-1 overflow-auto">
-                  <ContentViewer file={selectedFile} content={fileContent} accent={accent} />
+                <div className="text-center">
+                  <p className="text-stone-300 text-sm font-medium">CLI 正在執行 Skill 測試</p>
+                  <p className="text-stone-500 text-xs mt-1">等待 AI 產出結果檔案...</p>
                 </div>
               </div>
+            ) : outputFiles.length > 0 ? (
+              /* ── Done: file list (top) + content viewer (bottom) ── */
+              <div className="flex flex-col h-full">
+                {/* File List Bar */}
+                <div className="shrink-0 border-b border-stone-700">
+                  <div className="px-3 py-2 flex items-center gap-2 border-b border-stone-700/50">
+                    <span className="text-xs font-bold text-stone-300">📁 輸出檔案</span>
+                    <span className="text-[10px] text-stone-500">{outputFiles.length} files</span>
+                  </div>
+                  <div className="flex overflow-x-auto px-2 py-1.5 gap-1" style={{ scrollbarWidth: "thin" }}>
+                    {outputFiles.map(f => (
+                      <button key={f.path} onClick={() => loadFileContent(f)}
+                        className={cn("shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors",
+                          selectedFile?.path === f.path ? "text-white" : "text-stone-400 hover:text-stone-200 hover:bg-stone-700/50")}
+                        style={selectedFile?.path === f.path ? { background: accent } : {}}>
+                        <span>{typeIcon(f.type)}</span>
+                        <span className="font-medium">{f.name}</span>
+                        <span className="text-[9px] opacity-60">{formatSize(f.size)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Content Viewer */}
+                <div className="flex-1 overflow-auto">
+                  {selectedFile ? (
+                    <ContentViewer file={selectedFile} content={fileContent} accent={accent} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full"><p className="text-stone-500 text-xs">點選上方檔案預覽</p></div>
+                  )}
+                </div>
+              </div>
+            ) : testError ? (
+              /* ── Error ── */
+              <div className="flex flex-col items-center justify-center h-full gap-3 px-8">
+                <span className="text-4xl">❌</span>
+                <p className="text-rose-400 text-sm font-medium">測試失敗</p>
+                <p className="text-rose-500/70 text-xs text-center max-w-md">{testError}</p>
+              </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-3">
-                <span className="text-4xl opacity-30">📋</span>
-                <p className="text-stone-500 text-xs">{testDir ? "按「📁 Check Files」掃描輸出" : "先執行測試"}</p>
+              /* ── Idle ── */
+              <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
+                <span className="text-5xl opacity-30">▶️</span>
+                <div className="text-center">
+                  <p className="text-stone-400 text-sm">填入輸入，按 <strong className="text-white">▶️ 執行測試</strong></p>
+                  <p className="text-stone-500 text-xs mt-2">CLI 會把結果存到 temp 目錄，完成後自動顯示</p>
+                </div>
               </div>
             )
           )}
