@@ -265,27 +265,62 @@ export default function SkillBuilder() {
   }, []);
 
   const saveFile = useCallback(async (f: SkillForm) => {
-    if (!selectedPath || loadingRef.current) return;
+    const path = selectedPath;
+    if (!path || loadingRef.current) {
+      console.log("[SkillBuilder] save skipped", { path, loading: loadingRef.current });
+      return;
+    }
     setSaveStatus("saving");
+    const content = buildSkillMd(f, expertMode);
     try {
-      await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(selectedPath)}`, {
+      const res = await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(path)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: buildSkillMd(f, expertMode) }),
+        body: JSON.stringify({ content }),
       });
-      setSaveStatus("saved");
-    } catch { setSaveStatus("dirty"); }
+      if (res.ok) {
+        setSaveStatus("saved");
+      } else {
+        console.error("[SkillBuilder] save failed:", res.status, await res.text());
+        setSaveStatus("dirty");
+      }
+    } catch (err) {
+      console.error("[SkillBuilder] save error:", err);
+      setSaveStatus("dirty");
+    }
   }, [selectedPath, expertMode]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const formRef = useRef(form);
   formRef.current = form;
+  const expertModeRef = useRef(expertMode);
+  expertModeRef.current = expertMode;
+  const selectedPathRef = useRef(selectedPath);
+  selectedPathRef.current = selectedPath;
 
   const triggerSave = useCallback(() => {
     setSaveStatus("dirty");
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveFile(formRef.current), 800);
-  }, [saveFile]);
+    saveTimer.current = setTimeout(() => {
+      const currentForm = formRef.current;
+      const currentPath = selectedPathRef.current;
+      const currentExpert = expertModeRef.current;
+      if (!currentPath || loadingRef.current) return;
+      const content = buildSkillMd(currentForm, currentExpert);
+      setSaveStatus("saving");
+      fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(currentPath)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      }).then(r => {
+        if (r.ok) setSaveStatus("saved");
+        else { console.error("[SkillBuilder] save failed:", r.status); setSaveStatus("dirty"); }
+      }).catch(err => {
+        console.error("[SkillBuilder] save error:", err);
+        setSaveStatus("dirty");
+      });
+    }, 600);
+  }, []);
 
   const update = <K extends keyof SkillForm>(key: K, value: SkillForm[K]) => {
     setForm(prev => ({ ...prev, [key]: value }));
