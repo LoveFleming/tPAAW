@@ -2,7 +2,8 @@
  * Workflow routes — CRUD + execution + history
  */
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { join, resolve } from "path";
+import { spawn } from "node-pty";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 
 export default async function workflowRoutes(req, res) {
@@ -133,10 +134,11 @@ export default async function workflowRoutes(req, res) {
     return true;
   }
 
-  // POST /api/paaw/skill-exec — execute a single skill
+  // POST /api/paaw/skill-exec — execute a single skill via CLI
   if (req.method === "POST" && path === "/api/paaw/skill-exec") {
     try {
       const { appId, skillId, input } = JSON.parse(await readBody(req));
+
       // Load skill SKILL.md
       let skillPath = join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md");
       let raw;
@@ -145,20 +147,15 @@ export default async function workflowRoutes(req, res) {
         try { raw = await readFile(skillPath, "utf-8"); } catch { json(res, { error: "Skill not found" }, 404); return true; }
       }
 
-      // Load SYSTEM.md if exists
-      let systemPrompt = "";
-      const sysPath = skillPath.replace("SKILL.md", "SYSTEM.md");
-      try { systemPrompt = await readFile(sysPath, "utf-8"); } catch {}
-
-      // Load app-level SYSTEM.md
+      // Load app-level SYSTEM.md if exists
       let appSystemPrompt = "";
       try { appSystemPrompt = await readFile(join(PATHS.APPS_ROOT, appId, "SYSTEM.md"), "utf-8"); } catch {}
 
-      const { parseSkillFrontmatter, readSystemPrompt } = await import("./context.mjs");
-      const globalSystem = await readSystemPrompt("global");
+      // Parse skill frontmatter
+      const { parseSkillFrontmatter } = await import("./context.mjs");
       const parsed = parseSkillFrontmatter(raw);
 
-      // Build prompt
+      // Build prompt — replace {{key}} with input values
       let prompt = parsed.body || "";
       if (typeof input === "object") {
         for (const [k, v] of Object.entries(input)) {
@@ -166,39 +163,53 @@ export default async function workflowRoutes(req, res) {
         }
       }
 
-      // Find provider/model from config
-      let providerConfig = null;
+      // Build full system prompt
+      let fullSystem = "";
+      if (appSystemPrompt) fullSystem += appSystemPrompt + "\n\n";
+      fullSystem += `你是「${appId}」App 的 Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。`; 
+
+      // Execute via CLI (same approach as tools/index.mjs skillExec)
+      const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";
+      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", prompt];
+      const appDir = resolve(PATHS.APPS_ROOT, appId);
+
+      let fullOutput;
       try {
-        const config = JSON.parse(await readFile(join(PATHS.CONFIG_ROOT, "providers.json"), "utf-8"));
-        providerConfig = config.providers?.[0];
-      } catch {}
+        fullOutput = await new Promise((pResolve, reject) => {
+          let output = "";
+          const proc = spawn(resolvedBin, cliArgs, {
+            name: "xterm-256color",
+            cols: 200,
+            rows: 30,
+            cwd: appDir,
+            env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
+          });
+          proc.onData((data) => { output += data; });
+          proc.onExit(({ exitCode }) => {
+            if (exitCode === 0) pResolve(output);
+            else reject(new Error(`CLI exited with code ${exitCode}`));
+          });
+          setTimeout(() => { try { proc.kill(); } catch {} reject(new Error("Timeout (90s)")); }, 90000);
+        });
+      } catch (err) {
+        json(res, { error: `執行失敗：${err.message}` }, 500);
+        return true;
+      }
 
-      const apiKey = providerConfig?.apiKey || process.env.OPENAI_API_KEY || "";
-      const model = providerConfig?.model || process.env.PAAW_MODEL || "gpt-4o-mini";
-      const baseUrl = providerConfig?.baseUrl || "https://api.openai.com/v1";
+      // Clean ANSI escape codes from output
+      const cleanOutput = fullOutput
+        .replace(/\x1b\[[0-9;]*[mGKH]/g, "")
+        .replace(/^\s+|\s+$/g, "");
 
-      if (!apiKey) { json(res, { error: "No API key configured. Set PAAW_MODEL_API_KEY or add provider in Settings." }, 400); return true; }
-
-      // Call LLM
-      const messages = [];
-      if (globalSystem) messages.push({ role: "system", content: globalSystem });
-      if (appSystemPrompt) messages.push({ role: "system", content: appSystemPrompt });
-      if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
-      messages.push({ role: "user", content: prompt });
-
-      const llmRes = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model, messages, temperature: 0.7 }),
-      });
-      const llmData = await llmRes.json();
-      if (llmData.error) { json(res, { error: llmData.error.message || "LLM error" }, 500); return true; }
-
-      const content = llmData.choices?.[0]?.message?.content || "";
-      // Try parse as JSON
+      // Try to parse as JSON for structured output
       let result;
-      try { result = JSON.parse(content); } catch { result = { text: content }; }
-      json(res, { result, model, usage: llmData.usage });
+      const jsonMatch = cleanOutput.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { result = JSON.parse(jsonMatch[0]); } catch { result = { text: cleanOutput.slice(0, 1500) }; }
+      } else {
+        result = { text: cleanOutput.slice(0, 1500) || "執行完成但無輸出" };
+      }
+      json(res, { result });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
