@@ -11,7 +11,7 @@
  */
 
 import { createServer } from "http";
-import { readdir, readFile, writeFile, mkdir, unlink, rm } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
 import { readFileSync, existsSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -1229,7 +1229,58 @@ async function paawApiHandler(req, res) {
     return true;
   }
 
-  // POST /api/cli-run — run CLI non-interactively, stream output via SSE, then final result
+  // POST /api/skill-test/prepare — create temp dir for test output
+  if (req.method === "POST" && req.url === "/api/skill-test/prepare") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const skillId = body.skillId || "unknown";
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const testDir = resolve(PAAW_ROOT, "data/skills/building", skillId, "test-" + ts);
+      await mkdir(testDir, { recursive: true });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, testDir, testDirRelative: `data/skills/building/${skillId}/test-${ts}` }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/skill-test/files — list files in test output dir
+  if (req.method === "GET" && req.url?.startsWith("/api/skill-test/files")) {
+    try {
+      const qs = new URL(req.url, "http://localhost").searchParams;
+      const dir = qs.get("dir");
+      if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "Missing dir" })); return true; }
+      const absDir = resolve(dir);
+      const entries = await readdir(absDir);
+      const files = [];
+      for (const name of entries) {
+        const fp = join(absDir, name);
+        const s = await stat(fp);
+        if (s.isFile()) {
+          const ext = name.split(".").pop()?.toLowerCase() || "";
+          let type = "text";
+          if (["json", "jsonl"].includes(ext)) type = "json";
+          else if (["html", "htm"].includes(ext)) type = "html";
+          else if (["md", "markdown"].includes(ext)) type = "markdown";
+          else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
+          else if (["csv"].includes(ext)) type = "csv";
+          else if (["txt", "log"].includes(ext)) type = "text";
+          else if (["yaml", "yml"].includes(ext)) type = "yaml";
+          files.push({ name, path: fp, size: s.size, type, ext });
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, dir: absDir, files }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/skill-test — run CLI non-interactively, stream output via SSE, then final result
   if (req.method === "POST" && req.url === "/api/cli-run") {
     let body = "";
     for await (const chunk of req) body += chunk;
