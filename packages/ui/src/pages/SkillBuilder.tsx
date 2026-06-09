@@ -177,7 +177,7 @@ function StepCard({ number, icon, title, hint, children, required }: {
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-3 px-5 py-3 bg-white hover:bg-stone-50 transition-colors text-left"
       >
-        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-stone-800 text-white text-xs font-bold">{number}</span>
+        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold">{number}</span>
         <span className="text-base">{icon}</span>
         <div className="flex-1">
           <span className="text-sm font-bold text-stone-800">{title}</span>
@@ -455,7 +455,7 @@ export default function SkillBuilder() {
             {files.map(f => <option key={f.path} value={f.path}>{f.name}</option>)}
           </select>
           <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-stone-800 text-white hover:bg-stone-700 transition-colors">
+            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
             ＋ New Skill
           </button>
           {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
@@ -526,7 +526,7 @@ export default function SkillBuilder() {
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowNewDialog(false)} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50">{t("common.cancel")}</button>
               <button onClick={handleCreate} disabled={!newFileName.trim()}
-                className={cn("px-5 py-2 text-sm font-bold rounded-xl", newFileName.trim() ? "bg-stone-800 text-white hover:bg-stone-700" : "bg-stone-200 text-stone-400")}>
+                className={cn("px-5 py-2 text-sm font-bold rounded-xl", newFileName.trim() ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-stone-200 text-stone-400")}>
                 {t("common.create")}
               </button>
             </div>
