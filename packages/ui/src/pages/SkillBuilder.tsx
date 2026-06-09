@@ -28,7 +28,8 @@ interface OutputFile { name: string; path: string; size: number; type: string; e
 const API_BASE = "http://127.0.0.1:4097";
 
 const EMPTY_FIELD: InputField = { id: "", label: "", description: "", placeholder: "", required: false, multiline: false };
-const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [], purpose: "", steps: "", outputFormat: "", guardrails: "", validation: "", systemPrompt: "", tags: "", visibility: "private" };
+const DEFAULT_OUTPUT_FIELD: InputField = { id: "output_path", label: "輸出路徑", description: "Skill 執行結果的儲存路徑", placeholder: "例：output/report.html", required: true, multiline: false };
+const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [DEFAULT_OUTPUT_FIELD], purpose: "", steps: "", outputFormat: "", guardrails: "", validation: "", systemPrompt: "", tags: "", visibility: "private" };
 
 // ── Helpers ──
 function buildPromptFromFields(form: SkillForm): string {
@@ -350,7 +351,11 @@ export default function SkillBuilder() {
     const fullPath = `${workingDir || "."}/data/skills/building/${fileName}`;
     const newForm: SkillForm = { ...EMPTY_SKILL, id: slug, name: raw.replace(/\.md$/, "") };
     await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm, false) }) });
-    setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm); setSaveStatus("saved"); setTab("builder");
+    setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm);
+    const initInputs: Record<string, string> = {};
+    newForm.inputs.forEach(inp => { initInputs[inp.id] = inp.id === "output_path" ? "" : ""; });
+    setTestInputs(initInputs);
+    setSaveStatus("saved"); setTab("builder");
   };
 
   // ── Build: interactive CLI ──
@@ -374,11 +379,15 @@ export default function SkillBuilder() {
     const startTime = Date.now();
     const elapsedTimer = setInterval(() => setTestElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
-    // Build test prompt
+    // Build test prompt — override output_path with system temp path
     const skillDef = buildSkillMd(form, expertMode);
+    const testOutputDir = `${workingDir || "."}/data/skills/.test-output/${form.id || "untitled"}`;
     let prompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### Skill 定義\n${skillDef}`;
     if (form.inputs.length > 0) {
-      const inputSection = form.inputs.map(inp => `**${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`).join("\n");
+      const inputSection = form.inputs.map(inp => {
+        if (inp.id === "output_path") return `**${inp.label}**: ${testOutputDir} （測試模式：固定輸出到系統暫存路徑）`;
+        return `**${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`;
+      }).join("\n");
       prompt += `\n\n### 測試輸入\n${inputSection}`;
     }
 
@@ -443,6 +452,8 @@ export default function SkillBuilder() {
   };
 
   const canBuild = form.purpose.trim() || (expertMode && form.systemPrompt.trim());
+  const hasEmptyRequired = form.inputs.some(inp => inp.required && !(testInputs[inp.id] || "").trim() && inp.id !== "output_path");
+  const canTest = canBuild && !hasEmptyRequired;
 
   // ━━━━━━━━━━━━━━━━━━ RENDER ━━━━━━━━━━━━━━━━━━
   return (
@@ -610,13 +621,16 @@ export default function SkillBuilder() {
                 </>
               )}
               {tab === "test" && (
-                <button onClick={handleTest} disabled={!canBuild || testRunning}
-                  className="px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm flex items-center gap-2"
-                  style={!canBuild || testRunning ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
-                  {testRunning && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                  {testRunning ? `執行中... ${testElapsed}s` : "▶️ 執行測試"}
-                </button>
-              )}
+                <div className="flex items-center gap-3">
+                  <button onClick={handleTest} disabled={!canTest || testRunning}
+                    className="px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm flex items-center gap-2"
+                    style={!canTest || testRunning ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
+                    {testRunning && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    {testRunning ? `執行中... ${testElapsed}s` : "▶️ 執行測試"}
+                  </button>
+                  {hasEmptyRequired && !testRunning && <span className="text-[11px] text-rose-400">⚠️ 請填寫所有必填欄位</span>}
+                </div>
+              )
             </div>
           )}
         </div>
