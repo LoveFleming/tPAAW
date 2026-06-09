@@ -8,35 +8,15 @@
  */
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { readFileSync } from "fs";
-import { resolve, join } from "path";
+import { resolve } from "path";
+import { PATHS, readBody, json, urlPath } from "./context.mjs";
 
-// ── Paths ──
-const PAAW_ROOT = resolve(__dirname, "../../../../");
+// ── Paths (reuse from context.mjs) ──
+const PAAW_ROOT = PATHS.PAAW_ROOT;
 const PAAW_DATA_DIR = resolve(PAAW_ROOT, "data");
 const PAAW_USER_FILE = resolve(PAAW_DATA_DIR, "user.json");
 const PAAW_CHAT_DIR = resolve(PAAW_DATA_DIR, "chats");
 const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
-const SYSTEM_DIR = resolve(PAAW_ROOT, "data/system");
-
-// ── Helpers ──
-function json(res, data, status = 200) {
-  res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(data));
-}
-
-function urlPath(req) {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  return url.pathname;
-}
-
-async function readBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on("data", (c) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString()));
-    req.on("error", reject);
-  });
-}
 
 // Ensure dirs exist
 await mkdir(PAAW_CHAT_DIR, { recursive: true });
