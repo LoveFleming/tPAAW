@@ -1235,7 +1235,7 @@ async function paawApiHandler(req, res) {
     for await (const chunk of req) body += chunk;
     try {
       const { cli: cliName = "qwen", prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120 } = JSON.parse(body);
-      if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return; }
+      if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return true; }
 
       const resolvedBin = cliName === "qwen"
         ? (process.env.QWEN_BIN || "/opt/homebrew/bin/qwen")
@@ -1269,14 +1269,18 @@ async function paawApiHandler(req, res) {
       child.on("close", (code) => {
         clearTimeout(timer);
         console.log(`[cli-run] Done exit=${code}, stdout=${stdout.length}chars`);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, exitCode: code, output: stdout.trim(), stderr: stderr.trim() }));
+        if (!res.headersSent) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, exitCode: code, output: stdout.trim(), stderr: stderr.trim() }));
+        }
       });
     } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
     }
-    return;
+    return true;
   }
 
   // GET /api/clis — list installed CLI tools
