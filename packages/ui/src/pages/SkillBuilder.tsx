@@ -218,8 +218,6 @@ export default function SkillBuilder() {
   // Test tab
   const [testInputs, setTestInputs] = useState<Record<string, string>>({});
   const [testRunning, setTestRunning] = useState(false);
-  const [resultContent, setResultContent] = useState("");
-  const [resultType, setResultType] = useState<"markdown" | "html">("markdown");
 
   // ── Tab state ──
   const [tab, setTab] = useState<"builder" | "test">("builder");
@@ -255,8 +253,7 @@ export default function SkillBuilder() {
       .then((data: { content?: string } | null) => {
         const parsed = parseSkillMd(data?.content || "");
         setForm(parsed);
-        // Init test inputs from form inputs
-        const inputs = {};
+        const inputs: Record<string, string> = {};
         parsed.inputs.forEach(inp => { inputs[inp.id] = ""; });
         setTestInputs(inputs);
         setSaveStatus("saved");
@@ -264,32 +261,6 @@ export default function SkillBuilder() {
       .catch(() => { setForm({ ...EMPTY_SKILL }); })
       .finally(() => { loadingRef.current = false; });
   }, []);
-
-  const saveFile = useCallback(async (f: SkillForm) => {
-    const path = selectedPath;
-    if (!path || loadingRef.current) {
-      console.log("[SkillBuilder] save skipped", { path, loading: loadingRef.current });
-      return;
-    }
-    setSaveStatus("saving");
-    const content = buildSkillMd(f, expertMode);
-    try {
-      const res = await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(path)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      if (res.ok) {
-        setSaveStatus("saved");
-      } else {
-        console.error("[SkillBuilder] save failed:", res.status, await res.text());
-        setSaveStatus("dirty");
-      }
-    } catch (err) {
-      console.error("[SkillBuilder] save error:", err);
-      setSaveStatus("dirty");
-    }
-  }, [selectedPath, expertMode]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const formRef = useRef(form);
@@ -386,9 +357,6 @@ export default function SkillBuilder() {
   // ── Test: execute skill via CLI ──
   const handleTest = () => {
     setTestRunning(true);
-    setResultContent("");
-
-    // Build test prompt = skill definition + user input
     const skillDef = buildSkillMd(form, expertMode);
     let testPrompt = skillDef;
     if (form.inputs.length > 0) {
@@ -399,8 +367,6 @@ export default function SkillBuilder() {
     } else {
       testPrompt += "\n\n---\n\n## 測試\n請執行這個 Skill 並輸出結果。";
     }
-
-    // Send to CLI console in test tab
     if (!chatStarted) {
       setInitialPrompt(testPrompt);
       setChatStarted(true);
@@ -419,7 +385,7 @@ export default function SkillBuilder() {
   return (
     <div className="flex flex-col h-full w-full overflow-hidden" style={{ backgroundColor: "#fafaf9" }}>
 
-      {/* ── Header ── */}
+      {/* ── Header: compact, file ops only ── */}
       <div className="shrink-0 px-5 py-2.5 border-b flex items-center gap-3 bg-white" style={{ borderColor: "#e7e5e4" }}>
         <span className="text-lg">🔨</span>
         <h2 className="text-sm font-bold text-stone-800">Skill Builder</h2>
@@ -433,14 +399,13 @@ export default function SkillBuilder() {
           </select>
           <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }}
             className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
-            ＋ New Skill
+            ＋ New
           </button>
           {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
           {saveStatus === "saved" && selectedPath && <span className="text-[10px] text-green-500">✓</span>}
           {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
         </div>
 
-        {/* Expert toggle */}
         <div className="flex items-center gap-2 ml-2">
           <label className="flex items-center gap-1.5 cursor-pointer">
             <div className={cn("relative w-8 h-4 rounded-full transition-colors", expertMode ? "bg-blue-500" : "bg-stone-300")}
@@ -457,22 +422,6 @@ export default function SkillBuilder() {
           <option value="claude">Claude Code</option>
           <option value="opencode">OpenCode</option>
         </select>
-
-        {/* Build action (only in Builder tab) */}
-        {tab === "builder" && (
-          <button onClick={handleBuild} disabled={!canBuild || !selectedPath}
-            className={cn("ml-auto px-5 py-1.5 text-sm font-bold rounded-lg border transition-colors",
-              !canBuild || !selectedPath ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
-              : "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-sm"
-            )}>
-            🔨 Build
-          </button>
-        )}
-
-        {chatStarted && tab === "builder" && (
-          <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }}
-            className="px-2 py-1 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">✕</button>
-        )}
       </div>
 
       {/* ── New File Dialog ── */}
@@ -521,7 +470,7 @@ export default function SkillBuilder() {
             </button>
           </div>
 
-          {/* Tab Content */}
+          {/* Tab Content — scrollable */}
           <div className="flex-1 overflow-y-auto">
 
             {/* ── Builder Tab ── */}
@@ -531,11 +480,11 @@ export default function SkillBuilder() {
                   <span className="text-5xl">🔨</span>
                   <div className="text-center">
                     <p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p>
-                    <p className="text-stone-400 text-sm mt-1">點 <strong>＋ New Skill</strong> 開始</p>
+                    <p className="text-stone-400 text-sm mt-1">點 <strong>＋ New</strong> 或選擇已有的 build script</p>
                   </div>
                 </div>
               ) : expertMode ? (
-                <div className="p-4">
+                <div className="p-4 pb-24">
                   <div className="border border-stone-200 rounded-2xl overflow-hidden bg-white">
                     <div className="px-4 py-2.5 border-b border-stone-100 bg-stone-50">
                       <span className="text-xs font-bold text-stone-600">Markdown 原始碼</span>
@@ -543,11 +492,11 @@ export default function SkillBuilder() {
                     <textarea value={form.systemPrompt} onChange={e => update("systemPrompt", e.target.value)}
                       placeholder={"輸入完整的 skill 定義..."}
                       className="w-full px-4 py-3 text-sm font-mono border-0 resize-none focus:outline-none"
-                      style={{ minHeight: "calc(100vh - 250px)", lineHeight: 1.7 }} spellCheck={false} />
+                      style={{ minHeight: "calc(100vh - 300px)", lineHeight: 1.7 }} spellCheck={false} />
                   </div>
                 </div>
               ) : (
-                <div className="p-5 space-y-4">
+                <div className="p-5 space-y-4 pb-24">
                   <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required>
                     <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)}
                       placeholder="例：根據錯誤訊息和 log，分析問題的根因並產生報告" rows={3}
@@ -594,17 +543,21 @@ export default function SkillBuilder() {
 
             {/* ── Test Tab ── */}
             {tab === "test" && (
-              <div className="p-5 space-y-4">
-                <div className="border border-emerald-200 rounded-2xl overflow-hidden bg-white">
-                  <div className="px-4 py-2.5 border-b border-emerald-100 bg-emerald-50/50">
-                    <span className="text-xs font-bold text-emerald-700">▶️ 測試輸入</span>
+              <div className="p-5 space-y-4 pb-24">
+                {!selectedPath ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <span className="text-4xl">▶️</span>
+                    <p className="text-xs text-stone-400">請先選擇或建立一個 Skill</p>
                   </div>
-                  <div className="p-4 space-y-3">
-                    {!selectedPath ? (
-                      <p className="text-xs text-stone-400 text-center py-4">請先選擇或建立一個 Skill</p>
-                    ) : form.inputs.length > 0 ? (
-                      <>
-                        {form.inputs.map(inp => (
+                ) : (
+                  <div className="border border-emerald-200 rounded-2xl overflow-hidden bg-white">
+                    <div className="px-4 py-2.5 border-b border-emerald-100 bg-emerald-50/50">
+                      <span className="text-xs font-bold text-emerald-700">▶️ 測試輸入</span>
+                      <span className="ml-2 text-[10px] text-emerald-400">{form.name || form.id}</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {form.inputs.length > 0 ? (
+                        form.inputs.map(inp => (
                           <div key={inp.id}>
                             <label className="block text-xs font-medium text-stone-600 mb-1">
                               {inp.label} {inp.required && <span className="text-rose-400">*</span>}
@@ -622,56 +575,67 @@ export default function SkillBuilder() {
                                 className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-100" />
                             )}
                           </div>
-                        ))}
-                      </>
-                    ) : (
-                      <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接按「執行測試」。</p>
-                    )}
-
-                    <div className="flex items-center gap-3 pt-2">
-                      <button onClick={handleTest} disabled={!selectedPath || !canBuild}
-                        className={cn("px-5 py-2 text-sm font-bold rounded-lg border transition-colors",
-                          !selectedPath || !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
-                          : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 shadow-sm")}>
-                        ▶️ 執行測試
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-stone-400">結果格式：</span>
-                        <button onClick={() => setResultType("markdown")}
-                          className={cn("px-2 py-0.5 text-[10px] rounded font-medium border",
-                            resultType === "markdown" ? "bg-blue-50 text-blue-700 border-blue-300" : "bg-white text-stone-500 border-stone-200")}>
-                          Markdown</button>
-                        <button onClick={() => setResultType("html")}
-                          className={cn("px-2 py-0.5 text-[10px] rounded font-medium border",
-                            resultType === "html" ? "bg-blue-50 text-blue-700 border-blue-300" : "bg-white text-stone-500 border-stone-200")}>
-                          HTML</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Test Result */}
-                {resultContent && (
-                  <div className="border border-stone-200 rounded-2xl overflow-hidden bg-white">
-                    <div className="px-4 py-2.5 border-b border-stone-100 bg-stone-50">
-                      <span className="text-xs font-bold text-stone-600">📋 測試結果</span>
-                    </div>
-                    <div className="p-4">
-                      {resultType === "html" ? (
-                        <iframe srcDoc={resultContent} className="w-full rounded border"
-                          style={{ minHeight: 300, borderColor: "#e7e5e4" }}
-                          sandbox="allow-scripts" title="Test Result" />
+                        ))
                       ) : (
-                        <div className="prose prose-stone max-w-none text-sm">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{resultContent}</ReactMarkdown>
-                        </div>
+                        <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接按「執行測試」。</p>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Hint: results appear in right panel */}
+                {chatStarted && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                    <p className="text-xs text-emerald-700">
+                      📋 測試結果顯示在右邊的 <strong>CLI Console</strong>，可即時看到執行過程和輸出。
+                    </p>
                   </div>
                 )}
               </div>
             )}
           </div>
+
+          {/* ── Sticky Action Bar at bottom of left panel ── */}
+          {selectedPath && (
+            <div className="shrink-0 border-t px-5 py-3 bg-white flex items-center gap-3" style={{ borderColor: "#e7e5e4" }}>
+              {tab === "builder" && (
+                <>
+                  <button onClick={handleBuild} disabled={!canBuild}
+                    className={cn("px-6 py-2.5 text-sm font-bold rounded-xl border transition-colors shadow-sm",
+                      !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                      : "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
+                    )}>
+                    🔨 Build
+                  </button>
+                  <span className="text-[11px] text-stone-400">送到右邊 CLI，用 Skill Creator 產出 SKILL.md</span>
+                  {chatStarted && (
+                    <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }}
+                      className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">
+                      ✕ 重置 Console
+                    </button>
+                  )}
+                </>
+              )}
+              {tab === "test" && (
+                <>
+                  <button onClick={handleTest} disabled={!canBuild}
+                    className={cn("px-6 py-2.5 text-sm font-bold rounded-xl border transition-colors shadow-sm",
+                      !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                      : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                    )}>
+                    ▶️ 執行測試
+                  </button>
+                  <span className="text-[11px] text-stone-400">送到右邊 CLI，執行 Skill 並顯示結果</span>
+                  {chatStarted && (
+                    <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }}
+                      className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">
+                      ✕ 重置 Console
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ━━ Right Panel: CLI Console (shared by both tabs) ━━ */}
@@ -682,8 +646,8 @@ export default function SkillBuilder() {
               <div className="text-center">
                 <p className="text-stone-400 text-sm">
                   {tab === "builder"
-                    ? <>填好左邊的表單，按 <strong className="text-white">🔨 Build</strong></>
-                    : <>填入測試輸入，按 <strong className="text-white">▶️ 執行測試</strong></>
+                    ? <>填好左邊的表單，按底部 <strong className="text-white">🔨 Build</strong></>
+                    : <>填入測試輸入，按底部 <strong className="text-white">▶️ 執行測試</strong></>
                   }
                 </p>
                 <p className="text-stone-500 text-xs mt-2">
