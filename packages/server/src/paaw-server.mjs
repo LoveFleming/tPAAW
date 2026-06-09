@@ -1229,12 +1229,12 @@ async function paawApiHandler(req, res) {
     return true;
   }
 
-  // POST /api/cli-run — run CLI non-interactively, return output
+  // POST /api/cli-run — run CLI non-interactively, stream output via SSE, then final result
   if (req.method === "POST" && req.url === "/api/cli-run") {
     let body = "";
     for await (const chunk of req) body += chunk;
     try {
-      const { cli: cliName = "qwen", prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120 } = JSON.parse(body);
+      const { cli: cliName = "qwen", prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120, stream: wantStream = false } = JSON.parse(body);
       if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return true; }
 
       const resolvedBin = cliName === "qwen"
@@ -1248,7 +1248,7 @@ async function paawApiHandler(req, res) {
         "/dev/stdin",
       ];
 
-      console.log(`[cli-run] Spawning ${resolvedBin} with ${prompt.length}char prompt via stdin`);
+      console.log(`[cli-run] Spawning ${resolvedBin} with ${prompt.length}char prompt via stdin (stream=${wantStream})`);
 
       const child = spawn(resolvedBin, cliArgs, {
         cwd: runCwd || PAAW_ROOT,
@@ -1256,14 +1256,29 @@ async function paawApiHandler(req, res) {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
-      // Write prompt to stdin
       child.stdin.write(prompt);
       child.stdin.end();
 
       let stdout = "";
       let stderr = "";
-      child.stdout.on("data", d => { stdout += d; });
-      child.stderr.on("data", d => { stderr += d; });
+      child.stdout.on("data", d => {
+        stdout += d;
+        if (wantStream && !res.headersSent) {
+          res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+        }
+        if (wantStream) {
+          res.write(`data: ${JSON.stringify({ type: "stdout", data: d.toString() })}\n\n`);
+        }
+      });
+      child.stderr.on("data", d => {
+        stderr += d;
+        if (wantStream && !res.headersSent) {
+          res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+        }
+        if (wantStream) {
+          res.write(`data: ${JSON.stringify({ type: "stderr", data: d.toString() })}\n\n`);
+        }
+      });
 
       const timer = setTimeout(() => {
         console.log("[cli-run] Timeout, killing");
@@ -1276,6 +1291,9 @@ async function paawApiHandler(req, res) {
         if (!res.headersSent) {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, exitCode: code, output: stdout.trim(), stderr: stderr.trim() }));
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "done", exitCode: code, output: stdout.trim() })}\n\n`);
+          res.end();
         }
       });
     } catch (err) {

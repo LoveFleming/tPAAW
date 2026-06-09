@@ -23,9 +23,12 @@ userInputs:
 3. 識別特殊詞彙：成語、俚語、雙關語、專業術語
 4. 為每個特殊詞彙產生例句和趣味用法
 5. 組合輸出：翻譯結果 + 特殊詞彙列表 + 發音提示
+6. 輸出markdown format
 
 ## Output
 翻譯結果 + 特殊詞彙解釋 + 例句
+
+output format : markdown 
 
 ## Guardrails
 - 不翻譯違法或有害內容

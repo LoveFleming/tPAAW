@@ -120,13 +120,11 @@ function buildSkillMd(form: SkillForm, expertMode: boolean): string {
   return lines.join("\n");
 }
 
-/** Detect if text is JSON */
 function isJson(text: string): boolean {
   const t = text.trim();
   return (t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"));
 }
 
-/** Detect if text is HTML */
 function isHtml(text: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(text.trim().slice(0, 200));
 }
@@ -211,36 +209,35 @@ function ResultPreview({ output, rawOutput }: { output: string; rawOutput?: stri
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Auto-detect format
   const isOutputJson = isJson(output);
   const isOutputHtml = !isOutputJson && isHtml(output);
 
   return (
-    <div className="border border-stone-200 rounded-2xl overflow-hidden bg-white flex flex-col" style={{ minHeight: 200 }}>
-      <div className="shrink-0 px-4 py-2 border-b border-stone-100 bg-stone-50 flex items-center gap-2">
-        <span className="text-xs font-bold text-stone-600">📋 測試結果</span>
-        {isOutputJson && <span className="px-1.5 py-0.5 text-[10px] rounded bg-amber-100 text-amber-700 font-medium">JSON</span>}
-        {isOutputHtml && <span className="px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 font-medium">HTML</span>}
-        {!isOutputJson && !isOutputHtml && <span className="px-1.5 py-0.5 text-[10px] rounded bg-green-100 text-green-700 font-medium">Markdown</span>}
+    <div className="flex flex-col h-full">
+      <div className="shrink-0 px-4 py-2 border-b border-stone-700 flex items-center gap-2">
+        <span className="text-xs font-bold text-stone-300">📋 Result</span>
+        {isOutputJson && <span className="px-1.5 py-0.5 text-[10px] rounded bg-amber-900/50 text-amber-300 font-medium">JSON</span>}
+        {isOutputHtml && <span className="px-1.5 py-0.5 text-[10px] rounded bg-blue-900/50 text-blue-300 font-medium">HTML</span>}
+        {!isOutputJson && !isOutputHtml && <span className="px-1.5 py-0.5 text-[10px] rounded bg-green-900/50 text-green-300 font-medium">Markdown</span>}
         <div className="flex-1" />
         <button onClick={() => setViewMode(viewMode === "rendered" ? "raw" : "rendered")}
-          className="px-2 py-0.5 text-[10px] rounded border border-stone-200 text-stone-500 hover:bg-stone-100">
+          className="px-2 py-0.5 text-[10px] rounded border border-stone-600 text-stone-400 hover:bg-stone-700">
           {viewMode === "rendered" ? "Raw" : "Rendered"}
         </button>
         <button onClick={handleCopy}
-          className="px-2 py-0.5 text-[10px] rounded border border-stone-200 text-stone-500 hover:bg-stone-100">
-          {copied ? "✓ Copied" : "Copy"}
+          className="px-2 py-0.5 text-[10px] rounded border border-stone-600 text-stone-400 hover:bg-stone-700">
+          {copied ? "✓" : "Copy"}
         </button>
       </div>
-      <div className="flex-1 overflow-auto p-4" style={{ maxHeight: 400 }}>
+      <div className="flex-1 overflow-auto p-4">
         {viewMode === "raw" ? (
-          <pre className="text-xs font-mono text-stone-700 whitespace-pre-wrap break-words" style={{ lineHeight: 1.6 }}>{rawOutput || output}</pre>
+          <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap break-words" style={{ lineHeight: 1.6 }}>{rawOutput || output}</pre>
         ) : isOutputJson ? (
-          <pre className="text-xs font-mono text-stone-700 whitespace-pre-wrap">{JSON.stringify(JSON.parse(output.trim()), null, 2)}</pre>
+          <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap">{JSON.stringify(JSON.parse(output.trim()), null, 2)}</pre>
         ) : isOutputHtml ? (
-          <iframe srcDoc={output} className="w-full rounded border" style={{ minHeight: 250, borderColor: "#e7e5e4" }} sandbox="allow-scripts" title="Test Result" />
+          <iframe srcDoc={output} className="w-full h-full min-h-[300px] rounded border border-stone-700" sandbox="allow-scripts" title="Test Result" />
         ) : (
-          <div className="prose prose-stone max-w-none text-sm">
+          <div className="prose prose-invert max-w-none text-sm">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{output}</ReactMarkdown>
           </div>
         )}
@@ -280,8 +277,10 @@ export default function SkillBuilder() {
   const [testResult, setTestResult] = useState<string>("");
   const [testRawResult, setTestRawResult] = useState<string>("");
   const [testError, setTestError] = useState<string>("");
+  const [testCliLog, setTestCliLog] = useState<string>("");
+  const [rightTab, setRightTab] = useState<"cli" | "result">("cli");
 
-  // Tab
+  // Main tab
   const [tab, setTab] = useState<"builder" | "test">("builder");
 
   // ── Data loading ──
@@ -414,12 +413,14 @@ export default function SkillBuilder() {
     }
   };
 
-  // ── Test: non-interactive CLI → result preview ──
+  // ── Test: non-interactive CLI with SSE streaming → right panel shows CLI log + Result tab ──
   const handleTest = async () => {
     setTestRunning(true);
     setTestResult("");
     setTestRawResult("");
     setTestError("");
+    setTestCliLog("");
+    setRightTab("cli"); // start on CLI tab so user sees live output
 
     const skillDef = buildSkillMd(form, expertMode);
     let testPrompt = skillDef;
@@ -442,27 +443,51 @@ export default function SkillBuilder() {
           cwd: workingDir || undefined,
           maxToolCalls: 10,
           timeout: 120,
+          stream: true,
         }),
       });
-      const data = await res.json();
 
-      if (data.ok) {
-        // Extract content — CLI may wrap in code blocks
-        let output = data.output || "";
-        setTestRawResult(output);
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
 
-        // Try to extract from code fences
-        const codeMatch = output.match(/```(?:json|html|markdown|md)?\s*\n?([\s\S]*?)```/);
-        if (codeMatch) output = codeMatch[1].trim();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullOutput = "";
 
-        if (output) {
-          setTestResult(output);
-        } else {
-          setTestError("CLI 執行完成但沒有輸出");
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE lines
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "stdout") {
+              fullOutput += event.data;
+              setTestCliLog(prev => prev + event.data);
+            } else if (event.type === "stderr") {
+              setTestCliLog(prev => prev + event.data);
+            } else if (event.type === "done") {
+              const output = event.output || fullOutput;
+              if (output.trim()) {
+                // Extract from code fences if present
+                let result = output.trim();
+                const codeMatch = result.match(/```(?:json|html|markdown|md)?\s*\n?([\s\S]*?)```/);
+                if (codeMatch) result = codeMatch[1].trim();
+                setTestResult(result);
+                setTestRawResult(output.trim());
+                setRightTab("result"); // auto-switch to result tab
+              } else {
+                setTestError("CLI 執行完成但沒有輸出");
+              }
+            }
+          } catch {}
         }
-      } else {
-        setTestError(data.error || `CLI 執行失敗 (exit ${data.exitCode})`);
-        if (data.stderr) setTestRawResult(data.stderr);
       }
     } catch (err: any) {
       setTestError(`API 錯誤: ${err.message}`);
@@ -548,11 +573,7 @@ export default function SkillBuilder() {
       <div className="flex-1 flex min-h-0 overflow-hidden">
 
         {/* ━━ Left Panel ━━ */}
-        <div className="flex flex-col border-r" style={{
-          width: tab === "test" && testResult ? "100%" : "50%",
-          borderColor: "#e7e5e4", backgroundColor: "#fafaf9",
-          transition: "width 0.2s ease",
-        }}>
+        <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#e7e5e4", backgroundColor: "#fafaf9" }}>
 
           {/* Tab Bar */}
           <div className="shrink-0 flex border-b" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
@@ -650,7 +671,6 @@ export default function SkillBuilder() {
                   </div>
                 ) : (
                   <>
-                    {/* Test Input Card */}
                     <div className="border border-emerald-200 rounded-2xl overflow-hidden bg-white">
                       <div className="px-4 py-2.5 border-b border-emerald-100 bg-emerald-50/50">
                         <span className="text-xs font-bold text-emerald-700">▶️ 測試輸入</span>
@@ -683,24 +703,11 @@ export default function SkillBuilder() {
                       </div>
                     </div>
 
-                    {/* Result Preview */}
-                    {testRunning && (
-                      <div className="flex items-center justify-center py-12 gap-3">
-                        <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm text-stone-500">正在執行 Skill，請稍候...</span>
-                      </div>
-                    )}
                     {testError && (
                       <div className="border border-rose-200 rounded-xl p-4 bg-rose-50">
                         <p className="text-sm font-medium text-rose-700">❌ 測試失敗</p>
                         <p className="text-xs text-rose-500 mt-1">{testError}</p>
-                        {testRawResult && (
-                          <pre className="mt-2 text-[10px] font-mono text-rose-400 overflow-auto max-h-32">{testRawResult}</pre>
-                        )}
                       </div>
-                    )}
-                    {!testRunning && testResult && (
-                      <ResultPreview output={testResult} rawOutput={testRawResult} />
                     )}
                   </>
                 )}
@@ -743,23 +750,86 @@ export default function SkillBuilder() {
           )}
         </div>
 
-        {/* ━━ Right Panel: CLI Console (Builder only) ━━ */}
-        <div className={cn("flex flex-col min-w-0 transition-all duration-200",
-          tab === "test" ? "w-0 overflow-hidden opacity-0" : "flex-1"
-        )} style={{ backgroundColor: "#1a1a2e" }}>
-          {!chatStarted ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
-              <span className="text-5xl opacity-30">🔨</span>
-              <div className="text-center">
-                <p className="text-stone-400 text-sm">
-                  填好左邊的表單，按底部 <strong className="text-white">🔨 Build</strong>
-                </p>
-                <p className="text-stone-500 text-xs mt-2">Skill Creator 會幫你產出完整 SKILL.md</p>
+        {/* ━━ Right Panel ━━ */}
+        <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
+
+          {/* ── Builder mode: interactive CLI console ── */}
+          {tab === "builder" && (
+            !chatStarted ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
+                <span className="text-5xl opacity-30">🔨</span>
+                <div className="text-center">
+                  <p className="text-stone-400 text-sm">
+                    填好左邊的表單，按底部 <strong className="text-white">🔨 Build</strong>
+                  </p>
+                  <p className="text-stone-500 text-xs mt-2">Skill Creator 會幫你產出完整 SKILL.md</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <TerminalConsole ref={terminalRef} key={`builder-${consoleKey}`}
-              cwd={workingDir || undefined} cli={cli} approvalMode="yolo" initialPrompt={initialPrompt} />
+            ) : (
+              <TerminalConsole ref={terminalRef} key={`builder-${consoleKey}`}
+                cwd={workingDir || undefined} cli={cli} approvalMode="yolo" initialPrompt={initialPrompt} />
+            )
+          )}
+
+          {/* ── Test mode: CLI log tab + Result tab ── */}
+          {tab === "test" && (
+            <>
+              {/* Right Tab Bar */}
+              <div className="shrink-0 flex border-b border-stone-700">
+                <button onClick={() => setRightTab("cli")}
+                  className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center",
+                    rightTab === "cli" ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-900/20" : "text-stone-500 hover:text-stone-300")}>
+                  📟 CLI
+                  {testRunning && <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                </button>
+                <button onClick={() => setRightTab("result")}
+                  className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center",
+                    rightTab === "result" ? "text-indigo-400 border-b-2 border-indigo-500 bg-indigo-900/20" : "text-stone-500 hover:text-stone-300")}>
+                  📋 Result
+                  {testResult && <span className="ml-1 text-[10px] text-indigo-400">✓</span>}
+                </button>
+              </div>
+
+              {/* CLI Tab */}
+              {rightTab === "cli" && (
+                <div className="flex-1 overflow-auto p-4">
+                  {!testCliLog && !testRunning ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-3">
+                      <span className="text-4xl opacity-30">▶️</span>
+                      <p className="text-stone-500 text-xs">執行測試後，CLI 輸出會即時顯示在這裡</p>
+                    </div>
+                  ) : (
+                    <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap break-words" style={{ lineHeight: 1.6 }}>
+                      {testCliLog}
+                      {testRunning && <span className="animate-pulse">▌</span>}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              {/* Result Tab */}
+              {rightTab === "result" && (
+                <div className="flex-1 overflow-auto">
+                  {!testResult && !testError ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-3">
+                      <span className="text-4xl opacity-30">📋</span>
+                      <p className="text-stone-500 text-xs">
+                        {testRunning ? "等待執行完成..." : "執行測試後，結果會顯示在這裡"}
+                      </p>
+                    </div>
+                  ) : testError ? (
+                    <div className="p-4">
+                      <div className="border border-rose-800 rounded-xl p-4 bg-rose-950/30">
+                        <p className="text-sm font-medium text-rose-400">❌ 測試失敗</p>
+                        <p className="text-xs text-rose-500 mt-1">{testError}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ResultPreview output={testResult} rawOutput={testRawResult} />
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

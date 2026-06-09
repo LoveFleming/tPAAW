@@ -11,28 +11,14 @@ tags:
   - english
   - chinese
 userInputs:
-  - id: u
-    label: 要翻譯的內容
+  - id: g
+    label: 輸入要翻譯的內容
     description: 輸入任何語言的文字，AI 會自動偵測來源語言並翻譯
     placeholder: 例：這個功能對我們來說非常重要
     required: true
     type: textarea
     multiline: true
     rows: 4
-  - id: target_lang
-    label: 目標語言
-    description: 要翻譯成什麼語言（預設英文）
-    placeholder: en
-    required: false
-    type: text
-    default: en
-  - id: source_lang
-    label: 來源語言
-    description: 原文是什麼語言（留空自動偵測）
-    placeholder: zh-TW
-    required: false
-    type: text
-    default: auto
 useSkills:
   - idiom-packaging
 ---
@@ -43,9 +29,7 @@ useSkills:
 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語），交由 idiom-packaging skill 包裝成經典例句或趣味用法，幫助使用者記憶。
 
 ## Inputs
-- `u` (必填)：要翻譯的原文，支援任何語言
-- `target_lang` (選填，預設 `en`)：目標語言代碼（en, ja, ko, fr, de 等）
-- `source_lang` (選填，預設 `auto`)：來源語言代碼，留空自動偵測
+- `g` (必填)：要翻譯的原文，支援任何語言
 
 ## Deterministic Script
 
@@ -56,9 +40,10 @@ useSkills:
 ### Execution Steps
 
 1. **解析輸入**
-   - 取得 `u`（原文）、`target_lang`（預設 en）、`source_lang`（預設 auto）
-   - 如果 `source_lang` 為 auto，根據文字內容自動偵測語言
-   - 如果 `u` 是單一單字或短詞（≤ 5 字），切換至「單字翻譯模式」
+   - 取得 `g`（原文）
+   - 設定 `target_lang` = `en`、`source_lang` = `auto`（根據文字內容自動偵測）
+   - 如果 `g` 是單一單字或短詞（≤ 5 字元且不含標點），切換至「單字翻譯模式」
+   - 如果 `g` 包含指令性文字（如「幫我翻譯...」「translate...」），自動提取實際文字內容
 
 2. **執行翻譯**
    - 使用 AI 進行翻譯，遵循以下原則：
@@ -84,14 +69,12 @@ useSkills:
 
 ### Business Rules
 - 翻譯必須保留原文語境，不可失去情感色彩
-- 單字翻譯模式觸發條件：`u` 長度 ≤ 5 字元且不含標點符號
-- 如果偵測到 `u` 包含指令性文字（如「幫我翻譯...」「translate...」），自動提取實際文字內容
+- 單字翻譯模式觸發條件：`g` 長度 ≤ 5 字元且不含標點符號
 - 支援語言：zh-TW, zh-CN, en, ja, ko, fr, de, es, it, pt, ru, th, vi, id
 - 不支援的語言代碼 → 回傳錯誤訊息並列出支援語言
 
 ### Error Handling
-- `u` 為空或純空白 → 回傳 `{ "error": "SYS_TRANSLATE_EMPTY_INPUT", "message": "請提供要翻譯的文字" }`
-- 語言不支援 → 回傳 `{ "error": "EXT_TRANSLATE_LANG_UNSUPPORTED", "message": "不支援的語言代碼：{lang}", "supported": ["en","ja","ko","fr","de","es"] }`
+- `g` 為空或純空白 → 回傳 `{ "error": "SYS_TRANSLATE_EMPTY_INPUT", "message": "請提供要翻譯的文字" }`
 - 翻譯失敗 → 回傳原文 + 錯誤原因，建議使用者換個說法重試
 - idiom-packaging 呼叫失敗 → 仍回傳翻譯結果，特殊詞彙僅保留基本翻譯不附包裝內容
 
@@ -144,7 +127,6 @@ useSkills:
 
 ## Validation
 - `translation` 不為空且不為原文照搬
-- `source_lang` 和 `target_lang` 為有效的語言代碼
 - `special_words` 陣列中每個物件的 `type` 必須是 idiom|slang|jargon|culture|pun 之一
 - `special_words[].packaged.classic_sentence` 必須包含該詞彙
 - JSON 格式正確，無缺漏欄位
