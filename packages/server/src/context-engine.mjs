@@ -27,7 +27,7 @@ const CONFIG_DIR = resolve(DATA_DIR, "config");
 const SYSTEM_DIR = resolve(DATA_DIR, "system");
 const APPS_DIR = resolve(DATA_DIR, "apps");
 const CHAT_DIR = resolve(DATA_DIR, "chats");
-const SKILL_POOL_DIR = resolve(DATA_DIR, "skills/pool");
+const SKILL_POOL_DIR = resolve(DATA_DIR, "skills/physical-skill");
 
 // ── Helpers ──
 function safeRead(filePath) {

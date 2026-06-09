@@ -375,11 +375,25 @@ export default function SkillBuilder() {
     setMode("build");
   };
 
-  // Build — send to CLI
+  // Build — send to CLI with skill-creator as context
+  const [skillCreatorContent, setSkillCreatorContent] = useState("");
+
+  useEffect(() => {
+    // Load skill-creator SKILL.md as default build prompt
+    fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(`${workingDir || "."}/data/skills/physical-skill/skill-creator/SKILL.md`)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data) => { if (data?.content) setSkillCreatorContent(data.content); })
+      .catch(() => {});
+  }, [workingDir]);
+
   const handleBuild = () => {
     setMode("build");
     setSending(true);
-    const prompt = buildSkillMd(form, expertMode);
+    const skillDef = buildSkillMd(form, expertMode);
+    // Combine skill-creator context + user's skill definition
+    const prompt = skillCreatorContent
+      ? `${skillCreatorContent}\n\n---\n\n請根據以下 Skill 描述，建立完整的 SKILL.md：\n\n${skillDef}`
+      : skillDef;
     if (!chatStarted) {
       setInitialPrompt(prompt);
       setChatStarted(true);
@@ -543,7 +557,8 @@ export default function SkillBuilder() {
               <span className="text-5xl">🔨</span>
               <div className="text-center">
                 <p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p>
-                <p className="text-stone-400 text-sm mt-1">點 <strong>＋ New Skill</strong> 開始</p>
+                <p className="text-stone-400 text-sm mt-1">點 <strong>＋ New Skill</strong> 開始，或選擇已有的 building script</p>
+                <p className="text-stone-400 text-xs mt-1">Build 會用 Skill Creator 幫你產出完整 SKILL.md</p>
               </div>
             </div>
           ) : expertMode ? (
