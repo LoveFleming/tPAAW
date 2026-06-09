@@ -120,6 +120,17 @@ function buildSkillMd(form: SkillForm, expertMode: boolean): string {
   return lines.join("\n");
 }
 
+/** Detect if text is JSON */
+function isJson(text: string): boolean {
+  const t = text.trim();
+  return (t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"));
+}
+
+/** Detect if text is HTML */
+function isHtml(text: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(text.trim().slice(0, 200));
+}
+
 // ── Step Card ──
 function StepCard({ number, icon, title, hint, children, required }: {
   number: number; icon: string; title: string; hint?: string;
@@ -189,6 +200,55 @@ function InputFieldCard({ field, index, onUpdate, onRemove }: {
   );
 }
 
+// ── Result Preview ──
+function ResultPreview({ output, rawOutput }: { output: string; rawOutput?: string }) {
+  const [viewMode, setViewMode] = useState<"rendered" | "raw">("rendered");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(rawOutput || output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Auto-detect format
+  const isOutputJson = isJson(output);
+  const isOutputHtml = !isOutputJson && isHtml(output);
+
+  return (
+    <div className="border border-stone-200 rounded-2xl overflow-hidden bg-white flex flex-col" style={{ minHeight: 200 }}>
+      <div className="shrink-0 px-4 py-2 border-b border-stone-100 bg-stone-50 flex items-center gap-2">
+        <span className="text-xs font-bold text-stone-600">📋 測試結果</span>
+        {isOutputJson && <span className="px-1.5 py-0.5 text-[10px] rounded bg-amber-100 text-amber-700 font-medium">JSON</span>}
+        {isOutputHtml && <span className="px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 font-medium">HTML</span>}
+        {!isOutputJson && !isOutputHtml && <span className="px-1.5 py-0.5 text-[10px] rounded bg-green-100 text-green-700 font-medium">Markdown</span>}
+        <div className="flex-1" />
+        <button onClick={() => setViewMode(viewMode === "rendered" ? "raw" : "rendered")}
+          className="px-2 py-0.5 text-[10px] rounded border border-stone-200 text-stone-500 hover:bg-stone-100">
+          {viewMode === "rendered" ? "Raw" : "Rendered"}
+        </button>
+        <button onClick={handleCopy}
+          className="px-2 py-0.5 text-[10px] rounded border border-stone-200 text-stone-500 hover:bg-stone-100">
+          {copied ? "✓ Copied" : "Copy"}
+        </button>
+      </div>
+      <div className="flex-1 overflow-auto p-4" style={{ maxHeight: 400 }}>
+        {viewMode === "raw" ? (
+          <pre className="text-xs font-mono text-stone-700 whitespace-pre-wrap break-words" style={{ lineHeight: 1.6 }}>{rawOutput || output}</pre>
+        ) : isOutputJson ? (
+          <pre className="text-xs font-mono text-stone-700 whitespace-pre-wrap">{JSON.stringify(JSON.parse(output.trim()), null, 2)}</pre>
+        ) : isOutputHtml ? (
+          <iframe srcDoc={output} className="w-full rounded border" style={{ minHeight: 250, borderColor: "#e7e5e4" }} sandbox="allow-scripts" title="Test Result" />
+        ) : (
+          <div className="prose prose-stone max-w-none text-sm">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{output}</ReactMarkdown>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Main SkillBuilder Page
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -203,23 +263,25 @@ export default function SkillBuilder() {
   const [workingDir, setWorkingDir] = useState("");
   const [expertMode, setExpertMode] = useState(false);
 
-  // CLI
+  // Builder CLI (interactive)
   const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
   const [consoleKey, setConsoleKey] = useState(0);
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
   const [chatStarted, setChatStarted] = useState(false);
-  const [sending, setSending] = useState(false);
   const terminalRef = useRef<TerminalConsoleHandle>(null);
   const loadingRef = useRef(false);
 
-  // Skill creator (default build prompt)
+  // Skill creator
   const [skillCreatorContent, setSkillCreatorContent] = useState("");
 
-  // Test tab
+  // Test state
   const [testInputs, setTestInputs] = useState<Record<string, string>>({});
   const [testRunning, setTestRunning] = useState(false);
+  const [testResult, setTestResult] = useState<string>("");
+  const [testRawResult, setTestRawResult] = useState<string>("");
+  const [testError, setTestError] = useState<string>("");
 
-  // ── Tab state ──
+  // Tab
   const [tab, setTab] = useState<"builder" | "test">("builder");
 
   // ── Data loading ──
@@ -337,9 +399,8 @@ export default function SkillBuilder() {
     setTab("builder");
   };
 
-  // ── Build: send skill definition to CLI ──
+  // ── Build: interactive CLI ──
   const handleBuild = () => {
-    setSending(true);
     const skillDef = buildSkillMd(form, expertMode);
     const prompt = skillCreatorContent
       ? `${skillCreatorContent}\n\n---\n\n請根據以下 Skill 描述，建立完整的 SKILL.md：\n\n${skillDef}`
@@ -351,12 +412,15 @@ export default function SkillBuilder() {
     } else {
       terminalRef.current?.sendPrompt(prompt);
     }
-    setTimeout(() => setSending(false), 300);
   };
 
-  // ── Test: execute skill via CLI ──
-  const handleTest = () => {
+  // ── Test: non-interactive CLI → result preview ──
+  const handleTest = async () => {
     setTestRunning(true);
+    setTestResult("");
+    setTestRawResult("");
+    setTestError("");
+
     const skillDef = buildSkillMd(form, expertMode);
     let testPrompt = skillDef;
     if (form.inputs.length > 0) {
@@ -367,14 +431,44 @@ export default function SkillBuilder() {
     } else {
       testPrompt += "\n\n---\n\n## 測試\n請執行這個 Skill 並輸出結果。";
     }
-    if (!chatStarted) {
-      setInitialPrompt(testPrompt);
-      setChatStarted(true);
-      setConsoleKey(prev => prev + 1);
-    } else {
-      terminalRef.current?.sendPrompt(testPrompt);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/cli-run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cli: "qwen",
+          prompt: testPrompt,
+          cwd: workingDir || undefined,
+          maxToolCalls: 10,
+          timeout: 120,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        // Extract content — CLI may wrap in code blocks
+        let output = data.output || "";
+        setTestRawResult(output);
+
+        // Try to extract from code fences
+        const codeMatch = output.match(/```(?:json|html|markdown|md)?\s*\n?([\s\S]*?)```/);
+        if (codeMatch) output = codeMatch[1].trim();
+
+        if (output) {
+          setTestResult(output);
+        } else {
+          setTestError("CLI 執行完成但沒有輸出");
+        }
+      } else {
+        setTestError(data.error || `CLI 執行失敗 (exit ${data.exitCode})`);
+        if (data.stderr) setTestRawResult(data.stderr);
+      }
+    } catch (err: any) {
+      setTestError(`API 錯誤: ${err.message}`);
+    } finally {
+      setTestRunning(false);
     }
-    setTestRunning(false);
   };
 
   const canBuild = form.purpose.trim() || (expertMode && form.systemPrompt.trim());
@@ -385,7 +479,7 @@ export default function SkillBuilder() {
   return (
     <div className="flex flex-col h-full w-full overflow-hidden" style={{ backgroundColor: "#fafaf9" }}>
 
-      {/* ── Header: compact, file ops only ── */}
+      {/* ── Header ── */}
       <div className="shrink-0 px-5 py-2.5 border-b flex items-center gap-3 bg-white" style={{ borderColor: "#e7e5e4" }}>
         <span className="text-lg">🔨</span>
         <h2 className="text-sm font-bold text-stone-800">Skill Builder</h2>
@@ -453,8 +547,12 @@ export default function SkillBuilder() {
       {/* ── Body ── */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
 
-        {/* ━━ Left Panel: Tab Sheet (Builder / Test) ━━ */}
-        <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#e7e5e4", backgroundColor: "#fafaf9" }}>
+        {/* ━━ Left Panel ━━ */}
+        <div className="flex flex-col border-r" style={{
+          width: tab === "test" && testResult ? "100%" : "50%",
+          borderColor: "#e7e5e4", backgroundColor: "#fafaf9",
+          transition: "width 0.2s ease",
+        }}>
 
           {/* Tab Bar */}
           <div className="shrink-0 flex border-b" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
@@ -467,10 +565,11 @@ export default function SkillBuilder() {
               className={cn("flex-1 py-2.5 text-xs font-bold transition-colors text-center",
                 tab === "test" ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50/50" : "text-stone-500 hover:text-stone-700")}>
               ▶️ Test
+              {testResult && <span className="ml-1 text-[10px] text-emerald-500">✓</span>}
             </button>
           </div>
 
-          {/* Tab Content — scrollable */}
+          {/* Tab Content */}
           <div className="flex-1 overflow-y-auto">
 
             {/* ── Builder Tab ── */}
@@ -550,52 +649,66 @@ export default function SkillBuilder() {
                     <p className="text-xs text-stone-400">請先選擇或建立一個 Skill</p>
                   </div>
                 ) : (
-                  <div className="border border-emerald-200 rounded-2xl overflow-hidden bg-white">
-                    <div className="px-4 py-2.5 border-b border-emerald-100 bg-emerald-50/50">
-                      <span className="text-xs font-bold text-emerald-700">▶️ 測試輸入</span>
-                      <span className="ml-2 text-[10px] text-emerald-400">{form.name || form.id}</span>
+                  <>
+                    {/* Test Input Card */}
+                    <div className="border border-emerald-200 rounded-2xl overflow-hidden bg-white">
+                      <div className="px-4 py-2.5 border-b border-emerald-100 bg-emerald-50/50">
+                        <span className="text-xs font-bold text-emerald-700">▶️ 測試輸入</span>
+                        <span className="ml-2 text-[10px] text-emerald-400">{form.name || form.id}</span>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {form.inputs.length > 0 ? (
+                          form.inputs.map(inp => (
+                            <div key={inp.id}>
+                              <label className="block text-xs font-medium text-stone-600 mb-1">
+                                {inp.label} {inp.required && <span className="text-rose-400">*</span>}
+                              </label>
+                              {inp.multiline ? (
+                                <textarea value={testInputs[inp.id] || ""}
+                                  onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))}
+                                  placeholder={inp.placeholder || `輸入 ${inp.label}...`}
+                                  rows={3}
+                                  className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-100 resize-none" />
+                              ) : (
+                                <input type="text" value={testInputs[inp.id] || ""}
+                                  onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))}
+                                  placeholder={inp.placeholder || `輸入 ${inp.label}...`}
+                                  className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-100" />
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接按「執行測試」。</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="p-4 space-y-3">
-                      {form.inputs.length > 0 ? (
-                        form.inputs.map(inp => (
-                          <div key={inp.id}>
-                            <label className="block text-xs font-medium text-stone-600 mb-1">
-                              {inp.label} {inp.required && <span className="text-rose-400">*</span>}
-                            </label>
-                            {inp.multiline ? (
-                              <textarea value={testInputs[inp.id] || ""}
-                                onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))}
-                                placeholder={inp.placeholder || `輸入 ${inp.label}...`}
-                                rows={3}
-                                className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-100 resize-none" />
-                            ) : (
-                              <input type="text" value={testInputs[inp.id] || ""}
-                                onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))}
-                                placeholder={inp.placeholder || `輸入 ${inp.label}...`}
-                                className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-100" />
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接按「執行測試」。</p>
-                      )}
-                    </div>
-                  </div>
-                )}
 
-                {/* Hint: results appear in right panel */}
-                {chatStarted && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-                    <p className="text-xs text-emerald-700">
-                      📋 測試結果顯示在右邊的 <strong>CLI Console</strong>，可即時看到執行過程和輸出。
-                    </p>
-                  </div>
+                    {/* Result Preview */}
+                    {testRunning && (
+                      <div className="flex items-center justify-center py-12 gap-3">
+                        <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-sm text-stone-500">正在執行 Skill，請稍候...</span>
+                      </div>
+                    )}
+                    {testError && (
+                      <div className="border border-rose-200 rounded-xl p-4 bg-rose-50">
+                        <p className="text-sm font-medium text-rose-700">❌ 測試失敗</p>
+                        <p className="text-xs text-rose-500 mt-1">{testError}</p>
+                        {testRawResult && (
+                          <pre className="mt-2 text-[10px] font-mono text-rose-400 overflow-auto max-h-32">{testRawResult}</pre>
+                        )}
+                      </div>
+                    )}
+                    {!testRunning && testResult && (
+                      <ResultPreview output={testResult} rawOutput={testRawResult} />
+                    )}
+                  </>
                 )}
               </div>
             )}
           </div>
 
-          {/* ── Sticky Action Bar at bottom of left panel ── */}
+          {/* ── Sticky Action Bar ── */}
           {selectedPath && (
             <div className="shrink-0 border-t px-5 py-3 bg-white flex items-center gap-3" style={{ borderColor: "#e7e5e4" }}>
               {tab === "builder" && (
@@ -617,42 +730,31 @@ export default function SkillBuilder() {
                 </>
               )}
               {tab === "test" && (
-                <>
-                  <button onClick={handleTest} disabled={!canBuild}
-                    className={cn("px-6 py-2.5 text-sm font-bold rounded-xl border transition-colors shadow-sm",
-                      !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
-                      : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
-                    )}>
-                    ▶️ 執行測試
-                  </button>
-                  <span className="text-[11px] text-stone-400">送到右邊 CLI，執行 Skill 並顯示結果</span>
-                  {chatStarted && (
-                    <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }}
-                      className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">
-                      ✕ 重置 Console
-                    </button>
-                  )}
-                </>
+                <button onClick={handleTest} disabled={!canBuild || testRunning}
+                  className={cn("px-6 py-2.5 text-sm font-bold rounded-xl border transition-colors shadow-sm flex items-center gap-2",
+                    !canBuild || testRunning ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                    : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                  )}>
+                  {testRunning && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  {testRunning ? "執行中..." : "▶️ 執行測試"}
+                </button>
               )}
             </div>
           )}
         </div>
 
-        {/* ━━ Right Panel: CLI Console (shared by both tabs) ━━ */}
-        <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
+        {/* ━━ Right Panel: CLI Console (Builder only) ━━ */}
+        <div className={cn("flex flex-col min-w-0 transition-all duration-200",
+          tab === "test" ? "w-0 overflow-hidden opacity-0" : "flex-1"
+        )} style={{ backgroundColor: "#1a1a2e" }}>
           {!chatStarted ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
-              <span className="text-5xl opacity-30">{tab === "builder" ? "🔨" : "▶️"}</span>
+              <span className="text-5xl opacity-30">🔨</span>
               <div className="text-center">
                 <p className="text-stone-400 text-sm">
-                  {tab === "builder"
-                    ? <>填好左邊的表單，按底部 <strong className="text-white">🔨 Build</strong></>
-                    : <>填入測試輸入，按底部 <strong className="text-white">▶️ 執行測試</strong></>
-                  }
+                  填好左邊的表單，按底部 <strong className="text-white">🔨 Build</strong>
                 </p>
-                <p className="text-stone-500 text-xs mt-2">
-                  {tab === "builder" ? "Skill Creator 會幫你產出完整 SKILL.md" : "CLI 會執行 Skill 並顯示結果"}
-                </p>
+                <p className="text-stone-500 text-xs mt-2">Skill Creator 會幫你產出完整 SKILL.md</p>
               </div>
             </div>
           ) : (

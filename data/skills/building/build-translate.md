@@ -5,8 +5,8 @@ version: 1.0.0
 description: 將輸入文字翻譯為目標語言，預設中翻英，並標注特殊詞彙
 runner: prompt
 userInputs:
-  - id: field_1
-    label: 欄位 1
+  - id: g
+    label: 輸入要翻譯的內容
     required: true
     multiline: true
 ---
@@ -15,7 +15,7 @@ userInputs:
 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語）。
 
 ## Inputs
-- **欄位 1** (required): 
+- **輸入要翻譯的內容** (required): 
 
 ## Steps
 1. 解析輸入：取得原文、目標語言（預設 en）、來源語言（預設 zh-TW）

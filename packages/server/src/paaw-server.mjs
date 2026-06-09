@@ -18,7 +18,7 @@ import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { tmpdir } from "os";
-import { exec as execCb } from "child_process";
+import { exec as execCb, spawn } from "child_process";
 import yaml from "js-yaml";
 import { promisify } from "util";
 import { getToolsAndHandlers, invalidateCache } from "./tools/index.mjs";
@@ -1227,6 +1227,56 @@ async function paawApiHandler(req, res) {
       res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
+  }
+
+  // POST /api/cli-run — run CLI non-interactively, return output
+  if (req.method === "POST" && req.url === "/api/cli-run") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { cli: cliName = "qwen", prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120 } = JSON.parse(body);
+      if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return; }
+
+      const resolvedBin = cliName === "qwen"
+        ? (process.env.QWEN_BIN || "/opt/homebrew/bin/qwen")
+        : cliName;
+
+      const cliArgs = [
+        "--approval-mode", "yolo",
+        "-o", "text",
+        "--max-tool-calls", String(maxToolCalls),
+        prompt,
+      ];
+
+      console.log(`[cli-run] Spawning ${resolvedBin} with ${prompt.length}char prompt`);
+
+      const child = spawn(resolvedBin, cliArgs, {
+        cwd: runCwd || PAAW_ROOT,
+        env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", d => { stdout += d; });
+      child.stderr.on("data", d => { stderr += d; });
+
+      const timer = setTimeout(() => {
+        console.log("[cli-run] Timeout, killing");
+        child.kill("SIGTERM");
+      }, timeout * 1000);
+
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        console.log(`[cli-run] Done exit=${code}, stdout=${stdout.length}chars`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, exitCode: code, output: stdout.trim(), stderr: stderr.trim() }));
+      });
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
   }
 
   // GET /api/clis — list installed CLI tools
