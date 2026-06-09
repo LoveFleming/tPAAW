@@ -22,13 +22,11 @@ interface SkillForm {
   description: string;
   runner: "prompt" | "data" | "api" | "script";
   inputs: InputField[];
-  // Structured prompt fields (for normal users)
-  purpose: string;         // Purpose — 這個 Skill 做什麼
-  steps: string;           // Steps — AI 應該怎麼做
-  outputFormat: string;    // Output — 輸出長什麼樣子
-  guardrails: string;      // Guardrails — 安全限制
-  validation: string;      // Validation — 怎麼確認結果正確
-  // Raw prompt (for expert mode)
+  purpose: string;
+  steps: string;
+  outputFormat: string;
+  guardrails: string;
+  validation: string;
   systemPrompt: string;
   tags: string;
   visibility: "private" | "team" | "public";
@@ -90,7 +88,6 @@ function parseSkillMd(content: string): SkillForm {
   const body = content.slice(fmMatch[0].length).trim();
   form.systemPrompt = body;
 
-  // Parse frontmatter
   const lines = fm.split("\n");
   for (const line of lines) {
     const m = line.match(/^(\w+):\s*(.*)/);
@@ -105,7 +102,6 @@ function parseSkillMd(content: string): SkillForm {
     else if (key === "visibility") form.visibility = val.trim() as SkillForm["visibility"];
   }
 
-  // Parse userInputs
   const inputsMatch = fm.match(/userInputs:\s*\n((?:\s+- .+\n?)*)/);
   if (inputsMatch) {
     const inputBlocks = inputsMatch[1].split(/\n\s*-\s+id:/).filter(Boolean);
@@ -127,19 +123,14 @@ function parseSkillMd(content: string): SkillForm {
     }
   }
 
-  // Try to parse structured sections from body
   const purposeM = body.match(/## Purpose\n([\s\S]*?)(?=\n## |\n*$)/);
   if (purposeM) form.purpose = purposeM[1].trim();
-
   const stepsM = body.match(/## Steps\n([\s\S]*?)(?=\n## |\n*$)/);
   if (stepsM) form.steps = stepsM[1].trim();
-
   const outputM = body.match(/## Output\n([\s\S]*?)(?=\n## |\n*$)/);
   if (outputM) form.outputFormat = outputM[1].trim();
-
   const guardM = body.match(/## Guardrails\n([\s\S]*?)(?=\n## |\n*$)/);
   if (guardM) form.guardrails = guardM[1].trim();
-
   const valM = body.match(/## Validation\n([\s\S]*?)(?=\n## |\n*$)/);
   if (valM) form.validation = valM[1].trim();
 
@@ -149,7 +140,6 @@ function parseSkillMd(content: string): SkillForm {
 // ── Build full markdown from form ──
 function buildSkillMd(form: SkillForm, expertMode: boolean): string {
   const promptBody = expertMode ? form.systemPrompt : buildPromptFromFields(form);
-
   const lines: string[] = ["---"];
   lines.push(`id: ${form.id || "untitled"}`);
   lines.push(`name: ${form.name || "Untitled"}`);
@@ -158,7 +148,6 @@ function buildSkillMd(form: SkillForm, expertMode: boolean): string {
   lines.push(`runner: ${form.runner}`);
   if (form.visibility && form.visibility !== "private") lines.push(`visibility: ${form.visibility}`);
   if (form.tags) lines.push(`tags: ${form.tags}`);
-
   if (form.inputs.length > 0) {
     lines.push("userInputs:");
     for (const inp of form.inputs) {
@@ -170,7 +159,6 @@ function buildSkillMd(form: SkillForm, expertMode: boolean): string {
       lines.push(`    multiline: ${inp.multiline}`);
     }
   }
-
   lines.push("---");
   lines.push("");
   if (promptBody) lines.push(promptBody);
@@ -215,17 +203,13 @@ function InputFieldCard({ field, index, onUpdate, onRemove }: {
         onClick={() => onRemove(index)}
         className="absolute top-3 right-3 text-stone-300 hover:text-rose-500 text-sm opacity-0 group-hover:opacity-100 transition-opacity"
       >✕</button>
-
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-stone-600 mb-1">欄位名稱 *</label>
           <input type="text" value={field.label}
             onChange={e => {
               const label = e.target.value;
-              onUpdate(index, {
-                label,
-                id: label.replace(/\s+/g, "_").toLowerCase().replace(/[^a-z0-9_]/g, "") || field.id,
-              });
+              onUpdate(index, { label, id: label.replace(/\s+/g, "_").toLowerCase().replace(/[^a-z0-9_]/g, "") || field.id });
             }}
             placeholder="例：錯誤訊息"
             className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
@@ -238,7 +222,6 @@ function InputFieldCard({ field, index, onUpdate, onRemove }: {
             className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
         </div>
       </div>
-
       <div>
         <label className="block text-xs font-medium text-stone-600 mb-1">說明</label>
         <input type="text" value={field.description}
@@ -246,19 +229,12 @@ function InputFieldCard({ field, index, onUpdate, onRemove }: {
           placeholder="這個欄位收集什麼資訊？"
           className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
       </div>
-
       <div className="flex gap-4">
         <label className="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
-          <input type="checkbox" checked={field.required}
-            onChange={e => onUpdate(index, { required: e.target.checked })}
-            className="rounded border-stone-300" />
-          必填
+          <input type="checkbox" checked={field.required} onChange={e => onUpdate(index, { required: e.target.checked })} className="rounded border-stone-300" /> 必填
         </label>
         <label className="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
-          <input type="checkbox" checked={field.multiline}
-            onChange={e => onUpdate(index, { multiline: e.target.checked })}
-            className="rounded border-stone-300" />
-          多行輸入
+          <input type="checkbox" checked={field.multiline} onChange={e => onUpdate(index, { multiline: e.target.checked })} className="rounded border-stone-300" /> 多行輸入
         </label>
       </div>
     </div>
@@ -286,10 +262,14 @@ export default function SkillBuilder() {
   const terminalRef = useRef<TerminalConsoleHandle>(null);
   const loadingRef = useRef(false);
 
-  // Right panel mode: build (CLI) or test (result)
+  // Right panel: build / test mode
   const [mode, setMode] = useState<"build" | "test">("build");
   const [resultContent, setResultContent] = useState("");
   const [resultType, setResultType] = useState<"markdown" | "html">("markdown");
+
+  // Test mode: input values
+  const [testInputs, setTestInputs] = useState<Record<string, string>>({});
+  const [testRunning, setTestRunning] = useState(false);
 
   // ── Data loading ──
   const loadFiles = useCallback(() => {
@@ -344,9 +324,7 @@ export default function SkillBuilder() {
   const triggerSave = useCallback(() => {
     setSaveStatus("dirty");
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      saveFile(formRef.current);
-    }, 800);
+    saveTimer.current = setTimeout(() => saveFile(formRef.current), 800);
   }, [saveFile]);
 
   const update = <K extends keyof SkillForm>(key: K, value: SkillForm[K]) => {
@@ -354,27 +332,25 @@ export default function SkillBuilder() {
     triggerSave();
   };
 
-  // Input field CRUD
   const addInput = () => {
     const n = form.inputs.length + 1;
-    const field: InputField = { ...EMPTY_FIELD, id: `field_${n}`, label: `欄位 ${n}` };
-    update("inputs", [...form.inputs, field]);
+    update("inputs", [...form.inputs, { ...EMPTY_FIELD, id: `field_${n}`, label: `欄位 ${n}` }]);
   };
-
-  const removeInput = (idx: number) => {
-    update("inputs", form.inputs.filter((_, i) => i !== idx));
-  };
-
+  const removeInput = (idx: number) => update("inputs", form.inputs.filter((_, i) => i !== idx));
   const updateInput = (idx: number, patch: Partial<InputField>) => {
     const next = [...form.inputs];
     next[idx] = { ...next[idx], ...patch };
     update("inputs", next);
   };
 
-  // Select / New file
+  // Select file → auto enter build mode
   const handleSelectFile = (path: string) => {
     setSelectedPath(path);
     loadFile(path);
+    setMode("build");
+    setChatStarted(false);
+    setInitialPrompt(undefined);
+    setConsoleKey(p => p + 1);
   };
 
   const handleCreate = async () => {
@@ -383,29 +359,23 @@ export default function SkillBuilder() {
     const slug = raw.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "");
     const fileName = raw.endsWith(".md") ? raw : `build-${slug}.md`;
     const fullPath = `${workingDir || "."}/data/skills/building/${fileName}`;
-
-    const newForm: SkillForm = {
-      ...EMPTY_SKILL,
-      id: slug,
-      name: raw.replace(/\.md$/, ""),
-    };
+    const newForm: SkillForm = { ...EMPTY_SKILL, id: slug, name: raw.replace(/\.md$/, "") };
     const content = buildSkillMd(newForm, false);
-
     await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),
     });
-
     setShowNewDialog(false);
     setNewFileName("");
     loadFiles();
     setSelectedPath(fullPath);
     setForm(newForm);
     setSaveStatus("saved");
+    setMode("build");
   };
 
-  // Build
+  // Build — send to CLI
   const handleBuild = () => {
     setMode("build");
     setSending(true);
@@ -420,12 +390,53 @@ export default function SkillBuilder() {
     setTimeout(() => setSending(false), 300);
   };
 
-  // Test
-  const handleTest = () => {
+  // Test — execute skill with input via CLI
+  const handleTest = async () => {
     setMode("test");
+    setTestRunning(true);
+    setResultContent("");
+
+    // Build prompt with user's test input
+    let testPrompt = buildSkillMd(form, expertMode);
+    if (form.inputs.length > 0) {
+      const inputSection = form.inputs
+        .map(inp => `**${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`)
+        .join("\n");
+      testPrompt += `\n\n---\n\n## 測試輸入\n${inputSection}\n\n請執行這個 Skill 並輸出結果。`;
+    } else {
+      testPrompt += "\n\n---\n\n## 測試\n請執行這個 Skill 並輸出結果。";
+    }
+
+    // Execute via skill-exec API (CLI-backed)
+    try {
+      const resp = await fetch(`${API_BASE}/api/paaw/skill-exec`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appId: form.id || "test",
+          skillId: form.id || "test",
+          input: testInputs,
+        }),
+      });
+      const data = await resp.json();
+      if (data.error) {
+        setResultContent(`❌ 測試失敗：${data.error}`);
+      } else {
+        const result = data.result;
+        if (typeof result === "string") {
+          setResultContent(result);
+        } else if (result?.text) {
+          setResultContent(result.text);
+        } else {
+          setResultContent(JSON.stringify(result, null, 2));
+        }
+      }
+    } catch (err) {
+      setResultContent(`❌ 請求失敗：${err.message}`);
+    }
+    setTestRunning(false);
   };
 
-  // Check if skill is buildable
   const canBuild = form.purpose.trim() || (expertMode && form.systemPrompt.trim());
 
   // ── Render ──
@@ -445,7 +456,7 @@ export default function SkillBuilder() {
           </select>
           <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }}
             className="px-3 py-1.5 text-xs font-medium rounded-lg bg-stone-800 text-white hover:bg-stone-700 transition-colors">
-            ＋ Build New Skill
+            ＋ New Skill
           </button>
           {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
           {saveStatus === "saved" && selectedPath && <span className="text-[10px] text-green-500">✓</span>}
@@ -463,7 +474,7 @@ export default function SkillBuilder() {
           </label>
         </div>
 
-        {/* CLI + Build */}
+        {/* CLI selector */}
         <select value={cli} onChange={e => setCli(e.target.value as typeof cli)}
           className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white ml-1">
           <option value="qwen">Qwen</option>
@@ -471,19 +482,21 @@ export default function SkillBuilder() {
           <option value="opencode">OpenCode</option>
         </select>
 
-        {/* Mode buttons */}
+        {/* Mode buttons — light theme */}
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={handleBuild} disabled={!canBuild}
-            className={cn("px-5 py-1.5 text-sm font-bold rounded-lg transition-colors",
-              canBuild
-                ? mode === "build" ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm" : "bg-stone-200 text-stone-700 hover:bg-stone-300"
-                : "bg-stone-200 text-stone-400 cursor-not-allowed"
+          <button onClick={handleBuild} disabled={!canBuild || !selectedPath}
+            className={cn("px-4 py-1.5 text-xs font-bold rounded-lg border transition-colors",
+              !canBuild || !selectedPath ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+              : mode === "build" ? "bg-blue-50 text-blue-700 border-blue-300 shadow-sm"
+              : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
             )}>
             🔨 Build
           </button>
-          <button onClick={handleTest}
-            className={cn("px-5 py-1.5 text-sm font-bold rounded-lg transition-colors",
-              mode === "test" ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm" : "bg-stone-200 text-stone-700 hover:bg-stone-300"
+          <button onClick={handleTest} disabled={!selectedPath || !canBuild}
+            className={cn("px-4 py-1.5 text-xs font-bold rounded-lg border transition-colors",
+              !selectedPath || !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+              : mode === "test" ? "bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm"
+              : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
             )}>
             ▶️ Test
           </button>
@@ -530,11 +543,10 @@ export default function SkillBuilder() {
               <span className="text-5xl">🔨</span>
               <div className="text-center">
                 <p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p>
-                <p className="text-stone-400 text-sm mt-1">點 <strong>＋ Build New Skill</strong> 開始</p>
+                <p className="text-stone-400 text-sm mt-1">點 <strong>＋ New Skill</strong> 開始</p>
               </div>
             </div>
           ) : expertMode ? (
-            /* ── Expert Mode: raw markdown ── */
             <div className="p-4">
               <div className="border border-stone-200 rounded-2xl overflow-hidden bg-white">
                 <div className="px-4 py-2.5 border-b border-stone-100 bg-stone-50">
@@ -549,187 +561,161 @@ export default function SkillBuilder() {
               </div>
             </div>
           ) : (
-            /* ── Simple Mode: step-by-step ── */
             <div className="p-5 space-y-4">
-
-              {/* Step 1: Purpose */}
               <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required>
-                <textarea value={form.purpose}
-                  onChange={e => update("purpose", e.target.value)}
-                  placeholder={"例：根據錯誤訊息和 log，分析問題的根因並產生報告\n\n例：將會議錄音轉成結構化的會議紀錄\n\n例：每週自動整理專案進度，寄出摘要信"}
-                  rows={3}
-                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
-                  style={{ lineHeight: 1.6 }} />
+                <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)}
+                  placeholder={"例：根據錯誤訊息和 log，分析問題的根因並產生報告"} rows={3}
+                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
                 <p className="text-[11px] text-stone-400"> 💡 想像你在跟一個新同事解釋這個任務</p>
               </StepCard>
-
-              {/* Step 2: Inputs */}
               <StepCard number={2} icon="📝" title="Inputs" hint="需要使用者提供什麼？">
                 {form.inputs.length === 0 && (
                   <div className="text-center py-4">
                     <p className="text-xs text-stone-400 mb-3">這個 Skill 需要使用者輸入什麼資訊？</p>
-                    <button onClick={addInput}
-                      className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">
-                      ＋ 新增輸入欄位
-                    </button>
+                    <button onClick={addInput} className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">＋ 新增輸入欄位</button>
                   </div>
                 )}
                 <div className="space-y-3">
-                  {form.inputs.map((inp, idx) => (
-                    <InputFieldCard key={idx} field={inp} index={idx}
-                      onUpdate={updateInput} onRemove={removeInput} />
-                  ))}
+                  {form.inputs.map((inp, idx) => <InputFieldCard key={idx} field={inp} index={idx} onUpdate={updateInput} onRemove={removeInput} />)}
                 </div>
                 {form.inputs.length > 0 && (
-                  <button onClick={addInput}
-                    className="w-full py-2.5 text-sm font-medium text-blue-600 border border-dashed border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">
-                    ＋ 新增欄位
-                  </button>
+                  <button onClick={addInput} className="w-full py-2.5 text-sm font-medium text-blue-600 border border-dashed border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">＋ 新增欄位</button>
                 )}
                 <p className="text-[11px] text-stone-400"> 💡 如果不需要使用者輸入，可以跳過這步</p>
               </StepCard>
-
-              {/* Step 3: Steps */}
               <StepCard number={3} icon="🧠" title="Steps" hint="AI 應該怎麼做？一步一步寫清楚" required>
-                <textarea value={form.steps}
-                  onChange={e => update("steps", e.target.value)}
-                  placeholder={"寫下 AI 應該遵循的步驟：\n\n1. 讀取使用者提供的錯誤訊息\n2. 分析可能的錯誤類型（網路、權限、資料格式...）\n3. 根據系統架構圖，追蹤相關的服務鏈\n4. 比對近期的 log，找出時間相關的事件\n5. 綜合以上資訊，產生根因分析報告"}
-                  rows={8}
-                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
-                  style={{ lineHeight: 1.6 }} />
+                <textarea value={form.steps} onChange={e => update("steps", e.target.value)}
+                  placeholder={"寫下 AI 應該遵循的步驟：\n\n1. 讀取使用者提供的錯誤訊息\n2. 分析可能的錯誤類型"} rows={8}
+                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
                 <p className="text-[11px] text-stone-400"> 💡 像寫 SOP 一樣，步驟越清楚，AI 表現越好</p>
               </StepCard>
-
-              {/* Step 4: Output */}
               <StepCard number={4} icon="📋" title="Output" hint="輸出長什麼樣子？給個範例">
-                <textarea value={form.outputFormat}
-                  onChange={e => update("outputFormat", e.target.value)}
-                  placeholder={"描述你期望的輸出格式：\n\n## 根因分析報告\n\n### 問題摘要\n（一句話描述問題）\n\n### 影響範圍\n- 受影響服務：...\n- 使用者影響：...\n\n### 根因\n- 直接原因：...\n- 根本原因：...\n\n### 建議\n1. ...\n2. ..."}
-                  rows={6}
-                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
-                  style={{ lineHeight: 1.6 }} />
+                <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)}
+                  placeholder={"描述你期望的輸出格式：\n\n## 報告\n### 摘要\n..."} rows={6}
+                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
                 <p className="text-[11px] text-stone-400"> 💡 給一個範例，AI 就知道你想要的格式</p>
               </StepCard>
-
-              {/* Step 5: Guardrails */}
               <StepCard number={5} icon="🛡️" title="Guardrails" hint="安全限制與注意事項">
-                <textarea value={form.guardrails}
-                  onChange={e => update("guardrails", e.target.value)}
-                  placeholder={"什麼不能做？什麼要特別小心？\n\n例：\n- 只分析最近 7 天的 log\n- 不要猜測沒有證據支持的原因\n- 如果資訊不足，明確說明需要什麼額外資訊\n- 不要刪除或修改任何檔案\n- 輸出語言跟使用者輸入一致\n- 超過 1000 筆資料時只取樣分析，並說明"}
-                  rows={5}
-                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
-                  style={{ lineHeight: 1.6 }} />
+                <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)}
+                  placeholder={"什麼不能做？什麼要特別小心？"} rows={5}
+                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
                 <p className="text-[11px] text-stone-400"> 💡 定義邊界，防止 AI 做出不預期的事</p>
               </StepCard>
-
-              {/* Step 6: Validation */}
               <StepCard number={6} icon="✅" title="Validation" hint="怎麼確認結果是正確的？">
-                <textarea value={form.validation}
-                  onChange={e => update("validation", e.target.value)}
-                  placeholder={"怎麼驗證 AI 的輸出品質？\n\n例：\n- 報告必須包含「根因」和「建議」兩個區塊\n- 所有提到的數據都要有出處\n- 如果找不到明確根因，必須標注為「待確認」\n- 執行時間不應超過 30 秒\n- 輸出不能是空的"}
-                  rows={5}
-                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
-                  style={{ lineHeight: 1.6 }} />
+                <textarea value={form.validation} onChange={e => update("validation", e.target.value)}
+                  placeholder={"怎麼驗證 AI 的輸出品質？"} rows={5}
+                  className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
                 <p className="text-[11px] text-stone-400"> 💡 清楚的驗證條件 = 可信賴的結果</p>
               </StepCard>
-
-              {/* Preview */}
               <div className="border border-stone-200 rounded-2xl overflow-hidden bg-white">
-                <button className="w-full flex items-center gap-2 px-5 py-3 hover:bg-stone-50 transition-colors text-left"
-                  onClick={() => {}}>
-                  <span>📄</span>
-                  <span className="text-sm font-bold text-stone-700">預覽產出的 Markdown</span>
-                </button>
                 <details className="px-5 pb-4">
-                  <summary className="sr-only">預覽</summary>
-                  <pre className="text-xs font-mono text-stone-500 bg-stone-50 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap max-h-64 overflow-y-auto border border-stone-100">
-                    {buildSkillMd(form, false)}
-                  </pre>
+                  <summary className="px-5 py-3 cursor-pointer text-sm font-bold text-stone-700 flex items-center gap-2"><span>📄</span>預覽產出的 Markdown</summary>
+                  <pre className="text-xs font-mono text-stone-500 bg-stone-50 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap max-h-64 overflow-y-auto border border-stone-100">{buildSkillMd(form, false)}</pre>
                 </details>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right panel: Build = CLI, Test = Result */}
-        <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
-          {mode === "build" ? (
-            /* ── Build Mode: CLI ── */
+        {/* ── Right panel ── */}
+        <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: mode === "build" ? "#1a1a2e" : "#fafaf9" }}>
+
+          {/* ── Build Mode: CLI ── */}
+          {mode === "build" && (
             !chatStarted ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                 <span className="text-5xl opacity-30">🔨</span>
                 <div className="text-center">
-                  <p className="text-stone-400 text-sm">
-                    填好左邊的表單，按 <strong className="text-white">🔨 Build</strong>
-                  </p>
+                  <p className="text-stone-400 text-sm">填好左邊的表單，按 <strong className="text-white">🔨 Build</strong></p>
                   <p className="text-stone-500 text-xs mt-2">AI 會根據你的定義生成完整 skill</p>
                 </div>
               </div>
             ) : (
-              <TerminalConsole
-                ref={terminalRef}
-                key={`builder-${consoleKey}`}
-                cwd={workingDir || undefined}
-                cli={cli}
-                approvalMode="yolo"
-                initialPrompt={initialPrompt}
-              />
+              <TerminalConsole ref={terminalRef} key={`builder-${consoleKey}`}
+                cwd={workingDir || undefined} cli={cli} approvalMode="yolo" initialPrompt={initialPrompt} />
             )
-          ) : (
-            /* ── Test Mode: Result viewer ── */
-            <>
-              {/* Result type bar */}
-              <div className="shrink-0 flex items-center border-b px-3 py-1.5" style={{ borderColor: "#30363d", backgroundColor: "#0d1117" }}>
-                <span className="text-[10px] text-[#8b949e] mr-2">格式：</span>
-                <button
-                  onClick={() => setResultType("markdown")}
-                  className={cn("px-2 py-0.5 text-[10px] rounded font-medium transition-colors",
-                    resultType === "markdown" ? "bg-blue-600 text-white" : "bg-[#21262d] text-[#8b949e] hover:text-white")}
-                  style={{ border: "1px solid #30363d" }}
-                >Markdown</button>
-                <button
-                  onClick={() => setResultType("html")}
-                  className={cn("px-2 py-0.5 text-[10px] rounded font-medium transition-colors ml-1",
-                    resultType === "html" ? "bg-blue-600 text-white" : "bg-[#21262d] text-[#8b949e] hover:text-white")}
-                  style={{ border: "1px solid #30363d" }}
-                >HTML</button>
+          )}
+
+          {/* ── Test Mode: Input + Result ── */}
+          {mode === "test" && (
+            <div className="flex flex-col h-full">
+              {/* Test input area */}
+              <div className="shrink-0 border-b p-4 space-y-3" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-stone-700">▶️ 測試輸入</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-stone-400">結果格式：</span>
+                    <button onClick={() => setResultType("markdown")}
+                      className={cn("px-2 py-0.5 text-[10px] rounded font-medium border transition-colors",
+                        resultType === "markdown" ? "bg-blue-50 text-blue-700 border-blue-300" : "bg-white text-stone-500 border-stone-200 hover:bg-stone-50")}>
+                      Markdown</button>
+                    <button onClick={() => setResultType("html")}
+                      className={cn("px-2 py-0.5 text-[10px] rounded font-medium border transition-colors",
+                        resultType === "html" ? "bg-blue-50 text-blue-700 border-blue-300" : "bg-white text-stone-500 border-stone-200 hover:bg-stone-50")}>
+                      HTML</button>
+                  </div>
+                </div>
+
+                {form.inputs.length > 0 ? (
+                  <div className="space-y-2">
+                    {form.inputs.map(inp => (
+                      <div key={inp.id}>
+                        <label className="block text-xs font-medium text-stone-600 mb-1">
+                          {inp.label} {inp.required && <span className="text-rose-400">*</span>}
+                        </label>
+                        {inp.multiline ? (
+                          <textarea value={testInputs[inp.id] || ""}
+                            onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))}
+                            placeholder={inp.placeholder || `輸入 ${inp.label}...`}
+                            rows={3}
+                            className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" />
+                        ) : (
+                          <input type="text" value={testInputs[inp.id] || ""}
+                            onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))}
+                            placeholder={inp.placeholder || `輸入 ${inp.label}...`}
+                            className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接執行即可。</p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button onClick={handleTest} disabled={testRunning || !canBuild}
+                    className={cn("px-5 py-2 text-sm font-bold rounded-lg border transition-colors",
+                      testRunning || !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                      : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 shadow-sm")}>
+                    {testRunning ? "⏳ 執行中..." : "▶️ 執行測試"}
+                  </button>
+                  {testRunning && <span className="text-xs text-stone-400">透過 CLI 執行，結果正確比速度重要</span>}
+                </div>
               </div>
 
-              {/* Result content */}
-              <div className="flex-1 overflow-auto p-5" style={{ backgroundColor: "#0d1117" }}>
-                {!resultContent ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-4">
-                    <span className="text-5xl opacity-30">▶️</span>
-                    <div className="text-center">
-                      <p className="text-[#8b949e] text-sm">尚無 Test Result</p>
-                      <p className="text-[#484f58] text-xs mt-2">Build 完成後，切到 Test 模式查看結果</p>
-                      <p className="text-[#484f58] text-xs mt-1">或貼上內容：</p>
-                      <textarea
-                        value={resultContent}
-                        onChange={e => setResultContent(e.target.value)}
-                        placeholder="貼上 Markdown 或 HTML 內容..."
-                        className="mt-3 w-full max-w-lg h-32 px-3 py-2 text-xs font-mono rounded-lg border resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        style={{ backgroundColor: "#161b22", borderColor: "#30363d", color: "#e0e0e0" }}
-                      />
-                    </div>
+              {/* Test result area */}
+              <div className="flex-1 overflow-auto p-5" style={{ backgroundColor: "#fafaf9" }}>
+                {!resultContent && !testRunning ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <span className="text-4xl opacity-20">📋</span>
+                    <p className="text-stone-400 text-sm">填入測試資料，按「執行測試」查看結果</p>
+                  </div>
+                ) : testRunning ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <div className="w-8 h-8 border-2 border-stone-300 border-t-emerald-500 rounded-full animate-spin" />
+                    <p className="text-stone-500 text-sm">CLI 執行中，請稍候...</p>
                   </div>
                 ) : resultType === "html" ? (
-                  <iframe
-                    srcDoc={resultContent}
-                    className="w-full rounded-lg border bg-white"
-                    style={{ minHeight: "calc(100vh - 200px)", borderColor: "#30363d" }}
-                    sandbox="allow-scripts"
-                    title="Test Result HTML"
-                  />
+                  <iframe srcDoc={resultContent} className="w-full rounded-lg border bg-white"
+                    style={{ minHeight: "calc(100vh - 300px)", borderColor: "#e7e5e4" }}
+                    sandbox="allow-scripts" title="Test Result HTML" />
                 ) : (
-                  <div className="prose prose-invert max-w-none" style={{ color: "#e0e0e0" }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {resultContent}
-                    </ReactMarkdown>
+                  <div className="prose prose-stone max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{resultContent}</ReactMarkdown>
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
