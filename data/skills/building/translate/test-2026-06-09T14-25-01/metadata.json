@@ -1,0 +1,30 @@
+{
+  "skill": {
+    "id": "translate",
+    "name": "多國語言翻譯",
+    "version": "1.0.0"
+  },
+  "execution": {
+    "timestamp": "2026-06-09T14:25:01+08:00",
+    "input": {
+      "g": "今天天氣真好，我們去公園散步吧，順便學習一些成語，像是畫蛇添足、守株待兔。"
+    },
+    "config": {
+      "sourceLang": "zh-TW",
+      "targetLang": "en"
+    }
+  },
+  "output": {
+    "files": [
+      {
+        "name": "result.md",
+        "description": "Translation result with special vocabulary analysis, example sentences, and pronunciation guide"
+      }
+    ]
+  },
+  "validation": {
+    "translationNotEmpty": true,
+    "notCopyOfOriginal": true,
+    "specialVocabExamplesContainVocab": true
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
+import { useTheme } from "../theme";
 import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -129,15 +130,16 @@ function typeIcon(type: string): string {
 }
 
 // ── Step Card ──
-function StepCard({ number, icon, title, hint, children, required }: {
+function StepCard({ number, icon, title, hint, children, required, accent, accentLight, accentBorder }: {
   number: number; icon: string; title: string; hint?: string;
   children: React.ReactNode; required?: boolean;
+  accent: string; accentLight: string; accentBorder: string;
 }) {
   const [open, setOpen] = useState(true);
   return (
-    <div className="border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-5 py-3 bg-white hover:bg-stone-50 transition-colors text-left">
-        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold">{number}</span>
+    <div className="border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: accentBorder + "40" }}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-5 py-3 bg-white hover:bg-stone-50/80 transition-colors text-left">
+        <span className="flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-bold" style={{ background: accent }}>{number}</span>
         <span className="text-base">{icon}</span>
         <div className="flex-1">
           <span className="text-sm font-bold text-stone-800">{title}</span>
@@ -146,16 +148,17 @@ function StepCard({ number, icon, title, hint, children, required }: {
         {required && <span className="text-[10px] text-rose-400 font-medium">必填</span>}
         <span className="text-stone-300 text-xs">{open ? "▾" : "▸"}</span>
       </button>
-      {open && <div className="px-5 py-4 border-t border-stone-100 bg-stone-50/30 space-y-3">{children}</div>}
+      {open && <div className="px-5 py-4 border-t space-y-3" style={{ borderColor: accentBorder + "20", backgroundColor: accentLight + "30" }}>{children}</div>}
     </div>
   );
 }
 
 // ── Input Field Card ──
-function InputFieldCard({ field, index, onUpdate, onRemove }: {
+function InputFieldCard({ field, index, onUpdate, onRemove, accent }: {
   field: InputField; index: number;
   onUpdate: (idx: number, patch: Partial<InputField>) => void;
   onRemove: (idx: number) => void;
+  accent: string;
 }) {
   return (
     <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3 relative group">
@@ -183,8 +186,16 @@ function InputFieldCard({ field, index, onUpdate, onRemove }: {
 }
 
 // ── Content Viewer ──
-function ContentViewer({ file, content }: { file: OutputFile; content: string }) {
+function ContentViewer({ file, content, accent }: { file: OutputFile; content: string; accent: string }) {
   const [mode, setMode] = useState<"rendered" | "raw">("rendered");
+
+  const toggleBtn = (label: string, active: boolean) => (
+    <button onClick={() => setMode(active ? mode : (mode === "rendered" ? "raw" : "rendered"))}
+      className={cn("px-2 py-0.5 text-[10px] rounded border transition-colors", active ? "text-white" : "text-stone-400 border-stone-600 hover:bg-stone-700")}
+      style={active ? { background: accent, borderColor: accent } : {}}>
+      {label}
+    </button>
+  );
 
   if (file.type === "image") {
     return (
@@ -194,42 +205,39 @@ function ContentViewer({ file, content }: { file: OutputFile; content: string })
     );
   }
 
-  if (file.type === "html" && mode === "rendered") {
-    return <iframe srcDoc={content} className="w-full border-0" style={{ minHeight: 400 }} sandbox="allow-scripts" title={file.name} />;
-  }
-
-  if (file.type === "json" && mode === "rendered") {
-    try {
-      return <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap p-4" style={{ lineHeight: 1.6 }}>{JSON.stringify(JSON.parse(content), null, 2)}</pre>;
-    } catch { /* fall through to raw */ }
-  }
-
-  if (file.type === "markdown" && mode === "rendered") {
-    return (
-      <div className="prose prose-invert max-w-none text-sm p-4">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+  return (
+    <div className="flex flex-col h-full">
+      <div className="shrink-0 px-4 py-1.5 border-b border-stone-700 flex items-center gap-2">
+        <span className="text-[10px] text-stone-500">{typeIcon(file.type)} {file.type.toUpperCase()}</span>
+        <div className="flex-1" />
+        {toggleBtn("Rendered", mode === "rendered")}
+        {toggleBtn("Raw", mode === "raw")}
       </div>
-    );
-  }
-
-  if (file.type === "csv" && mode === "rendered") {
-    const rows = content.trim().split("\n").map(r => r.split(","));
-    return (
-      <div className="overflow-auto p-4">
-        <table className="text-xs border-collapse">
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} className={i === 0 ? "font-bold text-emerald-400" : "text-stone-300"}>
-                {row.map((cell, j) => <td key={j} className="px-3 py-1 border border-stone-700">{cell.trim()}</td>)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex-1 overflow-auto">
+        {mode === "raw" ? (
+          <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap break-words p-4" style={{ lineHeight: 1.6 }}>{content}</pre>
+        ) : file.type === "html" ? (
+          <iframe srcDoc={content} className="w-full border-0" style={{ minHeight: 400 }} sandbox="allow-scripts" title={file.name} />
+        ) : file.type === "json" ? (
+          <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap p-4" style={{ lineHeight: 1.6 }}>{(() => { try { return JSON.stringify(JSON.parse(content), null, 2); } catch { return content; } })()}</pre>
+        ) : file.type === "markdown" ? (
+          <div className="prose prose-invert max-w-none text-sm p-4"><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
+        ) : file.type === "csv" ? (
+          <div className="overflow-auto p-4">
+            <table className="text-xs border-collapse">
+              <tbody>{content.trim().split("\n").map((r, i) => (
+                <tr key={i} className={i === 0 ? "font-bold" : "text-stone-300"} style={i === 0 ? { color: accent } : {}}>
+                  {r.split(",").map((cell, j) => <td key={j} className="px-3 py-1 border border-stone-700">{cell.trim()}</td>)}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        ) : (
+          <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap break-words p-4" style={{ lineHeight: 1.6 }}>{content}</pre>
+        )}
       </div>
-    );
-  }
-
-  return <pre className="text-xs font-mono text-stone-300 whitespace-pre-wrap break-words p-4" style={{ lineHeight: 1.6 }}>{content}</pre>;
+    </div>
+  );
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -237,6 +245,8 @@ function ContentViewer({ file, content }: { file: OutputFile; content: string })
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 export default function SkillBuilder() {
   const { t } = useI18n();
+  const { info: theme } = useTheme();
+
   const [form, setForm] = useState<SkillForm>({ ...EMPTY_SKILL });
   const [files, setFiles] = useState<TrainingFile[]>([]);
   const [selectedPath, setSelectedPath] = useState("");
@@ -246,7 +256,7 @@ export default function SkillBuilder() {
   const [workingDir, setWorkingDir] = useState("");
   const [expertMode, setExpertMode] = useState(false);
 
-  // CLI (shared by Builder & Test)
+  // CLI
   const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
   const [consoleKey, setConsoleKey] = useState(0);
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
@@ -268,6 +278,13 @@ export default function SkillBuilder() {
   // Tabs
   const [tab, setTab] = useState<"builder" | "test">("builder");
   const [rightTab, setRightTab] = useState<"cli" | "files">("cli");
+
+  // Theme shortcuts
+  const bg = theme.accentBg;
+  const border = theme.accentBorder;
+  const accent = theme.accent;
+  const accentHover = theme.accentHover;
+  const accentText = theme.accentText;
 
   // ── Data loading ──
   const loadFiles = useCallback(() => {
@@ -318,7 +335,7 @@ export default function SkillBuilder() {
       setSaveStatus("saving");
       fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(currentPath)}`, {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }),
-      }).then(r => { if (r.ok) setSaveStatus("saved"); else { setSaveStatus("dirty"); } }).catch(() => setSaveStatus("dirty"));
+      }).then(r => { if (r.ok) setSaveStatus("saved"); else setSaveStatus("dirty"); }).catch(() => setSaveStatus("dirty"));
     }, 600);
   }, []);
 
@@ -339,7 +356,7 @@ export default function SkillBuilder() {
     setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm); setSaveStatus("saved"); setTab("builder");
   };
 
-  // ── Build: interactive CLI ──
+  // ── Build ──
   const handleBuild = () => {
     const skillDef = buildSkillMd(form, expertMode);
     const prompt = skillCreatorContent ? `${skillCreatorContent}\n\n---\n\n請根據以下 Skill 描述，建立完整的 SKILL.md：\n\n${skillDef}` : skillDef;
@@ -347,9 +364,8 @@ export default function SkillBuilder() {
     else { terminalRef.current?.sendPrompt(prompt); }
   };
 
-  // ── Test: create temp dir → send interactive CLI prompt → check files ──
+  // ── Test ──
   const handleTest = async () => {
-    // 1. Create temp dir
     const prepareRes = await fetch(`${API_BASE}/api/skill-test/prepare`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ skillId: form.id || "untitled" }),
@@ -362,7 +378,6 @@ export default function SkillBuilder() {
     setFileContent("");
     setRightTab("cli");
 
-    // 2. Build prompt with output dir instruction
     const skillDef = buildSkillMd(form, expertMode);
     let testPrompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${outDir}\n\n### Skill 定義\n${skillDef}`;
     if (form.inputs.length > 0) {
@@ -371,14 +386,8 @@ export default function SkillBuilder() {
     }
     testPrompt += `\n\n### 指示\n1. 執行這個 Skill\n2. 將結果存成適當格式的檔案到 ${outDir}（JSON、Markdown、HTML 等都可以）\n3. 如果有多個輸出，分別存成不同檔案`;
 
-    // 3. Start interactive CLI
-    if (!chatStarted) {
-      setInitialPrompt(testPrompt);
-      setChatStarted(true);
-      setConsoleKey(prev => prev + 1);
-    } else {
-      terminalRef.current?.sendPrompt(testPrompt);
-    }
+    if (!chatStarted) { setInitialPrompt(testPrompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
+    else { terminalRef.current?.sendPrompt(testPrompt); }
   };
 
   // ── Check output files ──
@@ -391,10 +400,7 @@ export default function SkillBuilder() {
       if (data.ok) {
         setOutputFiles(data.files);
         setRightTab("files");
-        // Auto-select first file
-        if (data.files.length > 0) {
-          handleSelectOutputFile(data.files[0]);
-        }
+        if (data.files.length > 0) handleSelectOutputFile(data.files[0]);
       }
     } catch (err) {
       console.error("[SkillBuilder] check files error:", err);
@@ -418,25 +424,30 @@ export default function SkillBuilder() {
 
   // ━━━━━━━━━━━━━━━━━━ RENDER ━━━━━━━━━━━━━━━━━━
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden" style={{ backgroundColor: "#fafaf9" }}>
+    <div className="flex flex-col h-full w-full overflow-hidden" style={{ backgroundColor: bg }}>
 
       {/* ── Header ── */}
-      <div className="shrink-0 px-5 py-2.5 border-b flex items-center gap-3 bg-white" style={{ borderColor: "#e7e5e4" }}>
+      <div className="shrink-0 px-5 py-2.5 border-b flex items-center gap-3 bg-white" style={{ borderColor: border + "30" }}>
         <span className="text-lg">🔨</span>
         <h2 className="text-sm font-bold text-stone-800">Skill Builder</h2>
         <div className="flex items-center gap-1.5">
-          <select value={selectedPath} onChange={e => handleSelectFile(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-200" style={{ minWidth: 200 }}>
+          <select value={selectedPath} onChange={e => handleSelectFile(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1" style={{ minWidth: 200, "--tw-ring-color": accent } as React.CSSProperties}>
             <option value="">-- {t("common.select", "選擇")} Skill --</option>
             {files.map(f => <option key={f.path} value={f.path}>{f.name}</option>)}
           </select>
-          <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">＋ New</button>
+          <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ background: accent }}>
+            ＋ New
+          </button>
           {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
           {saveStatus === "saved" && selectedPath && <span className="text-[10px] text-green-500">✓</span>}
           {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
         </div>
         <div className="flex items-center gap-2 ml-2">
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <div className={cn("relative w-8 h-4 rounded-full transition-colors", expertMode ? "bg-blue-500" : "bg-stone-300")} onClick={() => setExpertMode(!expertMode)}>
+            <div className={cn("relative w-8 h-4 rounded-full transition-colors", expertMode ? "" : "bg-stone-300")}
+              style={expertMode ? { background: accent } : {}}
+              onClick={() => setExpertMode(!expertMode)}>
               <div className={cn("absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform", expertMode ? "translate-x-4" : "translate-x-0.5")} />
             </div>
             <span className="text-[11px] text-stone-500">{expertMode ? "Expert" : "Simple"}</span>
@@ -455,11 +466,13 @@ export default function SkillBuilder() {
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-96 p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-bold text-stone-800 mb-1">📄 建立新的 Skill</h3>
             <p className="text-xs text-stone-500 mb-4">給 Skill 一個名字</p>
-            <input type="text" value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} placeholder="例：translate、log-analyzer" className="w-full px-4 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 mb-2" autoFocus />
+            <input type="text" value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} placeholder="例：translate、log-analyzer" className="w-full px-4 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 mb-2" style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties} autoFocus />
             {newFileName.trim() && <p className="text-[11px] text-stone-400 mb-4">→ build-{newFileName.trim().replace(/\s+/g, "-").toLowerCase()}.md</p>}
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowNewDialog(false)} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50">{t("common.cancel")}</button>
-              <button onClick={handleCreate} disabled={!newFileName.trim()} className={cn("px-5 py-2 text-sm font-bold rounded-xl", newFileName.trim() ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-stone-200 text-stone-400")}>{t("common.create")}</button>
+              <button onClick={handleCreate} disabled={!newFileName.trim()}
+                className={cn("px-5 py-2 text-sm font-bold rounded-xl text-white", newFileName.trim() ? "hover:opacity-90" : "bg-stone-200 text-stone-400")}
+                style={newFileName.trim() ? { background: accent } : {}}>{t("common.create")}</button>
             </div>
           </div>
         </div>
@@ -469,11 +482,18 @@ export default function SkillBuilder() {
       <div className="flex-1 flex min-h-0 overflow-hidden">
 
         {/* ━━ Left Panel ━━ */}
-        <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#e7e5e4", backgroundColor: "#fafaf9" }}>
-          <div className="shrink-0 flex border-b" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-            <button onClick={() => setTab("builder")} className={cn("flex-1 py-2.5 text-xs font-bold transition-colors text-center", tab === "builder" ? "text-indigo-700 border-b-2 border-indigo-600 bg-indigo-50/50" : "text-stone-500 hover:text-stone-700")}>🔨 Builder</button>
-            <button onClick={() => setTab("test")} className={cn("flex-1 py-2.5 text-xs font-bold transition-colors text-center", tab === "test" ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50/50" : "text-stone-500 hover:text-stone-700")}>
-              ▶️ Test{outputFiles.length > 0 && <span className="ml-1 text-[10px] text-emerald-500">({outputFiles.length})</span>}
+        <div className="flex flex-col border-r" style={{ width: "50%", borderColor: border + "30", backgroundColor: bg }}>
+          {/* Tab Bar */}
+          <div className="shrink-0 flex border-b bg-white" style={{ borderColor: border + "30" }}>
+            <button onClick={() => setTab("builder")}
+              className={cn("flex-1 py-2.5 text-xs font-bold transition-colors text-center", tab === "builder" ? "border-b-2" : "text-stone-500 hover:text-stone-700")}
+              style={tab === "builder" ? { color: accent, borderColor: accent, background: theme.accentLight + "40" } : {}}>
+              🔨 Builder
+            </button>
+            <button onClick={() => setTab("test")}
+              className={cn("flex-1 py-2.5 text-xs font-bold transition-colors text-center", tab === "test" ? "border-b-2" : "text-stone-500 hover:text-stone-700")}
+              style={tab === "test" ? { color: accent, borderColor: accent, background: theme.accentLight + "40" } : {}}>
+              ▶️ Test{outputFiles.length > 0 && <span className="ml-1 text-[10px]" style={{ color: accent }}>({outputFiles.length})</span>}
             </button>
           </div>
 
@@ -483,37 +503,37 @@ export default function SkillBuilder() {
               !selectedPath ? (
                 <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                   <span className="text-5xl">🔨</span>
-                  <div className="text-center"><p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p><p className="text-stone-400 text-sm mt-1">點 <strong>＋ New</strong> 或選擇已有的 build script</p></div>
+                  <div className="text-center"><p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p><p className="text-stone-400 text-sm mt-1">點 <strong style={{ color: accent }}>＋ New</strong> 或選擇已有的 build script</p></div>
                 </div>
               ) : expertMode ? (
                 <div className="p-4 pb-24">
-                  <div className="border border-stone-200 rounded-2xl overflow-hidden bg-white">
-                    <div className="px-4 py-2.5 border-b border-stone-100 bg-stone-50"><span className="text-xs font-bold text-stone-600">Markdown 原始碼</span></div>
+                  <div className="border rounded-2xl overflow-hidden bg-white" style={{ borderColor: border + "40" }}>
+                    <div className="px-4 py-2.5 border-b" style={{ borderColor: border + "20", background: theme.accentLight + "20" }}><span className="text-xs font-bold text-stone-600">Markdown 原始碼</span></div>
                     <textarea value={form.systemPrompt} onChange={e => update("systemPrompt", e.target.value)} placeholder={"輸入完整的 skill 定義..."} className="w-full px-4 py-3 text-sm font-mono border-0 resize-none focus:outline-none" style={{ minHeight: "calc(100vh - 300px)", lineHeight: 1.7 }} spellCheck={false} />
                   </div>
                 </div>
               ) : (
                 <div className="p-5 space-y-4 pb-24">
-                  <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required>
-                    <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder="例：根據錯誤訊息和 log，分析問題的根因並產生報告" rows={3} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
+                  <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder="例：根據錯誤訊息和 log，分析問題的根因並產生報告" rows={3} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     <p className="text-[11px] text-stone-400">💡 想像你在跟一個新同事解釋這個任務</p>
                   </StepCard>
-                  <StepCard number={2} icon="📝" title="Inputs" hint="需要使用者提供什麼？">
-                    {form.inputs.length === 0 && (<div className="text-center py-4"><p className="text-xs text-stone-400 mb-3">這個 Skill 需要使用者輸入什麼資訊？</p><button onClick={addInput} className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50">＋ 新增輸入欄位</button></div>)}
-                    <div className="space-y-3">{form.inputs.map((inp, idx) => <InputFieldCard key={idx} field={inp} index={idx} onUpdate={updateInput} onRemove={removeInput} />)}</div>
-                    {form.inputs.length > 0 && <button onClick={addInput} className="w-full py-2.5 text-sm font-medium text-blue-600 border border-dashed border-blue-200 rounded-xl hover:bg-blue-50">＋ 新增欄位</button>}
+                  <StepCard number={2} icon="📝" title="Inputs" hint="需要使用者提供什麼？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    {form.inputs.length === 0 && (<div className="text-center py-4"><p className="text-xs text-stone-400 mb-3">這個 Skill 需要使用者輸入什麼資訊？</p><button onClick={addInput} className="px-4 py-2 text-sm font-medium border rounded-xl hover:opacity-80" style={{ color: accent, borderColor: accent + "40" }}>＋ 新增輸入欄位</button></div>)}
+                    <div className="space-y-3">{form.inputs.map((inp, idx) => <InputFieldCard key={idx} field={inp} index={idx} onUpdate={updateInput} onRemove={removeInput} accent={accent} />)}</div>
+                    {form.inputs.length > 0 && <button onClick={addInput} className="w-full py-2.5 text-sm font-medium border border-dashed rounded-xl hover:opacity-80" style={{ color: accent, borderColor: accent + "40" }}>＋ 新增欄位</button>}
                   </StepCard>
-                  <StepCard number={3} icon="🧠" title="Steps" hint="AI 應該怎麼做？" required>
-                    <textarea value={form.steps} onChange={e => update("steps", e.target.value)} placeholder={"寫下 AI 應該遵循的步驟：\n1. ...\n2. ..."} rows={8} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
+                  <StepCard number={3} icon="🧠" title="Steps" hint="AI 應該怎麼做？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.steps} onChange={e => update("steps", e.target.value)} placeholder={"寫下 AI 應該遵循的步驟：\n1. ...\n2. ..."} rows={8} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={4} icon="📋" title="Output" hint="輸出長什麼樣子？">
-                    <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder="描述你期望的輸出格式" rows={6} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
+                  <StepCard number={4} icon="📋" title="Output" hint="輸出長什麼樣子？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder="描述你期望的輸出格式" rows={6} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={5} icon="🛡️" title="Guardrails" hint="安全限制">
-                    <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder="什麼不能做？什麼要特別小心？" rows={5} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
+                  <StepCard number={5} icon="🛡️" title="Guardrails" hint="安全限制" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder="什麼不能做？什麼要特別小心？" rows={5} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={6} icon="✅" title="Validation" hint="怎麼確認結果正確？">
-                    <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder="怎麼驗證 AI 的輸出品質？" rows={5} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none" style={{ lineHeight: 1.6 }} />
+                  <StepCard number={6} icon="✅" title="Validation" hint="怎麼確認結果正確？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder="怎麼驗證 AI 的輸出品質？" rows={5} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                 </div>
               )
@@ -526,37 +546,38 @@ export default function SkillBuilder() {
                   <div className="flex flex-col items-center justify-center py-16 gap-3"><span className="text-4xl">▶️</span><p className="text-xs text-stone-400">請先選擇或建立一個 Skill</p></div>
                 ) : (
                   <>
-                    <div className="border border-emerald-200 rounded-2xl overflow-hidden bg-white">
-                      <div className="px-4 py-2.5 border-b border-emerald-100 bg-emerald-50/50">
-                        <span className="text-xs font-bold text-emerald-700">▶️ 測試輸入</span>
-                        <span className="ml-2 text-[10px] text-emerald-400">{form.name || form.id}</span>
+                    <div className="border rounded-2xl overflow-hidden bg-white" style={{ borderColor: accent + "30" }}>
+                      <div className="px-4 py-2.5 border-b" style={{ borderColor: accent + "15", background: theme.accentLight + "30" }}>
+                        <span className="text-xs font-bold" style={{ color: accentText }}>▶️ 測試輸入</span>
+                        <span className="ml-2 text-[10px] text-stone-400">{form.name || form.id}</span>
                       </div>
                       <div className="p-4 space-y-3">
                         {form.inputs.length > 0 ? form.inputs.map(inp => (
                           <div key={inp.id}>
                             <label className="block text-xs font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>}</label>
                             {inp.multiline ? (
-                              <textarea value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} rows={3} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-100 resize-none" />
+                              <textarea value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} rows={3} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 resize-none" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             ) : (
-                              <input type="text" value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-100" />
+                              <input type="text" value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             )}
                           </div>
                         )) : <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接按「執行測試」。</p>}
                       </div>
                     </div>
 
-                    {/* Output Files List */}
+                    {/* Output Files */}
                     {outputFiles.length > 0 && (
-                      <div className="border border-blue-200 rounded-2xl overflow-hidden bg-white">
-                        <div className="px-4 py-2.5 border-b border-blue-100 bg-blue-50/50 flex items-center gap-2">
-                          <span className="text-xs font-bold text-blue-700">📁 輸出檔案</span>
-                          <span className="text-[10px] text-blue-400">{outputFiles.length} files in {testDir.split("/").slice(-2).join("/")}</span>
+                      <div className="border rounded-2xl overflow-hidden bg-white" style={{ borderColor: accent + "30" }}>
+                        <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: accent + "15", background: theme.accentLight + "30" }}>
+                          <span className="text-xs font-bold" style={{ color: accentText }}>📁 輸出檔案</span>
+                          <span className="text-[10px] text-stone-400">{outputFiles.length} files</span>
                         </div>
                         <div className="divide-y divide-stone-100">
                           {outputFiles.map(f => (
                             <button key={f.path} onClick={() => handleSelectOutputFile(f)}
-                              className={cn("w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-stone-50 transition-colors",
-                                selectedFile?.path === f.path ? "bg-blue-50" : "")}>
+                              className={cn("w-full flex items-center gap-3 px-4 py-2.5 text-left hover:opacity-80 transition-colors",
+                                selectedFile?.path === f.path ? "" : "")}
+                              style={selectedFile?.path === f.path ? { background: theme.accentLight + "40" } : {}}>
                               <span className="text-base">{typeIcon(f.type)}</span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium text-stone-700 truncate">{f.name}</p>
@@ -576,19 +597,29 @@ export default function SkillBuilder() {
 
           {/* ── Sticky Action Bar ── */}
           {selectedPath && (
-            <div className="shrink-0 border-t px-5 py-3 bg-white flex items-center gap-3" style={{ borderColor: "#e7e5e4" }}>
+            <div className="shrink-0 border-t px-5 py-3 bg-white flex items-center gap-3" style={{ borderColor: border + "30" }}>
               {tab === "builder" && (
                 <>
-                  <button onClick={handleBuild} disabled={!canBuild} className={cn("px-6 py-2.5 text-sm font-bold rounded-xl border transition-colors shadow-sm", !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed" : "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700")}>🔨 Build</button>
+                  <button onClick={handleBuild} disabled={!canBuild}
+                    className={cn("px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm")}
+                    style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
+                    🔨 Build
+                  </button>
                   <span className="text-[11px] text-stone-400">右邊 CLI → Skill Creator 產出 SKILL.md</span>
                   {chatStarted && <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }} className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">✕ 重置</button>}
                 </>
               )}
               {tab === "test" && (
                 <>
-                  <button onClick={handleTest} disabled={!canBuild} className={cn("px-6 py-2.5 text-sm font-bold rounded-xl border transition-colors shadow-sm", !canBuild ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed" : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700")}>▶️ 執行測試</button>
+                  <button onClick={handleTest} disabled={!canBuild}
+                    className="px-6 py-2.5 text-sm font-bold rounded-xl text-white transition-all shadow-sm"
+                    style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
+                    ▶️ 執行測試
+                  </button>
                   {testDir && (
-                    <button onClick={handleCheckFiles} disabled={loadingFiles} className={cn("px-5 py-2.5 text-sm font-bold rounded-xl border transition-colors", loadingFiles ? "bg-stone-100 text-stone-400 border-stone-200" : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700")}>
+                    <button onClick={handleCheckFiles} disabled={loadingFiles}
+                      className="px-5 py-2.5 text-sm font-bold rounded-xl text-white border transition-all"
+                      style={loadingFiles ? { background: "#e7e5e4", color: "#a8a29e", borderColor: "#e7e5e4" } : { background: `linear-gradient(135deg, ${accentHover}, ${accent})`, borderColor: accent }}>
                       {loadingFiles ? "⏳ 掃描中..." : "📁 Check Files"}
                     </button>
                   )}
@@ -601,17 +632,23 @@ export default function SkillBuilder() {
 
         {/* ━━ Right Panel ━━ */}
         <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
-          {/* Right Tab Bar (Test mode only) */}
+          {/* Right Tab Bar (Test mode) */}
           {tab === "test" && (
             <div className="shrink-0 flex border-b border-stone-700">
-              <button onClick={() => setRightTab("cli")} className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center", rightTab === "cli" ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-900/20" : "text-stone-500 hover:text-stone-300")}>📟 CLI</button>
-              <button onClick={() => setRightTab("files")} className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center", rightTab === "files" ? "text-blue-400 border-b-2 border-blue-500 bg-blue-900/20" : "text-stone-500 hover:text-stone-300")}>
+              <button onClick={() => setRightTab("cli")}
+                className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center", rightTab === "cli" ? "border-b-2" : "text-stone-500 hover:text-stone-300")}
+                style={rightTab === "cli" ? { color: accent, borderColor: accent, background: theme.accentLight + "15" } : {}}>
+                📟 CLI
+              </button>
+              <button onClick={() => setRightTab("files")}
+                className={cn("flex-1 py-2 text-xs font-bold transition-colors text-center", rightTab === "files" ? "border-b-2" : "text-stone-500 hover:text-stone-300")}
+                style={rightTab === "files" ? { color: accent, borderColor: accent, background: theme.accentLight + "15" } : {}}>
                 📋 Preview{selectedFile ? `: ${selectedFile.name}` : ""}
               </button>
             </div>
           )}
 
-          {/* CLI Console (both Builder & Test) */}
+          {/* CLI Console */}
           {(tab === "builder" || rightTab === "cli") && (
             !chatStarted ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
@@ -628,7 +665,7 @@ export default function SkillBuilder() {
             )
           )}
 
-          {/* File Preview (Test mode, files tab) */}
+          {/* File Preview */}
           {tab === "test" && rightTab === "files" && (
             selectedFile ? (
               <div className="flex flex-col flex-1 overflow-auto">
@@ -638,7 +675,7 @@ export default function SkillBuilder() {
                   <span className="text-[10px] text-stone-500">{selectedFile.type.toUpperCase()} · {formatSize(selectedFile.size)}</span>
                 </div>
                 <div className="flex-1 overflow-auto">
-                  <ContentViewer file={selectedFile} content={fileContent} />
+                  <ContentViewer file={selectedFile} content={fileContent} accent={accent} />
                 </div>
               </div>
             ) : (

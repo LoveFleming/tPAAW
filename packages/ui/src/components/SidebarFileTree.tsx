@@ -384,7 +384,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         activeFilePath={activeFilePath}
         openFilePaths={openFilePaths}
         onSelectFile={onSelectFile}
-        onToggleDir={onToggleDir}
+        onToggleDir={handleToggleDir}
         expandedPaths={expandedPaths}
         projectRoot={projectRoot}
         isWorkspaceRoot={true}
