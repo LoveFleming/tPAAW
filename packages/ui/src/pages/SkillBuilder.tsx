@@ -426,6 +426,8 @@ export default function SkillBuilder() {
                 setOutputFiles(event.files);
                 // Auto-select first file
                 loadFileContent(event.files[0]);
+              } else if (event.stdout) {
+                setTestError(`CLI 完成但沒有寫入檔案。CLI 輸出如下：\n\n${event.stdout.slice(0, 2000)}`);
               } else if (event.error) {
                 setTestError(`CLI 完成但沒有輸出檔案：${event.error}`);
               } else {

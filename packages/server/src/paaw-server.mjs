@@ -1333,9 +1333,16 @@ async function paawApiHandler(req, res) {
             files.push({ name, path: fp, size: s.size, type, ext });
           }
         }
+        // If no files found but CLI produced stdout, save it as fallback
+        if (files.length === 0 && stdout.trim()) {
+          const fallbackFile = join(testDir, "output.md");
+          const { writeFile: writeFallback } = await import("fs/promises");
+          await writeFallback(fallbackFile, stdout, "utf-8");
+          files.push({ name: "output.md", path: fallbackFile, size: Buffer.byteLength(stdout), type: "markdown", ext: "md" });
+        }
         sendEvent({ type: "done", exitCode: code, testDir, files, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
       } catch (err) {
-        sendEvent({ type: "done", exitCode: code, testDir, files: [], error: err.message, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
+        sendEvent({ type: "done", exitCode: code, testDir, files: [], error: `${err.message}\n\nCLI stdout:\n${stdout.slice(-1000)}\n\nCLI stderr:\n${stderr.slice(-500)}`, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
       }
       try { res.end(); } catch {}
     });
