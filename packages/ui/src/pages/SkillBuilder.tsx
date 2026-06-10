@@ -652,9 +652,9 @@ export default function SkillBuilder() {
         {/* ━━ Right Panel ━━ */}
         <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1e1e2e" }}>
 
-          {/* Builder: interactive CLI */}
-          {tab === "builder" && (
-            !chatStarted ? (
+          {/* Builder: interactive CLI — always mounted, hidden via display */}
+          <div style={{ display: tab === "builder" ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
+            {!chatStarted ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                 <span className="text-5xl opacity-30">🔨</span>
                 <div className="text-center">
@@ -664,12 +664,12 @@ export default function SkillBuilder() {
               </div>
             ) : (
               <TerminalConsole ref={terminalRef} key={`cli-${consoleKey}`} cwd={workingDir || undefined} cli={cli} approvalMode="yolo" initialPrompt={initialPrompt} />
-            )
-          )}
+            )}
+          </div>
 
-          {/* Test: spinner → file list + content viewer */}
-          {tab === "test" && (
-            testRunning ? (
+          {/* Test: spinner → file list + content viewer — always mounted, hidden via display */}
+          <div style={{ display: tab === "test" ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
+            {testRunning ? (
               /* ── Running: spinner with elapsed ── */
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                 <div className="relative">
@@ -729,7 +729,8 @@ export default function SkillBuilder() {
                 </div>
               </div>
             )
-          )}
+            }
+          </div>
         </div>
       </div>
     </div>

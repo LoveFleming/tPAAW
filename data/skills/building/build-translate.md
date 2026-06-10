@@ -5,6 +5,12 @@ version: 1.0.0
 description: 將輸入文字翻譯為目標語言，預設中翻英，並標注特殊詞彙
 runner: prompt
 userInputs:
+  - id: output_path
+    label: 輸出路徑
+    description: Skill 執行結果的儲存路徑
+    placeholder: "例：output/report.html"
+    required: true
+    multiline: false
   - id: g
     label: 輸入要翻譯的內容
     required: true
@@ -15,6 +21,7 @@ userInputs:
 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語）。
 
 ## Inputs
+- **輸出路徑** (required): Skill 執行結果的儲存路徑
 - **輸入要翻譯的內容** (required): 
 
 ## Steps
@@ -22,13 +29,23 @@ userInputs:
 2. 翻譯：自然流暢，保留語氣和情感，專有名詞保留原文
 3. 識別特殊詞彙：成語、俚語、雙關語、專業術語
 4. 為每個特殊詞彙產生例句和趣味用法
-5. 組合輸出：翻譯結果 + 特殊詞彙列表 + 發音提示
+5. 照output格式輸出
 6. 輸出markdown format
 
 ## Output
-翻譯結果 + 特殊詞彙解釋 + 例句
+# 翻譯結果 Translation Result
 
-output format : markdown 
+## 原文 (Source)
+
+## 譯文 (Translation)
+
+---
+## 特殊詞彙 Special Vocabulary
+
+---
+## 翻譯筆記 Translation Notes
+
+
 
 ## Guardrails
 - 不翻譯違法或有害內容
