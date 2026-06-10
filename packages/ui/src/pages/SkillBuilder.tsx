@@ -582,16 +582,20 @@ export default function SkillBuilder() {
                         <span className="ml-2 text-[10px] text-stone-400">{form.name || form.id}</span>
                       </div>
                       <div className="p-4 space-y-3">
-                        {form.inputs.length > 0 ? form.inputs.map(inp => (
+                        {form.inputs.length > 0 ? form.inputs.map(inp => {
+                          const isOutputPath = inp.id === "output_path";
+                          const testOutputDir = `${workingDir || "."}/data/skills/.test-output/${form.id || "untitled"}`;
+                          return (
                           <div key={inp.id}>
-                            <label className="block text-xs font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>}</label>
-                            {inp.multiline ? (
+                            <label className="block text-xs font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>} {isOutputPath && <span className="text-stone-400 font-normal">（測試模式固定路徑）</span>}</label>
+                            {inp.multiline && !isOutputPath ? (
                               <textarea value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} rows={3} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 resize-none" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             ) : (
-                              <input type="text" value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                              <input type="text" value={isOutputPath ? testOutputDir : (testInputs[inp.id] || "")} onChange={e => { if (!isOutputPath) setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value })); }} readOnly={isOutputPath} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className={"w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2" + (isOutputPath ? " bg-stone-50 text-stone-500" : "")} style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             )}
                           </div>
-                        )) : <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接按「執行測試」。</p>}
+                          );
+                        }) : <p className="text-xs text-stone-400">這個 Skill 沒有定義輸入欄位，直接按「執行測試」。</p>}
                       </div>
                     </div>
 
