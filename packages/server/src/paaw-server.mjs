@@ -1261,15 +1261,16 @@ async function paawApiHandler(req, res) {
   if (req.method === "POST" && req.url === "/api/skill-test/run") {
     const body = JSON.parse(await readBody(req));
     const { skillId, prompt, cwd, cli = "qwen", timeout = 120, maxToolCalls = 10 } = body;
-    // 1. Create temp dir
+    // 1. Create temp dir — use relative path for CLI compatibility
     const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const testDir = resolve(PAAW_ROOT, "data/skills/building", skillId || "unknown", "test-" + ts);
+    const relTestDir = `data/skills/building/${skillId || "unknown"}/test-${ts}`;
+    const testDir = resolve(PAAW_ROOT, relTestDir);
     await mkdir(testDir, { recursive: true });
     // 2. SSE headers
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
     const sendEvent = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
-    // 3. Build full prompt with output dir
-    const fullPrompt = `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${testDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
+    // 3. Build full prompt with output dir — use relative path so CLI resolves from cwd
+    const fullPrompt = `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${relTestDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
     // 4. Write prompt to temp file (Windows safe — no /dev/stdin)
     const promptFile = join(testDir, "_prompt.txt");
     const { writeFile: writePromptFile, unlink: removePromptFile } = await import("fs/promises");
