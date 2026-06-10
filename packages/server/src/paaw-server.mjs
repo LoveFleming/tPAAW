@@ -20,6 +20,7 @@ import { spawn as ptySpawn } from "node-pty";
 import { tmpdir } from "os";
 import { exec as execCb, spawn } from "child_process";
 import yaml from "js-yaml";
+import { CliAdapter } from "./lib/cli-adapter.mjs";
 import { promisify } from "util";
 import { getToolsAndHandlers, invalidateCache } from "./tools/index.mjs";
 import chokidar from "chokidar";
@@ -1275,18 +1276,34 @@ async function paawApiHandler(req, res) {
     const promptFile = join(testDir, "_prompt.txt");
     const { writeFile: writePromptFile, unlink: removePromptFile } = await import("fs/promises");
     await writePromptFile(promptFile, fullPrompt, "utf-8");
-    // 5. Spawn CLI non-interactively
-    const _platform = process.platform;
-    const _cliBins = { qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" }, claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" }, opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" } };
-    const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
-    const cliBin = process.env.QWEN_BIN || _cliBins[cli]?.[_binKey] || cli;
+    // 5. Spawn CLI via CliAdapter (unified abstraction)
+    let cliAdapter;
+    try {
+      cliAdapter = await CliAdapter.load(cli, PAAW_ROOT);
+    } catch {
+      // Fallback to hardcoded if adapter config not found
+      cliAdapter = null;
+    }
     const spawnCwd = cwd || PAAW_ROOT;
-    const spawnOpts = { cwd: spawnCwd, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
-    if (_platform === "win32") { spawnOpts.shell = true; }
-    const args = ["-o", "text", "--approval-mode", "yolo", "--max-session-turns", String(maxToolCalls), promptFile];
+    let cliBin, args, spawnOpts;
+    if (cliAdapter) {
+      const info = cliAdapter.spawnInfo("noninteractive", { approvalMode: "yolo", maxTurns: maxToolCalls, cwd: spawnCwd }, promptFile);
+      cliBin = info.bin;
+      args = info.args;
+      spawnOpts = info.opts;
+    } else {
+      // Hardcoded fallback
+      const _platform = process.platform;
+      const _cliBins = { qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" }, claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" }, opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" } };
+      const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
+      cliBin = process.env.QWEN_BIN || _cliBins[cli]?.[_binKey] || cli;
+      args = ["-o", "text", "--approval-mode", "yolo", "--max-session-turns", String(maxToolCalls), promptFile];
+      spawnOpts = { cwd: spawnCwd, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
+      if (_platform === "win32") { spawnOpts.shell = true; }
+    }
     // Send debug info to frontend
-    sendEvent({ type: "debug", cliBin, args, cwd: spawnCwd, platform: _platform, promptFile, testDir: relTestDir });
-    console.log(`[skill-test] spawn: ${cliBin} ${args.join(" ")}, cwd=${spawnCwd}, platform=${_platform}`);
+    sendEvent({ type: "debug", cliBin, args, cwd: spawnCwd, platform: process.platform, promptFile, testDir: relTestDir, adapter: cliAdapter ? cliAdapter.id : "fallback" });
+    console.log(`[skill-test] spawn: ${cliBin} ${args.join(" ")}, cwd=${spawnCwd}, platform=${process.platform}, adapter=${cliAdapter ? cliAdapter.id : "fallback"}`);
     const child = spawn(cliBin, args, spawnOpts);
     let stderr = "";
     let stdout = "";
@@ -1457,6 +1474,33 @@ async function paawApiHandler(req, res) {
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/cli-adapters — list all CLI adapter configs
+  if (req.method === "GET" && path === "/api/cli-adapters") {
+    try {
+      const adapters = await CliAdapter.loadAll(PAAW_ROOT);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(adapters.map(a => a.toJSON())));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // GET /api/cli-adapters/:id — get single adapter config
+  if (req.method === "GET" && path.startsWith("/api/cli-adapters/")) {
+    try {
+      const adapterId = path.replace("/api/cli-adapters/", "");
+      const adapter = await CliAdapter.load(adapterId, PAAW_ROOT);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(adapter.toJSON()));
+    } catch (err) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Adapter not found: ${err.message}` }));
     }
     return;
   }

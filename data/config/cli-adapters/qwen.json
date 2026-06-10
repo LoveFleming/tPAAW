@@ -1,0 +1,33 @@
+{
+  "id": "qwen",
+  "name": "Qwen Code",
+  "description": "Alibaba Qwen CLI coding agent",
+  "bins": {
+    "darwin": "/opt/homebrew/bin/qwen",
+    "linux": "qwen",
+    "win32": "qwen.cmd"
+  },
+  "shell": { "win32": true },
+  "modes": {
+    "interactive": {
+      "args": [],
+      "description": "TUI interactive mode"
+    },
+    "noninteractive": {
+      "args": [
+        "-o", "text",
+        "--approval-mode", "{approvalMode}",
+        "--max-session-turns", "{maxTurns}"
+      ],
+      "promptVia": "file",
+      "supportsStreaming": false
+    }
+  },
+  "capabilities": {
+    "approvalModes": ["default", "auto-edit", "auto", "yolo"],
+    "maxTurns": { "param": "--max-session-turns", "type": "number", "default": 50, "min": 1 },
+    "maxWallTime": { "param": "--max-wall-time", "type": "string" },
+    "outputFormats": ["text"],
+    "modelSelection": false
+  }
+}
