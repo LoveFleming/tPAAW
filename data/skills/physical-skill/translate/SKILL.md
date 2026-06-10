@@ -11,6 +11,13 @@ tags:
   - english
   - chinese
 userInputs:
+  - id: output_path
+    label: 輸出路徑
+    description: Skill 執行結果的儲存路徑
+    placeholder: "例：output/translate-result.md"
+    required: true
+    type: text
+    multiline: false
   - id: g
     label: 輸入要翻譯的內容
     description: 輸入任何語言的文字，AI 會自動偵測來源語言並翻譯
@@ -26,9 +33,10 @@ useSkills:
 # 多國語言翻譯
 
 ## Purpose
-將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語），交由 idiom-packaging skill 包裝成經典例句或趣味用法，幫助使用者記憶。
+將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語），交由 idiom-packaging skill 包裝成經典例句或趣味用法，幫助使用者記憶。結果以 Markdown 格式輸出至指定路徑。
 
 ## Inputs
+- `output_path` (必填)：執行結果的儲存路徑
 - `g` (必填)：要翻譯的原文，支援任何語言
 
 ## Deterministic Script
@@ -36,11 +44,12 @@ useSkills:
 ### Tool Access
 - LLM 翻譯能力（直接用 AI model）
 - idiom-packaging skill（處理特殊詞彙）
+- 檔案寫入（將結果寫入 `output_path`）
 
 ### Execution Steps
 
 1. **解析輸入**
-   - 取得 `g`（原文）
+   - 取得 `g`（原文）與 `output_path`（輸出路徑）
    - 設定 `target_lang` = `en`、`source_lang` = `auto`（根據文字內容自動偵測）
    - 如果 `g` 是單一單字或短詞（≤ 5 字元且不含標點），切換至「單字翻譯模式」
    - 如果 `g` 包含指令性文字（如「幫我翻譯...」「translate...」），自動提取實際文字內容
@@ -60,23 +69,48 @@ useSkills:
      - 文化特定詞（culture）
      - 雙關語（pun）
    - 每個特殊詞彙標註類型與對應翻譯
-   - 呼叫 `idiom-packaging` skill 為每個詞彙產出包裝內容
+   - 呼叫 `idiom-packaging` skill 為每個詞彙產出包裝內容（經典例句 + 趣味用法）
 
-4. **組合輸出**
-   - 翻譯結果文字
-   - 特殊詞彙列表（含包裝後的例句/趣味用法）
-   - 發音提示（目標語言為英文時提供音標）
+4. **組合 Markdown 輸出**
+   - 按以下格式組合結果：
+
+   ```markdown
+   # 翻譯結果 Translation Result
+
+   ## 原文 (Source)
+   {原文}
+
+   ## 譯文 (Translation)
+   {翻譯結果}
+
+   ---
+
+   ## 特殊詞彙 Special Vocabulary
+   {每個特殊詞彙：原文 → 翻譯（類型）、經典例句、趣味用法}
+
+   ---
+
+   ## 翻譯筆記 Translation Notes
+   {翻譯決策說明、保留原文的專有名詞、文化背景註解}
+   ```
+
+5. **寫入檔案**
+   - 將組合後的 Markdown 寫入 `output_path` 指定的路徑
+   - 回傳 JSON 結構（含 `output_path`、翻譯摘要）
 
 ### Business Rules
 - 翻譯必須保留原文語境，不可失去情感色彩
 - 單字翻譯模式觸發條件：`g` 長度 ≤ 5 字元且不含標點符號
 - 支援語言：zh-TW, zh-CN, en, ja, ko, fr, de, es, it, pt, ru, th, vi, id
 - 不支援的語言代碼 → 回傳錯誤訊息並列出支援語言
+- `output_path` 必須以 `.md` 結尾；若無副檔名，自動補上 `.md`
 
 ### Error Handling
 - `g` 為空或純空白 → 回傳 `{ "error": "SYS_TRANSLATE_EMPTY_INPUT", "message": "請提供要翻譯的文字" }`
+- `output_path` 為空 → 回傳 `{ "error": "SYS_TRANSLATE_NO_OUTPUT_PATH", "message": "請提供輸出路徑" }`
 - 翻譯失敗 → 回傳原文 + 錯誤原因，建議使用者換個說法重試
 - idiom-packaging 呼叫失敗 → 仍回傳翻譯結果，特殊詞彙僅保留基本翻譯不附包裝內容
+- 檔案寫入失敗 → 回傳 `{ "error": "SYS_TRANSLATE_WRITE_FAILED", "message": "無法寫入 {output_path}" }`，附上翻譯內容供手動儲存
 
 ## Guardrails
 - 不翻譯違法、仇恨、暴力或色情內容 → 回傳拒絕訊息
@@ -89,6 +123,7 @@ useSkills:
 
 ```json
 {
+  "output_path": "output/translate-result.md",
   "translation": "翻譯結果文字",
   "source_lang": "zh-TW",
   "target_lang": "en",
@@ -126,7 +161,9 @@ useSkills:
 ```
 
 ## Validation
+- `output_path` 不為空且以 `.md` 結尾
 - `translation` 不為空且不為原文照搬
 - `special_words` 陣列中每個物件的 `type` 必須是 idiom|slang|jargon|culture|pun 之一
 - `special_words[].packaged.classic_sentence` 必須包含該詞彙
+- Markdown 檔案成功寫入 `output_path`
 - JSON 格式正確，無缺漏欄位

@@ -45,3 +45,7 @@ crews/conversation/
 data/config/providers.json
 data/providers.json
 packages/data/
+node_modules/
+.DS_Store
+data/skills/.test-output/
+data/skills/building/*/test-*
