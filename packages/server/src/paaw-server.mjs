@@ -1275,9 +1275,14 @@ async function paawApiHandler(req, res) {
     const { writeFile: writePromptFile, unlink: removePromptFile } = await import("fs/promises");
     await writePromptFile(promptFile, fullPrompt, "utf-8");
     // 5. Spawn CLI non-interactively
-    const cliBin = process.env.QWEN_BIN || "qwen";
+    const _platform = process.platform;
+    const _cliBins = { qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" }, claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" }, opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" } };
+    const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
+    const cliBin = process.env.QWEN_BIN || _cliBins[cli]?.[_binKey] || cli;
+    const spawnOpts = { cwd: cwd || PAAW_ROOT, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
+    if (_platform === "win32") { spawnOpts.shell = true; }
     const args = ["-o", "text", "--approval-mode", "yolo", "--max-tool-calls", String(maxToolCalls), promptFile];
-    const child = spawn(cliBin, args, { cwd: cwd || PAAW_ROOT, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(cliBin, args, spawnOpts);
     let stderr = "";
     let stdout = "";
     let finished = false;
