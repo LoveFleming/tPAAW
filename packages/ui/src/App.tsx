@@ -9,6 +9,7 @@ import SkillBuilder from "./pages/SkillBuilder";
 import AppLab from "./pages/AppLab";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
+import VibeCoding from "./pages/VibeCoding";
 import WorkflowEditor from "./pages/WorkflowEditor";
 import WorkflowExec from "./pages/WorkflowExec";
 import FileViewer from "./pages/FileViewer";
@@ -385,6 +386,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openVibeCoding = useCallback(() => {
+    const tabId = `${currentScope}:vibe-coding`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openWorkflowEditor = useCallback(() => {
     const tabId = `${currentScope}:wf-editor`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -425,6 +432,7 @@ function AppInner() {
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
+    if (pageType === "vibe-coding") return t("sidebar.vibeCoding");
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
     if (pageType.startsWith("skillapp.")) {
@@ -507,6 +515,9 @@ function AppInner() {
     }
     if (pageType === "cronjobs") {
       return <CronJobsPage />;
+    }
+    if (pageType === "vibe-coding") {
+      return <VibeCoding />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;
@@ -697,6 +708,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":wf-exec")} label="Workflows" onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":vibe-coding")} label={t("sidebar.vibeCoding")} onClick={openVibeCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
