@@ -2,6 +2,7 @@
  * Chat routes — CRUD + SSE streaming with Context Engine
  */
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
+import { readFileSync, appendFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 
@@ -11,6 +12,27 @@ const PAAW_DATA_DIR = resolve(PAAW_ROOT, "data");
 const PAAW_USER_FILE = resolve(PAAW_DATA_DIR, "user.json");
 const PAAW_CHAT_DIR = resolve(PAAW_DATA_DIR, "chats");
 const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
+const AI_INTERACTIONS_DIR = resolve(PAAW_ROOT, "logs/ai-interactions");
+const DISTILL_CONFIG_FILE = resolve(PAAW_ROOT, "data/config/distill.json");
+
+// Helper to log AI interactions for distillation
+function logAiChatInteraction(data) {
+  try {
+    // Load config to check if logging is enabled
+    let enabled = true;
+    try {
+      const cfg = JSON.parse(readFileSync(DISTILL_CONFIG_FILE, "utf8"));
+      enabled = cfg.enabled && cfg.logChatMessages;
+    } catch {}
+    if (!enabled) return;
+    mkdirSync(AI_INTERACTIONS_DIR, { recursive: true });
+    const dateStr = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 10);
+    const ts = new Date().toISOString();
+    const entry = { source: "chat", ts, ...data };
+    const logFile = resolve(AI_INTERACTIONS_DIR, `${dateStr}.jsonl`);
+    appendFileSync(logFile, JSON.stringify(entry) + "\n");
+  } catch {}
+}
 
 // Ensure dirs exist
 await mkdir(PAAW_CHAT_DIR, { recursive: true });
@@ -256,6 +278,24 @@ export default async function chatRoutes(req, res) {
 
       res.write("data: [DONE]\n\n");
       res.end();
+
+      // ── Log AI interaction for distillation ──
+      try {
+        // Find the last user message
+        const userMsgs = (messages || []).filter(m => m.role === "user");
+        const lastUser = userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].content : "";
+        // Extract tool names used
+        const toolsUsed = apiMessages.filter(m => m.role === "tool").length > 0
+          ? apiMessages.filter(m => m.role === "assistant" && m.tool_calls).flatMap(m => (m.tool_calls || []).map(tc => tc.function?.name)).filter(Boolean)
+          : [];
+        logAiChatInteraction({
+          user: typeof lastUser === "string" ? lastUser.slice(0, 1000) : JSON.stringify(lastUser).slice(0, 1000),
+          assistant: fullContent.slice(0, 3000),
+          model,
+          provider: providerId,
+          tools: toolsUsed,
+        });
+      } catch {}
     } catch (err) {
       console.error("[chat] Error:", err.message);
       if (!res.headersSent) {
