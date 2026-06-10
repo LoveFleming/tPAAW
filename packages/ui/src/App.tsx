@@ -711,21 +711,8 @@ function AppInner() {
 
             {/* 📁 Workspaces */}
             <SidebarSection title={t("sidebar.workspaces")}>
-              {workspaces.length === 0 && (
-                <div className="px-2 py-3">
-                  <button
-                    onClick={() => setShowDirExplorer(true)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed transition-colors"
-                    style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = themeInfo.accent; e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = themeInfo.accentBorder; e.currentTarget.style.color = themeInfo.accentHover; e.currentTarget.style.backgroundColor = ""; }}
-                  >
-                    ＋ 加入目錄
-                  </button>
-                </div>
-              )}
               {workspaces.map((dir) => (
-                <div key={dir}>
+                <div key={dir} className="group relative">
                   <SidebarFileTree
                     projectRoot={dir}
                     activeFilePath={activeFilePath}
@@ -733,8 +720,24 @@ function AppInner() {
                     onSelectFile={handleSelectFile}
                     onRemoveWorkspace={removeWorkspace}
                   />
+                  <button
+                    onClick={() => removeWorkspace(dir)}
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-stone-400 hover:text-rose-500 hover:bg-rose-50 text-xs"
+                    title="移除此目錄"
+                  >✕</button>
                 </div>
               ))}
+              <div className="px-2 py-1">
+                <button
+                  onClick={() => setShowDirExplorer(true)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed transition-colors"
+                  style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = themeInfo.accent; e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = themeInfo.accentBorder; e.currentTarget.style.color = themeInfo.accentHover; e.currentTarget.style.backgroundColor = ""; }}
+                >
+                  ＋ 加入目錄
+                </button>
+              </div>
             </SidebarSection>
           </div>
 
