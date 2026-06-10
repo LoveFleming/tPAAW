@@ -12,7 +12,7 @@
 
 import { createServer } from "http";
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync, mkdirSync, writeFileSync, appendFileSync, statSync, unlinkSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -3412,6 +3412,24 @@ wss.on("connection", (ws, req) => {
         const cliType = opts.cli || "qwen";
         ptySessions.set(ws, { pty, id: sessionId, cliType, serverPort: opts.serverPort });
 
+        // ── Session logging for Vibe Coding ──
+        const vibeLogDir = resolve(PAAW_ROOT, "logs/vibe-sessions");
+        mkdirSync(vibeLogDir, { recursive: true });
+        const vibeLogFile = resolve(vibeLogDir, `${sessionId}.log`);
+        const vibeMetaFile = resolve(vibeLogDir, `${sessionId}.json`);
+        let vibeLogSize = 0;
+        const stripAnsiForLog = (s) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\].*?\x07/g, "").replace(/\x1b\[\?\d+[hl]/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        // Write session metadata
+        writeFileSync(vibeMetaFile, JSON.stringify({
+          id: sessionId, cli: cliType, model: opts.model || null,
+          cwd: opts.cwd || null, approvalMode: opts.approvalMode || null,
+          systemPrompt: opts.systemPrompt || null,
+          createdAt: new Date().toISOString(), lastActive: new Date().toISOString(),
+        }, null, 2));
+        appendFileSync(vibeLogFile, `# Vibe Coding Session: ${sessionId}\n`);
+        appendFileSync(vibeLogFile, `# CLI: ${cliType} | CWD: ${opts.cwd || PAAW_ROOT} | Mode: ${opts.approvalMode || 'default'}\n`);
+        appendFileSync(vibeLogFile, `# Started: ${new Date().toISOString()}\n\n`);
+
         // ── Detect when CLI is truly ready (not just PTY spawned) ──
         let cliReadyFired = false;
         let cliDoneFired = false;
@@ -3428,6 +3446,14 @@ wss.on("connection", (ws, req) => {
           if (ws.readyState === 1) {
             ws.send(JSON.stringify({ type: "data", data }));
           }
+          // ── Log to vibe session file ──
+          try {
+            const plain = stripAnsiForLog(data);
+            if (plain.trim()) {
+              appendFileSync(vibeLogFile, plain);
+              vibeLogSize += plain.length;
+            }
+          } catch {}
           // Detect CLI ready from output
           if (!cliReadyFired) {
             const plain = stripAnsi(data);
@@ -3473,6 +3499,16 @@ wss.on("connection", (ws, req) => {
       const session = ptySessions.get(ws);
       if (session?.pty) {
         session.pty.write(msg.text || "");
+        // Log user input to vibe session
+        if (session.vibeLogFd !== false) {
+          try {
+            const vibeLogDir2 = resolve(PAAW_ROOT, "logs/vibe-sessions");
+            const metaFile = resolve(vibeLogDir2, `${session.id}.json`);
+            const meta = JSON.parse(readFileSync(metaFile, "utf8"));
+            meta.lastActive = new Date().toISOString();
+            writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+          } catch {}
+        }
       }
     }
     else if (msg.type === "multiline") {
@@ -3513,6 +3549,151 @@ wss.on("connection", (ws, req) => {
 });
 
 console.log(`[PTY-WS] WebSocket server listening on ws://127.0.0.1:${WS_PORT}`);
+
+// ── Vibe Coding Session APIs ──
+const VIBE_SESSIONS_DIR = resolve(PAAW_ROOT, "logs/vibe-sessions");
+
+// List all vibe sessions
+app.get("/api/vibe-sessions", async (req, res) => {
+  try {
+    mkdirSync(VIBE_SESSIONS_DIR, { recursive: true });
+    const files = readdirSync(VIBE_SESSIONS_DIR).filter(f => f.endsWith(".json"));
+    const sessions = [];
+    for (const f of files) {
+      try {
+        const meta = JSON.parse(readFileSync(resolve(VIBE_SESSIONS_DIR, f), "utf8"));
+        const logFile = resolve(VIBE_SESSIONS_DIR, f.replace(".json", ".log"));
+        let logSize = 0;
+        try { logSize = statSync(logFile).size; } catch {}
+        sessions.push({ ...meta, logSize });
+      } catch {}
+    }
+    sessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(sessions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get one session's raw log
+app.get("/api/vibe-sessions/:id/log", async (req, res) => {
+  try {
+    const logPath = resolve(VIBE_SESSIONS_DIR, `${req.params.id}.log`);
+    if (!existsSync(logPath)) return res.status(404).json({ error: "Log not found" });
+    const content = readFileSync(logPath, "utf8");
+    res.type("text/plain").send(content);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get one session's metadata
+app.get("/api/vibe-sessions/:id", async (req, res) => {
+  try {
+    const metaPath = resolve(VIBE_SESSIONS_DIR, `${req.params.id}.json`);
+    if (!existsSync(metaPath)) return res.status(404).json({ error: "Session not found" });
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    const logPath = resolve(VIBE_SESSIONS_DIR, `${req.params.id}.log`);
+    try { meta.logSize = statSync(logPath).size; } catch {}
+    res.json(meta);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Distill (summarize) a session log → save to knowledge
+app.post("/api/vibe-sessions/:id/distill", async (req, res) => {
+  try {
+    const metaPath = resolve(VIBE_SESSIONS_DIR, `${req.params.id}.json`);
+    const logPath = resolve(VIBE_SESSIONS_DIR, `${req.params.id}.log`);
+    if (!existsSync(metaPath) || !existsSync(logPath)) return res.status(404).json({ error: "Session not found" });
+
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    let logContent = readFileSync(logPath, "utf8");
+    // Trim if too large (keep last 30K chars for LLM context)
+    if (logContent.length > 30000) {
+      logContent = "... (前半省略) ...\n\n" + logContent.slice(-30000);
+    }
+
+    const { prompt: customPrompt } = req.body || {};
+    const distillPrompt = customPrompt || `你是程式開發知識蒸餾器。請分析以下 AI CLI coding session 的完整 log，精煉出：
+
+1. **任務摘要**：做了什麼、為什麼做
+2. **關鍵決策**：選擇了什麼方案、為什麼
+3. **技術要點**：用到的技術、工具、技巧
+4. **遇到的問題與解法**：bug、error、如何解決
+5. **產出的成果**：建立了哪些檔案、功能
+6. **可復用的模式**：值得記住的模式、最佳實踐
+
+請用 Markdown 格式輸出，簡潔但有價值。這個摘要會存入知識庫供未來參考。`;
+
+    // Use the configured CLI to do the distillation
+    const distillCli = req.body?.cli || "qwen";
+    const config = CLI_CONFIGS[distillCli];
+    if (!config) return res.status(400).json({ error: `Unknown CLI: ${distillCli}` });
+
+    // For simplicity, use the PAAW chat API to distill
+    // We'll send to the internal LLM endpoint
+    const fullPrompt = `${distillPrompt}\n\n---\nSession: ${meta.cli} | CWD: ${meta.cwd} | Mode: ${meta.approvalMode}\nDate: ${meta.createdAt}\n\n<log>\n${logContent}\n</log>`;
+
+    // Try using the models API for distillation
+    let distilled = null;
+    try {
+      const { modelsRouter } = await import("./routes/models.mjs");
+      // Internal direct LLM call
+      const modelId = req.body?.model || "qwen/qwen3-235b-a22b";
+      const llmRes = await fetch(`http://127.0.0.1:${PORT}/api/models?cli=qwen&prompt=${encodeURIComponent(fullPrompt)}&model=${encodeURIComponent(modelId)}`);
+      if (llmRes.ok) {
+        const reader = llmRes.body?.getReader();
+        const chunks = [];
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(new TextDecoder().decode(value));
+        }
+        distilled = chunks.join("");
+      }
+    } catch {}
+
+    // Fallback: just save the raw analysis prompt for manual distillation
+    if (!distilled || distilled.length < 50) {
+      // Try simple approach: just read from a temp file after CLI processes it
+      distilled = `# Vibe Coding Session 摘要\n\n**Session:** ${meta.id}\n**CLI:** ${meta.cli}\n**工作目錄:** ${meta.cwd}\n**時間:** ${meta.createdAt}\n\n> ⚠️ 自動蒸餾失敗，原始 log 已保存。你可以手動貼到 AI 做摘要。\n\n---\n\n${logContent.slice(0, 5000)}${logContent.length > 5000 ? "\n\n... (截斷)" : ""}`;
+    }
+
+    // Save distilled result to knowledge
+    const knowledgeDir = resolve(PAAW_ROOT, "knowledge/vibe-sessions");
+    mkdirSync(knowledgeDir, { recursive: true });
+    const dateStr = meta.createdAt.replace(/[:.]/g, "-").slice(0, 19);
+    const distillFile = resolve(knowledgeDir, `${dateStr}-${meta.cli}-session.md`);
+    const md = `# Vibe Coding Session 摘要\n\n**Session ID:** ${meta.id}\n**CLI:** ${meta.cli} ${meta.model ? "(" + meta.model + ")" : ""}\n**工作目錄:** ${meta.cwd}\n**執行模式:** ${meta.approvalMode}\n**時間:** ${meta.createdAt}\n\n---\n\n${distilled}\n\n---\n*蒸餾時間: ${new Date().toISOString()}*\n`;
+    writeFileSync(distillFile, md);
+
+    // Update meta
+    meta.distilled = true;
+    meta.distillFile = distillFile;
+    meta.distilledAt = new Date().toISOString();
+    writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+
+    res.json({ success: true, file: distillFile, content: md });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a session log
+app.delete("/api/vibe-sessions/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const metaPath = resolve(VIBE_SESSIONS_DIR, `${id}.json`);
+    const logPath = resolve(VIBE_SESSIONS_DIR, `${id}.log`);
+    try { unlinkSync(metaPath); } catch {}
+    try { unlinkSync(logPath); } catch {}
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── Cron Job Scheduler ──
 const CRON_JOBS_FILE = resolve(PAAW_ROOT, "factories/default/cron-jobs.json");
