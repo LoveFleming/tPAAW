@@ -1267,35 +1267,51 @@ async function paawApiHandler(req, res) {
     await mkdir(testDir, { recursive: true });
     // 2. SSE headers
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
-    const sendEvent = (obj) => { res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    const sendEvent = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
     // 3. Build full prompt with output dir
     const fullPrompt = `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${testDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
-    // 4. Spawn CLI non-interactively
+    // 4. Write prompt to temp file (Windows safe — no /dev/stdin)
+    const promptFile = join(testDir, "_prompt.txt");
+    const { writeFile: writePromptFile, unlink: removePromptFile } = await import("fs/promises");
+    await writePromptFile(promptFile, fullPrompt, "utf-8");
+    // 5. Spawn CLI non-interactively
     const cliBin = process.env.QWEN_BIN || "qwen";
-    const args = ["-o", "text", "--approval-mode", "yolo", "--max-tool-calls", String(maxToolCalls), "/dev/stdin"];
+    const args = ["-o", "text", "--approval-mode", "yolo", "--max-tool-calls", String(maxToolCalls), promptFile];
     const child = spawn(cliBin, args, { cwd: cwd || PAAW_ROOT, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] });
     let stderr = "";
     let stdout = "";
+    let finished = false;
     child.stdout.on("data", (d) => { stdout += d.toString(); });
     child.stderr.on("data", (d) => { stderr += d.toString(); });
+    child.on("error", (err) => {
+      if (finished) return; finished = true;
+      clearTimeout(timer); clearInterval(heartbeat);
+      sendEvent({ type: "error", message: `CLI 執行失敗: ${err.message}` });
+      try { res.end(); } catch {}
+      removePromptFile(promptFile).catch(() => {});
+    });
     // Heartbeat every 5s
     const heartbeat = setInterval(() => sendEvent({ type: "heartbeat" }), 5000);
     const timer = setTimeout(() => {
+      if (finished) return; finished = true;
       child.kill();
       clearInterval(heartbeat);
       sendEvent({ type: "error", message: `Timeout after ${timeout}s` });
-      res.end();
+      try { res.end(); } catch {}
+      removePromptFile(promptFile).catch(() => {});
     }, timeout * 1000);
-    child.stdin.write(fullPrompt);
-    child.stdin.end();
     child.on("close", async (code) => {
+      if (finished) return; finished = true;
       clearTimeout(timer);
       clearInterval(heartbeat);
-      // 5. Scan test dir for output files
+      // 6. Clean up prompt file
+      removePromptFile(promptFile).catch(() => {});
+      // 7. Scan test dir for output files
       try {
         const entries = await readdir(testDir);
         const files = [];
         for (const name of entries) {
+          if (name === "_prompt.txt") continue; // skip prompt file
           const fp = join(testDir, name);
           const s = await stat(fp);
           if (s.isFile()) {
@@ -1315,7 +1331,7 @@ async function paawApiHandler(req, res) {
       } catch (err) {
         sendEvent({ type: "done", exitCode: code, testDir, files: [], error: err.message, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
       }
-      res.end();
+      try { res.end(); } catch {}
     });
     return true;
   }
