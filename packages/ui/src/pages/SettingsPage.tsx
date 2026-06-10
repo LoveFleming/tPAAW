@@ -14,7 +14,7 @@ interface ProviderData {
 export default function SettingsPage() {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTab] = useState<"profile" | "providers" | "cli" | "language">("profile");
+  const [tab, setTab] = useState<"profile" | "providers" | "cli" | "skill" | "language">("profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [installedClis, setInstalledClis] = useState<Record<string, { installed: boolean; bin: string; name: string }>>({});
   const [cliConfig, setCliConfig] = useState({ defaultCli: "", defaultModel: "" });
   const [cliModels, setCliModels] = useState<{ id: string; name: string }[]>([]);
+  const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
 
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw/providers`)
@@ -55,6 +56,10 @@ export default function SettingsPage() {
       .then(data => {
         if (data?.configured) setCliConfig({ defaultCli: data.defaultCli || "", defaultModel: data.defaultModel || "" });
       })
+      .catch(() => {});
+    fetch(`${API_BASE}/api/paaw/skill-config`)
+      .then(r => r.json())
+      .then(data => { if (data) setSkillConfig({ testTimeout: data.testTimeout || 600, maxToolCalls: data.maxToolCalls || 50 }); })
       .catch(() => {});
   }, []);
 
@@ -165,6 +170,9 @@ export default function SettingsPage() {
           </button>
           <button onClick={() => setTab("cli")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "cli" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🛠️ CLI
+          </button>
+          <button onClick={() => setTab("skill")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "skill" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🔨 Skill Builder
           </button>
           <button onClick={() => setTab("language")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "language" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🌐 {t("settings.language")}
@@ -318,6 +326,36 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
+        {/* Skill Builder tab */}
+        {tab === "skill" && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">測試執行設定</label>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">⏱️ 測試逾時（秒）</label>
+                  <input type="number" value={skillConfig.testTimeout} onChange={e => { setSkillConfig(prev => ({ ...prev, testTimeout: Math.max(60, parseInt(e.target.value) || 600) })); setSaved(false); }} min={60} step={60} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">預設 600 秒（10 分鐘），最少 60 秒</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">🔧 最大 Tool Call 次數</label>
+                  <input type="number" value={skillConfig.maxToolCalls} onChange={e => { setSkillConfig(prev => ({ ...prev, maxToolCalls: Math.max(1, parseInt(e.target.value) || 50) })); setSaved(false); }} min={1} max={200} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">預設 50，影響 CLI 執行深度</p>
+                </div>
+              </div>
+            </div>
+            <button onClick={async () => {
+              setSaving(true);
+              try {
+                await fetch(`${API_BASE}/api/paaw/skill-config`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(skillConfig) });
+                setSaved(true); setTimeout(() => setSaved(false), 2000);
+              } catch {} setSaving(false);
+            }} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 Skill Builder 設定"}
+            </button>
+          </div>
+        )}
+
         {/* Language tab */}
         {tab === "language" && (
           <div className="space-y-4">

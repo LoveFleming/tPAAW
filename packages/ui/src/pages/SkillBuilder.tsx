@@ -264,6 +264,7 @@ export default function SkillBuilder() {
 
   // Skill creator
   const [skillCreatorContent, setSkillCreatorContent] = useState("");
+  const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
 
   // Test state
   const [testInputs, setTestInputs] = useState<Record<string, string>>({});
@@ -289,6 +290,10 @@ export default function SkillBuilder() {
     fetch(`${API_BASE}/api/skill-lab/build-files`).then(r => r.ok ? r.json() : []).then((f: TrainingFile[]) => setFiles(f)).catch(() => {});
   }, []);
   useEffect(() => { loadFiles(); }, [loadFiles]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/skill-config`).then(r => r.json()).then(data => { if (data) setSkillConfig({ testTimeout: data.testTimeout || 600, maxToolCalls: data.maxToolCalls || 50 }); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw-root`).then(r => r.ok ? r.json() : {}).then((d: { paawRoot?: string }) => { if (d.paawRoot) setWorkingDir(d.paawRoot); }).catch(() => {});
@@ -396,7 +401,7 @@ export default function SkillBuilder() {
       const res = await fetch(`${API_BASE}/api/skill-test/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined, timeout: 600, maxToolCalls: 50 }),
+        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined, timeout: skillConfig.testTimeout, maxToolCalls: skillConfig.maxToolCalls }),
       });
 
       const reader = res.body?.getReader();

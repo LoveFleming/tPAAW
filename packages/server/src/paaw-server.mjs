@@ -1229,6 +1229,34 @@ async function paawApiHandler(req, res) {
     return true;
   }
 
+  // GET /api/paaw/skill-config — get Skill Builder settings
+  if (req.method === "GET" && path === "/api/paaw/skill-config") {
+    try {
+      const filePath = resolve(PAAW_DATA_DIR, "skill-config.json");
+      const data = await readFile(filePath, "utf-8").catch(() => null);
+      const config = data ? JSON.parse(data) : { testTimeout: 600, maxToolCalls: 50 };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(config));
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ testTimeout: 600, maxToolCalls: 50 }));
+    }
+    return true;
+  }
+
+  // POST /api/paaw/skill-config — save Skill Builder settings
+  if (req.method === "POST" && path === "/api/paaw/skill-config") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      await writeFile(resolve(PAAW_DATA_DIR, "skill-config.json"), JSON.stringify(body, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // POST /api/skill-test/run — non-interactive CLI test: create dir → run → scan files → SSE result
   if (req.method === "POST" && req.url === "/api/skill-test/run") {
     const body = JSON.parse(await readBody(req));
