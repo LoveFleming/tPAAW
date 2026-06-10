@@ -295,7 +295,8 @@ export default function SkillBuilder() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(`${workingDir || "."}/data/skills/physical-skill/skill-creator/SKILL.md`)}`)
+    if (!workingDir) return;
+    fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(`${workingDir}/data/skills/physical-skill/skill-creator/SKILL.md`)}`)
       .then(r => r.ok ? r.json() : null).then((data) => { if (data?.content) setSkillCreatorContent(data.content); }).catch(() => {});
   }, [workingDir]);
 
