@@ -106,27 +106,27 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
 
         const term = new Terminal({
             theme: {
-                background: "#1a1a2e",
-                foreground: "#e0e0e0",
-                cursor: "#ffbd2e",
-                cursorAccent: "#1a1a2e",
-                selectionBackground: "#444466",
-                black: "#1a1a2e",
-                red: "#ff6b6b",
-                green: "#51cf66",
-                yellow: "#ffbd2e",
-                blue: "#5c9eff",
-                magenta: "#cc78fa",
-                cyan: "#56d4dd",
-                white: "#e0e0e0",
-                brightBlack: "#666680",
-                brightRed: "#ff8787",
-                brightGreen: "#69db7c",
-                brightYellow: "#ffd43b",
-                brightBlue: "#74b0ff",
-                brightMagenta: "#d49bfa",
-                brightCyan: "#66e0e8",
-                brightWhite: "#ffffff",
+                background: "#1e1e2e",
+                foreground: "#cdd6f4",
+                cursor: "#f5c2e7",
+                cursorAccent: "#1e1e2e",
+                selectionBackground: "#585b7066",
+                black: "#45475a",
+                red: "#f38ba8",
+                green: "#a6e3a1",
+                yellow: "#f9e2af",
+                blue: "#89b4fa",
+                magenta: "#cba6f7",
+                cyan: "#94e2d5",
+                white: "#bac2de",
+                brightBlack: "#585b70",
+                brightRed: "#f38ba8",
+                brightGreen: "#a6e3a1",
+                brightYellow: "#f9e2af",
+                brightBlue: "#89b4fa",
+                brightMagenta: "#cba6f7",
+                brightCyan: "#94e2d5",
+                brightWhite: "#a6adc8",
             },
             fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
             fontSize: 14,
@@ -376,7 +376,7 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
             {/* Terminal display */}
             <div
                 ref={containerRef}
-                className="flex-1 min-h-0 bg-[#1a1a2e] rounded-t-lg overflow-hidden"
+                className="flex-1 min-h-0 bg-[#1e1e2e] rounded-t-lg overflow-hidden"
                 style={{ padding: "4px 4px 0 4px" }}
                 onClick={() => {
                     if (termRef.current) termRef.current.focus();
@@ -384,7 +384,7 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
             />
 
             {/* Status bar */}
-            <div className="shrink-0 bg-[#0d1117] px-3 py-2 rounded-b-lg" style={{ borderTop: '1px solid #30363d' }}>
+            <div className="shrink-0 bg-[#181825] px-3 py-2 rounded-b-lg" style={{ borderTop: '1px solid #313244' }}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${connected && ready ? "bg-emerald-500" : connected ? "bg-yellow-500 animate-pulse" : "bg-red-500"}`} />
@@ -397,7 +397,7 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
                         <button
                             onClick={restartSession}
                             className="px-2 py-1 rounded text-[10px] font-bold text-[#8b949e] hover:text-white transition-colors"
-                            style={{ backgroundColor: '#21262d', border: '1px solid #30363d' }}
+                            style={{ backgroundColor: '#313244', border: '1px solid #45475a' }}
                             title="Kill and restart session"
                         >
                             <Icon name="restart" size={14} /> Restart

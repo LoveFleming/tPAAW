@@ -650,7 +650,7 @@ export default function SkillBuilder() {
         </div>
 
         {/* ━━ Right Panel ━━ */}
-        <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1a1a2e" }}>
+        <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1e1e2e" }}>
 
           {/* Builder: interactive CLI */}
           {tab === "builder" && (
