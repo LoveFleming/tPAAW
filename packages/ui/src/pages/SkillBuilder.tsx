@@ -396,7 +396,7 @@ export default function SkillBuilder() {
       const res = await fetch(`${API_BASE}/api/skill-test/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined }),
+        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined, timeout: 600, maxToolCalls: 50 }),
       });
 
       const reader = res.body?.getReader();
