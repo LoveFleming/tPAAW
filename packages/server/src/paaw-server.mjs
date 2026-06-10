@@ -510,7 +510,7 @@ ${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞�
       res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
       res.write(JSON.stringify({ type: "status", data: { message: "Translate: skill 執行中..." } }) + "\n");
 
-      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", systemPrompt];
+      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "10", systemPrompt];
 
       const ptyProc = ptySpawn(resolvedBin, cliArgs, {
         name: "xterm-256color",
@@ -654,7 +654,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     // Use prompt via file to avoid arg length limits
     let cliArgs;
     if (cliName === "qwen") {
-      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "30", systemPrompt];
+      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "30", systemPrompt];
     } else if (cliName === "claude") {
       cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", systemPrompt, "--output-format", "text"];
     } else if (cliName === "opencode") {
@@ -861,7 +861,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     // Build CLI-specific args
     let cliArgs;
     if (cliName === "qwen") {
-      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "20", prompt];
+      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt];
     } else if (cliName === "claude") {
       cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", prompt, "--output-format", "text"];
     } else if (cliName === "opencode") {
@@ -1283,7 +1283,7 @@ async function paawApiHandler(req, res) {
     const spawnCwd = cwd || PAAW_ROOT;
     const spawnOpts = { cwd: spawnCwd, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
     if (_platform === "win32") { spawnOpts.shell = true; }
-    const args = ["-o", "text", "--approval-mode", "yolo", "--max-tool-calls", String(maxToolCalls), promptFile];
+    const args = ["-o", "text", "--approval-mode", "yolo", "--max-session-turns", String(maxToolCalls), promptFile];
     // Send debug info to frontend
     sendEvent({ type: "debug", cliBin, args, cwd: spawnCwd, platform: _platform, promptFile, testDir: relTestDir });
     console.log(`[skill-test] spawn: ${cliBin} ${args.join(" ")}, cwd=${spawnCwd}, platform=${_platform}`);
@@ -1387,7 +1387,7 @@ async function paawApiHandler(req, res) {
       const cliArgs = [
         "--approval-mode", "yolo",
         "-o", "text",
-        "--max-tool-calls", String(maxToolCalls),
+        "--max-session-turns", String(maxToolCalls),
         "/dev/stdin",
       ];
 
@@ -3567,7 +3567,7 @@ async function runCronJob(job) {
     }
 
     const appDir = resolve(PAAW_ROOT, "skills/physical-skill", job.reportAppId);
-    const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "20", prompt], {
+    const child = spawn("qwen", ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {
       cwd: appDir,
       env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
