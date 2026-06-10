@@ -1280,9 +1280,13 @@ async function paawApiHandler(req, res) {
     const _cliBins = { qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" }, claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" }, opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" } };
     const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
     const cliBin = process.env.QWEN_BIN || _cliBins[cli]?.[_binKey] || cli;
-    const spawnOpts = { cwd: cwd || PAAW_ROOT, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
+    const spawnCwd = cwd || PAAW_ROOT;
+    const spawnOpts = { cwd: spawnCwd, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
     if (_platform === "win32") { spawnOpts.shell = true; }
     const args = ["-o", "text", "--approval-mode", "yolo", "--max-tool-calls", String(maxToolCalls), promptFile];
+    // Send debug info to frontend
+    sendEvent({ type: "debug", cliBin, args, cwd: spawnCwd, platform: _platform, promptFile, testDir: relTestDir });
+    console.log(`[skill-test] spawn: ${cliBin} ${args.join(" ")}, cwd=${spawnCwd}, platform=${_platform}`);
     const child = spawn(cliBin, args, spawnOpts);
     let stderr = "";
     let stdout = "";
@@ -1292,7 +1296,8 @@ async function paawApiHandler(req, res) {
     child.on("error", (err) => {
       if (finished) return; finished = true;
       clearTimeout(timer); clearInterval(heartbeat);
-      sendEvent({ type: "error", message: `CLI 執行失敗: ${err.message}` });
+      console.error(`[skill-test] spawn error:`, err);
+      sendEvent({ type: "error", message: `CLI 執行失敗: ${err.message}\ncmd: ${cliBin} ${args.join(" ")}\ncwd: ${spawnCwd}` });
       try { res.end(); } catch {}
       removePromptFile(promptFile).catch(() => {});
     });
@@ -1312,6 +1317,7 @@ async function paawApiHandler(req, res) {
       clearInterval(heartbeat);
       // 6. Clean up prompt file
       removePromptFile(promptFile).catch(() => {});
+      console.log(`[skill-test] close: code=${code}, stdout=${stdout.length} chars, stderr=${stderr.length} chars`);
       // 7. Scan test dir for output files
       try {
         const entries = await readdir(testDir);
@@ -1340,7 +1346,8 @@ async function paawApiHandler(req, res) {
           await writeFallback(fallbackFile, stdout, "utf-8");
           files.push({ name: "output.md", path: fallbackFile, size: Buffer.byteLength(stdout), type: "markdown", ext: "md" });
         }
-        sendEvent({ type: "done", exitCode: code, testDir, files, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
+        const noFilesMsg = files.length === 0 ? `\n\nDebug info:\n- CLI bin: ${cliBin}\n- Exit code: ${code}\n- CWD: ${spawnCwd}\n- Test dir: ${relTestDir}\n- stdout (${stdout.length} chars): ${stdout.slice(0, 500) || "(empty)"}\n- stderr (${stderr.length} chars): ${stderr.slice(0, 500) || "(empty)"}` : "";
+        sendEvent({ type: "done", exitCode: code, testDir, files, stdout: stdout.slice(-2000), stderr: stderr.slice(-500), debug: noFilesMsg });
       } catch (err) {
         sendEvent({ type: "done", exitCode: code, testDir, files: [], error: `${err.message}\n\nCLI stdout:\n${stdout.slice(-1000)}\n\nCLI stderr:\n${stderr.slice(-500)}`, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
       }
