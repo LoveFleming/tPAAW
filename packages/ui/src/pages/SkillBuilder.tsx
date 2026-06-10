@@ -630,7 +630,7 @@ export default function SkillBuilder() {
                   </button>
                   {hasEmptyRequired && !testRunning && <span className="text-[11px] text-rose-400">⚠️ 請填寫所有必填欄位</span>}
                 </div>
-              )
+              )}
             </div>
           )}
         </div>
