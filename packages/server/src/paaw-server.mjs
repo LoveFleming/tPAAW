@@ -40,6 +40,7 @@ const SKILL_POOL_ROOT = resolve(SKILLS_ROOT, "pool");
 const SYSTEM_DIR = resolve(PAAW_ROOT, "data/system");
 const APPS_ROOT = resolve(PAAW_ROOT, "data/apps");
 const WORKFLOWS_ROOT = resolve(PAAW_ROOT, "data/workflows");
+const DATA_ROOT = resolve(PAAW_ROOT, "data");
 
 const PORT = parseInt(process.env.PAAW_PORT || "4097", 10);
 
