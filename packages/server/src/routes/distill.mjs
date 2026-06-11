@@ -91,6 +91,22 @@ const DEFAULT_CONFIG = {
 3. 有什麼值得注意的異常
 用 Markdown 格式輸出。`,
     },
+    "vibe-coding": {
+      enabled: true,
+      label: "💻 Vibe Coding 行為",
+      description: "記錄 IDE 中的 coding 行為（開檔、編輯、存檔、AI 對話）",
+      color: "#8B5CF6",
+      maxEntriesPerDistill: 300,
+      distillPrompt: `你是程式開發知識蒸餾器。請分析以下 Vibe Coding IDE 的操作紀錄，精煉出：
+
+1. **工作模式**：開發者花了最多時間在哪些檔案
+2. **編輯模式**：主要的編輯類型（新增/修改/重構）
+3. **AI 互動**：問了 AI 什麼、AI 回答了什麼
+4. **技術要點**：用到的技術和工具
+5. **開發洞見**：可以改善的工作流程
+
+用 Markdown 格式輸出。`,
+    },
   },
 };
 
@@ -125,7 +141,8 @@ function deepMerge(target, source) {
 export function record(source, data) {
   const config = loadConfig();
   if (!config.enabled) return;
-  if (!config.sources[source]?.enabled) return;
+  // Allow known sources with enabled check, AND unknown sources (always record)
+  if (config.sources[source] !== undefined && !config.sources[source]?.enabled) return;
 
   mkdirSync(resolve(RAW_DIR, source), { recursive: true });
   const dateStr = new Date().toISOString().slice(0, 10);
