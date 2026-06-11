@@ -74,6 +74,10 @@ const server = createServer(async (req, res) => {
     const modChat = await import("./routes/chat.mjs");
     if (await modChat.default(req, res)) return;
   } catch {}
+  try {
+    const modDistill = await import("./routes/distill.mjs");
+    if (await modDistill.default(req, res)) return;
+  } catch {}
 
   // ── Legacy routes (everything else) ──
   const paawHandled = await paawApiHandler(req, res);
@@ -86,10 +90,6 @@ const server = createServer(async (req, res) => {
   // Vibe Sessions API
   const vibeHandled = await vibeSessionsApiHandler(req, res);
   if (vibeHandled) return;
-
-  // Distill API
-  const distilled = await distillApiHandler(req, res);
-  if (distilled) return;
 
   // Helper: resolve directory (PAAW has flat structure, no factory nesting)
   function factoryDir(_factoryId, subdir) {
@@ -3460,14 +3460,14 @@ wss.on("connection", (ws, req) => {
             if (plain.trim()) {
               appendFileSync(vibeLogFile, plain);
               vibeLogSize += plain.length;
-              // Also log to unified AI interactions log (periodic, every ~4KB)
+              // Also log to Memory Distillation Engine (periodic, every ~4KB)
               if (vibeLogSize % 4000 < plain.length) {
-                logAiInteraction("vibe", {
+                getDistillModule().then(m => m.recordVibeOutput({
                   sessionId,
                   cli: cliType,
                   cwd: opts.cwd || null,
                   output: plain.slice(-2000),
-                });
+                })).catch(() => {});
               }
             }
           } catch {}
@@ -3755,181 +3755,17 @@ const vibeSessionsApiHandler = async (req, res) => {
 
   return false;
 };
-// ── AI Interaction Logging + Distillation System ──
-const DISTILL_CONFIG_FILE = resolve(PAAW_ROOT, "data/config/distill.json");
-const AI_INTERACTIONS_DIR = resolve(PAAW_ROOT, "logs/ai-interactions");
-const DISTILL_OUTPUT_DIR = resolve(PAAW_ROOT, "data/knowledge/distilled");
 
-const DEFAULT_DISTILL_CONFIG = {
-  enabled: true,
-  logChatMessages: true,
-  logVibeSessions: true,
-  autoDistill: true,
-  autoDistillSchedule: "0 2 * * *",
-  autoDistillAfterChatMessages: 10,
-  distillPrompt: `你是程式開發知識蒸餾器。請分析以下 AI 互動紀錄，精煉出：
-
-1. **任務摘要**：做了什麼、為什麼做
-2. **關鍵決策**：選擇了什麼方案、為什麼
-3. **技術要點**：用到的技術、工具、技巧
-4. **遇到的問題與解法**：bug、error、如何解決
-5. **產出的成果**：建立了哪些檔案、功能
-6. **可復用的模式**：值得記住的模式、最佳實踐
-
-請用 Markdown 格式輸出，簡潔但有價值。`,
-  maxLogSize: 50000,
-  keepDays: 30,
-};
-
-function loadDistillConfig() {
-  try {
-    const raw = readFileSync(DISTILL_CONFIG_FILE, "utf8");
-    return { ...DEFAULT_DISTILL_CONFIG, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_DISTILL_CONFIG };
-  }
+// ── Memory Distillation Engine (imported from routes/distill.mjs) ──
+// record() / recordChatInteraction() / recordVibeOutput() / distillAll() are in routes/distill.mjs
+// The old inline distill code has been replaced by the modular engine.
+// API routes are handled by the modular distillRouter (loaded in request handler above).
+// Auto-distill scheduler hook:
+let _distillMod = null;
+async function getDistillModule() {
+  if (!_distillMod) { _distillMod = await import("./routes/distill.mjs"); }
+  return _distillMod;
 }
-
-function saveDistillConfigSync(cfg) {
-  mkdirSync(resolve(DISTILL_CONFIG_FILE, ".."), { recursive: true });
-  writeFileSync(DISTILL_CONFIG_FILE, JSON.stringify(cfg, null, 2));
-}
-
-function logAiInteraction(source, data) {
-  const config = loadDistillConfig();
-  if (!config.enabled) return;
-  if (source === "chat" && !config.logChatMessages) return;
-  if (source === "vibe" && !config.logVibeSessions) return;
-  mkdirSync(AI_INTERACTIONS_DIR, { recursive: true });
-  const dateStr = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 10);
-  const ts = new Date().toISOString();
-  const entry = { source, ts, ...data };
-  const logFile = resolve(AI_INTERACTIONS_DIR, `${dateStr}.jsonl`);
-  appendFileSync(logFile, JSON.stringify(entry) + "\n");
-}
-
-async function runAutoDistill() {
-  const config = loadDistillConfig();
-  if (!config.enabled || !config.autoDistill) return;
-  mkdirSync(AI_INTERACTIONS_DIR, { recursive: true });
-  mkdirSync(DISTILL_OUTPUT_DIR, { recursive: true });
-  const files = readdirSync(AI_INTERACTIONS_DIR).filter(f => f.endsWith(".jsonl")).sort();
-  for (const file of files) {
-    const dateStr = file.replace(".jsonl", "");
-    const distillFile = resolve(DISTILL_OUTPUT_DIR, `${dateStr}.md`);
-    if (existsSync(distillFile)) continue;
-    const logFile = resolve(AI_INTERACTIONS_DIR, file);
-    const raw = readFileSync(logFile, "utf8").trim();
-    if (!raw) continue;
-    const entries = raw.split("\n").map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-    if (entries.length === 0) continue;
-    console.log(`[distill] Processing ${file}: ${entries.length} entries`);
-    let content = `# AI 互動紀錄 — ${dateStr}\n\n`;
-    for (const e of entries) {
-      if (e.source === "chat") {
-        content += `## 💬 Chat (${e.ts})\n`;
-        if (e.user) content += `**User:** ${e.user}\n\n`;
-        if (e.assistant) content += `**Assistant:** ${String(e.assistant).slice(0, 2000)}\n\n`;
-        if (e.tools?.length) content += `**Tools used:** ${e.tools.join(", ")}\n\n`;
-      } else if (e.source === "vibe") {
-        content += `## ⚡ Vibe Coding (${e.ts})\n`;
-        content += `CLI: ${e.cli || "unknown"} | CWD: ${e.cwd || ""}\n\n`;
-        content += `\`\`\`\n${(e.output || "").slice(0, 5000)}\n\`\`\`\n\n`;
-      }
-    }
-    if (content.length > config.maxLogSize) content = content.slice(0, config.maxLogSize) + "\n\n... (截斷)";
-    let distilled = null;
-    try {
-      const providerConfig = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf8"));
-      const providerId = providerConfig.active;
-      const provider = providerConfig.providers[providerId];
-      if (provider?.apiKey && provider.apiKey !== "na") {
-        const model = providerConfig.defaultModel || "glm-5.1";
-        const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-        const llmResp = await fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${provider.apiKey}`,
-            ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: config.distillPrompt },
-              { role: "user", content: `以下是一天的 AI 互動紀錄，請蒸餾成知識：\n\n${content}` },
-            ],
-            max_tokens: 4096,
-          }),
-        });
-        if (llmResp.ok) {
-          const data = await llmResp.json();
-          distilled = data.choices?.[0]?.message?.content || null;
-        }
-      }
-    } catch (err) {
-      console.error(`[distill] LLM call failed: ${err.message}`);
-    }
-    const md = distilled || `# AI 互動紀錄 — ${dateStr}\n\n> ⚠️ 自動蒸餾失敗，保留原始紀錄摘要\n\n${content.slice(0, 3000)}`;
-    writeFileSync(distillFile, md);
-    console.log(`[distill] Saved: ${distillFile} (${md.length} chars)`);
-  }
-}
-
-function readBodyStr(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", chunk => { data += chunk; });
-    req.on("end", () => resolve(data));
-    req.on("error", reject);
-  });
-}
-
-// Distill config API
-const distillApiHandler = async (req, res) => {
-  // GET /api/distill-config
-  if (req.method === "GET" && req.url?.match(/^\/api\/distill-config(?:\?.*)?$/)) {
-    const cfg = loadDistillConfig();
-    mkdirSync(AI_INTERACTIONS_DIR, { recursive: true });
-    const logFiles = readdirSync(AI_INTERACTIONS_DIR).filter(f => f.endsWith(".jsonl"));
-    let totalEntries = 0;
-    let totalSize = 0;
-    for (const f of logFiles) {
-      try {
-        totalSize += statSync(resolve(AI_INTERACTIONS_DIR, f)).size;
-        totalEntries += readFileSync(resolve(AI_INTERACTIONS_DIR, f), "utf8").trim().split("\n").length;
-      } catch {}
-    }
-    mkdirSync(DISTILL_OUTPUT_DIR, { recursive: true });
-    const distilledFiles = readdirSync(DISTILL_OUTPUT_DIR).filter(f => f.endsWith(".md"));
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ...cfg, stats: { logFiles: logFiles.length, totalEntries, totalSize, distilledFiles: distilledFiles.length } }));
-    return true;
-  }
-  // PUT /api/distill-config
-  if (req.method === "PUT" && req.url === "/api/distill-config") {
-    let body;
-    try { body = JSON.parse(await readBodyStr(req)); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
-    const current = loadDistillConfig();
-    const updated = { ...current, ...body };
-    saveDistillConfigSync(updated);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(updated));
-    return true;
-  }
-  // POST /api/distill-run
-  if (req.method === "POST" && req.url === "/api/distill-run") {
-    runAutoDistill().then(() => {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    }).catch(err => {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    });
-    return true;
-  }
-  return false;
-};
 
 // ── Cron Job Scheduler ──
 const CRON_JOBS_FILE = resolve(PAAW_ROOT, "factories/default/cron-jobs.json");
@@ -4110,19 +3946,21 @@ setInterval(async () => {
 
 console.log("[cron] Scheduler started, checking every 60s");
 
-// ── Auto-distill scheduler (checks same interval) ──
+// ── Auto-distill scheduler (delegates to routes/distill.mjs) ──
 const lastDistillDate = { date: "" };
 setInterval(async () => {
-  const config = loadDistillConfig();
-  if (!config.enabled || !config.autoDistill) return;
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10);
-  // Only run once per day at the scheduled time
-  if (matchesCron(config.autoDistillSchedule, now) && lastDistillDate.date !== dateStr) {
-    lastDistillDate.date = dateStr;
-    console.log(`[distill] Running auto-distill for ${dateStr}`);
-    runAutoDistill().catch(err => console.error("[distill] Error:", err.message));
-  }
+  try {
+    const mod = await getDistillModule();
+    const config = mod.loadConfig ? mod.loadConfig() : null;
+    if (!config?.enabled || !config?.autoDistill) return;
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    if (mod.matchesCron && mod.matchesCron(config.autoDistillSchedule, now) && lastDistillDate.date !== dateStr) {
+      lastDistillDate.date = dateStr;
+      console.log(`[distill] Running auto-distill for ${dateStr}`);
+      mod.distillAll().catch(err => console.error("[distill] Error:", err.message));
+    }
+  } catch {}
 }, 60_000);
 console.log("[distill] Auto-distill scheduler started");
 // Cron API endpoints (registered inside server handler)

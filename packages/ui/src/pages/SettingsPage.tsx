@@ -63,7 +63,7 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(data => { if (data) setSkillConfig({ testTimeout: data.testTimeout || 600, maxToolCalls: data.maxToolCalls || 50 }); })
       .catch(() => {});
-    fetch(`${API_BASE}/api/distill-config`)
+    fetch(`${API_BASE}/api/distill/config`)
       .then(r => r.json())
       .then(data => { if (data) setDistillConfig(data); })
       .catch(() => {});
@@ -373,19 +373,19 @@ export default function SettingsPage() {
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">📊 紀錄統計</label>
               <div className="grid grid-cols-4 gap-3">
                 <div className="text-center p-3 rounded-lg bg-stone-50">
-                  <div className="text-xl font-bold text-stone-700">{distillConfig.stats?.logFiles || 0}</div>
-                  <div className="text-[10px] text-stone-400 mt-1">天數</div>
+                  <div className="text-xl font-bold text-stone-700">{Object.keys(distillConfig.stats?.sources || {}).reduce((s, k) => s + (distillConfig.stats?.sources?.[k]?.rawFiles || 0), 0)}</div>
+                  <div className="text-[10px] text-stone-400 mt-1">紀錄天數</div>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-stone-50">
-                  <div className="text-xl font-bold text-stone-700">{distillConfig.stats?.totalEntries || 0}</div>
+                  <div className="text-xl font-bold text-stone-700">{distillConfig.stats?.totalRawEntries || 0}</div>
                   <div className="text-[10px] text-stone-400 mt-1">互動次數</div>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-stone-50">
-                  <div className="text-xl font-bold text-stone-700">{(distillConfig.stats?.totalSize || 0) > 1024 * 1024 ? `${((distillConfig.stats?.totalSize || 0) / (1024 * 1024)).toFixed(1)} MB` : `${Math.round((distillConfig.stats?.totalSize || 0) / 1024)} KB`}</div>
+                  <div className="text-xl font-bold text-stone-700">{(distillConfig.stats?.totalRawSize || 0) > 1024 * 1024 ? `${((distillConfig.stats?.totalRawSize || 0) / (1024 * 1024)).toFixed(1)} MB` : `${Math.round((distillConfig.stats?.totalRawSize || 0) / 1024)} KB`}</div>
                   <div className="text-[10px] text-stone-400 mt-1">原始紀錄</div>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-amber-50">
-                  <div className="text-xl font-bold text-amber-600">{distillConfig.stats?.distilledFiles || 0}</div>
+                  <div className="text-xl font-bold text-amber-600">{distillConfig.stats?.totalKnowledgeFiles || 0}</div>
                   <div className="text-[10px] text-amber-500 mt-1">已蒸餾</div>
                 </div>
               </div>
@@ -409,26 +409,25 @@ export default function SettingsPage() {
             <div className="bg-white rounded-xl border border-stone-200 p-5">
               <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">記錄來源</label>
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-medium text-stone-700">💬 Chat 訊息</span>
-                    <p className="text-xs text-stone-400">記錄所有聊天助理的對話內容</p>
+                {Object.entries(distillConfig.sources || {}).map(([key, src]: [string, any]) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-stone-700">{src.label || key}</span>
+                      <p className="text-xs text-stone-400">{src.description || ""}</p>
+                      {distillConfig.stats?.sources?.[key] && (
+                        <span className="text-[10px] text-stone-300">{distillConfig.stats.sources[key].rawEntries || 0} 筆紀錄 · {distillConfig.stats.sources[key].knowledgeFiles || 0} 已蒸餾</span>
+                      )}
+                    </div>
+                    <button onClick={() => {
+                      const updated = { ...distillConfig };
+                      updated.sources = { ...updated.sources, [key]: { ...updated.sources[key], enabled: !updated.sources[key].enabled } };
+                      setDistillConfig(updated); setSaved(false);
+                    }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold ${src.enabled ? "bg-blue-100 text-blue-700" : "bg-stone-100 text-stone-400"}`}>
+                      {src.enabled ? "✓ 開" : "關"}
+                    </button>
                   </div>
-                  <button onClick={() => { setDistillConfig({ ...distillConfig, logChatMessages: !distillConfig.logChatMessages }); setSaved(false); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.logChatMessages ? "bg-blue-100 text-blue-700" : "bg-stone-100 text-stone-400"}`}>
-                    {distillConfig.logChatMessages ? "✓ 開" : "關"}
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-medium text-stone-700">⚡ Vibe Coding</span>
-                    <p className="text-xs text-stone-400">記錄 AI CLI 終端機的輸出</p>
-                  </div>
-                  <button onClick={() => { setDistillConfig({ ...distillConfig, logVibeSessions: !distillConfig.logVibeSessions }); setSaved(false); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.logVibeSessions ? "bg-purple-100 text-purple-700" : "bg-stone-100 text-stone-400"}`}>
-                    {distillConfig.logVibeSessions ? "✓ 開" : "關"}
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
 
@@ -477,10 +476,10 @@ export default function SettingsPage() {
             {/* Manual trigger */}
             <button onClick={async () => {
               setDistillRunning(true);
-              try { await fetch(`${API_BASE}/api/distill-run`, { method: "POST" }); } catch {}
+              try { await fetch(`${API_BASE}/api/distill/run`, { method: "POST" }); } catch {}
               // Reload stats
               try {
-                const r = await fetch(`${API_BASE}/api/distill-config`);
+                const r = await fetch(`${API_BASE}/api/distill/config`);
                 if (r.ok) setDistillConfig(await r.json());
               } catch {}
               setDistillRunning(false);
@@ -493,7 +492,7 @@ export default function SettingsPage() {
             <button onClick={async () => {
               setSaving(true);
               try {
-                await fetch(`${API_BASE}/api/distill-config`, {
+                await fetch(`${API_BASE}/api/distill/config`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(distillConfig),
