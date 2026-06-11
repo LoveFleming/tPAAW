@@ -235,6 +235,7 @@ export default function VibeCodingIDE() {
   const [aiComment, setAiComment] = useState("");
   const [aiCommentLoading, setAiCommentLoading] = useState(false);
   const [gitTab, setGitTab] = useState<"status" | "log" | "diff" | "blame" | "review">("status");
+  const [gitReviews, setGitReviews] = useState<{ id: string; ts: string; comment: string; branch?: string; files?: string[] }[]>([]);
 
   // ── API Tester State ──
   const [apiMethod, setApiMethod] = useState("GET");
@@ -263,22 +264,51 @@ export default function VibeCodingIDE() {
   const activeSession = useMemo(() => sessions.find(s => s.id === activeSessionId), [sessions, activeSessionId]);
 
   // ═══════════════════════════════════════════════
-  // Init: load saved state
+  // Init: load from server APIs (with localStorage fallback)
   // ═══════════════════════════════════════════════
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("paaw.vibeide.sessions");
-      if (saved) { const p = JSON.parse(saved); setSessions(p); if (p.length > 0) setActiveSessionId(p[0].id); }
+    (async () => {
+      // Load sessions from server
+      try {
+        const res = await fetch(`${API_BASE}/api/vibe-sessions`);
+        const data = await res.json();
+        if (data.sessions?.length) { setSessions(data.sessions); setActiveSessionId(data.sessions[0].id); }
+      } catch {
+        // Fallback to localStorage
+        try { const saved = localStorage.getItem("paaw.vibeide.sessions"); if (saved) { const p = JSON.parse(saved); setSessions(p); if (p.length > 0) setActiveSessionId(p[0].id); } } catch {}
+      }
+      // Load root path
       const root = localStorage.getItem("paaw.vibeide.rootPath");
       if (root) { setRootPath(root); expandDir(root); }
-      const hist = localStorage.getItem("paaw.api-tester.history");
-      if (hist) setApiHistory(JSON.parse(hist));
-    } catch {}
+      // Load API history from server
+      try {
+        const res = await fetch(`${API_BASE}/api/api-tester/history`);
+        const data = await res.json();
+        if (data.history?.length) setApiHistory(data.history);
+      } catch {
+        try { const hist = localStorage.getItem("paaw.api-tester.history"); if (hist) setApiHistory(JSON.parse(hist)); } catch {}
+      }
+      // Load AI chat history from server
+      try {
+        const res = await fetch(`${API_BASE}/api/vibe-chat?sessionId=vibe-ide`);
+        const data = await res.json();
+        if (data.messages?.length) setChatMessages(data.messages);
+      } catch {}
+    })();
   }, []);
 
-  useEffect(() => { try { localStorage.setItem("paaw.vibeide.sessions", JSON.stringify(sessions)); } catch {} }, [sessions]);
+  // Persist sessions to server + localStorage
+  useEffect(() => {
+    try { localStorage.setItem("paaw.vibeide.sessions", JSON.stringify(sessions)); } catch {}
+    if (sessions.length >= 0) {
+      fetch(`${API_BASE}/api/vibe-sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessions }) }).catch(() => {});
+    }
+  }, [sessions]);
+
   useEffect(() => { try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {} }, [rootPath]);
-  useEffect(() => { try { localStorage.setItem("paaw.api-tester.history", JSON.stringify(apiHistory.slice(0, 50))); } catch {} }, [apiHistory]);
+  useEffect(() => {
+    try { localStorage.setItem("paaw.api-tester.history", JSON.stringify(apiHistory.slice(0, 50))); } catch {}
+  }, [apiHistory]);
 
   // ═══════════════════════════════════════════════
   // Coding Behavior Tracking → Distillation Engine
@@ -412,7 +442,12 @@ export default function VibeCodingIDE() {
       if (assistantContent) setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" && last.content === assistantContent ? prev : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; });
     } catch (err: any) { setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]); }
     setChatLoading(false);
-  }, [chatInput, chatLoading, activeTab, logEvent]);
+    // Persist chat to server
+    try {
+      const allMsgs = [...chatMessages];
+      fetch(`${API_BASE}/api/vibe-chat?sessionId=vibe-ide`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: allMsgs }) }).catch(() => {});
+    } catch {}
+  }, [chatInput, chatLoading, activeTab, logEvent, chatMessages]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
 
@@ -454,12 +489,29 @@ export default function VibeCodingIDE() {
       const data = await res.json();
       setAiComment(data.comment || "No comment generated");
       setGitTab("review");
+      // Save review to server
+      try {
+        await fetch(`${API_BASE}/api/vibe-git/reviews?path=${encodeURIComponent(rootPath)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comment: data.comment, branch: gitStatus?.branch, files: gitStatus?.all?.map(f => f.path), diffLength: gitDiff?.length }),
+        });
+      } catch {}
     } catch (err: any) { setAiComment(`❌ Error: ${err.message}`); }
     setAiCommentLoading(false);
-  }, [rootPath, gitDiff, gitLog, activeTab]);
+  }, [rootPath, gitDiff, gitLog, activeTab, gitStatus]);
 
   // Auto-refresh git when panel opens
-  useEffect(() => { if (showGitPanel) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); } }, [showGitPanel]);
+  useEffect(() => {
+    if (showGitPanel) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }
+  }, [showGitPanel]);
+
+  // Load git reviews when entering review tab
+  useEffect(() => {
+    if (gitTab === "review" && rootPath) {
+      fetch(`${API_BASE}/api/vibe-git/reviews?path=${encodeURIComponent(rootPath)}`)
+        .then(r => r.json()).then(data => { if (data.reviews) setGitReviews(data.reviews); }).catch(() => {});
+    }
+  }, [gitTab, rootPath]);
 
   // ═══════════════════════════════════════════════
   // API Tester
@@ -860,17 +912,36 @@ export default function VibeCodingIDE() {
                       <button onClick={generateAiComment} disabled={aiCommentLoading || !gitDiff}
                         className="text-[10px] px-3 py-1 rounded text-white disabled:opacity-40 active:scale-95"
                         style={{ backgroundColor: themeInfo.accent }}>
-                        {aiCommentLoading ? "⏳ Generating..." : "🔄 Re-generate"}
+                        {aiCommentLoading ? "⏳ Generating..." : "🔄 New Review"}
                       </button>
                     </div>
                     {aiCommentLoading ? (
                       <div className="flex items-center justify-center h-32 text-stone-400 text-sm animate-pulse">🤖 AI is reviewing your code...</div>
                     ) : aiComment ? (
                       <div className="prose prose-sm max-w-none text-xs leading-relaxed whitespace-pre-wrap">{aiComment}</div>
-                    ) : (
+                    ) : null}
+                    {/* Review History */}
+                    {gitReviews.length > 0 && (
+                      <div className="mt-4 border-t pt-3" style={{ borderColor: "#f0f0f0" }}>
+                        <div className="text-[10px] font-bold text-stone-500 mb-2">📜 Review History ({gitReviews.length})</div>
+                        {gitReviews.filter(r => r.comment !== aiComment).slice(0, 10).map((r, i) => (
+                          <details key={r.id || i} className="mb-2">
+                            <summary className="text-[10px] text-stone-500 cursor-pointer hover:text-stone-700">
+                              {r.branch && <span className="text-emerald-500 mr-1">🔀 {r.branch}</span>}
+                              {fmtTime(r.ts)}
+                              {r.files && <span className="text-stone-400 ml-1">· {r.files.length} files</span>}
+                            </summary>
+                            <div className="text-[11px] text-stone-600 mt-1 whitespace-pre-wrap leading-relaxed border-l-2 pl-3" style={{ borderColor: "#e5e5e5" }}>
+                              {r.comment?.slice(0, 500)}{r.comment?.length > 500 ? "..." : ""}
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    )}
+                    {!aiComment && gitReviews.length === 0 && (
                       <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
                         <span className="text-2xl">🤖</span>
-                        <p>點擊「🔀 Git」→ 查看差異 → 按「🤖 AI Review」</p>
+                        <p>先查看 Diff → 再按「🔄 New Review」</p>
                         <p>AI 會自動分析 diff 並產生程式碼審查意見</p>
                       </div>
                     )}

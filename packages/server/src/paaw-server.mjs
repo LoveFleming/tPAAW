@@ -388,6 +388,147 @@ ${context ? "\n## Context\n" + context : ""}
     return;
   }
 
+  // ══════════════════════════════════════════════════
+  // Vibe Sessions API (persist CLI sessions to server)
+  // ══════════════════════════════════════════════════
+
+  // GET /api/vibe-sessions
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-sessions")) {
+    const sessFile = resolve(DATA_ROOT, "vibe-sessions.json");
+    try {
+      const data = JSON.parse(readFileSync(sessFile, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ sessions: data }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ sessions: [] }));
+    }
+    return;
+  }
+
+  // POST /api/vibe-sessions (create or replace all)
+  if (req.method === "POST" && req.url === "/api/vibe-sessions") {
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const sessFile = resolve(DATA_ROOT, "vibe-sessions.json");
+    writeFileSync(sessFile, JSON.stringify(body.sessions || body, null, 2));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // DELETE /api/vibe-sessions?id=...
+  if (req.method === "DELETE" && req.url?.startsWith("/api/vibe-sessions")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const id = params.get("id");
+    const sessFile = resolve(DATA_ROOT, "vibe-sessions.json");
+    try {
+      let sessions = JSON.parse(readFileSync(sessFile, "utf-8"));
+      if (id) sessions = sessions.filter(s => s.id !== id);
+      else sessions = [];
+      writeFileSync(sessFile, JSON.stringify(sessions, null, 2));
+    } catch {}
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // ══════════════════════════════════════════════════
+  // Vibe Chat History API (persist AI chat per session)
+  // ══════════════════════════════════════════════════
+
+  // GET /api/vibe-chat?sessionId=...
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-chat")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const sessionId = params.get("sessionId") || "default";
+    const chatFile = resolve(DATA_ROOT, "vibe-chat", `${sessionId}.json`);
+    try {
+      const data = JSON.parse(readFileSync(chatFile, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: data }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: [] }));
+    }
+    return;
+  }
+
+  // POST /api/vibe-chat (append message or replace all)
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-chat")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const sessionId = params.get("sessionId") || "default";
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const chatDir = resolve(DATA_ROOT, "vibe-chat");
+    const chatFile = resolve(chatDir, `${sessionId}.json`);
+    mkdirSync(chatDir, { recursive: true });
+    if (body.messages) {
+      // Replace all
+      writeFileSync(chatFile, JSON.stringify(body.messages, null, 2));
+    } else if (body.message) {
+      // Append one
+      let msgs = [];
+      try { msgs = JSON.parse(readFileSync(chatFile, "utf-8")); } catch {}
+      msgs.push(body.message);
+      writeFileSync(chatFile, JSON.stringify(msgs, null, 2));
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // DELETE /api/vibe-chat?sessionId=...
+  if (req.method === "DELETE" && req.url?.startsWith("/api/vibe-chat")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const sessionId = params.get("sessionId") || "default";
+    const chatFile = resolve(DATA_ROOT, "vibe-chat", `${sessionId}.json`);
+    try { unlinkSync(chatFile); } catch {}
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // ══════════════════════════════════════════════════
+  // Git AI Review History API
+  // ══════════════════════════════════════════════════
+
+  // GET /api/vibe-git/reviews?path=...
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/reviews")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const projectPath = params.get("path") || "default";
+    const safeName = projectPath.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const reviewFile = resolve(DATA_ROOT, "git-reviews", `${safeName}.json`);
+    try {
+      const data = JSON.parse(readFileSync(reviewFile, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ reviews: data }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ reviews: [] }));
+    }
+    return;
+  }
+
+  // POST /api/vibe-git/reviews?path=... (save a review)
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/reviews")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const projectPath = params.get("path") || "default";
+    const safeName = projectPath.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const reviewDir = resolve(DATA_ROOT, "git-reviews");
+    const reviewFile = resolve(reviewDir, `${safeName}.json`);
+    mkdirSync(reviewDir, { recursive: true });
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    let reviews = [];
+    try { reviews = JSON.parse(readFileSync(reviewFile, "utf-8")); } catch {}
+    reviews.unshift({ ...body, id: `review-${Date.now()}`, ts: new Date().toISOString() });
+    if (reviews.length > 50) reviews = reviews.slice(0, 50);
+    writeFileSync(reviewFile, JSON.stringify(reviews, null, 2));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, review: reviews[0] }));
+    return;
+  }
+
   // Helper: resolve directory (PAAW has flat structure, no factory nesting)
   function factoryDir(_factoryId, subdir) {
     if (subdir === "crews") return CREWS_ROOT;
