@@ -48,8 +48,14 @@ function parseTabId(tabId: string): { scopeKey: string; factoryId: string; pageT
   if (firstColon === -1) return { scopeKey: "", factoryId: "", pageType: tabId };
   const factoryId = tabId.slice(0, firstColon);
   const rest = tabId.slice(firstColon + 1);
+
+  // For Windows paths like C:\..., the rest won't have a second colon.
+  // Try to find the separator once we know we're past the Windows drive letter.
   const secondColon = rest.indexOf(":");
-  if (secondColon === -1) return { scopeKey: tabId, factoryId, pageType: "" };
+  if (secondColon === -1) {
+    // No second colon — treat first part as scopeKey and rest as pageType
+    return { scopeKey: tabId, factoryId, pageType: rest };
+  }
   const rootHash = rest.slice(0, secondColon);
   const pageType = rest.slice(secondColon + 1);
   return { scopeKey: `${factoryId}:${rootHash}`, factoryId, pageType };
@@ -303,7 +309,7 @@ function AppInner() {
   }, [currentScope]);
 
   const handleSelectFile = (path: string) => {
-    const fullId = `workspace:wfile://${path}`;
+    const fullId = `workspace:workspace:wfile://${path}`;
     setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
     setActivePage(fullId);
   };

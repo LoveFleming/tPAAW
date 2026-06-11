@@ -107,12 +107,12 @@ const server = createServer(async (req, res) => {
           if (!a.isDirectory() && b.isDirectory()) return 1;
           return a.name.localeCompare(b.name);
         })
-        .map(e => ({ name: e.name, path: join(absPath, e.name), isDirectory: e.isDirectory(), extension: e.isDirectory() ? null : (e.name.includes(".") ? e.name.split(".").pop() : null) }));
+        .map(e => ({ name: e.name, path: normalizePath(join(absPath, e.name)), isDirectory: e.isDirectory(), extension: e.isDirectory() ? null : (e.name.includes(".") ? e.name.split(".").pop() : null) }));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ path: absPath, items }));
+      res.end(JSON.stringify({ path: normalizePath(absPath), items }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message, path: absPath, items: [] }));
+      res.end(JSON.stringify({ error: err.message, path: normalizePath(absPath), items: [] }));
     }
     return;
   }
@@ -125,7 +125,7 @@ const server = createServer(async (req, res) => {
       const content = await readFile(resolve(filePath), "utf-8");
       const s = await stat(resolve(filePath));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ path: resolve(filePath), content, size: s.size, modified: s.mtime.toISOString() }));
+      res.end(JSON.stringify({ path: normalizePath(resolve(filePath)), content, size: s.size, modified: s.mtime.toISOString() }));
     } catch (err) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -3037,7 +3037,7 @@ async function paawApiHandler(req, res) {
 
 async function buildTree(absRoot, currentPath, maxDepth) {
   const IGNORED = new Set([".git", "node_modules", ".DS_Store", "__pycache__", ".next", "dist", ".cache", ".turbo"]);
-  const result = { name: currentPath === absRoot ? basename(absRoot) : basename(currentPath), path: currentPath, type: "dir", children: [] };
+  const result = { name: currentPath === absRoot ? basename(absRoot) : basename(currentPath), path: normalizePath(currentPath), type: "dir", children: [] };
   if (maxDepth <= 0) { result.children = undefined; result.lazy = true; return result; }
   let entries;
   try { entries = await readdir(currentPath, { withFileTypes: true }); } catch { return result; }
@@ -3055,9 +3055,9 @@ async function buildTree(absRoot, currentPath, maxDepth) {
     result.children.push({ name: `... and ${sorted.length - 200} more`, path: "__truncated__", type: "file" });
   }
   for (const entry of capped) {
-    const fullPath = join(currentPath, entry.name);
+    const fullPath = normalizePath(join(currentPath, entry.name));
     if (entry.isDirectory()) {
-      const child = await buildTree(absRoot, fullPath, maxDepth - 1);
+      const child = await buildTree(absRoot, join(currentPath, entry.name), maxDepth - 1);
       result.children.push(child);
     } else {
       result.children.push({ name: entry.name, path: fullPath, type: "file" });
@@ -3070,6 +3070,12 @@ function basename(p) {
   // Handle both Unix (/) and Windows (\) separators
   const parts = p.replace(/[\/]+$/, "").split(/[\\/]/);
   return parts[parts.length - 1];
+}
+
+/** Normalize any path to forward slashes for consistent cross-platform API responses */
+function normalizePath(p) {
+  if (!p) return "";
+  return p.replace(/\\/g, "/");
 }
 
 function readBody(req) {
