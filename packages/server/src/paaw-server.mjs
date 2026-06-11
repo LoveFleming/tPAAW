@@ -149,6 +149,245 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ══════════════════════════════════════════════════
+  // Git Integration APIs
+  // ══════════════════════════════════════════════════
+
+  // Helper: run git command in cwd
+  async function runGit(args, cwd) {
+    return new Promise((resolve) => {
+      const child = spawn("git", args, { cwd, timeout: 15000 });
+      let stdout = "", stderr = "";
+      child.stdout.on("data", d => stdout += d);
+      child.stderr.on("data", d => stderr += d);
+      child.on("close", code => resolve({ ok: code === 0, stdout, stderr, code }));
+      child.on("error", err => resolve({ ok: false, stdout: "", stderr: err.message, code: -1 }));
+    });
+  }
+
+  // GET /api/vibe-git/status?path=...
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/status")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return; }
+    const r = await runGit(["status", "--porcelain=v1", "--branch"], cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return; }
+    const branchMatch = r.stdout.match(/^## (.+?)(?:\.\.\.|$)/m);
+    const branch = branchMatch ? branchMatch[1] : "(unknown)";
+    const files = r.stdout.split("\n").filter(l => l && !l.startsWith("#")).map(l => ({
+      status: l.slice(0, 2).trim(), path: l.slice(3),
+    }));
+    const staged = files.filter(f => "MARC".includes(f.status[0]));
+    const unstaged = files.filter(f => "MD".includes(f.status[0] || f.status[1]));
+    const untracked = files.filter(f => f.status === "??");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ branch, staged, unstaged, untracked, all: files }));
+    return;
+  }
+
+  // GET /api/vibe-git/log?path=...&count=20
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/log")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    const count = params.get("count") || "20";
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return; }
+    const r = await runGit([
+      "log", `--max-count=${count}`, "--pretty=format:%H|%h|%an|%ae|%at|%s",
+      "--date=unix",
+    ], cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return; }
+    const commits = r.stdout.split("\n").filter(Boolean).map(line => {
+      const [hash, short, author, email, ts, subject] = line.split("|");
+      return { hash, short, author, email, date: new Date(parseInt(ts) * 1000).toISOString(), subject };
+    });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ commits }));
+    return;
+  }
+
+  // GET /api/vibe-git/diff?path=...&file=...&cached=false
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/diff")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    const file = params.get("file") || "";
+    const cached = params.get("cached") === "true";
+    const commit = params.get("commit") || "";
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return; }
+    const args = ["diff"];
+    if (cached) args.push("--cached");
+    if (commit) args.push(commit);
+    if (file) args.push("--", file);
+    const r = await runGit(args, cwd);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ diff: r.stdout, ok: r.ok, error: r.stderr }));
+    return;
+  }
+
+  // GET /api/vibe-git/blame?path=...&file=...
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/blame")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    const file = params.get("file");
+    if (!cwd || !file) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path or file" })); return; }
+    const r = await runGit(["blame", "--porcelain", "--", file], cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return; }
+    // Parse porcelain blame output
+    const lines = [];
+    const blocks = r.stdout.split("\n");
+    let current = null;
+    for (const line of blocks) {
+      const headerMatch = line.match(/^([0-9a-f]{40}) (\d+) (\d+)(?: (\d+))?/);
+      if (headerMatch) {
+        current = { hash: headerMatch[1], origLine: parseInt(headerMatch[2]), finalLine: parseInt(headerMatch[3]), lineCount: headerMatch[4] ? parseInt(headerMatch[4]) : 1, author: "", authorMail: "", authorTime: "", summary: "" };
+        continue;
+      }
+      if (line.startsWith("author ") && current) current.author = line.slice(7);
+      else if (line.startsWith("author-mail ") && current) current.authorMail = line.slice(12);
+      else if (line.startsWith("author-time ") && current) current.authorTime = new Date(parseInt(line.slice(11)) * 1000).toISOString();
+      else if (line.startsWith("summary ") && current) current.summary = line.slice(8);
+      else if (line.startsWith("\t") && current) {
+        lines.push({ ...current, content: line.slice(1) });
+        current = { ...current, origLine: current.origLine, finalLine: current.finalLine + 1 };
+      }
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ file, lines }));
+    return;
+  }
+
+  // POST /api/vibe-git/ai-comment?path=...
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/ai-comment")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return; }
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const { diff, commits, context } = body;
+
+    // Build AI review prompt
+    const prompt = `你是資深程式碼審查員。請 review 以下 git 變更並產生審查意見：
+
+${diff ? "## Diff\n```diff\n" + diff.slice(0, 8000) + "\n```" : ""}
+${commits?.length ? "\n## Recent Commits\n" + commits.map(c => `- ${c.short} ${c.subject} (${c.author})`).join("\n") : ""}
+${context ? "\n## Context\n" + context : ""}
+
+請用以下格式輸出：
+1. **總覽**：這次變更的目的和範圍
+2. **問題**：發現的 bug、安全問題、效能問題（附行號）
+3. **建議**：改善建議（附具體程式碼）
+4. **亮點**：做得好的地方
+5. **嚴重程度**：🔴 Critical / 🟡 Warning / 🟢 Good`;
+
+    // Try to call LLM for review
+    try {
+      const chatRes = await fetch("http://127.0.0.1:4097/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: prompt }],
+          providerId: "default",
+          appId: "git-review",
+        }),
+      });
+      // Read SSE stream
+      let comment = "";
+      const text = await new Promise((ok) => {
+        let buf = "";
+        const chunks = [];
+        chatRes.body.on("data", (c) => { buf += c.toString(); });
+        chatRes.body.on("end", () => {
+          for (const line of buf.split("\n")) {
+            if (line.startsWith("data: ") && line !== "data: [DONE]") {
+              try { const j = JSON.parse(line.slice(6)); if (j.content) chunks.push(j.content); } catch {}
+            }
+          }
+          ok(chunks.join(""));
+        });
+      });
+      comment = text;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ comment }));
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ comment: `⚠️ AI review 不可用 (${err.message || err})，但以下是基本分析：\n\n${(diff || "").slice(0, 2000) || "No diff"}` }));
+    }
+    return;
+  }
+
+  // ══════════════════════════════════════════════════
+  // API Tester (Postman-like) Endpoint
+  // ══════════════════════════════════════════════════
+
+  // POST /api/api-tester/proxy
+  if (req.method === "POST" && req.url === "/api/api-tester/proxy") {
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
+    const { method: tMethod, url: tUrl, headers: tHeaders = {}, body: tBody, followRedirects = true } = body;
+    if (!tUrl) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing url" })); return; }
+    const startTime = Date.now();
+    try {
+      const fetchOpts = { method: tMethod || "GET", headers: tHeaders, redirect: followRedirects ? "follow" : "manual" };
+      if (tBody && tMethod !== "GET" && tMethod !== "HEAD") fetchOpts.body = typeof tBody === "string" ? tBody : JSON.stringify(tBody);
+      const tRes = await fetch(tUrl, fetchOpts);
+      const elapsed = Date.now() - startTime;
+      const respHeaders = {};
+      tRes.headers.forEach((v, k) => { respHeaders[k] = v; });
+      const contentType = tRes.headers.get("content-type") || "";
+      let respBody;
+      if (contentType.includes("json") || contentType.includes("text") || contentType.includes("xml") || contentType.includes("html") || contentType.includes("javascript")) {
+        respBody = await tRes.text();
+      } else {
+        const buf = await tRes.arrayBuffer();
+        respBody = `[Binary data: ${buf.byteLength} bytes]`;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: tRes.status, statusText: tRes.statusText, headers: respHeaders, body: respBody, elapsed, size: respBody.length }));
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: 0, statusText: "Network Error", headers: {}, body: String(err.message || err), elapsed, error: true }));
+    }
+    return;
+  }
+
+  // GET /api/api-tester/history
+  if (req.method === "GET" && req.url?.startsWith("/api/api-tester/history")) {
+    const histFile = resolve(DATA_ROOT, "api-tester-history.json");
+    try {
+      const data = JSON.parse(readFileSync(histFile, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ history: data }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ history: [] }));
+    }
+    return;
+  }
+
+  // DELETE /api/api-tester/history
+  if (req.method === "DELETE" && req.url?.startsWith("/api/api-tester/history")) {
+    const histFile = resolve(DATA_ROOT, "api-tester-history.json");
+    try { unlinkSync(histFile); } catch {}
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // POST /api/api-tester/save
+  if (req.method === "POST" && req.url === "/api/api-tester/save") {
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const histFile = resolve(DATA_ROOT, "api-tester-history.json");
+    let history = [];
+    try { history = JSON.parse(readFileSync(histFile, "utf-8")); } catch {}
+    history.unshift({ ...body, id: `req-${Date.now()}`, ts: new Date().toISOString() });
+    if (history.length > 100) history = history.slice(0, 100);
+    writeFileSync(histFile, JSON.stringify(history, null, 2));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
   // Helper: resolve directory (PAAW has flat structure, no factory nesting)
   function factoryDir(_factoryId, subdir) {
     if (subdir === "crews") return CREWS_ROOT;

@@ -1,23 +1,22 @@
 /**
- * VibeCodingIDE — VS Code-like IDE for AI-assisted coding
+ * VibeCodingIDE — All-in-one AI coding environment
  *
  * Layout:
  *  ┌──────┬──────────────────────────┬─────────┐
  *  │ File │  Tab Bar                 │  AI     │
  *  │ Exp  │──────────────────────────│ Chat    │
  *  │      │  Code Editor (highlight) │ Sidebar │
- *  │      │                          │         │
+ *  │      │  / Diff View / Blame     │         │
+ *  │      │  / API Tester            │         │
  *  │      │──────────────────────────│         │
  *  │      │  Terminal Panel (resize) │         │
  *  └──────┴──────────────────────────┴─────────┘
  *
- * Features:
- *  - File Explorer (tree view)
- *  - Syntax-highlighted code editor (hljs) with auto-save
- *  - Tab-based file management
- *  - AI Chat sidebar (PAAW chat integration)
- *  - Terminal panel (resizable)
- *  - Coding behavior tracking → Distillation Engine
+ * Panels (top bar toggle):
+ *  - 🤖 AI Chat — PAAW chat integration with file context
+ *  - 🔀 Git — status, diff, blame, AI auto-comment
+ *  - 🌐 API Tester — Postman-like request builder
+ *  - ⌨️ Terminal — CLI sessions (resizable)
  */
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTheme } from "../theme";
@@ -71,6 +70,16 @@ interface CodingEvent {
   data: Record<string, any>;
 }
 
+// Git types
+interface GitFileStatus { status: string; path: string; }
+interface GitCommit { hash: string; short: string; author: string; email: string; date: string; subject: string; }
+interface BlameLine { hash: string; author: string; authorMail: string; authorTime: string; summary: string; finalLine: number; content: string; }
+
+// API Tester types
+interface ApiHeader { key: string; value: string; enabled: boolean; }
+interface ApiResponse { status: number; statusText: string; headers: Record<string, string>; body: string; elapsed: number; size: number; error?: boolean; }
+interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; }
+
 // ── Constants ──
 const FILE_ICONS: Record<string, { icon: string; color: string }> = {
   ts: { icon: "TS", color: "#3178C6" }, tsx: { icon: "TX", color: "#3178C6" },
@@ -110,6 +119,12 @@ const QUICK_ACTIONS = [
   { id: "optimize", label: "優化", icon: "⚡", prompt: "請優化這段程式碼的效能" },
 ];
 
+const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+const METHOD_COLORS: Record<string, string> = {
+  GET: "#10B981", POST: "#3B82F6", PUT: "#F59E0B", PATCH: "#8B5CF6",
+  DELETE: "#EF4444", HEAD: "#6B7280", OPTIONS: "#6B7280",
+};
+
 // ── Helpers ──
 function getFileIcon(name: string) {
   if (name === "package.json") return { icon: "📦", color: "#43853D" };
@@ -145,6 +160,26 @@ function escapeHtml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function fmtTime(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  if (diffMs < 60_000) return "just now";
+  if (diffMs < 3600_000) return `${Math.floor(diffMs / 60_000)}m ago`;
+  if (diffMs < 86400_000) return `${Math.floor(diffMs / 3600_000)}h ago`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function fmtBytes(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function tryFormatJson(str: string): string {
+  try { return JSON.stringify(JSON.parse(str), null, 2); } catch { return str; }
+}
+
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -153,11 +188,14 @@ export default function VibeCodingIDE() {
 
   // ── Layout State ──
   const [sidebarWidth, setSidebarWidth] = useState(240);
-  const [aiPanelWidth, setAiPanelWidth] = useState(320);
-  const [terminalHeight, setTerminalHeight] = useState(220);
+  const [aiPanelWidth, setAiPanelWidth] = useState(360);
+  const [terminalHeight, setTerminalHeight] = useState(200);
   const [showTerminal, setShowTerminal] = useState(true);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [showGitPanel, setShowGitPanel] = useState(false);
+  const [showApiTester, setShowApiTester] = useState(false);
   const [showSessionPanel, setShowSessionPanel] = useState(false);
+  const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester">("editor");
   const resizingRef = useRef<{ type: "sidebar" | "ai" | "terminal"; startX: number; startY: number; startSize: number } | null>(null);
 
   // ── File Explorer State ──
@@ -172,7 +210,6 @@ export default function VibeCodingIDE() {
   const [loadingFile, setLoadingFile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editorScrollRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
 
@@ -186,6 +223,30 @@ export default function VibeCodingIDE() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Git State ──
+  const [gitStatus, setGitStatus] = useState<{ branch: string; staged: GitFileStatus[]; unstaged: GitFileStatus[]; untracked: GitFileStatus[]; all: GitFileStatus[] } | null>(null);
+  const [gitLog, setGitLog] = useState<GitCommit[]>([]);
+  const [gitDiff, setGitDiff] = useState("");
+  const [gitDiffFile, setGitDiffFile] = useState("");
+  const [gitDiffCached, setGitDiffCached] = useState(false);
+  const [blameData, setBlameData] = useState<BlameLine[] | null>(null);
+  const [blameFile, setBlameFile] = useState("");
+  const [aiComment, setAiComment] = useState("");
+  const [aiCommentLoading, setAiCommentLoading] = useState(false);
+  const [gitTab, setGitTab] = useState<"status" | "log" | "diff" | "blame" | "review">("status");
+
+  // ── API Tester State ──
+  const [apiMethod, setApiMethod] = useState("GET");
+  const [apiUrl, setApiUrl] = useState("");
+  const [apiHeaders, setApiHeaders] = useState<ApiHeader[]>([
+    { key: "Content-Type", value: "application/json", enabled: true },
+  ]);
+  const [apiBody, setApiBody] = useState("");
+  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiHistory, setApiHistory] = useState<ApiHistoryItem[]>([]);
+  const [apiTab, setApiTab] = useState<"request" | "response" | "history">("request");
 
   // ── Coding Behavior Tracking ──
   const codingLogRef = useRef<CodingEvent[]>([]);
@@ -210,21 +271,22 @@ export default function VibeCodingIDE() {
       if (saved) { const p = JSON.parse(saved); setSessions(p); if (p.length > 0) setActiveSessionId(p[0].id); }
       const root = localStorage.getItem("paaw.vibeide.rootPath");
       if (root) { setRootPath(root); expandDir(root); }
+      const hist = localStorage.getItem("paaw.api-tester.history");
+      if (hist) setApiHistory(JSON.parse(hist));
     } catch {}
   }, []);
 
   useEffect(() => { try { localStorage.setItem("paaw.vibeide.sessions", JSON.stringify(sessions)); } catch {} }, [sessions]);
   useEffect(() => { try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {} }, [rootPath]);
+  useEffect(() => { try { localStorage.setItem("paaw.api-tester.history", JSON.stringify(apiHistory.slice(0, 50))); } catch {} }, [apiHistory]);
 
   // ═══════════════════════════════════════════════
-  // 1. Coding Behavior Tracking → Distillation Engine
+  // Coding Behavior Tracking → Distillation Engine
   // ═══════════════════════════════════════════════
   const logEvent = useCallback((type: CodingEvent["type"], data: Record<string, any>) => {
-    const event: CodingEvent = { type, ts: new Date().toISOString(), data };
-    codingLogRef.current = [...codingLogRef.current, event];
+    codingLogRef.current = [...codingLogRef.current, { type, ts: new Date().toISOString(), data }];
   }, []);
 
-  // Flush coding events to distill engine every 30s
   useEffect(() => {
     distillTimerRef.current = setInterval(async () => {
       const events = codingLogRef.current;
@@ -232,15 +294,8 @@ export default function VibeCodingIDE() {
       codingLogRef.current = [];
       try {
         await fetch(`${API_BASE}/api/distill/record`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source: "vibe-coding",
-            events,
-            rootPath,
-            activeFiles: openTabs.map(t => t.path),
-            session: activeSession ? { cli: activeSession.cli, cwd: activeSession.cwd } : null,
-          }),
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: "vibe-coding", events, rootPath, activeFiles: openTabs.map(t => t.path), session: activeSession ? { cli: activeSession.cli, cwd: activeSession.cwd } : null }),
         });
       } catch {}
     }, 30_000);
@@ -256,20 +311,14 @@ export default function VibeCodingIDE() {
     try {
       const res = await fetch(`${API_BASE}/api/vibe-fs/list?path=${encodeURIComponent(path)}`);
       const data = await res.json();
-      if (data.items) {
-        setDirContents(prev => ({ ...prev, [path]: data.items }));
-        setExpandedDirs(prev => new Set(prev).add(path));
-      }
+      if (data.items) { setDirContents(prev => ({ ...prev, [path]: data.items })); setExpandedDirs(prev => new Set(prev).add(path)); }
     } catch {}
     setLoadingDirs(prev => { const n = new Set(prev); n.delete(path); return n; });
   }, [dirContents, loadingDirs]);
 
   const toggleDir = useCallback((path: string) => {
-    if (expandedDirs.has(path)) {
-      setExpandedDirs(prev => { const n = new Set(prev); n.delete(path); return n; });
-    } else {
-      expandDir(path);
-    }
+    if (expandedDirs.has(path)) setExpandedDirs(prev => { const n = new Set(prev); n.delete(path); return n; });
+    else expandDir(path);
   }, [expandedDirs, expandDir]);
 
   // ═══════════════════════════════════════════════
@@ -284,15 +333,11 @@ export default function VibeCodingIDE() {
       const data = await res.json();
       if (data.content !== undefined) {
         const name = path.split("/").pop() || path;
-        const tab: OpenTab = {
-          id: path, name, path,
-          content: data.content, originalContent: data.content,
-          modified: false, language: getLanguage(name), hljsLang: getHljsLang(name),
-          lastSaved: data.modified,
-        };
+        const tab: OpenTab = { id: path, name, path, content: data.content, originalContent: data.content, modified: false, language: getLanguage(name), hljsLang: getHljsLang(name), lastSaved: data.modified };
         setOpenTabs(prev => [...prev, tab]);
         setActiveTabId(path);
         setIsEditing(false);
+        setActiveSubPanel("editor");
         logEvent("open_file", { path, language: tab.language });
       }
     } catch {}
@@ -301,68 +346,41 @@ export default function VibeCodingIDE() {
 
   const closeTab = useCallback((id: string) => {
     setOpenTabs(prev => prev.filter(t => t.id !== id));
-    if (activeTabId === id) {
-      const remaining = openTabs.filter(t => t.id !== id);
-      setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
-    }
+    if (activeTabId === id) { const remaining = openTabs.filter(t => t.id !== id); setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null); }
     logEvent("close_file", { path: id });
   }, [activeTabId, openTabs, logEvent]);
 
   const saveFile = useCallback(async (tab: OpenTab) => {
     if (!tab.modified) return;
     try {
-      await fetch(`${API_BASE}/api/vibe-fs/write`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: tab.path, content: tab.content }),
-      });
-      setOpenTabs(prev => prev.map(t =>
-        t.id === tab.id ? { ...t, originalContent: t.content, modified: false, lastSaved: new Date().toISOString() } : t
-      ));
+      await fetch(`${API_BASE}/api/vibe-fs/write`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: tab.path, content: tab.content }) });
+      setOpenTabs(prev => prev.map(t => t.id === tab.id ? { ...t, originalContent: t.content, modified: false, lastSaved: new Date().toISOString() } : t));
       logEvent("save_file", { path: tab.path, size: tab.content.length });
     } catch {}
   }, [logEvent]);
 
-  // Switch between view (highlighted) and edit (textarea) modes
-  const startEditing = useCallback(() => {
-    setIsEditing(true);
-    setTimeout(() => textareaRef.current?.focus(), 50);
-  }, []);
-
-  const stopEditing = useCallback(() => {
-    setIsEditing(false);
-    // Auto-save on blur
-    if (activeTab?.modified) saveFile(activeTab);
-  }, [activeTab, saveFile]);
+  const startEditing = useCallback(() => { setIsEditing(true); setTimeout(() => textareaRef.current?.focus(), 50); }, []);
+  const stopEditing = useCallback(() => { setIsEditing(false); if (activeTab?.modified) saveFile(activeTab); }, [activeTab, saveFile]);
 
   const handleContentChange = useCallback((newContent: string) => {
     if (!activeTabId) return;
-    setOpenTabs(prev => prev.map(t =>
-      t.id === activeTabId ? { ...t, content: newContent, modified: newContent !== t.originalContent } : t
-    ));
+    setOpenTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, content: newContent, modified: newContent !== t.originalContent } : t));
     logEvent("edit_file", { path: activeTabId });
-    // Debounced auto-save (3s)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      const current = openTabs.find(t => t.id === activeTabId);
-      if (current?.modified) saveFile(current);
-    }, 3000);
+    saveTimerRef.current = setTimeout(() => { const current = openTabs.find(t => t.id === activeTabId); if (current?.modified) saveFile(current); }, 3000);
   }, [activeTabId, openTabs, saveFile, logEvent]);
 
   // Cmd+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        if (activeTab?.modified) saveFile(activeTab);
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); if (activeTab?.modified) saveFile(activeTab); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [activeTab, saveFile]);
 
   // ═══════════════════════════════════════════════
-  // 2. AI Chat Sidebar
+  // AI Chat Sidebar
   // ═══════════════════════════════════════════════
   const sendChat = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
@@ -371,31 +389,14 @@ export default function VibeCodingIDE() {
     setChatInput("");
     setChatLoading(true);
     logEvent("ai_chat", { prompt: chatInput.trim().slice(0, 200) });
-
     try {
-      // Build context from active file
-      const context = activeTab
-        ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\``
-        : "";
-
-      const res = await fetch(`${API_BASE}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: userMsg.content + context }],
-          providerId: "default",
-          appId: "vibe-coding",
-        }),
-      });
-
+      const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
+      const res = await fetch(`${API_BASE}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: userMsg.content + context }], providerId: "default", appId: "vibe-coding" }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      // Read SSE stream
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let assistantContent = "";
       let buffer = "";
-
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -404,38 +405,97 @@ export default function VibeCodingIDE() {
         buffer = lines.pop() || "";
         for (const line of lines) {
           if (line.startsWith("data: ") && line !== "data: [DONE]") {
-            try {
-              const chunk = JSON.parse(line.slice(6));
-              if (chunk.content) {
-                assistantContent += chunk.content;
-                setChatMessages(prev => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === "assistant") {
-                    return [...prev.slice(0, -1), { ...last, content: assistantContent }];
-                  }
-                  return [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }];
-                });
-              }
-            } catch {}
+            try { const chunk = JSON.parse(line.slice(6)); if (chunk.content) { assistantContent += chunk.content; setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: assistantContent }] : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; }); } } catch {}
           }
         }
       }
-      // Final update
-      if (assistantContent) {
-        setChatMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant" && last.content === assistantContent) return prev;
-          return [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }];
-        });
-      }
-    } catch (err: any) {
-      setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
-    }
+      if (assistantContent) setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" && last.content === assistantContent ? prev : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; });
+    } catch (err: any) { setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]); }
     setChatLoading(false);
   }, [chatInput, chatLoading, activeTab, logEvent]);
 
-  // Auto-scroll chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+
+  // ═══════════════════════════════════════════════
+  // Git Operations
+  // ═══════════════════════════════════════════════
+  const refreshGitStatus = useCallback(async () => {
+    if (!rootPath) return;
+    try { const res = await fetch(`${API_BASE}/api/vibe-git/status?path=${encodeURIComponent(rootPath)}`); const data = await res.json(); setGitStatus(data); } catch {}
+  }, [rootPath]);
+
+  const refreshGitLog = useCallback(async () => {
+    if (!rootPath) return;
+    try { const res = await fetch(`${API_BASE}/api/vibe-git/log?path=${encodeURIComponent(rootPath)}&count=30`); const data = await res.json(); setGitLog(data.commits || []); } catch {}
+  }, [rootPath]);
+
+  const loadGitDiff = useCallback(async (file?: string, cached?: boolean) => {
+    if (!rootPath) return;
+    const params = new URLSearchParams({ path: rootPath });
+    if (file) params.set("file", file);
+    if (cached) params.set("cached", "true");
+    try { const res = await fetch(`${API_BASE}/api/vibe-git/diff?${params}`); const data = await res.json(); setGitDiff(data.diff || ""); setGitDiffFile(file || ""); setGitDiffCached(!!cached); } catch {}
+  }, [rootPath]);
+
+  const loadBlame = useCallback(async (filePath: string) => {
+    if (!rootPath) return;
+    try { const res = await fetch(`${API_BASE}/api/vibe-git/blame?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(filePath)}`); const data = await res.json(); setBlameData(data.lines || []); setBlameFile(filePath); setGitTab("blame"); setActiveSubPanel("blame"); } catch {}
+  }, [rootPath]);
+
+  const generateAiComment = useCallback(async () => {
+    if (!rootPath) return;
+    setAiCommentLoading(true);
+    setAiComment("");
+    try {
+      const res = await fetch(`${API_BASE}/api/vibe-git/ai-comment?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diff: gitDiff, commits: gitLog.slice(0, 5), context: activeTab ? `Current file: ${activeTab.path}` : "" }),
+      });
+      const data = await res.json();
+      setAiComment(data.comment || "No comment generated");
+      setGitTab("review");
+    } catch (err: any) { setAiComment(`❌ Error: ${err.message}`); }
+    setAiCommentLoading(false);
+  }, [rootPath, gitDiff, gitLog, activeTab]);
+
+  // Auto-refresh git when panel opens
+  useEffect(() => { if (showGitPanel) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); } }, [showGitPanel]);
+
+  // ═══════════════════════════════════════════════
+  // API Tester
+  // ═══════════════════════════════════════════════
+  const sendApiRequest = useCallback(async () => {
+    if (!apiUrl.trim() || apiLoading) return;
+    setApiLoading(true);
+    setApiResponse(null);
+    setApiTab("response");
+    const headersObj: Record<string, string> = {};
+    apiHeaders.filter(h => h.enabled && h.key).forEach(h => { headersObj[h.key] = h.value; });
+    try {
+      const res = await fetch(`${API_BASE}/api/api-tester/proxy`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: apiMethod, url: apiUrl.trim(), headers: headersObj, body: apiBody }),
+      });
+      const data = await res.json();
+      setApiResponse(data);
+      // Save to history
+      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed };
+      setApiHistory(prev => [item, ...prev].slice(0, 50));
+      // Save to server
+      try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
+    } catch (err: any) { setApiResponse({ status: 0, statusText: "Error", headers: {}, body: err.message, elapsed: 0, size: 0, error: true }); }
+    setApiLoading(false);
+  }, [apiMethod, apiUrl, apiHeaders, apiBody, apiLoading]);
+
+  const loadApiHistory = useCallback(async () => {
+    try { const res = await fetch(`${API_BASE}/api/api-tester/history`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
+  }, []);
+
+  const addHeader = useCallback(() => setApiHeaders(prev => [...prev, { key: "", value: "", enabled: true }]), []);
+  const removeHeader = useCallback((i: number) => setApiHeaders(prev => prev.filter((_, idx) => idx !== i)), []);
+  const updateHeader = useCallback((i: number, field: "key" | "value" | "enabled", val: string | boolean) => {
+    setApiHeaders(prev => prev.map((h, idx) => idx === i ? { ...h, [field]: val } : h));
+  }, []);
 
   // ═══════════════════════════════════════════════
   // Session Management
@@ -443,11 +503,7 @@ export default function VibeCodingIDE() {
   const createSession = useCallback(() => {
     const id = `vibe-${Date.now()}`;
     const name = formName || `${CLI_OPTIONS.find(c => c.id === formCli)?.label || formCli}`;
-    const session: CliSession = {
-      id, name, cli: formCli, model: formModel, cwd: formCwd || rootPath,
-      approvalMode: formApproval, systemPrompt: "",
-      createdAt: new Date().toISOString(),
-    };
+    const session: CliSession = { id, name, cli: formCli, model: formModel, cwd: formCwd || rootPath, approvalMode: formApproval, systemPrompt: "", createdAt: new Date().toISOString() };
     setSessions(prev => [session, ...prev]);
     setActiveSessionId(id);
     setShowSessionPanel(false);
@@ -456,29 +512,22 @@ export default function VibeCodingIDE() {
     logEvent("session_start", { cli: formCli, cwd: session.cwd });
   }, [formCli, formModel, formCwd, formApproval, formName, rootPath, expandDir, logEvent]);
 
-  const sendPrompt = useCallback((prompt: string) => {
-    if (termRef.current) termRef.current.sendPrompt(prompt);
-  }, []);
+  const sendPrompt = useCallback((prompt: string) => { if (termRef.current) termRef.current.sendPrompt(prompt); }, []);
 
   // ═══════════════════════════════════════════════
   // Resize Handlers
   // ═══════════════════════════════════════════════
   const startResize = useCallback((type: "sidebar" | "ai" | "terminal", e: React.MouseEvent) => {
     e.preventDefault();
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const startX = e.clientX; const startY = e.clientY;
     const startSize = type === "sidebar" ? sidebarWidth : type === "ai" ? aiPanelWidth : terminalHeight;
     resizingRef.current = { type, startX, startY, startSize };
     const onMove = (ev: MouseEvent) => {
       if (!resizingRef.current) return;
       const r = resizingRef.current;
-      if (r.type === "sidebar") {
-        setSidebarWidth(Math.max(180, Math.min(450, r.startSize + ev.clientX - r.startX)));
-      } else if (r.type === "ai") {
-        setAiPanelWidth(Math.max(240, Math.min(600, r.startSize + r.startX - ev.clientX)));
-      } else {
-        setTerminalHeight(Math.max(100, Math.min(600, r.startSize + r.startY - ev.clientY)));
-      }
+      if (r.type === "sidebar") setSidebarWidth(Math.max(180, Math.min(450, r.startSize + ev.clientX - r.startX)));
+      else if (r.type === "ai") setAiPanelWidth(Math.max(280, Math.min(700, r.startSize + r.startX - ev.clientX)));
+      else setTerminalHeight(Math.max(100, Math.min(600, r.startSize + r.startY - ev.clientY)));
     };
     const onUp = () => { resizingRef.current = null; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
     document.addEventListener("mousemove", onMove);
@@ -490,15 +539,16 @@ export default function VibeCodingIDE() {
   // ═══════════════════════════════════════════════
   const highlightedCode = useMemo(() => {
     if (!activeTab) return "";
-    try {
-      if (activeTab.hljsLang) {
-        return hljs.highlight(activeTab.content, { language: activeTab.hljsLang, ignoreIllegals: true }).value;
-      }
-      return hljs.highlightAuto(activeTab.content).value;
-    } catch {
-      return escapeHtml(activeTab.content);
-    }
+    try { return activeTab.hljsLang ? hljs.highlight(activeTab.content, { language: activeTab.hljsLang, ignoreIllegals: true }).value : hljs.highlightAuto(activeTab.content).value; }
+    catch { return escapeHtml(activeTab.content); }
   }, [activeTab?.content, activeTab?.hljsLang]);
+
+  // Diff highlighting
+  const highlightedDiff = useMemo(() => {
+    if (!gitDiff) return "";
+    try { return hljs.highlight(gitDiff, { language: "diff", ignoreIllegals: true }).value; }
+    catch { return escapeHtml(gitDiff); }
+  }, [gitDiff]);
 
   const lines = useMemo(() => (activeTab?.content || "").split("\n"), [activeTab?.content]);
   const lineCount = lines.length;
@@ -511,8 +561,8 @@ export default function VibeCodingIDE() {
     if (!items) return null;
     return items.map(item => {
       const fi = getFileIcon(item.name);
-      const isExpanded = expandedDirs.has(item.path);
       if (item.isDirectory) {
+        const isExpanded = expandedDirs.has(item.path);
         return (
           <div key={item.path}>
             <div className={cn("flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-stone-100 text-xs select-none")}
@@ -527,8 +577,7 @@ export default function VibeCodingIDE() {
       }
       return (
         <div key={item.path}
-          className={cn("flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-stone-100 text-xs select-none",
-            activeTabId === item.path && "bg-blue-50 text-blue-700")}
+          className={cn("flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-stone-100 text-xs select-none", activeTabId === item.path && "bg-blue-50 text-blue-700")}
           style={{ paddingLeft: depth * 12 + 20 }} onClick={() => openFile(item.path)}>
           <span className="text-[9px] font-bold shrink-0 w-4 text-center" style={{ color: fi.color }}>{fi.icon}</span>
           <span className="truncate">{item.name}</span>
@@ -547,26 +596,28 @@ export default function VibeCodingIDE() {
       <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
         <span className="text-sm font-bold text-stone-700">⚡ Vibe Coding</span>
         <div className="flex-1" />
-        <div className="flex items-center gap-0.5 mr-2 overflow-hidden">
-          {QUICK_ACTIONS.map(a => (
-            <button key={a.id} onClick={() => sendPrompt(a.prompt)} title={`${a.label}: ${a.prompt}`}
-              className="px-1.5 py-0.5 rounded text-[10px] font-semibold hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors whitespace-nowrap">
-              {a.icon} {a.label}
-            </button>
-          ))}
-        </div>
+        <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
+          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
+            showGitPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+          🔀 Git
+        </button>
+        <button onClick={() => { setShowApiTester(!showApiTester); if (!showApiTester) { setActiveSubPanel("api-tester"); } }}
+          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
+            showApiTester ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+          🌐 API
+        </button>
         <button onClick={() => setShowAiPanel(!showAiPanel)}
-          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors",
+          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showAiPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
           🤖 AI
         </button>
         <button onClick={() => setShowSessionPanel(!showSessionPanel)}
-          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold ml-1 transition-colors",
+          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showSessionPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
           {activeSession ? `${activeSession.name}` : "+ Session"}
         </button>
         <button onClick={() => setShowTerminal(!showTerminal)}
-          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold ml-1 transition-colors",
+          className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors",
             showTerminal ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
           ⌨️ Term
         </button>
@@ -585,6 +636,17 @@ export default function VibeCodingIDE() {
               <button onClick={() => { expandDir(rootPath); setExpandedDirs(new Set()); }}
                 className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600">📂</button>
             </div>
+            {/* Git branch indicator */}
+            {gitStatus?.branch && (
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold border border-emerald-200">🔀 {gitStatus.branch}</span>
+                {(gitStatus.staged.length + gitStatus.unstaged.length + gitStatus.untracked.length) > 0 && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-semibold">
+                    {gitStatus.staged.length}↑ {gitStatus.unstaged.length}● {gitStatus.untracked.length}?
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto py-0.5" style={{ fontSize: 12 }}>
             {rootPath ? renderTree(rootPath, 0) : (
@@ -603,18 +665,18 @@ export default function VibeCodingIDE() {
         <div className="w-1 cursor-col-resize hover:bg-blue-300 active:bg-blue-500 transition-colors shrink-0"
           onMouseDown={e => startResize("sidebar", e)} style={{ backgroundColor: "#e5e5e5" }} />
 
-        {/* ── Editor + Terminal ── */}
+        {/* ── Center: Editor + Git/API Panels + Terminal ── */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Tab Bar */}
           <div className="flex items-end border-b shrink-0 overflow-x-auto" style={{ backgroundColor: "#f5f5f4", borderColor: "#e5e5e5" }}>
-            {openTabs.map(tab => {
+            {activeSubPanel === "editor" && openTabs.map(tab => {
               const fi = getFileIcon(tab.name);
               return (
                 <div key={tab.id}
                   className={cn("group flex items-center gap-1 px-3 py-1 border-r cursor-pointer select-none text-xs shrink-0 transition-colors",
                     activeTabId === tab.id ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
                   style={activeTabId === tab.id ? { borderTop: `2px solid ${themeInfo.accent}` } : { borderTop: "2px solid transparent" }}
-                  onClick={() => { setActiveTabId(tab.id); setIsEditing(false); }}>
+                  onClick={() => { setActiveTabId(tab.id); setIsEditing(false); setActiveSubPanel("editor"); }}>
                   <span className="text-[9px] font-bold shrink-0" style={{ color: fi.color }}>{fi.icon}</span>
                   <span className="truncate max-w-[120px]">{tab.name}</span>
                   {tab.modified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
@@ -623,14 +685,18 @@ export default function VibeCodingIDE() {
                 </div>
               );
             })}
-            {openTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">No files open</div>}
+            {activeSubPanel === "diff" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: `2px solid ${themeInfo.accent}` }}>🔀 Diff {gitDiffFile && <span className="text-stone-400 font-normal">— {gitDiffFile}</span>}</div>}
+            {activeSubPanel === "blame" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: `2px solid ${themeInfo.accent}` }}>🔍 Blame — {blameFile}</div>}
+            {activeSubPanel === "api-tester" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: `2px solid ${themeInfo.accent}` }}>🌐 API Tester</div>}
+            {activeSubPanel === "editor" && openTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">No files open</div>}
           </div>
 
-          {/* Editor */}
-          <div className="flex-1 flex min-h-0 overflow-hidden">
-            {activeTab ? (
+          {/* ── Content Area: Editor / Diff / Blame / API Tester ── */}
+          <div className="flex-1 flex min-h-0 overflow-hidden relative">
+
+            {/* === EDITOR === */}
+            {activeSubPanel === "editor" && activeTab && (
               <div className="flex-1 flex min-w-0 overflow-hidden">
-                {/* Line numbers */}
                 <div className="shrink-0 select-none text-right overflow-hidden"
                   style={{ color: "#b0b0b0", backgroundColor: "#fafaf9", borderRight: "1px solid #eee", width: lineNumWidth }}>
                   <div className="py-3">
@@ -639,48 +705,354 @@ export default function VibeCodingIDE() {
                     ))}
                   </div>
                 </div>
-                {/* Editor area */}
                 {isEditing ? (
-                  /* Edit mode: textarea */
-                  <textarea
-                    ref={textareaRef}
-                    value={activeTab.content}
-                    onChange={e => handleContentChange(e.target.value)}
+                  <textarea ref={textareaRef} value={activeTab.content} onChange={e => handleContentChange(e.target.value)}
                     onBlur={stopEditing}
                     onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); stopEditing(); } }}
                     className="flex-1 min-w-0 p-3 text-[13px] font-mono leading-5 resize-none outline-none bg-white"
-                    style={{ tabSize: 2, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }}
-                    spellCheck={false}
-                  />
+                    style={{ tabSize: 2, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }} spellCheck={false} />
                 ) : (
-                  /* View mode: syntax highlighted */
-                  <div className="flex-1 overflow-auto cursor-text" onClick={startEditing}
-                    onDoubleClick={startEditing}>
+                  <div className="flex-1 overflow-auto cursor-text" onClick={startEditing} onDoubleClick={startEditing}>
                     <pre ref={highlightRef} className="py-3 px-4 text-[13px] leading-5 font-mono" style={{ tabSize: 2 }}>
                       <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
                     </pre>
-                    {/* Edit hint overlay */}
                     <div className="absolute bottom-3 right-3 text-[10px] text-stone-300 bg-white/80 px-2 py-1 rounded border" style={{ borderColor: "#e0e0e0" }}>
                       Click to edit · Cmd+S save · Auto-save 3s
                     </div>
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+
+            {/* === GIT PANEL (Diff / Blame / Status / Review) === */}
+            {(activeSubPanel === "diff" || activeSubPanel === "blame") && showGitPanel && (
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                {/* Git sub-tabs */}
+                <div className="flex items-center px-2 py-1 border-b shrink-0 gap-0.5" style={{ backgroundColor: "#fff", borderColor: "#f0f0f0" }}>
+                  {(["status", "diff", "blame", "review"] as const).map(t => (
+                    <button key={t} onClick={() => { setGitTab(t); if (t === "diff") setActiveSubPanel("diff"); if (t === "blame" && blameData) setActiveSubPanel("blame"); }}
+                      className={cn("px-2.5 py-1 rounded text-[10px] font-semibold transition-colors",
+                        gitTab === t ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
+                      {t === "status" ? "📊 Status" : t === "diff" ? "🔀 Diff" : t === "blame" ? "🔍 Blame" : "🤖 AI Review"}
+                    </button>
+                  ))}
+                  <span className="flex-1" />
+                  <button onClick={() => { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }} className="text-[10px] text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
+                </div>
+
+                {/* Git Status */}
+                {gitTab === "status" && gitStatus && (
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    <div>
+                      <div className="text-[10px] font-bold text-stone-500 mb-1">🌿 Branch: {gitStatus.branch}</div>
+                    </div>
+                    {gitStatus.staged.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-emerald-500 mb-1">Staged ({gitStatus.staged.length})</div>
+                        {gitStatus.staged.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs hover:bg-stone-50 px-1 rounded cursor-pointer"
+                            onClick={() => { loadGitDiff(f.path, true); setGitTab("diff"); setActiveSubPanel("diff"); }}>
+                            <span className="text-[10px] font-bold text-emerald-500 w-4">{f.status}</span>
+                            <span className="text-stone-600 truncate flex-1">{f.path}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {gitStatus.unstaged.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-amber-500 mb-1">Unstaged ({gitStatus.unstaged.length})</div>
+                        {gitStatus.unstaged.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs hover:bg-stone-50 px-1 rounded cursor-pointer"
+                            onClick={() => { loadGitDiff(f.path, false); setGitTab("diff"); setActiveSubPanel("diff"); }}>
+                            <span className="text-[10px] font-bold text-amber-500 w-4">{f.status}</span>
+                            <span className="text-stone-600 truncate flex-1">{f.path}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {gitStatus.untracked.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-stone-400 mb-1">Untracked ({gitStatus.untracked.length})</div>
+                        {gitStatus.untracked.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs px-1">
+                            <span className="text-[10px] font-bold text-stone-400 w-4">?</span>
+                            <span className="text-stone-500 truncate">{f.path}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Recent commits */}
+                    {gitLog.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-stone-500 mb-1">Recent Commits</div>
+                        {gitLog.slice(0, 8).map((c, i) => (
+                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs">
+                            <span className="text-[10px] font-mono text-blue-500 shrink-0">{c.short}</span>
+                            <span className="text-stone-600 truncate flex-1">{c.subject}</span>
+                            <span className="text-stone-400 shrink-0">{fmtTime(c.date)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Diff View */}
+                {gitTab === "diff" && (
+                  <div className="flex-1 overflow-auto">
+                    <div className="flex items-center gap-2 px-3 py-1.5 border-b sticky top-0 bg-white z-10" style={{ borderColor: "#f0f0f0" }}>
+                      <span className="text-[10px] font-bold text-stone-500">{gitDiffFile || "All changes"}</span>
+                      <label className="flex items-center gap-1 text-[10px] text-stone-400 cursor-pointer">
+                        <input type="checkbox" checked={gitDiffCached} onChange={e => { setGitDiffCached(e.target.checked); loadGitDiff(gitDiffFile || undefined, e.target.checked); }} className="w-3 h-3" />
+                        Staged only
+                      </label>
+                      <span className="flex-1" />
+                      {activeTab && <button onClick={() => loadBlame(activeTab.path)} className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">🔍 Blame this file</button>}
+                      <button onClick={generateAiComment} disabled={!gitDiff} className="text-[10px] px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: themeInfo.accent }}>🤖 AI Review</button>
+                    </div>
+                    {gitDiff ? (
+                      <pre className="p-3 text-[12px] font-mono leading-5 overflow-x-auto">
+                        <code dangerouslySetInnerHTML={{ __html: highlightedDiff }} />
+                      </pre>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-xs text-stone-400">No changes</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Blame View */}
+                {gitTab === "blame" && blameData && (
+                  <div className="flex-1 overflow-auto">
+                    <div className="flex items-center gap-2 px-3 py-1.5 border-b sticky top-0 bg-white z-10" style={{ borderColor: "#f0f0f0" }}>
+                      <span className="text-[10px] font-bold text-stone-500">🔍 Blame — {blameFile}</span>
+                    </div>
+                    <table className="w-full text-[11px] font-mono" style={{ borderCollapse: "collapse" }}>
+                      <tbody>
+                        {blameData.map((line, i) => {
+                          const prevHash = i > 0 ? blameData[i - 1].hash : "";
+                          const showAuthor = line.hash !== prevHash;
+                          return (
+                            <tr key={i} className={cn(showAuthor ? "" : "")} style={{ borderTop: showAuthor ? "1px solid #e5e5e5" : "none" }}>
+                              <td className="px-2 py-0 text-right text-stone-300 select-none w-8 shrink-0">{line.finalLine}</td>
+                              <td className="px-2 py-0 w-32 shrink-0 truncate" style={{ color: showAuthor ? "#3B82F6" : "#c0c0c0" }}>
+                                {showAuthor ? (
+                                  <span className="flex flex-col">
+                                    <span className="truncate font-semibold">{line.author}</span>
+                                    <span className="text-[9px] text-stone-400 truncate">{line.short || line.hash?.slice(0, 7)} · {fmtTime(line.authorTime)}</span>
+                                  </span>
+                                ) : <span className="text-stone-200">│</span>}
+                              </td>
+                              <td className="px-2 py-0 text-stone-700 leading-5 whitespace-pre">{line.content}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* AI Review */}
+                {gitTab === "review" && (
+                  <div className="flex-1 overflow-auto p-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-bold text-stone-700">🤖 AI Code Review</span>
+                      <span className="flex-1" />
+                      <button onClick={generateAiComment} disabled={aiCommentLoading || !gitDiff}
+                        className="text-[10px] px-3 py-1 rounded text-white disabled:opacity-40 active:scale-95"
+                        style={{ backgroundColor: themeInfo.accent }}>
+                        {aiCommentLoading ? "⏳ Generating..." : "🔄 Re-generate"}
+                      </button>
+                    </div>
+                    {aiCommentLoading ? (
+                      <div className="flex items-center justify-center h-32 text-stone-400 text-sm animate-pulse">🤖 AI is reviewing your code...</div>
+                    ) : aiComment ? (
+                      <div className="prose prose-sm max-w-none text-xs leading-relaxed whitespace-pre-wrap">{aiComment}</div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
+                        <span className="text-2xl">🤖</span>
+                        <p>點擊「🔀 Git」→ 查看差異 → 按「🤖 AI Review」</p>
+                        <p>AI 會自動分析 diff 並產生程式碼審查意見</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* === API TESTER === */}
+            {activeSubPanel === "api-tester" && showApiTester && (
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                {/* API sub-tabs */}
+                <div className="flex items-center px-2 py-1 border-b shrink-0 gap-0.5" style={{ backgroundColor: "#fff", borderColor: "#f0f0f0" }}>
+                  {(["request", "response", "history"] as const).map(t => (
+                    <button key={t} onClick={() => setApiTab(t)}
+                      className={cn("px-2.5 py-1 rounded text-[10px] font-semibold transition-colors",
+                        apiTab === t ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
+                      {t === "request" ? "📤 Request" : t === "response" ? "📥 Response" : "📜 History"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Request Builder */}
+                {apiTab === "request" && (
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    {/* URL bar */}
+                    <div className="flex items-center gap-2">
+                      <select value={apiMethod} onChange={e => setApiMethod(e.target.value)}
+                        className="text-[11px] font-bold px-2 py-1.5 border rounded-lg outline-none cursor-pointer"
+                        style={{ borderColor: "#ddd", color: METHOD_COLORS[apiMethod] }}>
+                        {HTTP_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") sendApiRequest(); }}
+                        placeholder="https://api.example.com/endpoint"
+                        className="flex-1 text-[11px] font-mono px-3 py-1.5 border rounded-lg outline-none focus:border-blue-400"
+                        style={{ borderColor: "#ddd" }} />
+                      <button onClick={sendApiRequest} disabled={apiLoading || !apiUrl.trim()}
+                        className="px-4 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 active:scale-95 transition-transform"
+                        style={{ backgroundColor: themeInfo.accent }}>
+                        {apiLoading ? "⏳" : "Send"}
+                      </button>
+                    </div>
+                    {/* Headers */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold text-stone-500">Headers</span>
+                        <button onClick={addHeader} className="text-[10px] text-blue-500 hover:text-blue-600">+ Add</button>
+                      </div>
+                      {apiHeaders.map((h, i) => (
+                        <div key={i} className="flex items-center gap-1.5 mb-1">
+                          <input type="checkbox" checked={h.enabled} onChange={e => updateHeader(i, "enabled", e.target.checked)} className="w-3 h-3" />
+                          <input value={h.key} onChange={e => updateHeader(i, "key", e.target.value)} placeholder="Key"
+                            className="flex-1 text-[10px] font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
+                          <input value={h.value} onChange={e => updateHeader(i, "value", e.target.value)} placeholder="Value"
+                            className="flex-1 text-[10px] font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
+                          <button onClick={() => removeHeader(i)} className="text-stone-300 hover:text-red-500 text-xs">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Body */}
+                    {apiMethod !== "GET" && apiMethod !== "HEAD" && (
+                      <div>
+                        <div className="text-[10px] font-bold text-stone-500 mb-1.5">Body</div>
+                        <textarea value={apiBody} onChange={e => setApiBody(e.target.value)}
+                          placeholder='{"key": "value"}'
+                          className="w-full text-[11px] font-mono px-3 py-2 border rounded-lg outline-none focus:border-blue-400 resize-y"
+                          style={{ borderColor: "#ddd", minHeight: 120 }} />
+                        <button onClick={() => setApiBody(tryFormatJson(apiBody))}
+                          className="text-[9px] text-stone-400 hover:text-stone-600 mt-1">📐 Format JSON</button>
+                      </div>
+                    )}
+                    {/* Quick URLs */}
+                    <div>
+                      <div className="text-[10px] font-bold text-stone-500 mb-1.5">Quick URLs</div>
+                      <div className="flex flex-wrap gap-1">
+                        {[
+                          { label: "PAAW Chat", url: "http://127.0.0.1:4097/api/chat" },
+                          { label: "PAAW Status", url: "http://127.0.0.1:4097/api/vibe-git/status" },
+                          { label: "PAAW FS", url: "http://127.0.0.1:4097/api/vibe-fs/list" },
+                          { label: "Distill Config", url: "http://127.0.0.1:4097/api/distill/config" },
+                          { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1" },
+                          { label: "HTTPBin", url: "https://httpbin.org/get" },
+                        ].map(q => (
+                          <button key={q.label} onClick={() => { setApiUrl(q.url); setApiMethod(q.label.includes("Chat") ? "POST" : "GET"); }}
+                            className="text-[9px] px-2 py-0.5 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">
+                            {q.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Response Viewer */}
+                {apiTab === "response" && (
+                  <div className="flex-1 overflow-y-auto p-3">
+                    {apiResponse ? (
+                      <div className="space-y-3">
+                        {/* Status line */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>
+                            {apiResponse.status} {apiResponse.statusText}
+                          </span>
+                          <span className="text-[10px] text-stone-400">{apiResponse.elapsed}ms · {fmtBytes(apiResponse.size)}</span>
+                          <span className="flex-1" />
+                          <button onClick={() => navigator.clipboard?.writeText(apiResponse.body)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
+                        </div>
+                        {/* Headers */}
+                        <div>
+                          <div className="text-[10px] font-bold text-stone-500 mb-1">Response Headers</div>
+                          <div className="text-[10px] font-mono bg-stone-50 rounded-lg p-2 space-y-0.5">
+                            {Object.entries(apiResponse.headers).map(([k, v]) => (
+                              <div key={k}><span className="text-blue-600">{k}</span>: <span className="text-stone-600">{v}</span></div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Body */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold text-stone-500">Response Body</span>
+                            <button onClick={() => { try { setApiResponse({ ...apiResponse, body: JSON.stringify(JSON.parse(apiResponse.body), null, 2) }); } catch {} }}
+                              className="text-[9px] text-stone-400 hover:text-stone-600">📐 Format</button>
+                          </div>
+                          <pre className="text-[11px] font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[400px] overflow-y-auto whitespace-pre-wrap break-words">
+                            {apiResponse.body}
+                          </pre>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">
+                        <span className="text-2xl">📥</span>
+                        <p>發送請求後，回應會顯示在這裡</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* History */}
+                {apiTab === "history" && (
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="flex items-center px-3 py-1.5 border-b" style={{ borderColor: "#f0f0f0" }}>
+                      <span className="text-[10px] font-bold text-stone-500">{apiHistory.length} requests</span>
+                      <span className="flex-1" />
+                      <button onClick={() => setApiHistory([])} className="text-[10px] text-red-400 hover:text-red-600">Clear</button>
+                    </div>
+                    {apiHistory.map((h, i) => (
+                      <div key={h.id || i} className="flex items-center gap-2 px-3 py-1.5 border-b hover:bg-stone-50 cursor-pointer text-xs"
+                        style={{ borderColor: "#f5f5f5" }}
+                        onClick={() => { setApiMethod(h.method); setApiUrl(h.url); setApiTab("request"); }}>
+                        <span className="text-[10px] font-bold w-12 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
+                        <span className="text-stone-600 truncate flex-1 font-mono text-[10px]">{h.url}</span>
+                        <span className="text-[10px] font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
+                        <span className="text-[9px] text-stone-400 shrink-0">{h.elapsed}ms</span>
+                      </div>
+                    ))}
+                    {apiHistory.length === 0 && (
+                      <div className="flex items-center justify-center h-32 text-stone-400 text-xs">No history yet</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* === Empty state === */}
+            {activeSubPanel === "editor" && !activeTab && (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
                 <div className="text-5xl">⚡</div>
                 <h2 className="text-lg font-bold text-stone-600">Vibe Coding IDE</h2>
                 <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
                   左邊打開專案 → 點擊檔案瀏覽（點擊進入編輯）<br />
-                  🤖 AI 側邊欄可對著當前檔案問問題<br />
-                  所有操作自動記錄 → 定時蒸餾成知識
+                  🔀 Git — diff view, blame, AI auto comment<br />
+                  🌐 API Tester — Postman-like 測試工具<br />
+                  🤖 AI Chat — 對著檔案問問題
                 </p>
               </div>
             )}
 
             {/* Session overlay */}
             {showSessionPanel && (
-              <div className="absolute right-2 top-10 w-72 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden" style={{ borderColor: "#e0e0e0" }}>
+              <div className="absolute right-2 top-2 w-72 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden" style={{ borderColor: "#e0e0e0" }}>
                 <div className="px-3 py-2 border-b font-bold text-xs text-stone-700 flex items-center gap-2" style={{ borderColor: "#f0f0f0" }}>
                   ⚡ Sessions <span className="flex-1" />
                   <button onClick={() => setShowSessionPanel(false)} className="text-stone-400 hover:text-stone-700">✕</button>
@@ -707,11 +1079,8 @@ export default function VibeCodingIDE() {
                   <div className="flex gap-0.5">
                     {CLI_OPTIONS.map(cli => (
                       <button key={cli.id} onClick={() => setFormCli(cli.id)}
-                        className={cn("flex-1 py-1 rounded text-[10px] font-semibold border transition-colors",
-                          formCli === cli.id ? "text-white" : "border-stone-200 text-stone-500")}
-                        style={formCli === cli.id ? { backgroundColor: cli.color, borderColor: cli.color } : {}}>
-                        {cli.icon}
-                      </button>
+                        className={cn("flex-1 py-1 rounded text-[10px] font-semibold border transition-colors", formCli === cli.id ? "text-white" : "border-stone-200 text-stone-500")}
+                        style={formCli === cli.id ? { backgroundColor: cli.color, borderColor: cli.color } : {}}>{cli.icon}</button>
                     ))}
                   </div>
                   <input value={formModel} onChange={e => setFormModel(e.target.value)} placeholder="Model"
@@ -721,8 +1090,7 @@ export default function VibeCodingIDE() {
                   <div className="flex gap-0.5">
                     {APPROVAL_MODES.map(m => (
                       <button key={m.id} onClick={() => setFormApproval(m.id)}
-                        className={cn("flex-1 py-1 rounded text-[10px] font-semibold border",
-                          formApproval === m.id ? "border-stone-400 bg-white text-stone-700" : "border-stone-200 text-stone-400")}>{m.icon} {m.label}</button>
+                        className={cn("flex-1 py-1 rounded text-[10px] font-semibold border", formApproval === m.id ? "border-stone-400 bg-white text-stone-700" : "border-stone-200 text-stone-400")}>{m.icon} {m.label}</button>
                     ))}
                   </div>
                   <button onClick={createSession}
@@ -766,42 +1134,33 @@ export default function VibeCodingIDE() {
           )}
         </div>
 
-        {/* ── 2. AI Chat Sidebar ── */}
+        {/* ── AI Chat Sidebar ── */}
         {showAiPanel && (
           <>
-            {/* AI panel resize handle */}
             <div className="w-1 cursor-col-resize hover:bg-blue-300 active:bg-blue-500 transition-colors shrink-0"
               onMouseDown={e => startResize("ai", e)} style={{ backgroundColor: "#e5e5e5" }} />
             <div className="flex flex-col border-l shrink-0 select-none" style={{ width: aiPanelWidth, backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
-              {/* AI header */}
               <div className="flex items-center px-3 py-2 border-b shrink-0" style={{ borderColor: "#f0f0f0" }}>
                 <span className="text-xs font-bold text-stone-700">🤖 AI Chat</span>
                 {activeTab && <span className="text-[9px] text-stone-400 ml-2 truncate">({activeTab.name})</span>}
                 <span className="flex-1" />
                 <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
               </div>
-              {/* Chat messages */}
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ fontSize: 13 }}>
                 {chatMessages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-2">
                     <span className="text-2xl">🤖</span>
-                    <p className="text-stone-400 text-xs">
-                      對著當前開啟的檔案問 AI<br />
-                      自動帶入檔案內容作為 context
-                    </p>
+                    <p className="text-stone-400 text-xs">對著當前開啟的檔案問 AI<br />自動帶入檔案內容作為 context</p>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {["解釋這段 code", "有什麼問題？", "幫我加註解", "效能可以更好嗎？"].map(q => (
                         <button key={q} onClick={() => setChatInput(q)}
-                          className="text-[10px] px-2 py-1 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">
-                          {q}
-                        </button>
+                          className="text-[10px] px-2 py-1 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">{q}</button>
                       ))}
                     </div>
                   </div>
                 )}
                 {chatMessages.map((msg, i) => (
-                  <div key={i} className={cn("rounded-lg px-3 py-2 text-xs leading-relaxed",
-                    msg.role === "user" ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-stone-700")}>
+                  <div key={i} className={cn("rounded-lg px-3 py-2 text-xs leading-relaxed", msg.role === "user" ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-stone-700")}>
                     <div className="text-[9px] font-bold text-stone-400 mb-1">{msg.role === "user" ? "👤 You" : "🤖 AI"}</div>
                     <pre className="whitespace-pre-wrap font-sans break-words" style={{ fontFamily: "inherit" }}>{msg.content}</pre>
                   </div>
@@ -809,7 +1168,6 @@ export default function VibeCodingIDE() {
                 {chatLoading && <div className="text-xs text-stone-400 animate-pulse px-3">🤖 Thinking...</div>}
                 <div ref={chatEndRef} />
               </div>
-              {/* Chat input */}
               <div className="px-2 py-2 border-t shrink-0" style={{ borderColor: "#f0f0f0" }}>
                 <div className="flex items-end gap-1.5">
                   <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
@@ -833,7 +1191,7 @@ export default function VibeCodingIDE() {
 
       {/* ── Status Bar ── */}
       <div className="flex items-center h-5 px-3 border-t shrink-0 select-none text-[10px]" style={{ backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
-        {activeTab && (
+        {activeTab && activeSubPanel === "editor" && (
           <>
             <span className="text-stone-500">{activeTab.language}</span>
             <span className="text-stone-300 mx-1">|</span>
@@ -843,7 +1201,12 @@ export default function VibeCodingIDE() {
             <span className="text-stone-400 font-mono truncate max-w-[250px]">{activeTab.path}</span>
           </>
         )}
+        {activeSubPanel === "diff" && <span className="text-stone-500">🔀 Diff</span>}
+        {activeSubPanel === "blame" && <span className="text-stone-500">🔍 Blame</span>}
+        {activeSubPanel === "api-tester" && apiResponse && <span className="font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>{apiResponse.status} {apiResponse.statusText}</span>}
+        {activeSubPanel === "api-tester" && !apiResponse && <span className="text-stone-400">🌐 API Tester</span>}
         <span className="flex-1" />
+        {gitStatus?.branch && <span className="text-emerald-600 mr-2">🔀 {gitStatus.branch}</span>}
         {modifiedCount > 0 && <span className="text-amber-500 mr-2">{modifiedCount} unsaved</span>}
         {activeSession && (
           <span className="text-stone-500 flex items-center gap-1">
