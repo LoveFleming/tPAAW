@@ -91,6 +91,64 @@ const server = createServer(async (req, res) => {
   const vibeHandled = await vibeSessionsApiHandler(req, res);
   if (vibeHandled) return;
 
+  // ── Vibe Coding File System APIs ──
+  // GET /api/vibe-fs/list?path=...
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-fs/list")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const dirPath = params.get("path") || "";
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/");
+    try {
+      const entries = await readdir(absPath, { withFileTypes: true });
+      const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite", ".next", ".nuxt", "dist", "build", ".turbo"]);
+      const items = entries
+        .filter(e => !IGNORED.has(e.name) && !e.name.startsWith("."))
+        .sort((a, b) => {
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.name.localeCompare(b.name);
+        })
+        .map(e => ({ name: e.name, path: join(absPath, e.name), isDirectory: e.isDirectory(), extension: e.isDirectory() ? null : (e.name.includes(".") ? e.name.split(".").pop() : null) }));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: absPath, items }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message, path: absPath, items: [] }));
+    }
+    return;
+  }
+  // GET /api/vibe-fs/read?path=...
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-fs/read")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const filePath = params.get("path");
+    if (!filePath) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return; }
+    try {
+      const content = await readFile(resolve(filePath), "utf-8");
+      const s = await stat(resolve(filePath));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ path: resolve(filePath), content, size: s.size, modified: s.mtime.toISOString() }));
+    } catch (err) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+  // PUT /api/vibe-fs/write
+  if (req.method === "PUT" && req.url === "/api/vibe-fs/write") {
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const { path: fPath, content: fContent } = body;
+    if (!fPath) { res.writeHead(400); res.end(JSON.stringify({ error: "Missing path" })); return; }
+    try {
+      await mkdir(dirname(resolve(fPath)), { recursive: true });
+      await writeFile(resolve(fPath), fContent, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: resolve(fPath) }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // Helper: resolve directory (PAAW has flat structure, no factory nesting)
   function factoryDir(_factoryId, subdir) {
     if (subdir === "crews") return CREWS_ROOT;

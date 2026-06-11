@@ -10,6 +10,7 @@ import AppLab from "./pages/AppLab";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import VibeCoding from "./pages/VibeCoding";
+import VibeCodingIDE from "./pages/VibeCodingIDE";
 import WorkflowEditor from "./pages/WorkflowEditor";
 import WorkflowExec from "./pages/WorkflowExec";
 import FileViewer from "./pages/FileViewer";
@@ -517,7 +518,7 @@ function AppInner() {
       return <CronJobsPage />;
     }
     if (pageType === "vibe-coding") {
-      return <VibeCoding />;
+      return <VibeCodingIDE />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;
