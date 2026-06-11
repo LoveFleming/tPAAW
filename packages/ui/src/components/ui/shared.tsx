@@ -67,6 +67,7 @@ const NAV_ICONS: Record<string, string> = {
     "Schedules":       "clock",
     "Cron Jobs":       "clock",
     "Skill Lab":       "flask",
+    "Vibe Coding":     "lightning",
 };
 
 export function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
