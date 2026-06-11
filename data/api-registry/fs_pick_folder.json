@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/fs/pick-folder",
+  "routeId": "fs_pick_folder",
+  "name": "FsPickFolder",
+  "category": "fs",
+  "description": "GET /api/fs/pick-folder",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

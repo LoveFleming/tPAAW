@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/report-lab/training-files",
+  "routeId": "report_lab_training_files",
+  "name": "ReportLabTrainingFiles",
+  "category": "report",
+  "description": "GET /api/report-lab/training-files",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

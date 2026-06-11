@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/vibe-git/ai-comment",
+  "routeId": "vibe_git_ai_comment",
+  "name": "VibeGitAiComment",
+  "category": "vibe",
+  "description": "POST /api/vibe-git/ai-comment",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

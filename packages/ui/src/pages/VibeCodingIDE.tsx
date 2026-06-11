@@ -667,22 +667,22 @@ export default function VibeCodingIDE() {
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: tk.bgHover }}>
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: tk.bg, borderColor: tk.border }}>
-        <span className="text-sm font-bold text-stone-700">t("vibe.title")</span>
+        <span className="text-sm font-bold text-stone-700">{t("vibe.title")}</span>
         <div className="flex-1" />
         <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
           className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showGitPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          t("vibe.git")
+          {t("vibe.git")}
         </button>
         <button onClick={() => { setShowApiTester(!showApiTester); if (!showApiTester) { setActiveSubPanel("api-tester"); } }}
           className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showApiTester ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          t("vibe.api")
+          {t("vibe.api")}
         </button>
         <button onClick={() => setShowAiPanel(!showAiPanel)}
           className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showAiPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          t("vibe.ai")
+          {t("vibe.ai")}
         </button>
         <button onClick={() => setShowSessionPanel(!showSessionPanel)}
           className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
@@ -692,7 +692,7 @@ export default function VibeCodingIDE() {
         <button onClick={() => setShowTerminal(!showTerminal)}
           className={cn("text-[10px] px-2 py-1 rounded-lg border font-semibold transition-colors",
             showTerminal ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          t("vibe.term")
+          {t("vibe.term")}
         </button>
       </div>
 
@@ -790,7 +790,7 @@ export default function VibeCodingIDE() {
                       <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
                     </pre>
                     <div className="absolute bottom-3 right-3 text-[10px] text-stone-300 bg-white/80 px-2 py-1 rounded border" style={{ borderColor: tk.borderInput }}>
-                      t("vibe.clickToEdit") · Cmd+S t("vibe.save") · t("vibe.autoSave")
+                      {t("vibe.clickToEdit")} · Cmd+S {t("vibe.save")} · {t("vibe.autoSave")}
                     </div>
                   </div>
                 )}
@@ -962,8 +962,8 @@ export default function VibeCodingIDE() {
                     {!aiComment && gitReviews.length === 0 && (
                       <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
                         <span className="text-2xl">🤖</span>
-                        <p>t("vibe.gitReviewHint")</p>
-                        <p>t("vibe.gitReviewHint2")</p>
+                        <p>{t("vibe.gitReviewHint")}</p>
+                        <p>{t("vibe.gitReviewHint2")}</p>
                       </div>
                     )}
                   </div>
@@ -1096,7 +1096,7 @@ export default function VibeCodingIDE() {
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">
                         <span className="text-2xl">📥</span>
-                        <p>t("vibe.apiNoResponse")</p>
+                        <p>{t("vibe.apiNoResponse")}</p>
                       </div>
                     )}
                   </div>
@@ -1134,9 +1134,9 @@ export default function VibeCodingIDE() {
                 <div className="text-5xl">⚡</div>
                 <h2 className="text-lg font-bold text-stone-600">Vibe Coding IDE</h2>
                 <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
-                  t("vibe.welcomeLine1")<br />
-                  t("vibe.welcomeLine2")<br />
-                  t("vibe.welcomeLine3")<br />
+                  {t("vibe.welcomeLine1")}<br />
+                  {t("vibe.welcomeLine2")}<br />
+                  {t("vibe.welcomeLine3")}<br />
                   🤖 AI Chat — 對著檔案問問題
                 </p>
               </div>
@@ -1187,7 +1187,7 @@ export default function VibeCodingIDE() {
                   </div>
                   <button onClick={createSession}
                     className="w-full py-1.5 rounded text-[11px] font-bold text-white active:scale-95 transition-transform"
-                    style={{ backgroundColor: tk.accent }}>t("vibe.sessionStart")</button>
+                    style={{ backgroundColor: tk.accent }}>{t("vibe.sessionStart")}</button>
                 </div>
               </div>
             )}

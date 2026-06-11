@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/fs/rename",
+  "routeId": "fs_rename",
+  "name": "FsRename",
+  "category": "fs",
+  "description": "POST /api/fs/rename",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

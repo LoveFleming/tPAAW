@@ -1,0 +1,20 @@
+{
+  "route": "DELETE /api/fs/item",
+  "routeId": "fs_item",
+  "name": "FsItem",
+  "category": "fs",
+  "description": "DELETE /api/fs/item",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/fs/watch",
+  "routeId": "fs_watch",
+  "name": "FsWatch",
+  "category": "fs",
+  "description": "GET /api/fs/watch",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

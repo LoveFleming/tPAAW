@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/skill-lab/build-files",
+  "routeId": "skill_lab_build_files",
+  "name": "SkillLabBuildFiles",
+  "category": "skill",
+  "description": "GET /api/skill-lab/build-files",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

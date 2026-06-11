@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/api-tester/save",
+  "routeId": "api_tester_save",
+  "name": "ApiTesterSave",
+  "category": "api",
+  "description": "POST /api/api-tester/save",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

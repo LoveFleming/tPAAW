@@ -78,6 +78,10 @@ const server = createServer(async (req, res) => {
     const modDistill = await import("./routes/distill.mjs");
     if (await modDistill.default(req, res)) return;
   } catch {}
+  try {
+    const modTools = await import("./routes/tools.mjs");
+    if (await modTools.default(req, res)) return;
+  } catch {}
 
   // ── Legacy routes (everything else) ──
   const paawHandled = await paawApiHandler(req, res);

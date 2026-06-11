@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/cli-run",
+  "routeId": "cli_run",
+  "name": "CliRun",
+  "category": "cli",
+  "description": "POST /api/cli-run",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

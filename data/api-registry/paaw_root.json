@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/paaw-root",
+  "routeId": "paaw_root",
+  "name": "PaawRoot",
+  "category": "paaw",
+  "description": "GET /api/paaw-root",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

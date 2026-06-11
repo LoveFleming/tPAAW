@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/hello-world",
+  "routeId": "hello_world",
+  "name": "HelloWorld",
+  "category": "hello",
+  "description": "GET /api/hello-world",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

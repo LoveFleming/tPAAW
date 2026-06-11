@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/fs/copy",
+  "routeId": "fs_copy",
+  "name": "FsCopy",
+  "category": "fs",
+  "description": "POST /api/fs/copy",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

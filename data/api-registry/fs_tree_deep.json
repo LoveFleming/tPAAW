@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/fs/tree-deep",
+  "routeId": "fs_tree_deep",
+  "name": "FsTreeDeep",
+  "category": "fs",
+  "description": "GET /api/fs/tree-deep",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/fs/tree",
+  "routeId": "fs_tree",
+  "name": "FsTree",
+  "category": "fs",
+  "description": "GET /api/fs/tree",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

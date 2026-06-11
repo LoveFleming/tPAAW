@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/fs/mkdir",
+  "routeId": "fs_mkdir",
+  "name": "FsMkdir",
+  "category": "fs",
+  "description": "POST /api/fs/mkdir",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/factories",
+  "routeId": "factories",
+  "name": "Factories",
+  "category": "factories",
+  "description": "POST /api/factories",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

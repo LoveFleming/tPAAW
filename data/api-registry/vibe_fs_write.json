@@ -1,0 +1,20 @@
+{
+  "route": "PUT /api/vibe-fs/write",
+  "routeId": "vibe_fs_write",
+  "name": "VibeFsWrite",
+  "category": "vibe",
+  "description": "PUT /api/vibe-fs/write",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

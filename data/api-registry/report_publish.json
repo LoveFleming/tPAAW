@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/report-publish",
+  "routeId": "report_publish",
+  "name": "ReportPublish",
+  "category": "report",
+  "description": "POST /api/report-publish",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

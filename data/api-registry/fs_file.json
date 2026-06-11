@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/fs/file",
+  "routeId": "fs_file",
+  "name": "FsFile",
+  "category": "fs",
+  "description": "GET /api/fs/file",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

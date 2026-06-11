@@ -148,6 +148,54 @@ function parseSkillFrontmatter(content) {
   return { meta, body };
 }
 
+/** API Tool Registry — 已啟用的系統工具 */
+function loadApiTools() {
+  const registryDir = resolve(DATA_DIR, "api-registry");
+  try {
+    const files = readdirSync(registryDir).filter(f => f.endsWith(".json") && !f.startsWith("_"));
+    const tools = [];
+    for (const f of files) {
+      try {
+        const contract = JSON.parse(readFileSync(resolve(registryDir, f), "utf-8"));
+        if (contract.enabled && contract.autoTool) {
+          tools.push({
+            routeId: contract.routeId,
+            name: contract.name,
+            route: contract.route,
+            description: contract.description,
+            category: contract.category,
+          });
+        }
+      } catch {}
+    }
+    return tools;
+  } catch {
+    return [];
+  }
+}
+
+/** 已產生的 Skill Tools */
+function loadGeneratedSkills() {
+  const toolsDir = resolve(DATA_DIR, "skills/tools");
+  try {
+    const dirs = readdirSync(toolsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+    const skills = [];
+    for (const id of dirs) {
+      try {
+        const meta = JSON.parse(readFileSync(resolve(toolsDir, id, "meta.json"), "utf-8"));
+        skills.push(meta);
+      } catch {
+        skills.push({ routeId: id, name: id });
+      }
+    }
+    return skills;
+  } catch {
+    return [];
+  }
+}
+
 // ══════════════════════════════════════════════════════════
 // Context Engine API
 // ══════════════════════════════════════════════════════════
@@ -209,12 +257,40 @@ export const contextEngine = {
     parts.push(`=== 回覆規則 ===
 - 用中文回覆，風格自然友善
 - 使用者問「我有什麼 App」→ 用 app_list 工具查詢，不要猜
-- 使用者要求做事時，先檢查有沒有對應的 App，用 App 的工具完成
+- 使用者要求做事時，先檢查有沒有對應的 App 或 System Tool，用對應的工具完成
 - 如果使用者的話包含某個 App 的觸發關鍵字，直接呼叫該 App 的工具
 - 主動運用記憶中的資訊（偏好、過去的決策、人際關係）
 - 如果學到新東西，主動用 memory_add 記下來
 - 不確定的事情就用工具查，不要用猜的
 - 使用 Markdown 格式`);
+
+    // 7.5 API Tools — 系統工具列表
+    const apiTools = loadApiTools();
+    const generatedSkills = loadGeneratedSkills();
+    if (apiTools.length > 0 || generatedSkills.length > 0) {
+      const toolLines = [];
+      if (apiTools.length > 0) {
+        toolLines.push("=== 可用的系統工具 (System Tools) ===");
+        toolLines.push("你可以使用以下工具來完成任務。每個工具對應一個 API endpoint：");
+        toolLines.push("");
+        for (const t of apiTools) {
+          toolLines.push(`[${t.routeId}] ${t.route} — ${t.description || t.name}`);
+        }
+      }
+      if (generatedSkills.length > 0) {
+        toolLines.push("");
+        toolLines.push("=== 已產生的 Skill Tools ===");
+        for (const s of generatedSkills) {
+          toolLines.push(`[${s.routeId}] ${s.name} — ${s.route || ""}`);
+        }
+      }
+      toolLines.push("");
+      toolLines.push("使用規則：");
+      toolLines.push("- 當使用者要求操作檔案、Git、API 測試、Cron 等工作時，優先使用對應的系統工具");
+      toolLines.push("- 呼叫工具時，組裝正確的 API 請求並執行");
+      toolLines.push("- 如果沒有對應工具，告訴使用者可以透過 Settings > Tools 產生新工具");
+      parts.push(toolLines.join("\n"));
+    }
 
     // 8. Recent chats
     if (recentChats) parts.push(`=== 最近對話摘要 ===\n${recentChats}`);

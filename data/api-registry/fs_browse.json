@@ -1,0 +1,20 @@
+{
+  "route": "GET /api/fs/browse",
+  "routeId": "fs_browse",
+  "name": "FsBrowse",
+  "category": "fs",
+  "description": "GET /api/fs/browse",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}

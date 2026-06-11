@@ -1,0 +1,20 @@
+{
+  "route": "POST /api/fs/create-file",
+  "routeId": "fs_create_file",
+  "name": "FsCreateFile",
+  "category": "fs",
+  "description": "POST /api/fs/create-file",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "query": {},
+    "body": {},
+    "path": {}
+  },
+  "response": {
+    "type": "object",
+    "description": "API response"
+  },
+  "sampleData": null,
+  "enabled": true,
+  "autoTool": true
+}
