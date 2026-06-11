@@ -70,7 +70,7 @@ const NAV_ICONS: Record<string, string> = {
     "Vibe Coding":     "lightning",
 };
 
-export function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
+export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(true);
 
     return (
@@ -87,7 +87,8 @@ export function SidebarSection({ title, children }: { title: string; children: R
                 >
                     <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
-                <span>{title}</span>
+                <span className="flex-1 text-left">{title}</span>
+                {right}
             </button>
             {isOpen && <div className="pb-1">{children}</div>}
         </div>
