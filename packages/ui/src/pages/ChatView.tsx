@@ -289,13 +289,18 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
             } else if (parsed.content) {
               fullContent += parsed.content;
             } else if (parsed.tool_call) {
-              // Tool execution in progress — silent, don't show in chat
+              // Show executing status — will be cleared when AI responds
+              const tc = parsed.tool_call;
+              const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              const labelShort = label.replace(/ App/g, "");
+              fullContent += `⏳ ${labelShort} 執行中...`;
             } else if (parsed.tool_result) {
-              // Tool result — silent, AI will format the response
-              // Only show errors
               const tr = parsed.tool_result;
               if (tr.result?.error) {
                 fullContent += `\n❌ ${tr.result.text}\n`;
+              } else {
+                // Remove the "⏳ 執行中..." status line
+                fullContent = fullContent.replace(/\n?⏳ [^\n]*執行中\.\.\./g, "");
               }
             }
           } catch {}
