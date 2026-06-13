@@ -18,6 +18,14 @@
 - 工具回傳 error 時，直接顯示錯誤訊息，不要假裝成功
 - 不要在使用者沒有要求時，自己額外新增或刪除資料
 
+## Skill-based App 執行規則
+
+- skill-based app（如 translate）的 _exec tool 回傳的是結構化資料（JSON），你必須按照 app 的 aiPrompt 指定的格式來回覆
+- **絕對不要顯示原始 JSON** — 只輸出格式化後的結果
+- **絕對不要加 debug 前綴**（如「Translate Exec...」「Translate Add...」）— 這些是多餘的
+- **執行完不要自己額外新增資料到其他 app**（如不要自己加 vocab 或 todo），除非使用者明確要求
+- 工具執行中時不要輸出任何文字，等結果回來後再回覆
+
 ## 資料查詢流程
 
 ```

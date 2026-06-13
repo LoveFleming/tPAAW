@@ -678,7 +678,27 @@ function buildHandlers(apps) {
         });
         const result = await resp.json();
         if (result.error) return { text: `❌ ${result.error}`, error: true };
-        return { text: result.output || "執行完成", raw: true };
+
+        const raw = (result.output || "").trim();
+
+        // Try to parse JSON from CLI output
+        let parsed = null;
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try { parsed = JSON.parse(jsonMatch[0]); } catch {}
+        }
+
+        if (parsed) {
+          // Return structured data — AI will format it nicely
+          return {
+            text: JSON.stringify(parsed, null, 2),
+            data: parsed,
+            structured: true,
+            raw: false,
+          };
+        }
+
+        return { text: raw || "執行完成", raw: false };
       } catch (err) {
         return { text: `❌ 執行失敗：${err.message}`, error: true };
       }
