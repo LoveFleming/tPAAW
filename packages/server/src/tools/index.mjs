@@ -480,7 +480,8 @@ function buildHandlers(apps) {
           });
           const record = await resp.json();
           if (record.error) return { text: `❌ ${record.error}`, error: true };
-          const displayText = record.word || record.text || record.title || record.name || record.id;
+          // Smart display: pick the first non-empty meaningful field
+          const displayText = record.word || record.text || record.title || record.event || record.name || record.id;
           return { text: `✅ 已新增 ${app.icon} **${displayText}** (${record.type || ""})`, record };
         } catch (err) {
           return { text: `❌ 新增失敗：${err.message}`, error: true };

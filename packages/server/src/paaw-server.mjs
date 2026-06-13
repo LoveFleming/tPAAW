@@ -907,6 +907,14 @@ ${context ? "\n## Context\n" + context : ""}
       let items = [];
       try { items = JSON.parse(await readFile(filePath, "utf-8")); } catch {}
       const newItem = JSON.parse(await _readBody(req));
+      
+      // Sanitize: strip "N/A" string values (AI sometimes fills all fields with "N/A")
+      for (const key of Object.keys(newItem)) {
+        if (newItem[key] === "N/A" || newItem[key] === "n/a" || newItem[key] === "") {
+          delete newItem[key];
+        }
+      }
+      
       if (!newItem.id) newItem.id = `${appId}_${Date.now().toString(36)}`;
       if (!newItem.createdAt) newItem.createdAt = new Date().toISOString();
       items.push(newItem);
@@ -959,6 +967,14 @@ ${context ? "\n## Context\n" + context : ""}
       const idx = items.findIndex(i => i.id === itemId);
       if (idx < 0) { res.writeHead(404); res.end("Item not found"); return; }
       const patch = JSON.parse(await _readBody(req));
+      
+      // Sanitize: strip "N/A" values from patch too
+      for (const key of Object.keys(patch)) {
+        if (patch[key] === "N/A" || patch[key] === "n/a" || patch[key] === "") {
+          delete patch[key];
+        }
+      }
+      
       items[idx] = { ...items[idx], ...patch, id: itemId };
       await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
