@@ -123,24 +123,210 @@ export class ApiRunner implements SkillExecutor {
   }
 }
 
-// ── Script Runner ───────────────────────────────────────
+// ── Script Runner (Sandbox) ────────────────────────────
+//
+// Script execution is delegated to the CLI Service (sandbox).
+// The script + input are sent via HTTP API, executed in isolation,
+// and the result is returned.
+//
+// Supported languages: javascript, shell, python
+//
+// Sandbox endpoint: POST /api/exec
+// Body: { cli: <runtime>, args: [...], cwd, env, timeout }
+//
+
+/**
+ * Sandbox CLI Service URL.
+ * Resolved at call time so env changes take effect without restart.
+ */
+function getSandboxUrl(): string {
+  try {
+    // @ts-ignore — process may not be typed in this package but exists at runtime
+    return (globalThis.process?.env?.CLI_SERVICE_URL) || "http://localhost:4099";
+  } catch {
+    return "http://localhost:4099";
+  }
+}
 
 export class ScriptRunner implements SkillExecutor {
+  /**
+   * Execute a skill script in the sandbox.
+   *
+   * config.script  — the script source code (inline)
+   * config.scriptPath — path to script file in sandbox /workspace
+   * config.language — "javascript" | "shell" | "python"
+   * config.timeout — execution timeout in ms (default 30000)
+   * config.cwd — working directory in sandbox
+   * config.env — extra env vars for sandbox
+   */
   async execute(input: Record<string, any>, config: Record<string, any>, context: RunContext): Promise<Record<string, any>> {
-    const { script, language = "javascript" } = config;
+    const {
+      script,
+      scriptPath,
+      language = "javascript",
+      timeout = 30000,
+      cwd,
+      env,
+    } = config;
 
-    if (language !== "javascript") {
-      throw new Error(`Unsupported script language: ${language}`);
+    // ── Resolve what to execute ──
+    if (scriptPath) {
+      // Execute a script file already in sandbox /workspace
+      return this._execFile(scriptPath, language, input, { timeout, cwd, env });
     }
 
-    // For MVP: use Function constructor as sandbox
-    // Future: use QuickJS or VM2 for proper isolation
-    const fn = new Function(
-      "input", "context", "fetch",
-      `return (async () => { ${script} })();`
-    );
+    if (script) {
+      // Inline script — write to temp file in sandbox, then execute
+      return this._execInline(script, language, input, { timeout, cwd, env });
+    }
 
-    return await fn(input, context, fetch);
+    throw new Error("ScriptRunner requires either `script` or `scriptPath` in config");
+  }
+
+  /** Execute a script file that already exists in the sandbox */
+  private async _execFile(
+    scriptPath: string,
+    language: string,
+    input: Record<string, any>,
+    opts: { timeout: number; cwd?: string; env?: Record<string, string> }
+  ): Promise<Record<string, any>> {
+    const { cli, args } = this._buildExecCommand(scriptPath, language);
+
+    const result = await this._callSandbox({
+      cli,
+      args,
+      cwd: opts.cwd || "/workspace",
+      env: {
+        ...opts.env,
+        SKILL_INPUT: JSON.stringify(input),
+      },
+      timeout: opts.timeout,
+    });
+
+    return this._parseResult(result);
+  }
+
+  /** Write inline script to temp file, execute, then clean up */
+  private async _execInline(
+    script: string,
+    language: string,
+    input: Record<string, any>,
+    opts: { timeout: number; cwd?: string; env?: Record<string, string> }
+  ): Promise<Record<string, any>> {
+    // For inline scripts, we use a different approach:
+    // 1. Write script to a temp file via File Service or sandbox FS
+    // 2. Execute it
+    // 3. Clean up
+    //
+    // For now, shell-based approach: pipe script via stdin
+    const { cli, args } = this._buildInlineCommand(language);
+
+    const result = await this._callSandbox({
+      cli,
+      args,
+      cwd: opts.cwd || "/workspace",
+      env: {
+        ...opts.env,
+        SKILL_INPUT: JSON.stringify(input),
+        SKILL_SCRIPT: script,
+      },
+      timeout: opts.timeout,
+      stdin: script, // pipe script as stdin
+    });
+
+    return this._parseResult(result);
+  }
+
+  /** Map language to sandbox runtime + args for file execution */
+  private _buildExecCommand(scriptPath: string, language: string): { cli: string; args: string[] } {
+    switch (language) {
+      case "javascript":
+      case "js":
+        return { cli: "node", args: [scriptPath] };
+      case "shell":
+      case "bash":
+      case "sh":
+        return { cli: "bash", args: [scriptPath] };
+      case "python":
+      case "py":
+        return { cli: "python3", args: [scriptPath] };
+      default:
+        throw new Error(`Unsupported script language: ${language}`);
+    }
+  }
+
+  /** Map language to sandbox runtime for inline (stdin) execution */
+  private _buildInlineCommand(language: string): { cli: string; args: string[] } {
+    switch (language) {
+      case "javascript":
+      case "js":
+        return { cli: "node", args: ["--input-type=module", "-e", "process.env.SKILL_SCRIPT || ''"] };
+      case "shell":
+      case "bash":
+      case "sh":
+        return { cli: "bash", args: ["-s"] };
+      case "python":
+      case "py":
+        return { cli: "python3", args: ["-c", "__import__('os').environ.get('SKILL_SCRIPT','')"] };
+      default:
+        throw new Error(`Unsupported script language: ${language}`);
+    }
+  }
+
+  /** Call the CLI Service sandbox API */
+  private async _callSandbox(opts: {
+    cli: string;
+    args: string[];
+    cwd?: string;
+    env?: Record<string, string>;
+    timeout: number;
+    stdin?: string;
+  }): Promise<{ stdout: string; exitCode: number }> {
+    try {
+      const res = await fetch(`${getSandboxUrl()}/api/exec`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cli: opts.cli,
+          args: opts.args,
+          cwd: opts.cwd,
+          env: opts.env,
+          timeout: opts.timeout,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(`Sandbox error: ${err.error || res.status}`);
+      }
+
+      return res.json();
+    } catch (err: any) {
+      // If sandbox is unreachable, throw clear error
+      if (err.cause?.code === "ECONNREFUSED") {
+        throw new Error(`Sandbox CLI Service unavailable at ${getSandboxUrl()}. Is it running?`);
+      }
+      throw err;
+    }
+  }
+
+  /** Parse sandbox stdout into structured result */
+  private _parseResult(result: { stdout: string; exitCode: number }): Record<string, any> {
+    if (result.exitCode !== 0) {
+      throw new Error(`Script exited with code ${result.exitCode}: ${result.stdout}`);
+    }
+
+    // Try to parse stdout as JSON
+    const trimmed = result.stdout.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        // Not valid JSON, return as text
+      }
+    }
+
+    return { output: result.stdout };
   }
 }
 
