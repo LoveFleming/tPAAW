@@ -289,19 +289,13 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
             } else if (parsed.content) {
               fullContent += parsed.content;
             } else if (parsed.tool_call) {
-              const tc = parsed.tool_call;
-              const icons: Record<string, string> = { todo_add: "📝", todo_list: "📋", todo_update: "✏️", todo_delete: "🗑️", note_create: "📝", note_list: "📓", note_read: "📖", note_delete: "🗑️", file_read: "📄", file_list: "📁", memory_add: "🧠", memory_list: "💭", web_search: "🔍", app_create: "🧪", app_list: "📦" };
-              const icon = icons[tc.name] || "🔧";
-              const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-              fullContent += `\n\n> ${icon} **${label}** ...\n`;
+              // Tool execution in progress — silent, don't show in chat
             } else if (parsed.tool_result) {
+              // Tool result — silent, AI will format the response
+              // Only show errors
               const tr = parsed.tool_result;
-              if (tr.result?.text && !tr.result?.error && tr.result?.structured !== false) {
-                // For structured results, show brief confirmation
-                const preview = tr.result.text.split("\n")[0].slice(0, 80);
-                fullContent += `> ✅ ${preview}...\n`;
-              } else if (tr.result?.text && tr.result?.error) {
-                fullContent += `> ${tr.result.text.split("\n").join("\n> ")}\n`;
+              if (tr.result?.error) {
+                fullContent += `\n❌ ${tr.result.text}\n`;
               }
             }
           } catch {}
