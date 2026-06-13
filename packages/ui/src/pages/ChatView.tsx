@@ -296,8 +296,12 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
               fullContent += `\n\n> ${icon} **${label}** ...\n`;
             } else if (parsed.tool_result) {
               const tr = parsed.tool_result;
-              if (tr.result?.text) {
-                fullContent += `> ${tr.result.text.split("\n").join("\n> ")}\n\n`;
+              if (tr.result?.text && !tr.result?.error && tr.result?.structured !== false) {
+                // For structured results, show brief confirmation
+                const preview = tr.result.text.split("\n")[0].slice(0, 80);
+                fullContent += `> ✅ ${preview}...\n`;
+              } else if (tr.result?.text && tr.result?.error) {
+                fullContent += `> ${tr.result.text.split("\n").join("\n> ")}\n`;
               }
             }
           } catch {}

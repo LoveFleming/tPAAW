@@ -690,8 +690,10 @@ function buildHandlers(apps) {
 
         if (parsed) {
           // Return structured data — AI will format it nicely
+          // Keep text short for UI preview; full data goes in .data for AI
+          const preview = parsed.translation || parsed.output || parsed.result || raw.slice(0, 100);
           return {
-            text: JSON.stringify(parsed, null, 2),
+            text: String(preview).slice(0, 120),
             data: parsed,
             structured: true,
             raw: false,
