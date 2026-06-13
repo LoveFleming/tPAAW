@@ -498,9 +498,9 @@ async function doTranslate() {
   output.innerHTML = '<div class="loading"><div class="loading-dots"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div><p class="loading-hint">Skill 執行中...</p></div>';
 
   try {
-    const resp = await fetch('/api/app/translate', {
+    const resp = await fetch('/api/apps/translate/exec', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/x-ndjson' },
       body: JSON.stringify({ source_text: text, source_lang: sourceLang, target_lang: targetLang })
     });
 
