@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+ <meta charset="UTF-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+ <title>🔖 書籤</title>
+ <style>
+ :root {
+ --bg1: #f2f7f6;
+ --bg2: #edf1fb;
+ --card: rgba(255,255,255,.78);
+ --card2: rgba(255,255,255,.92);
+ --text: #1f3033;
+ --muted: #738184;
+ --line: rgba(35,60,65,.12);
+ --accent: #3d9690;
+ --accent2: #667eea;
+ --shadow: 0 14px 34px rgba(31,65,70,.11);
+ --radius: 18px;
+ }
+
+ * { box-sizing: border-box; }
+
+ body {
+ margin: 0;
+ min-height: 100vh;
+ color: var(--text);
+ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+ background:
+ radial-gradient(circle at 14% 12%, rgba(80, 198, 174, .32), transparent 26%),
+ radial-gradient(circle at 84% 4%, rgba(102, 126, 234, .24), transparent 30%),
+ linear-gradient(135deg, var(--bg1), var(--bg2));
+ }
+
+ .wrap {
+ width: min(1540px, calc(100vw - 36px));
+ margin: 0 auto;
+ padding: 22px 0 34px;
+ }
+
+ header {
+ display: grid;
+ grid-template-columns: 1fr auto;
+ gap: 18px;
+ align-items: center;
+ margin-bottom: 16px;
+ }
+
+ .brand {
+ display: flex;
+ align-items: center;
+ gap: 12px;
+ }
+
+ .logo {
+ width: 44px;
+ height: 44px;
+ border-radius: 15px;
+ display: grid;
+ place-items: center;
+ color: white;
+ font-weight: 900;
+ font-size: 18px;
+ background: linear-gradient(135deg, var(--accent), var(--accent2));
+ box-shadow: 0 12px 26px rgba(60,110,130,.2);
+ }
+
+ h1 {
+ margin: 0;
+ font-size: 24px;
+ letter-spacing: -.4px;
+ }
+
+ .subtitle {
+ margin: 3px 0 0;
+ color: var(--muted);
+ font-size: 13px;
+ }
+
+ .header-actions {
+ display: flex;
+ align-items: center;
+ gap: 9px;
+ }
+
+ .btn {
+ border: 1px solid var(--line);
+ background: rgba(255,255,255,.75);
+ border-radius: 13px;
+ padding: 10px 13px;
+ color: #365054;
+ font-weight: 750;
+ font-size: 13px;
+ cursor: pointer;
+ box-shadow: 0 8px 18px rgba(35,60,65,.06);
+ }
+ .btn:hover { background: rgba(255,255,255,.9); }
+
+ .btn.primary {
+ background: linear-gradient(135deg, var(--accent), var(--accent2));
+ color: white;
+ border: 0;
+ }
+ .btn.primary:hover { opacity: .85; }
+
+ .topbar {
+ display: grid;
+ grid-template-columns: 1fr auto;
+ gap: 12px;
+ margin-bottom: 14px;
+ }
+
+ .search {
+ background: rgba(255,255,255,.74);
+ border: 1px solid var(--line);
+ border-radius: 16px;
+ padding: 10px 12px;
+ box-shadow: 0 8px 18px rgba(35,60,65,.05);
+ }
+
+ .search input {
+ width: 100%;
+ border: 0;
+ background: transparent;
+ outline: none;
+ font-size: 15px;
+ color: var(--text);
+ }
+
+ .view {
+ display: flex;
+ gap: 8px;
+ }
+
+ .pill {
+ padding: 10px 13px;
+ border-radius: 999px;
+ border: 1px solid var(--line);
+ background: rgba(255,255,255,.7);
+ color: #455f63;
+ font-size: 13px;
+ font-weight: 750;
+ cursor: pointer;
+ }
+ .pill:hover { background: rgba(255,255,255,.9); }
+
+ .pill.active {
+ color: white;
+ border: 0;
+ background: linear-gradient(135deg, var(--accent), var(--accent2));
+ }
+
+ .layout {
+ display: grid;
+ grid-template-columns: 210px 1fr;
+ gap: 14px;
+ }
+
+ aside {
+ position: sticky;
+ top: 18px;
+ height: calc(100vh - 36px);
+ background: rgba(255,255,255,.67);
+ border: 1px solid var(--line);
+ border-radius: 20px;
+ box-shadow: var(--shadow);
+ padding: 14px;
+ overflow-y: auto;
+ }
+
+ .side-title {
+ font-size: 11px;
+ color: var(--muted);
+ font-weight: 850;
+ letter-spacing: 1.2px;
+ text-transform: uppercase;
+ margin: 8px 7px 9px;
+ }
+
+ .cat {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ padding: 9px 10px;
+ border-radius: 13px;
+ margin-bottom: 5px;
+ font-size: 14px;
+ color: #354f53;
+ cursor: pointer;
+ }
+ .cat:hover { background: rgba(61,150,144,.08); }
+
+ .cat.active {
+ background: rgba(61,150,144,.14);
+ color: #23726d;
+ font-weight: 850;
+ }
+
+ .count {
+ font-size: 11px;
+ color: var(--muted);
+ background: rgba(255,255,255,.82);
+ border: 1px solid var(--line);
+ border-radius: 99px;
+ padding: 2px 7px;
+ }
+
+ main {
+ display: flex;
+ flex-direction: column;
+ gap: 14px;
+ }
+
+ .category-section {
+ background: rgba(255,255,255,.58);
+ border: 1px solid var(--line);
+ border-radius: 21px;
+ padding: 14px;
+ box-shadow: var(--shadow);
+ }
+
+ .section-head {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ margin-bottom: 11px;
+ padding: 0 2px;
+ }
+
+ .section-title {
+ display: flex;
+ align-items: baseline;
+ gap: 8px;
+ }
+
+ h2 {
+ margin: 0;
+ font-size: 17px;
+ letter-spacing: -.2px;
+ }
+
+ .hint {
+ font-size: 12px;
+ color: var(--muted);
+ }
+
+ .bookmark-grid {
+ display: grid;
+ grid-template-columns: repeat(6, minmax(0, 1fr));
+ gap: 9px;
+ }
+
+ .bookmark {
+ min-height: 78px;
+ background: var(--card);
+ border: 1px solid var(--line);
+ border-radius: 15px;
+ padding: 10px;
+ display: grid;
+ grid-template-columns: 32px 1fr;
+ gap: 9px;
+ align-items: start;
+ transition: transform .14s ease, box-shadow .14s ease, background .14s ease;
+ position: relative;
+ }
+
+ .bookmark:hover {
+ transform: translateY(-2px);
+ background: var(--card2);
+ box-shadow: 0 12px 24px rgba(31,65,70,.12);
+ }
+
+ .bookmark .card-actions {
+ position: absolute;
+ top: 4px;
+ right: 4px;
+ display: flex;
+ gap: 2px;
+ opacity: 0;
+ transition: opacity .14s;
+ }
+ .bookmark:hover .card-actions { opacity: 1; }
+ .bookmark .card-actions button {
+ width: 22px; height: 22px;
+ border: none; border-radius: 5px;
+ cursor: pointer; font-size: 11px;
+ background: rgba(255,255,255,.85);
+ color: var(--muted);
+ display: flex; align-items: center; justify-content: center;
+ }
+ .bookmark .card-actions .edit-btn:hover { background: #eef2ff; color: var(--accent); }
+ .bookmark .card-actions .del-btn:hover { background: #fee2e2; color: #ef4444; }
+
+ .favicon {
+ width: 32px;
+ height: 32px;
+ border-radius: 11px;
+ display: grid;
+ place-items: center;
+ font-size: 16px;
+ background: linear-gradient(135deg, rgba(61,150,144,.16), rgba(102,126,234,.14));
+ border: 1px solid rgba(35,60,65,.08);
+ }
+
+ .bookmark h3 {
+ margin: 1px 0 3px;
+ font-size: 13.5px;
+ line-height: 1.2;
+ white-space: nowrap;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ }
+
+ .bookmark a {
+ color: inherit;
+ text-decoration: none;
+ }
+ .bookmark a:hover { text-decoration: underline; }
+
+ .bookmark .url {
+ display: block;
+ color: var(--muted);
+ font-size: 11.5px;
+ line-height: 1.25;
+ white-space: nowrap;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ }
+
+ .bookmark .tagline {
+ grid-column: 1 / -1;
+ color: #5e7073;
+ font-size: 11.5px;
+ line-height: 1.3;
+ margin-top: 2px;
+ height: 30px;
+ overflow: hidden;
+ }
+
+ .compact-row {
+ display: grid;
+ grid-template-columns: repeat(4, minmax(0, 1fr));
+ gap: 9px;
+ }
+
+ .mini {
+ min-height: 48px;
+ grid-template-columns: 26px 1fr;
+ padding: 8px;
+ border-radius: 13px;
+ }
+
+ .mini .favicon {
+ width: 26px;
+ height: 26px;
+ border-radius: 9px;
+ font-size: 13px;
+ }
+
+ .mini .tagline { display: none; }
+ .mini h3 { font-size: 13px; margin-top: 0; }
+
+ .empty-state {
+ display: flex; flex-direction: column; align-items: center; justify-content: center;
+ padding: 80px 20px; color: var(--muted); font-size: 15px; text-align: center;
+ }
+ .empty-state .big-icon { font-size: 48px; margin-bottom: 12px; }
+
+ /* Modal */
+ .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+ .modal-overlay.open { display: flex; }
+ .modal { background: var(--card2); border-radius: 18px; padding: 24px; width: 440px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+ .modal h2 { font-size: 16px; margin-bottom: 16px; }
+ .modal label { font-size: 12px; font-weight: 600; color: var(--text); display: block; margin-bottom: 4px; margin-top: 14px; }
+ .modal input { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; outline: none; background: rgba(255,255,255,.8); }
+ .modal input:focus { border-color: var(--accent); }
+ .modal .btns { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+ .modal .cancel { padding: 9px 18px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; cursor: pointer; background: rgba(255,255,255,.7); color: var(--muted); }
+
+ .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #065f46; color: #fff; padding: 10px 24px; border-radius: 12px; font-size: 13px; z-index: 200; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+ .toast.error { background: #991b1b; }
+
+ @media (max-width: 1300px) {
+ .bookmark-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+ .compact-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+ }
+
+ @media (max-width: 860px) {
+ .layout { grid-template-columns: 1fr; }
+ aside { position: static; height: auto; }
+ .bookmark-grid, .compact-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ header, .topbar { grid-template-columns: 1fr; }
+ header .btn { display: none; }
+ }
+
+ @media (max-width: 520px) {
+ .bookmark-grid, .compact-row { grid-template-columns: 1fr; }
+ }
+ </style>
+</head>
+<body>
+ <div class="wrap">
+ <header>
+ <div class="brand">
+ <div class="logo">🔖</div>
+ <div>
+ <h1>書籤</h1>
+ <p class="subtitle">多排密集式網址收藏，一眼找到工作入口</p>
+ </div>
+ </div>
+ <div class="header-actions">
+ <button class="btn" onclick="loadBookmarks()">🔄 重新整理</button>
+ <button class="btn primary" onclick="openModal(null)">＋ 新增</button>
+ </div>
+ </header>
+
+ <div class="topbar">
+ <div class="search">
+ <input id="searchInput" placeholder="搜尋書籤、網址、標籤..." oninput="scheduleSearch()" />
+ </div>
+ <div class="view">
+ <span class="pill active" onclick="switchView('dense',this)">Dense</span>
+ <span class="pill" onclick="switchView('cards',this)">Cards</span>
+ </div>
+ </div>
+
+ <div class="layout">
+ <aside id="sidebar">
+ <div class="side-title">Categories</div>
+ <div class="cat active" data-cat="all" onclick="filterCategory('all',this)"><span>🏠 全部</span><span class="count" id="catAll">0</span></div>
+ <div id="catList"></div>
+ </aside>
+
+ <main id="mainContent">
+ <div class="empty-state" id="emptyState">
+ <div class="big-icon">🔖</div>
+ <p>還沒有書籤，點「＋ 新增」開始</p>
+ </div>
+ </main>
+ </div>
+ </div>
+
+ <!-- Modal -->
+ <div class="modal-overlay" id="modal">
+ <div class="modal">
+ <h2 id="modalTitle">新增書籤</h2>
+ <label>標題</label>
+ <input id="fTitle" placeholder="例如：GitHub Repo" />
+ <label>網址</label>
+ <input id="fUrl" placeholder="https://..." />
+ <label>備註（選填）</label>
+ <input id="fDesc" placeholder="簡短說明" />
+ <label>分類標籤（用逗號分隔，第一個標籤為主要分類）</label>
+ <input id="fTags" placeholder="開發, 文件, 工具" />
+ <div class="btns">
+ <button class="cancel" onclick="closeModal()">取消</button>
+ <button class="btn primary" id="saveBtn" onclick="saveBookmark()">新增</button>
+ </div>
+ </div>
+ </div>
+
+ <div class="toast" id="toast"></div>
+
+<script>
+const API = "http://127.0.0.1:4097";
+let allBookmarks = [];
+let editingId = null;
+let currentFilterCat = "all";
+let searchTimer = null;
+let viewMode = "dense";
+
+const catIcons = {
+ "開發":"💻","文件":"📄","新聞":"📰","工具":"🔧","設計":"🎨",
+ "學習":"📚","娛樂":"🎮","社群":"👥","購物":"🛒","影片":"🎬",
+ "音樂":"🎵","AI":"🤖","技術":"⚙️","部落格":"📝","參考":"📖",
+ "DevOps":"🚀","測試":"🧪","Logs":"🔎","規格":"📘"
+};
+
+async function loadBookmarks() {
+ try {
+ const resp = await fetch(`${API}/api/app-data/bookmarks?_limit=200`);
+ const data = await resp.json();
+ allBookmarks = Array.isArray(data) ? data : [];
+ render();
+ } catch { render(); }
+}
+
+function render() {
+ renderSidebar();
+ renderMain();
+}
+
+function renderSidebar() {
+ const cats = getCategories();
+ const list = document.getElementById("catList");
+ const total = document.getElementById("catAll");
+ total.textContent = allBookmarks.length;
+
+ list.innerHTML = cats.map(c => {
+ const isActive = currentFilterCat === c;
+ return `<div class="cat${isActive?' active':''}" data-cat="${escAttr(c)}" onclick="filterCategory('${escAttr(c)}',this)"><span>${catIcon(c)} ${esc(c)}</span><span class="count">${countByCat(c)}</span></div>`;
+ }).join("");
+}
+
+function getCategories() {
+ const cats = new Set();
+ for (const b of allBookmarks) {
+ if (b.tags && b.tags.length > 0) cats.add(b.tags[0]);
+ }
+ return [...cats].sort();
+}
+
+function countByCat(cat) {
+ return allBookmarks.filter(b => b.tags && b.tags.length > 0 && b.tags[0] === cat).length;
+}
+
+function catIcon(cat) { return catIcons[cat] || "📁"; }
+
+function filterCategory(cat, el) {
+ currentFilterCat = cat;
+ document.querySelectorAll(".cat").forEach(c => c.classList.remove("active"));
+ if (el) el.classList.add("active");
+ renderMain();
+}
+
+function renderMain() {
+ const main = document.getElementById("mainContent");
+ const empty = document.getElementById("emptyState");
+
+ let items = allBookmarks;
+ if (currentFilterCat !== "all") {
+ items = items.filter(b => b.tags && b.tags.length > 0 && b.tags[0] === currentFilterCat);
+ }
+
+ if (items.length === 0) {
+ empty.style.display = "flex";
+ main.innerHTML = "";
+ return;
+ }
+ empty.style.display = "none";
+
+ const groups = {};
+ for (const b of items) {
+ const cat = (b.tags && b.tags.length > 0) ? b.tags[0] : "未分類";
+ if (!groups[cat]) groups[cat] = [];
+ groups[cat].push(b);
+ }
+
+ const sortedCats = Object.keys(groups).sort((a,b) => {
+ if (a === "未分類") return 1;
+ if (b === "未分類") return -1;
+ return a.localeCompare(b);
+ });
+
+ main.innerHTML = sortedCats.map(cat => {
+ const items = groups[cat];
+ const isSmall = items.length <= 4;
+ const hint = getHint(cat);
+ return `<section class="category-section">
+ <div class="section-head">
+ <div class="section-title"><h2>${catIcon(cat)} ${esc(cat)}</h2>${hint ? `<span class="hint">${esc(hint)}</span>` : ""}</div>
+ <span class="hint">${items.length} 個書籤</span>
+ </div>
+ <div class="${viewMode === 'dense' && items.length >= 3 ? 'compact-row' : 'bookmark-grid'}">
+ ${items.map(b => renderCard(b)).join("")}
+ </div>
+ </section>`;
+ }).join("");
+}
+
+function getHint(cat) {
+ const hints = {
+ "AI":"模型、Agent、工具","開發":"Coding、Repo、CI/CD",
+ "DevOps":"發布、監控、Log","測試":"測試報告、Mock",
+ "規格":"文件、標準、規範","學習":"教學、文章",
+ };
+ return hints[cat] || "";
+}
+
+function renderCard(b) {
+ const isMini = viewMode === "dense";
+ const mini = isMini ? " mini" : "";
+ const tagline = b.description ? `<div class="tagline">${esc(b.description)}</div>` : "";
+ const fav = getFavicon(b.url);
+ return `<div class="bookmark${mini}">
+ <div class="card-actions">
+ <button class="edit-btn" onclick="openModal('${b.id}')" title="編輯">✏️</button>
+ <button class="del-btn" onclick="deleteBookmark('${b.id}')" title="刪除">✕</button>
+ </div>
+ <div class="favicon">${fav}</div>
+ <div>
+ <h3><a href="${escAttr(b.url)}" target="_blank" rel="noopener" title="${escAttr(b.url)}">${esc(b.title)}</a></h3>
+ ${isMini ? "" : `<span class="url">${esc(cleanUrl(b.url))}</span>`}
+ </div>
+ ${isMini ? "" : tagline}
+ </div>`;
+}
+
+function getFavicon(url) {
+ // Extract domain for a simple emoji mapping
+ const domain = (url || "").toLowerCase();
+ if (domain.includes("google")) return "🔍";
+ if (domain.includes("github") || domain.includes("git")) return "🐙";
+ if (domain.includes("youtube") || domain.includes("youtu")) return "🎬";
+ if (domain.includes("docker") || domain.includes("k8s") || domain.includes("kubernetes")) return "☸️";
+ if (domain.includes("argocd")) return "🚢";
+ if (domain.includes("jenkins")) return "🏗️";
+ if (domain.includes("grafana")) return "📈";
+ if (domain.includes("kibana") || domain.includes("elastic")) return "🧯";
+ if (domain.includes("sonar")) return "🔍";
+ if (domain.includes("openrouter")) return "🧭";
+ if (domain.includes("vscode") || domain.includes("code")) return "💻";
+ if (domain.includes("claude") || domain.includes("anthropic")) return "🤖";
+ if (domain.includes("openai") || domain.includes("chatgpt")) return "🧠";
+ if (domain.includes("vercel") || domain.includes("netlify")) return "▲";
+ return "🔗";
+}
+
+function cleanUrl(url) {
+ return (url || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
+function scheduleSearch() {
+ clearTimeout(searchTimer);
+ searchTimer = setTimeout(() => {
+ const q = document.getElementById("searchInput").value.trim().toLowerCase();
+ if (!q) { loadBookmarks(); return; }
+ const filtered = allBookmarks.filter(b =>
+ b.title.toLowerCase().includes(q) ||
+ b.url.toLowerCase().includes(q) ||
+ (b.description || "").toLowerCase().includes(q) ||
+ (b.tags || []).some(t => t.toLowerCase().includes(q))
+ );
+ // Temporarily override
+ const oldRender = renderMain;
+ allBookmarks = filtered;
+ renderMain();
+ allBookmarks = []; // force reload next
+ loadBookmarks();
+ }, 300);
+}
+
+function switchView(mode, el) {
+ viewMode = mode;
+ document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+ el.classList.add("active");
+ renderMain();
+}
+
+// ── Modal ──
+function openModal(id) {
+ editingId = id;
+ if (id) {
+ document.getElementById("modalTitle").textContent = "編輯書籤";
+ document.getElementById("saveBtn").textContent = "更新";
+ fetch(`${API}/api/app-data/bookmarks/${id}`)
+ .then(r => r.json()).then(b => {
+ document.getElementById("fTitle").value = b.title || "";
+ document.getElementById("fUrl").value = b.url || "";
+ document.getElementById("fDesc").value = b.description || "";
+ document.getElementById("fTags").value = (b.tags || []).join(", ");
+ document.getElementById("modal").classList.add("open");
+ }).catch(() => showToast("❌ 載入失敗", true));
+ } else {
+ document.getElementById("modalTitle").textContent = "新增書籤";
+ document.getElementById("saveBtn").textContent = "新增";
+ document.getElementById("fTitle").value = "";
+ document.getElementById("fUrl").value = "";
+ document.getElementById("fDesc").value = "";
+ document.getElementById("fTags").value = "";
+ document.getElementById("modal").classList.add("open");
+ }
+}
+
+function closeModal() {
+ document.getElementById("modal").classList.remove("open");
+ editingId = null;
+}
+
+async function saveBookmark() {
+ const title = document.getElementById("fTitle").value.trim();
+ const url = document.getElementById("fUrl").value.trim();
+ const desc = document.getElementById("fDesc").value.trim();
+ const tags = document.getElementById("fTags").value.trim().split(",").map(s => s.trim()).filter(Boolean);
+ if (!title || !url) { showToast("請填寫標題和網址", true); return; }
+ const body = { title, url, description: desc, tags };
+ try {
+ if (editingId) {
+ await fetch(`${API}/api/app-data/bookmarks/${editingId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+ showToast("✅ 已更新");
+ } else {
+ await fetch(`${API}/api/app-data/bookmarks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+ showToast("✅ 已新增");
+ }
+ closeModal();
+ loadBookmarks();
+ } catch { showToast("❌ 操作失敗", true); }
+}
+
+async function deleteBookmark(id) {
+ if (!confirm("確定刪除？")) return;
+ try {
+ await fetch(`${API}/api/app-data/bookmarks/${id}`, { method: "DELETE" });
+ loadBookmarks();
+ showToast("🗑️ 已刪除");
+ } catch { showToast("❌ 刪除失敗", true); }
+}
+
+function showToast(msg, err) {
+ const t = document.getElementById("toast");
+ t.textContent = msg;
+ t.className = "toast" + (err ? " error" : "");
+ t.style.display = "block";
+ clearTimeout(t._timer);
+ t._timer = setTimeout(() => t.style.display = "none", 2500);
+}
+
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function escAttr(s) { return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;"); }
+
+loadBookmarks();
+</script>
+</body>
+</html>

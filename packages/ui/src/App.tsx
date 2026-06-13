@@ -18,6 +18,7 @@ import SidebarFileTree from "./components/SidebarFileTree";
 import KnowledgeTree from "./components/KnowledgeTree";
 import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
+import SystemPromptsPage from "./pages/SystemPromptsPage";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -368,6 +369,11 @@ function AppInner() {
   }, [factoryFiles, currentScope, t]);
 
   const skillBuilderCounterRef = useRef(0);
+  const openSystemPrompts = useCallback(() => {
+    const tabId = `${currentScope}:system-prompts`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
   const openSkillLab = useCallback(() => {
     const count = skillBuilderCounterRef.current++;
     const tabId = `${currentScope}:skilllab#${count}`;
@@ -439,6 +445,7 @@ function AppInner() {
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
+    if (pageType === "system-prompts") return "Prompts";
     if (pageType === "vibe-coding") return t("sidebar.vibeCoding");
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
@@ -493,6 +500,10 @@ function AppInner() {
   }, [sidebarWidth]);
 
   const renderPage = useCallback((fullId: string, active?: boolean) => {
+    // Parse tab ID early for pageType checks
+    const parsed = parseTabId(fullId);
+    const pageType = parsed.pageType;
+
     // ── Chat (home) ──
     if (fullId === "_chat") {
       return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} />;
@@ -502,8 +513,11 @@ function AppInner() {
     if (fullId === "_settings") {
       return <SettingsPage />;
     }
+    if (pageType === "system-prompts") {
+      return <SystemPromptsPage />;
+    }
 
-    const { scopeKey, factoryId, pageType } = parseTabId(fullId);
+    const { scopeKey, factoryId } = parsed;
 
     if (pageType === "crew") {
       return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={factoryId || selectedFactoryId} />;
@@ -725,6 +739,13 @@ function AppInner() {
                 {skillNav.map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
+                <NavItem
+                  active={activePage.endsWith(":system-prompts")}
+                  label="Prompts"
+                  onClick={openSystemPrompts}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
               </div>
             </SidebarSection>
 
@@ -740,27 +761,38 @@ function AppInner() {
               }
             >
               <div className="pl-2">
-                {workspaces.map((dir) => (
-                  <div key={dir} className="group relative">
-                    <SidebarFileTree
-                      projectRoot={dir}
-                      activeFilePath={activeFilePath}
-                      openFilePaths={openFilePaths}
-                      onSelectFile={handleSelectFile}
-                      onRemoveWorkspace={removeWorkspace}
-                    />
+                {workspaces.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 px-3 text-center">
+                    <span className="text-2xl mb-2 opacity-50">📂</span>
+                    <p className="text-xs text-stone-400">{t("sidebar.workspaces.empty")}</p>
                     <button
-                      onClick={() => removeWorkspace(dir)}
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-stone-400 hover:text-rose-500 hover:bg-rose-50 text-xs"
-                      title="移除此目錄"
-                    >✕</button>
+                      onClick={(e) => { e.stopPropagation(); setShowDirExplorer(true); }}
+                      className="mt-2 text-[10px] px-3 py-1 rounded-md border border-dashed text-stone-400 hover:text-stone-600 hover:border-stone-400 transition-colors"
+                    >＋ {t("sidebar.addDirectory")}</button>
                   </div>
-                ))}
+                ) : (
+                  workspaces.map((dir) => (
+                    <div key={dir} className="group relative">
+                      <SidebarFileTree
+                        projectRoot={dir}
+                        activeFilePath={activeFilePath}
+                        openFilePaths={openFilePaths}
+                        onSelectFile={handleSelectFile}
+                        onRemoveWorkspace={removeWorkspace}
+                      />
+                      <button
+                        onClick={() => removeWorkspace(dir)}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-stone-400 hover:text-rose-500 hover:bg-rose-50 text-xs"
+                        title="移除此目錄"
+                      >✕</button>
+                    </div>
+                  ))
+                )}
               </div>
             </SidebarSection>
           </div>
 
-          {/* Add directory + Settings */}
+          {/* Settings */}
           <div className="px-3 py-2 border-t shrink-0 space-y-1" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
               onClick={() => {

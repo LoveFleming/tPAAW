@@ -12,6 +12,8 @@
   "sidebar.cronJobs": "Schedules",
   "sidebar.vibeCoding": "Vibe Coding",
   "sidebar.workspaces": "📂 Workspaces",
+  "sidebar.workspaces.empty": "加入你的檔案目錄",
+  "sidebar.addDirectory": "加入目錄",
   "sidebar.settings": "⚙️ Settings",
   "sidebar.aiCrew": "AI Crew",
   "chat.newChat": "新對話",

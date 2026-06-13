@@ -55,6 +55,18 @@ function getConvDir(employeeId, root) {
   return resolve(CONVERSATIONS_ROOT, hash, employeeId);
 }
 
+/** Normalize any path to forward slashes for consistent cross-platform API responses */
+function normalizePath(p) {
+  if (!p) return "";
+  return p.replace(/\\/g, "/");
+}
+
+function basename(p) {
+  // Handle both Unix (/) and Windows (\\) separators
+  const parts = p.replace(/[\/]+$/, "").split(/[\\/]/);
+  return parts[parts.length - 1];
+}
+
 const server = createServer(async (req, res) => {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -780,6 +792,73 @@ ${context ? "\n## Context\n" + context : ""}
     req.on("error", reject);
   });
 
+  // POST /api/apps — create a new app (universal app creation API)
+  if (req.method === "POST" && req.url === "/api/apps") {
+    const rawBody = await _readBody(req);
+    let params;
+    try { params = JSON.parse(rawBody); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
+    if (!params.id || !/^[a-z][a-z0-9_]*$/.test(params.id)) {
+      res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "App ID must be lowercase alphanumeric starting with a letter" })); return;
+    }
+    const appDir = join(APPS_ROOT, params.id);
+    const dataDir = resolve(PAAW_ROOT, "data/app-data");
+    try {
+      await mkdir(appDir, { recursive: true });
+      // Write app.json
+      const appMeta = {
+        id: params.id,
+        name: params.name || params.id,
+        icon: params.icon || "📦",
+        description: params.description || "",
+        type: params.type || "data",
+        dataShape: params.dataShape || "array",
+        schema: params.schema || {},
+        execSchema: params.execSchema || null,
+        triggers: params.triggers || [],
+        aiPrompt: params.aiPrompt || "",
+        status: "published",
+        createdAt: new Date().toISOString(),
+      };
+      await writeFile(join(appDir, "app.json"), JSON.stringify(appMeta, null, 2), "utf-8");
+      // Initialize data file
+      await mkdir(dataDir, { recursive: true });
+      const initialData = appMeta.dataShape === "object" ? {} : [];
+      await writeFile(join(dataDir, `${params.id}.json`), JSON.stringify(initialData, null, 2), "utf-8");
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, app: appMeta }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // PATCH /api/apps/:id — update an existing app's metadata
+  const appPatchMatch = req.method === "PATCH" && req.url?.match(/^\/api\/apps\/([\w.-]+)$/);
+  if (appPatchMatch) {
+    const appId = appPatchMatch[1];
+    const patchBody = await _readBody(req);
+    let changes;
+    try { changes = JSON.parse(patchBody); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
+    const appDir = join(APPS_ROOT, appId);
+    try {
+      const jsonPath = join(appDir, "app.json");
+      let current = {};
+      try { current = JSON.parse(await readFile(jsonPath, "utf-8")); } catch {}
+      for (const [key, val] of Object.entries(changes)) {
+        if (val !== undefined) current[key] = val;
+      }
+      current.updatedAt = new Date().toISOString();
+      await writeFile(jsonPath, JSON.stringify(current, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, app: current }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // GET /api/app-data/:appId — read app data
   const appDataGetMatch = req.method === "GET" && req.url?.match(/^\/api\/app-data\/([\w.-]+)(?:\?.*)?$/);
   if (appDataGetMatch) {
@@ -828,7 +907,7 @@ ${context ? "\n## Context\n" + context : ""}
       let items = [];
       try { items = JSON.parse(await readFile(filePath, "utf-8")); } catch {}
       const newItem = JSON.parse(await _readBody(req));
-      if (!newItem.id) newItem.id = `todo_${Date.now()}`;
+      if (!newItem.id) newItem.id = `${appId}_${Date.now().toString(36)}`;
       if (!newItem.createdAt) newItem.createdAt = new Date().toISOString();
       items.push(newItem);
       await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
@@ -845,6 +924,7 @@ ${context ? "\n## Context\n" + context : ""}
   const appDataDelMatch = req.method === "DELETE" && req.url?.match(/^\/api\/app-data\/([\w.-]+)\/([\w.-]+)(?:\?.*)?$/);
   if (appDataDelMatch) {
     const [, appId, itemId] = appDataDelMatch;
+    console.log(`[API] DELETE /api/app-data/${appId}/${itemId}`);
     const dataDir = resolve(PAAW_ROOT, "data/app-data");
     await mkdir(dataDir, { recursive: true });
     const filePath = join(dataDir, `${appId}.json`);
@@ -852,11 +932,14 @@ ${context ? "\n## Context\n" + context : ""}
       let items = [];
       try { items = JSON.parse(await readFile(filePath, "utf-8")); } catch {}
       const before = items.length;
+      console.log(`[API] items before: ${before}, looking for id=${itemId}`);
       items = items.filter(i => i.id !== itemId);
+      console.log(`[API] items after: ${items.length}, deleted: ${before - items.length}`);
       await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, deleted: before - items.length }));
     } catch (err) {
+      console.log(`[API] DELETE error: ${err.message}`);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
@@ -1005,6 +1088,85 @@ ${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞�
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // POST /api/apps/:appId/exec — generic skill execution (any skill-based app)
+  const appExecMatch = req.method === "POST" && req.url?.match(/^\/api\/apps\/([\w.-]+)\/exec(?:\?.*)?$/);
+  if (appExecMatch) {
+    const appId = appExecMatch[1];
+    const appDir = join(APPS_ROOT, appId);
+    const result = { appId, output: "", error: null, exitCode: null };
+    try {
+      const body = await _readBody(req);
+      let args = {};
+      try { args = JSON.parse(body); } catch {}
+
+      // 1. Load app.json
+      let appMeta = {};
+      try { appMeta = JSON.parse(await readFile(join(appDir, "app.json"), "utf-8")); } catch {}
+
+      // 2. Load all skills from data/apps/{appId}/skills/*/SKILL.md
+      const skillsDir = join(appDir, "skills");
+      const skillContents = [];
+      try {
+        const skillDirs = await readdir(skillsDir);
+        for (const sd of skillDirs) {
+          try {
+            const content = await readFile(join(skillsDir, sd, "SKILL.md"), "utf-8");
+            const body = content.replace(/^---[\s\S]*?---\n*/, "");
+            skillContents.push({ name: sd, body });
+          } catch {}
+        }
+      } catch {}
+
+      if (skillContents.length === 0) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `No skills found for app: ${appId}` }));
+        return;
+      }
+
+      // 3. Build system prompt from skill definitions + input args
+      const skillsSection = skillContents
+        .map(s => `## === Skill: ${s.name} ===\n${s.body}`)
+        .join("\n\n");
+
+      const inputSection = Object.entries(args)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`)
+        .join("\n");
+
+      const systemPrompt = `你是「${appMeta.name || appId}」App 的執行引擎。你必須嚴格按照以下 Skill 定義（deterministic script）來處理。\n\n${skillsSection}\n\n## === 輸入參數 ===\n${inputSection}\n\n## === 輸出指示 ===\n只輸出結果。如果是結構化資料，輸出 JSON（不要加 markdown code block）。不要加解釋。`;
+
+      // 4. Execute via CLI (qwen)
+      const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";
+      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", systemPrompt];
+
+      let fullOutput = "";
+      const child = spawn(resolvedBin, cliArgs, {
+        cwd: appDir,
+        env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      child.stdout.on("data", (d) => { fullOutput += d.toString(); });
+
+      await new Promise((resolve, reject) => {
+        child.on("close", (code) => { result.exitCode = code; resolve(); });
+        child.on("error", (err) => { result.error = err.message; reject(err); });
+      });
+
+      // 5. Timeout guard (120s)
+      setTimeout(() => { try { child.kill(); } catch {} }, 120_000);
+
+      result.output = fullOutput.trim();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      result.error = err.message;
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
     }
     return;
   }
@@ -1446,20 +1608,9 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     return;
   }
 
-  // ── Factory CRUD ──
-
-  // GET /api/factories — return single default "factory" (backward compat)
-  if (req.method === "GET" && req.url?.match(/^\/api\/factories(?:\?.*)?$/)) {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify([{
-      id: "default", name: "PAAW", description: "Personal AI Assistant",
-      icon: "🐾", version: "2.0.0", createdAt: new Date().toISOString()
-    }]));
-    return;
-  }
-
-  // POST/DELETE /api/factories — disabled in PAAW (single team)
-  if (req.url?.startsWith("/api/factories") && (req.method === "POST" || req.method === "DELETE")) {
+  // ── Factory CRUD (removed — single team, no multi-factory in PAAW) ──
+  // Stub: any /api/factories request returns 410 Gone
+  if (req.url?.startsWith("/api/factories")) {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, note: "PAAW uses flat crew structure" }));
     return;
@@ -2086,52 +2237,10 @@ async function paawApiHandler(req, res) {
     return;
   }
 
-  // POST /api/opencode/prompt — send prompt to OpenCode via term.paste
-  if (req.method === "POST" && req.url === "/api/opencode/prompt") {
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    // This API just signals the frontend to use term.paste()
-    // The actual paste is done client-side after health check confirms ready
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, text: parsed.text || "" }));
-    return;
-  }
-
-  // PATCH /api/opencode/config — switch model via OpenCode server
-  if (req.method === "PATCH" && req.url === "/api/opencode/config") {
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
-    const port = ocSession?.serverPort || 4199;
-    try {
-      const resp = await fetch(`http://127.0.0.1:${port}/config`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed),
-      });
-      const data = await resp.text();
-      res.writeHead(resp.status, { "Content-Type": "application/json" });
-      res.end(data);
-    } catch (err) {
-      res.writeHead(502, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `OpenCode server not ready: ${err.message}` }));
-    }
-    return;
-  }
-
-  // GET /api/opencode/health — check if OpenCode server is up
-  if (req.method === "GET" && req.url === "/api/opencode/health") {
-    const ocSession = [...ptySessions.values()].find(s => s.cliType === "opencode");
-    const port = ocSession?.serverPort || 4199;
-    try {
-      const resp = await fetch(`http://127.0.0.1:${port}/global/health`, { signal: AbortSignal.timeout(3000) });
-      const data = await resp.json();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-    } catch {
-      res.writeHead(503, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ healthy: false }));
-    }
+  // ── OpenCode endpoints removed (obsolete) ──
+  if (req.url?.startsWith("/api/opencode/")) {
+    res.writeHead(410, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "OpenCode integration removed" }));
     return;
   }
 
@@ -2945,74 +3054,10 @@ async function paawApiHandler(req, res) {
     return;
   }
 
-  // POST /api/hello-world — Hello World AI Node Demo
-  if (req.method === "POST" && req.url === "/api/hello-world") {
-    let parsed;
-    try {
-      parsed = JSON.parse(body);
-    } catch {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        errorCode: "BIZ_HELLO_WORLD_REQUEST_INVALID",
-        errorType: "VALIDATION",
-        message: "Invalid JSON format"
-      }));
-      return;
-    }
-
-    const { traceId, name, language } = parsed;
-
-    // Validate Input Contract
-    if (!traceId || typeof traceId !== "string" || traceId.length === 0) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        errorCode: "BIZ_HELLO_WORLD_REQUEST_INVALID",
-        errorType: "VALIDATION",
-        message: "traceId is required and must be a non-empty string"
-      }));
-      return;
-    }
-
-    // Process greeting
-    const greetings = {
-      en: "Hello",
-      zh: "你好",
-      ja: "こんにちは",
-      es: "¡Hola",
-    };
-
-    const lang = language || "en";
-    const greeting = greetings[lang] || greetings["en"];
-    const displayName = (name || "World").trim();
-
-    // Build Output Contract response
-    const response = {
-      traceId,
-      greeting,
-      message: `${greeting}, ${displayName}! Welcome to AI Software Factory 🏭`,
-      language: lang,
-      timestamp: new Date().toISOString(),
-      nodeInfo: {
-        nodeId: "hello-world-node",
-        version: "1.0.0",
-        factory: "ai-factory",
-      },
-    };
-
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(response));
-    return;
-  }
-
-  // GET /api/hello-world — Health check
-  if (req.method === "GET" && req.url === "/api/hello-world") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      status: "healthy",
-      nodeId: "hello-world-node",
-      version: "1.0.0",
-      factory: "ai-factory",
-    }));
+  // ── Hello World endpoints removed (demo only) ──
+  if (req.url === "/api/hello-world") {
+    res.writeHead(410, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Hello World demo removed" }));
     return;
   }
 
@@ -3069,18 +3114,6 @@ async function buildTree(absRoot, currentPath, maxDepth) {
     }
   }
   return result;
-}
-
-function basename(p) {
-  // Handle both Unix (/) and Windows (\) separators
-  const parts = p.replace(/[\/]+$/, "").split(/[\\/]/);
-  return parts[parts.length - 1];
-}
-
-/** Normalize any path to forward slashes for consistent cross-platform API responses */
-function normalizePath(p) {
-  if (!p) return "";
-  return p.replace(/\\/g, "/");
 }
 
 function readBody(req) {
@@ -3706,6 +3739,70 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
   }
 }
 
+  // ── Pocket Notes API (compatibility layer for React app.html) ──
+  // Uses the same universal format as /api/app-data/pocket
+  if (req.url === "/api/notes" || req.url?.startsWith("/api/notes?")) {
+    const dir = resolve(PAAW_ROOT || dirname, "data/app-data");
+    const NOTES_FILE = join(dir, "pocket.json");
+    async function loadArr() {
+      try { return JSON.parse(await readFile(NOTES_FILE, "utf-8")); } catch { return []; }
+    }
+    async function saveArr(data) {
+      await mkdir(dir, { recursive: true });
+      await writeFile(NOTES_FILE, JSON.stringify(data, null, 2), "utf-8");
+    }
+    // React expects { notes: [...] }, universal API stores [...]
+    // Normalize field names: AI tools may use "text" but UI expects "content"
+    function normalizeNote(n) {
+      return {
+        ...n,
+        content: n.content || n.text || n.title || "",
+        status: n.status || (n.done ? "done" : "active"),
+      };
+    }
+    if (req.method === "GET") {
+      const arr = await loadArr();
+      const notes = (Array.isArray(arr) ? arr : []).map(normalizeNote);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ notes }));
+      return;
+    }
+    const reqBody = await _readBody(req);
+    if (req.method === "POST") {
+      const note = JSON.parse(reqBody);
+      const arr = await loadArr();
+      if (!note.id) note.id = `pocket_${Date.now().toString(36)}`;
+      if (!note.createdAt) note.createdAt = new Date().toISOString();
+      arr.unshift(note);
+      await saveArr(arr);
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, note }));
+      return;
+    }
+    const id = new URL(req.url, "http://localhost").searchParams.get("id");
+    if (req.method === "PUT") {
+      const updated = JSON.parse(reqBody);
+      const arr = await loadArr();
+      const idx = arr.findIndex(n => n.id === id);
+      if (idx === -1) { res.writeHead(404); res.end(JSON.stringify({ error: "Not found" })); return; }
+      arr[idx] = { ...arr[idx], ...updated, updatedAt: new Date().toISOString() };
+      await saveArr(arr);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, note: arr[idx] }));
+      return;
+    }
+    if (req.method === "DELETE") {
+      let arr = await loadArr();
+      arr = arr.filter(n => n.id !== id);
+      await saveArr(arr);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    res.writeHead(405); res.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+
   // Main handler catch-all
   if (!res.headersSent) {
     res.writeHead(404);
@@ -3722,10 +3819,24 @@ server.listen(PORT, async () => {
   console.log(`[PAAW] Modular routes: skill, workflow, chat`);
 });
 
-// ── WebSocket server for PTY (Qwen CLI) ──
+// ── WebSocket server for PTY ──
 const WS_PORT = parseInt(process.env.PAAW_WS_PORT || "4098", 10);
 const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
 const ptySessions = new Map(); // ws -> { pty, id }
+
+// ── Remote CLI mode ──
+// When PAAW_USE_REMOTE_CLI=true, PTY sessions proxy to CLI Service instead of spawning locally
+const USE_REMOTE_CLI = process.env.PAAW_USE_REMOTE_CLI === "true";
+let remoteCliModule = null;
+if (USE_REMOTE_CLI) {
+  try {
+    remoteCliModule = await import("./lib/sandbox/remote-cli.mjs");
+    const healthy = await remoteCliModule.remoteCli.health();
+    console.log(`[PAAW] Remote CLI mode: ${healthy ? "✅ connected" : "⚠️ CLI Service unreachable"} at ${process.env.CLI_SERVICE_URL || "http://localhost:4099"}`);
+  } catch (e) {
+    console.log(`[PAAW] Remote CLI module load failed: ${e.message}, falling back to local spawn`);
+  }
+}
 
 // ── Multi-CLI spawn system ──
 // Supports: qwen, claude, opencode
@@ -3840,6 +3951,13 @@ wss.on("connection", (ws, req) => {
   const sessionId = `pty-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   console.log(`[PTY] New session: ${sessionId}`);
 
+  // ── Remote CLI proxy mode ──
+  if (USE_REMOTE_CLI && remoteCliModule) {
+    remoteCliModule.createPtyProxy(ws);
+    return;
+  }
+
+  // ── Local spawn mode (original) ──
   let spawned = false;
 
   ws.on("message", (raw) => {

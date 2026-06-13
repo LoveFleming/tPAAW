@@ -7,30 +7,64 @@
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
 import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
-import { spawn } from "node-pty";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PAAW_DATA_DIR = resolve(__dirname, "../../../../data");
 const APPS_DIR = resolve(PAAW_DATA_DIR, "apps");
-const APP_DATA_DIR = resolve(PAAW_DATA_DIR, "app-data");
 
 // ── Helpers to work with schema ──
 
 // Extract fields from schema (new format) or legacy fields array
 function extractFields(app) {
+  // 1) New schema format: { items: { properties: { ... } } }
   if (app.schema?.items?.properties) {
-    // New schema format: { items: { properties: { ... } } }
     return Object.entries(app.schema.items.properties).map(([name, def]) => ({
       name,
       type: def.type || "string",
-      required: def.required || false,
+      required: checkRequired(app, name),
       label: def.label || name,
       options: def.enum || undefined,
       default: def.default !== undefined ? def.default : undefined,
     }));
   }
-  // Legacy format: fields array
+
+  // 2) Flat schema.properties format (common for data apps)
+  if (app.schema?.properties && typeof app.schema.properties === "object") {
+    // If there are oneOf variants, merge their properties (base schema properties take priority)
+    const merged = { ...app.schema.properties };
+    if (Array.isArray(app.schema.oneOf)) {
+      for (const variant of app.schema.oneOf) {
+        if (variant.properties) {
+        for (const [k, v] of Object.entries(variant.properties)) {
+          // Don't overwrite base properties (e.g., type with enum should keep its definition)
+          if (!(k in app.schema.properties)) merged[k] = v;
+        }
+      }
+      }
+    }
+    return Object.entries(merged).map(([name, def]) => ({
+      name,
+      type: def.type || "string",
+      required: checkRequired(app, name),
+      label: def.label || name,
+      options: def.enum || (def.const ? [def.const] : undefined),
+      default: def.default !== undefined ? def.default : undefined,
+    }));
+  }
+
+  // 3) Legacy format: fields array
   return app.fields || [];
+}
+
+/** Determine if a field is required — checks top-level required and oneOf required arrays */
+function checkRequired(app, fieldName) {
+  if (Array.isArray(app.schema?.required) && app.schema.required.includes(fieldName)) return true;
+  if (Array.isArray(app.schema?.oneOf)) {
+    for (const variant of app.schema.oneOf) {
+      if (Array.isArray(variant.required) && variant.required.includes(fieldName)) return true;
+    }
+  }
+  return false;
 }
 
 function getDataShape(app) {
@@ -43,30 +77,16 @@ function getDataShape(app) {
 
 async function loadApps() {
   await mkdir(APPS_DIR, { recursive: true });
-  const files = await readdir(APPS_DIR);
+  const entries = await readdir(APPS_DIR, { withFileTypes: true });
   const apps = [];
-  for (const f of files) {
-    if (!f.endsWith(".json")) continue;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
     try {
-      const data = JSON.parse(await readFile(resolve(APPS_DIR, f), "utf-8"));
+      const data = JSON.parse(await readFile(resolve(APPS_DIR, entry.name, "app.json"), "utf-8"));
       apps.push(data);
     } catch {}
   }
   return apps;
-}
-
-async function loadAppData(appId) {
-  await mkdir(APP_DATA_DIR, { recursive: true });
-  try {
-    return JSON.parse(await readFile(resolve(APP_DATA_DIR, `${appId}.json`), "utf-8"));
-  } catch {
-    return [];
-  }
-}
-
-async function saveAppData(appId, data) {
-  await mkdir(APP_DATA_DIR, { recursive: true });
-  await writeFile(resolve(APP_DATA_DIR, `${appId}.json`), JSON.stringify(data, null, 2), "utf-8");
 }
 
 // ── Build tool definitions dynamically ──
@@ -368,139 +388,80 @@ async function buildToolDefinitions() {
 
 // ── Generic skill result formatter ──
 // Turns structured JSON from any skill-based app into readable text
-function formatSkillResult(app, result) {
-  if (typeof result === "string") return result;
-
-  // Special formatting for translate app
-  if (app.id === "translate" && result.translation) {
-    let text = `**${result.translation}**`;
-    if (result.special_words?.length > 0) {
-      for (const w of result.special_words) {
-        text += `\n\n✨ **${w.word}** (${w.type}) → ${w.translation}`;
-        if (w.packaged?.classic_sentence) {
-          const cs = w.packaged.classic_sentence;
-          text += `\n📖 ${cs.en || cs}`;
-          if (cs.zh) text += ` → ${cs.zh}`;
-        }
-        if (w.packaged?.joke) text += `\n😄 ${w.packaged.joke}`;
-      }
-    }
-    if (result.single_word_mode) {
-      const sw = result.single_word_mode;
-      if (sw.phonetic) text += `\n🔊 ${sw.phonetic}`;
-      if (sw.common_usage?.length) {
-        text += `\n\n**常見用法：**`;
-        for (const u of sw.common_usage) text += `\n- ${u}`;
-      }
-      if (sw.synonyms?.length) text += `\n\n**同義詞：** ${sw.synonyms.join("、")}`;
-      if (sw.antonyms?.length) text += `\n**反義詞：** ${sw.antonyms.join("、")}`;
-    }
-    return text;
-  }
-
-  // Generic formatting for any other app
-  const lines = [];
-  for (const [key, value] of Object.entries(result)) {
-    if (Array.isArray(value)) {
-      lines.push(`**${key}：**`);
-      for (const item of value) {
-        if (typeof item === "object" && item !== null) {
-          lines.push(`- ${Object.values(item).join(" | ")}`);
-        } else {
-          lines.push(`- ${item}`);
-        }
-      }
-    } else if (typeof value === "object" && value !== null) {
-      lines.push(`**${key}：**`);
-      for (const [k, v] of Object.entries(value)) {
-        lines.push(`  - ${k}: ${v}`);
-      }
-    } else {
-      lines.push(`**${key}：** ${value}`);
-    }
-  }
-  return lines.join("\n") || JSON.stringify(result, null, 2);
-}
-
-// ── Tool execution handlers ──
 
 function buildHandlers(apps) {
   const handlers = {};
 
-  // app_list
+  const PAAW_PORT = process.env.PAAW_PORT || "4097";
+  const API = `http://127.0.0.1:${PAAW_PORT}`;
+
+  // app_list — call REST API
   handlers.app_list = async () => {
-    const list = apps.map(a => `${a.icon} **${a.name}** — ${a.description}`).join("\n");
-    return { text: list || "目前沒有任何 App", apps: apps.map(a => ({ id: a.id, name: a.name, icon: a.icon, dataShape: getDataShape(a) })) };
+    try {
+      const resp = await fetch(`${API}/api/apps`);
+      const apps = await resp.json();
+      if (!Array.isArray(apps)) return { text: "目前沒有任何 App", apps: [] };
+      const list = apps.map(a => `${a.icon || "📦"} **${a.name}** — ${a.description || ""}`).join("\n");
+      return { text: list || "目前沒有任何 App", apps: apps.map(a => ({ id: a.id, name: a.name, icon: a.icon, dataShape: a.dataShape })) };
+    } catch (err) {
+      return { text: `❌ 讀取失敗：${err.message}`, error: true };
+    }
   };
 
-  // app_create — create new app at runtime!
+  // app_create — create new app via REST API
   handlers.app_create = async ({ id, name, icon, description, dataShape, schema, aiPrompt, type, triggers, skills }) => {
-    if (!/^[a-z][a-z0-9_]*$/.test(id)) {
-      return { text: "❌ App ID 只能用小寫英文、數字和底線，必須以英文開頭", error: true };
+    try {
+      const resp = await fetch(`http://127.0.0.1:${PAAW_PORT}/api/apps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name, icon, description, dataShape, schema, aiPrompt, type, triggers, skills }),
+      });
+      const result = await resp.json();
+      if (!result.ok) return { text: `❌ ${result.error}`, error: true };
+      invalidateCache();
+      const extra = type === "skill-based" ? "（Skill-based，已自動產生 Tool + SKILL.md）" : "";
+      return { text: `✅ 已建立 App「${name}」${icon || "📦"}${extra}`, app: result.app };
+    } catch (err) {
+      return { text: `❌ 建立失敗：${err.message}`, error: true };
     }
-    const existing = apps.find(a => a.id === id);
-    if (existing) {
-      return { text: `❌ App「${name}」已經存在（ID: ${id}）`, error: true };
-    }
-    const appDef = {
-      id,
-      name,
-      icon: icon || "📦",
-      description: description || name,
-      status: "published",
-      type: type || "data",
-      dataShape: dataShape || (type === "skill-based" ? "array" : "array"),
-      ...(triggers?.length ? { triggers } : {}),
-      schema,
-      aiPrompt,
-      createdAt: new Date().toISOString(),
-    };
-    await mkdir(APPS_DIR, { recursive: true });
-    await writeFile(resolve(APPS_DIR, `${id}.json`), JSON.stringify(appDef, null, 2), "utf-8");
-
-    // Create app directory for skill-based apps
-    if (type === "skill-based") {
-      const appDir = join(resolve(PAAW_DATA_DIR, "apps"), id);
-      await mkdir(appDir, { recursive: true });
-
-      // Auto-generate SKILL.md if skills provided
-      if (skills && typeof skills === "object") {
-        for (const [skillName, skillContent] of Object.entries(skills)) {
-          const skillDir = join(appDir, "skills", skillName);
-          await mkdir(skillDir, { recursive: true });
-          await writeFile(join(skillDir, "SKILL.md"), skillContent, "utf-8");
-        }
-      } else {
-        // Auto-generate a default skill from schema
-        const defaultSkill = `# ${name} Skill\n\n## Purpose\n${description || name}\n\n## Inputs\n${Object.entries(schema?.properties || {}).map(([k, v]) => `- ${k}: ${v.type || "string"} — ${v.description || k}`).join("\n") || "- input: string — 輸入"}\n\n## Deterministic Script\n\n### Execution Steps\n1. 接收輸入參數\n2. 處理並產生結果\n3. 回傳 JSON\n\n## Output Contract\n\`\`\`json\n{ "result": "..." }\n\`\`\`\n`;
-        const skillDir = join(appDir, "skills", id);
-        await mkdir(skillDir, { recursive: true });
-        await writeFile(join(skillDir, "SKILL.md"), defaultSkill, "utf-8");
-      }
-    }
-
-    // Initialize data file
-    const initialData = appDef.dataShape === "object" ? {} : [];
-    await saveAppData(id, initialData);
-    invalidateCache();
-    return { text: `✅ 已建立 App「${name}」${icon || "📦"}${type === "skill-based" ? "（Skill-based，已自動產生 Tool + SKILL.md）" : ""}`, app: appDef };
   };
 
-  // app_edit
+  // app_create — create new app via REST API
+  handlers.app_create = async ({ id, name, icon, description, dataShape, schema, aiPrompt, type, triggers, skills }) => {
+    try {
+      const resp = await fetch(`${API}/api/apps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name, icon, description, dataShape, schema, aiPrompt, type, triggers, skills }),
+      });
+      const result = await resp.json();
+      if (!result.ok) return { text: `❌ ${result.error}`, error: true };
+      invalidateCache();
+      const extra = type === "skill-based" ? "（Skill-based，已自動產生 Tool + SKILL.md）" : "";
+      return { text: `✅ 已建立 App「${name}」${icon || "📦"}${extra}`, app: result.app };
+    } catch (err) {
+      return { text: `❌ 建立失敗：${err.message}`, error: true };
+    }
+  };
+
+  // app_edit — update app via REST API
   handlers.app_edit = async ({ id, changes }) => {
-    const appDef = apps.find(a => a.id === id);
-    if (!appDef) return { text: `❌ 找不到 App: ${id}`, error: true };
-    const fp = resolve(APPS_DIR, `${id}.json`);
-    const current = JSON.parse(await readFile(fp, "utf-8"));
-    for (const [key, val] of Object.entries(changes)) {
-      if (val !== undefined) current[key] = val;
+    try {
+      const resp = await fetch(`${API}/api/apps/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes),
+      });
+      const result = await resp.json();
+      if (!result.ok) return { text: `❌ ${result.error}`, error: true };
+      invalidateCache();
+      return { text: `✅ 已更新 App「${result.app?.name || id}」`, app: result.app };
+    } catch (err) {
+      return { text: `❌ 更新失敗：${err.message}`, error: true };
     }
-    await writeFile(fp, JSON.stringify(current, null, 2), "utf-8");
-    invalidateCache();
-    return { text: `✅ 已更新 App「${current.name}」`, app: current };
   };
 
-  // Generic handlers for each app based on dataShape
+  // Generic handlers for each app based on dataShape — all via REST API
   for (const app of apps) {
     const shape = getDataShape(app);
     if (shape === "none") continue;
@@ -509,116 +470,157 @@ function buildHandlers(apps) {
     const fields = extractFields(app);
 
     if (shape === "array") {
-      // add
+      // add — POST /api/app-data/:appId
       handlers[`${appId}_add`] = async (args) => {
-        const data = await loadAppData(appId);
-        const id = `${appId}_${Date.now().toString(36)}`;
-        const record = { id, createdAt: new Date().toISOString() };
-        for (const f of fields) {
-          if (args[f.name] !== undefined) record[f.name] = args[f.name];
-          else if (f.default !== undefined) record[f.name] = f.default;
+        try {
+          const resp = await fetch(`${API}/api/app-data/${appId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(args),
+          });
+          const record = await resp.json();
+          if (record.error) return { text: `❌ ${record.error}`, error: true };
+          const displayText = record.word || record.text || record.title || record.name || record.id;
+          return { text: `✅ 已新增 ${app.icon} **${displayText}** (${record.type || ""})`, record };
+        } catch (err) {
+          return { text: `❌ 新增失敗：${err.message}`, error: true };
         }
-        data.push(record);
-        await saveAppData(appId, data);
-        const displayField = fields[0]?.name || "id";
-        return { text: `✅ 已新增 ${app.icon} ${record[displayField] || id}`, record };
       };
 
-      // list
+      // list — GET /api/app-data/:appId (client-side filter)
       handlers[`${appId}_list`] = async (args) => {
-        const data = await loadAppData(appId);
-        let filtered = data;
-        for (const f of fields) {
-          if (args[f.name] !== undefined) {
-            filtered = filtered.filter(r => r[f.name] === args[f.name]);
-          }
-        }
-        if (args._search) {
-          const q = args._search.toLowerCase();
-          filtered = filtered.filter(r => fields.some(f => String(r[f.name] || "").toLowerCase().includes(q)));
-        }
-        const limit = args._limit || 20;
-        filtered = filtered.slice(0, limit);
-        if (filtered.length === 0) return { text: `${app.icon} ${app.name}沒有資料`, records: [] };
-        const displayField = fields[0]?.name || "id";
-        const list = filtered.map(r => {
-          let line = `${app.icon} [${r.id}] ${r[displayField] || ""}`;
+        try {
+          const resp = await fetch(`${API}/api/app-data/${appId}`);
+          let data = await resp.json();
+          if (!Array.isArray(data)) data = [];
+          // Client-side filtering
           for (const f of fields) {
-            if (f.name !== displayField && r[f.name] !== undefined && f.type === "enum") {
-              line += ` (${r[f.name]})`;
+            if (args[f.name] !== undefined) {
+              data = data.filter(r => r[f.name] === args[f.name]);
             }
           }
-          return line;
-        }).join("\n");
-        return { text: list, records: filtered };
+          if (args._search) {
+            const q = args._search.toLowerCase();
+            data = data.filter(r => fields.some(f => String(r[f.name] || "").toLowerCase().includes(q)));
+          }
+          const limit = args._limit || 20;
+          data = data.slice(0, limit);
+          if (data.length === 0) return { text: `${app.icon} ${app.name}沒有資料`, records: [] };
+          const displayField = fields[0]?.name || "id";
+          const list = data.map(r => {
+            let line = `${app.icon} [${r.id}] ${r[displayField] || ""}`;
+            for (const f of fields) {
+              if (f.name !== displayField && r[f.name] !== undefined && f.type === "enum") {
+                line += ` (${r[f.name]})`;
+              }
+            }
+            return line;
+          }).join("\n");
+          return { text: `✅ 找到 ${data.length} 筆資料：\n\n${list}`, records: data };
+        } catch (err) {
+          return { text: `❌ 查詢失敗：${err.message}`, error: true };
+        }
       };
 
-      // get
+      // get — GET /api/app-data/:appId (find by id)
       handlers[`${appId}_get`] = async ({ id }) => {
-        const data = await loadAppData(appId);
-        const record = data.find(r => r.id === id);
-        if (!record) return { text: `❌ 找不到 ID: ${id}`, error: true };
-        const details = Object.entries(record).map(([k, v]) => {
-          const fieldDef = fields.find(f => f.name === k);
-          const label = fieldDef?.label || k;
-          return `**${label}**: ${Array.isArray(v) ? v.join(", ") : v}`;
-        }).join("\n");
-        return { text: `## ${record[fields[0]?.name] || id}\n\n${details}`, record };
+        try {
+          const resp = await fetch(`${API}/api/app-data/${appId}`);
+          let data = await resp.json();
+          if (!Array.isArray(data)) data = [];
+          const record = data.find(r => r.id === id);
+          if (!record) return { text: `❌ 找不到 ID: ${id}`, error: true };
+          const details = Object.entries(record).map(([k, v]) => {
+            const fieldDef = fields.find(f => f.name === k);
+            const label = fieldDef?.label || k;
+            return `**${label}**: ${Array.isArray(v) ? v.join(", ") : v}`;
+          }).join("\n");
+          return { text: `## ${record[fields[0]?.name] || id}\n\n${details}`, record };
+        } catch (err) {
+          return { text: `❌ 查詢失敗：${err.message}`, error: true };
+        }
       };
 
-      // update
+      // update — PATCH /api/app-data/:appId/:id
       handlers[`${appId}_update`] = async (args) => {
         const { id, ...updates } = args;
-        const data = await loadAppData(appId);
-        const idx = data.findIndex(r => r.id === id);
-        if (idx === -1) return { text: `❌ 找不到 ID: ${id}`, error: true };
-        for (const [k, v] of Object.entries(updates)) {
-          if (k === "id") continue;
-          data[idx][k] = v;
+        try {
+          const resp = await fetch(`${API}/api/app-data/${appId}/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updates),
+          });
+          if (!resp.ok) return { text: `❌ 找不到 ID: ${id}`, error: true };
+          const record = await resp.json();
+          return { text: `✅ 已更新 ${app.icon} ${record[fields[0]?.name] || id}`, record };
+        } catch (err) {
+          return { text: `❌ 更新失敗：${err.message}`, error: true };
         }
-        await saveAppData(appId, data);
-        const displayField = fields[0]?.name || "id";
-        return { text: `✅ 已更新 ${app.icon} ${data[idx][displayField] || id}`, record: data[idx] };
       };
 
-      // delete
+      // delete — DELETE /api/app-data/:appId/:id
       handlers[`${appId}_delete`] = async ({ id }) => {
-        let data = await loadAppData(appId);
-        const target = data.find(r => r.id === id);
-        if (!target) return { text: `❌ 找不到 ID: ${id}`, error: true };
-        data = data.filter(r => r.id !== id);
-        await saveAppData(appId, data);
-        const displayField = fields[0]?.name || "id";
-        return { text: `🗑️ 已刪除 ${app.icon} ${target[displayField] || id}` };
+        console.log(`[tool] pocket_delete called: appId=${appId}, id=${id}, API=${API}`);
+        try {
+          const url = `${API}/api/app-data/${appId}/${id}`;
+          console.log(`[tool] DELETE URL: ${url}`);
+          const resp = await fetch(url, {
+            method: "DELETE",
+          });
+          console.log(`[tool] DELETE response status: ${resp.status}`);
+          const result = await resp.json();
+          console.log(`[tool] DELETE result:`, JSON.stringify(result));
+          if (result.error) return { text: `❌ ${result.error}`, error: true };
+          return { text: `🗑️ 已刪除 ${app.icon} ${id}` };
+        } catch (err) {
+          console.log(`[tool] DELETE error: ${err.message}`);
+          return { text: `❌ 刪除失敗：${err.message}`, error: true };
+        }
       };
     }
 
     if (shape === "object") {
-      // get — return the single object
+      // get — GET /api/app-data/:appId
       handlers[`${appId}_get`] = async () => {
-        const data = await loadAppData(appId);
-        if (!data || Object.keys(data).length === 0) {
-          return { text: `${app.icon} ${app.name}尚未設定`, data: {} };
+        try {
+          const resp = await fetch(`${API}/api/app-data/${appId}`);
+          const data = await resp.json();
+          if (!data || Object.keys(data).length === 0) {
+            return { text: `${app.icon} ${app.name}尚未設定`, data: {} };
+          }
+          const details = Object.entries(data).map(([k, v]) => {
+            const fieldDef = fields.find(f => f.name === k);
+            const label = fieldDef?.label || k;
+            return `**${label}**: ${Array.isArray(v) ? v.join(", ") : v}`;
+          }).join("\n");
+          return { text: `## ${app.name}\n\n${details}`, data };
+        } catch (err) {
+          return { text: `❌ 讀取失敗：${err.message}`, error: true };
         }
-        const details = Object.entries(data).map(([k, v]) => {
-          const fieldDef = fields.find(f => f.name === k);
-          const label = fieldDef?.label || k;
-          return `**${label}**: ${Array.isArray(v) ? v.join(", ") : v}`;
-        }).join("\n");
-        return { text: `## ${app.name}\n\n${details}`, data };
       };
 
-      // set — update fields of the single object
+      // set — PUT /api/app-data/:appId (full replace)
       handlers[`${appId}_set`] = async (args) => {
-        let data = await loadAppData(appId);
-        if (!data || typeof data !== "object" || Array.isArray(data)) data = {};
-        for (const f of fields) {
-          if (args[f.name] !== undefined) data[f.name] = args[f.name];
-          else if (f.default !== undefined && data[f.name] === undefined) data[f.name] = f.default;
+        try {
+          // First get current data
+          const getResp = await fetch(`${API}/api/app-data/${appId}`);
+          let data = await getResp.json();
+          if (!data || typeof data !== "object" || Array.isArray(data)) data = {};
+          for (const f of fields) {
+            if (args[f.name] !== undefined) data[f.name] = args[f.name];
+            else if (f.default !== undefined && data[f.name] === undefined) data[f.name] = f.default;
+          }
+          data.updatedAt = new Date().toISOString();
+          const putResp = await fetch(`${API}/api/app-data/${appId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          if (!putResp.ok) return { text: `❌ 寫入失敗`, error: true };
+          return { text: `✅ 已更新 ${app.icon} ${app.name}`, data };
+        } catch (err) {
+          return { text: `❌ 設定失敗：${err.message}`, error: true };
         }
-        data.updatedAt = new Date().toISOString();
-        await saveAppData(appId, data);
-        return { text: `✅ 已更新 ${app.icon} ${app.name}`, data };
       };
     }
   }
@@ -660,144 +662,25 @@ function buildHandlers(apps) {
     };
   }
 
-  // ── Skill-based apps: generic skillExec handler ──
-  // Any app with type=skill-based gets an auto-generated {appId}_exec handler
-  // It reads skills from data/apps/{appId}/skills/*/SKILL.md, builds prompt, runs CLI
+  // ── Skill-based apps: exec via REST API ──
+  // Calls POST /api/apps/:appId/exec
   for (const app of apps) {
     if (app.type !== "skill-based") continue;
     const appId = app.id;
 
     handlers[`${appId}_exec`] = async (args) => {
-      const { _raw_output, ...inputArgs } = args;
-
-      // Resolve defaults from execSchema or schema
-      const resolvedArgs = {};
-      const execSchema = app.execSchema?.properties || app.schema?.properties;
-      if (execSchema) {
-        for (const [key, def] of Object.entries(execSchema)) {
-          resolvedArgs[key] = inputArgs[key] ?? def.default ?? undefined;
-        }
-      }
-      // Merge any extra args not in schema
-      Object.assign(resolvedArgs, inputArgs);
-
-      // 1. Locate app directory (data/apps/{appId}/)
-      const APPS_ROOT = resolve(PAAW_DATA_DIR, "apps");
-      const appDir = join(APPS_ROOT, appId);
-      const skillsDir = join(appDir, "skills");
-
-      // 2. Load ALL skills from data/apps/{appId}/skills/*/SKILL.md
-      const skillContents = [];
       try {
-        const skillDirs = await readdir(skillsDir);
-        for (const sd of skillDirs) {
-          try {
-            const content = await readFile(join(skillsDir, sd, "SKILL.md"), "utf-8");
-            const body = content.replace(/^---[\s\S]*?---\n*/, ""); // strip YAML frontmatter
-            skillContents.push({ name: sd, body });
-          } catch {}
-        }
-      } catch {}
-
-      if (skillContents.length === 0) {
-        return { text: `❌ App「${app.name}」沒有 Skill 定義。請在 ${skillsDir} 放置 SKILL.md。` };
-      }
-
-      // 3. Build system prompt from all skills
-      const skillsSection = skillContents
-        .map(s => `## === Skill: ${s.name} ===\n${s.body}`)
-        .join("\n\n");
-
-      const inputSection = Object.entries(resolvedArgs)
-        .filter(([, v]) => v !== undefined)
-        .map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`)
-        .join("\n");
-
-      const systemPrompt = `你是「${app.name}」App 的執行引擎。
-你必須嚴格按照以下 Skill 定義（deterministic script）來處理。
-
-${skillsSection}
-
-## === 輸入參數 ===
-${inputSection}
-
-## === 輸出指示 ===
-只輸出結果。如果是結構化資料，輸出 JSON（不要加 markdown code block）。不要加解釋。`;
-
-      // 4. Execute via CLI
-      const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";
-      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", systemPrompt];
-
-      let fullOutput;
-      try {
-        fullOutput = await new Promise((pResolve, reject) => {
-          let output = "";
-          const proc = spawn(resolvedBin, cliArgs, {
-            name: "xterm-256color",
-            cols: 200,
-            rows: 30,
-            cwd: appDir,
-            env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-          });
-          proc.onData((data) => { output += data; });
-          proc.onExit(({ exitCode }) => {
-            if (exitCode === 0) pResolve(output);
-            else reject(new Error(`CLI exited with code ${exitCode}`));
-          });
-          setTimeout(() => { try { proc.kill(); } catch {} reject(new Error("Timeout (90s)")); }, 90000);
+        const resp = await fetch(`${API}/api/apps/${appId}/exec`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(args),
         });
+        const result = await resp.json();
+        if (result.error) return { text: `❌ ${result.error}`, error: true };
+        return { text: result.output || "執行完成", raw: true };
       } catch (err) {
-        return { text: `❌ 執行失敗：${err.message}` };
+        return { text: `❌ 執行失敗：${err.message}`, error: true };
       }
-
-      // 5. Return result
-      if (_raw_output) {
-        return { text: fullOutput.trim().slice(0, 2000), raw: true };
-      }
-
-      // Try to parse as JSON for structured output
-      const jsonMatch = fullOutput.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const result = JSON.parse(jsonMatch[0]);
-          // Auto-save result to app data (so history shows in app UI)
-          if (app.dataShape !== "none") {
-            try {
-              const record = {
-                id: `${appId}_${Date.now().toString(36)}`,
-                createdAt: new Date().toISOString(),
-              };
-              // Map common result fields to schema fields
-              const schemaProps = app.schema?.items?.properties || app.schema?.properties || {};
-              for (const [key] of Object.entries(schemaProps)) {
-                if (result[key] !== undefined) record[key] = result[key];
-              }
-              // Also store source args
-              for (const [key, val] of Object.entries(resolvedArgs)) {
-                if (val !== undefined) record[key] = val;
-              }
-              // Extract translation/highlights from skill result
-              if (result.translation) record.translated_text = result.translation;
-              if (result.special_words?.length) {
-                record.highlights = result.special_words.map(w => `${w.word} (${w.type}) → ${w.translation}`).join(" | ");
-              }
-              const data = await loadAppData(appId);
-              data.push(record);
-              await saveAppData(appId, data);
-            } catch (saveErr) {
-              console.error(`[skillExec] Failed to save app data for ${appId}:`, saveErr.message);
-            }
-          }
-          return { text: formatSkillResult(app, result), result };
-        } catch {}
-      }
-
-      // Fallback: return raw text (cleaned)
-      const clean = fullOutput
-        .replace(/\x1b\[[0-9;]*[mGKH]/g, "") // strip ANSI
-        .replace(/^\s+|\s+$/g, "")
-        .slice(0, 1500);
-      return { text: clean || "執行完成但無輸出" };
     };
   }
 

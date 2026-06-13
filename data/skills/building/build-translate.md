@@ -35,18 +35,6 @@ userInputs:
 ## Output
 # 翻譯結果 Translation Result
 
-## 原文 (Source)
-
-## 譯文 (Translation)
-
----
-## 特殊詞彙 Special Vocabulary
-
----
-## 翻譯筆記 Translation Notes
-
-
-
 ## Guardrails
 - 不翻譯違法或有害內容
 - 翻譯品質：寧可保守也不要過度意譯

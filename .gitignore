@@ -49,3 +49,6 @@ node_modules/
 .DS_Store
 data/skills/.test-output/
 data/skills/building/*/test-*
+.paaw-staging/
+.paaw-review/
+packages/server/.paaw/

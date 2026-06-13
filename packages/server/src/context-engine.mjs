@@ -72,10 +72,27 @@ function loadAppBuilderRules() {
   return safeRead(resolve(CONFIG_DIR, "app-builder-rules.md"));
 }
 
+/** Reply Rules (system/reply-rules.md) */
+function loadReplyRules() {
+  return safeRead(resolve(SYSTEM_DIR, "reply-rules.md"));
+}
+
 /** Workspaces */
 function loadWorkspaces() {
   const ws = safeReadJSON(resolve(CONFIG_DIR, "workspaces.json"), { directories: [] });
   return ws.directories || [];
+}
+
+/** Check if a field is required in the app schema */
+function checkFieldRequired(schema, fieldName) {
+  if (!schema) return false;
+  if (Array.isArray(schema.required) && schema.required.includes(fieldName)) return true;
+  if (Array.isArray(schema.oneOf)) {
+    for (const variant of schema.oneOf) {
+      if (Array.isArray(variant.required) && variant.required.includes(fieldName)) return true;
+    }
+  }
+  return false;
 }
 
 /** App 清單 + instructions */
@@ -83,17 +100,55 @@ function loadAppInstructions() {
   if (!existsSync(APPS_DIR)) return "";
   const apps = [];
   try {
-    const dirs = readdirSync(APPS_DIR, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name);
-    for (const appId of dirs) {
-      const meta = safeReadJSON(resolve(APPS_DIR, appId, "app.json"), null);
+    const entries = readdirSync(APPS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const meta = safeReadJSON(resolve(APPS_DIR, entry.name, "app.json"), null);
       if (meta) {
+        const appId = meta.id || entry.name;
         const desc = meta.description ? ` — ${meta.description}` : "";
-        const triggers = meta.triggerKeywords?.length ? ` [觸發：${meta.triggerKeywords.join(", ")}]` : "";
-        apps.push(`- **${meta.name || appId}** (${appId})${desc}${triggers}`);
+        const triggers = meta.triggers?.length ? ` [觸發：${meta.triggers.join(", ")}]` : "";
+        const hint = meta.aiPrompt ? `
+  > ${meta.aiPrompt}` : "";
+        let tools = "";
+        // Build field descriptions for data tools
+        let fieldInfo = "";
+        if (meta.schema) {
+          const allProps = { ...(meta.schema.properties || {}) };
+          if (Array.isArray(meta.schema.oneOf)) {
+            for (const v of meta.schema.oneOf) {
+              if (v.properties) {
+                for (const [k, val] of Object.entries(v.properties)) {
+                  if (!(k in (meta.schema.properties || {}))) allProps[k] = val;
+                }
+              }
+            }
+          }
+          const entries = Object.entries(allProps);
+          if (entries.length > 0) {
+            const parts = [];
+            for (const [name, def] of entries) {
+              const label = def.label || name;
+              const req = checkFieldRequired(meta.schema, name) ? " (必填)" : "";
+              const typeLabel = def.type || (def.const ? "fixed" : "string");
+              const opts = def.enum ? ` [${def.enum.join("|")}]` : def.const ? ` [=${def.const}]` : "";
+              parts.push(`${label}${req}${opts ? opts : ""}`);
+            }
+            fieldInfo = ` \n    可用欄位：${parts.join(", ")}`;
+          }
+        }
+        if (meta.type === "skill-based") {
+          tools = `\n  - 工具：${appId}_exec（執行 Skill + CLI）`;
+        } else if (meta.dataShape === "object") {
+          tools = `\n  - 工具：${appId}_get（讀取）, ${appId}_set（寫入）${fieldInfo}`;
+        } else {
+          tools = `\n  - 工具：${appId}_add（新增）, ${appId}_list（列表/搜尋）, ${appId}_get（單筆）, ${appId}_update（更新）, ${appId}_delete（刪除）${fieldInfo}`;
+        }
+        apps.push(`- **${meta.name || appId}** (${appId})${desc}${triggers}${hint}${tools}`);
       }
     }
+    apps.unshift("- **App List** (app_list) — 列出所有可用的 App");
+    apps.unshift("📦 **App 系統**：使用 app_list 工具查詢所有 App。新增 App 用 app_create。編輯用 app_edit。");
   } catch {}
   return apps.length > 0 ? `以下是已安裝的 App：\n${apps.join("\n")}` : "";
 }
@@ -234,8 +289,14 @@ export const contextEngine = {
 
     const parts = [];
 
-    // 1. Identity
-    parts.push(`你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。\n\n回答時使用繁體中文，技術術語保留英文。語氣親切專業，像一位值得信賴的同事。`);
+    // 1. Identity（從檔案讀取，支援模板變數）
+    const identityTpl = safeRead(resolve(SYSTEM_DIR, "identity.md"));
+    const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
+    if (identityTpl) {
+      parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
+    } else {
+      parts.push(`你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。\n\n回答時使用繁體中文，技術術語保留英文。語氣親切專業，像一位值得信賴的同事。`);
+    }
 
     // 2. User profile
     parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}${workspaceInfo}`);
@@ -246,6 +307,14 @@ export const contextEngine = {
     // 4. Apps
     if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
 
+    // 4.5 Tool 使用規則（從檔案讀取，方便透過 API 編輯）
+    const toolRules = safeRead(resolve(SYSTEM_DIR, "tool-rules.md"));
+    if (toolRules) {
+      parts.push(toolRules);
+    } else {
+      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造`);
+    }
+
     // 5. App builder rules
     if (appRules) parts.push(`=== App 建構規則 ===\n當使用者想建新 App 或修改 App 時，遵循以下規則：\n${appRules}`);
 
@@ -254,15 +323,8 @@ export const contextEngine = {
     if (guardrails) parts.push(guardrails);
 
     // 7. Reply rules
-    parts.push(`=== 回覆規則 ===
-- 用中文回覆，風格自然友善
-- 使用者問「我有什麼 App」→ 用 app_list 工具查詢，不要猜
-- 使用者要求做事時，先檢查有沒有對應的 App 或 System Tool，用對應的工具完成
-- 如果使用者的話包含某個 App 的觸發關鍵字，直接呼叫該 App 的工具
-- 主動運用記憶中的資訊（偏好、過去的決策、人際關係）
-- 如果學到新東西，主動用 memory_add 記下來
-- 不確定的事情就用工具查，不要用猜的
-- 使用 Markdown 格式`);
+    const replyRules = loadReplyRules();
+    if (replyRules) parts.push(replyRules);
 
     // 7.5 API Tools — 系統工具列表
     const apiTools = loadApiTools();

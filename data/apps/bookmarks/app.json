@@ -1,0 +1,43 @@
+{
+  "id": "bookmarks",
+  "name": "書籤",
+  "icon": "🔖",
+  "description": "管理我的書籤連結，可以儲存、查詢、分類網址",
+  "type": "data",
+  "dataShape": "array",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "label": "標題",
+        "required": true
+      },
+      "url": {
+        "type": "string",
+        "label": "網址",
+        "required": true
+      },
+      "description": {
+        "type": "string",
+        "label": "備註"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "label": "標籤"
+      }
+    },
+    "required": [
+      "title",
+      "url"
+    ]
+  },
+  "execSchema": null,
+  "triggers": [],
+  "aiPrompt": "管理書籤，可以新增、查詢、編輯、刪除。網址要顯示完整 URL 讓使用者點擊開啟。",
+  "status": "published",
+  "createdAt": "2026-06-12T03:50:25.624Z"
+}

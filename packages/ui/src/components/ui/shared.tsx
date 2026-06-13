@@ -53,8 +53,8 @@ const NAV_ICONS: Record<string, string> = {
     "Constitution":    "nav-scroll",
     "Standards":       "nav-ruler",
     "AI Crew":         "nav-crew",
-    "Skills":          "lightning",
-    "Skill Pool":      "lightning",
+    "Skills":          "sparkle",
+    "Skill Pool":      "sparkle",
     "Skill Builder":   "brain",
     "App Builder":     "rocket",
     "Workflow Builder": "plan",
@@ -68,6 +68,7 @@ const NAV_ICONS: Record<string, string> = {
     "Cron Jobs":       "clock",
     "Skill Lab":       "flask",
     "Vibe Coding":     "lightning",
+    "Prompts":         "terminal",
 };
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {

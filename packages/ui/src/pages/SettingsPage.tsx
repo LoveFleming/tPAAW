@@ -551,7 +551,6 @@ function ToolsTab() {
   const { t } = useI18n();
   const [tools, setTools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
   useEffect(() => {
@@ -570,13 +569,6 @@ function ToolsTab() {
     setTools(prev => prev.map(t => t.routeId === routeId ? { ...t, enabled: !enabled } : t));
   };
 
-  const generateSkill = async (routeId: string) => {
-    setGenerating(routeId);
-    await fetch(`${API_BASE}/api/tool-registry/${routeId}/generate`, { method: "POST" });
-    setTools(prev => prev.map(t => t.routeId === routeId ? { ...t, generated: true } : t));
-    setGenerating(null);
-  };
-
   const filtered = tools.filter(t =>
     filter === "" ||
     t.name.toLowerCase().includes(filter.toLowerCase()) ||
@@ -588,16 +580,37 @@ function ToolsTab() {
 
   if (loading) return <div className="p-8 text-stone-400">Loading...</div>;
 
+  const totalGenerated = tools.filter(t => t.generated).length;
+  const totalTools = tools.length;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-bold text-stone-800">🛠️ System Tools</h3>
-          <p className="text-sm text-stone-500">管理 API Contract Registry。啟用的工具會自動注入到 AI System Prompt。</p>
-        </div>
-        <div className="text-xs text-stone-400">
-          {tools.filter(t => t.enabled).length} / {tools.length} 已啟用
-        </div>
+      <div>
+        <h3 className="text-lg font-bold text-stone-800">🛠️ System Tools</h3>
+        <p className="text-sm text-stone-500">已註冊的 API Contract，自動產生 AI Tool。</p>
+      </div>
+
+      {/* Category stats — show skill coverage */}
+      <div className="flex flex-wrap gap-1.5">
+        {categories.map(cat => {
+          const inCat = tools.filter(t => t.category === cat);
+          const hasSkill = inCat.filter(t => t.generated).length;
+          const total = inCat.length;
+          const allDone = hasSkill === total;
+          return (
+            <span
+              key={cat}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium ${allDone ? "bg-emerald-50 text-emerald-700" : "bg-stone-50 text-stone-500"}`}
+            >
+              {cat}: {hasSkill}/{total}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Summary */}
+      <div className="text-xs text-stone-400">
+        {totalGenerated}/{totalTools} 已有 Skill
       </div>
 
       {/* Filter */}
@@ -617,72 +630,26 @@ function ToolsTab() {
         </button>
       </div>
 
-      {/* Category stats */}
-      <div className="flex flex-wrap gap-2">
-        {categories.map(cat => {
-          const count = tools.filter(t => t.category === cat && t.enabled).length;
-          const total = tools.filter(t => t.category === cat).length;
-          return (
-            <span key={cat} className="px-2 py-1 rounded-md bg-stone-100 text-xs text-stone-600">
-              {cat}: {count}/{total}
-            </span>
-          );
-        })}
-      </div>
-
-      {/* Tools table */}
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-stone-200 bg-stone-50">
-                <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase">啟用</th>
-                <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase">名稱</th>
-                <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase">API Route</th>
-                <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase">分類</th>
-                <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase">Skill</th>
-                <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(tool => (
-                <tr key={tool.routeId} className="border-b border-stone-100 hover:bg-stone-50">
-                  <td className="px-4 py-2">
-                    <input
-                      type="checkbox"
-                      checked={tool.enabled}
-                      onChange={() => toggleEnabled(tool.routeId, tool.enabled)}
-                      className="w-4 h-4 rounded border-stone-300 text-stone-800 focus:ring-stone-500"
-                    />
-                  </td>
-                  <td className="px-4 py-2 font-medium text-stone-700">{tool.name}</td>
-                  <td className="px-4 py-2 text-stone-500 font-mono text-xs">{tool.route}</td>
-                  <td className="px-4 py-2">
-                    <span className="px-2 py-0.5 rounded bg-stone-100 text-xs text-stone-600">{tool.category}</span>
-                  </td>
-                  <td className="px-4 py-2">
-                    {tool.generated ? (
-                      <span className="text-emerald-600 text-xs">✓ 已產生</span>
-                    ) : (
-                      <span className="text-stone-400 text-xs">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    {!tool.generated && (
-                      <button
-                        onClick={() => generateSkill(tool.routeId)}
-                        disabled={generating === tool.routeId}
-                        className="px-2 py-1 rounded text-xs bg-stone-800 text-white hover:bg-stone-700 disabled:opacity-50"
-                      >
-                        {generating === tool.routeId ? "產生中..." : "產生 Skill"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Tools list */}
+      <div className="bg-white rounded-xl border border-stone-200 divide-y divide-stone-100">
+        {filtered.map(tool => (
+          <div key={tool.routeId} className="flex items-center gap-3 px-4 py-2.5 hover:bg-stone-50 transition-colors">
+            <input
+              type="checkbox"
+              checked={tool.enabled}
+              onChange={() => toggleEnabled(tool.routeId, tool.enabled)}
+              className="w-4 h-4 rounded border-stone-300 text-stone-800 focus:ring-stone-500 shrink-0"
+            />
+            <span className="text-xs font-mono text-stone-500 w-[200px] shrink-0 truncate">{tool.route}</span>
+            <span className="flex-1 text-sm font-medium text-stone-700 truncate">{tool.name}</span>
+            <span className="px-2 py-0.5 rounded bg-stone-50 text-[10px] text-stone-500 shrink-0">{tool.category}</span>
+            {tool.generated ? (
+              <span className="text-[10px] font-medium text-emerald-600 shrink-0 w-[60px] text-right">✓ Skill</span>
+            ) : (
+              <span className="text-[10px] text-stone-300 shrink-0 w-[60px] text-right">—</span>
+            )}
+          </div>
+        ))}
         {filtered.length === 0 && (
           <div className="p-8 text-center text-stone-400 text-sm">沒有符合條件的工具</div>
         )}

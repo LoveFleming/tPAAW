@@ -3,62 +3,6 @@
   "generatedAt": "2026-06-11T20:52:30.461266",
   "routes": [
     {
-      "routeId": "vibe_fs_list",
-      "route": "GET /api/vibe-fs/list",
-      "name": "VibeFsList",
-      "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "vibe_fs_read",
-      "route": "GET /api/vibe-fs/read",
-      "name": "VibeFsRead",
-      "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "vibe_git_status",
-      "route": "GET /api/vibe-git/status",
-      "name": "VibeGitStatus",
-      "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "vibe_git_log",
-      "route": "GET /api/vibe-git/log",
-      "name": "VibeGitLog",
-      "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "vibe_git_diff",
-      "route": "GET /api/vibe-git/diff",
-      "name": "VibeGitDiff",
-      "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "vibe_git_blame",
-      "route": "GET /api/vibe-git/blame",
-      "name": "VibeGitBlame",
-      "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "vibe_git_ai_comment",
-      "route": "POST /api/vibe-git/ai-comment",
-      "name": "VibeGitAiComment",
-      "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
       "routeId": "api_tester_history",
       "route": "GET /api/api-tester/history",
       "name": "ApiTesterHistory",
@@ -75,18 +19,226 @@
       "autoTool": true
     },
     {
-      "routeId": "vibe_sessions",
-      "route": "GET /api/vibe-sessions",
-      "name": "VibeSessions",
-      "category": "vibe",
+      "routeId": "api_tester_proxy",
+      "route": "POST /api/api-tester/proxy",
+      "name": "ApiTesterProxy",
+      "category": "api",
       "enabled": true,
       "autoTool": true
     },
     {
-      "routeId": "vibe_sessions",
-      "route": "DELETE /api/vibe-sessions",
-      "name": "VibeSessions",
-      "category": "vibe",
+      "routeId": "api_tester_save",
+      "route": "POST /api/api-tester/save",
+      "name": "ApiTesterSave",
+      "category": "api",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "apps_create",
+      "route": "POST /api/apps",
+      "name": "AppsCreate",
+      "category": "apps",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "apps_edit",
+      "route": "PATCH /api/apps/:id",
+      "name": "AppsEdit",
+      "category": "apps",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "cli_run",
+      "route": "POST /api/cli-run",
+      "name": "CliRun",
+      "category": "cli",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "clis",
+      "route": "GET /api/clis",
+      "name": "Clis",
+      "category": "clis",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "cron_jobs",
+      "route": "POST /api/cron-jobs",
+      "name": "CronJobs",
+      "category": "cron",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_browse",
+      "route": "GET /api/fs/browse",
+      "name": "FsBrowse",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_copy",
+      "route": "POST /api/fs/copy",
+      "name": "FsCopy",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_create_file",
+      "route": "POST /api/fs/create-file",
+      "name": "FsCreateFile",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_file",
+      "route": "PUT /api/fs/file",
+      "name": "FsFile",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_file",
+      "route": "GET /api/fs/file",
+      "name": "FsFile",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_item",
+      "route": "DELETE /api/fs/item",
+      "name": "FsItem",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_mkdir",
+      "route": "POST /api/fs/mkdir",
+      "name": "FsMkdir",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_pick_folder",
+      "route": "GET /api/fs/pick-folder",
+      "name": "FsPickFolder",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_rename",
+      "route": "POST /api/fs/rename",
+      "name": "FsRename",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_tree",
+      "route": "GET /api/fs/tree",
+      "name": "FsTree",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_tree_deep",
+      "route": "GET /api/fs/tree-deep",
+      "name": "FsTreeDeep",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "fs_watch",
+      "route": "GET /api/fs/watch",
+      "name": "FsWatch",
+      "category": "fs",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "paaw_root",
+      "route": "GET /api/paaw-root",
+      "name": "PaawRoot",
+      "category": "paaw",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "pick_directory",
+      "route": "GET /api/pick-directory",
+      "name": "PickDirectory",
+      "category": "pick",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "project_dashboard",
+      "route": "GET /api/project-dashboard",
+      "name": "ProjectDashboard",
+      "category": "project",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "report_lab_training_files",
+      "route": "GET /api/report-lab/training-files",
+      "name": "ReportLabTrainingFiles",
+      "category": "report",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "report_publish",
+      "route": "POST /api/report-publish",
+      "name": "ReportPublish",
+      "category": "report",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "report_train",
+      "route": "POST /api/report-train",
+      "name": "ReportTrain",
+      "category": "report",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "skill_lab_build_files",
+      "route": "GET /api/skill-lab/build-files",
+      "name": "SkillLabBuildFiles",
+      "category": "skill",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "skill_test_file_content",
+      "route": "GET /api/skill-test/file-content",
+      "name": "SkillTestFileContent",
+      "category": "skill",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "skill_test_run",
+      "route": "POST /api/skill-test/run",
+      "name": "SkillTestRun",
+      "category": "skill",
       "enabled": true,
       "autoTool": true
     },
@@ -115,6 +267,62 @@
       "autoTool": true
     },
     {
+      "routeId": "vibe_fs_list",
+      "route": "GET /api/vibe-fs/list",
+      "name": "VibeFsList",
+      "category": "vibe",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "vibe_fs_read",
+      "route": "GET /api/vibe-fs/read",
+      "name": "VibeFsRead",
+      "category": "vibe",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "vibe_fs_write",
+      "route": "PUT /api/vibe-fs/write",
+      "name": "VibeFsWrite",
+      "category": "vibe",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "vibe_git_ai_comment",
+      "route": "POST /api/vibe-git/ai-comment",
+      "name": "VibeGitAiComment",
+      "category": "vibe",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "vibe_git_blame",
+      "route": "GET /api/vibe-git/blame",
+      "name": "VibeGitBlame",
+      "category": "vibe",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "vibe_git_diff",
+      "route": "GET /api/vibe-git/diff",
+      "name": "VibeGitDiff",
+      "category": "vibe",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
+      "routeId": "vibe_git_log",
+      "route": "GET /api/vibe-git/log",
+      "name": "VibeGitLog",
+      "category": "vibe",
+      "enabled": true,
+      "autoTool": true
+    },
+    {
       "routeId": "vibe_git_reviews",
       "route": "GET /api/vibe-git/reviews",
       "name": "VibeGitReviews",
@@ -131,154 +339,26 @@
       "autoTool": true
     },
     {
-      "routeId": "skill_lab_build_files",
-      "route": "GET /api/skill-lab/build-files",
-      "name": "SkillLabBuildFiles",
-      "category": "skill",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "report_lab_training_files",
-      "route": "GET /api/report-lab/training-files",
-      "name": "ReportLabTrainingFiles",
-      "category": "report",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_file",
-      "route": "PUT /api/fs/file",
-      "name": "FsFile",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "skill_test_file_content",
-      "route": "GET /api/skill-test/file-content",
-      "name": "SkillTestFileContent",
-      "category": "skill",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_pick_folder",
-      "route": "GET /api/fs/pick-folder",
-      "name": "FsPickFolder",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_browse",
-      "route": "GET /api/fs/browse",
-      "name": "FsBrowse",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_tree",
-      "route": "GET /api/fs/tree",
-      "name": "FsTree",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_file",
-      "route": "GET /api/fs/file",
-      "name": "FsFile",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_tree_deep",
-      "route": "GET /api/fs/tree-deep",
-      "name": "FsTreeDeep",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_mkdir",
-      "route": "POST /api/fs/mkdir",
-      "name": "FsMkdir",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_create_file",
-      "route": "POST /api/fs/create-file",
-      "name": "FsCreateFile",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_rename",
-      "route": "POST /api/fs/rename",
-      "name": "FsRename",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_copy",
-      "route": "POST /api/fs/copy",
-      "name": "FsCopy",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_item",
-      "route": "DELETE /api/fs/item",
-      "name": "FsItem",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "project_dashboard",
-      "route": "GET /api/project-dashboard",
-      "name": "ProjectDashboard",
-      "category": "project",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "fs_watch",
-      "route": "GET /api/fs/watch",
-      "name": "FsWatch",
-      "category": "fs",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "vibe_fs_write",
-      "route": "PUT /api/vibe-fs/write",
-      "name": "VibeFsWrite",
+      "routeId": "vibe_git_status",
+      "route": "GET /api/vibe-git/status",
+      "name": "VibeGitStatus",
       "category": "vibe",
       "enabled": true,
       "autoTool": true
     },
     {
-      "routeId": "api_tester_proxy",
-      "route": "POST /api/api-tester/proxy",
-      "name": "ApiTesterProxy",
-      "category": "api",
+      "routeId": "vibe_sessions",
+      "route": "GET /api/vibe-sessions",
+      "name": "VibeSessions",
+      "category": "vibe",
       "enabled": true,
       "autoTool": true
     },
     {
-      "routeId": "api_tester_save",
-      "route": "POST /api/api-tester/save",
-      "name": "ApiTesterSave",
-      "category": "api",
+      "routeId": "vibe_sessions",
+      "route": "DELETE /api/vibe-sessions",
+      "name": "VibeSessions",
+      "category": "vibe",
       "enabled": true,
       "autoTool": true
     },
@@ -287,118 +367,6 @@
       "route": "POST /api/vibe-sessions",
       "name": "VibeSessions",
       "category": "vibe",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "report_train",
-      "route": "POST /api/report-train",
-      "name": "ReportTrain",
-      "category": "report",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "report_publish",
-      "route": "POST /api/report-publish",
-      "name": "ReportPublish",
-      "category": "report",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "pick_directory",
-      "route": "GET /api/pick-directory",
-      "name": "PickDirectory",
-      "category": "pick",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "paaw_root",
-      "route": "GET /api/paaw-root",
-      "name": "PaawRoot",
-      "category": "paaw",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "skill_test_run",
-      "route": "POST /api/skill-test/run",
-      "name": "SkillTestRun",
-      "category": "skill",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "cli_run",
-      "route": "POST /api/cli-run",
-      "name": "CliRun",
-      "category": "cli",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "clis",
-      "route": "GET /api/clis",
-      "name": "Clis",
-      "category": "clis",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "opencode_prompt",
-      "route": "POST /api/opencode/prompt",
-      "name": "OpencodePrompt",
-      "category": "opencode",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "opencode_config",
-      "route": "PATCH /api/opencode/config",
-      "name": "OpencodeConfig",
-      "category": "opencode",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "opencode_health",
-      "route": "GET /api/opencode/health",
-      "name": "OpencodeHealth",
-      "category": "opencode",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "hello_world",
-      "route": "POST /api/hello-world",
-      "name": "HelloWorld",
-      "category": "hello",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "hello_world",
-      "route": "GET /api/hello-world",
-      "name": "HelloWorld",
-      "category": "hello",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "cron_jobs",
-      "route": "POST /api/cron-jobs",
-      "name": "CronJobs",
-      "category": "cron",
-      "enabled": true,
-      "autoTool": true
-    },
-    {
-      "routeId": "factories",
-      "route": "POST /api/factories",
-      "name": "Factories",
-      "category": "factories",
       "enabled": true,
       "autoTool": true
     }

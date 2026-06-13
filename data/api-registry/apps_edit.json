@@ -1,0 +1,29 @@
+{
+  "route": "PATCH /api/apps/:id",
+  "routeId": "apps_edit",
+  "name": "AppsEdit",
+  "category": "apps",
+  "description": "更新已存在的 App 定義（名稱、icon、schema、aiPrompt 等）。",
+  "source": "paaw-server.mjs",
+  "parameters": {
+    "path": {
+      "id": { "type": "string", "required": true, "description": "App ID" }
+    },
+    "body": {
+      "name": { "type": "string", "required": false, "description": "App 顯示名稱" },
+      "icon": { "type": "string", "required": false, "description": "App 圖示（emoji）" },
+      "description": { "type": "string", "required": false, "description": "App 描述" },
+      "aiPrompt": { "type": "string", "required": false, "description": "AI 提示詞" },
+      "schema": { "type": "object", "required": false, "description": "JSON Schema" },
+      "execSchema": { "type": "object", "required": false, "description": "執行參數 Schema" },
+      "triggers": { "type": "array", "required": false, "description": "觸發關鍵字" },
+      "dataShape": { "type": "string", "required": false, "description": "array 或 object" }
+    }
+  },
+  "response": {
+    "type": "object",
+    "description": "{ ok: true, app: { ... } }"
+  },
+  "enabled": true,
+  "autoTool": true
+}

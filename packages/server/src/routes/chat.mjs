@@ -89,8 +89,16 @@ export default async function chatRoutes(req, res) {
   }
 
   // ════════════════════════════════════════
-  // Chat Completion (SSE streaming + tools)
+  // Chat Completion (SSE streaming + Tool Engine)
   // ════════════════════════════════════════
+  //
+  // 主要邏輯委派給 Tool Engine（lib/tool-engine/），
+  // Chat Route 只負責：
+  //   1. 載入 provider config
+  //   2. 載入 context（system prompt）
+  //   3. 把 tools/index.mjs 的 handlers → ToolExecutor 格式
+  //   4. 建立 ToolEngine，stream 結果給前端
+  //   5. 記錄 distill 資料
 
   // POST /api/paaw/chat
   if (req.method === "POST" && path === "/api/paaw/chat") {
@@ -99,9 +107,9 @@ export default async function chatRoutes(req, res) {
       const { messages, model: requestedModel, provider: requestedProvider } = body;
 
       // ── Resolve provider ──
-      const config = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
-      const providerId = requestedProvider || config.active;
-      const provider = config.providers[providerId];
+      const providerConfig = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
+      const providerId = requestedProvider || providerConfig.active;
+      const provider = providerConfig.providers[providerId];
       if (!provider) {
         json(res, { error: `Unknown provider: ${providerId}` }, 400);
         return true;
@@ -111,19 +119,13 @@ export default async function chatRoutes(req, res) {
         return true;
       }
 
-      const model = requestedModel || config.defaultModel || "glm-5.1";
-      const baseURL = provider.baseURL.replace(/\/+$/, "");
-      const apiUrl = `${baseURL}/chat/completions`;
+      const model = requestedModel || providerConfig.defaultModel || "glm-5.1";
 
       // ── Context Engine: unified context assembly ──
       const { contextEngine } = await import("../context-engine.mjs");
       const ctx = await contextEngine.build({ target: "chat" });
 
-      // ── Load tools ──
-      const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
-      const { tools: toolDefinitions, handlers: toolHandlers } = await getToolsAndHandlers();
-
-      // ── SSE response ──
+      // ── SSE headers ──
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -131,143 +133,86 @@ export default async function chatRoutes(req, res) {
         "Access-Control-Allow-Origin": "*",
       });
 
-      const apiHeaders = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${provider.apiKey}`,
-        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-      };
+      // ── Load tool handlers & convert to executors ──
+      const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
+      const { tools: toolDefinitions, handlers: toolHandlers } = await getToolsAndHandlers();
 
-      const apiMessages = [
-        { role: "system", content: ctx.systemPrompt },
-        ...(messages || [])
-      ];
+      // 把 toolHandlers 轉成 ToolEngine 的 executor 格式
+      const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
+        name,
+        description: toolDefinitions.find(t => t.function.name === name)?.function?.description || name,
+        parameters: toolDefinitions.find(t => t.function.name === name)?.function?.parameters || { type: 'object', properties: {} },
+        execute: async (args) => {
+          const result = await handler(args);
+          // 有些 tool 需要 cache invalidation
+          if (name === 'app_create' || name === 'app_edit') invalidateCache();
+          return result
+        },
+      }))
 
-      // ── Tool calling loop (max 5 rounds) ──
-      const MAX_TOOL_ROUNDS = 5;
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const requestPayload = {
-          model,
-          messages: apiMessages,
-          max_tokens: 4096,
-          stream: true,
-          tools: toolDefinitions,
-          tool_choice: "auto",
-        };
+      // ── 建立 Tool Engine（含 Security Kernel）──
+      const { ToolEngine } = await import("../lib/tool-engine/index.mjs")
+      const engine = new ToolEngine({
+        provider: {
+          id: providerId,
+          baseURL: provider.baseURL,
+          apiKey: provider.apiKey,
+          defaultModel: model,
+          extraHeaders: providerId === 'openrouter'
+            ? { 'HTTP-Referer': 'https://paaw.ai', 'X-Title': 'PAAW' }
+            : undefined,
+        },
+        executors,
+        maxToolRounds: 5,
+        // 啟用 Security Kernel
+        security: {
+          approval: { mode: process.env.NODE_ENV === 'development' ? 'auto' : 'always' },
+          audit: { enabled: true },
+        },
+        sessionKey: req.headers['x-session-key'] || 'chat',
+        agentId: 'default',
+      })
 
-        const apiResp = await fetch(apiUrl, {
-          method: "POST",
-          headers: apiHeaders,
-          body: JSON.stringify(requestPayload),
-        });
+      // ── 執行 ReAct loop，stream 給前端 ──
+      let fullText = ''
+      let toolsUsed = []
 
-        if (!apiResp.ok) {
-          const errText = await apiResp.text();
-          res.write(`data: ${JSON.stringify({ error: true, message: `API error ${apiResp.status}: ${errText.slice(0, 200)}` })}\n\n`);
-          res.end();
-          return true;
-        }
+      for await (const chunk of engine.run(ctx.systemPrompt, messages || [], model)) {
+        switch (chunk.type) {
+          case 'text':
+            fullText += chunk.delta
+            res.write(`data: ${JSON.stringify({ content: chunk.delta })}\n\n`)
+            break
 
-        const reader = apiResp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let fullContent = "";
-        let toolCalls = [];
-        let currentToolCall = null;
-        let finishReason = null;
+          case 'tool_start':
+            toolsUsed.push(chunk.name)
+            res.write(`data: ${JSON.stringify({ tool_call: { name: chunk.name, args: chunk.args, status: 'executing' } })}\n\n`)
+            break
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: ")) continue;
-              const data = trimmed.slice(6);
-              if (data === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(data);
-                const choice = parsed.choices?.[0];
-                if (!choice) continue;
-                if (choice.finish_reason) finishReason = choice.finish_reason;
-                const delta = choice.delta?.content;
-                if (delta) {
-                  fullContent += delta;
-                  res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
-                }
-                const tcDeltas = choice.delta?.tool_calls;
-                if (tcDeltas) {
-                  for (const tc of tcDeltas) {
-                    if (tc.id) {
-                      currentToolCall = { id: tc.id, name: tc.function?.name || "", arguments: tc.function?.arguments || "" };
-                      toolCalls.push(currentToolCall);
-                    } else if (currentToolCall && tc.function?.arguments) {
-                      currentToolCall.arguments += tc.function.arguments;
-                    }
-                  }
-                }
-              } catch {}
-            }
-          }
-        } catch (err) {
-          console.error("[chat] Stream error:", err.message);
-        }
+          case 'tool_end':
+            res.write(`data: ${JSON.stringify({ tool_result: { name: chunk.name, result: chunk.result } })}\n\n`)
+            break
 
-        // No tool calls or not finished with tools — done
-        if (toolCalls.length === 0 || finishReason !== "tool_calls") {
-          break;
-        }
+          case 'done':
+            res.write('data: [DONE]\n\n')
+            res.end()
+            break
 
-        // ── Execute tool calls ──
-        apiMessages.push({
-          role: "assistant",
-          content: fullContent || null,
-          tool_calls: toolCalls.map(tc => ({
-            id: tc.id,
-            type: "function",
-            function: { name: tc.name, arguments: tc.arguments }
-          }))
-        });
-
-        for (const tc of toolCalls) {
-          let args = {};
-          try { args = JSON.parse(tc.arguments); } catch { args = { raw: tc.arguments }; }
-          res.write(`data: ${JSON.stringify({ tool_call: { name: tc.name, args, status: "executing" } })}\n\n`);
-
-          let result;
-          try {
-            const handler = toolHandlers[tc.name];
-            result = handler ? await handler(args) : { text: `未知工具: ${tc.name}`, error: true };
-          } catch (err) {
-            result = { text: `工具執行錯誤: ${err.message}`, error: true };
-          }
-
-          res.write(`data: ${JSON.stringify({ tool_result: { name: tc.name, result } })}\n\n`);
-          if (tc.name === "app_create" || tc.name === "app_edit") invalidateCache();
-          apiMessages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: JSON.stringify(result)
-          });
+          case 'error':
+            res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`)
+            res.end()
+            break
         }
       }
 
-      res.write("data: [DONE]\n\n");
-      res.end();
-
-      // ── Log AI interaction for distillation (via distill engine) ──
+      // ── Log AI interaction for distillation ──
       try {
         const { recordChatInteraction } = await import("./distill.mjs");
         const userMsgs = (messages || []).filter(m => m.role === "user");
         const lastUser = userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].content : "";
-        const toolsUsed = apiMessages.filter(m => m.role === "tool").length > 0
-          ? apiMessages.filter(m => m.role === "assistant" && m.tool_calls).flatMap(m => (m.tool_calls || []).map(tc => tc.function?.name)).filter(Boolean)
-          : [];
         recordChatInteraction({
           user: typeof lastUser === "string" ? lastUser.slice(0, 1000) : JSON.stringify(lastUser).slice(0, 1000),
-          assistant: fullContent.slice(0, 3000),
+          assistant: fullText.slice(0, 3000),
           model,
           provider: providerId,
           tools: toolsUsed,
@@ -281,6 +226,68 @@ export default async function chatRoutes(req, res) {
         res.write(`data: ${JSON.stringify({ error: true, message: err.message })}\n\n`);
         res.end();
       }
+    }
+    return true;
+  }
+
+  // ════════════════════════════════════════
+  // System Prompt API（讀取/更新提示詞檔案）
+  // ════════════════════════════════════════
+
+  const SYSTEM_DIR = resolve(PAAW_DATA_DIR, "system");
+  const PROMPT_FILES = ["identity.md", "tool-rules.md", "system-prompt.md", "guardrails.md", "reply-rules.md"];
+
+  // GET /api/system-prompts — 列出所有提示詞檔案
+  if (req.method === "GET" && path === "/api/system-prompts") {
+    const result = {};
+    for (const file of PROMPT_FILES) {
+      const filePath = resolve(SYSTEM_DIR, file);
+      try {
+        result[file] = await readFile(filePath, "utf-8");
+      } catch {
+        result[file] = null;
+      }
+    }
+    json(res, result);
+    return true;
+  }
+
+  // GET /api/system-prompts/:file — 讀取單一提示詞檔案
+  const promptMatch = path.match(/^\/api\/system-prompts\/([\w-]+\.md)$/);
+  if (req.method === "GET" && promptMatch) {
+    const file = promptMatch[1];
+    if (!PROMPT_FILES.includes(file)) {
+      json(res, { error: "Unknown prompt file" }, 400);
+      return true;
+    }
+    try {
+      const content = await readFile(resolve(SYSTEM_DIR, file), "utf-8");
+      json(res, { file, content });
+    } catch {
+      json(res, { file, content: null, error: "File not found" }, 404);
+    }
+    return true;
+  }
+
+  // PUT /api/system-prompts/:file — 更新提示詞檔案
+  const promptPutMatch = path.match(/^\/api\/system-prompts\/([\w-]+\.md)$/);
+  if (req.method === "PUT" && promptPutMatch) {
+    const file = promptPutMatch[1];
+    if (!PROMPT_FILES.includes(file)) {
+      json(res, { error: "Unknown prompt file" }, 400);
+      return true;
+    }
+    try {
+      const body = JSON.parse(await readBody(req));
+      if (typeof body.content !== "string") {
+        json(res, { error: "content must be a string" }, 400);
+        return true;
+      }
+      await writeFile(resolve(SYSTEM_DIR, file), body.content, "utf-8");
+      console.log(`[Chat] Updated system prompt: ${file}`);
+      json(res, { file, saved: true });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
     }
     return true;
   }
