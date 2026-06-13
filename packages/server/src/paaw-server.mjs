@@ -986,129 +986,9 @@ ${context ? "\n## Context\n" + context : ""}
     return;
   }
 
-  // POST /api/app/translate — Skill-based translation (AI as a Service)
-  // Input → Skill (deterministic script) → CLI → Output
-  if (req.method === "POST" && req.url?.match(/^\/api\/app\/translate(?:\?.*)?$/)) {
-    const appId = "translate";
-    const appDir = join(APPS_ROOT, appId);
-    try {
-      const body = await _readBody(req);
-      let parsed = {};
-      try { parsed = JSON.parse(body); } catch {}
-      const { source_text, source_lang = "zh-TW", target_lang = "en" } = parsed;
-      if (!source_text || !source_text.trim()) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "請提供要翻譯的文字" }));
-        return;
-      }
-
-      // ── 1. Load Skills from app directory ──
-      // Skills live alongside the app: apps/translate/skills/translate/SKILL.md
-      const skillsDir = join(appDir, "skills");
-      let mainSkillContent = "";
-      let supportSkillContent = "";
-      try {
-        mainSkillContent = await readFile(join(skillsDir, "translate", "SKILL.md"), "utf-8");
-      } catch {}
-      try {
-        supportSkillContent = await readFile(join(skillsDir, "idiom-packaging", "SKILL.md"), "utf-8");
-      } catch {}
-
-      if (!mainSkillContent) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Translate skill not found at " + join(skillsDir, "translate", "SKILL.md") }));
-        return;
-      }
-
-      // ── 2. Build system prompt from Skill (deterministic script) ──
-      // Extract the skill body (everything after frontmatter ---...---)
-      const skillBody = mainSkillContent.replace(/^---[\s\S]*?---\n*/, "");
-      const supportBody = supportSkillContent.replace(/^---[\s\S]*?---\n*/, "");
-
-      const systemPrompt = `你是 Translate App 的執行引擎。你必須嚴格按照以下 Skill 定義（就像 deterministic script）來處理翻譯請求。
-
-## === Translate Skill (主 Skill — 你是這個) ===
-${skillBody}
-
-${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞彙時叫用) ===\n${supportBody}` : ""}
-
-## === 執行參數 ===
-- source_text: ${JSON.stringify(source_text)}
-- source_lang: ${source_lang}
-- target_lang: ${target_lang}
-
-## === 執行指示 ===
-1. 按照 Translate Skill 的 Deterministic Script 步驟執行
-2. 遇到特殊詞彙時，按照 Idiom Packaging Skill 處理
-3. 最終輸出必須符合 Output Contract 的 JSON 格式
-4. 只輸出 JSON，不要加 markdown code block，不要加解釋`;
-
-      // ── 3. Execute via CLI (qwen) — AI as a Service ──
-      const cliName = "qwen";
-      const cliBins = {
-        qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" },
-        claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" },
-      };
-      const _platform = process.platform;
-      const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
-      const resolvedBin = process.env["QWEN_BIN"] || cliBins.qwen[_binKey];
-
-      // Write prompt to temp file (avoid arg length limit)
-      const promptFile = join(appDir, "_api_prompt.txt");
-      await writeFile(promptFile, systemPrompt, "utf-8");
-
-      // Stream response as NDJSON
-      res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
-      res.write(JSON.stringify({ type: "status", data: { message: "Translate: skill 執行中..." } }) + "\n");
-
-      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "10", systemPrompt];
-
-      const ptyProc = ptySpawn(resolvedBin, cliArgs, {
-        name: "xterm-256color",
-        cols: 200,
-        rows: 30,
-        cwd: appDir,
-        env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-      });
-
-      let fullOutput = "";
-      ptyProc.onData((data) => {
-        fullOutput += data;
-        res.write(JSON.stringify({ type: "stdout", data }) + "\n");
-      });
-
-      ptyProc.onExit(({ exitCode }) => {
-        try {
-          // Extract JSON from CLI output
-          let content = fullOutput;
-          // Try to find JSON in output
-          const jsonMatch = content.match(/\{[\s\S]*"translation"[\s\S]*\}/);
-          if (jsonMatch) {
-            try {
-              const result = JSON.parse(jsonMatch[0]);
-              res.write(JSON.stringify({ type: "result", data: result }) + "\n");
-            } catch {
-              // JSON parse failed, return raw translation
-              res.write(JSON.stringify({ type: "result", data: { translation: content.trim(), source_lang, target_lang, source_text, special_words: [], pronunciation: { phonetic: null, audio_url: null } } }) + "\n");
-            }
-          } else {
-            res.write(JSON.stringify({ type: "result", data: { translation: content.trim(), source_lang, target_lang, source_text, special_words: [], pronunciation: { phonetic: null, audio_url: null } } }) + "\n");
-          }
-          res.write(JSON.stringify({ type: "done", data: { exitCode } }) + "\n");
-        } catch (err) {
-          res.write(JSON.stringify({ type: "error", data: { error: err.message } }) + "\n");
-        }
-        res.end();
-      });
-
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return;
-  }
-
   // POST /api/apps/:appId/exec — generic skill execution (any skill-based app)
+  // Supports both JSON (simple) and NDJSON (streaming) responses.
+  // Client requests streaming by sending Accept: application/x-ndjson header.
   const appExecMatch = req.method === "POST" && req.url?.match(/^\/api\/apps\/([\w.-]+)\/exec(?:\?.*)?$/);
   if (appExecMatch) {
     const appId = appExecMatch[1];
@@ -1118,6 +998,9 @@ ${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞�
       const body = await _readBody(req);
       let args = {};
       try { args = JSON.parse(body); } catch {}
+
+      // Determine response mode: streaming (NDJSON) or simple (JSON)
+      const wantStream = req.headers.accept === "application/x-ndjson";
 
       // 1. Load app.json
       let appMeta = {};
@@ -1131,8 +1014,8 @@ ${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞�
         for (const sd of skillDirs) {
           try {
             const content = await readFile(join(skillsDir, sd, "SKILL.md"), "utf-8");
-            const body = content.replace(/^---[\s\S]*?---\n*/, "");
-            skillContents.push({ name: sd, body });
+            const sBody = content.replace(/^---[\s\S]*?---\n*/, "");
+            skillContents.push({ name: sd, body: sBody });
           } catch {}
         }
       } catch {}
@@ -1155,10 +1038,68 @@ ${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞�
 
       const systemPrompt = `你是「${appMeta.name || appId}」App 的執行引擎。你必須嚴格按照以下 Skill 定義（deterministic script）來處理。\n\n${skillsSection}\n\n## === 輸入參數 ===\n${inputSection}\n\n## === 輸出指示 ===\n只輸出結果。如果是結構化資料，輸出 JSON（不要加 markdown code block）。不要加解釋。`;
 
-      // 4. Execute via CLI (qwen)
-      const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";
-      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", systemPrompt];
+      // 4. Resolve CLI binary (per-app override or default qwen)
+      const cliType = appMeta.cli || args._cli || "qwen";
+      const cliBins = {
+        qwen: process.env.QWEN_BIN || "/opt/homebrew/bin/qwen",
+        claude: process.env.CLAUDE_BIN || "claude",
+        opencode: process.env.OPENCODE_BIN || "opencode",
+      };
+      const resolvedBin = cliBins[cliType] || cliBins.qwen;
 
+      // 5. Build CLI args per CLI type
+      let cliArgs;
+      if (cliType === "claude") {
+        cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", systemPrompt];
+      } else if (cliType === "opencode") {
+        cliArgs = ["-m", args._model || "default", systemPrompt];
+      } else {
+        // qwen (default)
+        cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "10", systemPrompt];
+      }
+
+      // ── Streaming mode (NDJSON via pty) ──
+      if (wantStream) {
+        res.writeHead(200, {
+          "Content-Type": "application/x-ndjson",
+          "Transfer-Encoding": "chunked",
+          "X-Accel-Buffering": "no",
+          "Cache-Control": "no-cache",
+        });
+        res.write(JSON.stringify({ type: "status", data: { message: `${appMeta.name || appId}: skill 執行中...` } }) + "\n");
+
+        const ptyProc = ptySpawn(resolvedBin, cliArgs, {
+          name: "xterm-256color",
+          cols: 200,
+          rows: 30,
+          cwd: appDir,
+          env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
+        });
+
+        let fullOutput = "";
+        ptyProc.onData((data) => {
+          fullOutput += data;
+          res.write(JSON.stringify({ type: "stdout", data }) + "\n");
+        });
+
+        ptyProc.onExit(({ exitCode }) => {
+          // Try to extract JSON from output
+          let parsedResult = null;
+          const jsonMatch = fullOutput.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try { parsedResult = JSON.parse(jsonMatch[0]); } catch {}
+          }
+          res.write(JSON.stringify({
+            type: "result",
+            data: parsedResult || { output: fullOutput.trim() },
+          }) + "\n");
+          res.write(JSON.stringify({ type: "done", data: { exitCode } }) + "\n");
+          res.end();
+        });
+        return;
+      }
+
+      // ── Simple mode (JSON via child_process spawn) ──
       let fullOutput = "";
       const child = spawn(resolvedBin, cliArgs, {
         cwd: appDir,
@@ -1168,13 +1109,14 @@ ${supportBody ? `## === Idiom Packaging Skill (輔助 Skill — 處理特殊詞�
 
       child.stdout.on("data", (d) => { fullOutput += d.toString(); });
 
+      // Timeout guard (120s)
+      const timeoutTimer = setTimeout(() => { try { child.kill(); } catch {} }, 120_000);
+
       await new Promise((resolve, reject) => {
         child.on("close", (code) => { result.exitCode = code; resolve(); });
         child.on("error", (err) => { result.error = err.message; reject(err); });
       });
-
-      // 5. Timeout guard (120s)
-      setTimeout(() => { try { child.kill(); } catch {} }, 120_000);
+      clearTimeout(timeoutTimer);
 
       result.output = fullOutput.trim();
       res.writeHead(200, { "Content-Type": "application/json" });
