@@ -19,6 +19,8 @@ import KnowledgeTree from "./components/KnowledgeTree";
 import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
 import SystemPromptsPage from "./pages/SystemPromptsPage";
+import BackupPage from "./pages/BackupPage";
+import WorkSyncPage from "./pages/WorkSyncPage";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -374,6 +376,16 @@ function AppInner() {
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
+  const openBackup = useCallback(() => {
+    const tabId = `${currentScope}:backup`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+  const openWorkSync = useCallback(() => {
+    const tabId = `${currentScope}:work-sync`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
   const openSkillLab = useCallback(() => {
     const count = skillBuilderCounterRef.current++;
     const tabId = `${currentScope}:skilllab#${count}`;
@@ -446,6 +458,8 @@ function AppInner() {
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
     if (pageType === "system-prompts") return "Prompts";
+    if (pageType === "backup") return "Backup";
+    if (pageType === "work-sync") return "Work Sync";
     if (pageType === "vibe-coding") return t("sidebar.vibeCoding");
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
@@ -515,6 +529,12 @@ function AppInner() {
     }
     if (pageType === "system-prompts") {
       return <SystemPromptsPage />;
+    }
+    if (pageType === "backup") {
+      return <BackupPage />;
+    }
+    if (pageType === "work-sync") {
+      return <WorkSyncPage />;
     }
 
     const { scopeKey, factoryId } = parsed;
@@ -743,6 +763,20 @@ function AppInner() {
                   active={activePage.endsWith(":system-prompts")}
                   label="Prompts"
                   onClick={openSystemPrompts}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":backup")}
+                  label="Backup"
+                  onClick={openBackup}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":work-sync")}
+                  label="Work Sync"
+                  onClick={openWorkSync}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
