@@ -3824,20 +3824,6 @@ const WS_PORT = parseInt(process.env.PAAW_WS_PORT || "4098", 10);
 const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
 const ptySessions = new Map(); // ws -> { pty, id }
 
-// ── Remote CLI mode ──
-// When PAAW_USE_REMOTE_CLI=true, PTY sessions proxy to CLI Service instead of spawning locally
-const USE_REMOTE_CLI = process.env.PAAW_USE_REMOTE_CLI === "true";
-let remoteCliModule = null;
-if (USE_REMOTE_CLI) {
-  try {
-    remoteCliModule = await import("./lib/sandbox/remote-cli.mjs");
-    const healthy = await remoteCliModule.remoteCli.health();
-    console.log(`[PAAW] Remote CLI mode: ${healthy ? "✅ connected" : "⚠️ CLI Service unreachable"} at ${process.env.CLI_SERVICE_URL || "http://localhost:4099"}`);
-  } catch (e) {
-    console.log(`[PAAW] Remote CLI module load failed: ${e.message}, falling back to local spawn`);
-  }
-}
-
 // ── Multi-CLI spawn system ──
 // Supports: qwen, claude, opencode
 // Each CLI has its own binary name, flags, and platform resolution
@@ -3951,13 +3937,7 @@ wss.on("connection", (ws, req) => {
   const sessionId = `pty-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   console.log(`[PTY] New session: ${sessionId}`);
 
-  // ── Remote CLI proxy mode ──
-  if (USE_REMOTE_CLI && remoteCliModule) {
-    remoteCliModule.createPtyProxy(ws);
-    return;
-  }
-
-  // ── Local spawn mode (original) ──
+  // ── Local spawn mode ──
   let spawned = false;
 
   ws.on("message", (raw) => {

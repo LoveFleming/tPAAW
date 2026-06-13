@@ -1,0 +1,801 @@
+/**
+ * PAAW Bridge — The outside guardian
+ *
+ * Runs on HOST, outside the Docker sandbox.
+ * Single process, four jobs:
+ *
+ *   1. BACKUP  — auto-pull sandbox data on schedule (skills/apps/workflows/db)
+ *   2. SYNC    — manual: diff sandbox vs host → human review → approve
+ *   3. TOOL    — proxy external API calls (API keys live here, never in sandbox)
+ *   4. UPDATE  — manage PAAW container (pull image / restart / status)
+ *
+ * Architecture:
+ *
+ *   Host (outside)
+ *   ┌──────────────────────────────┐
+ *   │  paaw-bridge :4100            │
+ *   │  • /api/backup/*              │
+ *   │  • /api/sync/*                │
+ *   │  • /api/tool/*                │
+ *   │  • /api/update/*              │
+ *   └──────────┬───────────────────┘
+ *              │ Docker volume / exec
+ *   ┌──────────▼───────────────────┐
+ *   │  paaw-sandbox (Docker)        │
+ *   │  :4097 API+UI  :4098 PTY     │
+ *   │  /paaw/data/                  │
+ *   └──────────────────────────────┘
+ *
+ * Env:
+ *   BRIDGE_PORT=4100
+ *   PAAW_CONTAINER=paaw           — container name
+ *   PAAW_DATA_VOLUME=paaw-data    — volume name
+ *   BACKUP_DIR=./backups          — host backup directory
+ *   BRIDGE_TOKEN=                 — simple bearer auth for tool proxy
+ */
+
+import { createServer } from "http";
+import {
+  existsSync, mkdirSync, writeFileSync, readFileSync, createReadStream,
+  readdirSync, statSync, copyFileSync, unlinkSync, rmSync
+} from "fs";
+import {
+  mkdir, readdir, stat, copyFile, rm, readFile, writeFile,
+  readFile as readFileAsync, readdir as readdirAsync, stat as statAsync
+} from "fs/promises";
+import { join, resolve, relative, dirname, basename } from "path";
+import { execFile, spawn } from "child_process";
+import { promisify } from "util";
+import { createHash } from "crypto";
+import { watch } from "chokidar";
+
+const execFileAsync = promisify(execFile);
+
+// ── Config ──────────────────────────────────────────────
+
+const PORT = parseInt(process.env.BRIDGE_PORT || "4100", 10);
+const HOST = process.env.BRIDGE_HOST || "0.0.0.0";
+const PAAW_CONTAINER = process.env.PAAW_CONTAINER || "paaw";
+const BACKUP_DIR = resolve(process.env.BACKUP_DIR || "./backups");
+const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || "";
+const BACKUP_INTERVAL_MS = parseInt(process.env.BACKUP_INTERVAL_MS || (30 * 60 * 1000).toString(), 10); // 30 min default
+
+// What to backup (directories inside container /paaw/data/)
+const BACKUP_PATHS = [
+  "skills",
+  "apps",
+  "workflows",
+  "crews",
+  "system",
+  "config",
+];
+
+// DB gets special treatment (SQLite)
+const DB_PATH = "db";
+
+mkdirSync(BACKUP_DIR, { recursive: true });
+
+// ── State ───────────────────────────────────────────────
+
+const backupHistory = []; // [{ id, timestamp, paths, fileCount, sizeBytes }]
+const syncRequests = new Map();
+let backupCounter = 0;
+let syncCounter = 0;
+let lastBackupAt = null;
+
+// ── Helpers ─────────────────────────────────────────────
+
+async function readBody(req) {
+  return new Promise((res, rej) => {
+    let data = "";
+    req.on("data", (c) => { data += c; });
+    req.on("end", () => res(data));
+    req.on("error", rej);
+  });
+}
+
+function auth(req) {
+  if (!BRIDGE_TOKEN) return true;
+  const header = req.headers.authorization || "";
+  return header === `Bearer ${BRIDGE_TOKEN}`;
+}
+
+async function fileHash(path) {
+  const content = await readFileAsync(path);
+  return createHash("sha256").update(content).digest("hex").slice(0, 16);
+}
+
+async function walkDir(dir, base = dir) {
+  const results = [];
+  let entries;
+  try { entries = await readdirAsync(dir, { withFileTypes: true }); }
+  catch { return []; }
+
+  for (const entry of entries) {
+    if (entry.name === "node_modules" || entry.name === ".git") continue;
+    const full = join(dir, entry.name);
+    const rel = relative(base, full);
+    if (entry.isDirectory()) {
+      results.push(...await walkDir(full, base));
+    } else {
+      try {
+        const st = await statAsync(full);
+        results.push({ path: rel, size: st.size, mtime: st.mtime.toISOString() });
+      } catch {}
+    }
+  }
+  return results;
+}
+
+// ── Docker helpers ──────────────────────────────────────
+
+async function dockerExec(...args) {
+  try {
+    const { stdout } = await execFileAsync("docker", ["exec", PAAW_CONTAINER, ...args]);
+    return stdout;
+  } catch (err) {
+    throw new Error(`docker exec failed: ${err.message}`);
+  }
+}
+
+async function dockerCpFrom(containerPath, hostPath) {
+  try {
+    await execFileAsync("docker", ["cp", `${PAAW_CONTAINER}:${containerPath}`, hostPath]);
+  } catch (err) {
+    throw new Error(`docker cp failed: ${err.message}`);
+  }
+}
+
+async function dockerCpTo(hostPath, containerPath) {
+  try {
+    await execFileAsync("docker", ["cp", hostPath, `${PAAW_CONTAINER}:${containerPath}`]);
+  } catch (err) {
+    throw new Error(`docker cp failed: ${err.message}`);
+  }
+}
+
+async function containerRunning() {
+  try {
+    const { stdout } = await execFileAsync("docker", ["inspect", "--format", "{{.State.Running}}", PAAW_CONTAINER]);
+    return stdout.trim() === "true";
+  } catch {
+    return false;
+  }
+}
+
+// ── 1. BACKUP ───────────────────────────────────────────
+
+async function performBackup(label = "auto") {
+  const backupId = `backup-${++backupCounter}`;
+  const timestamp = new Date().toISOString();
+  const destDir = resolve(BACKUP_DIR, backupId);
+  await mkdir(destDir, { recursive: true });
+
+  let totalFiles = 0;
+  let totalBytes = 0;
+  const backed = [];
+
+  for (const sub of [...BACKUP_PATHS, DB_PATH]) {
+    const containerSrc = `/paaw/data/${sub}`;
+    const hostDest = resolve(destDir, sub);
+
+    try {
+      await mkdir(hostDest, { recursive: true });
+      await execFileAsync("docker", ["cp", `${PAAW_CONTAINER}:${containerSrc}/.`, hostDest]);
+
+      // Count files
+      const files = await walkDir(hostDest);
+      totalFiles += files.length;
+      totalBytes += files.reduce((s, f) => s + f.size, 0);
+      backed.push(sub);
+    } catch (err) {
+      console.error(`[BRIDGE] Backup ${sub} failed: ${err.message}`);
+      // Non-fatal — some dirs might not exist yet
+    }
+  }
+
+  const meta = {
+    id: backupId,
+    label,
+    timestamp,
+    paths: backed,
+    fileCount: totalFiles,
+    sizeBytes: totalBytes,
+  };
+
+  await writeFile(resolve(destDir, "_backup-meta.json"), JSON.stringify(meta, null, 2));
+  backupHistory.push(meta);
+  lastBackupAt = timestamp;
+
+  // Keep only last 20 backups
+  await pruneOldBackups(20);
+
+  console.log(`[BRIDGE] Backup ${backupId}: ${totalFiles} files, ${(totalBytes / 1024).toFixed(1)}KB (${label})`);
+  return meta;
+}
+
+async function pruneOldBackups(keep) {
+  try {
+    const dirs = (await readdirAsync(BACKUP_DIR, { withFileTypes: true }))
+      .filter(d => d.isDirectory() && d.name.startsWith("backup-"))
+      .map(d => d.name)
+      .sort();
+
+    while (dirs.length > keep) {
+      const old = dirs.shift();
+      await rm(resolve(BACKUP_DIR, old), { recursive: true });
+      console.log(`[BRIDGE] Pruned old backup: ${old}`);
+    }
+  } catch {}
+}
+
+// ── 2. SYNC (Review Gate) ───────────────────────────────
+
+async function createSyncRequest(subPath, label) {
+  const id = `sync-${++syncCounter}`;
+  const containerDir = `/paaw/data/${subPath}`;
+  const backupDir = resolve(BACKUP_DIR, "latest", subPath);
+
+  // Ensure we have a latest backup to diff against
+  if (!existsSync(backupDir)) {
+    await performBackup("pre-sync");
+    // Re-check
+    if (!existsSync(backupDir)) {
+      // Use backup-1/latest
+    }
+  }
+
+  // Find the latest backup of this path
+  const allBackups = (await readdirAsync(BACKUP_DIR, { withFileTypes: true }))
+    .filter(d => d.isDirectory() && d.name.startsWith("backup-"))
+    .map(d => d.name)
+    .sort()
+    .reverse();
+
+  let latestBackupDir = null;
+  for (const b of allBackups) {
+    const candidate = resolve(BACKUP_DIR, b, subPath);
+    if (existsSync(candidate)) {
+      latestBackupDir = candidate;
+      break;
+    }
+  }
+
+  if (!latestBackupDir) {
+    throw new Error(`No backup found for ${subPath}. Run backup first.`);
+  }
+
+  // Copy current container data to temp for comparison
+  const tempDir = resolve(BACKUP_DIR, ".sync-temp", id, subPath);
+  await mkdir(tempDir, { recursive: true });
+  try {
+    await execFileAsync("docker", ["cp", `${PAAW_CONTAINER}:${containerDir}/.`, tempDir]);
+  } catch (err) {
+    throw new Error(`Cannot read ${containerDir} from container: ${err.message}`);
+  }
+
+  // Generate diff
+  const changes = await generateDiff(tempDir, latestBackupDir);
+
+  const request = {
+    id,
+    subPath,
+    label: label || `Sync ${subPath} ${id}`,
+    containerDir,
+    backupDir: latestBackupDir,
+    stagingDir: tempDir,
+    changes,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    reviewedAt: null,
+    reviewedBy: null,
+  };
+
+  syncRequests.set(id, request);
+  console.log(`[BRIDGE] Sync request ${id}: ${changes.length} changes in ${subPath}`);
+  return request;
+}
+
+async function generateDiff(dirA, dirB) {
+  try {
+    const { stdout } = await execFileAsync("diff", ["-rq", "--brief", dirA, dirB]);
+    return parseDiffBrief(stdout, dirA, dirB);
+  } catch (err) {
+    if (err.stdout) return parseDiffBrief(err.stdout, dirA, dirB);
+    return await hashBasedDiff(dirA, dirB);
+  }
+}
+
+function parseDiffBrief(output, dirA, dirB) {
+  const changes = [];
+  for (const line of output.split("\n").filter(Boolean)) {
+    let m = line.match(/^Files (.+) and (.+) differ$/);
+    if (m) {
+      const path = relative(dirA, m[1]);
+      changes.push({ type: "modified", path });
+      continue;
+    }
+    m = line.match(/^Only in (.+?): (.+)$/);
+    if (m) {
+      const isInA = m[1].startsWith(dirA);
+      const relPath = isInA
+        ? relative(dirA, join(m[1], m[2]))
+        : relative(dirB, join(m[1], m[2]));
+      changes.push({ type: isInA ? "added" : "removed", path: relPath });
+    }
+  }
+  return changes;
+}
+
+async function hashBasedDiff(dirA, dirB) {
+  const changes = [];
+  const filesA = await walkDir(dirA);
+  const filesB = await walkDir(dirB);
+  const mapA = new Map(filesA.map(f => [f.path, f]));
+  const mapB = new Map(filesB.map(f => [f.path, f]));
+
+  for (const [path] of mapA) {
+    if (!mapB.has(path)) changes.push({ type: "added", path });
+    else {
+      const hA = await fileHash(join(dirA, path));
+      const hB = await fileHash(join(dirB, path));
+      if (hA !== hB) changes.push({ type: "modified", path });
+    }
+  }
+  for (const [path] of mapB) {
+    if (!mapA.has(path)) changes.push({ type: "removed", path });
+  }
+  return changes;
+}
+
+async function approveSync(id, reviewedBy) {
+  const req = syncRequests.get(id);
+  if (!req) throw new Error("Sync request not found");
+  if (req.status !== "pending") throw new Error(`Already ${req.status}`);
+
+  // Write the synced files to backup dir (permanent) AND keep container as-is
+  for (const change of req.changes) {
+    const srcFile = join(req.stagingDir, change.path);
+    const destFile = resolve(BACKUP_DIR, "latest", req.subPath, change.path);
+
+    if (change.type === "added" || change.type === "modified") {
+      await mkdir(dirname(destFile), { recursive: true });
+      await copyFile(srcFile, destFile);
+    } else if (change.type === "removed") {
+      try { await rm(destFile); } catch {}
+    }
+  }
+
+  // Update "latest" symlink/dir
+  req.status = "approved";
+  req.reviewedAt = new Date().toISOString();
+  req.reviewedBy = reviewedBy || "user";
+
+  console.log(`[BRIDGE] Sync ${id} approved: ${req.changes.length} files saved to backup`);
+  return req;
+}
+
+async function rejectSync(id, reviewedBy, reason) {
+  const req = syncRequests.get(id);
+  if (!req) throw new Error("Sync request not found");
+  req.status = "rejected";
+  req.reviewedAt = new Date().toISOString();
+  req.reviewedBy = reviewedBy || "user";
+  req.reason = reason || "";
+
+  // Clean up staging
+  try { await rm(req.stagingDir, { recursive: true }); } catch {}
+
+  console.log(`[BRIDGE] Sync ${id} rejected`);
+  return req;
+}
+
+// ── 3. TOOL PROXY ───────────────────────────────────────
+//
+// Sandbox calls this to reach external APIs.
+// API keys are stored here on the host, never inside sandbox.
+//
+// POST /api/tool/proxy
+//   { url, method, headers, body, timeout }
+//   → Authorization header injected from BRIDGE_TOKENS
+
+const TOOL_TOKENS = (() => {
+  // Load from env or file
+  try {
+    const f = process.env.TOOL_TOKENS_FILE || resolve(BACKUP_DIR, "..tool-tokens.json");
+    if (existsSync(f)) return JSON.parse(readFileSync(f, "utf-8"));
+  } catch {}
+  return {}; // { "api.openai.com": "Bearer sk-...", "api.github.com": "token ghp_..." }
+})();
+
+// ── 4. UPDATE ───────────────────────────────────────────
+
+async function updateContainer(action) {
+  switch (action) {
+    case "status": {
+      const running = await containerRunning();
+      return { running, container: PAAW_CONTAINER };
+    }
+    case "restart": {
+      await execFileAsync("docker", ["restart", PAAW_CONTAINER]);
+      return { ok: true, action: "restart" };
+    }
+    case "stop": {
+      await execFileAsync("docker", ["stop", PAAW_CONTAINER]);
+      return { ok: true, action: "stop" };
+    }
+    case "start": {
+      await execFileAsync("docker", ["start", PAAW_CONTAINER]);
+      return { ok: true, action: "start" };
+    }
+    case "rebuild": {
+      // Rebuild image and recreate container
+      const cwd = process.cwd();
+      await execFileAsync("docker", ["compose", "build", "--no-cache", "paaw"], { cwd });
+      await execFileAsync("docker", ["compose", "up", "-d", "paaw"], { cwd });
+      return { ok: true, action: "rebuild" };
+    }
+    default:
+      throw new Error(`Unknown update action: ${action}`);
+  }
+}
+
+// ── HTTP Server ─────────────────────────────────────────
+
+const server = createServer(async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const path = url.pathname;
+
+  // ── Health ──
+  if (req.method === "GET" && path === "/health") {
+    const running = await containerRunning();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      ok: true,
+      service: "paaw-bridge",
+      port: PORT,
+      container: PAAW_CONTAINER,
+      containerRunning: running,
+      lastBackupAt,
+      backupCount: backupHistory.length,
+    }));
+    return;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 1. BACKUP
+  // ══════════════════════════════════════════════════════
+
+  // Trigger manual backup
+  if (req.method === "POST" && path === "/api/backup") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    try {
+      const meta = await performBackup(body.label || "manual");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(meta));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // List backups
+  if (req.method === "GET" && path === "/api/backup") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      backups: backupHistory,
+      lastBackupAt,
+      backupDir: BACKUP_DIR,
+    }));
+    return;
+  }
+
+  // Restore from backup (push backup → container)
+  if (req.method === "POST" && path.startsWith("/api/backup/restore/")) {
+    const backupId = path.split("/").pop();
+    const backupPath = resolve(BACKUP_DIR, backupId);
+    if (!existsSync(backupPath)) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Backup not found" }));
+      return;
+    }
+
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const paths = body.paths || BACKUP_PATHS;
+    let restored = 0;
+
+    for (const sub of paths) {
+      const hostSrc = resolve(backupPath, sub);
+      const containerDest = `/paaw/data/${sub}`;
+      if (existsSync(hostSrc)) {
+        try {
+          await execFileAsync("docker", ["cp", `${hostSrc}/.`, `${PAAW_CONTAINER}:${containerDest}`]);
+          restored++;
+        } catch (err) {
+          console.error(`[BRIDGE] Restore ${sub} failed: ${err.message}`);
+        }
+      }
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, backupId, restored, paths }));
+    return;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 2. SYNC (Review Gate)
+  // ══════════════════════════════════════════════════════
+
+  // Create sync request
+  if (req.method === "POST" && path === "/api/sync/request") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    try {
+      const req2 = await createSyncRequest(body.subPath || "skills", body.label);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(req2));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // List pending syncs
+  if (req.method === "GET" && path === "/api/sync/pending") {
+    const pending = Array.from(syncRequests.values())
+      .filter(r => r.status === "pending");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ requests: pending }));
+    return;
+  }
+
+  // Get diff detail
+  if (req.method === "GET" && path.startsWith("/api/sync/diff/")) {
+    const id = path.split("/").pop();
+    const req2 = syncRequests.get(id);
+    if (!req2) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
+      return;
+    }
+
+    // Get full diff content per file
+    const details = [];
+    for (const change of req2.changes.slice(0, 100)) { // limit to 100 files
+      const sandboxFile = join(req2.stagingDir, change.path);
+      const backupFile = resolve(req2.backupDir, change.path);
+      let diffContent = "";
+      try {
+        if (change.type === "added") {
+          diffContent = await readFileAsync(sandboxFile, "utf-8");
+          diffContent = diffContent.slice(0, 2000); // truncate long files
+          diffContent = `(new file)\n${diffContent}`;
+        } else if (change.type === "modified") {
+          const { stdout } = await execFileAsync("diff", ["-u", backupFile, sandboxFile]).catch(e => ({ stdout: e.stdout || "" }));
+          diffContent = stdout.slice(0, 5000);
+        } else {
+          diffContent = "File deleted in sandbox";
+        }
+      } catch {
+        diffContent = "(unable to read)";
+      }
+      details.push({ ...change, diff: diffContent });
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ...req2, changes: details }));
+    return;
+  }
+
+  // Approve
+  if (req.method === "POST" && path.startsWith("/api/sync/approve/")) {
+    const id = path.split("/").pop();
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    try {
+      const result = await approveSync(id, body.reviewedBy);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // Reject
+  if (req.method === "POST" && path.startsWith("/api/sync/reject/")) {
+    const id = path.split("/").pop();
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    try {
+      const result = await rejectSync(id, body.reviewedBy, body.reason);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 3. TOOL PROXY
+  // ══════════════════════════════════════════════════════
+
+  if (req.method === "POST" && path === "/api/tool/proxy") {
+    if (!auth(req)) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    let body;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+
+    const { url: targetUrl, method = "GET", headers = {}, body: reqBody, timeout = 30000 } = body;
+
+    if (!targetUrl) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "url required" }));
+      return;
+    }
+
+    // Inject auth token based on hostname
+    try {
+      const hostname = new URL(targetUrl).hostname;
+      const token = TOOL_TOKENS[hostname];
+      const finalHeaders = { ...headers };
+      if (token) {
+        if (token.startsWith("Bearer ")) finalHeaders["Authorization"] = token;
+        else if (token.startsWith("token ")) finalHeaders["Authorization"] = token;
+        else finalHeaders["Authorization"] = `Bearer ${token}`;
+      }
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+
+      const fetchOpts = {
+        method,
+        headers: { "Content-Type": "application/json", ...finalHeaders },
+        signal: controller.signal,
+      };
+      if (method !== "GET" && method !== "HEAD" && reqBody) {
+        fetchOpts.body = typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody);
+      }
+
+      const response = await fetch(targetUrl, fetchOpts);
+      clearTimeout(timer);
+
+      const contentType = response.headers.get("content-type") || "";
+      let responseBody;
+      if (contentType.includes("application/json")) {
+        responseBody = await response.json();
+      } else {
+        responseBody = await response.text();
+      }
+
+      res.writeHead(response.ok ? 200 : response.status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        status: response.status,
+        ok: response.ok,
+        body: responseBody,
+        headers: Object.fromEntries(response.headers.entries()),
+      }));
+    } catch (err) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // List registered tool tokens (hostnames only, not the keys!)
+  if (req.method === "GET" && path === "/api/tool/tokens") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      hosts: Object.keys(TOOL_TOKENS),
+      note: "Token values are hidden. Configure via TOOL_TOKENS_FILE env.",
+    }));
+    return;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 4. UPDATE
+  // ══════════════════════════════════════════════════════
+
+  if (req.method === "POST" && path.startsWith("/api/update/")) {
+    const action = path.split("/").pop();
+    try {
+      const result = await updateContainer(action);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && path === "/api/update/status") {
+    try {
+      const result = await updateContainer("status");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ── 404 ──
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: "Not found", path }));
+});
+
+// ── Auto-backup scheduler ───────────────────────────────
+
+let backupTimer = null;
+
+function startAutoBackup() {
+  if (backupTimer) clearInterval(backupTimer);
+
+  console.log(`[BRIDGE] Auto-backup every ${BACKUP_INTERVAL_MS / 1000}s`);
+
+  backupTimer = setInterval(async () => {
+    const running = await containerRunning();
+    if (!running) return;
+    try {
+      await performBackup("auto");
+    } catch (err) {
+      console.error(`[BRIDGE] Auto-backup failed: ${err.message}`);
+    }
+  }, BACKUP_INTERVAL_MS);
+
+  // Run initial backup after 10s
+  setTimeout(async () => {
+    const running = await containerRunning();
+    if (running) {
+      try { await performBackup("initial"); } catch {}
+    }
+  }, 10000);
+}
+
+// ── Start ───────────────────────────────────────────────
+
+server.listen(PORT, HOST, () => {
+  console.log(`[BRIDGE] Listening on http://${HOST}:${PORT}`);
+  console.log(`[BRIDGE] Container: ${PAAW_CONTAINER}`);
+  console.log(`[BRIDGE] Backup dir: ${BACKUP_DIR}`);
+  console.log(`[BRIDGE] Backup interval: ${BACKUP_INTERVAL_MS / 1000}s`);
+  console.log(`[BRIDGE] Backup paths: ${BACKUP_PATHS.join(", ")}`);
+  startAutoBackup();
+});
+
+// ── Graceful shutdown ──
+
+process.on("SIGINT", () => {
+  console.log("\n[BRIDGE] Shutting down...");
+  if (backupTimer) clearInterval(backupTimer);
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  if (backupTimer) clearInterval(backupTimer);
+  process.exit(0);
+});
