@@ -553,7 +553,10 @@ export default function SkillBuilder() {
         <div className="flex items-center gap-1.5">
           <select value={selectedPath} onChange={e => handleSelectFile(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1" style={{ minWidth: 200, "--tw-ring-color": accent } as React.CSSProperties}>
             <option value="">-- {t("common.select", "選擇")} Skill --</option>
-            {files.map(f => <option key={f.path} value={f.path}>{f.name}</option>)}
+            {files.map(f => {
+              const label = f.name.replace(/^building\//, "").replace(/\/SKILL\.md$/, "").replace(/^build-/, "").replace(/\.md$/, "");
+              return <option key={f.path} value={f.path}>{label}</option>;
+            })}
           </select>
           <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ background: accent }}>＋ New</button>
           {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
