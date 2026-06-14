@@ -457,20 +457,14 @@ export const contextEngine = {
     const crewData = safeReadJSON(resolve(DATA_DIR, "crews", `${crewId}.json`), null);
     if (!crewData) return { systemPrompt: "" };
 
-    const user = loadUserProfile();
-    const memory = loadMemory();
-    const apps = loadAppInstructions();
-
+    // Crew 簡潔模式：只帶 base context + rolePrompt
+    // 執行 skill 時由 _buildSkillExec 處理，只帶 SKILL.md + user inputs
     const parts = [];
 
-    // 0. Base context — PAAW runtime info + core rules (always first)
     const baseCtx = loadBaseContext();
     if (baseCtx) parts.push(baseCtx);
 
     if (crewData.rolePrompt) parts.push(crewData.rolePrompt);
-    parts.push(`\n=== 使用者 ===\n- 名字：${user.name || "未知"}`);
-    if (memory) parts.push(`\n=== 長期記憶 ===\n${memory}`);
-    if (apps) parts.push(`\n=== 可用的 App ===\n${apps}`);
 
     return { systemPrompt: parts.join("\n"), meta: { crew: crewData } };
   },
