@@ -519,7 +519,7 @@ export default function SkillBuilder() {
       }
       const res = await fetch(`${API_BASE}/api/skills/${form.id}/publish`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "input-prompt" }),
+        body: JSON.stringify({ target: "physical-skill" }),
       });
       const data = await res.json();
       if (data.ok) { setPublishStatus("done"); setTimeout(() => setPublishStatus(""), 3000); }

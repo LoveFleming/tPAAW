@@ -1,13 +1,45 @@
 /**
  * Skill routes — CRUD for skills (pool, input-prompt, physical-skill)
  */
-import { readdir, readFile, writeFile, mkdir, rm, rename } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, rm, rename, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { PATHS, readBody, json, urlPath, parseSkillFrontmatter } from "./context.mjs";
 
 const ROOTS = [PATHS.INPUT_PROMPT_ROOT, PATHS.PHYSICAL_SKILL_ROOT, PATHS.SKILL_POOL_ROOT];
 const ROOT_KINDS = ["input-prompt", "physical-skill", "skill-pool"];
-const CONTEXT_ROOT = resolve(PATHS.PAAW_ROOT, "data/contexts/skill-builder");
+
+// Recursive copy directory
+async function copyDir(src, dest) {
+  await mkdir(dest, { recursive: true });
+  const entries = await readdir(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else {
+      const content = await readFile(srcPath);
+      await writeFile(destPath, content);
+    }
+  }
+}
+
+// List all files in a directory (relative paths)
+async function listFiles(dir, prefix = "") {
+  const results = [];
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        results.push(...await listFiles(join(dir, entry.name), rel));
+      } else {
+        results.push(rel);
+      }
+    }
+  } catch {}
+  return results;
+}
 
 async function scanSkillsDir(root, kind) {
   const skills = [];
@@ -104,32 +136,43 @@ export default async function skillRoutes(req, res) {
     return true;
   }
 
-  // POST /api/skills/:id/publish — move skill from building/ to input-prompt/
+  // POST /api/skills/:id/publish — clone entire skill dir from building/ to target
   const pubMatch = req.method === "POST" && path.match(/^\/api\/skills\/([\w.-]+)\/publish$/);
   if (pubMatch) {
     const skillId = pubMatch[1];
     try {
-      const { target = "input-prompt" } = JSON.parse(await readBody(req));
+      const { target = "physical-skill" } = JSON.parse(await readBody(req));
       const srcDir = join(PATHS.BUILDING_ROOT, skillId);
-      const targetRoot = target === "physical-skill" ? PATHS.PHYSICAL_SKILL_ROOT
+      const targetRoot = target === "input-prompt" ? PATHS.INPUT_PROMPT_ROOT
         : target === "skill-pool" ? PATHS.SKILL_POOL_ROOT
-        : PATHS.INPUT_PROMPT_ROOT;
+        : PATHS.PHYSICAL_SKILL_ROOT;
       const destDir = join(targetRoot, skillId);
 
-      // Check source exists
-      let srcContent;
-      try { srcContent = await readFile(join(srcDir, "SKILL.md"), "utf-8"); }
+      // Check source SKILL.md exists
+      try { await readFile(join(srcDir, "SKILL.md"), "utf-8"); }
       catch { json(res, { error: `Skill not found in building/: ${skillId}` }, 404); return true; }
 
-      // Write to destination
+      // Recursive copy entire directory
       await mkdir(destDir, { recursive: true });
-      await writeFile(join(destDir, "SKILL.md"), srcContent, "utf-8");
+      await copyDir(srcDir, destDir);
 
-      // Copy app.html if exists
-      try { const appHtml = await readFile(join(srcDir, "app.html"), "utf-8"); await writeFile(join(destDir, "app.html"), appHtml, "utf-8"); } catch {}
+      // Extract userInputs from SKILL.md frontmatter → write inputs.json
+      const skillMd = await readFile(join(destDir, "SKILL.md"), "utf-8");
+      const parsed = parseSkillFrontmatter(skillMd);
+      if (parsed.userInputs && parsed.userInputs.length > 0) {
+        await writeFile(
+          join(destDir, "inputs.json"),
+          JSON.stringify({ skillId, userInputs: parsed.userInputs }, null, 2),
+          "utf-8"
+        );
+      }
 
       // Keep original in building/ as source code
-      json(res, { ok: true, id: skillId, kind: target, path: destDir, sourcePath: srcDir });
+      json(res, {
+        ok: true, id: skillId, kind: target,
+        path: destDir, sourcePath: srcDir,
+        files: await listFiles(destDir),
+      });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
