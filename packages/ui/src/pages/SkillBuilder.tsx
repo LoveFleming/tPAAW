@@ -58,6 +58,8 @@ function parseSkillMd(content: string): SkillForm {
   const fm = fmMatch[1];
   const body = content.slice(fmMatch[0].length).trim();
   form.systemPrompt = body;
+  // Reset inputs before parsing from file — avoid duplicates from EMPTY_SKILL default
+  form.inputs = [];
   for (const line of fm.split("\n")) {
     const m = line.match(/^(\w+):\s*(.*)/);
     if (!m) continue;
@@ -125,9 +127,7 @@ function buildSkillMd(form: SkillForm): string {
   const lines: string[] = ["---"];
   lines.push(`id: ${form.id || "untitled"}`);
   lines.push(`name: ${form.name || "Untitled"}`);
-  lines.push(`version: ${form.version || "1.0.0"}`);
   if (form.description) lines.push(`description: ${form.description}`);
-  lines.push(`runner: ${form.runner}`);
   if (form.visibility && form.visibility !== "private") lines.push(`visibility: ${form.visibility}`);
   if (form.tags) lines.push(`tags: ${form.tags}`);
   if (form.examples) lines.push(`examples: ${form.examples}`);
