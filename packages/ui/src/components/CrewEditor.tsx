@@ -251,8 +251,14 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                             </div>
                             <div>
                                 <label className="text-sm font-semibold text-stone-500">Model</label>
-                                <input value={model} onChange={e => setModel(e.target.value)}
-                                    className={inputCls} style={inputStyle} placeholder="moonshotai/kimi-k2.5" />
+                                <select value={model} onChange={e => setModel(e.target.value)}
+                                    className={inputCls} style={inputStyle}>
+                                    <option value="">（使用預設）</option>
+                                    <option value="moonshotai/kimi-k2.5">Kimi K2.5</option>
+                                    <option value="moonshotai/kimi-k2.6">Kimi K2.6</option>
+                                    <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash</option>
+                                    <option value="zai/glm-5.1">GLM 5.1</option>
+                                </select>
                             </div>
                             <div>
                                 <label className="text-sm font-semibold text-stone-500">Approval Mode</label>
