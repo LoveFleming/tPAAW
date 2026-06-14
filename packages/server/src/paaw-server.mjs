@@ -2274,7 +2274,7 @@ async function paawApiHandler(req, res) {
   // POST /api/crew — create new crew member
   if (req.method === "POST" && req.url?.match(/^\/api\/crew(?:\?.*)?$/)) {
     let parsed;
-    try { parsed = JSON.parse(await _readBody(req)); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
+    try { parsed = JSON.parse(await readBody(req)); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
     if (!parsed.id) { res.writeHead(400); res.end("Missing 'id'"); return; }
     if (!parsed.title) { res.writeHead(400); res.end("Missing 'title'"); return; }
 
@@ -2311,7 +2311,7 @@ async function paawApiHandler(req, res) {
   if (crewPutMatch) {
     const crewId = crewPutMatch[1];
     let parsed;
-    try { parsed = JSON.parse(await _readBody(req)); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
+    try { parsed = JSON.parse(await readBody(req)); } catch { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
 
     try {
       const files = await listCrewFiles();
