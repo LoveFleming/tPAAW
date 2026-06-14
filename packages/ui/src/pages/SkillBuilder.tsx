@@ -431,11 +431,9 @@ export default function SkillBuilder() {
     // Test = skill-exec mode: SKILL.md body + user inputs only
     // No build-time prompts (format, builder-rules) — those are only for building
     const skillDef = buildSkillMd(form);
-    const testOutputDir = `${workingDir || "."}/data/skills/.test-output/${form.id || "untitled"}`;
     let prompt = skillDef;
     if (form.inputs.length > 0) {
       const inputSection = form.inputs.map(inp => {
-        if (inp.id === "output_path") return `**${inp.label}**: ${testOutputDir} （測試模式：固定輸出到系統暫存路徑）`;
         return `**${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`;
       }).join("\n");
       prompt += `\n\n### 測試輸入\n${inputSection}`;
@@ -665,15 +663,13 @@ export default function SkillBuilder() {
                       </div>
                       <div className="p-4 space-y-3">
                         {form.inputs.length > 0 ? form.inputs.map(inp => {
-                          const isOutputPath = inp.id === "output_path";
-                          const testOutputDisplay = `data/skills/.test-output/${form.id || "untitled"}`;
                           return (
                           <div key={inp.id}>
-                            <label className="block text-xs font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>} {isOutputPath && <span className="text-stone-400 font-normal">（測試模式固定路徑）</span>}</label>
-                            {inp.multiline && !isOutputPath ? (
+                            <label className="block text-xs font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>}</label>
+                            {inp.multiline ? (
                               <textarea value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} rows={3} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 resize-none" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             ) : (
-                              <input type="text" value={isOutputPath ? testOutputDisplay : (testInputs[inp.id] || "")} onChange={e => { if (!isOutputPath) setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value })); }} readOnly={isOutputPath} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className={"w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2" + (isOutputPath ? " bg-stone-50 text-stone-500" : "")} style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                              <input type="text" value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             )}
                           </div>
                           );

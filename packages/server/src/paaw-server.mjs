@@ -1836,8 +1836,12 @@ async function paawApiHandler(req, res) {
     // 2. SSE headers
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
     const sendEvent = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
-    // 3. Build full prompt with output dir — use relative path so CLI resolves from cwd
-    const fullPrompt = `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${relTestDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
+    // 3. Build full prompt — respect user-specified output_path
+    //    Only inject test dir if prompt doesn't already contain an output path
+    const hasOutputPath = /輸出路徑|output_path|輸出目錄|請將.*輸出/i.test(prompt);
+    const fullPrompt = hasOutputPath
+      ? prompt
+      : `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${relTestDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
     // 4. Write prompt to temp file (Windows safe — no /dev/stdin)
     const promptFile = join(testDir, "_prompt.txt");
     const { writeFile: writePromptFile, unlink: removePromptFile } = await import("fs/promises");
@@ -1901,27 +1905,38 @@ async function paawApiHandler(req, res) {
       // 6. Clean up prompt file
       removePromptFile(promptFile).catch(() => {});
       console.log(`[skill-test] close: code=${code}, stdout=${stdout.length} chars, stderr=${stderr.length} chars`);
-      // 7. Scan test dir for output files
+      // 7. Scan for output files — check user-specified output path first, then test dir
+      const scanDirs = [testDir];
+      // Also try to read user-specified output path from original prompt
+      const outputPathMatch = prompt.match(/\*\*輸出路徑\*\*:\s*(.+)/);
+      if (outputPathMatch) {
+        const userPath = outputPathMatch[1].trim();
+        const userDir = resolve(PAAW_ROOT, userPath);
+        if (!scanDirs.includes(userDir)) scanDirs.unshift(userDir);
+      }
+      const files = [];
+      for (const scanDir of scanDirs) {
       try {
-        const entries = await readdir(testDir);
-        const files = [];
-        for (const name of entries) {
-          if (name === "_prompt.txt") continue; // skip prompt file
-          const fp = join(testDir, name);
-          const s = await stat(fp);
-          if (s.isFile()) {
-            const ext = name.split(".").pop()?.toLowerCase() || "";
-            let type = "text";
-            if (["json", "jsonl"].includes(ext)) type = "json";
-            else if (["html", "htm"].includes(ext)) type = "html";
-            else if (["md", "markdown"].includes(ext)) type = "markdown";
-            else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
-            else if (["csv"].includes(ext)) type = "csv";
-            else if (["yaml", "yml"].includes(ext)) type = "yaml";
-            else if (["txt", "log"].includes(ext)) type = "text";
-            files.push({ name, path: fp, size: s.size, type, ext });
-          }
+        const entries = await readdir(scanDir);
+      for (const name of entries) {
+        if (name === "_prompt.txt") continue;
+        const fp = join(scanDir, name);
+        const s = await stat(fp);
+        if (s.isFile()) {
+          const ext = name.split(".").pop()?.toLowerCase() || "";
+          let type = "text";
+          if (["json", "jsonl"].includes(ext)) type = "json";
+          else if (["html", "htm"].includes(ext)) type = "html";
+          else if (["md", "markdown"].includes(ext)) type = "markdown";
+          else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
+          else if (["csv"].includes(ext)) type = "csv";
+          else if (["yaml", "yml"].includes(ext)) type = "yaml";
+          else if (["txt", "log"].includes(ext)) type = "text";
+          files.push({ name, path: fp, size: s.size, type, ext });
         }
+      }
+      } catch {}
+      }
         // If no files found but CLI produced stdout, save it as fallback
         if (files.length === 0 && stdout.trim()) {
           const fallbackFile = join(testDir, "output.md");
@@ -1931,9 +1946,6 @@ async function paawApiHandler(req, res) {
         }
         const noFilesMsg = files.length === 0 ? `\n\nDebug info:\n- CLI bin: ${cliBin}\n- Exit code: ${code}\n- CWD: ${spawnCwd}\n- Test dir: ${relTestDir}\n- stdout (${stdout.length} chars): ${stdout.slice(0, 500) || "(empty)"}\n- stderr (${stderr.length} chars): ${stderr.slice(0, 500) || "(empty)"}` : "";
         sendEvent({ type: "done", exitCode: code, testDir, files, stdout: stdout.slice(-2000), stderr: stderr.slice(-500), debug: noFilesMsg });
-      } catch (err) {
-        sendEvent({ type: "done", exitCode: code, testDir, files: [], error: `${err.message}\n\nCLI stdout:\n${stdout.slice(-1000)}\n\nCLI stderr:\n${stderr.slice(-500)}`, stdout: stdout.slice(-2000), stderr: stderr.slice(-500) });
-      }
       try { res.end(); } catch {}
     });
     return true;
