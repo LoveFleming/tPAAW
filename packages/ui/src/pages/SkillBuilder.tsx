@@ -428,20 +428,11 @@ export default function SkillBuilder() {
     const startTime = Date.now();
     const elapsedTimer = setInterval(() => setTestElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
-    // Build test prompt — override output_path with system temp path
+    // Test = skill-exec mode: SKILL.md body + user inputs only
+    // No build-time prompts (format, builder-rules) — those are only for building
     const skillDef = buildSkillMd(form);
-
-    // Load AI settings context
-    let contextSkillDef = skillDef;
-    try {
-      const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillDef }),
-      });
-      if (res.ok) { const ctx = await res.json(); contextSkillDef = ctx.prompt || skillDef; }
-    } catch { /* context-engine unavailable */ }
     const testOutputDir = `${workingDir || "."}/data/skills/.test-output/${form.id || "untitled"}`;
-    let prompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### Skill 定義\n${contextSkillDef}`;
+    let prompt = skillDef;
     if (form.inputs.length > 0) {
       const inputSection = form.inputs.map(inp => {
         if (inp.id === "output_path") return `**${inp.label}**: ${testOutputDir} （測試模式：固定輸出到系統暫存路徑）`;
