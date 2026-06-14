@@ -1720,7 +1720,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return;
   }
 
-  // PUT /api/fs/file?path=... — write file content
+  // PUT /api/fs/file?path=... — write file content (creates parent dirs)
   if (req.method === "PUT" && req.url?.startsWith("/api/fs/file")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const filePath = params.get("path");
@@ -1729,16 +1729,12 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       res.end(JSON.stringify({ error: "Missing 'path' query param" }));
       return;
     }
-    const absPath = resolve(filePath);
-    if (!absPath.startsWith("/") && !/^[A-Za-z]:/.test(absPath)) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
-      return;
-    }
+    const absPath = resolve(PAAW_ROOT, filePath);
     try {
       let body = "";
       for await (const chunk of req) body += chunk;
       const { content } = JSON.parse(body);
+      await mkdir(dirname(absPath), { recursive: true });
       await writeFile(absPath, content, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
@@ -2772,12 +2768,7 @@ async function paawApiHandler(req, res) {
       res.end(JSON.stringify({ error: "Missing 'path' query param" }));
       return;
     }
-    const absPath = resolve(filePath);
-    if (!absPath.startsWith("/") && !/^[A-Za-z]:/.test(absPath)) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Only absolute paths allowed" }));
-      return;
-    }
+    const absPath = resolve(PAAW_ROOT, filePath);
     try {
       const stat = await import("fs").then(m => m.promises.stat(absPath));
       const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
