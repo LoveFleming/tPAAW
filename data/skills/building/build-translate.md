@@ -56,7 +56,6 @@ userInputs:
 ## Purpose
 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語）。
 
-
 ## Inputs
 - **輸出路徑** (required): Skill 執行結果的儲存路徑
 - **輸入要翻譯的內容** (required): 
@@ -67,7 +66,6 @@ userInputs:
 3. 識別特殊詞彙：成語、俚語、雙關語、專業術語
 4. 為每個特殊詞彙產生例句和趣味用法
 5. 照output格式輸出一個markdown file 就好
-
 
 ## Output
 # Translation Learning Output
@@ -107,7 +105,6 @@ userInputs:
 ## 8. One Sentence to Remember
 
 {{sentence_to_remember}}
-
 
 ## Guardrails
 - 不翻譯違法或有害內容

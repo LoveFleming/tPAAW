@@ -1652,14 +1652,17 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     try {
       const skillsDir = join(PAAW_ROOT, "data/skills");
       const results = [];
-      // Scan skills/building/ directory for build-*.md files
+      // Scan skills/building/ for flat *.md files and {id}/SKILL.md directories
       try {
         const buildingDir = join(skillsDir, "building");
         await mkdir(buildingDir, { recursive: true });
-        const bEntries = await readdir(buildingDir);
-        for (const f of bEntries) {
-          if (/\.md$/i.test(f) && !f.startsWith("_")) {
-            results.push({ name: "building/" + f, path: join(buildingDir, f) });
+        const bEntries = await readdir(buildingDir, { withFileTypes: true });
+        for (const entry of bEntries) {
+          if (entry.isFile() && /\.md$/i.test(entry.name) && !entry.name.startsWith("_")) {
+            results.push({ name: "building/" + entry.name, path: join(buildingDir, entry.name) });
+          } else if (entry.isDirectory()) {
+            const skillMd = join(buildingDir, entry.name, "SKILL.md");
+            try { await readFile(skillMd, "utf-8"); results.push({ name: "building/" + entry.name + "/SKILL.md", path: skillMd }); } catch {}
           }
         }
       } catch { /* building dir optional */ }
