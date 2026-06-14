@@ -2,11 +2,12 @@
  * Skill routes — CRUD for skills (pool, input-prompt, physical-skill)
  */
 import { readdir, readFile, writeFile, mkdir, rm, rename } from "fs/promises";
-import { join } from "path";
+import { join, resolve } from "path";
 import { PATHS, readBody, json, urlPath, parseSkillFrontmatter } from "./context.mjs";
 
 const ROOTS = [PATHS.INPUT_PROMPT_ROOT, PATHS.PHYSICAL_SKILL_ROOT, PATHS.SKILL_POOL_ROOT];
 const ROOT_KINDS = ["input-prompt", "physical-skill", "skill-pool"];
+const CONTEXT_ROOT = resolve(PATHS.PAAW_ROOT, "data/contexts/skill-builder");
 
 async function scanSkillsDir(root, kind) {
   const skills = [];
@@ -143,6 +144,33 @@ export default async function skillRoutes(req, res) {
       catch { try { content = await readFile(join(PATHS.SKILL_POOL_ROOT, skillId, "SKILL.md"), "utf-8"); } catch { json(res, { error: "Skill not found" }, 404); return true; } }
       const parsed = parseSkillFrontmatter(content);
       json(res, { skillId, appId, userInputs: parsed.userInputs || [] });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // GET /api/contexts/skill-builder/:file — get AI settings for skill builder
+  const ctxMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  if (ctxMatch) {
+    const fileName = ctxMatch[1];
+    try {
+      const content = await readFile(join(CONTEXT_ROOT, fileName), "utf-8");
+      json(res, { content });
+    } catch {
+      json(res, { content: "" }, 404);
+    }
+    return true;
+  }
+
+  // PUT /api/contexts/skill-builder/:file — update AI settings
+  const ctxPutMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  if (ctxPutMatch) {
+    const fileName = ctxPutMatch[1];
+    try {
+      const { content } = JSON.parse(await readBody(req));
+      if (!content) { json(res, { error: "Missing content" }, 400); return true; }
+      await mkdir(CONTEXT_ROOT, { recursive: true });
+      await writeFile(join(CONTEXT_ROOT, fileName), content, "utf-8");
+      json(res, { ok: true });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
