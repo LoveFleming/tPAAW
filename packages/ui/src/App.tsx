@@ -659,8 +659,8 @@ function AppInner() {
             </svg>
           </button>
           <button onClick={() => { setActivePage("_chat"); }} className="flex flex-col items-start leading-tight cursor-pointer hover:text-white/80 transition-colors" style={{ fontFamily: "'SF Pro Display', sans-serif" }}>
-            <span className="text-sm font-semibold text-white tracking-tight">AI Capability Platform</span>
-            <span className="text-[10px] font-normal text-white/50">Build, Manage and Execute AI Capabilities</span>
+            <span className="text-sm font-semibold text-white tracking-tight">PAAW</span>
+            <span className="text-[10px] font-normal text-white/50">Personal AI Assistant Workspace</span>
           </button>
         </div>
         {/* Theme */}

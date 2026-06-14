@@ -1,4 +1,4 @@
-# PAW Core Rules
+# PAAW Core Rules
 
 > 所有 AI 都要遵守的通用規則。不論 Chat、Skill Builder、App Builder 都適用。
 

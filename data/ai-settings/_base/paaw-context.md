@@ -1,6 +1,6 @@
-# PAW Runtime Context
+# PAAW Runtime Context
 
-> 本檔案由 PAW 系統使用，描述執行環境的基本資訊。每個 AI request 都會帶上這份內容。
+> 本檔案由 PAAW 系統使用，描述執行環境的基本資訊。每個 AI request 都會帶上這份內容。
 
 ## 資料路徑
 
@@ -18,6 +18,19 @@
 | `data/crews/` | AI Crew 定義 |
 | `data/chats/` | 聊天記錄 |
 | `data/config/` | 系統設定 |
+| `data/knowledge/` | 知識庫（使用者可放入參考文件） |
+| `data/distill/knowledge/` | 自動蒸餾的知識 |
+| `data/config/distilled-memory/` | 蒸餾記憶（聊天摘要） |
+
+## Workspace 目錄
+
+AI 可以讀寫的目錄（透過 `/api/workspaces` 取得完整列表）：
+
+- `data/apps/` — 建立和修改 App
+- `data/skills/` — 建立和修改 Skill
+- `data/knowledge/` — 讀寫知識庫
+- `data/ai-settings/` — 讀寫 AI 設定
+- 使用者自訂的 workspace 目錄（記錄在 `data/config/workspaces.json`）
 
 ## Placeholder
 
@@ -50,7 +63,7 @@ pool/              → 共用 Skill，所有 Crew 都能引用
 
 ## CLI 工具
 
-PAW 可用的 CLI（Skill 執行時可能呼叫）：
+PAAW 可用的 CLI（Skill 執行時可能呼叫）：
 
 - `qwen` — Qwen Code CLI
 - `claude` — Claude Code CLI

@@ -15,6 +15,7 @@
  */
 import { readdir, readFile, writeFile, mkdir, rm } from "fs/promises";
 import { join, resolve } from "path";
+import { existsSync, statSync } from "fs";
 import { readBody, json, urlPath } from "./context.mjs";
 
 const AI_SETTINGS_ROOT = resolve(
@@ -203,6 +204,65 @@ export default async function aiSettingsRoutes(req, res) {
     } catch (err) {
       json(res, { error: err.message }, 500);
     }
+    return true;
+  }
+
+  // ── Workspaces API ──
+  // GET /api/workspaces — list workspace directories (AI can access/modify)
+  if (req.method === "GET" && path === "/api/workspaces") {
+    const DATA_DIR = resolve(AI_SETTINGS_ROOT, ".."); // data/
+    const wsFile = resolve(DATA_DIR, "config/workspaces.json");
+    let dirs = [];
+    try {
+      const ws = JSON.parse(await readFile(wsFile, "utf-8"));
+      dirs = ws.directories || [];
+    } catch {}
+    // Also include default PAAW paths that AI can always access
+    const defaultDirs = [
+      resolve(DATA_DIR, "apps"),
+      resolve(DATA_DIR, "skills"),
+      resolve(DATA_DIR, "knowledge"),
+      resolve(DATA_DIR, "ai-settings"),
+      resolve(DATA_DIR, "distill/knowledge"),
+      resolve(DATA_DIR, "config/distilled-memory"),
+    ].filter(d => existsSync(d));
+    const allDirs = [...new Set([...dirs, ...defaultDirs])];
+    json(res, { directories: allDirs });
+    return true;
+  }
+
+  // POST /api/workspaces — add workspace directory
+  const wsAddMatch = req.method === "POST" && path === "/api/workspaces";
+  if (wsAddMatch) {
+    try {
+      const { directory } = JSON.parse(await readBody(req));
+      if (!directory) { json(res, { error: "Missing directory" }, 400); return true; }
+      const DATA_DIR = resolve(AI_SETTINGS_ROOT, "..");
+      const wsFile = resolve(DATA_DIR, "config/workspaces.json");
+      let ws = { directories: [] };
+      try { ws = JSON.parse(await readFile(wsFile, "utf-8")); } catch {}
+      if (!ws.directories.includes(directory)) {
+        ws.directories.push(directory);
+        await writeFile(wsFile, JSON.stringify(ws, null, 2), "utf-8");
+      }
+      json(res, { ok: true, directories: ws.directories });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // DELETE /api/workspaces — remove workspace directory
+  const wsDelMatch = req.method === "DELETE" && path.match(/^\/api\/workspaces$/);
+  if (wsDelMatch) {
+    try {
+      const { directory } = JSON.parse(await readBody(req));
+      const DATA_DIR = resolve(AI_SETTINGS_ROOT, "..");
+      const wsFile = resolve(DATA_DIR, "config/workspaces.json");
+      let ws = { directories: [] };
+      try { ws = JSON.parse(await readFile(wsFile, "utf-8")); } catch {}
+      ws.directories = ws.directories.filter(d => d !== directory);
+      await writeFile(wsFile, JSON.stringify(ws, null, 2), "utf-8");
+      json(res, { ok: true, directories: ws.directories });
+    } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
 
