@@ -78,6 +78,9 @@ const server = createServer(async (req, res) => {
   try {
     const modSkill = await import("./routes/skill.mjs");
     if (await modSkill.default(req, res)) return;
+
+    const modAISettings = await import("./routes/ai-settings.mjs");
+    if (await modAISettings.default(req, res)) return;
   } catch {}
   try {
     const modWorkflow = await import("./routes/workflow.mjs");

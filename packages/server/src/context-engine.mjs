@@ -28,6 +28,7 @@ const SYSTEM_DIR = resolve(DATA_DIR, "system");
 const APPS_DIR = resolve(DATA_DIR, "apps");
 const CHAT_DIR = resolve(DATA_DIR, "chats");
 const SKILL_POOL_DIR = resolve(DATA_DIR, "skills/physical-skill");
+const AI_SETTINGS_DIR = resolve(DATA_DIR, "ai-settings");
 
 // ── Helpers ──
 function safeRead(filePath) {
@@ -59,22 +60,22 @@ function loadMemory() {
 
 /** System prompt（通用） */
 function loadSystemPrompt() {
-  return safeRead(resolve(SYSTEM_DIR, "system-prompt.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "chat/system-prompt.md")) || safeRead(resolve(SYSTEM_DIR, "system-prompt.md"));
 }
 
 /** Guardrails */
 function loadGuardrails() {
-  return safeRead(resolve(SYSTEM_DIR, "guardrails.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "chat/guardrails.md")) || safeRead(resolve(SYSTEM_DIR, "guardrails.md"));
 }
 
 /** App 建構規則 */
 function loadAppBuilderRules() {
-  return safeRead(resolve(CONFIG_DIR, "app-builder-rules.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "app-builder/app-builder-rules.md")) || safeRead(resolve(CONFIG_DIR, "app-builder-rules.md"));
 }
 
-/** Reply Rules (system/reply-rules.md) */
+/** Reply Rules */
 function loadReplyRules() {
-  return safeRead(resolve(SYSTEM_DIR, "reply-rules.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "chat/reply-rules.md")) || safeRead(resolve(SYSTEM_DIR, "reply-rules.md"));
 }
 
 /** Workspaces */
@@ -290,7 +291,7 @@ export const contextEngine = {
     const parts = [];
 
     // 1. Identity（從檔案讀取，支援模板變數）
-    const identityTpl = safeRead(resolve(SYSTEM_DIR, "identity.md"));
+    const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md")) || safeRead(resolve(SYSTEM_DIR, "identity.md"));
     const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
     if (identityTpl) {
       parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
@@ -308,7 +309,7 @@ export const contextEngine = {
     if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
 
     // 4.5 Tool 使用規則（從檔案讀取，方便透過 API 編輯）
-    const toolRules = safeRead(resolve(SYSTEM_DIR, "tool-rules.md"));
+    const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md")) || safeRead(resolve(SYSTEM_DIR, "tool-rules.md"));
     if (toolRules) {
       parts.push(toolRules);
     } else {

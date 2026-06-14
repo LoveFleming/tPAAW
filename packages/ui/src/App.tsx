@@ -18,7 +18,7 @@ import SidebarFileTree from "./components/SidebarFileTree";
 import KnowledgeTree from "./components/KnowledgeTree";
 import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
-import SystemPromptsPage from "./pages/SystemPromptsPage";
+import AISettingsPage from "./pages/AISettingsPage";
 import BackupPage from "./pages/BackupPage";
 import WorkSyncPage from "./pages/WorkSyncPage";
 
@@ -372,7 +372,7 @@ function AppInner() {
 
   const skillBuilderCounterRef = useRef(0);
   const openSystemPrompts = useCallback(() => {
-    const tabId = `${currentScope}:system-prompts`;
+    const tabId = `${currentScope}:ai-settings`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -457,7 +457,7 @@ function AppInner() {
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
-    if (pageType === "system-prompts") return "Prompts";
+    if (pageType === "ai-settings") return "AI Settings";
     if (pageType === "backup") return "Backup";
     if (pageType === "work-sync") return "Work Sync";
     if (pageType === "vibe-coding") return t("sidebar.vibeCoding");
@@ -527,8 +527,8 @@ function AppInner() {
     if (fullId === "_settings") {
       return <SettingsPage />;
     }
-    if (pageType === "system-prompts") {
-      return <SystemPromptsPage />;
+    if (pageType === "ai-settings") {
+      return <AISettingsPage />;
     }
     if (pageType === "backup") {
       return <BackupPage />;
@@ -760,8 +760,8 @@ function AppInner() {
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem
-                  active={activePage.endsWith(":system-prompts")}
-                  label="Prompts"
+                  active={activePage.endsWith(":ai-settings")}
+                  label="AI 設定"
                   onClick={openSystemPrompts}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}

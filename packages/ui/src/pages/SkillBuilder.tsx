@@ -406,9 +406,9 @@ export default function SkillBuilder() {
     // Load AI settings context
     let contextSection = "";
     try {
-      for (const file of ["skill-format.md", "builder-rules.md"]) {
-        const r = await fetch(`${API_BASE}/api/contexts/skill-builder/${file}`);
-        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/\.md$/, "").replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
+      for (const file of ["skill-format", "builder-rules"]) {
+        const r = await fetch(`${API_BASE}/api/ai-settings/skill-builder/${file}.md`);
+        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
       }
     } catch { /* settings unavailable, continue without */ }
     const prompt = contextSection ? `${contextSection}\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}` : skillDef;
@@ -435,9 +435,9 @@ export default function SkillBuilder() {
     // Load AI settings context
     let contextSection = "";
     try {
-      for (const file of ["skill-format.md", "builder-rules.md"]) {
-        const r = await fetch(`${API_BASE}/api/contexts/skill-builder/${file}`);
-        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/\.md$/, "").replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
+      for (const file of ["skill-format", "builder-rules"]) {
+        const r = await fetch(`${API_BASE}/api/ai-settings/skill-builder/${file}.md`);
+        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
       }
     } catch { /* settings unavailable */ }
     const contextSkillDef = contextSection ? `${contextSection}\n\n---\n\n根據以上規則建立的 Skill：\n\n${skillDef}` : skillDef;

@@ -235,24 +235,30 @@ export default async function chatRoutes(req, res) {
   // ════════════════════════════════════════
 
   const SYSTEM_DIR = resolve(PAAW_DATA_DIR, "system");
+  const CHAT_AI_DIR = resolve(PAAW_DATA_DIR, "ai-settings/chat");
   const PROMPT_FILES = ["identity.md", "tool-rules.md", "system-prompt.md", "guardrails.md", "reply-rules.md"];
 
-  // GET /api/system-prompts — 列出所有提示詞檔案
+  // Helper: read from ai-settings/chat/ first, fallback to data/system/
+  async function readPromptFile(file) {
+    try { return await readFile(resolve(CHAT_AI_DIR, file), "utf-8"); }
+    catch { try { return await readFile(resolve(SYSTEM_DIR, file), "utf-8"); } catch { return null; } }
+  }
+  async function writePromptFile(file, content) {
+    await mkdir(CHAT_AI_DIR, { recursive: true });
+    await writeFile(resolve(CHAT_AI_DIR, file), content, "utf-8");
+  }
+
+  // GET /api/system-prompts — 列出所有提示詞檔案（向下相容）
   if (req.method === "GET" && path === "/api/system-prompts") {
     const result = {};
     for (const file of PROMPT_FILES) {
-      const filePath = resolve(SYSTEM_DIR, file);
-      try {
-        result[file] = await readFile(filePath, "utf-8");
-      } catch {
-        result[file] = null;
-      }
+      result[file] = await readPromptFile(file);
     }
     json(res, result);
     return true;
   }
 
-  // GET /api/system-prompts/:file — 讀取單一提示詞檔案
+  // GET /api/system-prompts/:file — 讀取單一提示詞檔案（向下相容）
   const promptMatch = path.match(/^\/api\/system-prompts\/([\w-]+\.md)$/);
   if (req.method === "GET" && promptMatch) {
     const file = promptMatch[1];
@@ -260,16 +266,12 @@ export default async function chatRoutes(req, res) {
       json(res, { error: "Unknown prompt file" }, 400);
       return true;
     }
-    try {
-      const content = await readFile(resolve(SYSTEM_DIR, file), "utf-8");
-      json(res, { file, content });
-    } catch {
-      json(res, { file, content: null, error: "File not found" }, 404);
-    }
+    const content = await readPromptFile(file);
+    json(res, content !== null ? { file, content } : { file, content: null, error: "File not found" }, content !== null ? 200 : 404);
     return true;
   }
 
-  // PUT /api/system-prompts/:file — 更新提示詞檔案
+  // PUT /api/system-prompts/:file — 更新提示詞檔案（向下相容）
   const promptPutMatch = path.match(/^\/api\/system-prompts\/([\w-]+\.md)$/);
   if (req.method === "PUT" && promptPutMatch) {
     const file = promptPutMatch[1];
@@ -283,7 +285,7 @@ export default async function chatRoutes(req, res) {
         json(res, { error: "content must be a string" }, 400);
         return true;
       }
-      await writeFile(resolve(SYSTEM_DIR, file), body.content, "utf-8");
+      await writePromptFile(file, body.content);
       console.log(`[Chat] Updated system prompt: ${file}`);
       json(res, { file, saved: true });
     } catch (err) {
