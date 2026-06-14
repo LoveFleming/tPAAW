@@ -10,7 +10,6 @@ building/{skill-id}/
 ├── skill-source.md    ← 原始程式（AI 產出，不可修改）
 └── package/           ← 所有輸出（build + test 產出）
     ├── SKILL.md       ← 最終執行用 skill 定義
-    ├── inputs.json    ← 輸入欄位定義
     ├── rules/         ← 規則檔案（如有）
     ├── examples/      ← 範例檔案（如有）
     └── scripts/       ← 腳本檔案（如有）
@@ -29,8 +28,6 @@ building/{skill-id}/
 
 ## 輸入輸出路徑規則
 
-- **每個 skill 必須在 package/ 下載明輸入與輸出路徑**
-- 輸入欄位定義寫在 `package/inputs.json`
 - 輸出檔案統一放在 `package/` 下（test 時）或 `physical-skill/{id}/` 下（發佈後）
 - output_path 欄位固定指向 package 目錄
 
@@ -46,7 +43,8 @@ building/{skill-id}/
 
 - 發佈時 **package/ 內容全部 copy 到 physical-skill/{id}/**
 - **skill-source.md 留在 building/，不發佈**
-- inputs.json 從 skill-source.md 抽出，寫到 `input-prompt/{id}/inputs.json`
+- inputs.json 由發佈時從 skill-source.md 自動抽取，放到 `input-prompt/{id}/inputs.json`
+- AI 不需要產生 inputs.json
 
 ## 不要做的事
 
