@@ -1,6 +1,6 @@
 {
-  "app.name": "AI Capability Platform",
-  "app.tagline": "Build, Manage and Execute AI Capabilities",
+  "app.name": "PAAW",
+  "app.tagline": "Personal AI Assistant Workspace",
   "sidebar.knowledge": "📚 Knowledge",
   "sidebar.build": "🏗 Build",
   "sidebar.execution": "▶ Execution",

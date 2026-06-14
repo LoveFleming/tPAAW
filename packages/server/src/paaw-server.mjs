@@ -96,6 +96,39 @@ const server = createServer(async (req, res) => {
     if (await modTools.default(req, res)) return;
   } catch {}
 
+  // ── File Service proxy — all /api/fs/* routes go through the external service ──
+  const FS_SERVICE = process.env.FILE_SERVICE_URL || "http://127.0.0.1:4100";
+  if (req.url?.startsWith("/api/fs/")) {
+    try {
+      const targetUrl = new URL(req.url, FS_SERVICE);
+      let body;
+      if ([ "POST", "PUT" ].includes(req.method)) {
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        body = Buffer.concat(chunks);
+      }
+      const response = await fetch(targetUrl.toString(), {
+        method: req.method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body,
+      });
+      // Forward status + headers + body (supports binary/image response)
+      const respHeaders = Object.fromEntries(response.headers);
+      const safeHeaders = {};
+      if (respHeaders["content-type"]) safeHeaders["Content-Type"] = respHeaders["content-type"];
+      if (respHeaders["content-length"]) safeHeaders["Content-Length"] = respHeaders["content-length"];
+      if (respHeaders["cache-control"]) safeHeaders["Cache-Control"] = respHeaders["cache-control"];
+      safeHeaders["Access-Control-Allow-Origin"] = "*";
+      const data = await response.arrayBuffer();
+      res.writeHead(response.status, safeHeaders);
+      res.end(Buffer.from(data));
+    } catch (err) {
+      res.writeHead(502, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: `File Service unavailable: ${err.message}` }));
+    }
+    return;
+  }
+
   // ── Legacy routes (everything else) ──
   const paawHandled = await paawApiHandler(req, res);
   if (paawHandled) return;
@@ -1665,6 +1698,118 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // AI 設定 (Contexts) API — 每個功能模組的 context 設定
+  // ═══════════════════════════════════════════════════════════════
+  const send = (obj, status = 200) => {
+    res.writeHead(status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(obj));
+  };
+
+  // GET /api/contexts — 列出所有 context categories
+  if (req.method === "GET" && req.url === "/api/contexts") {
+    try {
+      const ctxRoot = join(PAAW_ROOT, "data/contexts");
+      await mkdir(ctxRoot, { recursive: true });
+      const cats = await readdir(ctxRoot, { withFileTypes: true });
+      const categories = [];
+      for (const cat of cats) {
+        if (!cat.isDirectory() || cat.name.startsWith("_")) continue;
+        const files = await readdir(join(ctxRoot, cat.name));
+        categories.push({
+          id: cat.name,
+          files: files.filter(f => f.endsWith(".md") && !f.startsWith("_")).map(f => ({
+            name: f,
+            path: join(ctxRoot, cat.name, f),
+          })),
+        });
+      }
+      categories.sort((a, b) => a.id.localeCompare(b.id));
+      send(categories);
+    } catch (err) { send({ error: err.message }, 500); }
+    return;
+  }
+
+  // GET /api/contexts/:category — 列出某個 category 的檔案
+  const ctxCatMatch = req.method === "GET" && req.url?.match(/^\/api\/contexts\/([\w-]+)$/);
+  if (ctxCatMatch) {
+    const catId = ctxCatMatch[1];
+    try {
+      const catDir = join(PAAW_ROOT, "data/contexts", catId);
+      await mkdir(catDir, { recursive: true });
+      const entries = await readdir(catDir);
+      const files = entries.filter(f => f.endsWith(".md") && !f.startsWith("_"));
+      const result = [];
+      for (const f of files) {
+        const fp = join(catDir, f);
+        const s = await stat(fp);
+        result.push({ name: f, path: fp, size: s.size, updatedAt: s.mtime.toISOString() });
+      }
+      send({ id: catId, files: result });
+    } catch (err) { send({ error: err.message }, 500); }
+    return;
+  }
+
+  // GET /api/contexts/:category/:file — 讀取單個 context 檔案
+  const ctxFileMatch = req.method === "GET" && req.url?.match(/^\/api\/contexts\/([\w-]+)\/([\w.-]+)$/);
+  if (ctxFileMatch) {
+    const [, catId, fileName] = ctxFileMatch;
+    try {
+      const fp = resolve(join(PAAW_ROOT, "data/contexts", catId, fileName));
+      if (!fp.startsWith(resolve(join(PAAW_ROOT, "data/contexts")))) {
+        send({ error: "Invalid path" }, 403);
+        return;
+      }
+      const content = await readFile(fp, "utf-8");
+      send({ ok: true, name: fileName, category: catId, content, size: content.length });
+    } catch (err) {
+      if (err.code === "ENOENT") { send({ error: "File not found" }, 404); }
+      else { send({ error: err.message }, 500); }
+    }
+    return;
+  }
+
+  // PUT /api/contexts/:category/:file — 儲存 context 檔案
+  const ctxPutMatch = req.method === "PUT" && req.url?.match(/^\/api\/contexts\/([\w-]+)\/([\w.-]+)$/);
+  if (ctxPutMatch) {
+    const [, catId, fileName] = ctxPutMatch;
+    try {
+      if (!fileName.endsWith(".md")) { send({ error: "Only .md files allowed" }, 400); return; }
+      const fp = resolve(join(PAAW_ROOT, "data/contexts", catId, fileName));
+      if (!fp.startsWith(resolve(join(PAAW_ROOT, "data/contexts")))) {
+        send({ error: "Invalid path" }, 403);
+        return;
+      }
+      await mkdir(dirname(fp), { recursive: true });
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString());
+      const content = body.content || "";
+      await writeFile(fp, content, "utf-8");
+      send({ ok: true, name: fileName, category: catId });
+    } catch (err) { send({ error: err.message }, 500); }
+    return;
+  }
+
+  // DELETE /api/contexts/:category/:file — 刪除 context 檔案
+  const ctxDelMatch = req.method === "DELETE" && req.url?.match(/^\/api\/contexts\/([\w-]+)\/([\w.-]+)$/);
+  if (ctxDelMatch) {
+    const [, catId, fileName] = ctxDelMatch;
+    try {
+      const fp = resolve(join(PAAW_ROOT, "data/contexts", catId, fileName));
+      if (!fp.startsWith(resolve(join(PAAW_ROOT, "data/contexts")))) {
+        send({ error: "Invalid path" }, 403);
+        return;
+      }
+      await rm(fp);
+      send({ ok: true });
+    } catch (err) {
+      if (err.code === "ENOENT") { send({ error: "File not found" }, 404); }
+      else { send({ error: err.message }, 500); }
     }
     return;
   }
@@ -3405,54 +3550,149 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // ── Workspaces API ──
+  // ═══════════════════════════════════════════════════════════════
+  // Workspaces API — import (copy) directories to PAAW, then own them
+  // ═══════════════════════════════════════════════════════════════
+  // Structure: data/workspaces.json { workspaces: [{ name, source, target, createdAt }] }
+  // Files stored in: data/workspaces/{name}/
+  const PAAW_WORKSPACES_DIR = resolve(PAAW_DATA_DIR, "workspaces");
   const PAAW_WORKSPACES_FILE = resolve(PAAW_DATA_DIR, "workspaces.json");
 
-  // GET /api/paaw/workspaces
+  async function loadWorkspaces() {
+    try {
+      const raw = JSON.parse(await readFile(PAAW_WORKSPACES_FILE, "utf-8"));
+      // Migrate old format { directories: [...] } to new format
+      if (raw.directories && !raw.workspaces) {
+        raw.workspaces = [];
+        delete raw.directories;
+        await saveWorkspaces(raw);
+      }
+      if (!raw.workspaces) raw.workspaces = [];
+      return raw;
+    } catch { return { workspaces: [] }; }
+  }
+
+  async function saveWorkspaces(data) {
+    await mkdir(dirname(PAAW_WORKSPACES_FILE), { recursive: true });
+    await writeFile(PAAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+  }
+
+  function generateWorkspaceName(srcPath) {
+    const base = basename(srcPath).replace(/[^a-zA-Z0-9_-]/g, "_").replace(/^_+|_+$/g, "") || "workspace";
+    return base || "workspace";
+  }
+
+  function resolveWorkspaceTarget(name) {
+    return resolve(PAAW_WORKSPACES_DIR, name);
+  }
+
+  // GET /api/paaw/workspaces — list all workspaces
   if (req.method === "GET" && path === "/api/paaw/workspaces") {
     try {
-      const data = JSON.parse(await readFile(PAAW_WORKSPACES_FILE, "utf-8"));
+      const data = await loadWorkspaces();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
-    } catch {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ directories: [] }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }
 
-  // POST /api/paaw/workspaces — add directory
-  if (req.method === "POST" && path === "/api/paaw/workspaces") {
+  // POST /api/paaw/workspaces/import — import a directory (copy to PAAW workspace)
+  if (req.method === "POST" && path === "/api/paaw/workspaces/import") {
     try {
-      let data;
-      try { data = JSON.parse(await readFile(PAAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
       const body = JSON.parse(await readBody(req));
-      const dir = body.directory;
-      if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
-      if (!data.directories.includes(dir)) {
-        data.directories.push(dir);
-        await writeFile(PAAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+      const source = body.source;
+      if (!source) { res.writeHead(400); res.end(JSON.stringify({ error: "source is required" })); return true; }
+
+      const absSource = resolve(source);
+      // Verify source exists
+      try { await stat(absSource); } catch {
+        res.writeHead(400); res.end(JSON.stringify({ error: `Source directory not found: ${absSource}` }));
+        return true;
       }
+
+      // Generate unique workspace name
+      let name = generateWorkspaceName(absSource);
+      const data = await loadWorkspaces();
+      let attempt = 0;
+      while (data.workspaces.some(w => w.name === name)) {
+        attempt++;
+        name = `${generateWorkspaceName(absSource)}-${attempt}`;
+      }
+
+      const target = resolveWorkspaceTarget(name);
+      // Ensure target directory doesn't exist yet
+      try {
+        await stat(target);
+        // TODO: we could handle this case more gracefully, but name dedup should prevent it
+        res.writeHead(409); res.end(JSON.stringify({ error: `Workspace ${name} already exists on disk` }));
+        return true;
+      } catch { /* good — target doesn't exist */ }
+
+      // Copy files via File Service (sandbox escape)
+      await mkdir(dirname(target), { recursive: true });
+      const FS_URL = process.env.FILE_SERVICE_URL || "http://127.0.0.1:4100";
+      const cpResp = await fetch(`${FS_URL}/api/fs/import-workspace`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: absSource, target }),
+      });
+      if (!cpResp.ok) {
+        const errData = await cpResp.json();
+        throw new Error(errData.error || "File Service copy failed");
+      }
+
+      const workspace = {
+        name,
+        source: absSource,
+        target,
+        createdAt: new Date().toISOString(),
+      };
+      data.workspaces.push(workspace);
+      await saveWorkspaces(data);
+
+      console.log(`[Workspaces] Imported: ${absSource} → ${target}`);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-    } catch {
-      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to add workspace" }));
+      res.end(JSON.stringify({ ok: true, workspace }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }
 
-  // DELETE /api/paaw/workspaces?dir=... — remove directory
+  // DELETE /api/paaw/workspaces?name=... — remove workspace (files + metadata)
   if (req.method === "DELETE" && path === "/api/paaw/workspaces") {
     try {
-      const dir = url.searchParams.get("dir");
-      let data;
-      try { data = JSON.parse(await readFile(PAAW_WORKSPACES_FILE, "utf-8")); } catch { data = { directories: [] }; }
-      data.directories = data.directories.filter((d) => d !== dir);
-      await writeFile(PAAW_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
+      const name = url.searchParams.get("name");
+      if (!name) { res.writeHead(400); res.end(JSON.stringify({ error: "name is required" })); return true; }
+
+      const data = await loadWorkspaces();
+      const idx = data.workspaces.findIndex(w => w.name === name);
+      if (idx === -1) { res.writeHead(404); res.end(JSON.stringify({ error: `Workspace "${name}" not found` })); return true; }
+
+      const ws = data.workspaces[idx];
+
+      // Remove files via File Service (sandbox escape)
+      try {
+        const FS_URL = process.env.FILE_SERVICE_URL || "http://127.0.0.1:4100";
+        const rmResp = await fetch(`${FS_URL}/api/fs/remove-workspace?path=${encodeURIComponent(ws.target)}`, { method: "DELETE" });
+        if (!rmResp.ok) {
+          const errData = await rmResp.json();
+          console.warn(`[Workspaces] File Service remove failed for "${name}": ${errData.error}`);
+        }
+      } catch (err) {
+        console.warn(`[Workspaces] Failed to connect File Service for "${name}": ${err.message}`);
+      }
+
+      data.workspaces.splice(idx, 1);
+      await saveWorkspaces(data);
+
+      console.log(`[Workspaces] Removed: ${name}`);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-    } catch {
-      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to remove workspace" }));
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
     return true;
   }

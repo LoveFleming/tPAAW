@@ -526,7 +526,7 @@ packages/server/src/lib/providers/
 3. **雙入口** — Chat + App Window 都能用
 4. **華語原生** — prompt / skill / 文件都中文
 
-OpenClaw 有一套非常成熟的 plugin 和安全架構可以參考，但 PAAW 的創新在 **App + Skill + Crew 的整合**，這才是 AI Capability Platform 的價值。
+OpenClaw 有一套非常成熟的 plugin 和安全架構可以參考，但 PAAW 的創新在 **App + Skill + Crew 的整合**，這才是 PAAW 的價值。
 
 ---
 

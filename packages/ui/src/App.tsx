@@ -18,7 +18,7 @@ import SidebarFileTree from "./components/SidebarFileTree";
 import KnowledgeTree from "./components/KnowledgeTree";
 import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
-import SystemPromptsPage from "./pages/SystemPromptsPage";
+import AISettingsPage from "./pages/AISettingsPage";
 import BackupPage from "./pages/BackupPage";
 import WorkSyncPage from "./pages/WorkSyncPage";
 
@@ -319,43 +319,54 @@ function AppInner() {
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
 
-  // ── Workspaces (multi-directory) ──
-  const [workspaces, setWorkspaces] = useState<string[]>([]);
+  // ── Workspaces — import directories to PAAW's own storage ──
+  interface WorkspaceEntry {
+    name: string;
+    source: string;
+    target: string;
+    createdAt: string;
+  }
+  const [workspaces, setWorkspaces] = useState<WorkspaceEntry[]>([]);
 
   const loadWorkspaces = useCallback(async () => {
     try {
       const resp = await fetch(`${API_BASE}/api/paaw/workspaces`);
       if (resp.ok) {
         const data = await resp.json();
-        setWorkspaces(data.directories || []);
+        setWorkspaces(data.workspaces || []);
       }
     } catch {}
   }, []);
 
   useEffect(() => { loadWorkspaces(); }, [loadWorkspaces]);
 
-  const addWorkspace = useCallback(async (dir: string) => {
+  const importWorkspace = useCallback(async (sourceDir: string) => {
     try {
-      await fetch(`${API_BASE}/api/paaw/workspaces`, {
+      const resp = await fetch(`${API_BASE}/api/paaw/workspaces/import`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ directory: dir }),
+        body: JSON.stringify({ source: sourceDir }),
       });
-      setWorkspaces(prev => prev.includes(dir) ? prev : [...prev, dir]);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.ok && data.workspace) {
+          setWorkspaces(prev => [...prev, data.workspace]);
+        }
+      }
     } catch {}
     setShowDirExplorer(false);
   }, []);
 
-  const removeWorkspace = useCallback(async (dir: string) => {
+  const removeWorkspace = useCallback(async (name: string) => {
     try {
-      await fetch(`${API_BASE}/api/paaw/workspaces?dir=${encodeURIComponent(dir)}`, { method: "DELETE" });
+      await fetch(`${API_BASE}/api/paaw/workspaces?name=${encodeURIComponent(name)}`, { method: "DELETE" });
     } catch {}
-    setWorkspaces(prev => prev.filter(d => d !== dir));
+    setWorkspaces(prev => prev.filter(w => w.name !== name));
   }, []);
 
   const handleDirSelect = useCallback((path: string) => {
-    handleSelectProject(path);
+    importWorkspace(path);
     setShowDirExplorer(false);
-  }, [handleSelectProject]);
+  }, [importWorkspace]);
 
   const factoryNav = useMemo(() => {
     const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: t("sidebar.aiCrew") };
@@ -371,8 +382,8 @@ function AppInner() {
   }, [factoryFiles, currentScope, t]);
 
   const skillBuilderCounterRef = useRef(0);
-  const openSystemPrompts = useCallback(() => {
-    const tabId = `${currentScope}:system-prompts`;
+  const openAISettings = useCallback(() => {
+    const tabId = `${currentScope}:ai-settings`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -457,7 +468,7 @@ function AppInner() {
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
-    if (pageType === "system-prompts") return "Prompts";
+    if (pageType === "ai-settings") return "AI 設定";
     if (pageType === "backup") return "Backup";
     if (pageType === "work-sync") return "Work Sync";
     if (pageType === "vibe-coding") return t("sidebar.vibeCoding");
@@ -527,8 +538,8 @@ function AppInner() {
     if (fullId === "_settings") {
       return <SettingsPage />;
     }
-    if (pageType === "system-prompts") {
-      return <SystemPromptsPage />;
+    if (pageType === "ai-settings") {
+      return <AISettingsPage />;
     }
     if (pageType === "backup") {
       return <BackupPage />;
@@ -760,9 +771,9 @@ function AppInner() {
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem
-                  active={activePage.endsWith(":system-prompts")}
-                  label="Prompts"
-                  onClick={openSystemPrompts}
+                  active={activePage.endsWith(":ai-settings")}
+                  label="AI 設定"
+                  onClick={openAISettings}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />
@@ -805,17 +816,20 @@ function AppInner() {
                     >＋ {t("sidebar.addDirectory")}</button>
                   </div>
                 ) : (
-                  workspaces.map((dir) => (
-                    <div key={dir} className="group relative">
+                  workspaces.map((ws) => (
+                    <div key={ws.name} className="group relative">
+                      <div className="text-[10px] font-semibold text-stone-500 px-3 pt-0.5 pb-0.5 truncate">
+                        📁 {ws.name}
+                      </div>
                       <SidebarFileTree
-                        projectRoot={dir}
+                        projectRoot={ws.target}
                         activeFilePath={activeFilePath}
                         openFilePaths={openFilePaths}
                         onSelectFile={handleSelectFile}
-                        onRemoveWorkspace={removeWorkspace}
+                        onRemoveWorkspace={() => removeWorkspace(ws.name)}
                       />
                       <button
-                        onClick={() => removeWorkspace(dir)}
+                        onClick={() => removeWorkspace(ws.name)}
                         className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-stone-400 hover:text-rose-500 hover:bg-rose-50 text-xs"
                         title="移除此目錄"
                       >✕</button>

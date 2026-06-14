@@ -235,13 +235,22 @@ export default async function chatRoutes(req, res) {
   // ════════════════════════════════════════
 
   const SYSTEM_DIR = resolve(PAAW_DATA_DIR, "system");
+  const CONTEXTS_CHAT_DIR = resolve(PAAW_DATA_DIR, "contexts", "chat");
   const PROMPT_FILES = ["identity.md", "tool-rules.md", "system-prompt.md", "guardrails.md", "reply-rules.md"];
 
   // GET /api/system-prompts — 列出所有提示詞檔案
+  // 優先讀 contexts/chat/，fallback 到 system/
   if (req.method === "GET" && path === "/api/system-prompts") {
     const result = {};
     for (const file of PROMPT_FILES) {
-      const filePath = resolve(SYSTEM_DIR, file);
+      let filePath = resolve(CONTEXTS_CHAT_DIR, file);
+      let content = null;
+      try { content = await readFile(filePath, "utf-8"); }
+      catch {
+        filePath = resolve(SYSTEM_DIR, file);
+        try { content = await readFile(filePath, "utf-8"); } catch {}
+      }
+      result[file] = content;
       try {
         result[file] = await readFile(filePath, "utf-8");
       } catch {
@@ -260,16 +269,23 @@ export default async function chatRoutes(req, res) {
       json(res, { error: "Unknown prompt file" }, 400);
       return true;
     }
+    let filePath = resolve(CONTEXTS_CHAT_DIR, file);
     try {
-      const content = await readFile(resolve(SYSTEM_DIR, file), "utf-8");
-      json(res, { file, content });
+      const content = await readFile(filePath, "utf-8");
+      json(res, { file, content, source: "contexts" });
     } catch {
-      json(res, { file, content: null, error: "File not found" }, 404);
+      filePath = resolve(SYSTEM_DIR, file);
+      try {
+        const content = await readFile(filePath, "utf-8");
+        json(res, { file, content, source: "system" });
+      } catch {
+        json(res, { file, content: null, error: "File not found" }, 404);
+      }
     }
     return true;
   }
 
-  // PUT /api/system-prompts/:file — 更新提示詞檔案
+  // PUT /api/system-prompts/:file — 更新提示詞檔案（寫入 contexts/chat/）
   const promptPutMatch = path.match(/^\/api\/system-prompts\/([\w-]+\.md)$/);
   if (req.method === "PUT" && promptPutMatch) {
     const file = promptPutMatch[1];
@@ -283,9 +299,11 @@ export default async function chatRoutes(req, res) {
         json(res, { error: "content must be a string" }, 400);
         return true;
       }
-      await writeFile(resolve(SYSTEM_DIR, file), body.content, "utf-8");
-      console.log(`[Chat] Updated system prompt: ${file}`);
-      json(res, { file, saved: true });
+      // Write to contexts/chat/（新位置）
+      await mkdir(CONTEXTS_CHAT_DIR, { recursive: true });
+      await writeFile(resolve(CONTEXTS_CHAT_DIR, file), body.content, "utf-8");
+      console.log(`[Chat] Updated system prompt (contexts/chat/): ${file}`);
+      json(res, { file, saved: true, location: "contexts/chat" });
     } catch (err) {
       json(res, { error: err.message }, 500);
     }

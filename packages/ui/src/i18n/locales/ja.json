@@ -1,6 +1,6 @@
 {
-  "app.name": "AI 能力プラットフォーム",
-  "app.tagline": "AI能力を構築・管理・実行",
+  "app.name": "PAAW",
+  "app.tagline": "個人AIアシスタントワークスペース",
   "sidebar.knowledge": "📚 ナレッジ",
   "sidebar.build": "🏗 ビルド",
   "sidebar.execution": "▶ 実行",

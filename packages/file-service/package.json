@@ -1,0 +1,14 @@
+{
+  "name": "@paaw/file-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/file-service.mjs",
+  "scripts": {
+    "start": "node src/file-service.mjs",
+    "dev": "node --watch src/file-service.mjs"
+  },
+  "dependencies": {
+    "chokidar": "^3.0.0"
+  }
+}
