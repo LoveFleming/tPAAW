@@ -157,15 +157,8 @@ export default async function skillRoutes(req, res) {
       await mkdir(destDir, { recursive: true });
       await copyDir(srcDir, destDir);
 
-      // Rename skill-source.md → SKILL.md in destination
-      try {
-        const srcContent = await readFile(join(destDir, "skill-source.md"), "utf-8");
-        await writeFile(join(destDir, "SKILL.md"), srcContent, "utf-8");
-        await rm(join(destDir, "skill-source.md"));
-      } catch {}
-
-      // Extract userInputs from SKILL.md frontmatter → write to input-prompt/ (interface definition)
-      const skillMd = await readFile(join(destDir, "SKILL.md"), "utf-8");
+      // Extract userInputs from skill-source.md → write to input-prompt/ (interface definition)
+      const skillMd = await readFile(join(destDir, "skill-source.md"), "utf-8");
       const parsed = parseSkillFrontmatter(skillMd);
       if (parsed.userInputs && parsed.userInputs.length > 0) {
         const inputPromptDir = join(PATHS.INPUT_PROMPT_ROOT, skillId);

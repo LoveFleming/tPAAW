@@ -548,7 +548,7 @@ export default function SkillBuilder() {
           <select value={selectedPath} onChange={e => handleSelectFile(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1" style={{ minWidth: 200, "--tw-ring-color": accent } as React.CSSProperties}>
             <option value="">-- {t("common.select", "選擇")} Skill --</option>
             {files.map(f => {
-              const label = f.name.replace(/^building\//, "").replace(/\/skill-source\.md$/, "").replace(/\/SKILL\.md$/, "").replace(/^build-/, "").replace(/\.md$/, "");
+              const label = f.name.replace(/^building\//, "").replace(/\/skill-source\.md$/, "").replace(/^build-/, "").replace(/\.md$/, "");
               return <option key={f.path} value={f.path}>{label}</option>;
             })}
           </select>

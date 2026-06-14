@@ -1661,15 +1661,8 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
           if (entry.isFile() && /\.md$/i.test(entry.name) && !entry.name.startsWith("_")) {
             results.push({ name: "building/" + entry.name, path: join(buildingDir, entry.name) });
           } else if (entry.isDirectory()) {
-            // Check for {dir}/skill-source.md (preferred) or {dir}/SKILL.md (legacy)
             const srcFile = join(buildingDir, entry.name, "skill-source.md");
-            const legacyFile = join(buildingDir, entry.name, "SKILL.md");
-            try {
-              await readFile(srcFile, "utf-8");
-              results.push({ name: "building/" + entry.name + "/skill-source.md", path: srcFile });
-            } catch {
-              try { await readFile(legacyFile, "utf-8"); results.push({ name: "building/" + entry.name + "/SKILL.md", path: legacyFile }); } catch {}
-            }
+            try { await readFile(srcFile, "utf-8"); results.push({ name: "building/" + entry.name + "/skill-source.md", path: srcFile }); } catch {}
           }
         }
       } catch { /* building dir optional */ }
