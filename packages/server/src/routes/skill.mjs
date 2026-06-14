@@ -127,10 +127,8 @@ export default async function skillRoutes(req, res) {
       // Copy app.html if exists
       try { const appHtml = await readFile(join(srcDir, "app.html"), "utf-8"); await writeFile(join(destDir, "app.html"), appHtml, "utf-8"); } catch {}
 
-      // Remove from building/
-      try { await rm(srcDir, { recursive: true, force: true }); } catch {}
-
-      json(res, { ok: true, id: skillId, kind: target, path: destDir });
+      // Keep original in building/ as source code
+      json(res, { ok: true, id: skillId, kind: target, path: destDir, sourcePath: srcDir });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
