@@ -156,12 +156,14 @@ export default async function skillRoutes(req, res) {
       await mkdir(destDir, { recursive: true });
       await copyDir(srcDir, destDir);
 
-      // Extract userInputs from SKILL.md frontmatter → write inputs.json
+      // Extract userInputs from SKILL.md frontmatter → write to input-prompt/ (interface definition)
       const skillMd = await readFile(join(destDir, "SKILL.md"), "utf-8");
       const parsed = parseSkillFrontmatter(skillMd);
       if (parsed.userInputs && parsed.userInputs.length > 0) {
+        const inputPromptDir = join(PATHS.INPUT_PROMPT_ROOT, skillId);
+        await mkdir(inputPromptDir, { recursive: true });
         await writeFile(
-          join(destDir, "inputs.json"),
+          join(inputPromptDir, "inputs.json"),
           JSON.stringify({ skillId, userInputs: parsed.userInputs }, null, 2),
           "utf-8"
         );
