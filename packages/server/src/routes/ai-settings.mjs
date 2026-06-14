@@ -18,7 +18,7 @@ import { readBody, json, urlPath } from "./context.mjs";
 
 const AI_SETTINGS_ROOT = resolve(
   import.meta.dirname
-    ? join(import.meta.dirname, "../../../data/ai-settings")
+    ? join(import.meta.dirname, "../../../../data/ai-settings")
     : join(process.cwd(), "data/ai-settings")
 );
 
