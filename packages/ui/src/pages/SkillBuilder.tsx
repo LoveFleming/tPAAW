@@ -403,15 +403,15 @@ export default function SkillBuilder() {
   // ── Build: interactive CLI ──
   const handleBuild = async () => {
     const skillDef = buildSkillMd(form);
-    // Load AI settings context
-    let contextSection = "";
+    // Get assembled context from context-engine
+    let prompt = skillDef;
     try {
-      for (const file of ["skill-format", "builder-rules"]) {
-        const r = await fetch(`${API_BASE}/api/ai-settings/skill-builder/${file}.md`);
-        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
-      }
-    } catch { /* settings unavailable, continue without */ }
-    const prompt = contextSection ? `${contextSection}\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}` : skillDef;
+      const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillDef }),
+      });
+      if (res.ok) { const ctx = await res.json(); prompt = ctx.prompt || skillDef; }
+    } catch { /* context-engine unavailable, use raw skillDef */ }
     if (!chatStarted) { setInitialPrompt(prompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
     else { terminalRef.current?.sendPrompt(prompt); }
   };
@@ -433,14 +433,14 @@ export default function SkillBuilder() {
     const skillDef = buildSkillMd(form);
 
     // Load AI settings context
-    let contextSection = "";
+    let contextSkillDef = skillDef;
     try {
-      for (const file of ["skill-format", "builder-rules"]) {
-        const r = await fetch(`${API_BASE}/api/ai-settings/skill-builder/${file}.md`);
-        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
-      }
-    } catch { /* settings unavailable */ }
-    const contextSkillDef = contextSection ? `${contextSection}\n\n---\n\n根據以上規則建立的 Skill：\n\n${skillDef}` : skillDef;
+      const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillDef }),
+      });
+      if (res.ok) { const ctx = await res.json(); contextSkillDef = ctx.prompt || skillDef; }
+    } catch { /* context-engine unavailable */ }
     const testOutputDir = `${workingDir || "."}/data/skills/.test-output/${form.id || "untitled"}`;
     let prompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### Skill 定義\n${contextSkillDef}`;
     if (form.inputs.length > 0) {

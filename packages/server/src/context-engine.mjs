@@ -73,6 +73,16 @@ function loadAppBuilderRules() {
   return safeRead(resolve(AI_SETTINGS_DIR, "app-builder/app-builder-rules.md")) || safeRead(resolve(CONFIG_DIR, "app-builder-rules.md"));
 }
 
+/** Skill Builder 格式定義 */
+function loadSkillFormat() {
+  return safeRead(resolve(AI_SETTINGS_DIR, "skill-builder/skill-format.md"));
+}
+
+/** Skill Builder 產出規則 */
+function loadSkillBuilderRules() {
+  return safeRead(resolve(AI_SETTINGS_DIR, "skill-builder/builder-rules.md"));
+}
+
 /** Reply Rules */
 function loadReplyRules() {
   return safeRead(resolve(AI_SETTINGS_DIR, "chat/reply-rules.md")) || safeRead(resolve(SYSTEM_DIR, "reply-rules.md"));
@@ -262,11 +272,12 @@ export const contextEngine = {
    */
   async build(params) {
     switch (params.target) {
-      case "chat":       return this._buildChat(params);
-      case "skill-exec": return this._buildSkillExec(params);
-      case "workflow":   return this._buildWorkflow(params);
-      case "crew":       return this._buildCrew(params);
-      default:           return { systemPrompt: "" };
+      case "chat":          return this._buildChat(params);
+      case "skill-exec":    return this._buildSkillExec(params);
+      case "workflow":      return this._buildWorkflow(params);
+      case "crew":          return this._buildCrew(params);
+      case "skill-builder": return this._buildSkillBuilder(params);
+      default:              return { systemPrompt: "" };
     }
   },
 
@@ -437,6 +448,27 @@ export const contextEngine = {
     if (apps) parts.push(`\n=== 可用的 App ===\n${apps}`);
 
     return { systemPrompt: parts.join("\n"), meta: { crew: crewData } };
+  },
+
+  // ── Skill Builder: AI 設定 context ──────────────────────
+  // 供 SkillBuilder CLI 用：格式規範 + 產出規則
+  _buildSkillBuilder(params) {
+    const { skillDef = "" } = params;
+    const parts = [];
+
+    const skillFormat = loadSkillFormat();
+    if (skillFormat) parts.push(`### Skill Format\n${skillFormat}`);
+
+    const builderRules = loadSkillBuilderRules();
+    if (builderRules) parts.push(`### Builder Rules\n${builderRules}`);
+
+    const contextSection = parts.join("\n\n");
+    const systemPrompt = "你是 PAAW Skill 建構專家。根據使用者提供的資訊和規則，產出完整的 SKILL.md。";
+    const prompt = contextSection
+      ? `${contextSection}\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}`
+      : skillDef;
+
+    return { systemPrompt, prompt };
   },
 };
 

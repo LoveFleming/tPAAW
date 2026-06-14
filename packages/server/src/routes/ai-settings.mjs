@@ -144,6 +144,20 @@ export default async function aiSettingsRoutes(req, res) {
     return true;
   }
 
+  // POST /api/ai-settings/skill-builder/build — get assembled context for CLI
+  const buildMatch = req.method === "POST" && path === "/api/ai-settings/skill-builder/build";
+  if (buildMatch) {
+    try {
+      const { skillDef = "" } = JSON.parse(await readBody(req));
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "skill-builder", skillDef });
+      json(res, ctx);
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
   return false;
 }
 
