@@ -1652,7 +1652,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     try {
       const skillsDir = join(PAAW_ROOT, "data/skills");
       const results = [];
-      // Scan skills/building/ for flat *.md files and {id}/SKILL.md directories
+      // Scan skills/building/ for flat *.md files and {id}/skill-source.md directories
       try {
         const buildingDir = join(skillsDir, "building");
         await mkdir(buildingDir, { recursive: true });
@@ -1661,8 +1661,15 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
           if (entry.isFile() && /\.md$/i.test(entry.name) && !entry.name.startsWith("_")) {
             results.push({ name: "building/" + entry.name, path: join(buildingDir, entry.name) });
           } else if (entry.isDirectory()) {
-            const skillMd = join(buildingDir, entry.name, "SKILL.md");
-            try { await readFile(skillMd, "utf-8"); results.push({ name: "building/" + entry.name + "/SKILL.md", path: skillMd }); } catch {}
+            // Check for {dir}/skill-source.md (preferred) or {dir}/SKILL.md (legacy)
+            const srcFile = join(buildingDir, entry.name, "skill-source.md");
+            const legacyFile = join(buildingDir, entry.name, "SKILL.md");
+            try {
+              await readFile(srcFile, "utf-8");
+              results.push({ name: "building/" + entry.name + "/skill-source.md", path: srcFile });
+            } catch {
+              try { await readFile(legacyFile, "utf-8"); results.push({ name: "building/" + entry.name + "/SKILL.md", path: legacyFile }); } catch {}
+            }
           }
         }
       } catch { /* building dir optional */ }

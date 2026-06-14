@@ -389,7 +389,7 @@ export default function SkillBuilder() {
   const handleCreate = async () => {
     const raw = newFileName.trim(); if (!raw) return;
     const slug = raw.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "");
-    const fullPath = `${workingDir || "."}/data/skills/building/${slug}/SKILL.md`;
+    const fullPath = `${workingDir || "."}/data/skills/building/${slug}/skill-source.md`;
     const newForm: SkillForm = { ...EMPTY_SKILL, id: slug, name: raw.replace(/\.md$/, "") };
     await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm) }) });
     setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm);
@@ -548,7 +548,7 @@ export default function SkillBuilder() {
           <select value={selectedPath} onChange={e => handleSelectFile(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1" style={{ minWidth: 200, "--tw-ring-color": accent } as React.CSSProperties}>
             <option value="">-- {t("common.select", "選擇")} Skill --</option>
             {files.map(f => {
-              const label = f.name.replace(/^building\//, "").replace(/\/SKILL\.md$/, "").replace(/^build-/, "").replace(/\.md$/, "");
+              const label = f.name.replace(/^building\//, "").replace(/\/skill-source\.md$/, "").replace(/\/SKILL\.md$/, "").replace(/^build-/, "").replace(/\.md$/, "");
               return <option key={f.path} value={f.path}>{label}</option>;
             })}
           </select>
@@ -573,7 +573,7 @@ export default function SkillBuilder() {
             <h3 className="text-base font-bold text-stone-800 mb-1">📄 建立新的 Skill</h3>
             <p className="text-xs text-stone-500 mb-4">給 Skill 一個名字</p>
             <input type="text" value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} placeholder="例：translate、log-analyzer" className="w-full px-4 py-2.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 mb-2" style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties} autoFocus />
-            {newFileName.trim() && <p className="text-[11px] text-stone-400 mb-4">→ {newFileName.trim().replace(/\s+/g, "-").toLowerCase()}/SKILL.md</p>}
+            {newFileName.trim() && <p className="text-[11px] text-stone-400 mb-4">→ {newFileName.trim().replace(/\s+/g, "-").toLowerCase()}/skill-source.md</p>}
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowNewDialog(false)} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50">{t("common.cancel")}</button>
               <button onClick={handleCreate} disabled={!newFileName.trim()}

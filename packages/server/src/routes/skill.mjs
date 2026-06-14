@@ -149,13 +149,20 @@ export default async function skillRoutes(req, res) {
         : PATHS.PHYSICAL_SKILL_ROOT;
       const destDir = join(targetRoot, skillId);
 
-      // Check source SKILL.md exists
-      try { await readFile(join(srcDir, "SKILL.md"), "utf-8"); }
-      catch { json(res, { error: `Skill not found in building/: ${skillId}` }, 404); return true; }
+      // Check source skill-source.md exists
+      try { await readFile(join(srcDir, "skill-source.md"), "utf-8"); }
+      catch { json(res, { error: `Skill not found in building/: ${skillId}/skill-source.md` }, 404); return true; }
 
-      // Recursive copy entire directory
+      // Recursive copy entire directory (skip test-output)
       await mkdir(destDir, { recursive: true });
       await copyDir(srcDir, destDir);
+
+      // Rename skill-source.md → SKILL.md in destination
+      try {
+        const srcContent = await readFile(join(destDir, "skill-source.md"), "utf-8");
+        await writeFile(join(destDir, "SKILL.md"), srcContent, "utf-8");
+        await rm(join(destDir, "skill-source.md"));
+      } catch {}
 
       // Extract userInputs from SKILL.md frontmatter → write to input-prompt/ (interface definition)
       const skillMd = await readFile(join(destDir, "SKILL.md"), "utf-8");
