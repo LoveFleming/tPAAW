@@ -8,7 +8,7 @@ import { PATHS, readBody, json, urlPath, parseSkillFrontmatter } from "./context
 const ROOTS = [PATHS.INPUT_PROMPT_ROOT, PATHS.PHYSICAL_SKILL_ROOT, PATHS.SKILL_POOL_ROOT];
 const ROOT_KINDS = ["input-prompt", "physical-skill", "skill-pool"];
 
-// Recursive copy directory, skip test-output/
+// Recursive copy directory
 async function copyDir(src, dest) {
   await mkdir(dest, { recursive: true });
   const entries = await readdir(src, { withFileTypes: true });
@@ -137,29 +137,30 @@ export default async function skillRoutes(req, res) {
     return true;
   }
 
-  // POST /api/skills/:id/publish — clone entire skill dir from building/ to target
+  // POST /api/skills/:id/publish — copy package/ from building/ to physical-skill/
   const pubMatch = req.method === "POST" && path.match(/^\/api\/skills\/([\w.-]+)\/publish$/);
   if (pubMatch) {
     const skillId = pubMatch[1];
     try {
       const { target = "physical-skill" } = JSON.parse(await readBody(req));
       const srcDir = join(PATHS.BUILDING_ROOT, skillId);
+      const pkgDir = join(srcDir, "package");
       const targetRoot = target === "input-prompt" ? PATHS.INPUT_PROMPT_ROOT
         : target === "skill-pool" ? PATHS.SKILL_POOL_ROOT
         : PATHS.PHYSICAL_SKILL_ROOT;
       const destDir = join(targetRoot, skillId);
 
-      // Check source skill-source.md exists
-      try { await readFile(join(srcDir, "skill-source.md"), "utf-8"); }
-      catch { json(res, { error: `Skill not found in building/: ${skillId}/skill-source.md` }, 404); return true; }
+      // Check package/ exists
+      try { await readFile(join(pkgDir, "SKILL.md"), "utf-8"); }
+      catch { json(res, { error: `Package not found: building/${skillId}/package/SKILL.md` }, 404); return true; }
 
-      // Recursive copy entire directory (skip test-output)
+      // Copy package/ contents → physical-skill/{id}/
       await mkdir(destDir, { recursive: true });
-      await copyDir(srcDir, destDir);
+      await copyDir(pkgDir, destDir);
 
       // Extract userInputs from skill-source.md → write to input-prompt/ (interface definition)
-      const skillMd = await readFile(join(destDir, "skill-source.md"), "utf-8");
-      const parsed = parseSkillFrontmatter(skillMd);
+      const sourceMd = await readFile(join(srcDir, "skill-source.md"), "utf-8");
+      const parsed = parseSkillFrontmatter(sourceMd);
       if (parsed.userInputs && parsed.userInputs.length > 0) {
         const inputPromptDir = join(PATHS.INPUT_PROMPT_ROOT, skillId);
         await mkdir(inputPromptDir, { recursive: true });
@@ -170,7 +171,7 @@ export default async function skillRoutes(req, res) {
         );
       }
 
-      // Keep original in building/ as source code
+      // skill-source.md stays in building/, never published
       json(res, {
         ok: true, id: skillId, kind: target,
         path: destDir, sourcePath: srcDir,

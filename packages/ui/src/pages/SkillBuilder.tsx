@@ -389,9 +389,14 @@ export default function SkillBuilder() {
   const handleCreate = async () => {
     const raw = newFileName.trim(); if (!raw) return;
     const slug = raw.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "");
-    const fullPath = `${workingDir || "."}/data/skills/building/${slug}/skill-source.md`;
+    const basePath = `${workingDir || "."}/data/skills/building/${slug}`;
+    const fullPath = `${basePath}/skill-source.md`;
     const newForm: SkillForm = { ...EMPTY_SKILL, id: slug, name: raw.replace(/\.md$/, "") };
+    // Create skill-source.md (original source, read-only after build)
     await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm) }) });
+    // Create package/ directory with initial SKILL.md
+    const pkgPath = `${basePath}/package/SKILL.md`;
+    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(pkgPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm) }) });
     setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm);
     const initInputs: Record<string, string> = {};
     newForm.inputs.forEach(inp => { initInputs[inp.id] = inp.id === "output_path" ? "" : ""; });
@@ -432,7 +437,7 @@ export default function SkillBuilder() {
     // No build-time prompts (format, builder-rules) — those are only for building
     const skillDef = buildSkillMd(form);
     // Test mode: fixed output dir, always overwritten, no accumulation
-    const testOutputDir = `data/skills/building/${form.id || "untitled"}/test-output`;
+    const testOutputDir = `data/skills/building/${form.id || "untitled"}/package`;
     // Clean previous test output
     try { await fetch(`${API_BASE}/api/fs/rmdir?path=${encodeURIComponent(testOutputDir)}`, { method: "DELETE" }); } catch {}
     let prompt = skillDef;
@@ -669,7 +674,7 @@ export default function SkillBuilder() {
                       <div className="p-4 space-y-3">
                         {form.inputs.length > 0 ? form.inputs.map(inp => {
                           const isOutputPath = inp.id === "output_path";
-                          const fixedTestPath = `data/skills/building/${form.id || "untitled"}/test-output`;
+                          const fixedTestPath = `data/skills/building/${form.id || "untitled"}/package`;
                           return (
                           <div key={inp.id}>
                             <label className="block text-xs font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>}{isOutputPath && <span className="ml-1 text-stone-400 font-normal">（測試固定：{fixedTestPath}）</span>}</label>
