@@ -1,0 +1,10 @@
+{
+  "id": "pty-1781447184308-ewmr",
+  "cli": "qwen",
+  "model": null,
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": "yolo",
+  "systemPrompt": null,
+  "createdAt": "2026-06-14T14:26:24.322Z",
+  "lastActive": "2026-06-14T14:32:07.886Z"
+}

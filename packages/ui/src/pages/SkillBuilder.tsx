@@ -312,6 +312,7 @@ export default function SkillBuilder() {
   const [selectedFile, setSelectedFile] = useState<OutputFile | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [testError, setTestError] = useState<string>("");
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
 
   // Tabs
   const [tab, setTab] = useState<"builder" | "test">("builder");
@@ -421,6 +422,20 @@ export default function SkillBuilder() {
   };
 
   // ── Test: non-interactive CLI → SSE → auto show files ──
+  const buildTestPrompt = () => {
+    const skillDef = buildSkillMd(form);
+    const testOutputDir = `data/skills/building/${form.id || "untitled"}/package`;
+    let prompt = skillDef;
+    if (form.inputs.length > 0) {
+      const inputSection = form.inputs.map(inp => {
+        if (inp.id === "output_path") return `**${inp.label}**: ${testOutputDir}`;
+        return `**${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`;
+      }).join("\n");
+      prompt += `\n\n### 測試輸入\n${inputSection}`;
+    }
+    return prompt;
+  };
+
   const handleTest = async () => {
     setTestRunning(true);
     setTestError("");
@@ -433,21 +448,11 @@ export default function SkillBuilder() {
     const startTime = Date.now();
     const elapsedTimer = setInterval(() => setTestElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
-    // Test = skill-exec mode: SKILL.md body + user inputs only
-    // No build-time prompts (format, builder-rules) — those are only for building
-    const skillDef = buildSkillMd(form);
+    const prompt = buildTestPrompt();
     // Test mode: fixed output dir, always overwritten, no accumulation
     const testOutputDir = `data/skills/building/${form.id || "untitled"}/package`;
     // Clean previous test output
     try { await fetch(`${API_BASE}/api/fs/rmdir?path=${encodeURIComponent(testOutputDir)}`, { method: "DELETE" }); } catch {}
-    let prompt = skillDef;
-    if (form.inputs.length > 0) {
-      const inputSection = form.inputs.map(inp => {
-        if (inp.id === "output_path") return `**${inp.label}**: ${testOutputDir}`;
-        return `**${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`;
-      }).join("\n");
-      prompt += `\n\n### 測試輸入\n${inputSection}`;
-    }
 
     try {
       const res = await fetch(`${API_BASE}/api/skill-test/run`, {
@@ -689,6 +694,16 @@ export default function SkillBuilder() {
                       </div>
                     </div>
 
+                    {showPromptPreview && (
+                      <div className="border border-stone-200 rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2 bg-stone-50 border-b border-stone-200">
+                          <span className="text-xs font-semibold text-stone-600">📋 送給 CLI 的完整提示詞</span>
+                          <button onClick={() => { navigator.clipboard?.writeText(buildTestPrompt()); }} className="text-[11px] text-stone-400 hover:text-stone-600">複製</button>
+                        </div>
+                        <pre className="p-4 text-[11px] text-stone-700 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{buildTestPrompt()}</pre>
+                      </div>
+                    )}
+
                     {testError && (
                       <div className="border border-rose-200 rounded-xl p-4 bg-rose-50">
                         <p className="text-sm font-medium text-rose-700">❌ 測試失敗</p>
@@ -733,6 +748,10 @@ export default function SkillBuilder() {
                     style={!canTest || testRunning ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     {testRunning && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                     {testRunning ? `執行中... ${testElapsed}s` : "▶️ 執行測試"}
+                  </button>
+                  <button onClick={() => setShowPromptPreview(!showPromptPreview)}
+                    className="px-4 py-2.5 text-sm font-medium rounded-xl border border-stone-200 hover:bg-stone-50 transition-all flex items-center gap-1.5 text-stone-600">
+                    📋 預覽提示詞
                   </button>
                   {hasEmptyRequired && !testRunning && <span className="text-[11px] text-rose-400">⚠️ 請填寫所有必填欄位</span>}
                 </div>
