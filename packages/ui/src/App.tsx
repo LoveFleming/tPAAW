@@ -761,7 +761,7 @@ function AppInner() {
                 ))}
                 <NavItem
                   active={activePage.endsWith(":ai-settings")}
-                  label="AI 設定"
+                  label="AI Settings"
                   onClick={openSystemPrompts}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
