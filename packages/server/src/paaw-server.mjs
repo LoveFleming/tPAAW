@@ -1829,9 +1829,10 @@ async function paawApiHandler(req, res) {
     const body = JSON.parse(await readBody(req));
     const { skillId, prompt, cwd, cli = "qwen", timeout = 120, maxToolCalls = 10 } = body;
     // 1. Create temp dir — use relative path for CLI compatibility
-    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const relTestDir = `data/skills/building/${skillId || "unknown"}/test-${ts}`;
+    const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
     const testDir = resolve(PAAW_ROOT, relTestDir);
+    // Clean previous test output (always overwrite)
+    try { await rm(testDir, { recursive: true, force: true }); } catch {}
     await mkdir(testDir, { recursive: true });
     // 2. SSE headers
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
