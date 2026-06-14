@@ -29,6 +29,7 @@ const APPS_DIR = resolve(DATA_DIR, "apps");
 const CHAT_DIR = resolve(DATA_DIR, "chats");
 const SKILL_POOL_DIR = resolve(DATA_DIR, "skills/physical-skill");
 const AI_SETTINGS_DIR = resolve(DATA_DIR, "ai-settings");
+const BASE_SETTINGS_DIR = resolve(AI_SETTINGS_DIR, "_base");
 
 // ── Helpers ──
 function safeRead(filePath) {
@@ -60,17 +61,27 @@ function loadMemory() {
 
 /** System prompt（通用） */
 function loadSystemPrompt() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "chat/system-prompt.md")) || safeRead(resolve(SYSTEM_DIR, "system-prompt.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "chat/system-prompt.md"));
+}
+
+/** Base context — 每個 AI request 都帶 */
+function loadBaseContext() {
+  const parts = [];
+  const paawCtx = safeRead(resolve(BASE_SETTINGS_DIR, "paaw-context.md"));
+  if (paawCtx) parts.push(paawCtx);
+  const coreRules = safeRead(resolve(BASE_SETTINGS_DIR, "core-rules.md"));
+  if (coreRules) parts.push(coreRules);
+  return parts.join("\n\n");
 }
 
 /** Guardrails */
 function loadGuardrails() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "chat/guardrails.md")) || safeRead(resolve(SYSTEM_DIR, "guardrails.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "chat/guardrails.md"));
 }
 
 /** App 建構規則 */
 function loadAppBuilderRules() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "app-builder/app-builder-rules.md")) || safeRead(resolve(CONFIG_DIR, "app-builder-rules.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "app-builder/app-builder-rules.md"));
 }
 
 /** Skill Builder 格式定義 */
@@ -85,7 +96,7 @@ function loadSkillBuilderRules() {
 
 /** Reply Rules */
 function loadReplyRules() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "chat/reply-rules.md")) || safeRead(resolve(SYSTEM_DIR, "reply-rules.md"));
+  return safeRead(resolve(AI_SETTINGS_DIR, "chat/reply-rules.md"));
 }
 
 /** Workspaces */
@@ -301,8 +312,12 @@ export const contextEngine = {
 
     const parts = [];
 
+    // 0. Base context — PAAW runtime info + core rules (always first)
+    const baseCtx = loadBaseContext();
+    if (baseCtx) parts.push(baseCtx);
+
     // 1. Identity（從檔案讀取，支援模板變數）
-    const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md")) || safeRead(resolve(SYSTEM_DIR, "identity.md"));
+    const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
     const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
     if (identityTpl) {
       parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
@@ -405,12 +420,17 @@ export const contextEngine = {
       }
     }
 
-    // Load app SYSTEM.md
+    // Load base context + app SYSTEM.md
+    const baseCtx = loadBaseContext();
     const appSystem = appId ? safeRead(resolve(APPS_DIR, appId, "SYSTEM.md")) : "";
 
-    const systemPrompt = appSystem
-      ? `${appSystem}\n\n你是「${appId}」App 的 Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。`
-      : "你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。";
+    const baseParts = [];
+    if (baseCtx) baseParts.push(baseCtx);
+    if (appSystem) baseParts.push(appSystem);
+    baseParts.push("你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。");
+    const systemPrompt = appId
+      ? `${baseParts.join("\n\n")}（App: ${appId}）`
+      : baseParts.join("\n\n");
 
     return { systemPrompt, prompt, meta: { skillMeta: meta } };
   },
@@ -442,6 +462,11 @@ export const contextEngine = {
     const apps = loadAppInstructions();
 
     const parts = [];
+
+    // 0. Base context — PAAW runtime info + core rules (always first)
+    const baseCtx = loadBaseContext();
+    if (baseCtx) parts.push(baseCtx);
+
     if (crewData.rolePrompt) parts.push(crewData.rolePrompt);
     parts.push(`\n=== 使用者 ===\n- 名字：${user.name || "未知"}`);
     if (memory) parts.push(`\n=== 長期記憶 ===\n${memory}`);
@@ -455,6 +480,10 @@ export const contextEngine = {
   _buildSkillBuilder(params) {
     const { skillDef = "" } = params;
     const parts = [];
+
+    // 0. Base context — PAAW runtime info + core rules (always first)
+    const baseCtx = loadBaseContext();
+    if (baseCtx) parts.push(baseCtx);
 
     const skillFormat = loadSkillFormat();
     if (skillFormat) parts.push(`### Skill Format\n${skillFormat}`);

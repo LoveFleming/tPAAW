@@ -25,6 +25,7 @@ const AI_SETTINGS_ROOT = resolve(
 
 // Category metadata — fixed set, but files are dynamic
 const CATEGORIES = [
+  { id: "_base",          label: "Base",          icon: "🏛️", desc: "PAW 基本資訊 — 每個 AI request 都會帶上，放最前面" },
   { id: "chat",          label: "Chat",          icon: "💬", desc: "聊天助理的 AI 設定 — 身份、系統提示、防護規則" },
   { id: "skill-builder", label: "Skill Builder", icon: "🔨", desc: "Skill 建構器的 AI 設定 — 格式規範、產出規則" },
   { id: "app-builder",   label: "App Builder",   icon: "📦", desc: "App 建構器的 AI 設定 — App 產出規則" },
