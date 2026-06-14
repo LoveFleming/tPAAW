@@ -2,6 +2,7 @@
  * AISettingsPage — AI Settings Management (by category)
  *
  * Categories: chat, skill-builder, app-builder
+ * Files within each category are fully dynamic (CRUD).
  * API: /api/ai-settings/:category/:file
  */
 
@@ -10,25 +11,41 @@ import { useTheme } from "../theme";
 
 const API_BASE = "http://127.0.0.1:4097";
 
+interface CategoryFile {
+  file: string;
+  label: string;
+  icon: string;
+  content?: string;
+  exists?: boolean;
+}
+
 interface Category {
   id: string;
   label: string;
   icon: string;
   desc: string;
-  files: { file: string; icon: string; label: string; desc: string }[];
+  files: CategoryFile[];
 }
 
 export default function AISettingsPage() {
   const { info: t } = useTheme();
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");
-  const [files, setFiles] = useState<Record<string, string | null>>({});
+  const [files, setFiles] = useState<CategoryFile[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // New file dialog state
+  const [showNewFile, setShowNewFile] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Delete state
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Load category list
   useEffect(() => {
@@ -51,11 +68,7 @@ export default function AISettingsPage() {
       const res = await fetch(`${API_BASE}/api/ai-settings/${categoryId}`);
       if (!res.ok) return;
       const data = await res.json();
-      const fileMap: Record<string, string | null> = {};
-      for (const f of data.files || []) {
-        fileMap[f.file] = f.exists ? f.content : null;
-      }
-      setFiles(fileMap);
+      setFiles(data.files || []);
     } catch (err: any) {
       setError(err.message);
     }
@@ -66,12 +79,14 @@ export default function AISettingsPage() {
       loadCategory(activeCategory);
       setEditing(null);
       setError(null);
+      setShowNewFile(false);
     }
   }, [activeCategory, loadCategory]);
 
   const startEdit = (file: string) => {
+    const f = files.find(x => x.file === file);
     setEditing(file);
-    setEditContent(files[file] || "");
+    setEditContent(f?.content || "");
     setSaved(false);
     setError(null);
   };
@@ -87,7 +102,7 @@ export default function AISettingsPage() {
         body: JSON.stringify({ content: editContent }),
       });
       if (res.ok) {
-        setFiles(prev => ({ ...prev, [editing!]: editContent }));
+        setFiles(prev => prev.map(f => f.file === editing ? { ...f, content: editContent, exists: true } : f));
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
       } else {
@@ -107,12 +122,67 @@ export default function AISettingsPage() {
     setError(null);
   };
 
+  const handleCreate = async () => {
+    let name = newFileName.trim();
+    if (!name) return;
+    if (!name.endsWith(".md")) name += ".md";
+    if (name.includes("..") || name.includes("/")) {
+      setError("Invalid filename");
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/ai-settings/${activeCategory}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file: name, content: "" }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setNewFileName("");
+        setShowNewFile(false);
+        await loadCategory(activeCategory);
+        // Auto-open editor for new file
+        setTimeout(() => startEdit(name), 200);
+      } else {
+        setError(data.error || "Create failed");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (file: string) => {
+    setDeleting(file);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/ai-settings/${activeCategory}/${file}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (editing === file) cancelEdit();
+        await loadCategory(activeCategory);
+      } else {
+        setError(data.error || "Delete failed");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   // ── Styles ──
   const cardBg = "#ffffff";
   const cardBorder = "#e7e5e4";
   const activeBorder = t.accent;
   const muted = "#8a8580";
   const mono = "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace";
+  const dangerColor = "#dc2626";
 
   if (loading) {
     return (
@@ -138,17 +208,26 @@ export default function AISettingsPage() {
               管理各模組的 AI 設定。修改後即時生效，不需重啟。
             </p>
           </div>
-          {activeCategory && (
-            <button
-              onClick={() => loadCategory(activeCategory)}
-              className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
-              style={{ borderColor: cardBorder, color: muted }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = cardBorder; e.currentTarget.style.color = muted; }}
-            >
-              ↻ Refresh
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {activeCategory && (
+              <button
+                onClick={() => { setShowNewFile(true); setError(null); }}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
+                style={{ background: t.accent, color: "#fff" }}
+              >
+                + 新增
+              </button>
+            )}
+            {activeCategory && (
+              <button
+                onClick={() => loadCategory(activeCategory)}
+                className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                style={{ borderColor: cardBorder, color: muted }}
+              >
+                ↻ Refresh
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Category Tabs */}
@@ -176,10 +255,51 @@ export default function AISettingsPage() {
           </p>
         )}
 
+        {/* New file dialog */}
+        {showNewFile && (
+          <div className="mb-4 rounded-xl p-4" style={{ background: cardBg, border: `1.5px solid ${activeBorder}` }}>
+            <div className="text-sm font-semibold mb-2" style={{ color: "#1c1917" }}>新增 AI 設定檔</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newFileName}
+                onChange={e => setNewFileName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowNewFile(false); setNewFileName(""); } }}
+                placeholder="例：custom-rules.md"
+                autoFocus
+                className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                style={{ background: "#fafaf9", border: `1px solid ${cardBorder}`, fontFamily: mono }}
+                onFocus={e => e.currentTarget.style.borderColor = t.accent}
+                onBlur={e => e.currentTarget.style.borderColor = cardBorder}
+              />
+              <button
+                onClick={handleCreate}
+                disabled={creating || !newFileName.trim()}
+                className="text-xs px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50"
+                style={{ background: `linear-gradient(135deg, ${t.accent}, ${t.accentHover})` }}
+              >
+                {creating ? "..." : "建立"}
+              </button>
+              <button
+                onClick={() => { setShowNewFile(false); setNewFileName(""); setError(null); }}
+                className="text-xs px-3 py-2 rounded-lg border"
+                style={{ borderColor: cardBorder, color: muted }}
+              >
+                Cancel
+              </button>
+            </div>
+            {error && <div className="text-xs mt-2" style={{ color: dangerColor }}>{error}</div>}
+          </div>
+        )}
+
         {/* File Cards */}
         <div className="flex flex-col gap-3">
-          {activeCat?.files.map(({ file, icon, label, desc }) => {
-            const content = files[file];
+          {files.length === 0 && !showNewFile && (
+            <div className="text-center py-12 text-sm" style={{ color: muted }}>
+              這個分類還沒有任何檔案。按「+ 新增」建立第一個。
+            </div>
+          )}
+          {files.map(({ file, label, icon, content, exists }) => {
             const isEditing = editing === file;
             const lineCount = content ? content.split("\n").length : 0;
             const charCount = content ? content.length : 0;
@@ -196,53 +316,74 @@ export default function AISettingsPage() {
               >
                 {/* Card Header */}
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${cardBorder}` }}>
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-base">{icon}</span>
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span className="text-base">{icon || "📄"}</span>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold truncate" style={{ color: "#1c1917" }}>
                         {label}
                       </div>
-                      <div className="text-[11px]" style={{ color: muted }}>
-                        {desc}
+                      <div className="text-[11px] flex items-center gap-2" style={{ color: muted }}>
+                        <span style={{ fontFamily: mono }}>{file}</span>
                         {content && (
-                          <span className="ml-1.5 opacity-60">· {lineCount} lines · {charCount} chars</span>
+                          <span className="opacity-60">{lineCount} lines · {charCount} chars</span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {!isEditing ? (
-                    <button
-                      onClick={() => startEdit(file)}
-                      className="shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-all font-medium"
-                      style={{ borderColor: cardBorder, color: t.accent }}
-                      onMouseEnter={e => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = t.accent; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.color = t.accent; e.currentTarget.style.borderColor = cardBorder; }}
-                    >
-                      Edit
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={cancelEdit}
-                        className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
-                        style={{ borderColor: cardBorder, color: muted }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={save}
-                        disabled={saving}
-                        className="text-xs px-4 py-1.5 rounded-lg text-white font-medium transition-all disabled:opacity-50"
-                        style={{ background: `linear-gradient(135deg, ${t.accent}, ${t.accentHover})` }}
-                      >
-                        {saving ? "Saving..." : "Save"}
-                      </button>
-                      {saved && <span className="text-xs font-medium" style={{ color: "#16a34a" }}>✓ Saved</span>}
-                      {error && <span className="text-xs" style={{ color: "#dc2626" }}>{error}</span>}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isEditing ? (
+                      <>
+                        <button
+                          onClick={() => startEdit(file)}
+                          className="text-xs px-3 py-1.5 rounded-lg border transition-all font-medium"
+                          style={{ borderColor: cardBorder, color: t.accent }}
+                          onMouseEnter={e => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = t.accent; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.color = t.accent; e.currentTarget.style.borderColor = cardBorder; }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`刪除 ${file}？`)) handleDelete(file);
+                          }}
+                          disabled={deleting === file}
+                          className="text-xs px-2 py-1.5 rounded-lg border transition-all"
+                          style={{ borderColor: cardBorder, color: muted }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = dangerColor; e.currentTarget.style.color = dangerColor; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = cardBorder; e.currentTarget.style.color = muted; }}
+                          title="刪除"
+                        >
+                          {deleting === file ? "..." : "🗑"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={cancelEdit}
+                          className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                          style={{ borderColor: cardBorder, color: muted }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={save}
+                          disabled={saving}
+                          className="text-xs px-4 py-1.5 rounded-lg text-white font-medium transition-all disabled:opacity-50"
+                          style={{ background: `linear-gradient(135deg, ${t.accent}, ${t.accentHover})` }}
+                        >
+                          {saving ? "Saving..." : "Save"}
+                        </button>
+                        {saved && <span className="text-xs font-medium" style={{ color: "#16a34a" }}>✓ Saved</span>}
+                      </>
+                    )}
+                  </div>
                 </div>
+
+                {/* Error */}
+                {error && isEditing && (
+                  <div className="px-4 py-1.5 text-xs" style={{ color: dangerColor, background: "#fef2f2" }}>{error}</div>
+                )}
 
                 {/* Editor */}
                 {isEditing && (
@@ -251,17 +392,16 @@ export default function AISettingsPage() {
                       value={editContent}
                       onChange={e => { setEditContent(e.target.value); setSaved(false); }}
                       placeholder={`Enter content for ${file}...`}
-                      className="w-full rounded-lg p-3 text-[13px] leading-relaxed resize-y focus:outline-none focus:ring-2"
+                      className="w-full rounded-lg p-3 text-[13px] leading-relaxed resize-y focus:outline-none"
                       style={{
                         minHeight: 320,
                         background: "#fafaf9",
                         border: `1px solid ${cardBorder}`,
                         fontFamily: mono,
                         color: "#1c1917",
-                        "--tw-ring-color": t.accent + "40",
                       } as React.CSSProperties}
-                      onFocus={e => { e.currentTarget.style.borderColor = t.accent; }}
-                      onBlur={e => { e.currentTarget.style.borderColor = cardBorder; }}
+                      onFocus={e => e.currentTarget.style.borderColor = t.accent}
+                      onBlur={e => e.currentTarget.style.borderColor = cardBorder}
                     />
                   </div>
                 )}
@@ -278,7 +418,7 @@ export default function AISettingsPage() {
 
                 {!isEditing && !content && (
                   <div className="px-4 py-3 text-[12px] italic" style={{ color: muted + "80" }}>
-                    Not created yet — click Edit to add content.
+                    Empty file — click Edit to add content.
                   </div>
                 )}
               </div>
