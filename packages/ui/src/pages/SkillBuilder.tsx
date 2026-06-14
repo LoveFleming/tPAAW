@@ -89,7 +89,7 @@ function parseSkillMd(content: string): SkillForm {
     }
   }
   // ── Parse body sections line-by-line (only known headings, not any ##) ──
-  const KNOWN_SECTIONS = ["Purpose", "Steps", "Output", "Examples", "Guardrails", "Validation", "Notes"];
+  const KNOWN_SECTIONS = ["Purpose", "Inputs", "Steps", "Output", "Examples", "Guardrails", "Validation", "Notes"];
   const SECTION_SET = new Set(KNOWN_SECTIONS);
   const bodyLines = body.split("\n");
   let currentSection: string | null = null;
