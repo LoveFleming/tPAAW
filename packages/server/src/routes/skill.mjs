@@ -1,7 +1,7 @@
 /**
  * Skill routes — CRUD for skills (pool, input-prompt, physical-skill)
  */
-import { readdir, readFile, writeFile, mkdir, rm } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, rm, rename } from "fs/promises";
 import { join } from "path";
 import { PATHS, readBody, json, urlPath, parseSkillFrontmatter } from "./context.mjs";
 
@@ -99,6 +99,38 @@ export default async function skillRoutes(req, res) {
         try { await rm(skillDir, { recursive: true, force: true }); deleted = true; } catch {}
       }
       json(res, deleted ? { ok: true } : { error: "Not found" }, deleted ? 200 : 404);
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // POST /api/skills/:id/publish — move skill from building/ to input-prompt/
+  const pubMatch = req.method === "POST" && path.match(/^\/api\/skills\/([\w.-]+)\/publish$/);
+  if (pubMatch) {
+    const skillId = pubMatch[1];
+    try {
+      const { target = "input-prompt" } = JSON.parse(await readBody(req));
+      const srcDir = join(PATHS.BUILDING_ROOT, skillId);
+      const targetRoot = target === "physical-skill" ? PATHS.PHYSICAL_SKILL_ROOT
+        : target === "skill-pool" ? PATHS.SKILL_POOL_ROOT
+        : PATHS.INPUT_PROMPT_ROOT;
+      const destDir = join(targetRoot, skillId);
+
+      // Check source exists
+      let srcContent;
+      try { srcContent = await readFile(join(srcDir, "SKILL.md"), "utf-8"); }
+      catch { json(res, { error: `Skill not found in building/: ${skillId}` }, 404); return true; }
+
+      // Write to destination
+      await mkdir(destDir, { recursive: true });
+      await writeFile(join(destDir, "SKILL.md"), srcContent, "utf-8");
+
+      // Copy app.html if exists
+      try { const appHtml = await readFile(join(srcDir, "app.html"), "utf-8"); await writeFile(join(destDir, "app.html"), appHtml, "utf-8"); } catch {}
+
+      // Remove from building/
+      try { await rm(srcDir, { recursive: true, force: true }); } catch {}
+
+      json(res, { ok: true, id: skillId, kind: target, path: destDir });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }

@@ -1,13 +1,8 @@
 /* ── Emoji font fallback for Linux ── */
-@font-face {
-  font-family: "EmojiFallback";
-  src: url("https://cdn.jsdelivr.net/gh/nicedoc/noto-emoji-color-font@master/NotoColorEmoji.ttf") format("truetype");
-  font-display: swap;
-}
 
 /* Apply emoji font as fallback everywhere */
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Color Emoji", "EmojiFallback", sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Color Emoji", sans-serif;
 }
 
 @tailwind base;

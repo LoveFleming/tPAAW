@@ -25,6 +25,7 @@ export const PATHS = {
   INPUT_PROMPT_ROOT: resolve(PAAW_ROOT, "data/skills/input-prompt"),
   PHYSICAL_SKILL_ROOT: resolve(PAAW_ROOT, "data/skills/physical-skill"),
   SKILL_POOL_ROOT: resolve(PAAW_ROOT, "data/skills/pool"),
+  BUILDING_ROOT:   resolve(PAAW_ROOT, "data/skills/building"),
   APPS_ROOT:       resolve(PAAW_ROOT, "data/apps"),
   WORKFLOWS_ROOT:  resolve(PAAW_ROOT, "data/workflows"),
   DOCS_ROOT:       resolve(PAAW_ROOT, "docs"),

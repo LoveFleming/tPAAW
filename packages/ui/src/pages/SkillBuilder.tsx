@@ -40,8 +40,14 @@ function buildPromptFromFields(form: SkillForm): string {
   }
   if (form.steps) parts.push(`## Steps\n${form.steps}`);
   if (form.outputFormat) parts.push(`## Output\n${form.outputFormat}`);
-  if (form.guardrails) parts.push(`## Guardrails\n${form.guardrails}`);
-  if (form.validation) parts.push(`## Validation\n${form.validation}`);
+  if (form.guardrails) parts.push(`## Guardrails
+${form.guardrails}`);
+  if (form.examples) parts.push(`## Examples
+${form.examples}`);
+  if (form.validation) parts.push(`## Validation
+${form.validation}`);
+  if (form.notes) parts.push(`## Notes
+${form.notes}`);
   return parts.join("\n\n");
 }
 
@@ -62,6 +68,8 @@ function parseSkillMd(content: string): SkillForm {
     else if (key === "description") form.description = val.trim();
     else if (key === "runner") form.runner = val.trim() as SkillForm["runner"];
     else if (key === "tags") form.tags = val.trim();
+    else if (key === "examples") form.examples = val.trim();
+    else if (key === "notes") form.notes = val.trim();
     else if (key === "visibility") form.visibility = val.trim() as SkillForm["visibility"];
   }
   const inputsMatch = fm.match(/userInputs:\s*\n([\s\S]*?)(?=\n\S|\s*$)/);
@@ -78,16 +86,42 @@ function parseSkillMd(content: string): SkillForm {
       if (field.id) form.inputs.push(field);
     }
   }
-  const purposeM = body.match(/## Purpose\n([\s\S]*?)(?=\n## |\n*$)/); if (purposeM) form.purpose = purposeM[1].trim();
-  const stepsM = body.match(/## Steps\n([\s\S]*?)(?=\n## |\n*$)/); if (stepsM) form.steps = stepsM[1].trim();
-  const outputM = body.match(/## Output\n([\s\S]*?)(?=\n## |\n*$)/); if (outputM) form.outputFormat = outputM[1].trim();
-  const guardM = body.match(/## Guardrails\n([\s\S]*?)(?=\n## |\n*$)/); if (guardM) form.guardrails = guardM[1].trim();
-  const valM = body.match(/## Validation\n([\s\S]*?)(?=\n## |\n*$)/); if (valM) form.validation = valM[1].trim();
+  // ── Parse body sections line-by-line (only known headings, not any ##) ──
+  const KNOWN_SECTIONS = ["Purpose", "Steps", "Output", "Examples", "Guardrails", "Validation", "Notes"];
+  const SECTION_SET = new Set(KNOWN_SECTIONS);
+  const bodyLines = body.split("\n");
+  let currentSection: string | null = null;
+  let sectionBuffer: string[] = [];
+  const sections = new Map<string, string>();
+
+  const flushSection = () => {
+    if (currentSection) sections.set(currentSection, sectionBuffer.join("\n").trim());
+    sectionBuffer = [];
+  };
+
+  for (const line of bodyLines) {
+    const h = line.match(/^## (.+)$/);
+    if (h && SECTION_SET.has(h[1].trim())) {
+      flushSection();
+      currentSection = h[1].trim();
+    } else if (currentSection) {
+      sectionBuffer.push(line);
+    }
+  }
+  flushSection();
+
+  form.purpose = sections.get("Purpose") || "";
+  form.steps = sections.get("Steps") || "";
+  form.outputFormat = sections.get("Output") || "";
+  form.examples = sections.get("Examples") || "";
+  form.guardrails = sections.get("Guardrails") || "";
+  form.validation = sections.get("Validation") || "";
+  form.notes = sections.get("Notes") || "";
   return form;
 }
 
-function buildSkillMd(form: SkillForm, expertMode: boolean): string {
-  const promptBody = expertMode ? form.systemPrompt : buildPromptFromFields(form);
+function buildSkillMd(form: SkillForm): string {
+  const promptBody = buildPromptFromFields(form);
   const lines: string[] = ["---"];
   lines.push(`id: ${form.id || "untitled"}`);
   lines.push(`name: ${form.name || "Untitled"}`);
@@ -96,6 +130,8 @@ function buildSkillMd(form: SkillForm, expertMode: boolean): string {
   lines.push(`runner: ${form.runner}`);
   if (form.visibility && form.visibility !== "private") lines.push(`visibility: ${form.visibility}`);
   if (form.tags) lines.push(`tags: ${form.tags}`);
+  if (form.examples) lines.push(`examples: ${form.examples}`);
+  if (form.notes) lines.push(`notes: ${form.notes}`);
   if (form.inputs.length > 0) {
     lines.push("userInputs:");
     for (const inp of form.inputs) {
@@ -252,7 +288,6 @@ export default function SkillBuilder() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [workingDir, setWorkingDir] = useState("");
-  const [expertMode, setExpertMode] = useState(false);
 
   // Builder CLI (interactive)
   const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
@@ -265,6 +300,9 @@ export default function SkillBuilder() {
   // Skill creator
   const [skillCreatorContent, setSkillCreatorContent] = useState("");
   const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
+
+  // ── Publish state ──
+  const [publishStatus, setPublishStatus] = useState<"" | "publishing" | "done" | "error">("");
 
   // Test state
   const [testInputs, setTestInputs] = useState<Record<string, string>>({});
@@ -324,7 +362,6 @@ export default function SkillBuilder() {
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const formRef = useRef(form); formRef.current = form;
-  const expertModeRef = useRef(expertMode); expertModeRef.current = expertMode;
   const selectedPathRef = useRef(selectedPath); selectedPathRef.current = selectedPath;
 
   const triggerSave = useCallback(() => {
@@ -333,9 +370,8 @@ export default function SkillBuilder() {
     saveTimer.current = setTimeout(() => {
       const currentForm = formRef.current;
       const currentPath = selectedPathRef.current;
-      const currentExpert = expertModeRef.current;
       if (!currentPath || loadingRef.current) return;
-      const content = buildSkillMd(currentForm, currentExpert);
+      const content = buildSkillMd(currentForm);
       setSaveStatus("saving");
       fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(currentPath)}`, {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }),
@@ -356,7 +392,7 @@ export default function SkillBuilder() {
     const fileName = raw.endsWith(".md") ? raw : `build-${slug}.md`;
     const fullPath = `${workingDir || "."}/data/skills/building/${fileName}`;
     const newForm: SkillForm = { ...EMPTY_SKILL, id: slug, name: raw.replace(/\.md$/, "") };
-    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm, false) }) });
+    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm) }) });
     setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm);
     const initInputs: Record<string, string> = {};
     newForm.inputs.forEach(inp => { initInputs[inp.id] = inp.id === "output_path" ? "" : ""; });
@@ -365,9 +401,17 @@ export default function SkillBuilder() {
   };
 
   // ── Build: interactive CLI ──
-  const handleBuild = () => {
-    const skillDef = buildSkillMd(form, expertMode);
-    const prompt = skillCreatorContent ? `${skillCreatorContent}\n\n---\n\n請根據以下 Skill 描述，建立完整的 SKILL.md：\n\n${skillDef}` : skillDef;
+  const handleBuild = async () => {
+    const skillDef = buildSkillMd(form);
+    // Load AI settings context
+    let contextSection = "";
+    try {
+      for (const file of ["skill-format.md", "builder-rules.md"]) {
+        const r = await fetch(`${API_BASE}/api/contexts/skill-builder/${file}`);
+        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/\.md$/, "").replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
+      }
+    } catch { /* settings unavailable, continue without */ }
+    const prompt = contextSection ? `${contextSection}\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}` : skillDef;
     if (!chatStarted) { setInitialPrompt(prompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
     else { terminalRef.current?.sendPrompt(prompt); }
   };
@@ -386,9 +430,19 @@ export default function SkillBuilder() {
     const elapsedTimer = setInterval(() => setTestElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
     // Build test prompt — override output_path with system temp path
-    const skillDef = buildSkillMd(form, expertMode);
+    const skillDef = buildSkillMd(form);
+
+    // Load AI settings context
+    let contextSection = "";
+    try {
+      for (const file of ["skill-format.md", "builder-rules.md"]) {
+        const r = await fetch(`${API_BASE}/api/contexts/skill-builder/${file}`);
+        if (r.ok) { const d = await r.json(); if (d.content) contextSection += `\n### ${file.replace(/\.md$/, "").replace("-", " ").replace(/\b\w/g, c => c.toUpperCase())}\n${d.content}\n`; }
+      }
+    } catch { /* settings unavailable */ }
+    const contextSkillDef = contextSection ? `${contextSection}\n\n---\n\n根據以上規則建立的 Skill：\n\n${skillDef}` : skillDef;
     const testOutputDir = `${workingDir || "."}/data/skills/.test-output/${form.id || "untitled"}`;
-    let prompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### Skill 定義\n${skillDef}`;
+    let prompt = `## 測試任務\n\n請執行以下 Skill 並將所有輸出結果存為檔案。\n\n### Skill 定義\n${contextSkillDef}`;
     if (form.inputs.length > 0) {
       const inputSection = form.inputs.map(inp => {
         if (inp.id === "output_path") return `**${inp.label}**: ${testOutputDir} （測試模式：固定輸出到系統暫存路徑）`;
@@ -461,7 +515,31 @@ export default function SkillBuilder() {
     }
   };
 
-  const canBuild = form.purpose.trim() || (expertMode && form.systemPrompt.trim());
+  // ── Publish: move skill from building/ to input-prompt/ ──
+  const handlePublish = async () => {
+    if (!form.id || form.id === "untitled") return;
+    setPublishStatus("publishing");
+    try {
+      // Ensure latest content is saved first
+      const content = buildSkillMd(form);
+      if (selectedPath) {
+        await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(selectedPath)}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }),
+        });
+      }
+      const res = await fetch(`${API_BASE}/api/skills/${form.id}/publish`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "input-prompt" }),
+      });
+      const data = await res.json();
+      if (data.ok) { setPublishStatus("done"); setTimeout(() => setPublishStatus(""), 3000); }
+      else { setPublishStatus("error"); setTimeout(() => setPublishStatus(""), 3000); }
+    } catch { setPublishStatus("error"); setTimeout(() => setPublishStatus(""), 3000); }
+  };
+
+  const canPublish = !!(form.id && form.id !== "untitled" && form.purpose.trim() && selectedPath?.includes("/building/"));
+
+  const canBuild = form.purpose.trim();
   const hasEmptyRequired = form.inputs.some(inp => inp.required && !(testInputs[inp.id] || "").trim() && inp.id !== "output_path");
   const canTest = canBuild && !hasEmptyRequired;
 
@@ -484,20 +562,12 @@ export default function SkillBuilder() {
           {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
         </div>
         <div className="flex items-center gap-2 ml-2">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <div className={cn("relative w-8 h-4 rounded-full transition-colors", expertMode ? "" : "bg-stone-300")}
-              style={expertMode ? { background: accent } : {}}
-              onClick={() => setExpertMode(!expertMode)}>
-              <div className={cn("absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform", expertMode ? "translate-x-4" : "translate-x-0.5")} />
-            </div>
-            <span className="text-[11px] text-stone-500">{expertMode ? "Expert" : "Simple"}</span>
-          </label>
-        </div>
-        <select value={cli} onChange={e => setCli(e.target.value as typeof cli)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white ml-1">
+          <select value={cli} onChange={e => setCli(e.target.value as typeof cli)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white">
           <option value="qwen">Qwen</option>
           <option value="claude">Claude Code</option>
           <option value="opencode">OpenCode</option>
         </select>
+      </div>
       </div>
 
       {/* ── New File Dialog ── */}
@@ -544,15 +614,19 @@ export default function SkillBuilder() {
                   <span className="text-5xl">🔨</span>
                   <div className="text-center"><p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p><p className="text-stone-400 text-sm mt-1">點 <strong style={{ color: accent }}>＋ New</strong> 或選擇已有的 build script</p></div>
                 </div>
-              ) : expertMode ? (
-                <div className="p-4 pb-24">
-                  <div className="border rounded-2xl overflow-hidden bg-white" style={{ borderColor: border + "40" }}>
-                    <div className="px-4 py-2.5 border-b" style={{ borderColor: border + "20", background: theme.accentLight + "20" }}><span className="text-xs font-bold text-stone-600">Markdown 原始碼</span></div>
-                    <textarea value={form.systemPrompt} onChange={e => update("systemPrompt", e.target.value)} placeholder={"輸入完整的 skill 定義..."} className="w-full px-4 py-3 text-sm font-mono border-0 resize-none focus:outline-none" style={{ minHeight: "calc(100vh - 300px)", lineHeight: 1.7 }} spellCheck={false} />
-                  </div>
-                </div>
               ) : (
                 <div className="p-5 space-y-4 pb-24">
+                  {/* ── Skill Metadata ── */}
+                  <div className="flex gap-3 mb-4">
+                    <div className="flex-1">
+                      <label className="text-xs font-bold text-stone-500 mb-1.5 block">Skill ID</label>
+                      <input type="text" value={form.id} onChange={e => update("id", e.target.value)} placeholder="例：error-analyzer" className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs font-bold text-stone-500 mb-1.5 block">Skill Name</label>
+                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)} placeholder="例：錯誤分析器" className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    </div>
+                  </div>
                   <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder="例：根據錯誤訊息和 log，分析問題的根因並產生報告" rows={3} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     <p className="text-[11px] text-stone-400">💡 想像你在跟一個新同事解釋這個任務</p>
@@ -568,11 +642,17 @@ export default function SkillBuilder() {
                   <StepCard number={4} icon="📋" title="Output" hint="輸出長什麼樣子？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder="描述你期望的輸出格式" rows={6} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={5} icon="🛡️" title="Guardrails" hint="安全限制" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={5} icon="📖" title="Examples" hint="使用範例" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.examples} onChange={e => update("examples", e.target.value)} placeholder="列出這個 Skill 的使用情境或範例\n例：使用者說「幫我分析這個錯誤」→ AI 讀取錯誤訊息、產出根因報告" rows={5} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  </StepCard>
+                  <StepCard number={6} icon="🛡️" title="Guardrails" hint="安全限制" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder="什麼不能做？什麼要特別小心？" rows={5} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={6} icon="✅" title="Validation" hint="怎麼確認結果正確？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={7} icon="✅" title="Validation" hint="怎麼確認結果正確？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder="怎麼驗證 AI 的輸出品質？" rows={5} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  </StepCard>
+                  <StepCard number={8} icon="📝" title="Notes" hint="備註" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder="開發者備註或額外說明" rows={4} className="w-full px-4 py-3 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                 </div>
               )
@@ -630,7 +710,18 @@ export default function SkillBuilder() {
                     style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     🔨 Build
                   </button>
-                  <span className="text-[11px] text-stone-400">右邊 CLI → Skill Creator 產出 SKILL.md</span>
+                  <button onClick={handlePublish} disabled={!canPublish || publishStatus === "publishing"}
+                    className="px-4 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm"
+                    style={!canPublish || publishStatus === "publishing"
+                      ? { background: "#e7e5e4", color: "#a8a29e" }
+                      : publishStatus === "done" ? { background: "#16a34a", color: "#fff" }
+                      : publishStatus === "error" ? { background: "#dc2626", color: "#fff" }
+                      : { background: "#fff", color: accent, border: `1.5px solid ${accent}` }}>
+                    {publishStatus === "publishing" ? "⏳ 發佈中..."
+                      : publishStatus === "done" ? "✅ 已發佈"
+                      : publishStatus === "error" ? "❌ 失敗"
+                      : "🚀 發佈"}
+                  </button>
                   {chatStarted && <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }} className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">✕ 重置</button>}
                 </>
               )}

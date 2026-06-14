@@ -787,11 +787,14 @@ function AppInner() {
             <SidebarSection
               title={t("sidebar.workspaces")}
               right={
-                <button
+                <span
                   onClick={(e) => { e.stopPropagation(); setShowDirExplorer(true); }}
-                  className="text-stone-400 hover:text-stone-600 transition-colors text-sm leading-none"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); setShowDirExplorer(true); } }}
+                  className="text-stone-400 hover:text-stone-600 transition-colors text-sm leading-none cursor-pointer select-none"
                   title="加入目錄"
-                >＋</button>
+                >＋</span>
               }
             >
               <div className="pl-2">
