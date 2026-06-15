@@ -6,7 +6,7 @@ import { pathBasename } from "../utils";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css"; // Light theme matching the white background
 
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -49,7 +49,7 @@ function detectFileType(name: string): "markdown" | "json" | "image" | "code" {
 // ── Image View ──
 function ImageView({ filePath }: { filePath: string }) {
   const { info: t } = useTheme();
-  const url = `http://127.0.0.1:4097/api/fs/file?path=${encodeURIComponent(filePath)}`;
+  const url = `${API_BASE}/api/fs/file?path=${encodeURIComponent(filePath)}`;
   return (
     <div className="flex-1 flex items-center justify-center p-6 overflow-auto" style={{ backgroundColor: t.accentBg }}>
       <img

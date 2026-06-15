@@ -115,7 +115,7 @@ interface TreeNode {
   lazy?: boolean;
 }
 
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 /** Check if a path starts with a given prefix, handling both / and \ separators */
 function pathStartsWith(p: string, prefix: string): boolean {

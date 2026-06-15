@@ -25,7 +25,7 @@ interface TrainingFile { name: string; path: string; }
 interface OutputFile { name: string; path: string; size: number; type: string; ext: string; }
 
 // ── Constants ──
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 const EMPTY_FIELD: InputField = { id: "", label: "", description: "", placeholder: "", required: false, multiline: false };
 const DEFAULT_OUTPUT_FIELD: InputField = { id: "output_path", label: "輸出路徑", description: "Skill 執行結果的儲存路徑", placeholder: "例：output/report.html", required: true, multiline: false };

@@ -27,7 +27,7 @@ interface ExecHistoryEntry {
   totalMs: number; success: boolean;
 }
 
-const API = "http://127.0.0.1:4097";
+import API from "../api";
 
 function ResultCards({ output }: { output: any }) {
   if (!output) return <div className="text-xs text-stone-400 italic">無結果</div>;

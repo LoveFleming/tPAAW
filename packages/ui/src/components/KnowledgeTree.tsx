@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 // ── Types ──
 interface TreeNode {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTheme } from "../theme";
 import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
 
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 interface ProviderData {
   name: string;

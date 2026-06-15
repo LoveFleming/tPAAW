@@ -1,3 +1,4 @@
+import API_BASE from "../api";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, cn } from "../components/ui/shared";
 import { Crew, SkillDefinition, UserInput, buildSystemPrompt, migrateCrew } from "../types";
@@ -33,7 +34,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     // Fallback: fetch fresh from API on mount if not in crew prop
     useEffect(() => {
         if (propEmployee) return;
-        fetch(`http://127.0.0.1:4097/api/crew/${employeeId}`)
+        fetch(`${API_BASE}/api/crew/${employeeId}`)
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data) setApiEmployee(data); })
             .catch(() => {});
@@ -45,7 +46,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     // ── Skill Definitions (fetched from /api/skills) ──
     const [skillDefinitions, setSkillDefinitions] = useState<Map<string, SkillDefinition>>(new Map());
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/skills")
+        fetch(`${API_BASE}/api/skills`)
             .then(r => r.json())
             .then((data: SkillDefinition[]) => {
                 const map = new Map<string, SkillDefinition>();
@@ -65,7 +66,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     // Load workspaces
     const [workspaces, setWorkspaces] = useState<string[]>([]);
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/paaw/workspaces")
+        fetch(`${API_BASE}/api/paaw/workspaces`)
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data?.directories) setWorkspaces(data.directories); })
             .catch(() => {});
@@ -75,7 +76,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     // Fallback chain: employee.chatConfig → global CLI config → "qwen"
     const [globalCliConfig, setGlobalCliConfig] = useState({ defaultCli: "qwen", defaultModel: "" });
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/paaw/cli-config")
+        fetch(`${API_BASE}/api/paaw/cli-config`)
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (data?.configured) setGlobalCliConfig({ defaultCli: data.defaultCli || "qwen", defaultModel: data.defaultModel || "" });
@@ -120,7 +121,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
 
     // Fetch models for a specific CLI
     const fetchModels = useCallback((cli: string, preferModel?: string) => {
-        fetch(`http://127.0.0.1:4097/api/models?cli=${cli}`)
+        fetch(`${API_BASE}/api/models?cli=${cli}`)
             .then(r => r.json())
             .then(data => {
                 if (data.paawRoot) setPaawRoot(data.paawRoot);
@@ -146,7 +147,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/clis")
+        fetch(`${API_BASE}/api/clis`)
             .then(r => r.json())
             .then(data => setInstalledClis(data))
             .catch(() => {});
@@ -177,7 +178,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const loadConversations = useCallback(() => {
         if (!employeeId) return;
         const params = new URLSearchParams({ root: projectRoot || "" });
-        fetch(`http://127.0.0.1:4097/api/conversations/${employeeId}?${params}`)
+        fetch(`${API_BASE}/api/conversations/${employeeId}?${params}`)
             .then(r => r.json())
             .then(data => setConversations(data.conversations || data || []))
             .catch(() => {});
@@ -188,7 +189,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const loadSavedInputs = useCallback(() => {
         if (!employeeId) return;
         const params = new URLSearchParams({ root: projectRoot || "" });
-        fetch(`http://127.0.0.1:4097/api/saved-inputs/${employeeId}?${params}`)
+        fetch(`${API_BASE}/api/saved-inputs/${employeeId}?${params}`)
             .then(r => r.json())
             .then(data => setSavedInputs(data.inputs || []))
             .catch(() => {});
@@ -199,7 +200,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const loadWorkLog = useCallback(() => {
         if (!employeeId) return;
         const params = new URLSearchParams({ root: projectRoot || "" });
-        fetch(`http://127.0.0.1:4097/api/work-log/${employeeId}?${params}`)
+        fetch(`${API_BASE}/api/work-log/${employeeId}?${params}`)
             .then(r => r.json())
             .then(data => setWorkLog(data.entries || []))
             .catch(() => {});
@@ -275,7 +276,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         if (!employee) return;
         const updated = { ...employee, chatConfig: { ...employee.chatConfig, [field]: value } };
         try {
-            await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}?factory=${factoryId}`, {
+            await fetch(`${API_BASE}/api/crew/${employee.id}?factory=${factoryId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updated),
@@ -298,7 +299,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         if (!employee) return;
         const updated = { ...employee, chatConfig: { ...employee.chatConfig, cli: effectiveCli, model: effectiveModel || "", approvalMode: permissionMode } };
         try {
-            await fetch(`http://127.0.0.1:4097/api/crew/${employee.id}?factory=${factoryId}`, {
+            await fetch(`${API_BASE}/api/crew/${employee.id}?factory=${factoryId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updated),
@@ -370,7 +371,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 const existingHashes = savedInputs.map(i => i.hash);
                 if (!existingHashes.includes(hash)) {
                     const params = new URLSearchParams({ root: projectRoot || "" });
-                    await fetch(`http://127.0.0.1:4097/api/saved-inputs/${employee.id}?${params}`, {
+                    await fetch(`${API_BASE}/api/saved-inputs/${employee.id}?${params}`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -390,7 +391,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         try {
             const inputSummary = Object.entries(allData).map(([k, v]) => v).filter(Boolean).join(", ") || taskInput.trim() || "";
             const params = new URLSearchParams({ root: projectRoot || "" });
-            await fetch(`http://127.0.0.1:4097/api/work-log/${employee.id}?${params}`, {
+            await fetch(`${API_BASE}/api/work-log/${employee.id}?${params}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -578,7 +579,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                         {/* Photo */}
                         <div className="w-full sm:w-40 md:w-52 shrink-0 flex items-center justify-center p-3 max-h-[160px] sm:max-h-none">
                             <img
-                                src={employee.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crews-pic/${employee.imageUrl.split("/").pop()}` : employee.imageUrl}
+                                src={employee.imageUrl?.startsWith("/") ? `${API_BASE}/api/factory/${factoryId}/crews-pic/${employee.imageUrl.split("/").pop()}` : employee.imageUrl}
                                 alt={employee.title}
                                 className="w-full h-full object-contain drop-shadow-lg"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

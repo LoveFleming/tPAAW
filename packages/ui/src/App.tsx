@@ -29,7 +29,7 @@ import { useI18n } from "./i18n";
 import { cn, pathBasename } from "./utils";
 
 const STORAGE_PROJECT_KEY = "***";
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "./api";
 
 function simpleHash(s: string): string {
   let h = 0;
@@ -160,14 +160,14 @@ function AppInner() {
 
   const loadFactories = useCallback(async () => {
     try {
-      const resp = await fetch("http://127.0.0.1:4097/api/factories");
+      const resp = await fetch(`${API_BASE}/api/factories`);
       if (resp.ok) setFactories(await resp.json());
     } catch {}
   }, []);
 
   const loadCrew = useCallback(async () => {
     try {
-      const resp = await fetch(`http://127.0.0.1:4097/api/crew?factory=${selectedFactoryId}`);
+      const resp = await fetch(`${API_BASE}/api/crew?factory=${selectedFactoryId}`);
       if (resp.ok) {
         const data = await resp.json();
         setCrew(data);
@@ -178,14 +178,14 @@ function AppInner() {
 
   const loadFactoryFiles = useCallback(async () => {
     try {
-      const resp = await fetch(`http://127.0.0.1:4097/api/factory-content?factory=${selectedFactoryId}`);
+      const resp = await fetch(`${API_BASE}/api/factory-content?factory=${selectedFactoryId}`);
       if (resp.ok) {
         const data = await resp.json();
         setFactoryFiles(data.map((f: any) => f.filename));
       }
     } catch {}
     try {
-      const r = await fetch("http://127.0.0.1:4097/api/models?cli=qwen");
+      const r = await fetch(`${API_BASE}/api/models?cli=qwen`);
       const d = await r.json();
       if (d.paawRoot) setPaawRoot(d.paawRoot);
     } catch {}
@@ -193,7 +193,7 @@ function AppInner() {
 
   const loadSkillApps = useCallback(async () => {
     try {
-      const resp = await fetch("http://127.0.0.1:4097/api/skills");
+      const resp = await fetch(`${API_BASE}/api/skills`);
       if (resp.ok) {
         const data = await resp.json();
         setSkillApps(data.filter((s: any) => s.hasApp).map((s: any) => ({ id: s.id, name: s.name })));
@@ -576,10 +576,10 @@ function AppInner() {
             <span className="text-xs text-stone-400 ml-2">App</span>
           </div>
           <iframe
-            src={`http://127.0.0.1:4097/api/app/${skillId}`}
+            src={`${API_BASE}/api/app/${skillId}`}
             onError={() => {
               const iframe = document.querySelector('iframe');
-              if (iframe) iframe.src = `http://127.0.0.1:4097/api/skill-app/${skillId}`;
+              if (iframe) iframe.src = `${API_BASE}/api/skill-app/${skillId}`;
             }}
             className="flex-1 w-full border-0"
             style={{ minHeight: 400 }}

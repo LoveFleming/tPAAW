@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { useTheme } from "../theme";
 import { cn } from "../utils";
 
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 // ── Types ──
 interface CliSession {

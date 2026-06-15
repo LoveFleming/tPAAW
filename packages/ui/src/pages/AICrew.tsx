@@ -1,3 +1,4 @@
+import API_BASE from "../api";
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, RiskBadge, cn } from "../components/ui/shared";
 import { Crew, SkillDefinition } from "../types";
@@ -21,7 +22,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
 
     const loadCrew = useCallback(async () => {
         try {
-            const resp = await fetch(`http://127.0.0.1:4097/api/crew?factory=${factoryId}`);
+            const resp = await fetch(`${API_BASE}/api/crew?factory=${factoryId}`);
             if (resp.ok) {
                 const data = await resp.json();
                 setCrew(data);
@@ -29,7 +30,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
         } catch {
             // fallback: try loading from static files
             try {
-                const resp = await fetch("http://127.0.0.1:4097/crew");
+                const resp = await fetch(`${API_BASE}/crew`);
                 // won't work, just leave empty
             } catch { /* */ }
         }
@@ -38,7 +39,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
 
     // Fetch skill definitions
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/skills")
+        fetch(`${API_BASE}/api/skills`)
             .then(r => r.json())
             .then((data: SkillDefinition[]) => {
                 const map = new Map<string, SkillDefinition>();
@@ -62,7 +63,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
 
     const handleSave = async (crewData: Crew) => {
         const isEdit = !!editingCrew;
-        const url = isEdit ? `http://127.0.0.1:4097/api/crew/${crewData.id}?factory=${factoryId}` : `http://127.0.0.1:4097/api/crew?factory=${factoryId}`;
+        const url = isEdit ? `${API_BASE}/api/crew/${crewData.id}?factory=${factoryId}` : `${API_BASE}/api/crew?factory=${factoryId}`;
         const method = isEdit ? "PUT" : "POST";
 
         const resp = await fetch(url, {
@@ -83,7 +84,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
     };
 
     const handleDelete = async (id: string) => {
-        const resp = await fetch(`http://127.0.0.1:4097/api/crew/${id}?factory=${factoryId}`, { method: "DELETE" });
+        const resp = await fetch(`${API_BASE}/api/crew/${id}?factory=${factoryId}`, { method: "DELETE" });
         if (!resp.ok) {
             const err = await resp.json();
             throw new Error(err.error || `Delete failed (${resp.status})`);
@@ -145,7 +146,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
                         >
                             <div className="h-48 w-full relative overflow-hidden shrink-0 flex items-center justify-center p-2" style={{ backgroundColor: t.accentBg }}>
                                 <img
-                                    src={s.imageUrl?.startsWith("/") ? `http://127.0.0.1:4097/api/factory/${factoryId}/crews-pic/${s.imageUrl.split("/").pop()}` : s.imageUrl}
+                                    src={s.imageUrl?.startsWith("/") ? `${API_BASE}/api/factory/${factoryId}/crews-pic/${s.imageUrl.split("/").pop()}` : s.imageUrl}
                                     alt={s.title}
                                     className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110 drop-shadow-sm"
                                     onError={(e) => {

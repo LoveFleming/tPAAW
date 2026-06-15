@@ -3,7 +3,7 @@ import { SkillDefinition, UserInput } from "../types";
 import Icon from "../components/Icon";
 import { useTheme } from "../theme";
 
-const API = "http://127.0.0.1:4097";
+import API from "../api";
 
 const EMPTY_INPUT: UserInput = { id: "", label: "", description: "", placeholder: "", required: false };
 

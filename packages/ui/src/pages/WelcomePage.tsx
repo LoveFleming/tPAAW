@@ -4,7 +4,7 @@ import Icon from "../components/Icon";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import { pathBasename } from "../utils";
 
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 interface RecentProject {
   path: string;

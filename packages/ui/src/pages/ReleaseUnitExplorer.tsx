@@ -13,7 +13,7 @@ interface TreeNode {
 }
 
 // ── API helpers ──
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 async function fetchTree(root: string): Promise<TreeNode> {
   const resp = await fetch(`${API_BASE}/api/fs/tree?root=${encodeURIComponent(root)}`);

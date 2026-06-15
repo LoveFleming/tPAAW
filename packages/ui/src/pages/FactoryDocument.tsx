@@ -1,3 +1,4 @@
+import API_BASE from "../api";
 import React, { useEffect, useState } from "react";
 import Icon from "../components/Icon";
 import { useTheme } from "../theme";
@@ -21,7 +22,7 @@ export default function FactoryDocument({ file, headerIcon = "document", headerT
 
     useEffect(() => {
         setLoading(true);
-        fetch(`http://127.0.0.1:4097/api/factory-content/${file}`)
+        fetch(`${API_BASE}/api/factory-content/${file}`)
             .then(r => r.json())
             .then(data => {
                 if (data.content) setContent(data.content);

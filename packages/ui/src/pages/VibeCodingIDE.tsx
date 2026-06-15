@@ -26,7 +26,7 @@ import TerminalConsole from "../components/TerminalConsole";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 
 // ── Types ──
 interface FsItem {
@@ -1040,10 +1040,10 @@ export default function VibeCodingIDE() {
                       <div className="text-[10px] font-bold text-stone-500 mb-1.5">{t('vibe.apiQuickUrls')}</div>
                       <div className="flex flex-wrap gap-1">
                         {[
-                          { label: "PAAW Chat", url: "http://127.0.0.1:4097/api/chat" },
-                          { label: "PAAW Status", url: "http://127.0.0.1:4097/api/vibe-git/status" },
-                          { label: "PAAW FS", url: "http://127.0.0.1:4097/api/vibe-fs/list" },
-                          { label: "Distill Config", url: "http://127.0.0.1:4097/api/distill/config" },
+                          { label: "PAAW Chat", url: `${API_BASE}/api/chat` },
+                          { label: "PAAW Status", url: `${API_BASE}/api/vibe-git/status` },
+                          { label: "PAAW FS", url: `${API_BASE}/api/vibe-fs/list` },
+                          { label: "Distill Config", url: `${API_BASE}/api/distill/config` },
                           { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1" },
                           { label: "HTTPBin", url: "https://httpbin.org/get" },
                         ].map(q => (

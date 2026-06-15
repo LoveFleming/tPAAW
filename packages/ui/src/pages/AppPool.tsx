@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../theme";
 
-const API = "http://127.0.0.1:4097";
+import API from "../api";
 
 interface AppItem {
     id: string;

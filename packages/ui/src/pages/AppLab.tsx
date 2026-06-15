@@ -4,7 +4,7 @@ import { useTheme } from "../theme";
 import { SkillDefinition } from "../types";
 import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
 
-const API = "http://127.0.0.1:4097";
+import API from "../api";
 
 const TEMPLATE_ICONS: Record<string, string> = {
     custom: "✨",

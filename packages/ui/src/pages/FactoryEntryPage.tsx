@@ -1,3 +1,4 @@
+import API_BASE from "../api";
 import React, { useState, useCallback, useEffect } from "react";
 import { ThemeProvider, useTheme, THEMES, THEME_GROUPS, ThemeId } from "../theme";
 import { cn } from "../utils";
@@ -33,7 +34,7 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, paa
   const handleCreate = useCallback(async () => {
     if (!newFactory.id || !newFactory.name) return;
     try {
-      const resp = await fetch("http://127.0.0.1:4097/api/factories", {
+      const resp = await fetch(`${API_BASE}/api/factories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newFactory),
@@ -55,7 +56,7 @@ function FactoryEntryInner({ factories, selectedFactoryId, onSelect, onBack, paa
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm(`確定要刪除工廠 "${id}" 嗎？`)) return;
     try {
-      const resp = await fetch(`http://127.0.0.1:4097/api/factories/${id}`, { method: "DELETE" });
+      const resp = await fetch(`${API_BASE}/api/factories/${id}`, { method: "DELETE" });
       if (resp.ok) {
         onFactoriesChanged();
       } else {

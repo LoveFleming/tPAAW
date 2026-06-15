@@ -23,7 +23,7 @@ interface WorkflowDef {
 }
 interface AppSkill { id: string; name: string; icon: string; skills: string[]; }
 
-const API = "http://127.0.0.1:4097";
+import API from "../api";
 
 // ── Start Node ──
 function StartNode({ data, selected }: NodeProps) {

@@ -9,7 +9,7 @@ interface TrainingFile {
 }
 
 // ── Constants ──
-const API_BASE = "http://127.0.0.1:4097";
+import API_BASE from "../api";
 const LS_KEY_TRAINING_FILE = "skilllab.trainingFile";
 
 // ── Parse training file into sections ──

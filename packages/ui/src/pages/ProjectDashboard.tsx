@@ -1,3 +1,4 @@
+import API_BASE from "../api";
 import React, { useEffect, useState } from "react";
 import { useTheme } from "../theme";
 import Icon from "../components/Icon";
@@ -42,7 +43,7 @@ export default function ProjectDashboard({ projectRoot, openEmployee }: { projec
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(`http://127.0.0.1:4097/api/project-dashboard?root=${encodeURIComponent(projectRoot)}`)
+    fetch(`${API_BASE}/api/project-dashboard?root=${encodeURIComponent(projectRoot)}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
       .catch(() => { if (!cancelled) { setData(null); setLoading(false); } });

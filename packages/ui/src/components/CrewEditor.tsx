@@ -1,3 +1,4 @@
+import API_BASE from "../api";
 import React, { useState, useEffect } from "react";
 import { Crew, Risk, SkillDefinition } from "../types";
 import CrewAvatar from "./CrewAvatar";
@@ -37,7 +38,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     // Fetch all skill definitions from shared pool
     const [allSkills, setAllSkills] = useState<SkillDefinition[]>([]);
     useEffect(() => {
-        fetch("http://127.0.0.1:4097/api/skills")
+        fetch(`${API_BASE}/api/skills`)
             .then(r => r.json())
             .then((data: SkillDefinition[]) => setAllSkills(data))
             .catch(() => {});
