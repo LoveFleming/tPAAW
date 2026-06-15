@@ -472,7 +472,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
                     <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${msg.role === "assistant" ? "bg-white shadow-sm border border-stone-100 text-stone-700" : "bg-stone-50 text-stone-700"}`}>
                       {msg.role === "assistant" ? (
                         <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
-                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown> : (
+                          {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{msg.content}</ReactMarkdown> : (
                             <div className="flex items-center gap-1.5 text-stone-300">
                               <div className="flex gap-1">
                                 <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
