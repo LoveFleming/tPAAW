@@ -690,7 +690,7 @@ ${userInputLines.join("\n")}
                       <div className="p-4 space-y-3">
                         {form.inputs.length > 0 ? form.inputs.map(inp => {
                           const isOutputPath = inp.id === "output_path";
-                          const fixedTestPath = `data/skills/building/${form.id || "untitled"}/package`;
+                          const fixedTestPath = `data/skills/building/${form.id || "untitled"}/test-output`;
                           return (
                           <div key={inp.id}>
                             <label className="block text-xs font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>}{isOutputPath && <span className="ml-1 text-stone-400 font-normal">（測試固定：{fixedTestPath}）</span>}</label>
