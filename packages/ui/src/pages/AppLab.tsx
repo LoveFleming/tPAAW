@@ -431,6 +431,16 @@ export default function AppLab() {
     const [showAppPicker, setShowAppPicker] = useState(false);
     const [fullscreen, setFullscreen] = useState(false);
 
+    // ── App Settings panel (edit mode) ──
+    const [showSettings, setShowSettings] = useState(false);
+    const [appSettings, setAppSettings] = useState<{
+        name: string; icon: string; description: string; type: string;
+        dataShape: string; cli: string; aiPrompt: string; triggers: string;
+        schema: string;
+    }>({ name: "", icon: "", description: "", type: "data", dataShape: "array", cli: "qwen", aiPrompt: "", triggers: "", schema: "" });
+    const [settingsSaving, setSettingsSaving] = useState(false);
+    const [settingsSaved, setSettingsSaved] = useState(false);
+
     // ── Load skills ──
     useEffect(() => {
         fetch(`${API}/api/skills`).then(r => r.json()).then(setSkills).catch(() => {});
@@ -470,6 +480,26 @@ export default function AppLab() {
         setPreviewReady(true);
         setPreviewKey(Date.now());
         setShowAppPicker(false);
+        setShowSettings(false);
+        // Load app.json settings
+        try {
+            const resp = await fetch(`${API}/api/apps`);
+            const apps = await resp.json();
+            const app = apps.find((a: any) => a.id === appId);
+            if (app) {
+                setAppSettings({
+                    name: app.name || "",
+                    icon: app.icon || "",
+                    description: app.description || "",
+                    type: app.type || "data",
+                    dataShape: app.dataShape || "array",
+                    cli: app.cli || "qwen",
+                    aiPrompt: app.aiPrompt || "",
+                    triggers: (app.triggers || []).join(", "),
+                    schema: app.schema ? JSON.stringify(app.schema, null, 2) : "",
+                });
+            }
+        } catch {}
         // Load previous chat messages from server
         const savedChat = await loadAppChat(appId);
         if (savedChat.length > 0) {
@@ -489,6 +519,36 @@ export default function AppLab() {
             .then(() => loadExistingApps())
             .catch(() => {});
     }, [loadExistingApps]);
+
+    // ── Save app settings ──
+    const handleSaveSettings = useCallback(async () => {
+        if (!editingAppId) return;
+        setSettingsSaving(true);
+        setSettingsSaved(false);
+        try {
+            const changes: Record<string, any> = {
+                name: appSettings.name,
+                icon: appSettings.icon,
+                description: appSettings.description,
+                type: appSettings.type,
+                dataShape: appSettings.dataShape,
+                cli: appSettings.cli,
+                aiPrompt: appSettings.aiPrompt,
+                triggers: appSettings.triggers.split(",").map((s: string) => s.trim()).filter(Boolean),
+            };
+            if (appSettings.schema.trim()) {
+                try { changes.schema = JSON.parse(appSettings.schema); } catch {}
+            }
+            await fetch(`${API}/api/apps/${editingAppId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(changes),
+            });
+            setSettingsSaved(true);
+            setTimeout(() => setSettingsSaved(false), 2000);
+        } catch {}
+        setSettingsSaving(false);
+    }, [editingAppId, appSettings]);
 
         // ── Send to terminal ──
     const sendToTerminal = useCallback((text: string) => {
@@ -837,14 +897,17 @@ export default function AppLab() {
                 )}
 
                 {/* ============ STEP 3: Generate & Preview ============ */}
-                {step === 3 && (
-                    <div className={"h-full " + (fullscreen ? "flex flex-col" : "grid grid-rows-2")}>
+                {step === 3 && <><div className={"h-full " + (fullscreen ? "flex flex-col" : "grid grid-rows-2")}>
                         {/* Top: Preview */}
                         <div className={fullscreen ? "flex-1 min-h-0" : "min-h-0 border-b"} style={{ borderColor: fullscreen ? undefined : "#e7e5e4", backgroundColor: "#f5f5f4" }}>
                             <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-white shrink-0" style={{ borderColor: "#e7e5e4" }}>
                                 <span className="text-xs font-semibold text-stone-500">🖼️ Preview</span>
                                 {previewUrl && <span className="text-[10px] text-stone-400 font-mono">{reportId}</span>}
                                 <div className="ml-auto flex gap-2">
+                                    {editingAppId && (
+                                        <button onClick={() => setShowSettings(true)}
+                                            className="text-[10px] text-stone-400 hover:text-stone-600 font-semibold">⚙️ 設定</button>
+                                    )}
                                     {previewReady && (
                                         <span className="text-[10px] text-green-500">✅ 已生成</span>
                                     )}
@@ -958,7 +1021,131 @@ export default function AppLab() {
                         </div>
                         )}
                     </div>
-                )}
+
+                    {/* ⚙️ Settings Panel (edit mode only) */}
+                    {editingAppId && showSettings && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowSettings(false)}>
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border overflow-hidden"
+                                style={{ borderColor: t.accentBorder, maxHeight: "90vh" }}
+                                onClick={e => e.stopPropagation()}>
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
+                                    <h3 className="text-sm font-bold" style={{ color: t.accentText }}>⚙️ App 設定 — {editingAppId}</h3>
+                                    <div className="flex items-center gap-2">
+                                        {settingsSaved && <span className="text-[10px] text-green-600 font-semibold">✅ 已儲存</span>}
+                                        <button onClick={() => setShowSettings(false)} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
+                                    </div>
+                                </div>
+                                {/* Body */}
+                                <div className="overflow-y-auto p-5 space-y-4" style={{ maxHeight: "calc(90vh - 60px)" }}>
+                                    {/* Row: name + icon */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="col-span-2">
+                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">App 名稱</label>
+                                            <input value={appSettings.name}
+                                                onChange={e => setAppSettings(p => ({ ...p, name: e.target.value }))}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
+                                                style={{ borderColor: "#d6d3d1" }} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">Icon (emoji)</label>
+                                            <input value={appSettings.icon}
+                                                onChange={e => setAppSettings(p => ({ ...p, icon: e.target.value }))}
+                                                placeholder="📦"
+                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300 text-center text-lg"
+                                                style={{ borderColor: "#d6d3d1" }} />
+                                        </div>
+                                    </div>
+                                    {/* Description */}
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">描述</label>
+                                        <textarea value={appSettings.description}
+                                            onChange={e => setAppSettings(p => ({ ...p, description: e.target.value }))}
+                                            rows={2}
+                                            className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
+                                            style={{ borderColor: "#d6d3d1", lineHeight: 1.5 }} />
+                                    </div>
+                                    {/* Row: type + dataShape + cli */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">Type</label>
+                                            <select value={appSettings.type}
+                                                onChange={e => setAppSettings(p => ({ ...p, type: e.target.value }))}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
+                                                style={{ borderColor: "#d6d3d1" }}>
+                                                <option value="data">data</option>
+                                                <option value="skill-based">skill-based</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">Data Shape</label>
+                                            <select value={appSettings.dataShape}
+                                                onChange={e => setAppSettings(p => ({ ...p, dataShape: e.target.value }))}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
+                                                style={{ borderColor: "#d6d3d1" }}>
+                                                <option value="array">array</option>
+                                                <option value="object">object</option>
+                                                <option value="none">none</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">CLI Engine</label>
+                                            <select value={appSettings.cli}
+                                                onChange={e => setAppSettings(p => ({ ...p, cli: e.target.value }))}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
+                                                style={{ borderColor: "#d6d3d1" }}>
+                                                <option value="qwen">qwen</option>
+                                                <option value="claude">claude</option>
+                                                <option value="opencode">opencode</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {/* Triggers */}
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">觸發關鍵字 (逗號分隔)</label>
+                                        <input value={appSettings.triggers}
+                                            onChange={e => setAppSettings(p => ({ ...p, triggers: e.target.value }))}
+                                            placeholder="翻譯, translate, 幫我翻譯"
+                                            className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300 font-mono text-xs"
+                                            style={{ borderColor: "#d6d3d1" }} />
+                                    </div>
+                                    {/* AI Prompt */}
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">AI Prompt（給 LLM 的 App 操作提示）</label>
+                                        <textarea value={appSettings.aiPrompt}
+                                            onChange={e => setAppSettings(p => ({ ...p, aiPrompt: e.target.value }))}
+                                            rows={4}
+                                            className="w-full px-3 py-2 border rounded-lg text-sm font-mono text-xs focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
+                                            style={{ borderColor: "#d6d3d1", lineHeight: 1.5 }} />
+                                    </div>
+                                    {/* Schema (JSON) */}
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">Schema (JSON)</label>
+                                        <textarea value={appSettings.schema}
+                                            onChange={e => setAppSettings(p => ({ ...p, schema: e.target.value }))}
+                                            rows={8}
+                                            className="w-full px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
+                                            style={{ borderColor: "#d6d3d1", lineHeight: 1.5 }} />
+                                    </div>
+                                </div>
+                                {/* Footer */}
+                                <div className="flex items-center justify-end gap-3 px-5 py-3 border-t shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
+                                    <button onClick={() => setShowSettings(false)}
+                                        className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                                        style={{ borderColor: "#d6d3d1", color: "#444" }}>取消</button>
+                                    <button onClick={handleSaveSettings}
+                                        disabled={settingsSaving}
+                                        className="px-5 py-2 text-sm font-bold text-white rounded-lg transition-colors disabled:opacity-50"
+                                        style={{ backgroundColor: t.accent }}
+                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
+                                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}>
+                                        {settingsSaving ? "儲存中..." : "💾 儲存"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </>}
             </div>
         </div>
     );

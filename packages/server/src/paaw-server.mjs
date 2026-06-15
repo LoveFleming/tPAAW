@@ -776,6 +776,9 @@ ${context ? "\n## Context\n" + context : ""}
             dataShape: meta.dataShape || "array",
             schema: meta.schema || {},
             aiPrompt: meta.aiPrompt || "",
+            type: meta.type || "data",
+            cli: meta.cli || "qwen",
+            triggers: meta.triggers || [],
           });
         } catch { /* skip */ }
       }
