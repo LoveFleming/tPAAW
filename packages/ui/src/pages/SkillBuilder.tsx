@@ -737,18 +737,6 @@ ${userInputLines.join("\n")}
                     style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     🔨 Build
                   </button>
-                  <button onClick={handlePublish} disabled={!canPublish || publishStatus === "publishing"}
-                    className="px-4 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm"
-                    style={!canPublish || publishStatus === "publishing"
-                      ? { background: "#e7e5e4", color: "#a8a29e" }
-                      : publishStatus === "done" ? { background: "#16a34a", color: "#fff" }
-                      : publishStatus === "error" ? { background: "#dc2626", color: "#fff" }
-                      : { background: "#fff", color: accent, border: `1.5px solid ${accent}` }}>
-                    {publishStatus === "publishing" ? "⏳ 發佈中..."
-                      : publishStatus === "done" ? "✅ 已發佈"
-                      : publishStatus === "error" ? "❌ 失敗"
-                      : "🚀 發佈"}
-                  </button>
                   {chatStarted && <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }} className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">✕ 重置</button>}
                 </>
               )}
@@ -763,6 +751,18 @@ ${userInputLines.join("\n")}
                   <button onClick={() => setShowPromptPreview(!showPromptPreview)}
                     className="px-4 py-2.5 text-sm font-medium rounded-xl border border-stone-200 hover:bg-stone-50 transition-all flex items-center gap-1.5 text-stone-600">
                     📋 預覽提示詞
+                  </button>
+                  <button onClick={handlePublish} disabled={!canPublish || publishStatus === "publishing"}
+                    className="ml-auto px-4 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm"
+                    style={!canPublish || publishStatus === "publishing"
+                      ? { background: "#e7e5e4", color: "#a8a29e" }
+                      : publishStatus === "done" ? { background: "#16a34a", color: "#fff" }
+                      : publishStatus === "error" ? { background: "#dc2626", color: "#fff" }
+                      : { background: "#fff", color: accent, border: `1.5px solid ${accent}` }}>
+                    {publishStatus === "publishing" ? "⏳ 發佈中..."
+                      : publishStatus === "done" ? "✅ 已發佈"
+                      : publishStatus === "error" ? "❌ 失敗"
+                      : "🚀 發佈"}
                   </button>
                   {hasEmptyRequired && !testRunning && <span className="text-[11px] text-rose-400">⚠️ 請填寫所有必填欄位</span>}
                 </div>
