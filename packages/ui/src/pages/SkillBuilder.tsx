@@ -529,18 +529,11 @@ ${userInputLines.join("\n")}
     }
   };
 
-  // ── Publish: move skill from building/ to input-prompt/ ──
+  // ── Publish: move skill from building/ to physical-skill/ ──
   const handlePublish = async () => {
     if (!form.id || form.id === "untitled") return;
     setPublishStatus("publishing");
     try {
-      // Ensure latest content is saved first
-      const content = buildSkillMd(form);
-      if (selectedPath) {
-        await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(selectedPath)}`, {
-          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }),
-        });
-      }
       const res = await fetch(`${API_BASE}/api/skills/${form.id}/publish`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target: "physical-skill" }),
