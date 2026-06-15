@@ -1809,7 +1809,7 @@ async function paawApiHandler(req, res) {
     const body = JSON.parse(await readBody(req));
     const { skillId, prompt, cwd, cli = "qwen", timeout = 120, maxToolCalls = 10 } = body;
     // 1. Create temp dir — use relative path for CLI compatibility
-    const relTestDir = `data/skills/building/${skillId || "unknown"}/package`;
+    const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
     const testDir = resolve(PAAW_ROOT, relTestDir);
     // Clean previous test output (always overwrite)
     try { await rm(testDir, { recursive: true, force: true }); } catch {}

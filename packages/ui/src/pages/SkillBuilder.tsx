@@ -422,8 +422,9 @@ export default function SkillBuilder() {
   };
 
   // ── Test: just use the built SKILL.md + user input ──
+  // Output goes to test-output/ (separate from package/) so it can be reviewed independently
   const buildTestPrompt = () => {
-    const testOutputDir = `data/skills/building/${form.id || "untitled"}/package`;
+    const testOutputDir = `data/skills/building/${form.id || "untitled"}/test-output`;
 
     // 1. User inputs — the actual test data
     const userInputLines: string[] = [];
@@ -459,8 +460,8 @@ ${userInputLines.join("\n")}
     const elapsedTimer = setInterval(() => setTestElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
     const prompt = buildTestPrompt();
-    // Test mode: fixed output dir, always overwritten, no accumulation
-    const testOutputDir = `data/skills/building/${form.id || "untitled"}/package`;
+    // Test mode: output goes to test-output/ (not package/), always overwritten
+    const testOutputDir = `data/skills/building/${form.id || "untitled"}/test-output`;
     // Clean previous test output
     try { await fetch(`${API_BASE}/api/fs/rmdir?path=${encodeURIComponent(testOutputDir)}`, { method: "DELETE" }); } catch {}
 
