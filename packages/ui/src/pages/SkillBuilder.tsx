@@ -421,40 +421,29 @@ export default function SkillBuilder() {
     else { terminalRef.current?.sendPrompt(prompt); }
   };
 
-  // ── Test: non-interactive CLI → SSE → auto show files ──
-  // Build test prompt: skill info as context + user inputs as the actual task
-  // NOT the full skill-source.md / building source — just the execution-relevant parts
+  // ── Test: just use the built SKILL.md + user input ──
   const buildTestPrompt = () => {
     const testOutputDir = `data/skills/building/${form.id || "untitled"}/package`;
-    const skillName = form.name || form.id || "Untitled";
-    const parts: string[] = [];
 
-    // 1. System context — tell the CLI what skill it's running
-    parts.push(`你是「${skillName}」Skill。請按照以下定義執行。\n`);
-    parts.push(`## Skill 定義\n`);
-    if (form.purpose) parts.push(`### Purpose\n${form.purpose}\n`);
-    if (form.steps) parts.push(`### Steps\n${form.steps}\n`);
-    if (form.outputFormat) parts.push(`### Output Format\n${form.outputFormat}\n`);
-    if (form.guardrails) parts.push(`### Guardrails\n${form.guardrails}\n`);
-    if ((form as any).examples) parts.push(`### Examples\n${(form as any).examples}\n`);
-
-    // 2. User inputs — the actual test data
+    // 1. User inputs — the actual test data
     const userInputLines: string[] = [];
     if (form.inputs.length > 0) {
       for (const inp of form.inputs) {
         if (inp.id === "output_path") {
-          userInputLines.push(`- **${inp.label}**: ${testOutputDir}`);
+          userInputLines.push(`${inp.label}: ${testOutputDir}`);
         } else {
-          userInputLines.push(`- **${inp.label}**: ${testInputs[inp.id] || "(未提供)"}`);
+          userInputLines.push(`${inp.label}: ${testInputs[inp.id] || "(未提供)"}`);
         }
       }
     }
-    parts.push(`## 使用者輸入\n${userInputLines.join("\n")}\n`);
 
-    // 3. Execution instruction
-    parts.push(`## 執行\n請根據以上定義和使用者輸入，產出結果。照 Output Format 輸出到指定目錄。`);
+    // 2. Simple prompt: built skill + user input → test if publishable
+    return `請使用剛 build 好的 Skill（data/skills/building/${form.id || "untitled"}/package/SKILL.md）執行以下使用者輸入，驗證 Skill 是否能正常產出結果。
 
-    return parts.join("\n");
+## User Input
+${userInputLines.join("\n")}
+
+照 SKILL.md 的 Output Contract 輸出到指定目錄。如果正常產出，代表可以發佈。`;
   };
 
   const handleTest = async () => {
