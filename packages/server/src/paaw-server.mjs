@@ -44,6 +44,49 @@ const DATA_ROOT = resolve(PAAW_ROOT, "data");
 
 const PORT = parseInt(process.env.PAAW_PORT || "4097", 10);
 
+// ── Cross-platform CLI binary resolution ──
+// Loads bin paths from data/config/cli-adapters/*.json, with env var override.
+// This replaces all hardcoded /opt/homebrew/bin paths for Windows/Linux compatibility.
+
+const _cliAdapterDir = resolve(PAAW_ROOT, "data/config/cli-adapters");
+let _cliBinsCache = null; // { cliType: { darwin, linux, win32 } }
+
+function _loadCliBinsSync() {
+  if (_cliBinsCache) return _cliBinsCache;
+  _cliBinsCache = {};
+  try {
+    const files = readdirSync(_cliAdapterDir);
+    for (const f of files) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const cfg = JSON.parse(readFileSync(join(_cliAdapterDir, f), "utf-8"));
+        if (cfg.id && cfg.bins) {
+          _cliBinsCache[cfg.id] = cfg.bins;
+        }
+      } catch { /* skip broken config */ }
+    }
+  } catch { /* dir doesn't exist yet */ }
+  return _cliBinsCache;
+}
+
+/** Resolve a CLI binary path for the current platform.
+ *  Priority: env var → cli-adapter JSON → sensible default.
+ *  @param {string} cliType - "qwen" | "claude" | "opencode" | etc.
+ *  @returns {string} binary path or name
+ */
+function resolveCliBin(cliType) {
+  const bins = _loadCliBinsSync();
+  const envVar = { qwen: "QWEN_BIN", claude: "CLAUDE_BIN", opencode: "OPENCODE_BIN" }[cliType];
+  if (envVar && process.env[envVar]) return process.env[envVar];
+  const platform = process.platform;
+  const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
+  const adapterBins = bins[cliType];
+  if (adapterBins && adapterBins[binKey]) return adapterBins[binKey];
+  // Fallbacks
+  const defaults = { qwen: { darwin: "qwen", linux: "qwen", win32: "qwen.cmd" }, claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" }, opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" } };
+  return (defaults[cliType] || defaults.qwen)[binKey];
+}
+
 // Simple path hash: replace non-alphanumeric with underscore
 function projectPathHash(path) {
   if (!path) return "_default";
@@ -1043,12 +1086,7 @@ ${context ? "\n## Context\n" + context : ""}
 
       // 4. Resolve CLI binary (per-app override or default qwen)
       const cliType = appMeta.cli || args._cli || "qwen";
-      const cliBins = {
-        qwen: process.env.QWEN_BIN || "/opt/homebrew/bin/qwen",
-        claude: process.env.CLAUDE_BIN || "claude",
-        opencode: process.env.OPENCODE_BIN || "opencode",
-      };
-      const resolvedBin = cliBins[cliType] || cliBins.qwen;
+      const resolvedBin = resolveCliBin(cliType);
 
       // 5. Build CLI args per CLI type
       let cliArgs;
@@ -1216,15 +1254,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
     res.write(JSON.stringify({ type: "status", data: { message: `AI 正在計算 ${appId}...` } }) + "\n");
 
-    const cliBins = {
-      qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" },
-      claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" },
-      opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
-    };
-    const cliEnvBins = { qwen: "QWEN_BIN", claude: "CLAUDE_BIN", opencode: "OPENCODE_BIN" };
-    const _platform = process.platform;
-    const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
-    const resolvedBin = process.env[cliEnvBins[cliName] || "QWEN_BIN"] || (cliBins[cliName] || cliBins.qwen)[_binKey];
+    const resolvedBin = resolveCliBin(cliName);
 
     // Use prompt via file to avoid arg length limits
     let cliArgs;
@@ -1423,15 +1453,7 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     const htmlOutFile = join(outDir, "app.html");
 
     // Resolve CLI binary and args
-    const cliBins = {
-      qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" },
-      claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" },
-      opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
-    };
-    const cliEnvBins = { qwen: "QWEN_BIN", claude: "CLAUDE_BIN", opencode: "OPENCODE_BIN" };
-    const _platform = process.platform;
-    const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
-    const resolvedBin = process.env[cliEnvBins[cliName] || "QWEN_BIN"] || (cliBins[cliName] || cliBins.qwen)[_binKey];
+    const resolvedBin = resolveCliBin(cliName);
 
     // Build CLI-specific args
     let cliArgs;
@@ -1861,9 +1883,7 @@ async function paawApiHandler(req, res) {
     } else {
       // Hardcoded fallback
       const _platform = process.platform;
-      const _cliBins = { qwen: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" }, claude: { darwin: "claude", linux: "claude", win32: "claude.cmd" }, opencode: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" } };
-      const _binKey = _platform === "win32" ? "win32" : _platform === "darwin" ? "darwin" : "linux";
-      cliBin = process.env.QWEN_BIN || _cliBins[cli]?.[_binKey] || cli;
+      cliBin = resolveCliBin(cli);
       args = ["-o", "text", "--approval-mode", "yolo", "--max-session-turns", String(maxToolCalls), promptFile];
       spawnOpts = { cwd: spawnCwd, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
       if (_platform === "win32") { spawnOpts.shell = true; }
@@ -1972,9 +1992,7 @@ async function paawApiHandler(req, res) {
       const { cli: cliName = "qwen", prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120, stream: wantStream = false } = JSON.parse(body);
       if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return true; }
 
-      const resolvedBin = cliName === "qwen"
-        ? (process.env.QWEN_BIN || "/opt/homebrew/bin/qwen")
-        : cliName;
+      const resolvedBin = resolveCliBin(cliName);
 
       const cliArgs = [
         "--approval-mode", "yolo",
@@ -2178,9 +2196,7 @@ async function paawApiHandler(req, res) {
         if (models.length === 0) {
           // Fallback: execute `opencode models` to get live model list
           const config = CLI_CONFIGS.opencode;
-          const platform = process.platform;
-          const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
-          const bin = process.env[config.envBin] || config.bins[binKey];
+          const bin = resolveCliBin("opencode");
           try {
             const { stdout } = await execAsync(`"${bin}" models 2>&1`, { timeout: 15000 });
             const lines = (stdout || "").split("\n").map(l => l.trim()).filter(Boolean);
@@ -3799,7 +3815,7 @@ const ptySessions = new Map(); // ws -> { pty, id }
 const CLI_CONFIGS = {
   qwen: {
     name: "Qwen Code",
-    bins: { darwin: "/opt/homebrew/bin/qwen", linux: "qwen", win32: "qwen.cmd" },
+    get bins() { return _loadCliBinsSync().qwen || { darwin: "qwen", linux: "qwen", win32: "qwen.cmd" }; },
     envBin: "QWEN_BIN",
     buildArgs: (opts) => {
       const args = [];
@@ -3811,7 +3827,7 @@ const CLI_CONFIGS = {
   },
   claude: {
     name: "Claude Code",
-    bins: { darwin: "claude", linux: "claude", win32: "claude.cmd" },
+    get bins() { return _loadCliBinsSync().claude || { darwin: "claude", linux: "claude", win32: "claude.cmd" }; },
     envBin: "CLAUDE_BIN",
     buildArgs: (opts) => {
       const args = [];
@@ -3826,7 +3842,7 @@ const CLI_CONFIGS = {
   },
   opencode: {
     name: "OpenCode",
-    bins: { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" },
+    get bins() { return _loadCliBinsSync().opencode || { darwin: "opencode", linux: "opencode", win32: "opencode.cmd" }; },
     envBin: "OPENCODE_BIN",
     buildArgs: (opts) => {
       const args = [];
@@ -3848,8 +3864,7 @@ function spawnCli(ptySpawn, opts) {
   if (!config) throw new Error(`Unknown CLI: ${cliType}`);
 
   const platform = process.platform;
-  const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
-  let bin = process.env[config.envBin] || config.bins[binKey];
+  let bin = resolveCliBin(cliType);
   const args = config.buildArgs(opts);
   const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
 
@@ -3880,9 +3895,7 @@ function spawnCli(ptySpawn, opts) {
 async function checkInstalledClis() {
   const results = {};
   for (const [key, config] of Object.entries(CLI_CONFIGS)) {
-    const platform = process.platform;
-    const binKey = platform === "win32" ? "win32" : platform === "darwin" ? "darwin" : "linux";
-    const bin = process.env[config.envBin] || config.bins[binKey];
+    const bin = resolveCliBin(key);
     const { stat } = await import("fs/promises");
     try {
       // For PATH-based binaries, check if they resolve
