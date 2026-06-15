@@ -82,15 +82,6 @@ function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace }: { menu: Ctx
             📋 Copy Path
           </div>
           <div
-            style={itemStyle}
-            onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            onClick={() => copy(menu.relativePath)}
-          >
-            📄 Copy Relative Path
-          </div>
-          <div style={{ height: 1, background: t.border, margin: "4px 0" }} />
-          <div
             style={{ ...itemStyle, color: "#ef4444" }}
             onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
