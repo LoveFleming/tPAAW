@@ -1887,7 +1887,7 @@ async function paawApiHandler(req, res) {
       // 7. Scan for output files — check user-specified output path first, then test dir
       const scanDirs = [testDir];
       // Also try to read user-specified output path from original prompt
-      const outputPathMatch = prompt.match(/\*\*輸出路徑\*\*:\s*(.+)/);
+      const outputPathMatch = prompt.match(/輸出路徑:\s*(.+)/);
       if (outputPathMatch) {
         const userPath = outputPathMatch[1].trim();
         const userDir = resolve(PAAW_ROOT, userPath);
