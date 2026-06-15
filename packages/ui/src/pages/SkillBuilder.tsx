@@ -551,7 +551,7 @@ ${userInputLines.join("\n")}
     } catch { setPublishStatus("error"); setTimeout(() => setPublishStatus(""), 3000); }
   };
 
-  const canPublish = !!(form.id && form.id !== "untitled" && form.purpose.trim() && selectedPath?.includes("/building/"));
+  const canPublish = !!(form.id && form.id !== "untitled" && selectedPath?.includes("/building/"));
 
   const canBuild = form.purpose.trim();
   const hasEmptyRequired = form.inputs.some(inp => inp.required && !(testInputs[inp.id] || "").trim() && inp.id !== "output_path");
