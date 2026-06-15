@@ -278,23 +278,21 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   // ── Merge fresh server tree into existing tree, preserving lazy-loaded children ──
   const mergeTree = useCallback((existing: TreeNode | null, fresh: TreeNode): TreeNode => {
     if (!existing) return fresh;
-    // Keep existing name/path/type but update children from fresh
+    // Start from fresh, but preserve existing loaded children where fresh is lazy
     const merged: TreeNode = { ...fresh };
     if (existing.children && fresh.children) {
-      // Build a map of fresh children by path for quick lookup
-      const freshMap = new Map<string, TreeNode>();
-      for (const fc of fresh.children) freshMap.set(fc.path, fc);
-      // Merge: prefer existing (may have lazy-loaded deep children), add new, keep order from fresh
+      // Both have children → merge recursively, preserving lazy-loaded subtrees
       merged.children = fresh.children.map(fc => {
         const ec = existing.children!.find(c => c.path === fc.path);
-        if (ec && ec.type === "dir") {
-          // If existing has loaded children (not lazy), preserve them; otherwise use fresh
-          if (ec.children && !ec.lazy) {
-            return mergeTree(ec, fc);
-          }
+        if (ec && ec.type === "dir" && ec.children && !ec.lazy) {
+          return mergeTree(ec, fc);
         }
         return fc;
       });
+    } else if (existing.children && !existing.lazy) {
+      // Existing has loaded children but fresh is lazy (shallow) → preserve existing children
+      merged.children = existing.children;
+      merged.lazy = false;
     }
     return merged;
   }, []);
