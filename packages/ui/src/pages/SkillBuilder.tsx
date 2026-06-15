@@ -130,8 +130,8 @@ function buildSkillMd(form: SkillForm): string {
   if (form.description) lines.push(`description: ${form.description}`);
   if (form.visibility && form.visibility !== "private") lines.push(`visibility: ${form.visibility}`);
   if (form.tags) lines.push(`tags: ${form.tags}`);
-  if (form.examples) lines.push(`examples: ${form.examples}`);
-  if (form.notes) lines.push(`notes: ${form.notes}`);
+  if (form.examples) lines.push(`examples: |\n${form.examples.split("\n").map((l: string) => "  " + l).join("\n")}`);
+  if (form.notes) lines.push(`notes: |\n${form.notes.split("\n").map((l: string) => "  " + l).join("\n")}`);
   if (form.inputs.length > 0) {
     lines.push("userInputs:");
     for (const inp of form.inputs) {
