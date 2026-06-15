@@ -169,7 +169,8 @@ export default async function workflowRoutes(req, res) {
       fullSystem += `你是「${appId}」App 的 Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。`; 
 
       // Execute via CLI (same approach as tools/index.mjs skillExec)
-      const resolvedBin = process.env.QWEN_BIN || "/opt/homebrew/bin/qwen";
+      const { resolveCliBin } = await import("../lib/cli-resolve.mjs");
+      const resolvedBin = resolveCliBin("qwen");
       const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", prompt];
       const appDir = resolve(PATHS.APPS_ROOT, appId);
 
