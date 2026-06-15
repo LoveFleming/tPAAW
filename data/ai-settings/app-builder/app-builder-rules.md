@@ -192,5 +192,4 @@
 
 ---
 
-*此文件由 Fleming 定義，作為 AI Capability Platform 的統一規範。*
-*更新日期：2026-06-07*
+

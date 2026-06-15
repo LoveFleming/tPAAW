@@ -437,7 +437,8 @@ export default function AppLab() {
         name: string; icon: string; description: string; type: string;
         dataShape: string; cli: string; aiPrompt: string; triggers: string;
         schema: string;
-    }>({ name: "", icon: "", description: "", type: "data", dataShape: "array", cli: "qwen", aiPrompt: "", triggers: "", schema: "" });
+        skillsText: string;
+    }>({ name: "", icon: "", description: "", type: "data", dataShape: "array", cli: "qwen", aiPrompt: "", triggers: "", schema: "", skillsText: "" });
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -497,6 +498,7 @@ export default function AppLab() {
                     aiPrompt: app.aiPrompt || "",
                     triggers: (app.triggers || []).join(", "),
                     schema: app.schema ? JSON.stringify(app.schema, null, 2) : "",
+                    skillsText: app.skills ? JSON.stringify(app.skills, null, 2) : "",
                 });
             }
         } catch {}
@@ -538,6 +540,9 @@ export default function AppLab() {
             };
             if (appSettings.schema.trim()) {
                 try { changes.schema = JSON.parse(appSettings.schema); } catch {}
+            }
+            if (appSettings.skillsText.trim()) {
+                try { changes.skills = JSON.parse(appSettings.skillsText); } catch {}
             }
             await fetch(`${API}/api/apps/${editingAppId}`, {
                 method: "PATCH",
@@ -1126,6 +1131,17 @@ export default function AppLab() {
                                             rows={8}
                                             className="w-full px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
                                             style={{ borderColor: "#d6d3d1", lineHeight: 1.5 }} />
+                                    </div>
+                                    {/* Skills (JSON array) */}
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">綁定的 Skills (JSON 陣列)</label>
+                                        <textarea value={appSettings.skillsText}
+                                            onChange={e => setAppSettings(p => ({ ...p, skillsText: e.target.value }))}
+                                            rows={6}
+                                            placeholder='[{ "id": "translate", "path": "./skills/translate/SKILL.md", "role": "main" }]'
+                                            className="w-full px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
+                                            style={{ borderColor: "#d6d3d1", lineHeight: 1.5 }} />
+                                        <p className="text-[10px] text-stone-400 mt-1">每個 skill: {`{ id, path, role }`}，role 可選 main / support</p>
                                     </div>
                                 </div>
                                 {/* Footer */}

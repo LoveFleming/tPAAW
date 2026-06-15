@@ -779,6 +779,7 @@ ${context ? "\n## Context\n" + context : ""}
             type: meta.type || "data",
             cli: meta.cli || "qwen",
             triggers: meta.triggers || [],
+            skills: meta.skills || [],
           });
         } catch { /* skip */ }
       }

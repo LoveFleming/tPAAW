@@ -159,7 +159,8 @@ async function buildToolDefinitions() {
               dataShape: { type: "string", enum: ["array", "object", "none"] },
               type: { type: "string", enum: ["data", "skill-based"], description: "App 類型" },
               cli: { type: "string", enum: ["qwen", "claude", "opencode"], description: "CLI 引擎（skill-based 時使用）" },
-              triggers: { type: "array", items: { type: "string" }, description: "聊天觸發關鍵字" }
+              triggers: { type: "array", items: { type: "string" }, description: "聊天觸發關鍵字" },
+              skills: { type: "array", items: { type: "object" }, description: "綁定的 Skills，每個 { id, path, role }" }
             }
           }
         },
