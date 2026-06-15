@@ -320,12 +320,12 @@ async function buildToolDefinitions() {
       type: "function",
       function: {
         name: "file_list",
-        description: "列出工作區目錄的檔案",
+        description: "列出工作區目錄的檔案。不指定 workspace 時會列出所有可用工作區供選擇",
         parameters: {
           type: "object",
           properties: {
             path: { type: "string", description: "目錄相對路徑（預設根目錄）" },
-            workspace: { type: "string", description: "工作區名稱或路徑（可選）" }
+            workspace: { type: "string", description: "工作區名稱或路徑（可選，不填則列出所有工作區）" }
           },
           required: []
         }
@@ -335,12 +335,12 @@ async function buildToolDefinitions() {
       type: "function",
       function: {
         name: "file_read",
-        description: "讀取工作區內的檔案內容",
+        description: "讀取工作區內的檔案內容。不指定 workspace 時會自動在所有工作區中搜尋該檔案",
         parameters: {
           type: "object",
           properties: {
             path: { type: "string", description: "檔案相對路徑" },
-            workspace: { type: "string", description: "工作區名稱或路徑（可選）" }
+            workspace: { type: "string", description: "工作區名稱或路徑（可選，不填則跨工作區搜尋）" }
           },
           required: ["path"]
         }
@@ -712,11 +712,34 @@ function buildHandlers(apps) {
   }
 
   // File tools (dataShape: none, special tools)
+  // Helper: load workspace directories
+  async function loadWorkspaces() {
+    try {
+      const ws = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
+      return ws.directories || [];
+    } catch { return []; }
+  }
+
+  // Helper: match workspace by name/path fragment
+  function matchWorkspace(dirs, hint) {
+    if (!hint) return null;
+    return dirs.find(w => w === hint || w.endsWith("/" + hint) || w.includes(hint)) || null;
+  }
+
   handlers.file_list = async ({ path: dirPath = ".", workspace } = {}) => {
     try {
-      const workspaces = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
-      const ws = workspace ? workspaces.directories?.find(w => w === workspace || w.includes(workspace)) : workspaces.directories?.[0];
-      if (!ws) return { text: "沒有設定工作區，請先在設定中加入", error: true };
+      const dirs = await loadWorkspaces();
+      if (dirs.length === 0) return { text: "沒有設定工作區，請先在設定中加入", error: true };
+
+      // No workspace specified → list all workspaces
+      if (!workspace) {
+        const wsList = dirs.map((w, i) => `${i + 1}. **${w.split("/").pop()}** — ${w}`).join("\n");
+        return { text: `可用工作區（${dirs.length} 個）：\n${wsList}\n\n請指定 workspace 參數來選擇工作區，或直接使用 workspace 名稱。` };
+      }
+
+      const ws = matchWorkspace(dirs, workspace);
+      if (!ws) return { text: `找不到工作區「${workspace}」。可用：${dirs.map(d => d.split("/").pop()).join(", ")}`, error: true };
+
       const { readdir: rd } = await import("fs/promises");
       const fullDir = resolve(ws, dirPath);
       const entries = await rd(fullDir, { withFileTypes: true });
@@ -729,13 +752,24 @@ function buildHandlers(apps) {
 
   handlers.file_read = async ({ path: filePath, workspace }) => {
     try {
-      const workspaces = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
-      const ws = workspace ? workspaces.directories?.find(w => w === workspace || w.includes(workspace)) : workspaces.directories?.[0];
-      if (!ws) return { text: "沒有設定工作區", error: true };
-      const fullPath = resolve(ws, filePath);
-      const content = await readFile(fullPath, "utf-8");
-      const preview = content.length > 5000 ? content.slice(0, 5000) + "\n... (截斷)" : content;
-      return { text: preview, path: fullPath };
+      const dirs = await loadWorkspaces();
+      if (dirs.length === 0) return { text: "沒有設定工作區", error: true };
+
+      // If workspace specified, use it; otherwise search all workspaces
+      const searchDirs = workspace ? [matchWorkspace(dirs, workspace)].filter(Boolean) : dirs;
+      if (searchDirs.length === 0) return { text: `找不到工作區「${workspace}」`, error: true };
+
+      for (const ws of searchDirs) {
+        const fullPath = resolve(ws, filePath);
+        try {
+          const content = await readFile(fullPath, "utf-8");
+          const preview = content.length > 5000 ? content.slice(0, 5000) + "\n... (截斷)" : content;
+          return { text: preview, path: fullPath, workspace: ws };
+        } catch { /* not in this workspace, try next */ }
+      }
+
+      const wsHint = workspace ? `（在 ${workspace} 中）` : `（已搜尋 ${dirs.length} 個工作區）`;
+      return { text: `找不到檔案「${filePath}」${wsHint}`, error: true };
     } catch (err) {
       return { text: `讀取失敗: ${err.message}`, error: true };
     }
