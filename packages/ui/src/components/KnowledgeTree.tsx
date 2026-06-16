@@ -420,11 +420,6 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
 
   return (
     <div className="flex flex-col h-full" onContextMenu={handleRootCtx}>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-2 py-1 border-b border-stone-100 shrink-0">
-        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Knowledge</span>
-      </div>
-
       {/* File Import Picker — browse entire filesystem */}
       <FileImportPicker
         open={showPicker}
