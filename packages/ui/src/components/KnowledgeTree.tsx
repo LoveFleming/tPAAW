@@ -3,7 +3,7 @@ import { cn } from "../utils";
 import { useI18n } from "../i18n";
 
 import API_BASE from "../api";
-import FilePickerModal from "./FilePickerModal";
+import FileImportPicker from "./FileImportPicker";
 
 // ── Types ──
 interface TreeNode {
@@ -204,7 +204,7 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
   const [ctxMenu, setCtxMenu] = useState<CtxState | null>(null);
   const [renamingNode, setRenamingNode] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<{ parentPath: string; type: "file" | "folder" } | null>(null);
-  const [showPicker, setShowPicker] = useState<false | "file" | "dir">(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [existingNames, setExistingNames] = useState<string[]>([]);
 
   const [rootPath, setRootPath] = useState("");
@@ -391,19 +391,26 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
     setExistingNames(tree.children.map(c => c.name));
   }, [tree]);
 
-  // Import file or directory from workspace into knowledge
+  // Import file from anywhere on the filesystem into knowledge (clone/copy)
   const handleImport = useCallback(async (srcPath: string) => {
     if (!ROOT) return;
-    const name = srcPath.split("/").pop() || "imported-item";
+    const name = srcPath.split("/").pop() || "imported-file";
     const destPath = `${ROOT}/${name}`;
     try {
-      await fetch(`${API_BASE}/api/fs/copy`, {
+      const resp = await fetch(`${API_BASE}/api/fs/copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ srcPath, destPath }),
       });
-      refresh();
-    } catch {}
+      if (resp.ok) {
+        refresh();
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        alert(`匯入失敗: ${err.error || resp.statusText}`);
+      }
+    } catch (e) {
+      alert(`匯入失敗: ${e}`);
+    }
   }, [ROOT, refresh]);
 
   return (
@@ -413,30 +420,22 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
         <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Knowledge</span>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setShowPicker("file")}
+            onClick={() => setShowPicker(true)}
             className="text-[10px] text-stone-400 hover:text-stone-700 font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-stone-100 transition-colors"
-            title="從工作區匯入檔案"
+            title="匯入任意檔案到 Knowledge"
           >
             📄 匯入檔案
-          </button>
-          <button
-            onClick={() => setShowPicker("dir")}
-            className="text-[10px] text-stone-400 hover:text-stone-700 font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-stone-100 transition-colors"
-            title="從工作區匯入目錄"
-          >
-            📁 匯入目錄
           </button>
         </div>
       </div>
 
-      {/* File Picker Modal */}
-      <FilePickerModal
-        open={showPicker !== false}
-        mode={showPicker === "dir" ? "dir" : "file"}
+      {/* File Import Picker — browse entire filesystem */}
+      <FileImportPicker
+        open={showPicker}
         onClose={() => setShowPicker(false)}
         onPick={handleImport}
         existingNames={existingNames}
-        title={showPicker === "dir" ? "匯入目錄到 Knowledge" : "匯入檔案到 Knowledge"}
+        title="匯入檔案到 Knowledge"
       />
 
       {/* Tree */}

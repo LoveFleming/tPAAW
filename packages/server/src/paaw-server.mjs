@@ -2700,8 +2700,39 @@ async function paawApiHandler(req, res) {
     return;
   }
 
+  // GET /api/fs/browse-files?path=... — list dirs + files for file picker
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/browse-files")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const dirPath = params.get("path") || "";
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.USERPROFILE || process.env.HOME || "/");
+    try {
+      const stat = await import("fs").then(m => m.promises.stat(absPath));
+      if (!stat.isDirectory()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Not a directory" }));
+        return;
+      }
+      const entries = await readdir(absPath, { withFileTypes: true });
+      const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite"]);
+      const visible = entries.filter(e => !IGNORED.has(e.name) && !e.name.startsWith(".")).sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      const dirs = visible.filter(e => e.isDirectory()).map(e => ({ name: e.name, path: join(absPath, e.name), type: "dir" }));
+      const files = visible.filter(e => !e.isDirectory()).map(e => ({ name: e.name, path: join(absPath, e.name), type: "file" }));
+      const parent = (absPath !== "/" && !/^[A-Za-z]:\\$/.test(absPath)) ? dirname(absPath) : null;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ currentPath: absPath, parent, directories: dirs, files }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message, currentPath: absPath, parent: null, directories: [], files: [] }));
+    }
+    return;
+  }
+
   // GET /api/fs/browse?path=... — list immediate subdirectories for folder picker
-  if (req.method === "GET" && req.url?.startsWith("/api/fs/browse")) {
+  if (req.method === "GET" && req.url?.startsWith("/api/fs/browse") && !req.url?.startsWith("/api/fs/browse-files")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const dirPath = params.get("path") || "";
     const absPath = dirPath ? resolve(dirPath) : resolve(process.env.USERPROFILE || process.env.HOME || "/");
