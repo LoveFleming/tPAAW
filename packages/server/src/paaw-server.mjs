@@ -2745,7 +2745,7 @@ async function paawApiHandler(req, res) {
       return;
     }
     try {
-      const tree = await buildTree(absRoot, absRoot, 2);
+      const tree = await buildTree(absRoot, absRoot, 3);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(tree));
     } catch (err) {
@@ -2818,7 +2818,7 @@ async function paawApiHandler(req, res) {
     }
     const absDir = resolve(join(root, subpath));
     try {
-      const children = await buildTree(absDir, absDir, 1);
+      const children = await buildTree(absDir, absDir, 2);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(children));
     } catch (err) {

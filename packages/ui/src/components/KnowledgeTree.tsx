@@ -204,7 +204,8 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
   const [ctxMenu, setCtxMenu] = useState<CtxState | null>(null);
   const [renamingNode, setRenamingNode] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<{ parentPath: string; type: "file" | "folder" } | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
+  const [showPicker, setShowPicker] = useState<false | "file" | "dir">(false);
+  const [existingNames, setExistingNames] = useState<string[]>([]);
 
   const [rootPath, setRootPath] = useState("");
 
@@ -384,11 +385,17 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
     setCtxMenu({ x: e.clientX, y: e.clientY, node: rootNode, parentPath: ROOT });
   }, [ROOT, tree]);
 
-  // Import file from workspace into knowledge
+  // Collect existing names in knowledge root for duplicate check
+  useEffect(() => {
+    if (!tree?.children) { setExistingNames([]); return; }
+    setExistingNames(tree.children.map(c => c.name));
+  }, [tree]);
+
+  // Import file or directory from workspace into knowledge
   const handleImport = useCallback(async (srcPath: string) => {
     if (!ROOT) return;
-    const fileName = srcPath.split("/").pop() || "imported-file";
-    const destPath = `${ROOT}/${fileName}`;
+    const name = srcPath.split("/").pop() || "imported-item";
+    const destPath = `${ROOT}/${name}`;
     try {
       await fetch(`${API_BASE}/api/fs/copy`, {
         method: "POST",
@@ -404,21 +411,32 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
       {/* Toolbar */}
       <div className="flex items-center justify-between px-2 py-1 border-b border-stone-100 shrink-0">
         <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Knowledge</span>
-        <button
-          onClick={() => setShowPicker(true)}
-          className="text-[10px] text-stone-400 hover:text-stone-700 font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-stone-100 transition-colors"
-          title="從工作區匯入檔案"
-        >
-          <span className="text-xs">＋</span> 匯入
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowPicker("file")}
+            className="text-[10px] text-stone-400 hover:text-stone-700 font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-stone-100 transition-colors"
+            title="從工作區匯入檔案"
+          >
+            📄 匯入檔案
+          </button>
+          <button
+            onClick={() => setShowPicker("dir")}
+            className="text-[10px] text-stone-400 hover:text-stone-700 font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-stone-100 transition-colors"
+            title="從工作區匯入目錄"
+          >
+            📁 匯入目錄
+          </button>
+        </div>
       </div>
 
       {/* File Picker Modal */}
       <FilePickerModal
-        open={showPicker}
+        open={showPicker !== false}
+        mode={showPicker === "dir" ? "dir" : "file"}
         onClose={() => setShowPicker(false)}
         onPick={handleImport}
-        title="匯入檔案到 Knowledge"
+        existingNames={existingNames}
+        title={showPicker === "dir" ? "匯入目錄到 Knowledge" : "匯入檔案到 Knowledge"}
       />
 
       {/* Tree */}
