@@ -4356,34 +4356,46 @@ async function runCronJob(job) {
 
   await appendCronLog(job.id, { runId, status: "started" });
 
-  // ── Reminder type: inject message into chat ──
+  // ── Reminder type: inject message into chat or save to file ──
   if (job.type === "reminder") {
+    const reminderContent = `⏰ **提醒**：${job.reminderText || job.name}`;
     try {
-      const files = await readdir(CRON_CHAT_DIR);
-      const chatFiles = files.filter(f => f.endsWith(".json"));
-      // Sort by updatedAt inside JSON, not filename — pick the truly latest chat
-      let latestChat = null;
-      let latestPath = null;
-      let latestTime = "";
-      for (const f of chatFiles) {
-        try {
-          const p = resolve(CRON_CHAT_DIR, f);
-          const raw = JSON.parse(await readFile(p, "utf-8"));
-          const t = raw.updatedAt || raw.createdAt || "";
-          if (t > latestTime) { latestTime = t; latestChat = raw; latestPath = p; }
-        } catch {}
-      }
-      if (latestChat && latestPath) {
-        latestChat.messages.push({
-          role: "assistant",
-          content: `⏰ **提醒**：${job.reminderText || job.name}`,
-          timestamp: new Date().toISOString(),
-        });
-        latestChat.updatedAt = new Date().toISOString();
-        await writeFile(latestPath, JSON.stringify(latestChat, null, 2), "utf-8");
-        console.log(`[cron] Reminder delivered to chat: ${latestPath}`);
+      // Determine output target
+      const target = job.outputTarget || "chat";
+      if (target === "path" && job.outputPath) {
+        // Save reminder to specified path
+        const outputDir = resolve(job.outputPath);
+        await mkdir(outputDir, { recursive: true });
+        const outFile = join(outputDir, `reminder-${runTs}.md`);
+        await writeFile(outFile, `# ${job.name}\n\n${reminderContent}\n\n_${new Date().toISOString()}_`, "utf-8");
+        console.log(`[cron] Reminder saved to: ${outFile}`);
       } else {
-        console.log(`[cron] No chat found to deliver reminder`);
+        // Default: inject into latest chat
+        const files = await readdir(CRON_CHAT_DIR);
+        const chatFiles = files.filter(f => f.endsWith(".json"));
+        let latestChat = null;
+        let latestPath = null;
+        let latestTime = "";
+        for (const f of chatFiles) {
+          try {
+            const p = resolve(CRON_CHAT_DIR, f);
+            const raw = JSON.parse(await readFile(p, "utf-8"));
+            const t = raw.updatedAt || raw.createdAt || "";
+            if (t > latestTime) { latestTime = t; latestChat = raw; latestPath = p; }
+          } catch {}
+        }
+        if (latestChat && latestPath) {
+          latestChat.messages.push({
+            role: "assistant",
+            content: reminderContent,
+            timestamp: new Date().toISOString(),
+          });
+          latestChat.updatedAt = new Date().toISOString();
+          await writeFile(latestPath, JSON.stringify(latestChat, null, 2), "utf-8");
+          console.log(`[cron] Reminder delivered to chat: ${latestPath}`);
+        } else {
+          console.log(`[cron] No chat found to deliver reminder`);
+        }
       }
       await appendCronLog(job.id, { runId, status: "done", reminderDelivered: true });
       const jobs = await loadCronJobs();
@@ -4411,16 +4423,16 @@ async function runCronJob(job) {
   try {
     const { spawn } = await import("child_process");
     // Build prompt with params
-    let prompt = job.prompt || `Execute report app ${job.reportAppId}`;
+    let prompt = job.prompt || `Execute skill ${job.skillId || job.reportAppId}`;
     if (job.params && Object.keys(job.params).length > 0) {
       prompt += `\n\nParameters:\n${Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
     }
 
-    const appDir = resolve(PAAW_ROOT, "skills/physical-skill", job.reportAppId);
+    const skillDir = resolve(PAAW_ROOT, "skills/physical-skill", job.skillId || job.reportAppId);
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
     const child = spawn(_cronBin, ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {
-      cwd: appDir,
+      cwd: skillDir,
       env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
       shell: _cronWin,  // Windows: .cmd files need shell:true
@@ -4546,10 +4558,12 @@ const cronApiHandler = async (req, res) => {
       name: parsed.name,
       type: parsed.type || "report", // "report" or "reminder"
       reminderText: parsed.reminderText || "",
-      reportAppId: parsed.reportAppId || "",
+      skillId: parsed.skillId || parsed.reportAppId || "",
       schedule: parsed.schedule || "0 * * * *",
       prompt: parsed.prompt || "",
       params: parsed.params || {},
+      outputTarget: parsed.outputTarget || "chat",
+      outputPath: parsed.outputPath || "",
       enabled: true,
       createdAt: new Date().toISOString(),
       lastRun: null,
@@ -4575,6 +4589,9 @@ const cronApiHandler = async (req, res) => {
     if (patch.name) jobs[idx].name = patch.name;
     if (patch.params) jobs[idx].params = patch.params;
     if (patch.reportAppId) jobs[idx].reportAppId = patch.reportAppId;
+    if (patch.skillId) jobs[idx].skillId = patch.skillId;
+    if (patch.outputTarget) jobs[idx].outputTarget = patch.outputTarget;
+    if (patch.outputPath !== undefined) jobs[idx].outputPath = patch.outputPath;
     await saveCronJobs(jobs);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(jobs[idx]));

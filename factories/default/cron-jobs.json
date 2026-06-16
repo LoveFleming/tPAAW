@@ -1,16 +1,18 @@
 [
   {
-    "id": "cron-1781649457236",
-    "name": "喝水提醒",
+    "id": "cron-1781651116637",
+    "name": "午休提醒",
     "type": "reminder",
-    "reminderText": "該喝水了！💧 保持水分很重要",
-    "reportAppId": "",
-    "schedule": "0 * * * *",
+    "reminderText": "該休息一下了！站起来走走 ☕",
+    "skillId": "",
+    "schedule": "0 13 * * *",
     "prompt": "",
     "params": {},
+    "outputTarget": "chat",
+    "outputPath": "",
     "enabled": true,
-    "createdAt": "2026-06-16T22:37:37.236Z",
-    "lastRun": "2026-06-16T22:38:59.678Z",
+    "createdAt": "2026-06-16T23:05:16.637Z",
+    "lastRun": "2026-06-16T23:05:22.344Z",
     "lastStatus": "done"
   }
 ]

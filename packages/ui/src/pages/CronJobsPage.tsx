@@ -8,10 +8,12 @@ interface CronJob {
     name: string;
     type: "report" | "reminder";
     reminderText?: string;
-    reportAppId: string;
+    skillId: string;
     schedule: string;
     prompt: string;
     params: Record<string, string>;
+    outputTarget: "chat" | "path";
+    outputPath?: string;
     enabled: boolean;
     createdAt: string;
     lastRun: string | null;
@@ -34,9 +36,10 @@ interface ResultFile {
     type: "html" | "text";
 }
 
-interface ReportApp {
+interface SkillItem {
     id: string;
     name: string;
+    category: string;
 }
 
 const PRESETS = [
@@ -53,7 +56,7 @@ type RightTab = "logs" | "results" | "result-view";
 export default function CronJobsPage() {
     const { info: t } = useTheme();
     const [jobs, setJobs] = useState<CronJob[]>([]);
-    const [apps, setApps] = useState<ReportApp[]>([]);
+    const [skills, setSkills] = useState<SkillItem[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [results, setResults] = useState<ResultFile[]>([]);
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
@@ -65,19 +68,28 @@ export default function CronJobsPage() {
 
     const [formName, setFormName] = useState("");
     const [formType, setFormType] = useState<"report" | "reminder">("reminder");
-    const [formAppId, setFormAppId] = useState("");
+    const [formSkillId, setFormSkillId] = useState("");
     const [formSchedule, setFormSchedule] = useState("0 9 * * *");
     const [formPrompt, setFormPrompt] = useState("");
     const [formReminderText, setFormReminderText] = useState("");
     const [formParams, setFormParams] = useState<{ key: string; value: string }[]>([]);
+    const [formOutputTarget, setFormOutputTarget] = useState<"chat" | "path">("chat");
+    const [formOutputPath, setFormOutputPath] = useState("");
 
     const resultIframeRef = useRef<HTMLIFrameElement>(null);
 
     const reload = () => {
         fetch(`${API}/api/cron-jobs`).then(r => r.json()).then(setJobs).catch(() => {});
+        // Load skills from /api/skills
         fetch(`${API}/api/skills`)
             .then(r => r.json())
-            .then((data: any[]) => setApps(data.filter(s => s.hasApp).map(s => ({ id: s.id, name: s.name }))))
+            .then((data: any[]) => {
+                const list: SkillItem[] = [];
+                for (const s of data) {
+                    list.push({ id: s.id, name: s.name || s.id, category: s.category || "" });
+                }
+                setSkills(list);
+            })
             .catch(() => {});
     };
 
@@ -101,7 +113,7 @@ export default function CronJobsPage() {
 
     const handleCreate = async () => {
         if (!formName) return;
-        if (formType === "report" && !formAppId) return;
+        if (formType === "report" && !formSkillId) return;
         const params: Record<string, string> = {};
         formParams.forEach(p => { if (p.key) params[p.key] = p.value; });
         await fetch(`${API}/api/cron-jobs`, {
@@ -111,13 +123,15 @@ export default function CronJobsPage() {
                 name: formName,
                 type: formType,
                 reminderText: formReminderText,
-                reportAppId: formAppId,
+                skillId: formSkillId,
                 schedule: formSchedule,
                 prompt: formPrompt,
                 params,
+                outputTarget: formOutputTarget,
+                outputPath: formOutputTarget === "path" ? formOutputPath : "",
             }),
         });
-        setFormName(""); setFormType("reminder"); setFormAppId(""); setFormSchedule("0 9 * * *"); setFormPrompt(""); setFormReminderText(""); setFormParams([]);
+        setFormName(""); setFormType("reminder"); setFormSkillId(""); setFormSchedule("0 9 * * *"); setFormPrompt(""); setFormReminderText(""); setFormParams([]); setFormOutputTarget("chat"); setFormOutputPath("");
         setShowCreate(false);
         reload();
     };
@@ -200,71 +214,113 @@ export default function CronJobsPage() {
                     </button>
                 </div>
 
-                {/* Create Form */}
+                {/* Create Form — full overlay */}
                 {showCreate && (
-                    <div className="p-4 border-b space-y-3" style={{ borderColor: "#e7e5e4", backgroundColor: "#fafaf9" }}>
-                        <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Job 名稱（例如：吃保健品提醒）"
-                            className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }} />
-                        {/* Type selector */}
-                        <div className="flex gap-2">
-                            <button onClick={() => setFormType("reminder")}
-                                className={`flex-1 py-2 rounded-lg text-sm font-bold border ${formType === "reminder" ? "border-amber-400 bg-amber-50 text-amber-700" : "border-stone-200 text-stone-400"}`}>
-                                ⏰ 提醒
-                            </button>
-                            <button onClick={() => setFormType("report")}
-                                className={`flex-1 py-2 rounded-lg text-sm font-bold border ${formType === "report" ? "border-blue-400 bg-blue-50 text-blue-700" : "border-stone-200 text-stone-400"}`}>
-                                📊 報告
-                            </button>
-                        </div>
-                        {formType === "reminder" ? (
-                            <input value={formReminderText} onChange={e => setFormReminderText(e.target.value)} placeholder="提醒內容（例如：該吃保健品了！）"
-                                className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }} />
-                        ) : (
-                            <>
-                                <select value={formAppId} onChange={e => setFormAppId(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }}>
-                                    <option value="">選擇 Report App</option>
-                                    {apps.map(a => <option key={a.id} value={a.id}>{a.name} ({a.id})</option>)}
-                                </select>
-                                <textarea value={formPrompt} onChange={e => setFormPrompt(e.target.value)} placeholder="Prompt (可選)"
-                                    className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none" rows={2} style={{ borderColor: "#d6d3d1" }} />
-                            </>
-                        )}
-                        <div>
-                            <div className="text-xs text-stone-500 mb-1.5 font-semibold">排程</div>
-                            <input value={formSchedule} onChange={e => setFormSchedule(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg text-sm font-mono" style={{ borderColor: "#d6d3d1" }} />
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                                {PRESETS.map(p => (
-                                    <button key={p.expr} onClick={() => setFormSchedule(p.expr)}
-                                        className={`text-xs px-2 py-1 rounded-md border ${formSchedule === p.expr ? "border-blue-400 bg-blue-50 text-blue-600" : "border-stone-200 text-stone-500"}`}>
-                                        {p.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        {/* Params */}
-                        <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-xs text-stone-500 font-semibold">參數</span>
-                                <button onClick={addParam} className="text-xs text-blue-500 font-semibold">+ Add</button>
-                            </div>
-                            {formParams.map((p, i) => (
-                                <div key={i} className="flex gap-1.5 mb-1.5">
-                                    <input value={p.key} onChange={e => updateParam(i, "key", e.target.value)} placeholder="key"
-                                        className="flex-1 px-2 py-1.5 border rounded-md text-xs font-mono" style={{ borderColor: "#d6d3d1" }} />
-                                    <input value={p.value} onChange={e => updateParam(i, "value", e.target.value)} placeholder="value"
-                                        className="flex-1 px-2 py-1.5 border rounded-md text-xs font-mono" style={{ borderColor: "#d6d3d1" }} />
-                                    <button onClick={() => removeParam(i)} className="text-red-400 text-sm px-1">✕</button>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
+                        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">⏰</span>
+                                    <h2 className="text-lg font-bold" style={{ color: t.accentText }}>新增 Schedule</h2>
                                 </div>
-                            ))}
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={handleCreate} disabled={!formName || (formType === "report" && !formAppId)}
-                                className="flex-1 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-50"
-                                style={{ backgroundColor: t.accent }}>建立</button>
-                            <button onClick={() => setShowCreate(false)}
-                                className="px-4 py-2 rounded-lg text-sm border text-stone-500" style={{ borderColor: "#d6d3d1" }}>取消</button>
+                                <button onClick={() => setShowCreate(false)} className="text-stone-400 hover:text-stone-600 text-xl">✕</button>
+                            </div>
+                            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+                                <div>
+                                    <label className="text-xs text-stone-500 font-semibold mb-1.5 block">名稱</label>
+                                    <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="例如：吃保健品提醒"
+                                        className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-stone-500 font-semibold mb-1.5 block">類型</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setFormType("reminder")}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${formType === "reminder" ? "border-amber-400 bg-amber-50 text-amber-700 shadow-sm" : "border-stone-200 text-stone-400 hover:bg-stone-50"}`}>
+                                            ⏰ 提醒
+                                        </button>
+                                        <button onClick={() => setFormType("report")}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${formType === "report" ? "border-blue-400 bg-blue-50 text-blue-700 shadow-sm" : "border-stone-200 text-stone-400 hover:bg-stone-50"}`}>
+                                            📊 報告
+                                        </button>
+                                    </div>
+                                </div>
+                                {formType === "reminder" ? (
+                                    <div>
+                                        <label className="text-xs text-stone-500 font-semibold mb-1.5 block">提醒內容</label>
+                                        <input value={formReminderText} onChange={e => setFormReminderText(e.target.value)} placeholder="例如：該吃保健品了！💊"
+                                            className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs text-stone-500 font-semibold mb-1.5 block">選擇 Skill</label>
+                                            <select value={formSkillId} onChange={e => setFormSkillId(e.target.value)}
+                                                className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }}>
+                                                <option value="">選擇 Skill...</option>
+                                                {skills.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-stone-500 font-semibold mb-1.5 block">Prompt（可選）</label>
+                                            <textarea value={formPrompt} onChange={e => setFormPrompt(e.target.value)} placeholder="額外指示..."
+                                                className="w-full px-4 py-2.5 border rounded-xl text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-200" rows={3} style={{ borderColor: "#d6d3d1" }} />
+                                        </div>
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="text-xs text-stone-500 font-semibold mb-1.5 block">輸出到</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setFormOutputTarget("chat")}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${formOutputTarget === "chat" ? "border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm" : "border-stone-200 text-stone-400 hover:bg-stone-50"}`}>
+                                            💬 聊天視窗
+                                        </button>
+                                        <button onClick={() => setFormOutputTarget("path")}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${formOutputTarget === "path" ? "border-purple-400 bg-purple-50 text-purple-700 shadow-sm" : "border-stone-200 text-stone-400 hover:bg-stone-50"}`}>
+                                            📁 指定路徑
+                                        </button>
+                                    </div>
+                                    {formOutputTarget === "path" && (
+                                        <input value={formOutputPath} onChange={e => setFormOutputPath(e.target.value)} placeholder="/path/to/output/folder"
+                                            className="w-full px-4 py-2.5 border rounded-xl text-sm font-mono mt-2 focus:outline-none focus:ring-2 focus:ring-purple-200" style={{ borderColor: "#d6d3d1" }} />
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="text-xs text-stone-500 font-semibold mb-1.5 block">排程</label>
+                                    <input value={formSchedule} onChange={e => setFormSchedule(e.target.value)}
+                                        className="w-full px-4 py-2.5 border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                        {PRESETS.map(p => (
+                                            <button key={p.expr} onClick={() => setFormSchedule(p.expr)}
+                                                className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${formSchedule === p.expr ? "border-blue-400 bg-blue-50 text-blue-600" : "border-stone-200 text-stone-500 hover:bg-stone-50"}`}>
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-xs text-stone-500 font-semibold">參數</label>
+                                        <button onClick={addParam} className="text-xs text-blue-500 font-semibold hover:text-blue-600">+ 新增參數</button>
+                                    </div>
+                                    {formParams.map((p, i) => (
+                                        <div key={i} className="flex gap-1.5 mb-1.5">
+                                            <input value={p.key} onChange={e => updateParam(i, "key", e.target.value)} placeholder="key"
+                                                className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                            <input value={p.value} onChange={e => updateParam(i, "value", e.target.value)} placeholder="value"
+                                                className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                            <button onClick={() => removeParam(i)} className="text-red-400 hover:text-red-600 text-sm px-1">✕</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="px-6 py-4 border-t flex gap-3 justify-end" style={{ borderColor: "#e7e5e4" }}>
+                                <button onClick={() => setShowCreate(false)}
+                                    className="px-5 py-2.5 rounded-xl text-sm border text-stone-500 hover:bg-stone-50 transition-colors" style={{ borderColor: "#d6d3d1" }}>取消</button>
+                                <button onClick={handleCreate} disabled={!formName || (formType === "report" && !formSkillId)}
+                                    className="px-6 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all hover:shadow-lg" style={{ backgroundColor: t.accent }}>
+                                    建立 Schedule
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -310,7 +366,7 @@ export default function CronJobsPage() {
                                 <span className="text-xs text-stone-400 font-mono">{job.schedule}</span>
                                 <span className="text-xs text-stone-300">→</span>
                                 <span className="text-xs text-stone-500 truncate">
-                                    {job.type === "reminder" ? (job.reminderText || "提醒") : job.reportAppId}
+                                    {job.type === "reminder" ? (job.reminderText || "提醒") : (job.skillId || "報告")}
                                 </span>
                             </div>
                             {job.lastRun && (
@@ -340,7 +396,7 @@ export default function CronJobsPage() {
                                 <div className="text-xs text-stone-400 mt-0.5">
                                     <span className="font-mono">{selectedJobData?.schedule}</span>
                                     <span className="mx-1.5 text-stone-300">→</span>
-                                    <span className="text-stone-500">{selectedJobData?.type === "reminder" ? "⏰ 提醒" : selectedJobData?.reportAppId}</span>
+                                    <span className="text-stone-500">{selectedJobData?.type === "reminder" ? "⏰ 提醒" : (selectedJobData?.skillId || "📊 報告")}</span>
                                     {selectedJobData?.type === "reminder" && selectedJobData?.reminderText && (
                                         <span className="ml-2 text-amber-600">{selectedJobData.reminderText}</span>
                                     )}
