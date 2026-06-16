@@ -1,0 +1,16 @@
+[
+  {
+    "id": "cron-1781649457236",
+    "name": "喝水提醒",
+    "type": "reminder",
+    "reminderText": "該喝水了！💧 保持水分很重要",
+    "reportAppId": "",
+    "schedule": "0 * * * *",
+    "prompt": "",
+    "params": {},
+    "enabled": true,
+    "createdAt": "2026-06-16T22:37:37.236Z",
+    "lastRun": "2026-06-16T22:38:59.678Z",
+    "lastStatus": "done"
+  }
+]

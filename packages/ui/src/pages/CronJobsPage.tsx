@@ -60,6 +60,8 @@ export default function CronJobsPage() {
     const [showCreate, setShowCreate] = useState(false);
     const [rightTab, setRightTab] = useState<RightTab>("logs");
     const [viewingResult, setViewingResult] = useState<string | null>(null);
+    const [runningJobs, setRunningJobs] = useState<Set<string>>(new Set());
+    const [flashJobs, setFlashJobs] = useState<Set<string>>(new Set());
 
     const [formName, setFormName] = useState("");
     const [formType, setFormType] = useState<"report" | "reminder">("reminder");
@@ -135,9 +137,22 @@ export default function CronJobsPage() {
         reload();
     };
 
-    const handleRunNow = async (id: string) => {
+    const handleRunNow = async (id: string, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        // Show running state
+        setRunningJobs(prev => new Set([...prev, id]));
         await fetch(`${API}/api/cron-jobs/${id}/run`, { method: "POST" });
-        setTimeout(() => loadJobDetail(id), 3000);
+        // Flash green after 1.5s to indicate triggered
+        setTimeout(() => {
+            setRunningJobs(prev => { const n = new Set(prev); n.delete(id); return n; });
+            setFlashJobs(prev => new Set([...prev, id]));
+            setTimeout(() => {
+                setFlashJobs(prev => { const n = new Set(prev); n.delete(id); return n; });
+            }, 2000);
+        }, 1500);
+        if (selectedJob === id) {
+            setTimeout(() => loadJobDetail(id), 3000);
+        }
     };
 
     const viewResult = (file: string) => {
@@ -271,6 +286,21 @@ export default function CronJobsPage() {
                                 <span className="text-sm">{statusIcon(job.lastStatus)}</span>
                                 <span className="text-sm">{job.type === "reminder" ? "⏰" : "📊"}</span>
                                 <span className="text-sm font-semibold text-stone-700 flex-1 truncate">{job.name}</span>
+                                {/* Quick Run Now button */}
+                                <button
+                                    onClick={(e) => handleRunNow(job.id, e)}
+                                    disabled={runningJobs.has(job.id)}
+                                    className={`text-xs px-2 py-0.5 rounded-md font-semibold transition-all flex items-center gap-1 ${
+                                        flashJobs.has(job.id)
+                                            ? "bg-green-500 text-white"
+                                            : runningJobs.has(job.id)
+                                            ? "bg-stone-200 text-stone-400 animate-pulse"
+                                            : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                    }`}
+                                    title="立即執行"
+                                >
+                                    {flashJobs.has(job.id) ? "✓" : "▶"} {runningJobs.has(job.id) ? "執行中" : "測試"}
+                                </button>
                                 <button onClick={e => { e.stopPropagation(); handleToggle(job); }}
                                     className={`text-xs px-2 py-0.5 rounded-md font-semibold ${job.enabled ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400"}`}>
                                     {job.enabled ? "ON" : "OFF"}
@@ -279,7 +309,9 @@ export default function CronJobsPage() {
                             <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-xs text-stone-400 font-mono">{job.schedule}</span>
                                 <span className="text-xs text-stone-300">→</span>
-                                <span className="text-xs text-stone-500 truncate">{job.reportAppId}</span>
+                                <span className="text-xs text-stone-500 truncate">
+                                    {job.type === "reminder" ? (job.reminderText || "提醒") : job.reportAppId}
+                                </span>
                             </div>
                             {job.lastRun && (
                                 <div className="text-xs text-stone-400 mt-1">

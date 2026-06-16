@@ -4310,6 +4310,7 @@ async function getDistillModule() {
 const CRON_JOBS_FILE = resolve(PAAW_ROOT, "factories/default/cron-jobs.json");
 const CRON_LOGS_DIR = resolve(PAAW_ROOT, "logs/cron");
 const CRON_RESULTS_DIR = resolve(PAAW_ROOT, "logs/cron-results");
+const CRON_CHAT_DIR = resolve(PAAW_ROOT, "data/chats");
 
 // Simple cron expression parser: "min hour day month dow"
 function matchesCron(expr, date) {
@@ -4358,18 +4359,31 @@ async function runCronJob(job) {
   // ── Reminder type: inject message into chat ──
   if (job.type === "reminder") {
     try {
-      const files = await readdir(PAAW_CHAT_DIR);
-      const chatFiles = files.filter(f => f.endsWith(".json")).sort().reverse();
-      if (chatFiles.length > 0) {
-        const chatPath = resolve(PAAW_CHAT_DIR, chatFiles[0]);
-        const chat = JSON.parse(await readFile(chatPath, "utf-8"));
-        chat.messages.push({
+      const files = await readdir(CRON_CHAT_DIR);
+      const chatFiles = files.filter(f => f.endsWith(".json"));
+      // Sort by updatedAt inside JSON, not filename — pick the truly latest chat
+      let latestChat = null;
+      let latestPath = null;
+      let latestTime = "";
+      for (const f of chatFiles) {
+        try {
+          const p = resolve(CRON_CHAT_DIR, f);
+          const raw = JSON.parse(await readFile(p, "utf-8"));
+          const t = raw.updatedAt || raw.createdAt || "";
+          if (t > latestTime) { latestTime = t; latestChat = raw; latestPath = p; }
+        } catch {}
+      }
+      if (latestChat && latestPath) {
+        latestChat.messages.push({
           role: "assistant",
           content: `⏰ **提醒**：${job.reminderText || job.name}`,
           timestamp: new Date().toISOString(),
         });
-        chat.updatedAt = new Date().toISOString();
-        await writeFile(chatPath, JSON.stringify(chat, null, 2), "utf-8");
+        latestChat.updatedAt = new Date().toISOString();
+        await writeFile(latestPath, JSON.stringify(latestChat, null, 2), "utf-8");
+        console.log(`[cron] Reminder delivered to chat: ${latestPath}`);
+      } else {
+        console.log(`[cron] No chat found to deliver reminder`);
       }
       await appendCronLog(job.id, { runId, status: "done", reminderDelivered: true });
       const jobs = await loadCronJobs();
@@ -4507,6 +4521,14 @@ setInterval(async () => {
 console.log("[distill] Auto-distill scheduler started");
 // Cron API endpoints (registered inside server handler)
 const cronApiHandler = async (req, res) => {
+  // Helper: read JSON body from request
+  const readBody = () => new Promise((ok, fail) => {
+    let d = "";
+    req.on("data", c => d += c);
+    req.on("end", () => { try { ok(JSON.parse(d)); } catch { fail(new Error("Invalid JSON")); } });
+    req.on("error", fail);
+  });
+
   // GET /api/cron-jobs
   if (req.method === "GET" && req.url?.match(/^\/api\/cron-jobs(?:\?.*)?$/)) {
     const jobs = await loadCronJobs();
@@ -4517,7 +4539,7 @@ const cronApiHandler = async (req, res) => {
   // POST /api/cron-jobs
   if (req.method === "POST" && req.url === "/api/cron-jobs") {
     let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    try { parsed = await readBody(); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
     const jobs = await loadCronJobs();
     const job = {
       id: parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `cron-${Date.now()}`,
@@ -4543,7 +4565,7 @@ const cronApiHandler = async (req, res) => {
   if (req.method === "PATCH" && req.url?.match(/^\/api\/cron-jobs\/[^/]+$/)) {
     const id = req.url.split("/").pop();
     let patch;
-    try { patch = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    try { patch = await readBody(); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
     const jobs = await loadCronJobs();
     const idx = jobs.findIndex(j => j.id === id);
     if (idx < 0) { res.writeHead(404); res.end("Not found"); return true; }
