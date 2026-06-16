@@ -752,11 +752,29 @@ function buildHandlers(apps) {
 
   handlers.file_read = async ({ path: filePath, workspace }) => {
     try {
-      const dirs = await loadWorkspaces();
-      if (dirs.length === 0) return { text: "沒有設定工作區", error: true };
+      // Validate filePath
+      if (!filePath || typeof filePath !== 'string') {
+        return { text: "請提供有效的檔案路徑", error: true };
+      }
 
-      // If workspace specified, use it; otherwise search all workspaces
-      const searchDirs = workspace ? [matchWorkspace(dirs, workspace)].filter(Boolean) : dirs;
+      // Support absolute paths directly
+      if (filePath.startsWith('/')) {
+        try {
+          const content = await readFile(filePath, "utf-8");
+          const preview = content.length > 5000 ? content.slice(0, 5000) + "\n... (截斷)" : content;
+          return { text: preview, path: filePath };
+        } catch {
+          return { text: `找不到檔案「${filePath}」`, error: true };
+        }
+      }
+
+      const dirs = await loadWorkspaces();
+      // Also search knowledge directory
+      const knowledgeDir = resolve(PAAW_DATA_DIR, "knowledge");
+      const searchAll = [...dirs, knowledgeDir];
+
+      // If workspace specified, use it; otherwise search all workspaces + knowledge
+      const searchDirs = workspace ? [matchWorkspace(dirs, workspace)].filter(Boolean) : searchAll;
       if (searchDirs.length === 0) return { text: `找不到工作區「${workspace}」`, error: true };
 
       for (const ws of searchDirs) {
