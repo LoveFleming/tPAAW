@@ -87,7 +87,7 @@ function MarkdownView({ content }: { content: string }) {
 
   return (
     <div
-      className="p-6 max-w-4xl prose prose-sm prose-table:border prose-table:border-collapse prose-th:border prose-th:border-stone-300 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-stone-300 prose-td:px-3 prose-td:py-1.5"
+      className="p-6 prose prose-sm prose-table:border prose-table:border-collapse prose-th:border prose-th:border-stone-300 prose-th:px-3 prose-th:py-1.5 prose-td:border prose-td:border-stone-300 prose-td:px-3 prose-td:py-1.5"
       style={{
         // @ts-ignore CSS custom properties via style
         "--tw-prose-body": t.accentText,
