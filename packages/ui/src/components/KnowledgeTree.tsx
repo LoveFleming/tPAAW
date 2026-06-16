@@ -61,6 +61,7 @@ function CtxMenu({ menu, onAction, onClose }: {
   const items: { label: string; icon: string; action: string; danger?: boolean }[] = [];
   items.push({ label: t("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
   items.push({ label: t("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
+  items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: t("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
@@ -300,6 +301,10 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
         const fileTarget = node.type === "dir" ? node.path : parentPath;
         setExpandedPaths(prev => new Set([...prev, fileTarget]));
         setNewItem({ parentPath: fileTarget, type: "file" });
+        break;
+      }
+      case "importFile": {
+        setShowPicker(true);
         break;
       }
       case "rename": {
