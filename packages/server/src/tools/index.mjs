@@ -757,8 +757,8 @@ function buildHandlers(apps) {
         return { text: "請提供有效的檔案路徑", error: true };
       }
 
-      // Support absolute paths directly
-      if (filePath.startsWith('/')) {
+      // Support absolute paths directly (Unix /xxx or Windows C:\xxx / D:\xxx)
+      if (filePath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(filePath)) {
         try {
           const content = await readFile(filePath, "utf-8");
           const preview = content.length > 5000 ? content.slice(0, 5000) + "\n... (截斷)" : content;
