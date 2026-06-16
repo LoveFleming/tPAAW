@@ -59,12 +59,8 @@ function CtxMenu({ menu, onAction, onClose }: {
   }, [onClose]);
 
   const items: { label: string; icon: string; action: string; danger?: boolean }[] = [];
-  const isDir = menu.node.type === "dir";
-
-  if (isDir) {
-    items.push({ label: t("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
-    items.push({ label: t("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
-  }
+  items.push({ label: t("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
+  items.push({ label: t("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: t("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
@@ -278,11 +274,12 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
     }
   }, [tree, ROOT]);
 
-  // Context menu
+  // Context menu — always show all options (newFolder, newFile, rename, duplicate, delete)
+  // For files, the parent dir is used for newFolder/newFile
   const handleCtx = useCallback((e: React.MouseEvent, node: TreeNode) => {
     e.preventDefault();
     e.stopPropagation();
-    // Compute parent path
+    // Use the node as-is — CtxMenu now always shows full options regardless of dir/file
     const parentPath = node.path.includes("/") ? node.path.substring(0, node.path.lastIndexOf("/")) : ROOT;
     setCtxMenu({ x: e.clientX, y: e.clientY, node, parentPath });
   }, [ROOT]);
@@ -293,13 +290,16 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
 
     switch (action) {
       case "newFolder": {
-        setExpandedPaths(prev => new Set([...prev, node.path]));
-        setNewItem({ parentPath: node.path, type: "folder" });
+        // For files, use parent directory; for dirs use the dir itself
+        const folderTarget = node.type === "dir" ? node.path : parentPath;
+        setExpandedPaths(prev => new Set([...prev, folderTarget]));
+        setNewItem({ parentPath: folderTarget, type: "folder" });
         break;
       }
       case "newFile": {
-        setExpandedPaths(prev => new Set([...prev, node.path]));
-        setNewItem({ parentPath: node.path, type: "file" });
+        const fileTarget = node.type === "dir" ? node.path : parentPath;
+        setExpandedPaths(prev => new Set([...prev, fileTarget]));
+        setNewItem({ parentPath: fileTarget, type: "file" });
         break;
       }
       case "rename": {
