@@ -3,6 +3,7 @@ import { cn } from "../utils";
 import { useI18n } from "../i18n";
 
 import API_BASE from "../api";
+import FilePickerModal from "./FilePickerModal";
 
 // ── Types ──
 interface TreeNode {
@@ -203,6 +204,7 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
   const [ctxMenu, setCtxMenu] = useState<CtxState | null>(null);
   const [renamingNode, setRenamingNode] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<{ parentPath: string; type: "file" | "folder" } | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   const [rootPath, setRootPath] = useState("");
 
@@ -382,8 +384,43 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
     setCtxMenu({ x: e.clientX, y: e.clientY, node: rootNode, parentPath: ROOT });
   }, [ROOT, tree]);
 
+  // Import file from workspace into knowledge
+  const handleImport = useCallback(async (srcPath: string) => {
+    if (!ROOT) return;
+    const fileName = srcPath.split("/").pop() || "imported-file";
+    const destPath = `${ROOT}/${fileName}`;
+    try {
+      await fetch(`${API_BASE}/api/fs/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ srcPath, destPath }),
+      });
+      refresh();
+    } catch {}
+  }, [ROOT, refresh]);
+
   return (
     <div className="flex flex-col h-full" onContextMenu={handleRootCtx}>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-2 py-1 border-b border-stone-100 shrink-0">
+        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Knowledge</span>
+        <button
+          onClick={() => setShowPicker(true)}
+          className="text-[10px] text-stone-400 hover:text-stone-700 font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-stone-100 transition-colors"
+          title="從工作區匯入檔案"
+        >
+          <span className="text-xs">＋</span> 匯入
+        </button>
+      </div>
+
+      {/* File Picker Modal */}
+      <FilePickerModal
+        open={showPicker}
+        onClose={() => setShowPicker(false)}
+        onPick={handleImport}
+        title="匯入檔案到 Knowledge"
+      />
+
       {/* Tree */}
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>
         {tree?.children && tree.children.length > 0 && tree.children.map(child => (
