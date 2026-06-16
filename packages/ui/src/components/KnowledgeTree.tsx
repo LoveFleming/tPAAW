@@ -423,15 +423,6 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
       {/* Toolbar */}
       <div className="flex items-center justify-between px-2 py-1 border-b border-stone-100 shrink-0">
         <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Knowledge</span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowPicker(true)}
-            className="text-[10px] text-stone-400 hover:text-stone-700 font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-stone-100 transition-colors"
-            title="匯入任意檔案到 Knowledge"
-          >
-            📄 匯入檔案
-          </button>
-        </div>
       </div>
 
       {/* File Import Picker — browse entire filesystem */}
