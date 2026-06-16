@@ -112,7 +112,7 @@ const NodeView = React.memo(function NodeView({
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedPath === node.path;
   const isRenaming = renamingNode === node.path;
-  const indent = 18 + depth * 14;
+  const indent = 22 + depth * 14;
 
   const handleRename = (newName: string) => {
     onRename(node.path, newName);

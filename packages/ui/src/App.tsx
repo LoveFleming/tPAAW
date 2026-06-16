@@ -766,7 +766,7 @@ function AppInner() {
                 >＋</span>
               }
             >
-              <div className="pl-2">
+              <div>
                 {workspaces.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-6 px-3 text-center">
                     <span className="text-2xl mb-2 opacity-50">📂</span>
