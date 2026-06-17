@@ -1,0 +1,3 @@
+{"timestamp":"2026-06-17T06:26:23.048Z","event":"tool_call_start","toolName":"file_list","args":{},"sessionKey":"chat","agentId":"default","now":1781677583048}
+{"timestamp":"2026-06-17T06:26:23.049Z","event":"tool_call_allowed","toolName":"file_list","args":{},"sessionKey":"chat","agentId":"default","now":1781677583048}
+{"timestamp":1781677583051,"event":"tool_call_end","toolName":"file_list","args":{},"result":{"text":"可用工作區（1 個）：\n1. **ai-factory-portal** — /Users/steward/App/ai-factory-portal\n\n請指定 workspace 參數來選擇工作區，或直接使用 workspace 名稱。"},"sessionKey":"chat","agentId":"default","duration":2}

@@ -105,6 +105,28 @@ function loadWorkspaces() {
   return ws.directories || [];
 }
 
+/** Knowledge files listing */
+function loadKnowledgeFiles() {
+  const knowledgeDir = resolve(DATA_DIR, "knowledge");
+  const files = [];
+  try {
+    const entries = readdirSync(knowledgeDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".txt") || entry.name.endsWith(".json"))) {
+        files.push(entry.name);
+      } else if (entry.isDirectory()) {
+        try {
+          const sub = readdirSync(resolve(knowledgeDir, entry.name), { withFileTypes: true });
+          for (const s of sub) {
+            if (s.isFile()) files.push(`${entry.name}/${s.name}`);
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return files;
+}
+
 /** Check if a field is required in the app schema */
 function checkFieldRequired(schema, fieldName) {
   if (!schema) return false;
@@ -310,6 +332,11 @@ export const contextEngine = {
       ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
       : "";
 
+    const knowledgeFiles = loadKnowledgeFiles();
+    const knowledgeInfo = knowledgeFiles.length > 0
+      ? `\n\n📚 Knowledge 目錄有以下檔案（可用 file_read 工具讀取）：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
+      : "";
+
     const parts = [];
 
     // 0. Base context — PAAW runtime info + core rules (always first)
@@ -326,7 +353,7 @@ export const contextEngine = {
     }
 
     // 2. User profile
-    parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}${workspaceInfo}`);
+    parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}${workspaceInfo}${knowledgeInfo}`);
 
     // 3. Memory
     parts.push(`=== 你的長期記憶 (MEMORY.md) ===\n每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。\n${memory || "(記憶是空白的)"}`);
@@ -339,7 +366,7 @@ export const contextEngine = {
     if (toolRules) {
       parts.push(toolRules);
     } else {
-      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造`);
+      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 使用者問到 Knowledge 或 Workspace 的檔案內容時，使用 file_read 工具讀取\n- file_read 可以讀取 Knowledge 目錄和 Workspace 目錄下的檔案\n- file_list 可以列出 Workspace 目錄下的檔案結構`);
     }
 
     // 5. App builder rules
