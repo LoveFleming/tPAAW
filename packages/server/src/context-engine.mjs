@@ -345,11 +345,9 @@ export const contextEngine = {
       ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
       : "";
 
-    const knowledgeDirs = loadKnowledgeDirs();
-    const knowledgeFiles = loadKnowledgeFiles();
-    const knowledgeInfo = knowledgeDirs.length > 0
-      ? `\n\n📚 Knowledge 目錄（絕對路徑）：\n${knowledgeDirs.map(d => `- ${d}`).join("\n")}\n\n可用工具：\n- file_list({ workspace: "knowledge" }) — 列出 Knowledge 目錄檔案\n- file_read({ path: "絕對路徑" }) — 讀取檔案，需帶完整絕對路徑\n\n目前 Knowledge 檔案：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
-      : "";
+    // Tell AI where config files are — it reads them itself to discover directories
+    const paawRoot = PAAW_ROOT || process.env.PAAW_ROOT || "/Users/steward/App/tAgent";
+    const knowledgeInfo = `\n\n📚 目錄設定（用 file_read 讀取設定檔來發現可用目錄）：\n- Workspace 目錄設定：${paawRoot}/data/workspaces.json\n- Knowledge 目錄設定：${paawRoot}/data/knowledge-paths.json\n\n使用方式：\n1. 先用 file_read({ path: "${paawRoot}/data/workspaces.json" }) 取得 Workspace 目錄清單\n2. 再用 file_read({ path: "${paawRoot}/data/knowledge-paths.json" }) 取得 Knowledge 目錄清單\n3. 讀到絕對路徑後，用 file_read({ path: "絕對路徑/檔名" }) 讀取任何檔案\n4. 用 file_list({ path: "絕對路徑", workspace: "目錄名" }) 列出目錄內容`;
 
     const parts = [];
 
