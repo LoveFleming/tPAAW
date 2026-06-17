@@ -334,7 +334,7 @@ export const contextEngine = {
 
     const knowledgeFiles = loadKnowledgeFiles();
     const knowledgeInfo = knowledgeFiles.length > 0
-      ? `\n\n📚 Knowledge 目錄有以下檔案（可用 file_read 工具讀取）：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
+      ? `\n\n📚 Knowledge 檔案（使用 file_read 工具，path 填檔名即可，例如 file_read({ path: "${knowledgeFiles[0]}" })）：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
       : "";
 
     const parts = [];
@@ -366,7 +366,7 @@ export const contextEngine = {
     if (toolRules) {
       parts.push(toolRules);
     } else {
-      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 使用者問到 Knowledge 或 Workspace 的檔案內容時，使用 file_read 工具讀取\n- file_read 可以讀取 Knowledge 目錄和 Workspace 目錄下的檔案\n- file_list 可以列出 Workspace 目錄下的檔案結構`);
+      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具（例如 fs_tree、fs_browse）\n- 讀取 Knowledge 檔案：使用 file_read({ path: "檔名" })，不需加目錄路徑\n- 讀取 Workspace 檔案：使用 file_read({ path: "相對路徑", workspace: "workspace名" })\n- 列出 Workspace 檔案：使用 file_list({ dirPath: "/", workspace: "workspace名" })`);
     }
 
     // 5. App builder rules
