@@ -359,8 +359,18 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
 
     const launchTask = async (dialogData: Record<string, string>) => {
         if (!employee) return;
+        // Map input ids to labels for the prompt
+        const idToLabel: Record<string, string> = {};
+        for (const inp of requiredInputs) {
+            idToLabel[inp.id] = inp.label;
+        }
+        const labeledData: Record<string, string> = {};
+        for (const [k, v] of Object.entries(dialogData)) {
+            labeledData[idToLabel[k] || k] = v;
+        }
+        if (taskInput.trim()) labeledData["task"] = taskInput.trim();
         const allData = { ...dialogData, task: taskInput.trim() };
-        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
+        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
         setSystemPrompt(prompt);
         setFormData(allData);
         setConsoleKey(prev => prev + 1);

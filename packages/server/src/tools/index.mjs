@@ -313,40 +313,37 @@ async function buildToolDefinitions() {
     }
   }
 
-  // Special tools for files app (dataShape: none)
-  const hasFiles = apps.find(a => a.id === "files");
-  if (hasFiles) {
-    tools.push({
-      type: "function",
-      function: {
-        name: "file_list",
-        description: "列出目錄的檔案。workspace 填工作區名稱或 'knowledge' 列出 Knowledge 目錄。path 填子目錄路徑（預設根目錄）。不指定 workspace 時列出所有工作區和 Knowledge 檔案。",
-        parameters: {
-          type: "object",
-          properties: {
-            path: { type: "string", description: "目錄相對路徑（預設根目錄）" },
-            workspace: { type: "string", description: "工作區名稱或路徑（可選，不填則列出所有工作區）" }
-          },
-          required: []
-        }
+  // file_list & file_read — always available (global tools)
+  tools.push({
+    type: "function",
+    function: {
+      name: "file_list",
+      description: "列出目錄的檔案。workspace 填工作區名稱或 'knowledge' 列出 Knowledge 目錄。path 填子目錄路徑（預設根目錄）。不指定 workspace 時列出所有工作區和 Knowledge 檔案。",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "目錄相對路徑（預設根目錄）" },
+          workspace: { type: "string", description: "工作區名稱或路徑（可選，不填則列出所有工作區）" }
+        },
+        required: []
       }
-    });
-    tools.push({
-      type: "function",
-      function: {
-        name: "file_read",
-        description: "讀取檔案內容。path 支援絕對路徑或相對路徑，不指定 workspace 時會自動在所有工作區和 Knowledge 目錄中搜尋",
-        parameters: {
-          type: "object",
-          properties: {
-            path: { type: "string", description: "檔案相對路徑" },
-            workspace: { type: "string", description: "工作區名稱或路徑（可選，不填則跨工作區搜尋）" }
-          },
-          required: ["path"]
-        }
+    }
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "file_read",
+      description: "讀取檔案內容。path 支援絕對路徑或相對路徑，不指定 workspace 時會自動在所有工作區和 Knowledge 目錄中搜尋",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "檔案相對路徑" },
+          workspace: { type: "string", description: "工作區名稱或路徑（可選，不填則跨工作區搜尋）" }
+        },
+        required: ["path"]
       }
-    });
-  }
+    }
+  });
 
   // ── Skill-based apps: auto-generate {appId}_exec tool ──
   // Any app with type=skill-based + schema + triggers gets an exec tool automatically
@@ -386,6 +383,38 @@ async function buildToolDefinitions() {
       },
     });
   }
+
+  // ── Memory tools (global, always available) ──
+  tools.push({
+    type: "function",
+    function: {
+      name: "memory_add",
+      description: "新增一筆記憶到 MEMORY.md。當使用者說「記住」「幫我記」或學到重要資訊時使用。",
+      parameters: {
+        type: "object",
+        properties: {
+          section: { type: "string", description: "記憶分類，例如：使用者偏好、重要決策、近期待辦、專案脈絡、備忘" },
+          content: { type: "string", description: "要記住的內容" }
+        },
+        required: ["section", "content"]
+      }
+    }
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "memory_update",
+      description: "更新 MEMORY.md 中某個分類的內容。如果分類不存在會新增。",
+      parameters: {
+        type: "object",
+        properties: {
+          section: { type: "string", description: "要更新的分類名稱" },
+          content: { type: "string", description: "新的完整內容（會取代該分類下所有內容）" }
+        },
+        required: ["section", "content"]
+      }
+    }
+  });
 
   return { tools, apps };
 }
@@ -630,42 +659,6 @@ function buildHandlers(apps) {
     }
   }
 
-  // Special: memory_add also updates MEMORY.md
-  if (handlers.memory_add) {
-    const origMemoryAdd = handlers.memory_add;
-    handlers.memory_add = async (args) => {
-      const result = await origMemoryAdd(args);
-      try {
-        const memPath = resolve(PAAW_DATA_DIR, "MEMORY.md");
-        let memContent = "";
-        try { memContent = await readFile(memPath, "utf-8"); } catch {}
-        const fields = extractFields(apps.find(a => a.id === "memory"));
-        const keyField = args[fields?.find(f => f.name === "key")?.name || "key"] || "untitled";
-        const contentField = args[fields?.find(f => f.name === "content")?.name || "content"] || "";
-        const sectionHeader = `## ${keyField}`;
-        const sectionBlock = `${sectionHeader}\n${contentField}`;
-        const sectionRegex = new RegExp(`^## ${keyField.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, "m");
-        if (sectionRegex.test(memContent)) {
-          const lines = memContent.split("\n");
-          let startIdx = -1, endIdx = lines.length;
-          for (let i = 0; i < lines.length; i++) {
-            if (lines[i].match(new RegExp(`^## ${keyField.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`))) { startIdx = i; }
-            else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
-          }
-          if (startIdx >= 0) {
-            lines.splice(startIdx, endIdx - startIdx, sectionBlock);
-            memContent = lines.join("\n");
-          }
-        } else {
-          memContent = memContent.replace(/\n*$/, "") + "\n\n" + sectionBlock + "\n";
-        }
-        await writeFile(memPath, memContent, "utf-8");
-      } catch (err) {
-        console.error("[PAAW] memory MEMORY.md update error:", err.message);
-      }
-      return result;
-    };
-  }
 
   // ── Skill-based apps: exec via REST API ──
   // Calls POST /api/apps/:appId/exec
@@ -711,6 +704,66 @@ function buildHandlers(apps) {
     };
   }
 
+  // ── Memory handlers (global) ──
+  // Tool definitions are in buildToolDefinitions()
+  const MEMORY_FILE = resolve(PAAW_DATA_DIR, "config/MEMORY.md");
+
+  handlers.memory_add = async ({ section, content }) => {
+    try {
+      let mem = "";
+      try { mem = await readFile(MEMORY_FILE, "utf-8"); } catch {}
+      const header = `## ${section}`;
+      const escSection = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const sectionRegex = new RegExp(`^## ${escSection}\\s*$`, "m");
+      if (sectionRegex.test(mem)) {
+        const lines = mem.split("\n");
+        let startIdx = -1, endIdx = lines.length;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].match(new RegExp(`^## ${escSection}\\s*$`))) { startIdx = i; }
+          else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
+        }
+        if (startIdx >= 0) {
+          lines.splice(endIdx, 0, `- ${content}`);
+          mem = lines.join("\n");
+        }
+      } else {
+        mem = mem.replace(/\n*$/, "") + `\n\n${header}\n- ${content}\n`;
+      }
+      await writeFile(MEMORY_FILE, mem, "utf-8");
+      return { text: `✅ 已記住：${section} — ${content.slice(0, 60)}${content.length > 60 ? "..." : ""}` };
+    } catch (err) {
+      return { text: `記憶寫入失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.memory_update = async ({ section, content }) => {
+    try {
+      let mem = "";
+      try { mem = await readFile(MEMORY_FILE, "utf-8"); } catch {}
+      const header = `## ${section}`;
+      const escSection = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const sectionRegex = new RegExp(`^## ${escSection}\\s*$`, "m");
+      if (sectionRegex.test(mem)) {
+        const lines = mem.split("\n");
+        let startIdx = -1, endIdx = lines.length;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].match(new RegExp(`^## ${escSection}\\s*$`))) { startIdx = i; }
+          else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
+        }
+        if (startIdx >= 0) {
+          lines.splice(startIdx + 1, endIdx - startIdx - 1, content);
+          mem = lines.join("\n");
+        }
+      } else {
+        mem = mem.replace(/\n*$/, "") + `\n\n${header}\n${content}\n`;
+      }
+      await writeFile(MEMORY_FILE, mem, "utf-8");
+      return { text: `✅ 已更新：${section}` };
+    } catch (err) {
+      return { text: `記憶更新失敗：${err.message}`, error: true };
+    }
+  };
+
   // File tools (dataShape: none, special tools)
   // Helper: load workspace directories
   async function loadWorkspaces() {
@@ -729,13 +782,12 @@ function buildHandlers(apps) {
   }
 
   // Helper: list knowledge files synchronously (for file_list display)
-  function loadKnowledgeFilesSync() {
+  async function loadKnowledgeFiles() {
     const files = [];
-    const { readdirSync } = require("fs");
-    // Use configured knowledge dirs, fallback to default
+    const { readdirSync, readFileSync: readSync } = await import("fs");
     let knowledgeDirs;
     try {
-      const cfg = JSON.parse(readFileSync(resolve(PAAW_DATA_DIR, "knowledge-paths.json"), "utf-8"));
+      const cfg = JSON.parse(readSync(resolve(PAAW_DATA_DIR, "knowledge-paths.json"), "utf-8"));
       knowledgeDirs = cfg.directories || [];
     } catch {
       knowledgeDirs = [resolve(PAAW_DATA_DIR, "knowledge")];
@@ -797,7 +849,7 @@ function buildHandlers(apps) {
           parts.push(`可用工作區（${dirs.length} 個）：\n${wsList}`);
         }
         if (knowledgeDirs.length > 0) {
-          const kFiles = loadKnowledgeFilesSync();
+          const kFiles = await loadKnowledgeFiles();
           parts.push(`📚 Knowledge（${knowledgeDirs.length} 個目錄，${kFiles.length} 個檔案，用 file_read 讀取）：\n${kFiles.map(f => `- ${f}`).join("\n")}`);
         }
         parts.push(`請指定 workspace 參數來選擇工作區，或用 workspace=\"knowledge\" 列出 Knowledge 目錄。`);

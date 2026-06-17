@@ -1,0 +1,64 @@
+{
+  "messages": [
+    {
+      "id": "1781702147536",
+      "role": "user",
+      "text": "改 /Users/steward/App/tAgent/data/apps/bookmarks 這裡的程式就好 用現有的萬用api 我想做個import bookmark from chrome bookmark export",
+      "ts": 1781702147536
+    },
+    {
+      "id": "1781702148038",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1781702148037
+    },
+    {
+      "id": "1781702760960",
+      "role": "user",
+      "text": "delete bookmark with errors\nUncaught (in promise) TypeError: Cannot read properties of null (reading 'style')\n    at renderMain (bookmarks:577:8)\n    at render (bookmarks:527:2)\n    at loadBookmarks (bookmarks:522:12)",
+      "ts": 1781702760960
+    },
+    {
+      "id": "1781702761461",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1781702761460
+    },
+    {
+      "id": "1781703087591",
+      "role": "user",
+      "text": "我要新增和編輯分類名稱",
+      "ts": 1781703087591
+    },
+    {
+      "id": "1781703088093",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1781703088092
+    },
+    {
+      "id": "1781703737208",
+      "role": "user",
+      "text": "edit bookmark 載入失敗\nbookmarks:722  GET http://127.0.0.1:4097/api/app-data/bookmarks/bookmarks_mqi3xv28 404 (Not Found)\nfix it",
+      "ts": 1781703737208
+    },
+    {
+      "id": "1781703737710",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1781703737709
+    },
+    {
+      "id": "1781704466214",
+      "role": "user",
+      "text": "搜尋功能不work",
+      "ts": 1781704466214
+    },
+    {
+      "id": "1781704466715",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1781704466714
+    }
+  ]
+}

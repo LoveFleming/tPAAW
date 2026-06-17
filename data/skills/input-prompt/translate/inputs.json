@@ -11,7 +11,7 @@
     },
     {
       "id": "_",
-      "label": "輸入你要翻譯的內容",
+      "label": "要翻譯的內容",
       "required": true,
       "multiline": true
     }

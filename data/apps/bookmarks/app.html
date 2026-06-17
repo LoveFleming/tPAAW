@@ -187,6 +187,7 @@
  font-size: 14px;
  color: #354f53;
  cursor: pointer;
+ position: relative;
  }
  .cat:hover { background: rgba(61,150,144,.08); }
 
@@ -195,6 +196,41 @@
  color: #23726d;
  font-weight: 850;
  }
+
+ .cat-actions {
+ position: absolute;
+ right: 8px;
+ top: 50%;
+ transform: translateY(-50%);
+ display: flex;
+ gap: 3px;
+ opacity: 0;
+ transition: opacity .12s;
+ }
+ .cat:hover .cat-actions { opacity: 1; }
+ .cat-actions button {
+ width: 20px; height: 20px;
+ border: none; border-radius: 5px;
+ cursor: pointer; font-size: 10px;
+ background: rgba(255,255,255,.85);
+ color: var(--muted);
+ display: flex; align-items: center; justify-content: center;
+ }
+ .cat-actions .cat-edit:hover { background: #eef2ff; color: var(--accent); }
+ .cat-actions .cat-del:hover { background: #fee2e2; color: #ef4444; }
+
+ .cat-label { display: flex; align-items: center; gap: 6px; pointer-events: none; }
+ .cat .count { margin-right: 0; }
+ .cat:hover .count { display: none; }
+
+ .side-add {
+ display: flex; align-items: center; justify-content: center; gap: 5px;
+ width: 100%; padding: 8px 10px; border-radius: 13px;
+ border: 1px dashed var(--line); background: transparent;
+ color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
+ margin-top: 6px;
+ }
+ .side-add:hover { background: rgba(61,150,144,.08); color: var(--accent); border-color: var(--accent); }
 
  .count {
  font-size: 11px;
@@ -374,8 +410,15 @@
  .modal label { font-size: 12px; font-weight: 600; color: var(--text); display: block; margin-bottom: 4px; margin-top: 14px; }
  .modal input { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; outline: none; background: rgba(255,255,255,.8); }
  .modal input:focus { border-color: var(--accent); }
+ .modal textarea, .modal select { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; outline: none; background: rgba(255,255,255,.8); font-family: inherit; resize: vertical; }
+ .modal textarea:focus, .modal select:focus { border-color: var(--accent); }
+ .modal code { background: rgba(35,60,65,.08); padding: 1px 5px; border-radius: 4px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+ .modal .import-hint { font-size: 12px; color: var(--muted); margin: 4px 0 12px; line-height: 1.5; }
+ .modal .import-preview { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(61,150,144,.08); border: 1px solid rgba(61,150,144,.2); font-size: 12px; line-height: 1.6; }
+ .modal .import-preview strong { color: var(--accent); }
  .modal .btns { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
  .modal .cancel { padding: 9px 18px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; cursor: pointer; background: rgba(255,255,255,.7); color: var(--muted); }
+ .modal input[type="file"] { padding: 7px; font-size: 12px; }
 
  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #065f46; color: #fff; padding: 10px 24px; border-radius: 12px; font-size: 13px; z-index: 200; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
  .toast.error { background: #991b1b; }
@@ -410,6 +453,7 @@
  </div>
  <div class="header-actions">
  <button class="btn" onclick="loadBookmarks()">🔄 重新整理</button>
+ <button class="btn" onclick="openImportModal()">📥 匯入 Chrome</button>
  <button class="btn primary" onclick="openModal(null)">＋ 新增</button>
  </div>
  </header>
@@ -429,13 +473,10 @@
  <div class="side-title">Categories</div>
  <div class="cat active" data-cat="all" onclick="filterCategory('all',this)"><span>🏠 全部</span><span class="count" id="catAll">0</span></div>
  <div id="catList"></div>
+ <button class="side-add" onclick="openCatModal()">＋ 新增分類</button>
  </aside>
 
  <main id="mainContent">
- <div class="empty-state" id="emptyState">
- <div class="big-icon">🔖</div>
- <p>還沒有書籤，點「＋ 新增」開始</p>
- </div>
  </main>
  </div>
  </div>
@@ -451,10 +492,57 @@
  <label>備註（選填）</label>
  <input id="fDesc" placeholder="簡短說明" />
  <label>分類標籤（用逗號分隔，第一個標籤為主要分類）</label>
- <input id="fTags" placeholder="開發, 文件, 工具" />
+ <div style="display:flex;gap:6px;">
+ <input id="fTags" placeholder="開發, 文件, 工具" style="flex:1;" />
+ <select id="fTagPicker" onchange="appendToTags(this.value)" style="width:120px;">
+ <option value="">選分類...</option>
+ </select>
+ </div>
  <div class="btns">
  <button class="cancel" onclick="closeModal()">取消</button>
  <button class="btn primary" id="saveBtn" onclick="saveBookmark()">新增</button>
+ </div>
+ </div>
+ </div>
+
+ <!-- Import Modal -->
+ <div class="modal-overlay" id="importModal">
+ <div class="modal" style="width:560px;">
+ <h2>📥 從 Chrome 匯入書籤</h2>
+ <p class="import-hint">在 Chrome 開啟 <code>chrome://bookmarks</code> → 右上角 ⋮ → 「匯出書籤」，會下載一個 HTML 檔。選擇該檔案或直接貼上內容即可。</p>
+
+ <label>選擇書籤 HTML 檔案</label>
+ <input type="file" id="importFile" accept=".html,.htm,.txt" onchange="handleImportFile(event)" />
+
+ <label>或貼上 HTML 內容</label>
+ <textarea id="importText" rows="7" placeholder="&lt;!DOCTYPE NETSCAPE-Bookmark-file-1&gt;..."></textarea>
+
+ <div class="import-preview" id="importPreview"></div>
+
+ <label>分類標籤處理方式</label>
+ <select id="importTagMode">
+ <option value="folder">使用資料夾路徑作為標籤（保留完整分類）</option>
+ <option value="leaf">只使用最內層資料夾作為分類</option>
+ <option value="none">不加入標籤</option>
+ </select>
+
+ <div class="btns">
+ <button class="cancel" onclick="closeImportModal()">取消</button>
+ <button class="btn" onclick="previewImport()">🔍 預覽</button>
+ <button class="btn primary" id="importConfirmBtn" onclick="doImport()" disabled>匯入</button>
+ </div>
+ </div>
+ </div>
+
+ <!-- Category Modal -->
+ <div class="modal-overlay" id="catModal">
+ <div class="modal" style="width:420px;">
+ <h2 id="catModalTitle">新增分類</h2>
+ <label>分類名稱</label>
+ <input id="fCatName" placeholder="例如：開發、學習..." onkeydown="if(event.key==='Enter'){catModalSave()}" />
+ <div class="btns">
+ <button class="cancel" onclick="closeCatModal()">取消</button>
+ <button class="btn primary" id="catSaveBtn" onclick="catModalSave()">新增</button>
  </div>
  </div>
  </div>
@@ -467,6 +555,7 @@ let allBookmarks = [];
 let editingId = null;
 let currentFilterCat = "all";
 let searchTimer = null;
+let searchQuery = "";
 let viewMode = "dense";
 
 const catIcons = {
@@ -498,7 +587,14 @@ function renderSidebar() {
 
  list.innerHTML = cats.map(c => {
  const isActive = currentFilterCat === c;
- return `<div class="cat${isActive?' active':''}" data-cat="${escAttr(c)}" onclick="filterCategory('${escAttr(c)}',this)"><span>${catIcon(c)} ${esc(c)}</span><span class="count">${countByCat(c)}</span></div>`;
+ return `<div class="cat${isActive?' active':''}" data-cat="${escAttr(c)}" onclick="filterCategory('${escAttr(c)}',this)">
+ <span class="cat-label">${catIcon(c)} ${esc(c)}</span>
+ <span class="count">${countByCat(c)}</span>
+ <span class="cat-actions">
+ <button class="cat-edit" onclick="event.stopPropagation();openCatModal('${escAttr(c)}')" title="重新命名">✏️</button>
+ <button class="cat-del" onclick="event.stopPropagation();deleteCategory('${escAttr(c)}')" title="刪除分類">✕</button>
+ </span>
+ </div>`;
  }).join("");
 }
 
@@ -507,6 +603,7 @@ function getCategories() {
  for (const b of allBookmarks) {
  if (b.tags && b.tags.length > 0) cats.add(b.tags[0]);
  }
+ for (const c of loadCustomCats()) cats.add(c);
  return [...cats].sort();
 }
 
@@ -515,6 +612,132 @@ function countByCat(cat) {
 }
 
 function catIcon(cat) { return catIcons[cat] || "📁"; }
+
+// ── Category Management ──
+let editingCat = null;
+
+function loadCustomCats() {
+ try { return JSON.parse(localStorage.getItem("bm_custom_cats") || "[]"); } catch { return []; }
+}
+
+function saveCustomCats(arr) {
+ localStorage.setItem("bm_custom_cats", JSON.stringify(arr));
+}
+
+function openCatModal(cat) {
+ editingCat = cat || null;
+ const title = document.getElementById("catModalTitle");
+ const btn = document.getElementById("catSaveBtn");
+ const input = document.getElementById("fCatName");
+ if (cat) {
+ title.textContent = "重新命名分類";
+ btn.textContent = "更新";
+ input.value = cat;
+ } else {
+ title.textContent = "新增分類";
+ btn.textContent = "新增";
+ input.value = "";
+ }
+ document.getElementById("catModal").classList.add("open");
+ setTimeout(() => input.focus(), 50);
+}
+
+function closeCatModal() {
+ document.getElementById("catModal").classList.remove("open");
+ editingCat = null;
+}
+
+async function catModalSave() {
+ const name = document.getElementById("fCatName").value.trim();
+ if (!name) { showToast("請輸入分類名稱", true); return; }
+ if (name === "all" || name === "未分類") { showToast("此名稱為保留字", true); return; }
+
+ if (editingCat) {
+ await renameCategory(editingCat, name);
+ } else {
+ addCategory(name);
+ }
+ closeCatModal();
+}
+
+function addCategory(name) {
+ const cats = loadCustomCats();
+ if (cats.includes(name)) { showToast("分類已存在", true); return; }
+ cats.push(name);
+ saveCustomCats(cats);
+ render();
+ showToast("✅ 已新增分類");
+}
+
+async function renameCategory(oldName, newName) {
+ if (oldName === newName) { closeCatModal(); return; }
+ const existing = getCategories();
+ if (existing.includes(newName)) {
+ // Merge into existing category
+ if (!confirm(`「${newName}」已存在，要將「${oldName}」的所有書籤合併過去嗎？`)) return;
+ }
+
+ // Rename across bookmarks
+ const targets = allBookmarks.filter(b => b.tags && b.tags.length > 0 && b.tags[0] === oldName);
+ let ok = 0, fail = 0;
+ for (const b of targets) {
+ const newTags = [...b.tags];
+ newTags[0] = newName;
+ try {
+ const resp = await fetch(`${API}/api/app-data/bookmarks/${b.id}`, {
+ method: "PATCH",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ tags: newTags })
+ });
+ if (resp.ok) ok++; else fail++;
+ } catch { fail++; }
+ }
+
+ // Update custom cats
+ const cats = loadCustomCats();
+ const idx = cats.indexOf(oldName);
+ if (idx >= 0) { cats[idx] = newName; saveCustomCats(cats); }
+ // If merged into existing, remove oldName from custom list
+ if (existing.includes(newName) && cats.includes(oldName)) {
+ saveCustomCats(cats.filter(c => c !== oldName));
+ }
+
+ if (currentFilterCat === oldName) currentFilterCat = newName;
+ await loadBookmarks();
+ showToast(`✅ 已${existing.includes(newName) ? "合併" : "重新命名"}：${ok} 個書籤${fail > 0 ? `，${fail} 失敗` : ""}`);
+}
+
+async function deleteCategory(name) {
+ const count = countByCat(name);
+ const custom = loadCustomCats();
+ if (count === 0 && custom.includes(name)) {
+ saveCustomCats(custom.filter(c => c !== name));
+ if (currentFilterCat === name) { currentFilterCat = "all"; }
+ render();
+ showToast("🗑️ 已刪除空分類");
+ return;
+ }
+ if (!confirm(`確定刪除分類「${name}」？${count > 0 ? `內含 ${count} 個書籤將變為未分類。` : ""}`)) return;
+
+ // Strip the tag from all bookmarks in that category
+ const targets = allBookmarks.filter(b => b.tags && b.tags.length > 0 && b.tags[0] === name);
+ let ok = 0, fail = 0;
+ for (const b of targets) {
+ const newTags = b.tags.filter(t => t !== name);
+ try {
+ const resp = await fetch(`${API}/api/app-data/bookmarks/${b.id}`, {
+ method: "PATCH",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ tags: newTags })
+ });
+ if (resp.ok) ok++; else fail++;
+ } catch { fail++; }
+ }
+ saveCustomCats(custom.filter(c => c !== name));
+ if (currentFilterCat === name) currentFilterCat = "all";
+ await loadBookmarks();
+ showToast(`🗑️ 已刪除分類${count > 0 ? `，${ok} 個書籤改為未分類` : ""}${fail > 0 ? `，${fail} 失敗` : ""}`);
+}
 
 function filterCategory(cat, el) {
  currentFilterCat = cat;
@@ -525,19 +748,29 @@ function filterCategory(cat, el) {
 
 function renderMain() {
  const main = document.getElementById("mainContent");
- const empty = document.getElementById("emptyState");
 
  let items = allBookmarks;
  if (currentFilterCat !== "all") {
  items = items.filter(b => b.tags && b.tags.length > 0 && b.tags[0] === currentFilterCat);
  }
 
+ if (searchQuery) {
+ const q = searchQuery;
+ items = items.filter(b =>
+ (b.title || "").toLowerCase().includes(q) ||
+ (b.url || "").toLowerCase().includes(q) ||
+ (b.description || "").toLowerCase().includes(q) ||
+ (b.tags || []).some(t => t.toLowerCase().includes(q))
+ );
+ }
+
  if (items.length === 0) {
- empty.style.display = "flex";
- main.innerHTML = "";
+ const msg = searchQuery
+ ? `<p>找不到符合「${esc(searchQuery)}」的書籤</p>`
+ : `<p>還沒有書籤，點「＋ 新增」開始</p>`;
+ main.innerHTML = `<div class="empty-state"><div class="big-icon">🔖</div>${msg}</div>`;
  return;
  }
- empty.style.display = "none";
 
  const groups = {};
  for (const b of items) {
@@ -623,21 +856,9 @@ function cleanUrl(url) {
 function scheduleSearch() {
  clearTimeout(searchTimer);
  searchTimer = setTimeout(() => {
- const q = document.getElementById("searchInput").value.trim().toLowerCase();
- if (!q) { loadBookmarks(); return; }
- const filtered = allBookmarks.filter(b =>
- b.title.toLowerCase().includes(q) ||
- b.url.toLowerCase().includes(q) ||
- (b.description || "").toLowerCase().includes(q) ||
- (b.tags || []).some(t => t.toLowerCase().includes(q))
- );
- // Temporarily override
- const oldRender = renderMain;
- allBookmarks = filtered;
+ searchQuery = document.getElementById("searchInput").value.trim().toLowerCase();
  renderMain();
- allBookmarks = []; // force reload next
- loadBookmarks();
- }, 300);
+ }, 200);
 }
 
 function switchView(mode, el) {
@@ -648,19 +869,42 @@ function switchView(mode, el) {
 }
 
 // ── Modal ──
+function populateTagPicker() {
+ const picker = document.getElementById("fTagPicker");
+ const cats = getCategories().filter(c => c !== "未分類");
+ picker.innerHTML = `<option value="">選分類...</option>` +
+ cats.map(c => `<option value="${escAttr(c)}">${catIcon(c)} ${esc(c)}</option>`).join("");
+}
+
+function appendToTags(val) {
+ if (!val) return;
+ const input = document.getElementById("fTags");
+ const current = input.value.trim().split(",").map(s => s.trim()).filter(Boolean);
+ if (current[0] === val) { picker_reset(); return; }
+ // Remove val if already present, then prepend as first tag
+ const filtered = current.filter(t => t !== val);
+ filtered.unshift(val);
+ input.value = filtered.join(", ");
+ picker_reset();
+}
+
+function picker_reset() {
+ document.getElementById("fTagPicker").value = "";
+}
+
 function openModal(id) {
+ populateTagPicker();
  editingId = id;
  if (id) {
+ const b = allBookmarks.find(x => x.id === id);
+ if (!b) { showToast("❌ 找不到書籤", true); return; }
  document.getElementById("modalTitle").textContent = "編輯書籤";
  document.getElementById("saveBtn").textContent = "更新";
- fetch(`${API}/api/app-data/bookmarks/${id}`)
- .then(r => r.json()).then(b => {
  document.getElementById("fTitle").value = b.title || "";
  document.getElementById("fUrl").value = b.url || "";
  document.getElementById("fDesc").value = b.description || "";
  document.getElementById("fTags").value = (b.tags || []).join(", ");
  document.getElementById("modal").classList.add("open");
- }).catch(() => showToast("❌ 載入失敗", true));
  } else {
  document.getElementById("modalTitle").textContent = "新增書籤";
  document.getElementById("saveBtn").textContent = "新增";
@@ -717,6 +961,142 @@ function showToast(msg, err) {
 
 function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function escAttr(s) { return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;"); }
+
+// ── Chrome Bookmark Import ──
+let pendingImport = [];
+
+const GENERIC_FOLDERS = [
+ "Bookmarks bar","書籤列","Other bookmarks","其他書籤",
+ "Mobile bookmarks","行動書籤","Bookmarks","書籤","Favorites","我的最愛"
+];
+
+function openImportModal() {
+ document.getElementById("importModal").classList.add("open");
+ document.getElementById("importFile").value = "";
+ document.getElementById("importText").value = "";
+ document.getElementById("importPreview").style.display = "none";
+ document.getElementById("importPreview").innerHTML = "";
+ document.getElementById("importTagMode").value = "folder";
+ document.getElementById("importConfirmBtn").disabled = true;
+ document.getElementById("importConfirmBtn").textContent = "匯入";
+ pendingImport = [];
+}
+
+function closeImportModal() {
+ document.getElementById("importModal").classList.remove("open");
+ pendingImport = [];
+}
+
+function handleImportFile(event) {
+ const file = event.target.files[0];
+ if (!file) return;
+ const reader = new FileReader();
+ reader.onload = (e) => { document.getElementById("importText").value = e.target.result; };
+ reader.readAsText(file);
+}
+
+function decodeEntities(s) {
+ const d = document.createElement("div");
+ d.innerHTML = s;
+ return d.textContent || "";
+}
+
+function parseChromeBookmarks(html) {
+ const bookmarks = [];
+ const folderStack = [];
+ const lines = html.split("\n");
+
+ for (let raw of lines) {
+ const t = raw.trim();
+
+ // Folder open: <DT><H3 ...>Name</H3>
+ let m = t.match(/^<DT>\s*<H3[^>]*>(.*?)<\/H3>/i);
+ if (m) { folderStack.push(decodeEntities(m[1])); continue; }
+
+ // Folder close: </DL>
+ if (/^<\/DL>/i.test(t)) { folderStack.pop(); continue; }
+
+ // Bookmark: <DT><A HREF="url" ...>Title</A>
+ m = t.match(/^<DT>\s*<A\s+[^>]*HREF=["']([^"']+)["'][^>]*>(.*?)<\/A>/i);
+ if (m) {
+ const url = decodeEntities(m[1]).trim();
+ const title = decodeEntities(m[2]).trim();
+ if (url && title && /^https?:\/\//i.test(url)) {
+ bookmarks.push({ title, url, folders: [...folderStack] });
+ }
+ }
+ }
+ return bookmarks;
+}
+
+function buildTags(folders, mode) {
+ if (mode === "none" || folders.length === 0) return [];
+ const meaningful = folders.filter(f => !GENERIC_FOLDERS.includes(f));
+ if (meaningful.length === 0) return [];
+ if (mode === "leaf") return [meaningful[meaningful.length - 1]];
+ return meaningful;
+}
+
+function previewImport() {
+ const text = document.getElementById("importText").value.trim();
+ if (!text) { showToast("請選擇檔案或貼上 HTML", true); return; }
+
+ const parsed = parseChromeBookmarks(text);
+ if (parsed.length === 0) { showToast("❌ 找不到書籤，請確認格式", true); return; }
+
+ const mode = document.getElementById("importTagMode").value;
+ const existingUrls = new Set(allBookmarks.map(b => (b.url || "").trim().toLowerCase()));
+
+ let dupCount = 0;
+ pendingImport = [];
+ for (const b of parsed) {
+ if (existingUrls.has(b.url.toLowerCase())) { dupCount++; continue; }
+ pendingImport.push({ title: b.title, url: b.url, description: "", tags: buildTags(b.folders, mode) });
+ }
+
+ const catCount = {};
+ for (const b of pendingImport) {
+ const cat = b.tags.length > 0 ? b.tags[0] : "未分類";
+ catCount[cat] = (catCount[cat] || 0) + 1;
+ }
+ const topCats = Object.entries(catCount).sort((a,b) => b[1] - a[1]).slice(0, 8)
+ .map(([c, n]) => `${esc(c)} (${n})`).join("、");
+
+ const preview = document.getElementById("importPreview");
+ preview.style.display = "block";
+ let html = `找到 <strong>${parsed.length}</strong> 個書籤`;
+ if (dupCount > 0) html += `，<strong>${dupCount}</strong> 個重複已跳過`;
+ html += `，待匯入 <strong>${pendingImport.length}</strong> 個`;
+ if (topCats) html += `<br><span style="color:var(--muted);">分類分佈：${topCats}</span>`;
+ if (pendingImport.length === 0) html += `<br>⚠️ 沒有新書籤可匯入`;
+ preview.innerHTML = html;
+
+ document.getElementById("importConfirmBtn").disabled = pendingImport.length === 0;
+ showToast(`預覽完成：${pendingImport.length} 個待匯入${dupCount > 0 ? `，${dupCount} 個重複` : ""}`);
+}
+
+async function doImport() {
+ if (pendingImport.length === 0) { showToast("請先預覽", true); return; }
+ const btn = document.getElementById("importConfirmBtn");
+ btn.disabled = true;
+
+ let ok = 0, fail = 0;
+ for (let i = 0; i < pendingImport.length; i++) {
+ btn.textContent = `匯入中 ${i + 1}/${pendingImport.length}`;
+ try {
+ const resp = await fetch(`${API}/api/app-data/bookmarks`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify(pendingImport[i])
+ });
+ if (resp.ok) ok++; else fail++;
+ } catch { fail++; }
+ }
+
+ closeImportModal();
+ showToast(`✅ 匯入完成：${ok} 成功${fail > 0 ? `，${fail} 失敗` : ""}`);
+ await loadBookmarks();
+}
 
 loadBookmarks();
 </script>
