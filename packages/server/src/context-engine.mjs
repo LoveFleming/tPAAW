@@ -334,7 +334,7 @@ export const contextEngine = {
 
     const knowledgeFiles = loadKnowledgeFiles();
     const knowledgeInfo = knowledgeFiles.length > 0
-      ? `\n\n📚 Knowledge 檔案（使用 file_read 工具，path 填檔名即可，例如 file_read({ path: "${knowledgeFiles[0]}" })）：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
+      ? `\n\n📚 Knowledge 檔案（使用 file_read 工具讀取，path 填檔名即可，不需加目錄路徑）：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
       : "";
 
     const parts = [];
