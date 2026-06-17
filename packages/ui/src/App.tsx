@@ -738,7 +738,7 @@ function AppInner() {
 
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
-              <KnowledgeTree onOpenFile={handleSelectFile} />
+              <KnowledgeTree onOpenFile={handleSelectFile} knowledgePaths={knowledgePaths} addKnowledgePath={addKnowledgePath} removeKnowledgePath={removeKnowledgePath} />
             </SidebarSection>
 
             {/* 🏗 Build */}

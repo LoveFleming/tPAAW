@@ -194,9 +194,9 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
 }
 
 // ── Main KnowledgeTree Component ──
-export default function KnowledgeTree({ onOpenFile, knowledgePaths, addKnowledgePath, removeKnowledgePath }: { 
+export default function KnowledgeTree({ onOpenFile, knowledgePaths = [], addKnowledgePath, removeKnowledgePath }: { 
   onOpenFile?: (path: string) => void;
-  knowledgePaths: string[];
+  knowledgePaths?: string[];
   addKnowledgePath?: (dir: string) => void;
   removeKnowledgePath?: (dir: string) => void;
 }) {
