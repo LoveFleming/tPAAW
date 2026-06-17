@@ -3,6 +3,7 @@ import { useTheme } from "../theme";
 import { cn } from "../utils";
 
 import API_BASE from "../api";
+import DirectoryExplorer from "../components/DirectoryExplorer";
 
 // ── Types ──
 interface CliSession {
@@ -135,6 +136,7 @@ export default function VibeCoding() {
     const [formName, setFormName] = useState("");
 
     const [recentProjects, setRecentProjects] = useState<string[]>([]);
+    const [showDirExplorer, setShowDirExplorer] = useState(false);
 
     // ── Load recent projects from server ──
     useEffect(() => {
@@ -364,10 +366,19 @@ export default function VibeCoding() {
 
                                 <div>
                                     <div className="text-[11px] text-stone-500 font-bold mb-1.5 uppercase tracking-wider">工作目錄</div>
-                                    <input value={formCwd} onChange={e => setFormCwd(e.target.value)} placeholder="/path/to/project"
-                                        className="w-full px-3 py-2 border rounded-lg text-xs font-mono" style={{ borderColor: "#d6d3d1" }} />
+                                    <div className="flex items-center gap-1.5">
+                                        <input value={formCwd} onChange={e => setFormCwd(e.target.value)} placeholder="點右側按鈕選擇目錄..."
+                                            className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono" style={{ borderColor: "#d6d3d1" }} />
+                                        <button onClick={() => setShowDirExplorer(true)}
+                                            className="shrink-0 px-2.5 py-2 rounded-lg border text-sm font-medium transition-colors"
+                                            style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }}
+                                            title="瀏覽選擇目錄">
+                                            📂
+                                        </button>
+                                    </div>
                                     {recentProjects.length > 0 && (
                                         <div className="mt-1.5 space-y-0.5 max-h-24 overflow-y-auto">
+                                            <div className="text-[9px] text-stone-400 font-bold uppercase tracking-wider mb-0.5">最近專案</div>
                                             {recentProjects.map(p => (
                                                 <button key={p} onClick={() => setFormCwd(p)}
                                                     className={cn("w-full text-left px-2 py-1 rounded text-[10px] font-mono truncate transition-colors",
@@ -466,6 +477,16 @@ export default function VibeCoding() {
                     <div className="text-[10px] text-stone-400 text-center">⚡ Vibe Coding — AI 幫你寫程式</div>
                 </div>
             </div>
+
+            {/* Directory Explorer Modal */}
+            {showDirExplorer && (
+                <DirectoryExplorer
+                    initialPath={formCwd || undefined}
+                    onSelect={(path) => { setFormCwd(path); setShowDirExplorer(false); }}
+                    onClose={() => setShowDirExplorer(false)}
+                    title="📂 選擇工作目錄"
+                />
+            )}
 
             {/* ── Right: Main Area ── */}
             <div className="flex-1 flex flex-col min-w-0">
