@@ -3444,6 +3444,7 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
 
   // ── Workspaces API ──
   const PAAW_WORKSPACES_FILE = resolve(PAAW_DATA_DIR, "workspaces.json");
+  const PAAW_KNOWLEDGE_FILE = resolve(PAAW_DATA_DIR, "knowledge-paths.json");
 
   // GET /api/paaw/workspaces
   if (req.method === "GET" && path === "/api/paaw/workspaces") {
@@ -3490,6 +3491,56 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
       res.end(JSON.stringify(data));
     } catch {
       res.writeHead(500); res.end(JSON.stringify({ error: "Failed to remove workspace" }));
+    }
+    return true;
+  }
+
+  // ── Knowledge Paths API ──
+  // GET /api/paaw/knowledge-paths
+  if (req.method === "GET" && path === "/api/paaw/knowledge-paths") {
+    try {
+      const data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ directories: [resolve(PAAW_DATA_DIR, "knowledge")] }));
+    }
+    return true;
+  }
+
+  // POST /api/paaw/knowledge-paths — add directory
+  if (req.method === "POST" && path === "/api/paaw/knowledge-paths") {
+    try {
+      let data;
+      try { data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      const body = JSON.parse(await readBody(req));
+      const dir = body.directory;
+      if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
+      if (!data.directories.includes(dir)) {
+        data.directories.push(dir);
+        await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(data, null, 2), "utf-8");
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to add knowledge path" }));
+    }
+    return true;
+  }
+
+  // DELETE /api/paaw/knowledge-paths?dir=... — remove directory
+  if (req.method === "DELETE" && path === "/api/paaw/knowledge-paths") {
+    try {
+      const dir = url.searchParams.get("dir");
+      let data;
+      try { data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8")); } catch { data = { directories: [] }; }
+      data.directories = data.directories.filter((d) => d !== dir);
+      await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(data, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to remove knowledge path" }));
     }
     return true;
   }

@@ -194,7 +194,12 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
 }
 
 // ── Main KnowledgeTree Component ──
-export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: string) => void }) {
+export default function KnowledgeTree({ onOpenFile, knowledgePaths, addKnowledgePath, removeKnowledgePath }: { 
+  onOpenFile?: (path: string) => void;
+  knowledgePaths: string[];
+  addKnowledgePath?: (dir: string) => void;
+  removeKnowledgePath?: (dir: string) => void;
+}) {
   const { t } = useI18n();
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -207,13 +212,17 @@ export default function KnowledgeTree({ onOpenFile }: { onOpenFile?: (path: stri
 
   const [rootPath, setRootPath] = useState("");
 
-  // Resolve knowledge root from paaw-root API
+  // Resolve knowledge root from paaw-root API (fallback)
   useEffect(() => {
+    if (knowledgePaths.length > 0) {
+      setRootPath(knowledgePaths[0]);
+      return;
+    }
     fetch(`${API_BASE}/api/paaw-root`)
       .then(r => r.json())
       .then(d => { if (d.paawRoot) setRootPath(`${d.paawRoot}/data/knowledge`); })
       .catch(() => {});
-  }, []);
+  }, [knowledgePaths]);
 
   const ROOT = rootPath;
 

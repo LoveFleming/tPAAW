@@ -105,25 +105,38 @@ function loadWorkspaces() {
   return ws.directories || [];
 }
 
+/** Knowledge directories — from config or default */
+function loadKnowledgeDirs() {
+  try {
+    const cfg = safeReadJSON(resolve(CONFIG_DIR, "knowledge-paths.json"), { directories: [] });
+    return cfg.directories?.length > 0 ? cfg.directories : [resolve(DATA_DIR, "knowledge")];
+  } catch {
+    return [resolve(DATA_DIR, "knowledge")];
+  }
+}
+
 /** Knowledge files listing */
 function loadKnowledgeFiles() {
-  const knowledgeDir = resolve(DATA_DIR, "knowledge");
   const files = [];
-  try {
-    const entries = readdirSync(knowledgeDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".txt") || entry.name.endsWith(".json"))) {
-        files.push(entry.name);
-      } else if (entry.isDirectory()) {
-        try {
-          const sub = readdirSync(resolve(knowledgeDir, entry.name), { withFileTypes: true });
-          for (const s of sub) {
-            if (s.isFile()) files.push(`${entry.name}/${s.name}`);
-          }
-        } catch {}
+  const knowledgeDirs = loadKnowledgeDirs();
+  for (const knowledgeDir of knowledgeDirs) {
+    const label = knowledgeDirs.length > 1 ? `[${knowledgeDir.split("/").pop()}] ` : "";
+    try {
+      const entries = readdirSync(knowledgeDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".txt") || entry.name.endsWith(".json"))) {
+          files.push(`${label}${entry.name}`);
+        } else if (entry.isDirectory()) {
+          try {
+            const sub = readdirSync(resolve(knowledgeDir, entry.name), { withFileTypes: true });
+            for (const s of sub) {
+              if (s.isFile()) files.push(`${label}${entry.name}/${s.name}`);
+            }
+          } catch {}
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  }
   return files;
 }
 
@@ -332,9 +345,10 @@ export const contextEngine = {
       ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
       : "";
 
+    const knowledgeDirs = loadKnowledgeDirs();
     const knowledgeFiles = loadKnowledgeFiles();
-    const knowledgeInfo = knowledgeFiles.length > 0
-      ? `\n\n📚 Knowledge 檔案（使用 file_read 工具讀取，path 填檔名即可，不需加目錄路徑）：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
+    const knowledgeInfo = knowledgeDirs.length > 0
+      ? `\n\n📚 Knowledge 目錄（絕對路徑）：\n${knowledgeDirs.map(d => `- ${d}`).join("\n")}\n\n可用工具：\n- file_list({ workspace: "knowledge" }) — 列出 Knowledge 目錄檔案\n- file_read({ path: "絕對路徑" }) — 讀取檔案，需帶完整絕對路徑\n\n目前 Knowledge 檔案：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
       : "";
 
     const parts = [];

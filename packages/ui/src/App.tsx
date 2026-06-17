@@ -319,6 +319,7 @@ function AppInner() {
 
   // ── Workspaces (multi-directory) ──
   const [workspaces, setWorkspaces] = useState<string[]>([]);
+  const [knowledgePaths, setKnowledgePaths] = useState<string[]>([]);
 
   const loadWorkspaces = useCallback(async () => {
     try {
@@ -330,7 +331,17 @@ function AppInner() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadWorkspaces(); }, [loadWorkspaces]);
+  const loadKnowledgePaths = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/paaw/knowledge-paths`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setKnowledgePaths(data.directories || []);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadWorkspaces(); loadKnowledgePaths(); }, [loadWorkspaces, loadKnowledgePaths]);
 
   const addWorkspace = useCallback(async (dir: string) => {
     try {
@@ -348,6 +359,23 @@ function AppInner() {
       await fetch(`${API_BASE}/api/paaw/workspaces?dir=${encodeURIComponent(dir)}`, { method: "DELETE" });
     } catch {}
     setWorkspaces(prev => prev.filter(d => d !== dir));
+  }, []);
+
+  const addKnowledgePath = useCallback(async (dir: string) => {
+    try {
+      await fetch(`${API_BASE}/api/paaw/knowledge-paths`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ directory: dir }),
+      });
+      setKnowledgePaths(prev => prev.includes(dir) ? prev : [...prev, dir]);
+    } catch {}
+  }, []);
+
+  const removeKnowledgePath = useCallback(async (dir: string) => {
+    try {
+      await fetch(`${API_BASE}/api/paaw/knowledge-paths?dir=${encodeURIComponent(dir)}`, { method: "DELETE" });
+    } catch {}
+    setKnowledgePaths(prev => prev.filter(d => d !== dir));
   }, []);
 
   const handleDirSelect = useCallback((path: string) => {

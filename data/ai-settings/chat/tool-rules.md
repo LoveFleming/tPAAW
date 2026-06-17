@@ -44,10 +44,10 @@
 
 ## Knowledge 和 Workspace 檔案讀取
 
-- 讀取 Knowledge 檔案：使用 `file_read({ path: "檔名" })`，不需加目錄路徑
-- 讀取 Workspace 檔案：使用 `file_read({ path: "相對路徑", workspace: "workspace名" })`
+- 讀取 Knowledge 檔案：使用 `file_read({ path: "絕對路徑" })`，系統會在 context 中告訴你 Knowledge 目錄的絕對路徑
+- 列出 Knowledge 目錄：使用 `file_list({ workspace: "knowledge" })`
+- 讀取 Workspace 檔案：使用 `file_read({ path: "絕對路徑" })` 或 `file_read({ path: "相對路徑", workspace: "workspace名" })`
 - 列出 Workspace 檔案：使用 `file_list({ dirPath: "/", workspace: "workspace名" })`
-- Knowledge 目錄的檔案不需要指定 workspace
 
 ## 資料查詢流程
 
