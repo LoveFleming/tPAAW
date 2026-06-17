@@ -320,7 +320,7 @@ async function buildToolDefinitions() {
       type: "function",
       function: {
         name: "file_list",
-        description: "列出工作區目錄的檔案。不指定 workspace 時會列出所有可用工作區供選擇",
+        description: "列出目錄的檔案。workspace 填工作區名稱或 'knowledge' 列出 Knowledge 目錄。不指定 workspace 時列出所有工作區和 Knowledge 檔案。",
         parameters: {
           type: "object",
           properties: {
@@ -720,6 +720,26 @@ function buildHandlers(apps) {
     } catch { return []; }
   }
 
+  // Helper: list knowledge files synchronously (for file_list display)
+  function loadKnowledgeFilesSync() {
+    const knowledgeDir = resolve(PAAW_DATA_DIR, "knowledge");
+    const files = [];
+    try {
+      const { readdirSync } = require("fs");
+      const entries = readdirSync(knowledgeDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile()) files.push(entry.name);
+        else if (entry.isDirectory()) {
+          try {
+            const sub = readdirSync(resolve(knowledgeDir, entry.name), { withFileTypes: true });
+            for (const s of sub) { if (s.isFile()) files.push(`${entry.name}/${s.name}`); }
+          } catch {}
+        }
+      }
+    } catch {}
+    return files;
+  }
+
   // Helper: match workspace by name/path fragment
   function matchWorkspace(dirs, hint) {
     if (!hint) return null;
@@ -729,12 +749,31 @@ function buildHandlers(apps) {
   handlers.file_list = async ({ path: dirPath = ".", workspace } = {}) => {
     try {
       const dirs = await loadWorkspaces();
+
+      // Support listing Knowledge directory
+      if (workspace === "knowledge" || (!workspace && dirPath && dirPath.toLowerCase().includes("knowledge"))) {
+        const knowledgeDir = resolve(PAAW_DATA_DIR, "knowledge");
+        try {
+          const { readdir: rd } = await import("fs/promises");
+          const targetDir = dirPath === "." || dirPath === "knowledge" ? knowledgeDir : resolve(knowledgeDir, dirPath);
+          const entries = await rd(targetDir, { withFileTypes: true });
+          const list = entries.map(e => `${e.isDirectory() ? "📁" : "📄"} ${e.name}`).join("\n");
+          return { text: `📚 Knowledge 目錄：\n${list || "(空目錄)"}`, path: targetDir };
+        } catch (err) {
+          return { text: `讀取 Knowledge 目錄失敗: ${err.message}`, error: true };
+        }
+      }
+
       if (dirs.length === 0) return { text: "沒有設定工作區，請先在設定中加入", error: true };
 
-      // No workspace specified → list all workspaces
+      // No workspace specified → list all workspaces + knowledge
       if (!workspace) {
         const wsList = dirs.map((w, i) => `${i + 1}. **${w.split("/").pop()}** — ${w}`).join("\n");
-        return { text: `可用工作區（${dirs.length} 個）：\n${wsList}\n\n請指定 workspace 參數來選擇工作區，或直接使用 workspace 名稱。` };
+        const knowledgeFiles = loadKnowledgeFilesSync();
+        const kSection = knowledgeFiles.length > 0
+          ? `\n\n📚 Knowledge（${knowledgeFiles.length} 個檔案，用 file_read 讀取）：\n${knowledgeFiles.map(f => `- ${f}`).join("\n")}`
+          : "";
+        return { text: `可用工作區（${dirs.length} 個）：\n${wsList}${kSection}\n\n請指定 workspace 參數來選擇工作區，或用 workspace=\"knowledge\" 列出 Knowledge 目錄。` };
       }
 
       const ws = matchWorkspace(dirs, workspace);
