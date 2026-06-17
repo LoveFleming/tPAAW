@@ -362,7 +362,7 @@ function AppInner() {
       return {
         sortKey: `02-${f}`,
         id: `${currentScope}:file.${f}`,
-        label: `📄 ${stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}`,
+        label: stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
       };
     });
     return [crewItem, ...fileItems].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
@@ -431,13 +431,13 @@ function AppInner() {
   const skillAppNav = useMemo(() =>
     skillApps.map(s => ({
       id: `${currentScope}:skillapp.${s.id}`,
-      label: `📊 ${s.name}`,
+      label: s.name,
       skillId: s.id,
     })),
   [skillApps, currentScope]);
 
   const labelFor = useCallback((fullId: string): string => {
-    if (fullId === "_chat") return "💬 交談";
+    if (fullId === "_chat") return t("sidebar.chat") || "交談";
     if (fullId === "_settings") return t("sidebar.settings");
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return t("sidebar.aiCrew");
