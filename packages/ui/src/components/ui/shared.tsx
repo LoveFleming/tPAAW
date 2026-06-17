@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { cn, badgeClasses } from "../../utils";
 import { Risk } from "../../types";
+import Icon from "../Icon";
 
 export { cn };
 
@@ -131,6 +132,7 @@ export function NavItem({
             onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
+                {iconName ? <Icon name={iconName} size={14} style={{ color: active ? accentColor : undefined }} /> : <Icon name="file-default" size={14} style={{ color: active ? accentColor : undefined }} />}
                 <span className="truncate">{label}</span>
             </div>
             {right}
