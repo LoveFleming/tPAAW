@@ -136,8 +136,7 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
 }
 
 // VSCode-style indent: compact steps, capped at max depth
-// BASE_INDENT = 36 aligns with NavItem text area
-const BASE_INDENT = 36;
+const BASE_INDENT = 28;
 const DEPTH_STEP = 12;
 const MAX_INDENT_DEPTH = 15; // Beyond this, all items share the same indent level
 
