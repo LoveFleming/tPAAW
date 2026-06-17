@@ -4585,12 +4585,14 @@ const cronApiHandler = async (req, res) => {
     if (idx < 0) { res.writeHead(404); res.end("Not found"); return true; }
     if (patch.enabled !== undefined) jobs[idx].enabled = patch.enabled;
     if (patch.schedule) jobs[idx].schedule = patch.schedule;
-    if (patch.prompt) jobs[idx].prompt = patch.prompt;
     if (patch.name) jobs[idx].name = patch.name;
+    if (patch.type) jobs[idx].type = patch.type;
+    if (patch.reminderText !== undefined) jobs[idx].reminderText = patch.reminderText;
+    if (patch.skillId !== undefined) jobs[idx].skillId = patch.skillId;
+    if (patch.prompt !== undefined) jobs[idx].prompt = patch.prompt;
     if (patch.params) jobs[idx].params = patch.params;
-    if (patch.reportAppId) jobs[idx].reportAppId = patch.reportAppId;
-    if (patch.skillId) jobs[idx].skillId = patch.skillId;
-    if (patch.outputTarget) jobs[idx].outputTarget = patch.outputTarget;
+    if (patch.reportAppId) jobs[idx].reportAppId = patch.reportAppId; // compat
+    if (patch.outputTarget !== undefined) jobs[idx].outputTarget = patch.outputTarget;
     if (patch.outputPath !== undefined) jobs[idx].outputPath = patch.outputPath;
     await saveCronJobs(jobs);
     res.writeHead(200, { "Content-Type": "application/json" });

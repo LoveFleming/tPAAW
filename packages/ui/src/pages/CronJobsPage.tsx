@@ -61,6 +61,7 @@ export default function CronJobsPage() {
     const [results, setResults] = useState<ResultFile[]>([]);
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
     const [showCreate, setShowCreate] = useState(false);
+    const [editingJobId, setEditingJobId] = useState<string | null>(null);
     const [rightTab, setRightTab] = useState<RightTab>("logs");
     const [viewingResult, setViewingResult] = useState<string | null>(null);
     const [runningJobs, setRunningJobs] = useState<Set<string>>(new Set());
@@ -111,29 +112,64 @@ export default function CronJobsPage() {
         setFormParams(updated);
     };
 
-    const handleCreate = async () => {
+    const resetForm = () => {
+        setFormName(""); setFormType("reminder"); setFormSkillId(""); setFormSchedule("0 9 * * *");
+        setFormPrompt(""); setFormReminderText(""); setFormParams([]); setFormOutputTarget("chat"); setFormOutputPath("");
+    };
+
+    const openEdit = (job: CronJob) => {
+        setEditingJobId(job.id);
+        setFormName(job.name);
+        setFormType(job.type);
+        setFormSkillId(job.skillId || "");
+        setFormSchedule(job.schedule);
+        setFormPrompt(job.prompt || "");
+        setFormReminderText(job.reminderText || "");
+        setFormOutputTarget(job.outputTarget || "chat");
+        setFormOutputPath(job.outputPath || "");
+        const p = job.params || {};
+        setFormParams(Object.entries(p).map(([key, value]) => ({ key, value })));
+    };
+
+    const handleSave = async () => {
         if (!formName) return;
         if (formType === "report" && !formSkillId) return;
         const params: Record<string, string> = {};
         formParams.forEach(p => { if (p.key) params[p.key] = p.value; });
-        await fetch(`${API}/api/cron-jobs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                name: formName,
-                type: formType,
-                reminderText: formReminderText,
-                skillId: formSkillId,
-                schedule: formSchedule,
-                prompt: formPrompt,
-                params,
-                outputTarget: formOutputTarget,
-                outputPath: formOutputTarget === "path" ? formOutputPath : "",
-            }),
-        });
-        setFormName(""); setFormType("reminder"); setFormSkillId(""); setFormSchedule("0 9 * * *"); setFormPrompt(""); setFormReminderText(""); setFormParams([]); setFormOutputTarget("chat"); setFormOutputPath("");
-        setShowCreate(false);
+        const payload = {
+            name: formName,
+            type: formType,
+            reminderText: formReminderText,
+            skillId: formSkillId,
+            schedule: formSchedule,
+            prompt: formPrompt,
+            params,
+            outputTarget: formOutputTarget,
+            outputPath: formOutputTarget === "path" ? formOutputPath : "",
+        };
+        if (editingJobId) {
+            await fetch(`${API}/api/cron-jobs/${editingJobId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            setEditingJobId(null);
+        } else {
+            await fetch(`${API}/api/cron-jobs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            setShowCreate(false);
+        }
+        resetForm();
         reload();
+    };
+
+    const closeForm = () => {
+        setShowCreate(false);
+        setEditingJobId(null);
+        resetForm();
     };
 
     const handleToggle = async (job: CronJob) => {
@@ -214,16 +250,17 @@ export default function CronJobsPage() {
                     </button>
                 </div>
 
-                {/* Create Form — full overlay */}
-                {showCreate && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
+                {/* Create/Edit Form — full overlay */}
+                {(showCreate || editingJobId) && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={closeForm}>
                         <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+                            {/* Header */}
                             <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">⏰</span>
-                                    <h2 className="text-lg font-bold" style={{ color: t.accentText }}>新增 Schedule</h2>
+                                    <h2 className="text-lg font-bold" style={{ color: t.accentText }}>{editingJobId ? "編輯 Schedule" : "新增 Schedule"}</h2>
                                 </div>
-                                <button onClick={() => setShowCreate(false)} className="text-stone-400 hover:text-stone-600 text-xl">✕</button>
+                                <button onClick={closeForm} className="text-stone-400 hover:text-stone-600 text-xl">✕</button>
                             </div>
                             <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
                                 <div>
@@ -314,11 +351,11 @@ export default function CronJobsPage() {
                                 </div>
                             </div>
                             <div className="px-6 py-4 border-t flex gap-3 justify-end" style={{ borderColor: "#e7e5e4" }}>
-                                <button onClick={() => setShowCreate(false)}
+                                <button onClick={closeForm}
                                     className="px-5 py-2.5 rounded-xl text-sm border text-stone-500 hover:bg-stone-50 transition-colors" style={{ borderColor: "#d6d3d1" }}>取消</button>
-                                <button onClick={handleCreate} disabled={!formName || (formType === "report" && !formSkillId)}
+                                <button onClick={handleSave} disabled={!formName || (formType === "report" && !formSkillId)}
                                     className="px-6 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all hover:shadow-lg" style={{ backgroundColor: t.accent }}>
-                                    建立 Schedule
+                                    {editingJobId ? "儲存修改" : "建立 Schedule"}
                                 </button>
                             </div>
                         </div>
@@ -410,6 +447,10 @@ export default function CronJobsPage() {
                                     )}
                                 </div>
                             </div>
+                            <button onClick={() => selectedJobData && openEdit(selectedJobData)}
+                                className="text-sm font-bold px-3 py-2 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-100 transition-colors">
+                                ✏️ 編輯
+                            </button>
                             <button onClick={() => handleRunNow(selectedJob)}
                                 className="text-sm font-bold px-4 py-2 rounded-lg text-white"
                                 style={{ backgroundColor: t.accent }}>
