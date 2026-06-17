@@ -51,8 +51,10 @@ export interface SkillDefinition {
     description: string;
     version?: string;
     category?: string;
-    /** 具體任務指令 */
+    /** 具體任務指令（已废弃，保留兼容） */
     skillPrompt: string;
+    /** SKILL.md 絕對路徑，AI 按需讀取 */
+    skillPath?: string;
     /** 引用其他 input-prompt skill */
     useSkills: string[];
     /** 引用 physical-skill（CLI runtime 載入執行） */
@@ -107,42 +109,38 @@ export function buildSystemPrompt(
     selectedSkillIds: string[],
     formData?: Record<string, string>,
     paths?: { paawRoot: string; projectRoot: string; factoryId?: string },
-    workspaces?: string[]
+    workspaces?: string[],
+    skillRules?: string
 ): string {
-    // 角色永遠由員工決定
     const parts: string[] = [crew.rolePrompt];
 
     // Inject base paths
     if (paths) {
-        const factoryPath = `${paths.paawRoot}/crews`;
-        parts.push(`\n## 環境路徑\n- **PAAW Base**: ${paths.paawRoot}\n  - Input-Prompt Skills: ${paths.paawRoot}/skills/input-prompt/\n  - Physical Skills: ${paths.paawRoot}/skills/physical-skill/\n  - Factory: ${factoryPath}\n- **Working Base**: ${paths.projectRoot}${workspaces && workspaces.length > 0 ? `\n\n## Workspace 目錄\n${workspaces.map(d => `- ${d}`).join("\n")}` : ""}\n\n所有路徑皆可讀寫。根據任務需求在對應路徑操作。`);
+        let pathLines = `## 環境路徑\n- **Root Base**: ${paths.paawRoot}\n  - Physical Skills: ${paths.paawRoot}/data/skills/physical-skill/`;
+        if (workspaces && workspaces.length > 0) {
+            pathLines += `\n\n## Workspaces 目錄\n${workspaces.map(d => `- ${d}`).join("\n")}`;
+        }
+        parts.push(pathLines);
+    }
+
+    // Skill rules from AI settings
+    if (skillRules) {
+        parts.push(skillRules);
     }
 
     for (const skillId of selectedSkillIds) {
         const skillDef = skillDefinitions.get(skillId);
         if (!skillDef) continue;
 
-        // ── 1. skillPrompt ──
-        if (skillDef.skillPrompt) {
-            parts.push(`\n## Skill: ${skillDef.name}\n${skillDef.skillPrompt}`);
-        }
-
-        // ── 2. useSkills — 注入檔案路徑讓 CLI 讀取 ──
-        if (skillDef.useSkills.length > 0 && paths) {
-            const skillPaths = skillDef.useSkills.map(id => `- ${paths.paawRoot}/skills/input-prompt/${id}/SKILL.md`);
-            parts.push(`\n### 參考技能\n請先讀取以下技能檔案：\n${skillPaths.join("\n")}`);
-        }
-
-        // ── 2b. usePhysicalSkills — 注入 physical skill 路徑 ──
-        if (skillDef.usePhysicalSkills?.length > 0 && paths) {
-            const psPaths = skillDef.usePhysicalSkills.map(id => `- ${paths.paawRoot}/skills/physical-skill/${id}/`);
-            parts.push(`\n### 實體技能\n請載入以下實體技能目錄：\n${psPaths.join("\n")}`);
+        if (paths) {
+            const skillPath = `${paths.paawRoot}/data/skills/physical-skill/${skillId}/SKILL.md`;
+            parts.push(`請使用 ${skillDef.name}\nskill path : ${skillPath}`);
         }
     }
 
-    // ── 3. userInputs — 操作員提供的資料 ──
+    // userInputs
     if (formData && Object.keys(formData).length > 0) {
-        parts.push('\n## 操作員提供的規格資料');
+        parts.push('## 操作員提供的規格資料');
         for (const [key, value] of Object.entries(formData)) {
             if (value.trim()) {
                 parts.push(`### ${key}\n${value}`);

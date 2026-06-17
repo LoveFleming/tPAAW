@@ -56,6 +56,14 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
             .catch(() => {});
     }, []);
 
+    const [skillRules, setSkillRules] = useState("");
+    useEffect(() => {
+        fetch(`${API_BASE}/api/ai-settings/crew/skill-rules.md`)
+            .then(r => r.json())
+            .then(data => setSkillRules(data.content || ""))
+            .catch(() => {});
+    }, []);
+
     const [enabledSkills, setEnabledSkills] = useState<Record<string, boolean>>({});
     const [consoleKey, setConsoleKey] = useState(0);
     const [restartCount, setRestartCount] = useState(0);
@@ -352,7 +360,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const launchTask = async (dialogData: Record<string, string>) => {
         if (!employee) return;
         const allData = { ...dialogData, task: taskInput.trim() };
-        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces);
+        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, allData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
         setSystemPrompt(prompt);
         setFormData(allData);
         setConsoleKey(prev => prev + 1);
@@ -937,9 +945,9 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                             <span className="text-sm font-semibold" style={{ color: t.accentText }}>{sd.name}</span>
                                             <span className="text-xs" style={{ color: t.accentText + "40" }}>{sd.id}</span>
                                         </div>
-                                        {sd.skillPrompt && (
-                                            <pre className="text-xs whitespace-pre-wrap rounded-lg border p-3 leading-relaxed" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "30", color: t.accentText + "85" }}>{sd.skillPrompt}</pre>
-                                        )}
+                                        <div className="text-xs rounded-lg border p-3 leading-relaxed" style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "30", color: t.accentText + "85" }}>
+                                            <div>Please use {sd.id} skill</div>                                           
+                                        </div>
                                     </div>
                                 );
                             })}

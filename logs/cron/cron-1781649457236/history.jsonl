@@ -1,4 +1,0 @@
-{"runId":"cron-1781649457236-2026-06-16T22-37-44","status":"started","ts":"2026-06-16T22:37:44.985Z"}
-{"runId":"cron-1781649457236-2026-06-16T22-37-44","status":"error","error":"PAAW_CHAT_DIR is not defined","ts":"2026-06-16T22:37:44.986Z"}
-{"runId":"cron-1781649457236-2026-06-16T22-38-59","status":"started","ts":"2026-06-16T22:38:59.673Z"}
-{"runId":"cron-1781649457236-2026-06-16T22-38-59","status":"done","reminderDelivered":true,"ts":"2026-06-16T22:38:59.678Z"}

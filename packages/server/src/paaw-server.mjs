@@ -609,7 +609,8 @@ ${context ? "\n## Context\n" + context : ""}
               description: parsed.description || "",
               version: parsed.version || "1.0.0",
               category: parsed.category || "",
-              skillPrompt: parsed.body || "",
+              skillPrompt: "",  // 不再展開 SKILL.md 內容，AI 執行時自行讀取
+              skillPath: skillPath,  // 提供絕對路徑讓 AI 按需讀取
               useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
               usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
               userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
@@ -658,7 +659,8 @@ ${context ? "\n## Context\n" + context : ""}
           description: parsed.description || "",
           version: parsed.version || "1.0.0",
           category: parsed.category || "",
-          skillPrompt: parsed.body || "",
+          skillPrompt: "",  // 不再展開
+          skillPath: skillPath,
           useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
           usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
           userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
