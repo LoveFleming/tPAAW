@@ -27,6 +27,7 @@ import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 
 import API_BASE from "../api";
+import DirectoryExplorer from "../components/DirectoryExplorer";
 
 // ── Types ──
 interface FsItem {
@@ -278,6 +279,7 @@ export default function VibeCodingIDE() {
   const [formCli, setFormCli] = useState("qwen");
   const [formModel, setFormModel] = useState("");
   const [formCwd, setFormCwd] = useState("");
+  const [showDirExplorer, setShowDirExplorer] = useState(false);
   const [formApproval, setFormApproval] = useState("yolo");
   const [formName, setFormName] = useState("");
 
@@ -664,6 +666,16 @@ export default function VibeCodingIDE() {
   // RENDER
   // ═══════════════════════════════════════════════
   return (
+    <>
+    {/* Directory Explorer Modal */}
+    {showDirExplorer && (
+      <DirectoryExplorer
+        initialPath={rootPath || formCwd || undefined}
+        onSelect={(path) => { setRootPath(path); setFormCwd(path); setShowDirExplorer(false); expandDir(path); setExpandedDirs(new Set()); }}
+        onClose={() => setShowDirExplorer(false)}
+        title="📂 選擇專案目錄"
+      />
+    )}
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: tk.bgHover }}>
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: tk.bg, borderColor: tk.border }}>
@@ -706,8 +718,8 @@ export default function VibeCodingIDE() {
                 onKeyDown={e => { if (e.key === "Enter" && rootPath) { expandDir(rootPath); setExpandedDirs(new Set()); } }}
                 placeholder={t("vibe.projectPath")}
                 className="flex-1 text-[11px] font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
-              <button onClick={() => { expandDir(rootPath); setExpandedDirs(new Set()); }}
-                className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600">📂</button>
+              <button onClick={() => setShowDirExplorer(true)}
+                className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600" title="瀏覽選擇目錄">📂</button>
             </div>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
@@ -1177,8 +1189,14 @@ export default function VibeCodingIDE() {
                   </div>
                   <input value={formModel} onChange={e => setFormModel(e.target.value)} placeholder={t("vibe.sessionModel")}
                     className="w-full text-[10px] px-2 py-1 border rounded font-mono outline-none" style={{ borderColor: "#ddd" }} />
-                  <input value={formCwd || rootPath} onChange={e => setFormCwd(e.target.value)} placeholder={t("vibe.sessionWorkDir")}
-                    className="w-full text-[10px] px-2 py-1 border rounded font-mono outline-none" style={{ borderColor: "#ddd" }} />
+                  <div className="flex items-center gap-0.5">
+                    <input value={formCwd || rootPath} onChange={e => setFormCwd(e.target.value)} placeholder={t("vibe.sessionWorkDir")}
+                      className="flex-1 text-[10px] px-2 py-1 border rounded font-mono outline-none" style={{ borderColor: "#ddd" }} />
+                    <button onClick={() => setShowDirExplorer(true)}
+                      className="shrink-0 px-1.5 py-1 rounded border text-xs transition-colors"
+                      style={{ borderColor: tk.accentBorder, color: tk.accent }}
+                      title="瀏覽選擇目錄">📂</button>
+                  </div>
                   <div className="flex gap-0.5">
                     {APPROVAL_MODES.map(m => (
                       <button key={m.id} onClick={() => setFormApproval(m.id)}
@@ -1310,5 +1328,6 @@ export default function VibeCodingIDE() {
         <span className="text-stone-400">tracked</span>
       </div>
     </div>
+    </>
   );
 }
