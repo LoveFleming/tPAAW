@@ -3821,7 +3821,7 @@ server.listen(PORT, async () => {
   await mkdir(SYSTEM_DIR, { recursive: true });
 
   // Ensure knowledge directory exists
-  await mkdir(resolve(PAAW_DATA_DIR, 'knowledge'), { recursive: true });
+  await mkdir(resolve(PAAW_ROOT, 'data/knowledge'), { recursive: true });
 
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] System prompts: ${SYSTEM_DIR}`);
