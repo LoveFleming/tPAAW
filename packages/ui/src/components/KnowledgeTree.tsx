@@ -127,7 +127,7 @@ const NodeView = React.memo(function NodeView({
           else { onSelect(node.path); onOpenFile(node.path); }
         }}
         onContextMenu={e => onCtx(e, node)}
-        className={cn("flex w-full items-center gap-1.5 pr-2 py-1 text-xs text-left transition-colors",
+        className={cn("flex w-full items-center gap-1.5 pr-2 py-1.5 text-sm text-left transition-colors",
           isSelected ? "bg-stone-100 text-stone-800 font-medium" : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
         )}
         style={{ paddingLeft: indent }}

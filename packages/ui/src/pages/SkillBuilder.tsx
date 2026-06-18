@@ -18,6 +18,7 @@ interface SkillForm {
   inputs: InputField[];
   purpose: string; steps: string; outputFormat: string;
   guardrails: string; validation: string; systemPrompt: string;
+  examples: string; notes: string;
   tags: string; visibility: "private" | "team" | "public";
 }
 
@@ -29,24 +30,24 @@ import API_BASE from "../api";
 
 const EMPTY_FIELD: InputField = { id: "", label: "", description: "", placeholder: "", required: false, multiline: false };
 const DEFAULT_OUTPUT_FIELD: InputField = { id: "output_path", label: "輸出路徑", description: "Skill 執行結果的儲存路徑", placeholder: "例：output/report.html", required: true, multiline: false };
-const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [DEFAULT_OUTPUT_FIELD], purpose: "", steps: "", outputFormat: "", guardrails: "", validation: "", systemPrompt: "", tags: "", visibility: "private" };
+const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [DEFAULT_OUTPUT_FIELD], purpose: "", steps: "", outputFormat: "", guardrails: "", validation: "", systemPrompt: "", examples: "", notes: "", tags: "", visibility: "private" };
 
 // ── Helpers ──
 function buildPromptFromFields(form: SkillForm): string {
   const parts: string[] = [];
-  if (form.purpose) parts.push(`## Purpose\n${form.purpose}`);
+  if (form.purpose) parts.push(`@@@purpose@@@\n${form.purpose}`);
   if (form.inputs.length > 0) {
-    parts.push("## Inputs\n" + form.inputs.map(inp => `- **${inp.label}**${inp.required ? " (required)" : " (optional)"}: ${inp.description || inp.placeholder}`).join("\n"));
+    parts.push("@@@inputs@@@\n" + form.inputs.map(inp => `- **${inp.label}**${inp.required ? " (required)" : " (optional)"}: ${inp.description || inp.placeholder}`).join("\n"));
   }
-  if (form.steps) parts.push(`## Steps\n${form.steps}`);
-  if (form.outputFormat) parts.push(`## Output\n${form.outputFormat}`);
-  if (form.guardrails) parts.push(`## Guardrails
+  if (form.steps) parts.push(`@@@steps@@@\n${form.steps}`);
+  if (form.outputFormat) parts.push(`@@@output@@@\n${form.outputFormat}`);
+  if (form.guardrails) parts.push(`@@@guardrails@@@
 ${form.guardrails}`);
-  if (form.examples) parts.push(`## Examples
+  if (form.examples) parts.push(`@@@examples@@@
 ${form.examples}`);
-  if (form.validation) parts.push(`## Validation
+  if (form.validation) parts.push(`@@@validation@@@
 ${form.validation}`);
-  if (form.notes) parts.push(`## Notes
+  if (form.notes) parts.push(`@@@notes@@@
 ${form.notes}`);
   return parts.join("\n\n");
 }
@@ -88,9 +89,17 @@ function parseSkillMd(content: string): SkillForm {
       if (field.id) form.inputs.push(field);
     }
   }
-  // ── Parse body sections line-by-line (only known headings, not any ##) ──
-  const KNOWN_SECTIONS = ["Purpose", "Inputs", "Steps", "Output", "Examples", "Guardrails", "Validation", "Notes"];
-  const SECTION_SET = new Set(KNOWN_SECTIONS);
+  // ── Parse body sections using @@@section@@@ delimiters (safe with markdown content) ──
+  const SECTION_MAP: Record<string, string> = {
+    "@@@purpose@@@": "Purpose",
+    "@@@inputs@@@": "Inputs",
+    "@@@steps@@@": "Steps",
+    "@@@output@@@": "Output",
+    "@@@examples@@@": "Examples",
+    "@@@guardrails@@@": "Guardrails",
+    "@@@validation@@@": "Validation",
+    "@@@notes@@@": "Notes",
+  };
   const bodyLines = body.split("\n");
   let currentSection: string | null = null;
   let sectionBuffer: string[] = [];
@@ -102,15 +111,37 @@ function parseSkillMd(content: string): SkillForm {
   };
 
   for (const line of bodyLines) {
-    const h = line.match(/^## (.+)$/);
-    if (h && SECTION_SET.has(h[1].trim())) {
+    const trimmed = line.trim();
+    if (SECTION_MAP[trimmed]) {
       flushSection();
-      currentSection = h[1].trim();
+      currentSection = SECTION_MAP[trimmed];
     } else if (currentSection) {
       sectionBuffer.push(line);
     }
   }
   flushSection();
+
+  // Also try legacy ## format for backward compatibility
+  if (sections.size === 0) {
+    const KNOWN_SECTIONS = ["Purpose", "Inputs", "Steps", "Output", "Examples", "Guardrails", "Validation", "Notes"];
+    const SECTION_SET = new Set(KNOWN_SECTIONS);
+    let legacySection: string | null = null;
+    let legacyBuffer: string[] = [];
+    const flushLegacy = () => {
+      if (legacySection) sections.set(legacySection, legacyBuffer.join("\n").trim());
+      legacyBuffer = [];
+    };
+    for (const line of bodyLines) {
+      const h = line.match(/^## (.+)$/);
+      if (h && SECTION_SET.has(h[1].trim())) {
+        flushLegacy();
+        legacySection = h[1].trim();
+      } else if (legacySection) {
+        legacyBuffer.push(line);
+      }
+    }
+    flushLegacy();
+  }
 
   form.purpose = sections.get("Purpose") || "";
   form.steps = sections.get("Steps") || "";
