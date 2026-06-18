@@ -468,7 +468,7 @@ export default function AppLab() {
     useEffect(() => {
         fetch(`${API}/api/paaw-root`)
             .then(r => r.ok ? r.json() : {})
-            .then((d: { paawRoot?: string }) => { if (d.paawRoot) setWorkingDir(d.paawRoot); })
+            .then((d: { paawRoot?: string }) => { if (d.paawRoot) setWorkingDir(d.paawRoot + "/data"); })
             .catch(() => {});
     }, []);
 
