@@ -101,7 +101,7 @@ function loadReplyRules() {
 
 /** Workspaces */
 function loadWorkspaces() {
-  const ws = safeReadJSON(resolve(CONFIG_DIR, "workspaces.json"), { directories: [] });
+  const ws = safeReadJSON(resolve(DATA_DIR, "workspaces.json"), { directories: [] });
   return ws.directories || [];
 }
 
