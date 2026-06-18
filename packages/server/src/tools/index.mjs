@@ -5,7 +5,7 @@
 // New apps can be created at runtime — no code changes needed
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
-import { resolve, dirname, join, isAbsolute } from "path";
+import { resolve, dirname, join, isAbsolute, relative } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -771,6 +771,13 @@ function buildHandlers(apps) {
       const ws = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "workspaces.json"), "utf-8"));
       return ws.directories || [];
     } catch { return []; }
+  }
+
+  // Helper: convert absolute path to relative if under PAAW_DATA_DIR (cross-platform)
+  function toRelativeDir(d) {
+    if (!isAbsolute(d)) return d;
+    const rel = relative(PAAW_DATA_DIR, d);
+    return rel.startsWith('..') ? d : (rel || '.');
   }
 
   // Helper: load knowledge directories from config (like workspaces)

@@ -13,7 +13,7 @@
 import { createServer } from "http";
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
 import { readFileSync, existsSync, readdirSync, mkdirSync, writeFileSync, appendFileSync, statSync, unlinkSync } from "fs";
-import { join, resolve, dirname, isAbsolute } from "path";
+import { join, resolve, dirname, isAbsolute, relative } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
@@ -3521,8 +3521,12 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
       const body = JSON.parse(await readBody(req));
       const dir = body.directory;
       if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
-      // Store as relative path if under PAAW_DATA_DIR, otherwise keep absolute
-      const relDir = dir.startsWith(PAAW_DATA_DIR + "/") || dir.startsWith(PAAW_DATA_DIR + "\\") ? dir.slice(PAAW_DATA_DIR.length + 1) : dir;
+      // Store as relative path if under PAAW_DATA_DIR, otherwise keep absolute (cross-platform)
+      const relDir = (() => {
+        if (!isAbsolute(dir)) return dir;
+        const r = relative(PAAW_DATA_DIR, dir);
+        return r.startsWith('..') ? dir : (r || '.');
+      })();
       if (!data.directories.includes(relDir)) {
         data.directories.push(relDir);
         await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(data, null, 2), "utf-8");
@@ -3874,17 +3878,19 @@ server.listen(PORT, async () => {
   // Ensure system prompt directory exists
   await mkdir(SYSTEM_DIR, { recursive: true });
 
-  // Migrate knowledge-paths.json: convert absolute paths under PAAW_DATA_DIR to relative
+  // Migrate knowledge-paths.json: convert absolute paths under PAAW_DATA_DIR to relative (cross-platform)
   try {
     const kpRaw = await readFile(PAAW_KNOWLEDGE_FILE, "utf-8");
     const kpData = JSON.parse(kpRaw);
     let migrated = false;
     kpData.directories = kpData.directories.map(d => {
-      if (isAbsolute(d) && (d.startsWith(PAAW_DATA_DIR + "/") || d.startsWith(PAAW_DATA_DIR + "\\") || d === PAAW_DATA_DIR)) {
+      if (!isAbsolute(d)) return d;
+      const rel = relative(PAAW_DATA_DIR, d);
+      if (!rel.startsWith('..')) {
         migrated = true;
-        return d === PAAW_DATA_DIR ? "." : d.slice(PAAW_DATA_DIR.length + 1);
+        return rel || '.';
       }
-      return d;
+      return d; // outside PAAW_DATA_DIR, keep absolute
     });
     if (migrated) {
       await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(kpData, null, 2), "utf-8");
