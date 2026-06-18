@@ -105,14 +105,9 @@ function loadWorkspaces() {
   return ws.directories || [];
 }
 
-/** Knowledge directories — from config or default */
+/** Knowledge directory (fixed path) */
 function loadKnowledgeDirs() {
-  try {
-    const cfg = safeReadJSON(resolve(CONFIG_DIR, "knowledge-paths.json"), { directories: [] });
-    return cfg.directories?.length > 0 ? cfg.directories : [resolve(DATA_DIR, "knowledge")];
-  } catch {
-    return [resolve(DATA_DIR, "knowledge")];
-  }
+  return [resolve(DATA_DIR, "knowledge")];
 }
 
 /** Knowledge files listing */
@@ -347,7 +342,7 @@ export const contextEngine = {
 
     // Tell AI where config files are — it reads them itself to discover directories
     const paawRoot = PAAW_ROOT || process.env.PAAW_ROOT || "/Users/steward/App/tAgent";
-    const knowledgeInfo = `\n\n📚 目錄設定（用 file_read 讀取設定檔來發現可用目錄）：\n- Workspace 目錄設定：${paawRoot}/data/workspaces.json\n- Knowledge 目錄設定：${paawRoot}/data/knowledge-paths.json\n\n使用方式：\n1. 先用 file_read({ path: "${paawRoot}/data/workspaces.json" }) 取得 Workspace 目錄清單\n2. 再用 file_read({ path: "${paawRoot}/data/knowledge-paths.json" }) 取得 Knowledge 目錄清單\n3. 讀到絕對路徑後，用 file_read({ path: "絕對路徑/檔名" }) 讀取任何檔案\n4. 用 file_list({ path: "絕對路徑", workspace: "目錄名" }) 列出目錄內容`;
+    const knowledgeInfo = `\n\n📚 Knowledge 目錄：${paawRoot}/data/knowledge\n使用 file_list({ path: "${paawRoot}/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "絕對路徑/檔名" }) 讀取檔案。`;
 
     const parts = [];
 

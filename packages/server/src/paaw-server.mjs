@@ -3446,7 +3446,7 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
 
   // ── Workspaces API ──
   const PAAW_WORKSPACES_FILE = resolve(PAAW_DATA_DIR, "workspaces.json");
-  const PAAW_KNOWLEDGE_FILE = resolve(PAAW_DATA_DIR, "knowledge-paths.json");
+  const PAAW_KNOWLEDGE_DIR = resolve(PAAW_DATA_DIR, "knowledge");
 
   // GET /api/paaw/workspaces
   if (req.method === "GET" && path === "/api/paaw/workspaces") {
@@ -3497,68 +3497,10 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
     return true;
   }
 
-  // ── Knowledge Paths API ──
-  // GET /api/paaw/knowledge-paths
+  // ── Knowledge Path (fixed: always PAAW_DATA_DIR/knowledge) ──
   if (req.method === "GET" && path === "/api/paaw/knowledge-paths") {
-    try {
-      const data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8"));
-      // Resolve relative paths against PAAW_DATA_DIR for clients
-      const resolved = (data.directories || []).map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ directories: resolved }));
-    } catch {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ directories: [resolve(PAAW_DATA_DIR, "knowledge")] }));
-    }
-    return true;
-  }
-
-  // POST /api/paaw/knowledge-paths — add directory
-  if (req.method === "POST" && path === "/api/paaw/knowledge-paths") {
-    try {
-      let data;
-      try { data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8")); } catch { data = { directories: [] }; }
-      const body = JSON.parse(await readBody(req));
-      const dir = body.directory;
-      if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
-      // Store as relative path if under PAAW_DATA_DIR, otherwise keep absolute (cross-platform)
-      const relDir = (() => {
-        if (!isAbsolute(dir)) return dir;
-        const r = relative(PAAW_DATA_DIR, dir);
-        return r.startsWith('..') ? dir : (r || '.');
-      })();
-      if (!data.directories.includes(relDir)) {
-        data.directories.push(relDir);
-        await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(data, null, 2), "utf-8");
-      }
-      // Return resolved paths to client
-      const resolved = data.directories.map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ directories: resolved }));
-    } catch {
-      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to add knowledge path" }));
-    }
-    return true;
-  }
-
-  // DELETE /api/paaw/knowledge-paths?dir=... — remove directory
-  if (req.method === "DELETE" && path === "/api/paaw/knowledge-paths") {
-    try {
-      const dir = url.searchParams.get("dir");
-      let data;
-      try { data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8")); } catch { data = { directories: [] }; }
-      // Client sends resolved absolute path; match against both relative and resolved forms
-      data.directories = data.directories.filter((d) => {
-        const resolved = isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d);
-        return resolved !== dir && d !== dir;
-      });
-      await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(data, null, 2), "utf-8");
-      const resolved = data.directories.map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ directories: resolved }));
-    } catch {
-      res.writeHead(500); res.end(JSON.stringify({ error: "Failed to remove knowledge path" }));
-    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ directories: [PAAW_KNOWLEDGE_DIR] }));
     return true;
   }
 
@@ -3878,18 +3820,8 @@ server.listen(PORT, async () => {
   // Ensure system prompt directory exists
   await mkdir(SYSTEM_DIR, { recursive: true });
 
-  // Update knowledge-paths.json on startup: ensure paths match current server location
-  // Knowledge is always at data/knowledge — rewrite with correct absolute path for this machine
-  try {
-    const kpFile = resolve(PAAW_DATA_DIR, 'knowledge-paths.json');
-    const knowledgeDir = resolve(PAAW_DATA_DIR, 'knowledge');
-    await mkdir(knowledgeDir, { recursive: true });
-    const kpData = { directories: [knowledgeDir] };
-    await writeFile(kpFile, JSON.stringify(kpData, null, 2), "utf-8");
-    console.log(`[PAAW] knowledge-paths.json updated: ${knowledgeDir}`);
-  } catch (e) {
-    console.log(`[PAAW] knowledge-paths.json update failed: ${e.message}`);
-  }
+  // Ensure knowledge directory exists
+  await mkdir(resolve(PAAW_DATA_DIR, 'knowledge'), { recursive: true });
 
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] System prompts: ${SYSTEM_DIR}`);
