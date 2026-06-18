@@ -3881,10 +3881,11 @@ server.listen(PORT, async () => {
   // Update knowledge-paths.json on startup: ensure paths match current server location
   // Knowledge is always at data/knowledge — rewrite with correct absolute path for this machine
   try {
+    const kpFile = resolve(PAAW_DATA_DIR, 'knowledge-paths.json');
     const knowledgeDir = resolve(PAAW_DATA_DIR, 'knowledge');
     await mkdir(knowledgeDir, { recursive: true });
     const kpData = { directories: [knowledgeDir] };
-    await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(kpData, null, 2), "utf-8");
+    await writeFile(kpFile, JSON.stringify(kpData, null, 2), "utf-8");
     console.log(`[PAAW] knowledge-paths.json updated: ${knowledgeDir}`);
   } catch (e) {
     console.log(`[PAAW] knowledge-paths.json update failed: ${e.message}`);
