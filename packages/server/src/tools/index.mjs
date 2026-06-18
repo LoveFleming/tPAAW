@@ -888,7 +888,14 @@ function buildHandlers(apps) {
       const searchAll = [...dirs, ...knowledgeDirs];
 
       // If workspace specified, use it; otherwise search all workspaces + knowledge
-      const searchDirs = workspace ? [matchWorkspace(dirs, workspace)].filter(Boolean) : searchAll;
+      let searchDirs;
+      if (workspace === "knowledge") {
+        searchDirs = knowledgeDirs;
+      } else if (workspace) {
+        searchDirs = [matchWorkspace(dirs, workspace)].filter(Boolean);
+      } else {
+        searchDirs = searchAll;
+      }
       if (searchDirs.length === 0) return { text: `找不到工作區「${workspace}」`, error: true };
 
       for (const ws of searchDirs) {
