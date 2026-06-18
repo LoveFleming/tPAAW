@@ -34,6 +34,29 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const [model, setModel] = useState(crew?.chatConfig?.model || "");
     const [approvalMode, setApprovalMode] = useState(crew?.chatConfig?.approvalMode || "yolo");
     const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(crew?.skillIds || []);
+    const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
+
+    // Load models when CLI changes
+    useEffect(() => {
+        setModel("");
+        setAvailableModels([]);
+        fetch(`${API_BASE}/api/models?cli=${cli}`)
+            .then(r => r.ok ? r.json() : [])
+            .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
+                const list = data.models || [];
+                setAvailableModels(list);
+                // Auto-select current model, or keep crew's existing model if it matches
+                const existing = crew?.chatConfig?.model;
+                if (existing && list.find(m => m.id === existing)) {
+                    setModel(existing);
+                } else {
+                    const cur = list.find(m => m.current);
+                    if (cur) setModel(cur.id);
+                    else if (list.length > 0) setModel(list[0].id);
+                }
+            })
+            .catch(() => {});
+    }, [cli]);
 
     // Fetch all skill definitions from shared pool
     const [allSkills, setAllSkills] = useState<SkillDefinition[]>([]);
@@ -255,10 +278,9 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                                 <select value={model} onChange={e => setModel(e.target.value)}
                                     className={inputCls} style={inputStyle}>
                                     <option value="">（使用預設）</option>
-                                    <option value="moonshotai/kimi-k2.5">Kimi K2.5</option>
-                                    <option value="moonshotai/kimi-k2.6">Kimi K2.6</option>
-                                    <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash</option>
-                                    <option value="zai/glm-5.1">GLM 5.1</option>
+                                    {availableModels.map(m => (
+                                        <option key={m.id} value={m.id}>{m.name}{m.current ? " ✓" : ""}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
