@@ -282,7 +282,25 @@ export default function AppLab() {
     const [reportName, setReportName] = useState("");
     const [description, setDescription] = useState("");
     const [cli, setCli] = useState<CliEngine>("qwen");
+    const [model, setModel] = useState("");
+    const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
     const [selectedSkill, setSelectedSkill] = useState<SkillDefinition | null>(null);
+
+    // Load models when CLI changes
+    useEffect(() => {
+        setModel("");
+        setAvailableModels([]);
+        fetch(`${API}/api/models?cli=${cli}`)
+            .then(r => r.ok ? r.json() : [])
+            .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
+                const list = data.models || [];
+                setAvailableModels(list);
+                const cur = list.find(m => m.current);
+                if (cur) setModel(cur.id);
+                else if (list.length > 0) setModel(list[0].id);
+            })
+            .catch(() => {});
+    }, [cli]);
 
     // ── Advanced settings (collapsed by default) ──
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -762,6 +780,13 @@ export default function AppLab() {
                         <option value="claude">Claude</option>
                         <option value="opencode">OpenCode</option>
                     </select>
+                    <select value={model} onChange={e => setModel(e.target.value)}
+                        className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white min-w-[140px]">
+                        <option value="">預設 Model</option>
+                        {availableModels.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}{m.current ? " ✓" : ""}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
@@ -948,14 +973,15 @@ export default function AppLab() {
                             <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#333" }}>
                                 <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
                                     <span className="text-[10px] font-semibold text-stone-400">💻 Terminal</span>
-                                    <span className="text-[9px] text-stone-500">({cli})</span>
+                                    <span className="text-[9px] text-stone-500">({cli}{model ? "/" + model.split("/").pop() : ""})</span>
                                 </div>
                                 <div className="flex-1 min-h-0">
                                     {chatStarted ? (
                                         <TerminalConsole
-                                            key={`applab-${consoleKey}`}
+                                            key={`applab-${consoleKey}-${model}`}
                                             ref={terminalRef}
                                             cli={cli as any}
+                                            model={model || undefined}
                                             initialPrompt={initialPrompt}
                                             approvalMode="yolo"
                                             onCliDone={undefined}
