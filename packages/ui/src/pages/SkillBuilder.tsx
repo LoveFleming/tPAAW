@@ -322,11 +322,30 @@ export default function SkillBuilder() {
 
   // Builder CLI (interactive)
   const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
+  const [model, setModel] = useState("");
+  const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
   const [consoleKey, setConsoleKey] = useState(0);
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
   const [chatStarted, setChatStarted] = useState(false);
   const terminalRef = useRef<TerminalConsoleHandle>(null);
   const loadingRef = useRef(false);
+
+  // Load models when CLI changes
+  useEffect(() => {
+    setModel("");
+    setAvailableModels([]);
+    fetch(`${API_BASE}/api/models?cli=${cli}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
+        const list = data.models || [];
+        setAvailableModels(list);
+        // Auto-select current model
+        const current = list.find(m => m.current);
+        if (current) setModel(current.id);
+        else if (list.length > 0) setModel(list[0].id);
+      })
+      .catch(() => {});
+  }, [cli]);
 
   // Skill creator
   const [skillCreatorContent, setSkillCreatorContent] = useState("");
@@ -608,6 +627,12 @@ ${userInputLines.join("\n")}
           <option value="claude">Claude Code</option>
           <option value="opencode">OpenCode</option>
         </select>
+          <select value={model} onChange={e => setModel(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white min-w-[140px]">
+            <option value="">預設 Model</option>
+            {availableModels.map(m => (
+              <option key={m.id} value={m.id}>{m.name}{m.current ? " ✓" : ""}</option>
+            ))}
+          </select>
       </div>
       </div>
 
@@ -809,7 +834,7 @@ ${userInputLines.join("\n")}
                 </div>
               </div>
             ) : (
-              <TerminalConsole ref={terminalRef} key={`cli-${consoleKey}`} cwd={workingDir || undefined} cli={cli} approvalMode="yolo" initialPrompt={initialPrompt} />
+              <TerminalConsole ref={terminalRef} key={`cli-${consoleKey}-${model}`} cwd={workingDir || undefined} cli={cli} model={model || undefined} approvalMode="yolo" initialPrompt={initialPrompt} />
             )}
           </div>
 
