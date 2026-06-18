@@ -373,7 +373,7 @@ export const contextEngine = {
     if (toolRules) {
       parts.push(toolRules);
     } else {
-      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具（例如 fs_tree、fs_browse）\n- 讀取 Knowledge 檔案：使用 file_read({ path: "檔名" })，不需加目錄路徑\n- 讀取 Workspace 檔案：使用 file_read({ path: "相對路徑", workspace: "workspace名" })\n- 列出 Workspace 檔案：使用 file_list({ dirPath: "/", workspace: "workspace名" })`);
+      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具（例如 fs_tree、fs_browse）\n- Knowledge 目錄是固定的：file_read({ path: "檔名", workspace: "knowledge" })\n- Workspace 是外掛目錄：file_read({ path: "相對路徑", workspace: "目錄名" })\n- 列出檔案：file_list({ workspace: "knowledge" }) 或 file_list({ workspace: "目錄名" })`);
     }
 
     // 4.6 Skill 執行規則（從 crew 分類讀取）

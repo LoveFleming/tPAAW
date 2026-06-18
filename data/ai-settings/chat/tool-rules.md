@@ -44,12 +44,18 @@
 
 ## Knowledge 和 Workspace 檔案讀取
 
-- **先讀設定檔發現目錄**：
-  - `file_read({ path: "PAAW_ROOT/data/workspaces.json" })` → 取得 Workspace 目錄清單
-  - `file_read({ path: "PAAW_ROOT/data/knowledge-paths.json" })` → 取得 Knowledge 目錄清單
-- 讀到絕對路徑後，用 `file_read({ path: "絕對路路徑/檔名" })` 讀取任何檔案
-- 用 `file_list({ path: "絕對路徑", workspace: "目錄名" })` 列出目錄內容
-- 設定檔裡的目錄是使用者自行管理的，隨時可能增減
+- **Knowledge 目錄是固定的**：`PAAW_ROOT/data/knowledge/`
+  - `file_list({ workspace: "knowledge" })` → 列出 Knowledge 檔案
+  - `file_read({ path: "檔名", workspace: "knowledge" })` → 讀取 Knowledge 檔案
+  - 不指定 workspace 時也會自動搜尋 Knowledge 目錄
+
+- **Workspace 是使用者外掛的目錄**（從 workspaces.json 載入）：
+  - `file_list({ workspace: "目錄名" })` → 列出該 Workspace 的檔案
+  - `file_read({ path: "相對路徑", workspace: "目錄名" })` → 讀取該 Workspace 的檔案
+  - `file_list()` 不指定 workspace → 列出所有 Workspace + Knowledge 概覽
+
+- 也支援直接用絕對路徑：`file_read({ path: "/Users/.../檔名" })`
+- **Knowledge ≠ Workspace**，兩者是不同的目錄來源
 
 ## 資料查詢流程
 
