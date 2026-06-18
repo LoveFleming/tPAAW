@@ -774,18 +774,15 @@ function buildHandlers(apps) {
   }
 
   // Helper: convert absolute path to relative if under PAAW_DATA_DIR (cross-platform)
-  function toRelativeDir(d) {
-    if (!isAbsolute(d)) return d;
-    const rel = relative(PAAW_DATA_DIR, d);
-    return rel.startsWith('..') ? d : (rel || '.');
-  }
+  // Detect if a path is absolute, including Unix paths on Windows
+  const isAbsPath = (d) => isAbsolute(d) || (d.startsWith('/') && process.platform === 'win32');
 
   // Helper: load knowledge directories from config (like workspaces)
   // Supports relative paths (resolved against PAAW_DATA_DIR) and absolute paths
   async function loadKnowledgeDirs() {
     try {
       const cfg = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "knowledge-paths.json"), "utf-8"));
-      return (cfg.directories || []).map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
+      return (cfg.directories || []).map(d => isAbsPath(d) ? d : resolve(PAAW_DATA_DIR, d));
     } catch { return [resolve(PAAW_DATA_DIR, "knowledge")]; } // default fallback
   }
 
@@ -796,7 +793,7 @@ function buildHandlers(apps) {
     let knowledgeDirs;
     try {
       const cfg = JSON.parse(readSync(resolve(PAAW_DATA_DIR, "knowledge-paths.json"), "utf-8"));
-      knowledgeDirs = (cfg.directories || []).map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
+      knowledgeDirs = (cfg.directories || []).map(d => isAbsPath(d) ? d : resolve(PAAW_DATA_DIR, d));
     } catch {
       knowledgeDirs = [resolve(PAAW_DATA_DIR, "knowledge")];
     }

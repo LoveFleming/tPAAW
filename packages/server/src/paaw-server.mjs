@@ -3888,21 +3888,28 @@ server.listen(PORT, async () => {
     } catch {
       kpData = { directories: [] };
     }
+    // Detect stale cross-machine absolute paths (including Unix paths on Windows where isAbsolute returns false)
+    const isStaleAbsolute = (d) => {
+      if (isAbsolute(d)) return true;       // native absolute (C:\... on Windows, /... on Unix)
+      if (d.startsWith('/') && process.platform === 'win32') return true; // Unix absolute on Windows
+      return false;
+    };
     const normalized = kpData.directories.map(d => {
-      if (!isAbsolute(d)) {
-        // Relative path → resolve against current PAAW_DATA_DIR
-        return resolve(PAAW_DATA_DIR, d);
+      if (isStaleAbsolute(d)) {
+        const rel = relative(PAAW_DATA_DIR, d);
+        if (!rel.startsWith('..')) {
+          // Under current PAAW_DATA_DIR → already correct, keep
+          return d;
+        }
+        // Stale absolute path from different machine → extract directory name, resolve under current PAAW_DATA_DIR
+        const parts = d.replace(/\\/g, '/').split('/').filter(Boolean);
+        const fallback = parts[parts.length - 1] || 'knowledge';
+        const newPath = resolve(PAAW_DATA_DIR, fallback);
+        console.log(`[PAAW] knowledge-paths: stale path "${d}" → "${newPath}" (cross-machine migration)`);
+        return newPath;
       }
-      const rel = relative(PAAW_DATA_DIR, d);
-      if (!rel.startsWith('..')) {
-        // Absolute path under current PAAW_DATA_DIR → already correct, keep
-        return d;
-      }
-      // Stale absolute path from different machine → extract directory name, resolve against current PAAW_DATA_DIR
-      const parts = d.replace(/\\/g, '/').split('/').filter(Boolean);
-      const fallback = parts[parts.length - 1] || 'knowledge';
-      console.log(`[PAAW] knowledge-paths: stale path "${d}" → "${resolve(PAAW_DATA_DIR, fallback)}" (cross-machine migration)`);
-      return resolve(PAAW_DATA_DIR, fallback);
+      // Relative path → resolve against current PAAW_DATA_DIR
+      return resolve(PAAW_DATA_DIR, d);
     });
     // Deduplicate and ensure at least default knowledge directory exists
     const defaultDir = resolve(PAAW_DATA_DIR, 'knowledge');
