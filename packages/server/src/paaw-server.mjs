@@ -13,7 +13,7 @@
 import { createServer } from "http";
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
 import { readFileSync, existsSync, readdirSync, mkdirSync, writeFileSync, appendFileSync, statSync, unlinkSync } from "fs";
-import { join, resolve, dirname } from "path";
+import { join, resolve, dirname, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
@@ -3502,8 +3502,10 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
   if (req.method === "GET" && path === "/api/paaw/knowledge-paths") {
     try {
       const data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8"));
+      // Resolve relative paths against PAAW_DATA_DIR for clients
+      const resolved = (data.directories || []).map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
+      res.end(JSON.stringify({ directories: resolved }));
     } catch {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ directories: [resolve(PAAW_DATA_DIR, "knowledge")] }));
@@ -3519,12 +3521,16 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
       const body = JSON.parse(await readBody(req));
       const dir = body.directory;
       if (!dir) { res.writeHead(400); res.end(JSON.stringify({ error: "directory required" })); return true; }
-      if (!data.directories.includes(dir)) {
-        data.directories.push(dir);
+      // Store as relative path if under PAAW_DATA_DIR, otherwise keep absolute
+      const relDir = dir.startsWith(PAAW_DATA_DIR + "/") || dir.startsWith(PAAW_DATA_DIR + "\\") ? dir.slice(PAAW_DATA_DIR.length + 1) : dir;
+      if (!data.directories.includes(relDir)) {
+        data.directories.push(relDir);
         await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(data, null, 2), "utf-8");
       }
+      // Return resolved paths to client
+      const resolved = data.directories.map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
+      res.end(JSON.stringify({ directories: resolved }));
     } catch {
       res.writeHead(500); res.end(JSON.stringify({ error: "Failed to add knowledge path" }));
     }
@@ -3537,10 +3543,15 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
       const dir = url.searchParams.get("dir");
       let data;
       try { data = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8")); } catch { data = { directories: [] }; }
-      data.directories = data.directories.filter((d) => d !== dir);
+      // Client sends resolved absolute path; match against both relative and resolved forms
+      data.directories = data.directories.filter((d) => {
+        const resolved = isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d);
+        return resolved !== dir && d !== dir;
+      });
       await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(data, null, 2), "utf-8");
+      const resolved = data.directories.map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
+      res.end(JSON.stringify({ directories: resolved }));
     } catch {
       res.writeHead(500); res.end(JSON.stringify({ error: "Failed to remove knowledge path" }));
     }
@@ -3862,6 +3873,25 @@ await mkdir(PAAW_CHAT_DIR, { recursive: true });
 server.listen(PORT, async () => {
   // Ensure system prompt directory exists
   await mkdir(SYSTEM_DIR, { recursive: true });
+
+  // Migrate knowledge-paths.json: convert absolute paths under PAAW_DATA_DIR to relative
+  try {
+    const kpRaw = await readFile(PAAW_KNOWLEDGE_FILE, "utf-8");
+    const kpData = JSON.parse(kpRaw);
+    let migrated = false;
+    kpData.directories = kpData.directories.map(d => {
+      if (isAbsolute(d) && (d.startsWith(PAAW_DATA_DIR + "/") || d.startsWith(PAAW_DATA_DIR + "\\") || d === PAAW_DATA_DIR)) {
+        migrated = true;
+        return d === PAAW_DATA_DIR ? "." : d.slice(PAAW_DATA_DIR.length + 1);
+      }
+      return d;
+    });
+    if (migrated) {
+      await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(kpData, null, 2), "utf-8");
+      console.log(`[PAAW] Migrated knowledge-paths.json to relative paths`);
+    }
+  } catch {}
+
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] System prompts: ${SYSTEM_DIR}`);
   console.log(`[PAAW] Modular routes: skill, workflow, chat`);

@@ -5,7 +5,7 @@
 // New apps can be created at runtime — no code changes needed
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
-import { resolve, dirname, join } from "path";
+import { resolve, dirname, join, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -774,10 +774,11 @@ function buildHandlers(apps) {
   }
 
   // Helper: load knowledge directories from config (like workspaces)
+  // Supports relative paths (resolved against PAAW_DATA_DIR) and absolute paths
   async function loadKnowledgeDirs() {
     try {
       const cfg = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "knowledge-paths.json"), "utf-8"));
-      return cfg.directories || [];
+      return (cfg.directories || []).map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
     } catch { return [resolve(PAAW_DATA_DIR, "knowledge")]; } // default fallback
   }
 
@@ -788,7 +789,7 @@ function buildHandlers(apps) {
     let knowledgeDirs;
     try {
       const cfg = JSON.parse(readSync(resolve(PAAW_DATA_DIR, "knowledge-paths.json"), "utf-8"));
-      knowledgeDirs = cfg.directories || [];
+      knowledgeDirs = (cfg.directories || []).map(d => isAbsolute(d) ? d : resolve(PAAW_DATA_DIR, d));
     } catch {
       knowledgeDirs = [resolve(PAAW_DATA_DIR, "knowledge")];
     }
