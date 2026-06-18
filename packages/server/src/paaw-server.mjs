@@ -3878,25 +3878,35 @@ server.listen(PORT, async () => {
   // Ensure system prompt directory exists
   await mkdir(SYSTEM_DIR, { recursive: true });
 
-  // Migrate knowledge-paths.json: convert absolute paths under PAAW_DATA_DIR to relative (cross-platform)
+  // Normalize knowledge-paths.json on startup: ensure all paths are valid for current server location
+  // Handles cross-machine migration (e.g. Mac → Windows) where old absolute paths are meaningless
   try {
-    const kpRaw = await readFile(PAAW_KNOWLEDGE_FILE, "utf-8");
-    const kpData = JSON.parse(kpRaw);
-    let migrated = false;
-    kpData.directories = kpData.directories.map(d => {
-      if (!isAbsolute(d)) return d;
-      const rel = relative(PAAW_DATA_DIR, d);
-      if (!rel.startsWith('..')) {
-        migrated = true;
-        return rel || '.';
-      }
-      return d; // outside PAAW_DATA_DIR, keep absolute
-    });
-    if (migrated) {
-      await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(kpData, null, 2), "utf-8");
-      console.log(`[PAAW] Migrated knowledge-paths.json to relative paths`);
+    let kpData;
+    try {
+      kpData = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8"));
+    } catch {
+      kpData = { directories: [] };
     }
-  } catch {}
+    const normalized = kpData.directories.map(d => {
+      if (!isAbsolute(d)) return d; // already relative, keep as-is
+      const rel = relative(PAAW_DATA_DIR, d);
+      if (!rel.startsWith('..')) return rel || '.'; // under PAAW_DATA_DIR → convert to relative
+      // Stale absolute path from different machine — extract last segment(s) as fallback
+      // e.g. "/home/user/project/data/knowledge" → try "knowledge"
+      const parts = d.replace(/\\/g, '/').split('/').filter(Boolean);
+      const fallback = parts[parts.length - 1] || 'knowledge';
+      console.log(`[PAAW] knowledge-paths: stale path "${d}" → "${fallback}" (cross-machine migration)`);
+      return fallback;
+    });
+    // Deduplicate and ensure at least default "knowledge" exists
+    const unique = [...new Set(normalized)];
+    if (!unique.includes('knowledge')) unique.unshift('knowledge');
+    kpData.directories = unique;
+    await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(kpData, null, 2), "utf-8");
+    console.log(`[PAAW] knowledge-paths.json normalized: ${JSON.stringify(kpData.directories)}`);
+  } catch (e) {
+    console.log(`[PAAW] knowledge-paths.json normalization failed: ${e.message}`);
+  }
 
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] System prompts: ${SYSTEM_DIR}`);
