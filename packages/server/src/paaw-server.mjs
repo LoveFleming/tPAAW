@@ -3878,48 +3878,16 @@ server.listen(PORT, async () => {
   // Ensure system prompt directory exists
   await mkdir(SYSTEM_DIR, { recursive: true });
 
-  // Normalize knowledge-paths.json on startup: rewrite paths to match current server location
-  // Handles cross-machine migration (e.g. Mac → Windows) where old absolute paths are meaningless
-  // Result: file always contains correct absolute paths for the current machine
+  // Update knowledge-paths.json on startup: ensure paths match current server location
+  // Knowledge is always at data/knowledge — rewrite with correct absolute path for this machine
   try {
-    let kpData;
-    try {
-      kpData = JSON.parse(await readFile(PAAW_KNOWLEDGE_FILE, "utf-8"));
-    } catch {
-      kpData = { directories: [] };
-    }
-    // Detect stale cross-machine absolute paths (including Unix paths on Windows where isAbsolute returns false)
-    const isStaleAbsolute = (d) => {
-      if (isAbsolute(d)) return true;       // native absolute (C:\... on Windows, /... on Unix)
-      if (d.startsWith('/') && process.platform === 'win32') return true; // Unix absolute on Windows
-      return false;
-    };
-    const normalized = kpData.directories.map(d => {
-      if (isStaleAbsolute(d)) {
-        const rel = relative(PAAW_DATA_DIR, d);
-        if (!rel.startsWith('..')) {
-          // Under current PAAW_DATA_DIR → already correct, keep
-          return d;
-        }
-        // Stale absolute path from different machine → extract directory name, resolve under current PAAW_DATA_DIR
-        const parts = d.replace(/\\/g, '/').split('/').filter(Boolean);
-        const fallback = parts[parts.length - 1] || 'knowledge';
-        const newPath = resolve(PAAW_DATA_DIR, fallback);
-        console.log(`[PAAW] knowledge-paths: stale path "${d}" → "${newPath}" (cross-machine migration)`);
-        return newPath;
-      }
-      // Relative path → resolve against current PAAW_DATA_DIR
-      return resolve(PAAW_DATA_DIR, d);
-    });
-    // Deduplicate and ensure at least default knowledge directory exists
-    const defaultDir = resolve(PAAW_DATA_DIR, 'knowledge');
-    const unique = [...new Set(normalized)];
-    if (!unique.includes(defaultDir)) unique.unshift(defaultDir);
-    kpData.directories = unique;
+    const knowledgeDir = resolve(PAAW_DATA_DIR, 'knowledge');
+    await mkdir(knowledgeDir, { recursive: true });
+    const kpData = { directories: [knowledgeDir] };
     await writeFile(PAAW_KNOWLEDGE_FILE, JSON.stringify(kpData, null, 2), "utf-8");
-    console.log(`[PAAW] knowledge-paths.json normalized: ${JSON.stringify(kpData.directories)}`);
+    console.log(`[PAAW] knowledge-paths.json updated: ${knowledgeDir}`);
   } catch (e) {
-    console.log(`[PAAW] knowledge-paths.json normalization failed: ${e.message}`);
+    console.log(`[PAAW] knowledge-paths.json update failed: ${e.message}`);
   }
 
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
