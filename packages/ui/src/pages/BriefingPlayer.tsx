@@ -505,6 +505,9 @@ export default function BriefingPlayer() {
   }, []);
 
   // ── Drawing helpers ──
+  const drawingRef = useRef(false);  // pen active tracking
+  const draggingMarkerRef = useRef<number | null>(null);  // which marker is being dragged
+
   const getRelPos = (clientX: number, clientY: number) => {
     const el = contentAreaRef.current;
     if (!el) return { x: 0, y: 0 };
@@ -516,34 +519,67 @@ export default function BriefingPlayer() {
     setPenStrokes([]);
     setMarkers([]);
     setActiveStroke([]);
+    drawingRef.current = false;
   }, []);
 
   const toggleMode = useCallback((mode: "pen" | "marker") => {
     setDrawMode(prev => prev === mode ? "none" : mode);
     setActiveStroke([]);
+    drawingRef.current = false;
   }, []);
 
+  // ── Marker: click to place (on content area background) ──
   const handleDrawStart = (e: React.MouseEvent) => {
-    if (drawMode === "pen") {
-      setActiveStroke([getRelPos(e.clientX, e.clientY)]);
-    } else if (drawMode === "marker") {
+    if (drawMode === "marker" && e.target === contentAreaRef.current) {
       const p = getRelPos(e.clientX, e.clientY);
       setMarkers(prev => [...prev, { ...p, icon: selectedIcon }]);
     }
   };
 
-  const handleDrawMove = (e: React.MouseEvent) => {
-    if (drawMode === "pen" && activeStroke.length > 0) {
-      setActiveStroke(prev => [...prev, getRelPos(e.clientX, e.clientY)]);
-    }
+  // ── Pen: hold left button + drag to draw ──
+  const handlePenDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // left button only
+    drawingRef.current = true;
+    setActiveStroke([getRelPos(e.clientX, e.clientY)]);
   };
 
-  const handleDrawEnd = () => {
-    if (drawMode === "pen" && activeStroke.length > 1) {
-      setPenStrokes(prev => [...prev, activeStroke]);
-    }
-    setActiveStroke([]);
+  const handlePenMove = (e: React.MouseEvent) => {
+    if (!drawingRef.current) return;
+    setActiveStroke(prev => [...prev, getRelPos(e.clientX, e.clientY)]);
   };
+
+  const handlePenUp = () => {
+    drawingRef.current = false;
+    setActiveStroke(prev => {
+      if (prev.length > 1) setPenStrokes(strokes => [...strokes, prev]);
+      return [];
+    });
+  };
+
+  // ── Marker: click to place, drag existing to move ──
+  const handleMarkerMouseDown = (e: React.MouseEvent, idx: number) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.button !== 0) return;
+    draggingMarkerRef.current = idx;
+  };
+
+  // Global mousemove/up for marker dragging (works outside marker element)
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (draggingMarkerRef.current === null) return;
+      e.preventDefault();
+      const pos = getRelPos(e.clientX, e.clientY);
+      setMarkers(prev => prev.map((m, i) => i === draggingMarkerRef.current ? { ...m, ...pos } : m));
+    };
+    const onUp = () => { draggingMarkerRef.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
 
   // Clear annotations on slide change
   useEffect(() => { clearAnnotations(); }, [currentIdx, clearAnnotations]);
@@ -586,7 +622,7 @@ export default function BriefingPlayer() {
     const ro = new ResizeObserver(render);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [penStrokes, activeStroke, drawMode]);
+  }, [penStrokes, activeStroke]);
   if (loading && !selectedDir) {
     return (
       <div className="flex items-center justify-center h-full text-stone-400 text-sm gap-2">
@@ -871,11 +907,13 @@ Markdown 格式:
       <div
         ref={contentAreaRef}
         className="flex-1 flex overflow-hidden relative"
-        style={{ cursor: drawMode !== "none" ? "crosshair" : "default" }}
-        onMouseDown={drawMode !== "none" ? handleDrawStart : undefined}
-        onMouseMove={drawMode === "pen" ? handleDrawMove : undefined}
-        onMouseUp={drawMode === "pen" ? handleDrawEnd : undefined}
-        onMouseLeave={drawMode === "pen" ? handleDrawEnd : undefined}
+        style={{
+          cursor: drawMode === "pen" ? "crosshair" : drawMode === "marker" ? "copy" : "default",
+        }}
+        onMouseDown={drawMode === "pen" ? handlePenDown : drawMode === "marker" ? handleDrawStart : undefined}
+        onMouseMove={drawMode === "pen" ? handlePenMove : undefined}
+        onMouseUp={drawMode === "pen" ? handlePenUp : undefined}
+        onMouseLeave={drawMode === "pen" ? handlePenUp : undefined}
       >
         {/* Image — left side */}
         {imageUrl && (
@@ -940,19 +978,27 @@ Markdown 格式:
           className="absolute inset-0 pointer-events-none z-30"
         />
 
-        {/* ── Markers layer ── */}
+        {/* ── Markers layer (draggable) ── */}
         {markers.map((m, i) => (
           <div
             key={i}
-            className="absolute z-30 pointer-events-none select-none"
+            className="absolute z-30 select-none"
             style={{
               left: `${m.x * 100}%`,
               top: `${m.y * 100}%`,
               transform: "translate(-50%, -50%)",
               fontSize: 28,
+              cursor: "grab",
               animation: "briefing-pulse 1.5s ease-in-out infinite",
               filter: "drop-shadow(0 0 6px rgba(255,255,255,0.5))",
+              pointerEvents: "auto",
             }}
+            onMouseDown={(e) => handleMarkerMouseDown(e, i)}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setMarkers(prev => prev.filter((_, idx) => idx !== i));
+            }}
+            title="拖曳移動 · 雙擊刪除"
           >
             {m.icon}
           </div>
