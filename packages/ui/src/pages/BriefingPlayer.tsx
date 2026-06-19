@@ -233,6 +233,7 @@ export default function BriefingPlayer() {
   const [mdLoading, setMdLoading] = useState(false);
   const [notesContent, setNotesContent] = useState("");
   const [showDirPicker, setShowDirPicker] = useState(false);
+  const [refOverlay, setRefOverlay] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -631,9 +632,6 @@ Markdown 格式:
       </div>
     );
   }
-
-  // ── Ref overlay state ──
-  const [refOverlay, setRefOverlay] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: fullscreen ? "#0a0a0a" : "#1a1a1a" }} ref={containerRef}>
