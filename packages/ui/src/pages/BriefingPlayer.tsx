@@ -1002,10 +1002,12 @@ Markdown 格式:
               left: `${m.x * 100}%`,
               top: `${m.y * 100}%`,
               transform: "translate(-50%, -50%)",
-              fontSize: 28,
+              fontSize: m.icon === "🤖" ? 36 : 28,
               cursor: "grab",
               animation: "briefing-pulse 1.5s ease-in-out infinite",
-              filter: "drop-shadow(0 0 6px rgba(255,255,255,0.5))",
+              filter: m.icon === "🤖"
+                ? "drop-shadow(0 0 10px rgba(100,200,255,0.7)) drop-shadow(0 0 4px rgba(100,200,255,0.4))"
+                : "drop-shadow(0 0 6px rgba(255,255,255,0.5))",
               pointerEvents: "auto",
             }}
             onMouseDown={(e) => handleMarkerMouseDown(e, i)}
@@ -1016,6 +1018,15 @@ Markdown 格式:
             title="拖曳移動 · 雙擊刪除"
           >
             {m.icon}
+            {m.icon === "🤖" && (
+              <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(100,200,255,0.2)",
+                  border: "1px solid rgba(100,200,255,0.4)",
+                  color: "rgba(150,220,255,0.95)",
+                }}
+              >AI can help</div>
+            )}
           </div>
         ))}
 
@@ -1039,15 +1050,19 @@ Markdown 格式:
               { icon: "❗", label: "注意" },
               { icon: "👈", label: "看這" },
               { icon: "✅", label: "確認" },
+              { icon: "🤖", label: "AI" },
             ].map(({ icon, label }) => {
               const isActive = drawMode === "marker" && selectedIcon === icon;
+              const isAI = icon === "🤖";
               return (
                 <button
                   key={icon}
                   onClick={() => { setSelectedIcon(icon); toggleMode("marker"); }}
                   className="px-2 py-1.5 rounded-lg text-sm transition-all"
                       style={{
-                      background: isActive ? "rgba(250,204,21,0.3)" : "transparent",
+                      background: isActive
+                        ? isAI ? "rgba(100,200,255,0.25)" : "rgba(250,204,21,0.3)"
+                        : "transparent",
                       filter: isActive ? "none" : "grayscale(0.5) opacity(0.6)",
                     }}
                   title={`${label} (H)`}
