@@ -528,32 +528,24 @@ export default function BriefingPlayer() {
     drawingRef.current = false;
   }, []);
 
-  // ── Marker: click to place (on content area background) ──
-  const handleDrawStart = (e: React.MouseEvent) => {
-    if (drawMode === "marker" && e.target === contentAreaRef.current) {
-      const p = getRelPos(e.clientX, e.clientY);
-      setMarkers(prev => [...prev, { ...p, icon: selectedIcon }]);
+  // ── Content area mousedown: start pen or place marker ──
+  const handleContentMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+
+    // Don't draw/place if clicking on toolbar or marker elements
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-annotation-ui]')) return;
+
+    if (drawMode === "pen") {
+      e.preventDefault();
+      drawingRef.current = true;
+      const pos = getRelPos(e.clientX, e.clientY);
+      setActiveStroke([pos]);
+    } else if (drawMode === "marker") {
+      e.preventDefault();
+      const pos = getRelPos(e.clientX, e.clientY);
+      setMarkers(prev => [...prev, { ...pos, icon: selectedIcon }]);
     }
-  };
-
-  // ── Pen: hold left button + drag to draw ──
-  const handlePenDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // left button only
-    drawingRef.current = true;
-    setActiveStroke([getRelPos(e.clientX, e.clientY)]);
-  };
-
-  const handlePenMove = (e: React.MouseEvent) => {
-    if (!drawingRef.current) return;
-    setActiveStroke(prev => [...prev, getRelPos(e.clientX, e.clientY)]);
-  };
-
-  const handlePenUp = () => {
-    drawingRef.current = false;
-    setActiveStroke(prev => {
-      if (prev.length > 1) setPenStrokes(strokes => [...strokes, prev]);
-      return [];
-    });
   };
 
   // ── Marker: click to place, drag existing to move ──
@@ -564,15 +556,37 @@ export default function BriefingPlayer() {
     draggingMarkerRef.current = idx;
   };
 
-  // Global mousemove/up for marker dragging (works outside marker element)
+  // Global mousemove/up for pen drawing AND marker dragging
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (draggingMarkerRef.current === null) return;
-      e.preventDefault();
-      const pos = getRelPos(e.clientX, e.clientY);
-      setMarkers(prev => prev.map((m, i) => i === draggingMarkerRef.current ? { ...m, ...pos } : m));
+      // Pen drawing
+      if (drawingRef.current) {
+        const pos = getRelPos(e.clientX, e.clientY);
+        setActiveStroke(prev => [...prev, pos]);
+        return;
+      }
+      // Marker dragging
+      if (draggingMarkerRef.current !== null) {
+        e.preventDefault();
+        const pos = getRelPos(e.clientX, e.clientY);
+        setMarkers(prev => prev.map((m, i) => i === draggingMarkerRef.current ? { ...m, ...pos } : m));
+      }
     };
-    const onUp = () => { draggingMarkerRef.current = null; };
+    const onUp = () => {
+      // Finish pen stroke
+      if (drawingRef.current) {
+        drawingRef.current = false;
+        setActiveStroke(prev => {
+          if (prev.length > 1) {
+            const stroke = prev;
+            queueMicrotask(() => setPenStrokes(s => [...s, stroke]));
+          }
+          return [];
+        });
+      }
+      // Finish marker drag
+      draggingMarkerRef.current = null;
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
@@ -910,10 +924,7 @@ Markdown 格式:
         style={{
           cursor: drawMode === "pen" ? "crosshair" : drawMode === "marker" ? "copy" : "default",
         }}
-        onMouseDown={drawMode === "pen" ? handlePenDown : drawMode === "marker" ? handleDrawStart : undefined}
-        onMouseMove={drawMode === "pen" ? handlePenMove : undefined}
-        onMouseUp={drawMode === "pen" ? handlePenUp : undefined}
-        onMouseLeave={drawMode === "pen" ? handlePenUp : undefined}
+        onMouseDown={drawMode !== "none" ? handleContentMouseDown : undefined}
       >
         {/* Image — left side */}
         {imageUrl && (
@@ -1005,7 +1016,7 @@ Markdown 格式:
         ))}
 
         {/* ── Floating toolbar ── */}
-        <div className="absolute z-40" style={{ bottom: 12, left: "50%", transform: "translateX(-50%)" }}>
+        <div data-annotation-ui className="absolute z-40" style={{ bottom: 12, left: "50%", transform: "translateX(-50%)" }}>
           <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-xl" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.1)" }}>
             {/* Pen */}
             <button
@@ -1053,7 +1064,7 @@ Markdown 格式:
 
         {/* ── Mode indicator ── */}
         {drawMode !== "none" && (
-          <div className="absolute z-40" style={{ top: 8, left: "50%", transform: "translateX(-50%)" }}>
+          <div data-annotation-ui className="absolute z-40" style={{ top: 8, left: "50%", transform: "translateX(-50%)" }}>
             <div className="px-3 py-1 rounded-full text-xs text-white/90" style={{ background: "rgba(250,204,21,0.2)", border: "1px solid rgba(250,204,21,0.4)" }}>
               {drawMode === "pen" ? "✏️ 手繪模式" : `📍 標記模式 (${selectedIcon})`} — Esc 退出
             </div>
