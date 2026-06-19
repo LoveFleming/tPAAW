@@ -1,25 +1,22 @@
-# 解法：AI 驅動的軟體交付
+# 傳統解法 vs AI 時代解法
 
-## 核心理念
+## 傳統自動化：把人綁在流程裡
+
+CI/CD pipeline、Jenkins、Ansible... 這些工具解決了「重複部署」，但：
+
+- ❌ Pipeline 要人寫、人維護
+- ❌ 出了問題還是人去 debug
+- ❌ 工具越多，維護負擔越重
+
+## PAAW 的思路：讓 AI 幫你寫工具
 
 > 人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料
 
-## PAAW = Personal AI Assistant Workspace
+**不是「自動化流程」，是「AI 幫你造工具」**
 
-**三層能力架構：**
-
-1. **Skill** — 最小能力單元，有固定格式，deterministic
-2. **App Builder** — 從想法到上線，說一句話就建好
-3. **知識飛輪** — App 產生資料 → AI 讀取 → 產生洞見 → 改進 Skill
-
-## 關鍵差異
-
-| 傳統開發 | PAAW |
-|---------|------|
-| 人工寫碼 | AI 生成 + Guardrails |
-| 週級交付 | 分鐘級交付 |
+| 傳統 DevOps | PAAW |
+|-------------|------|
+| 人寫 pipeline | AI 建工具，人定義規則 |
+| 工具固定不變 | Skill 可持續演化 |
 | 知識在人身上 | 知識沉澱在系統 |
-
----
-
-@file: /Users/steward/App/tAgent/data/knowledge/02-standards.md
+| 週級交付 | 分鐘級交付 |

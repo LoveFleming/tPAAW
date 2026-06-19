@@ -1,23 +1,17 @@
-# DORA Metrics 改善
+# 快速交付：DORA Metrics 改善
 
-DevOps 四大指標，PAAW 怎麼改善每一項：
+## 四大指標，PAAW 怎麼提升每一項
 
-## 1. Lead Time（交付時間）
-- **傳統：** 天～週
-- **PAAW：** 分鐘
-- **原因：** App Builder 自動產出，自動註冊
+| 指標 | 段位 | 傳統 | PAAW | 改善來源 |
+|------|------|------|------|---------|
+| **Lead Time** | Elite | 天～週 | **分鐘** | App Builder 自動產出 |
+| **Deploy Frequency** | Elite | 週 / 月 | **隨時** | 免部署，自動上線 |
+| **Change Failure** | Elite | 10-15% | **< 5%** | Guardrails + Validation |
+| **MTTR** | Elite | 小時 | **分鐘** | Skill 有 Error Handling |
 
-## 2. Deploy Frequency（部署頻率）
-- **傳統：** 週 / 月
-- **PAAW：** 隨時
-- **原因：** 不用部署，自動上線
+## 為什麼能做到？
 
-## 3. Change Failure Rate（變更失敗率）
-- **傳統：** 高
-- **PAAW：** 低
-- **原因：** Guardrails + Validation + deterministic
-
-## 4. MTTR（平均修復時間）
-- **傳統：** 小時
-- **PAAW：** 分鐘
-- **原因：** Skill 有 Error Handling，AI 可診斷
+- **Lead Time ↓** — 不寫 code，描述需求 → AI 建工具
+- **Frequency ↑** — 新 App 自動註冊，不用走 CI/CD
+- **Failure ↓** — Guardrails 防呆 + Output Contract 保證格式
+- **MTTR ↓** — 每個 Skill 自帶錯誤處理，AI 可診斷

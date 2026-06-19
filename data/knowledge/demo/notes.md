@@ -1,23 +1,36 @@
-開場（Slide 1）：
-「大家好，今天要分享的是如何用 AI 重新定義我們的軟體交付流程。30 分鐘，我會用實際的工具 demo 告訴你。」
+# Speaker Notes
 
-痛點（Slide 2）：
-「先說大家都有的痛 — Lead Time 兩三週，手動流程多，只有寫的人懂。這些問題的根本原因都是同一個：人是不可控的。」
+## Slide 1 — Title
+開場，不廢話，直接進主題。30 分鐘要精簡有力。
 
-解法（Slide 3）：
-「PAAW 的核心不是用 AI 替代人，是用 AI 幫你做工具。做了以後知識就沉澱下來了。」
+## Slide 2 — 現況痛點
+先讓大家有共鳴。不要念投影片，用問句引導：
+- 「大家覺得我們最大的痛點是什麼？」
+- 「有多少人遇到過離職接手的問題？」
 
-Skill（Slide 4）：
-「這個 Skill 格式是重點。注意它不是隨機的 AI 對話 — 有 Guardrails、有 Output Contract、有 Validation。同樣的 input 永遠產出同樣的 output。」
+## Slide 3 — 傳統 vs PAAW
+這頁是轉折。重點不是 bash 傳統工具，是指出「思路不同」。
+強調：不是自動化流程，是 AI 幫你造工具。
 
-DORA（Slide 5）：
-「DORA 四指標，每一個 PAAW 都有對應的改善機制。最有感的是 Lead Time 從週級變分鐘級。」
+## Slide 4 — 三層架構
+可以切到 ref 看 sample-skill.md，show 出真實的 Skill 格式。
+用 ✏️ 畫圈 Purpose 和 Guardrails 兩段。
 
-維運（Slide 6）：
-「這頁給主管看 — 知識不再鎖在小明身上。新人讀 SKILL.md 就能接手。」
+## Slide 5 — DORA Metrics
+這頁給數字說話。如果有人質疑，強調這是「目標」不是「現狀」。
 
-行動（Slide 7）：
-「不要一次全導入。先做一個 Quick Win 讏團隊有感，再逐步 Skill 化。」
+## Slide 6 — 高品質
+重點：一致性。AI 在框架內寫，不是亂寫。
+Output Contract 可以 🤖 標記，強調「AI can help」。
 
-總結（Slide 8）：
-「未來的 DevOps 不是自動化流程，是 AI 幫你寫工具。這個簡報器本身就是用 PAAW 做的。Q&A。」
+## Slide 7 — 好維運
+用對比：傳統口耳相傳 vs 讀 SKILL.md。
+新人上手 1-2 週 vs 1-2 個月，這數字最有感。
+
+## Slide 8 — 行動計畫
+Step 1 先做 Quick Win，找一個痛點做出來。
+不要一開始就想全面導入，先有 success story。
+
+## Slide 9 — 總結
+一句話收尾：AI 幫你造工具，不是把人綁在流程裡。
+Q&A 時間。
