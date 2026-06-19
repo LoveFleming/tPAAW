@@ -3,6 +3,19 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import API from "../api";
 
+// Inject marker pulse animation once
+if (typeof document !== "undefined" && !document.getElementById("briefing-anim")) {
+  const style = document.createElement("style");
+  style.id = "briefing-anim";
+  style.textContent = `
+    @keyframes briefing-pulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.18); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // ── Types ──
 interface Slide {
   id: string;
@@ -282,6 +295,16 @@ export default function BriefingPlayer() {
   const [showDirPicker, setShowDirPicker] = useState(false);
   const [refOverlay, setRefOverlay] = useState<string | null>(null);
 
+  // ── Drawing / Annotation ──
+  type DrawMode = "none" | "pen" | "marker";
+  const [drawMode, setDrawMode] = useState<DrawMode>("none");
+  const [penStrokes, setPenStrokes] = useState<{ x: number; y: number }[][]>([]);
+  const [activeStroke, setActiveStroke] = useState<{ x: number; y: number }[]>([]);
+  const [markers, setMarkers] = useState<{ x: number; y: number; icon: string }[]>([]);
+  const [selectedIcon, setSelectedIcon] = useState("💡");
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // ── Discover briefing directories under data/briefings ──
@@ -433,7 +456,23 @@ export default function BriefingPlayer() {
             setFullscreen(false);
           }
           break;
+        case "d":
+        case "D":
+          e.preventDefault();
+          toggleMode("pen");
+          break;
+        case "h":
+        case "H":
+          e.preventDefault();
+          toggleMode("marker");
+          break;
+        case "e":
+        case "E":
+          e.preventDefault();
+          clearAnnotations();
+          break;
         case "Escape":
+          if (drawMode !== "none") { setDrawMode("none"); setActiveStroke([]); break; }
           if (overviewMode) setOverviewMode(false);
           break;
       }
@@ -465,7 +504,89 @@ export default function BriefingPlayer() {
       .catch(() => {});
   }, []);
 
-  // ── Render ──
+  // ── Drawing helpers ──
+  const getRelPos = (clientX: number, clientY: number) => {
+    const el = contentAreaRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    return { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.height };
+  };
+
+  const clearAnnotations = useCallback(() => {
+    setPenStrokes([]);
+    setMarkers([]);
+    setActiveStroke([]);
+  }, []);
+
+  const toggleMode = useCallback((mode: "pen" | "marker") => {
+    setDrawMode(prev => prev === mode ? "none" : mode);
+    setActiveStroke([]);
+  }, []);
+
+  const handleDrawStart = (e: React.MouseEvent) => {
+    if (drawMode === "pen") {
+      setActiveStroke([getRelPos(e.clientX, e.clientY)]);
+    } else if (drawMode === "marker") {
+      const p = getRelPos(e.clientX, e.clientY);
+      setMarkers(prev => [...prev, { ...p, icon: selectedIcon }]);
+    }
+  };
+
+  const handleDrawMove = (e: React.MouseEvent) => {
+    if (drawMode === "pen" && activeStroke.length > 0) {
+      setActiveStroke(prev => [...prev, getRelPos(e.clientX, e.clientY)]);
+    }
+  };
+
+  const handleDrawEnd = () => {
+    if (drawMode === "pen" && activeStroke.length > 1) {
+      setPenStrokes(prev => [...prev, activeStroke]);
+    }
+    setActiveStroke([]);
+  };
+
+  // Clear annotations on slide change
+  useEffect(() => { clearAnnotations(); }, [currentIdx, clearAnnotations]);
+
+  // Render canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = contentAreaRef.current;
+    if (!canvas || !container) return;
+
+    const render = () => {
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(250, 204, 21, 0.85)";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = "rgba(250, 204, 21, 0.4)";
+
+      const allStrokes = [...penStrokes];
+      if (activeStroke.length > 0) allStrokes.push(activeStroke);
+      for (const stroke of allStrokes) {
+        if (stroke.length < 2) continue;
+        ctx.beginPath();
+        ctx.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+        for (let i = 1; i < stroke.length; i++) {
+          ctx.lineTo(stroke[i].x * canvas.width, stroke[i].y * canvas.height);
+        }
+        ctx.stroke();
+      }
+    };
+
+    render();
+    const ro = new ResizeObserver(render);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [penStrokes, activeStroke, drawMode]);
   if (loading && !selectedDir) {
     return (
       <div className="flex items-center justify-center h-full text-stone-400 text-sm gap-2">
@@ -747,7 +868,15 @@ Markdown 格式:
       </div>
 
       {/* ── Main content: left image + right text ── */}
-      <div className="flex-1 flex overflow-hidden">
+      <div
+        ref={contentAreaRef}
+        className="flex-1 flex overflow-hidden relative"
+        style={{ cursor: drawMode !== "none" ? "crosshair" : "default" }}
+        onMouseDown={drawMode !== "none" ? handleDrawStart : undefined}
+        onMouseMove={drawMode === "pen" ? handleDrawMove : undefined}
+        onMouseUp={drawMode === "pen" ? handleDrawEnd : undefined}
+        onMouseLeave={drawMode === "pen" ? handleDrawEnd : undefined}
+      >
         {/* Image — left side */}
         {imageUrl && (
           <div className="flex items-center justify-center overflow-hidden p-3" style={{ flex: "0 0 62%" }}>
@@ -804,6 +933,86 @@ Markdown 格式:
             </div>
           </div>
         )}
+
+        {/* ── Canvas overlay (pen drawing) ── */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 pointer-events-none z-30"
+        />
+
+        {/* ── Markers layer ── */}
+        {markers.map((m, i) => (
+          <div
+            key={i}
+            className="absolute z-30 pointer-events-none select-none"
+            style={{
+              left: `${m.x * 100}%`,
+              top: `${m.y * 100}%`,
+              transform: "translate(-50%, -50%)",
+              fontSize: 28,
+              animation: "briefing-pulse 1.5s ease-in-out infinite",
+              filter: "drop-shadow(0 0 6px rgba(255,255,255,0.5))",
+            }}
+          >
+            {m.icon}
+          </div>
+        ))}
+
+        {/* ── Floating toolbar ── */}
+        <div className="absolute z-40" style={{ bottom: 12, left: "50%", transform: "translateX(-50%)" }}>
+          <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-xl" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            {/* Pen */}
+            <button
+              onClick={() => toggleMode("pen")}
+              className="px-2.5 py-1.5 rounded-lg text-sm transition-all"
+              style={{ background: drawMode === "pen" ? "rgba(250,204,21,0.3)" : "transparent" }}
+              title="手繪筆 (D)"
+            >✏️</button>
+
+            <span className="text-white/15 text-xs mx-0.5">|</span>
+
+            {/* Markers */}
+            {[
+              { icon: "💡", label: "重點" },
+              { icon: "⭐", label: "重要" },
+              { icon: "❗", label: "注意" },
+              { icon: "👈", label: "看這" },
+              { icon: "✅", label: "確認" },
+            ].map(({ icon, label }) => {
+              const isActive = drawMode === "marker" && selectedIcon === icon;
+              return (
+                <button
+                  key={icon}
+                  onClick={() => { setSelectedIcon(icon); toggleMode("marker"); }}
+                  className="px-2 py-1.5 rounded-lg text-sm transition-all"
+                      style={{
+                      background: isActive ? "rgba(250,204,21,0.3)" : "transparent",
+                      filter: isActive ? "none" : "grayscale(0.5) opacity(0.6)",
+                    }}
+                  title={`${label} (H)`}
+                >{icon}</button>
+              );
+            })}
+
+            <span className="text-white/15 text-xs mx-0.5">|</span>
+
+            {/* Clear */}
+            <button
+              onClick={clearAnnotations}
+              className="px-2.5 py-1.5 rounded-lg text-sm text-rose-300/70 hover:text-rose-300 hover:bg-rose-500/10 transition-all"
+              title="清除所有標註 (E)"
+            >🗑️</button>
+          </div>
+        </div>
+
+        {/* ── Mode indicator ── */}
+        {drawMode !== "none" && (
+          <div className="absolute z-40" style={{ top: 8, left: "50%", transform: "translateX(-50%)" }}>
+            <div className="px-3 py-1 rounded-full text-xs text-white/90" style={{ background: "rgba(250,204,21,0.2)", border: "1px solid rgba(250,204,21,0.4)" }}>
+              {drawMode === "pen" ? "✏️ 手繪模式" : `📍 標記模式 (${selectedIcon})`} — Esc 退出
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Bottom ref bar + hints ── */}
@@ -837,6 +1046,9 @@ Markdown 格式:
           <span className="text-[10px] text-white/20">O 概覽</span>
           <span className="text-[10px] text-white/20">N 備忘</span>
           <span className="text-[10px] text-white/20">F 全螢幕</span>
+          <span className="text-[10px] text-white/20">D 手繪</span>
+          <span className="text-[10px] text-white/20">H 標記</span>
+          <span className="text-[10px] text-white/20">E 清除</span>
         </div>
       </div>
 
