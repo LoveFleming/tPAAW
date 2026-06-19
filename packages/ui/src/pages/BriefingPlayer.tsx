@@ -517,6 +517,14 @@ export default function BriefingPlayer() {
     return { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.height };
   };
 
+  const resetAllAnnotations = useCallback(() => {
+    setStrokesBySlide({});
+    setMarkersBySlide({});
+    setActiveStroke([]);
+    setDrawMode("none");
+    drawingRef.current = false;
+  }, []);
+
   // Derived: current slide annotations
   const penStrokes = strokesBySlide[currentIdx] || [];
   const markers = markersBySlide[currentIdx] || [];
@@ -677,7 +685,7 @@ export default function BriefingPlayer() {
               {briefingDirs.map(d => (
                 <button
                   key={d.path}
-                  onClick={() => { setSelectedDir(d.path); loadSlides(d.path); }}
+                  onClick={() => { resetAllAnnotations(); setSelectedDir(d.path); loadSlides(d.path); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:shadow-md text-left"
                   style={{ borderColor: t.accentBorder, backgroundColor: "#fff" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; }}
@@ -761,7 +769,7 @@ Markdown 格式:
                       <button
                         key={d.path}
                         onClick={() => browseForPicker(d.path)}
-                        onDoubleClick={() => { setSelectedDir(d.path); loadSlides(d.path); setShowDirPicker(false); }}
+                        onDoubleClick={() => { resetAllAnnotations(); setSelectedDir(d.path); loadSlides(d.path); setShowDirPicker(false); }}
                         className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-stone-50 transition-colors"
                       >
                         <span>📁</span>
@@ -775,7 +783,7 @@ Markdown 格式:
                   <div className="flex gap-2">
                     <button onClick={() => setShowDirPicker(false)} className="px-3 py-1.5 text-sm rounded border" style={{ borderColor: t.accentBorder, color: t.accentText }}>取消</button>
                     <button
-                      onClick={() => { if (browsePath) { setSelectedDir(browsePath); loadSlides(browsePath); setShowDirPicker(false); } }}
+                      onClick={() => { if (browsePath) { resetAllAnnotations(); setSelectedDir(browsePath); loadSlides(browsePath); setShowDirPicker(false); } }}
                       className="px-4 py-1.5 text-sm font-bold text-white rounded"
                       style={{ backgroundColor: t.accent }}
                     >選擇此目錄</button>
@@ -841,7 +849,7 @@ Markdown 格式:
       <div className="flex flex-col h-full" style={{ backgroundColor: "#1a1a1a" }}>
         <div className="flex items-center gap-2 px-3 py-2 shrink-0" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
           <button
-            onClick={() => { setSelectedDir(""); setSlides([]); }}
+            onClick={() => { resetAllAnnotations(); setSelectedDir(""); setSlides([]); }}
             className="text-xs px-2.5 py-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors"
           >
             ← {tt("briefing.changeDir", "切換目錄")}
@@ -862,7 +870,7 @@ Markdown 格式:
       <div className="flex items-center justify-between px-3 py-2 shrink-0" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setSelectedDir(""); setSlides([]); }}
+            onClick={() => { resetAllAnnotations(); setSelectedDir(""); setSlides([]); }}
             className="text-xs px-2.5 py-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors"
           >
             ← {tt("briefing.changeDir", "切換目錄")}
