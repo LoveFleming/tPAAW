@@ -1074,6 +1074,22 @@ Markdown 格式:
             </div>
           </div>
         )}
+
+        {/* ── Prev / Next slide buttons ── */}
+        {currentIdx > 0 && (
+          <button
+            onClick={() => setCurrentIdx(i => i - 1)}
+            className="absolute left-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-white/0 hover:text-white/60 hover:bg-white/5 transition-all cursor-pointer"
+            title="上一頁 (←)"
+          >◀</button>
+        )}
+        {currentIdx < slides.length - 1 && (
+          <button
+            onClick={() => setCurrentIdx(i => i + 1)}
+            className="absolute right-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-white/0 hover:text-white/60 hover:bg-white/5 transition-all cursor-pointer"
+            title="下一頁 (→)"
+          >▶</button>
+        )}
       </div>
 
       {/* ── Bottom ref bar + hints ── */}
