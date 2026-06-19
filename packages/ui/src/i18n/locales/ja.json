@@ -158,5 +158,6 @@
   "vibe.welcomeLine1": "左でプロジェクトを開く → ファイルをクリックして閲覧（クリックで編集）",
   "vibe.welcomeLine2": "🔀 Git — diff 表示、blame、AI 自動レビュー",
   "vibe.welcomeLine3": "🌐 API テスター — Postman 風テストツール",
-  "vibe.welcomeLine4": "🤖 AI チャット — ファイルについて質問"
+  "vibe.welcomeLine4": "🤖 AI チャット — ファイルについて質問",
+  "sidebar.briefingPlayer": "🎤 Briefing Player"
 }

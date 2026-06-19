@@ -4,6 +4,7 @@ import { useI18n } from "../i18n";
 
 import API_BASE from "../api";
 import FileImportPicker from "./FileImportPicker";
+import MoveFolderPicker from "./MoveFolderPicker";
 
 // ── Types ──
 interface TreeNode {
@@ -62,6 +63,7 @@ function CtxMenu({ menu, onAction, onClose }: {
   items.push({ label: t("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
   items.push({ label: t("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
   items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
+  items.push({ label: "移動到...", icon: "📦", action: "move" });
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: "Copy Path", icon: "📎", action: "copyPath" });
@@ -205,6 +207,9 @@ export default function KnowledgeTree({ onOpenFile }: {
   const [renamingNode, setRenamingNode] = useState<string | null>(null);
   const [newItem, setNewItem] = useState<{ parentPath: string; type: "file" | "folder" } | null>(null);
   const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<"import" | "move">("import");
+  const [importTargetDir, setImportTargetDir] = useState<string>("");
+  const [moveTarget, setMoveTarget] = useState<{ node: TreeNode } | null>(null);
   const [existingNames, setExistingNames] = useState<string[]>([]);
 
   const [rootPath, setRootPath] = useState("");
@@ -307,6 +312,16 @@ export default function KnowledgeTree({ onOpenFile }: {
         break;
       }
       case "importFile": {
+        // Import into the right-clicked directory (or its parent if right-clicked on a file)
+        const importDir = node.type === "dir" ? node.path : parentPath;
+        setImportTargetDir(importDir);
+        setPickerMode("import");
+        setShowPicker(true);
+        break;
+      }
+      case "move": {
+        setMoveTarget({ node });
+        setPickerMode("move");
         setShowPicker(true);
         break;
       }
@@ -403,11 +418,12 @@ export default function KnowledgeTree({ onOpenFile }: {
     setExistingNames(tree.children.map(c => c.name));
   }, [tree]);
 
-  // Import file from anywhere on the filesystem into knowledge (clone/copy)
+  // Import file from anywhere on the filesystem into a specific knowledge directory
   const handleImport = useCallback(async (srcPath: string) => {
     if (!ROOT) return;
+    const targetDir = importTargetDir || ROOT;
     const name = srcPath.split("/").pop() || "imported-file";
-    const destPath = `${ROOT}/${name}`;
+    const destPath = `${targetDir}/${name}`;
     try {
       const resp = await fetch(`${API_BASE}/api/fs/copy`, {
         method: "POST",
@@ -423,18 +439,57 @@ export default function KnowledgeTree({ onOpenFile }: {
     } catch (e) {
       alert(`匯入失敗: ${e}`);
     }
-  }, [ROOT, refresh]);
+  }, [ROOT, importTargetDir, refresh]);
+
+  // Move file/folder to a selected directory
+  const handleMove = useCallback(async (destDir: string) => {
+    if (!moveTarget) return;
+    const { node } = moveTarget;
+    const destPath = `${destDir}/${node.name}`;
+    // Don't move to the same location
+    if (node.path === destPath) {
+      setMoveTarget(null);
+      return;
+    }
+    try {
+      const resp = await fetch(`${API_BASE}/api/fs/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPath: node.path, newPath: destPath }),
+      });
+      if (resp.ok) {
+        refresh();
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        alert(`移動失敗: ${err.error || resp.statusText}`);
+      }
+    } catch (e) {
+      alert(`移動失敗: ${e}`);
+    }
+    setMoveTarget(null);
+  }, [moveTarget, refresh]);
 
   return (
     <div className="flex flex-col h-full" onContextMenu={handleRootCtx}>
       {/* File Import Picker — browse entire filesystem */}
       <FileImportPicker
-        open={showPicker}
-        onClose={() => setShowPicker(false)}
+        open={showPicker && pickerMode === "import"}
+        onClose={() => { setShowPicker(false); setImportTargetDir(""); }}
         onPick={handleImport}
         existingNames={existingNames}
-        title="匯入檔案到 Knowledge"
+        title={importTargetDir ? `匯入檔案到 ${importTargetDir.split("/").pop()}` : "匯入檔案到 Knowledge"}
       />
+
+      {/* Move Picker — folder-only picker for moving files */}
+      {moveTarget && (
+        <MoveFolderPicker
+          open={showPicker && pickerMode === "move"}
+          onClose={() => { setShowPicker(false); setMoveTarget(null); }}
+          onPick={handleMove}
+          rootPath={ROOT}
+          itemName={moveTarget.node.name}
+        />
+      )}
 
       {/* Tree */}
       <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: "thin" }}>

@@ -158,5 +158,6 @@
   "vibe.welcomeLine1": "左邊打開專案 → 點擊檔案瀏覽（點擊進入編輯）",
   "vibe.welcomeLine2": "🔀 Git — 差異檢視、歸屬、AI 自動審查",
   "vibe.welcomeLine3": "🌐 API 測試器 — Postman 風格測試工具",
-  "vibe.welcomeLine4": "🤖 AI 聊天 — 對著檔案詢問問題"
+  "vibe.welcomeLine4": "🤖 AI 聊天 — 對著檔案詢問問題",
+  "sidebar.briefingPlayer": "🎤 Briefing Player"
 }

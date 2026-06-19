@@ -1,0 +1,763 @@
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
+import API from "../api";
+
+// ── Types ──
+interface Slide {
+  id: string;
+  name: string;
+  image: string | null;     // image path (relative or absolute)
+  markdown: string | null;  // markdown path
+  sortKey: string;          // for ordering
+}
+
+interface BriefingDir {
+  path: string;
+  name: string;
+}
+
+// ── Parse @file: references from markdown ──
+function parseFileRefs(mdContent: string, basePath: string): string[] {
+  const refs: string[] = [];
+  const regex = /@file:\s*(.+)/g;
+  let match;
+  while ((match = regex.exec(mdContent)) !== null) {
+    let p = match[1].trim();
+    // Resolve relative to the markdown file's directory
+    if (!p.startsWith("/")) {
+      p = basePath + "/" + p;
+    }
+    refs.push(p);
+  }
+  return refs;
+}
+
+// ── Strip @file: lines for display ──
+function stripFileRefs(content: string): string {
+  return content.replace(/@file:\s*.+/g, "").trim();
+}
+
+// ── Simple markdown renderer (dark theme for briefing player) ──
+function renderMarkdown(md: string): React.ReactNode {
+  const lines = md.split("\n");
+  const elements: React.ReactNode[] = [];
+  let inCodeBlock = false;
+  let codeLines: string[] = [];
+
+  lines.forEach((line, i) => {
+    if (line.trim().startsWith("```")) {
+      if (inCodeBlock) {
+        elements.push(
+          <pre key={`code-${i}`} className="bg-black/40 text-stone-100 rounded-lg p-3 my-2 overflow-x-auto text-xs border border-white/10">
+            <code>{codeLines.join("\n")}</code>
+          </pre>
+        );
+        codeLines = [];
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+      }
+      return;
+    }
+    if (inCodeBlock) {
+      codeLines.push(line);
+      return;
+    }
+
+    // Headings
+    if (line.startsWith("# ")) {
+      elements.push(<h1 key={i} className="text-xl font-bold text-white mt-3 mb-1.5">{line.slice(2)}</h1>);
+    } else if (line.startsWith("## ")) {
+      elements.push(<h2 key={i} className="text-lg font-bold text-white/90 mt-2.5 mb-1">{line.slice(3)}</h2>);
+    } else if (line.startsWith("### ")) {
+      elements.push(<h3 key={i} className="text-base font-semibold text-white/80 mt-2 mb-1">{line.slice(4)}</h3>);
+    } else if (line.startsWith("- ") || line.startsWith("* ")) {
+      elements.push(
+        <div key={i} className="flex items-start gap-1.5 ml-2 my-0.5">
+          <span className="text-white/40 mt-0.5">•</span>
+          <span className="text-sm text-white/70">{renderInline(line.slice(2))}</span>
+        </div>
+      );
+    } else if (line.startsWith("| ")) {
+      // Table — check if separator line
+      if (line.includes("|---") || line.includes("|:--")) {
+        return; // skip separator
+      }
+      elements.push(
+        <div key={i} className="text-xs font-mono text-white/50 my-0.5 px-2 py-0.5 bg-white/5 rounded border border-white/10">
+          {line}
+        </div>
+      );
+    } else if (line.trim() === "") {
+      elements.push(<div key={i} className="h-2" />);
+    } else {
+      elements.push(<p key={i} className="text-sm text-white/70 leading-relaxed my-0.5">{renderInline(line)}</p>);
+    }
+  });
+
+  if (inCodeBlock && codeLines.length > 0) {
+    elements.push(
+      <pre key="code-final" className="bg-black/40 text-stone-100 rounded-lg p-3 my-2 overflow-x-auto text-xs border border-white/10">
+        <code>{codeLines.join("\n")}</code>
+      </pre>
+    );
+  }
+
+  return <div>{elements}</div>;
+}
+
+function renderInline(text: string): React.ReactNode {
+  // Bold **text** and inline code `text`
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="font-semibold text-white/90">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={i} className="px-1 py-0.5 rounded bg-white/10 text-white/80 text-xs font-mono">{part.slice(1, -1)}</code>;
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
+// ── File Reference Component ──
+function FileRefView({ refPath, expanded, onToggle }: {
+  refPath: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!expanded) return;
+    if (content !== null) return; // already loaded
+    setLoading(true);
+    fetch(`${API}/api/fs/file?path=${encodeURIComponent(refPath)}`)
+      .then(r => {
+        if (!r.ok) throw new Error(r.statusText);
+        return r.text();
+      })
+      .then(text => { setContent(text); setError(""); })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [expanded, refPath, content]);
+
+  const fileName = refPath.split("/").pop() || refPath;
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+
+  return (
+    <div className="rounded-lg overflow-hidden my-1.5 border border-white/10">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-white/5"
+        style={{ backgroundColor: expanded ? "rgba(255,255,255,0.05)" : "transparent" }}
+      >
+        <span className="text-xs text-white/50">{expanded ? "▾" : "▸"}</span>
+        <span className="text-sm">📄</span>
+        <span className="font-mono text-white/60 truncate flex-1 text-left">{fileName}</span>
+        <span className="text-[10px] text-white/30 uppercase">{ext}</span>
+      </button>
+      {expanded && (
+        <div className="border-t border-white/10">
+          {loading ? (
+            <div className="flex items-center justify-center py-4 text-xs text-white/40 gap-1.5">
+              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Loading...
+            </div>
+          ) : error ? (
+            <div className="px-3 py-2 text-xs text-rose-400">❌ {error}</div>
+          ) : (
+            <pre className="bg-black/40 text-stone-100 p-3 overflow-x-auto text-xs max-h-80 m-0 border-0">
+              <code>{content}</code>
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main BriefingPlayer Component ──
+export default function BriefingPlayer() {
+  const { info: t } = useTheme();
+  const { t: tt } = useI18n();
+
+  const [briefingDirs, setBriefingDirs] = useState<BriefingDir[]>([]);
+  const [selectedDir, setSelectedDir] = useState<string>("");
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [overviewMode, setOverviewMode] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [mdContent, setMdContent] = useState("");
+  const [mdLoading, setMdLoading] = useState(false);
+  const [notesContent, setNotesContent] = useState("");
+  const [expandedRefs, setExpandedRefs] = useState<Set<string>>(new Set());
+  const [showDirPicker, setShowDirPicker] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // ── Discover briefing directories under data/briefings ──
+  const loadBriefingDirs = useCallback(async () => {
+    try {
+      const rootResp = await fetch(`${API}/api/paaw-root`);
+      const rootData = await rootResp.json();
+      const briefingsRoot = `${rootData.paawRoot}/data/briefings`;
+
+      const resp = await fetch(`${API}/api/fs/browse?path=${encodeURIComponent(briefingsRoot)}`);
+      if (!resp.ok) {
+        setBriefingDirs([]);
+        return;
+      }
+      const data = await resp.json();
+      const dirs: BriefingDir[] = (data.directories || []).map((d: any) => ({
+        path: d.path,
+        name: d.name,
+      }));
+      setBriefingDirs(dirs);
+    } catch {
+      setBriefingDirs([]);
+    }
+  }, []);
+
+  useEffect(() => { loadBriefingDirs(); }, [loadBriefingDirs]);
+
+  // ── Load slides from selected directory ──
+  const loadSlides = useCallback(async (dirPath: string) => {
+    setLoading(true);
+    try {
+      const resp = await fetch(`${API}/api/fs/tree?root=${encodeURIComponent(dirPath)}`);
+      const tree = await resp.json();
+
+      const fileMap = new Map<string, string>(); // basename → full path
+      const collect = (node: any) => {
+        if (node.type === "file") {
+          fileMap.set(node.name, node.path);
+        }
+        (node.children || []).forEach(collect);
+      };
+      collect(tree);
+
+      // Pair images with markdown by basename
+      const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
+      const slideMap = new Map<string, Slide>();
+
+      fileMap.forEach((fullPath, name) => {
+        const ext = name.split(".").pop()?.toLowerCase() ?? "";
+        const baseName = name.replace(/\.[^.]+$/, "");
+
+        if (imageExts.includes(ext)) {
+          const existing = slideMap.get(baseName) || { id: baseName, name: baseName, image: null, markdown: null, sortKey: baseName };
+          existing.image = fullPath;
+          slideMap.set(baseName, existing);
+        } else if (ext === "md" && name !== "notes.md") {
+          const existing = slideMap.get(baseName) || { id: baseName, name: baseName, image: null, markdown: null, sortKey: baseName };
+          existing.markdown = fullPath;
+          slideMap.set(baseName, existing);
+        }
+      });
+
+      const sorted = Array.from(slideMap.values()).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+      setSlides(sorted);
+      setCurrentIdx(0);
+    } catch {
+      setSlides([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ── Load markdown content for current slide ──
+  useEffect(() => {
+    const slide = slides[currentIdx];
+    if (!slide?.markdown) {
+      setMdContent("");
+      return;
+    }
+    let cancelled = false;
+    setMdLoading(true);
+    setExpandedRefs(new Set());
+    fetch(`${API}/api/fs/file?path=${encodeURIComponent(slide.markdown)}`)
+      .then(r => r.text())
+      .then(text => { if (!cancelled) setMdContent(text); })
+      .catch(() => { if (!cancelled) setMdContent(""); })
+      .finally(() => { if (!cancelled) setMdLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentIdx, slides]);
+
+  // ── Load notes.md if exists ──
+  useEffect(() => {
+    if (!selectedDir) { setNotesContent(""); return; }
+    const notesPath = `${selectedDir}/notes.md`;
+    fetch(`${API}/api/fs/file?path=${encodeURIComponent(notesPath)}`)
+      .then(r => { if (r.ok) return r.text(); throw new Error("no notes"); })
+      .then(text => setNotesContent(text))
+      .catch(() => setNotesContent(""));
+  }, [selectedDir]);
+
+  // ── Parse file references from current markdown ──
+  const fileRefs = useMemo(() => {
+    if (!mdContent) return [];
+    const slide = slides[currentIdx];
+    if (!slide?.markdown) return [];
+    const baseDir = slide.markdown.substring(0, slide.markdown.lastIndexOf("/"));
+    return parseFileRefs(mdContent, baseDir);
+  }, [mdContent, currentIdx, slides]);
+
+  // ── Image URL ──
+  const imageUrl = useMemo(() => {
+    const slide = slides[currentIdx];
+    if (!slide?.image) return null;
+    return `${API}/api/fs/file?path=${encodeURIComponent(slide.image)}`;
+  }, [currentIdx, slides]);
+
+  // ── Keyboard navigation ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key) {
+        case "ArrowRight":
+        case " ":
+        case "PageDown":
+          e.preventDefault();
+          if (overviewMode) { setOverviewMode(false); return; }
+          setCurrentIdx(i => Math.min(i + 1, slides.length - 1));
+          break;
+        case "ArrowLeft":
+        case "PageUp":
+          e.preventDefault();
+          if (overviewMode) { setOverviewMode(false); return; }
+          setCurrentIdx(i => Math.max(i - 1, 0));
+          break;
+        case "o":
+        case "O":
+          e.preventDefault();
+          setOverviewMode(v => !v);
+          break;
+        case "n":
+        case "N":
+          e.preventDefault();
+          setShowNotes(v => !v);
+          break;
+        case "f":
+        case "F":
+          e.preventDefault();
+          if (!fullscreen) {
+            containerRef.current?.requestFullscreen?.();
+            setFullscreen(true);
+          } else {
+            document.exitFullscreen?.();
+            setFullscreen(false);
+          }
+          break;
+        case "Escape":
+          if (overviewMode) setOverviewMode(false);
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [slides.length, overviewMode, fullscreen]);
+
+  // ── Fullscreen change listener ──
+  useEffect(() => {
+    const handler = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleRef = useCallback((path: string) => {
+    setExpandedRefs(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  // ── Browse directories for picker ──
+  const [browsePath, setBrowsePath] = useState("");
+  const [browseDirs, setBrowseDirs] = useState<any[]>([]);
+  const [browseParent, setBrowseParent] = useState<string | null>(null);
+
+  const browseForPicker = useCallback((path: string) => {
+    fetch(`${API}/api/fs/browse?path=${encodeURIComponent(path)}`)
+      .then(r => r.json())
+      .then(data => {
+        setBrowsePath(data.currentPath);
+        setBrowseParent(data.parent || null);
+        setBrowseDirs(data.directories || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Render ──
+  if (loading && !selectedDir) {
+    return (
+      <div className="flex items-center justify-center h-full text-stone-400 text-sm gap-2">
+        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        Loading...
+      </div>
+    );
+  }
+
+  // ── No directory selected: show selection screen ──
+  if (!selectedDir) {
+    return (
+      <div className="flex flex-col h-full" style={{ backgroundColor: "#fafaf9" }}>
+        {/* Header */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder }}>
+          <span className="text-lg">🎤</span>
+          <span className="text-sm font-bold" style={{ color: t.accentText }}>{tt("briefing.title", "Briefing Player")}</span>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <div className="text-center mb-6">
+            <div className="text-5xl mb-3">🎤</div>
+            <h2 className="text-lg font-bold text-stone-700 mb-1">{tt("briefing.title", "Briefing Player")}</h2>
+            <p className="text-sm text-stone-400">選擇一個簡報目錄開始播放</p>
+          </div>
+
+          {/* Known briefing dirs */}
+          {briefingDirs.length > 0 && (
+            <div className="w-full max-w-md space-y-1.5 mb-4">
+              {briefingDirs.map(d => (
+                <button
+                  key={d.path}
+                  onClick={() => { setSelectedDir(d.path); loadSlides(d.path); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:shadow-md text-left"
+                  style={{ borderColor: t.accentBorder, backgroundColor: "#fff" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = t.accentBorder; }}
+                >
+                  <span className="text-xl">📂</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-stone-700 truncate">{d.name}</div>
+                    <div className="text-[10px] text-stone-400 truncate font-mono">{d.path}</div>
+                  </div>
+                  <span className="text-stone-300">▶</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Browse filesystem */}
+          <button
+            onClick={() => { setShowDirPicker(true); browseForPicker(""); }}
+            className="text-sm px-4 py-2 rounded-lg border border-dashed transition-colors"
+            style={{ borderColor: t.accentBorder, color: t.accent }}
+          >
+            📁 瀏覽其他目錄...
+          </button>
+
+          {/* Empty state hint */}
+          {briefingDirs.length === 0 && (
+            <div className="mt-8 text-center text-xs text-stone-400 max-w-sm">
+              <p className="mb-1">💡 將圖片和 markdown 放在同一個目錄中：</p>
+              <pre className="text-left bg-stone-100 rounded-lg p-3 text-[10px] font-mono text-stone-500">
+{`my-briefing/
+├── 01-intro.png
+├── 01-intro.md
+├── 02-demo.png
+├── 02-demo.md
+└── notes.md (optional)`}
+              </pre>
+            </div>
+          )}
+
+          {/* Directory Picker Modal */}
+          {showDirPicker && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+              onClick={() => setShowDirPicker(false)}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl border flex flex-col"
+                style={{ borderColor: t.accentBorder, width: "min(500px, 90vw)", maxHeight: "70vh" }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-2xl" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
+                  <h3 className="text-sm font-bold" style={{ color: t.accentText }}>📁 選擇簡報目錄</h3>
+                  <button onClick={() => setShowDirPicker(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: t.accentBorder + "40" }}>
+                  <button
+                    onClick={() => browseParent && browseForPicker(browseParent)}
+                    disabled={!browseParent}
+                    className="px-2 py-1 rounded border text-sm disabled:opacity-30"
+                    style={{ borderColor: t.accentBorder, color: t.accent }}
+                  >↩</button>
+                  <div className="flex-1 text-xs font-mono text-stone-500 truncate px-2 py-1 rounded border" style={{ borderColor: t.accentBorder + "40" }}>
+                    {browsePath || "/"}
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto min-h-[200px]">
+                  {browseDirs.length === 0 ? (
+                    <div className="text-center py-12 text-stone-400 text-sm">沒有子目錄</div>
+                  ) : (
+                    browseDirs.filter(d => !d.name.startsWith(".")).map(d => (
+                      <button
+                        key={d.path}
+                        onClick={() => browseForPicker(d.path)}
+                        onDoubleClick={() => { setSelectedDir(d.path); loadSlides(d.path); setShowDirPicker(false); }}
+                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-stone-50 transition-colors"
+                      >
+                        <span>📁</span>
+                        <span className="text-stone-700">{d.name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="flex items-center justify-between px-5 py-3 border-t rounded-b-2xl" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg + "40" }}>
+                  <span className="text-xs text-stone-400">雙擊目錄確認</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowDirPicker(false)} className="px-3 py-1.5 text-sm rounded border" style={{ borderColor: t.accentBorder, color: t.accentText }}>取消</button>
+                    <button
+                      onClick={() => { if (browsePath) { setSelectedDir(browsePath); loadSlides(browsePath); setShowDirPicker(false); } }}
+                      className="px-4 py-1.5 text-sm font-bold text-white rounded"
+                      style={{ backgroundColor: t.accent }}
+                    >選擇此目錄</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Overview mode (grid) ──
+  if (overviewMode) {
+    return (
+      <div className="flex flex-col h-full" style={{ backgroundColor: "#0a0a0a" }} ref={containerRef}>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 shrink-0">
+          <span className="text-sm text-white/80 font-medium">
+            📊 Overview — {slides.length} slides
+          </span>
+          <button
+            onClick={() => setOverviewMode(false)}
+            className="text-xs px-3 py-1 rounded border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
+          >
+            Esc 返回
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+            {slides.map((slide, idx) => (
+              <button
+                key={slide.id}
+                onClick={() => { setCurrentIdx(idx); setOverviewMode(false); }}
+                className="group relative rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-all hover:scale-[1.02]"
+                style={{ aspectRatio: "16/10" }}
+              >
+                {slide.image ? (
+                  <img src={`${API}/api/fs/file?path=${encodeURIComponent(slide.image)}`} alt={slide.name}
+                    className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-stone-800">
+                    <span className="text-xs text-white/40 px-2 text-center truncate">{slide.name}</span>
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-gradient-to-t from-black/80 to-transparent">
+                  <span className="text-[10px] text-white/80 font-mono">{String(idx + 1).padStart(2, "0")} {slide.name}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Slide view ──
+  const slide = slides[currentIdx];
+  const displayContent = stripFileRefs(mdContent);
+
+  // Empty state: directory selected but no slides found
+  if (slides.length === 0) {
+    return (
+      <div className="flex flex-col h-full" style={{ backgroundColor: "#1a1a1a" }}>
+        <div className="flex items-center gap-2 px-3 py-2 shrink-0" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
+          <button
+            onClick={() => { setSelectedDir(""); setSlides([]); }}
+            className="text-xs px-2.5 py-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            ← {tt("briefing.changeDir", "切換目錄")}
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="text-4xl mb-3 opacity-30">📭</div>
+          <p className="text-white/40 text-sm mb-1">此目錄沒有可播放的簡報</p>
+          <p className="text-white/20 text-xs">需要圖片 (.png/.jpg/.jpeg/.gif/.webp/.svg) 或 Markdown (.md) 檔案</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full" style={{ backgroundColor: fullscreen ? "#0a0a0a" : "#1a1a1a" }} ref={containerRef}>
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between px-3 py-2 shrink-0" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setSelectedDir(""); setSlides([]); }}
+            className="text-xs px-2.5 py-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            ← {tt("briefing.changeDir", "切換目錄")}
+          </button>
+          <span className="text-[10px] text-white/30">|</span>
+          <span className="text-xs text-white/50 font-medium truncate max-w-[300px]">
+            📂 {selectedDir.split("/").pop()}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {/* Nav buttons */}
+          <button
+            onClick={() => setCurrentIdx(i => Math.max(i - 1, 0))}
+            disabled={currentIdx === 0}
+            className="px-2 py-1 rounded text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-sm"
+          >←</button>
+          <span className="text-xs text-white/50 font-mono px-2">
+            {currentIdx + 1} / {slides.length}
+          </span>
+          <button
+            onClick={() => setCurrentIdx(i => Math.min(i + 1, slides.length - 1))}
+            disabled={currentIdx === slides.length - 1}
+            className="px-2 py-1 rounded text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-sm"
+          >→</button>
+
+          <span className="text-[10px] text-white/30 mx-1">|</span>
+
+          <button
+            onClick={() => setOverviewMode(true)}
+            className={`px-2 py-1 rounded text-xs transition-colors ${overviewMode ? "bg-white/20 text-white" : "text-white/50 hover:text-white hover:bg-white/10"}`}
+            title="Overview (O)"
+          >📊</button>
+          <button
+            onClick={() => setShowNotes(v => !v)}
+            className={`px-2 py-1 rounded text-xs transition-colors ${showNotes ? "bg-white/20 text-white" : "text-white/50 hover:text-white hover:bg-white/10"}`}
+            title="Notes (N)"
+          >📝</button>
+          <button
+            onClick={() => {
+              if (!fullscreen) { containerRef.current?.requestFullscreen?.(); }
+              else { document.exitFullscreen?.(); }
+            }}
+            className="px-2 py-1 rounded text-xs text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+            title="Fullscreen (F)"
+          >{fullscreen ? "🗗" : "⛶"}</button>
+        </div>
+      </div>
+
+      {/* ── Progress bar ── */}
+      <div className="h-0.5 bg-white/5 shrink-0">
+        <div
+          className="h-full transition-all duration-300"
+          style={{
+            width: `${slides.length > 0 ? ((currentIdx + 1) / slides.length) * 100 : 0}%`,
+            backgroundColor: t.accent,
+          }}
+        />
+      </div>
+
+      {/* ── Main content ── */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Slide area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Image */}
+          {imageUrl && (
+            <div className="flex items-center justify-center overflow-hidden p-2" style={{ flex: "1 1 60%" }}>
+              <img
+                src={imageUrl}
+                alt={slide?.name}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+              />
+            </div>
+          )}
+
+          {/* Markdown content */}
+          <div
+            className="overflow-y-auto px-6 py-3"
+            style={{
+              flex: imageUrl ? "0 0 35%" : "1 1 auto",
+              maxHeight: imageUrl ? "40%" : "100%",
+              scrollbarWidth: "thin",
+            }}
+          >
+            {mdLoading ? (
+              <div className="flex items-center justify-center py-4 text-white/30 text-xs gap-1.5">
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Loading content...
+              </div>
+            ) : displayContent ? (
+              <div className="text-white/90" style={{ maxWidth: "900px", margin: "0 auto" }}>
+                {renderMarkdown(displayContent)}
+              </div>
+            ) : !imageUrl ? (
+              <div className="flex items-center justify-center h-full">
+                <span className="text-white/20 text-sm">No content</span>
+              </div>
+            ) : null}
+
+            {/* File references */}
+            {fileRefs.length > 0 && (
+              <div className="mt-2" style={{ maxWidth: "900px", margin: "8px auto 0" }}>
+                <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wide">📎 Referenced Files</div>
+                {fileRefs.map(refPath => (
+                  <FileRefView
+                    key={refPath}
+                    refPath={refPath}
+                    expanded={expandedRefs.has(refPath)}
+                    onToggle={() => toggleRef(refPath)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Notes sidebar */}
+        {showNotes && notesContent && (
+          <div
+            className="border-l overflow-y-auto px-4 py-3 shrink-0"
+            style={{
+              borderColor: "rgba(255,255,255,0.1)",
+              width: "280px",
+              scrollbarWidth: "thin",
+              backgroundColor: "rgba(0,0,0,0.2)",
+            }}
+          >
+            <div className="text-[10px] text-white/40 mb-2 uppercase tracking-wide">📝 Speaker Notes</div>
+            <div className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">
+              {notesContent}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Bottom hint bar ── */}
+      <div className="px-3 py-1 shrink-0 flex items-center justify-center gap-4" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
+        <span className="text-[10px] text-white/20">← → 翻頁</span>
+        <span className="text-[10px] text-white/20">O 概覽</span>
+        <span className="text-[10px] text-white/20">N 備忘</span>
+        <span className="text-[10px] text-white/20">F 全螢幕</span>
+      </div>
+    </div>
+  );
+}
