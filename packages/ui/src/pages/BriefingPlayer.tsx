@@ -479,7 +479,7 @@ export default function BriefingPlayer() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [slides.length, overviewMode, fullscreen]);
+  }, [slides.length, overviewMode, fullscreen, drawMode]);
 
   // ── Fullscreen change listener ──
   useEffect(() => {
