@@ -64,9 +64,55 @@ function renderMarkdown(md: string): React.ReactNode {
   const elements: React.ReactNode[] = [];
   let inCodeBlock = false;
   let codeLines: string[] = [];
+  let tableRows: string[] = [];
+
+  // Flush table helper
+  const flushTable = () => {
+    if (tableRows.length === 0) return;
+    // Filter out separator rows
+    const dataRows = tableRows.filter(r => !r.includes("|---") && !r.includes("|:--"));
+    if (dataRows.length === 0) { tableRows = []; return; }
+
+    // Parse cells
+    const parseRow = (row: string) =>
+      row.split("|").slice(1, -1).map(c => c.trim());
+
+    const headerCells = parseRow(dataRows[0]);
+    const bodyRows = dataRows.slice(1).map(parseRow);
+
+    elements.push(
+      <div key={`table-${elements.length}`} className="my-2 overflow-x-auto">
+        <table className="w-full text-xs border-collapse" style={{ minWidth: "300px" }}>
+          <thead>
+            <tr>
+              {headerCells.map((cell, ci) => (
+                <th key={ci} className="px-3 py-1.5 text-left font-semibold text-white/90 border-b border-white/20 whitespace-nowrap">
+                  {renderInline(cell)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {bodyRows.map((row, ri) => (
+              <tr key={ri} className="hover:bg-white/5 transition-colors">
+                {row.map((cell, ci) => (
+                  <td key={ci} className="px-3 py-1.5 text-white/60 border-b border-white/8">
+                    {renderInline(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    tableRows = [];
+  };
 
   lines.forEach((line, i) => {
+    // Code block
     if (line.trim().startsWith("```")) {
+      if (tableRows.length) flushTable();
       if (inCodeBlock) {
         elements.push(
           <pre key={`code-${i}`} className="bg-black/40 text-stone-100 rounded-lg p-3 my-2 overflow-x-auto text-xs border border-white/10">
@@ -85,6 +131,14 @@ function renderMarkdown(md: string): React.ReactNode {
       return;
     }
 
+    // Table rows — collect consecutive | lines
+    if (line.trim().startsWith("|")) {
+      tableRows.push(line.trim());
+      return;
+    } else if (tableRows.length > 0) {
+      flushTable();
+    }
+
     // Headings
     if (line.startsWith("# ")) {
       elements.push(<h1 key={i} className="text-xl font-bold text-white mt-3 mb-1.5">{line.slice(2)}</h1>);
@@ -99,22 +153,15 @@ function renderMarkdown(md: string): React.ReactNode {
           <span className="text-sm text-white/70">{renderInline(line.slice(2))}</span>
         </div>
       );
-    } else if (line.startsWith("| ")) {
-      // Table — check if separator line
-      if (line.includes("|---") || line.includes("|:--")) {
-        return; // skip separator
-      }
-      elements.push(
-        <div key={i} className="text-xs font-mono text-white/50 my-0.5 px-2 py-0.5 bg-white/5 rounded border border-white/10">
-          {line}
-        </div>
-      );
     } else if (line.trim() === "") {
       elements.push(<div key={i} className="h-2" />);
     } else {
       elements.push(<p key={i} className="text-sm text-white/70 leading-relaxed my-0.5">{renderInline(line)}</p>);
     }
   });
+
+  // Flush remaining
+  if (tableRows.length > 0) flushTable();
 
   if (inCodeBlock && codeLines.length > 0) {
     elements.push(
