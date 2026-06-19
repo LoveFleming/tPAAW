@@ -16,6 +16,37 @@ if (typeof document !== "undefined" && !document.getElementById("briefing-anim")
   document.head.appendChild(style);
 }
 
+// ── Syntax highlighting for ref overlay ──
+import hljs from "highlight.js/lib/common";
+import java from "highlight.js/lib/languages/java";
+import yaml from "highlight.js/lib/languages/yaml";
+import dockerfile from "highlight.js/lib/languages/dockerfile";
+import ini from "highlight.js/lib/languages/ini";
+import properties from "highlight.js/lib/languages/properties";
+import "highlight.js/styles/github-dark.css";
+
+hljs.registerLanguage("java", java);
+hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage("dockerfile", dockerfile);
+hljs.registerLanguage("ini", ini);
+hljs.registerLanguage("properties", properties);
+
+function getHljsLang(name: string): string {
+  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
+  const map: Record<string, string> = {
+    ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript", mjs: "javascript",
+    json: "json", md: "markdown", css: "css", html: "xml", xml: "xml",
+    py: "python", go: "go", rs: "rust", sh: "bash", shell: "bash",
+    yaml: "yaml", yml: "yaml", toml: "ini",
+    sql: "sql", java: "java", kt: "java", scala: "scala",
+    c: "c", cpp: "cpp", h: "c", hpp: "cpp",
+    dockerfile: "dockerfile", makefile: "makefile",
+    conf: "ini", cfg: "ini", properties: "properties", env: "bash",
+    graphql: "graphql", vue: "xml", svelte: "xml",
+  };
+  return map[ext] || "";
+}
+
 // ── Types ──
 interface Slide {
   id: string;
@@ -224,6 +255,17 @@ function RefOverlay({ refPath, onClose }: { refPath: string; onClose: () => void
 
   const fileName = refPath.split("/").pop() || refPath;
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const hljsLang = getHljsLang(fileName);
+
+  const highlightedHtml = (() => {
+    if (!content || !hljsLang) return null;
+    try {
+      const result = hljs.highlight(content, { language: hljsLang, ignoreIllegals: true });
+      return result.value;
+    } catch {
+      return null;
+    }
+  })();
 
   return (
     <div
@@ -267,8 +309,12 @@ function RefOverlay({ refPath, onClose }: { refPath: string; onClose: () => void
         ) : error ? (
           <div className="flex items-center justify-center h-full text-rose-400 text-sm">❌ {error}</div>
         ) : (
-          <pre className="p-6 text-sm font-mono text-stone-100 leading-relaxed" style={{ maxWidth: "1100px", margin: "0 auto" }}>
-            <code>{content}</code>
+          <pre className="p-6 text-sm font-mono leading-relaxed overflow-auto" style={{ maxWidth: "1100px", margin: "0 auto" }}>
+            {highlightedHtml ? (
+              <code className={`language-${hljsLang} hljs`} dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
+            ) : (
+              <code className="text-stone-100">{content}</code>
+            )}
           </pre>
         )}
       </div>
