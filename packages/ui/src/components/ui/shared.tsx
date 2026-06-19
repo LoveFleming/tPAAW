@@ -72,7 +72,7 @@ const NAV_ICONS: Record<string, string> = {
     "Backup":          "shield",
     "Work Sync":       "expand",
     "AI Settings":     "gear",
-    "Briefing Player": "none",
+    "Briefing Player": "presentation",
 };
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
