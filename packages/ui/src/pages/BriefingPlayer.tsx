@@ -298,9 +298,10 @@ export default function BriefingPlayer() {
   // ── Drawing / Annotation ──
   type DrawMode = "none" | "pen" | "marker";
   const [drawMode, setDrawMode] = useState<DrawMode>("none");
-  const [penStrokes, setPenStrokes] = useState<{ x: number; y: number }[][]>([]);
+  // Per-slide annotations: keyed by slide index
+  const [strokesBySlide, setStrokesBySlide] = useState<Record<number, { x: number; y: number }[][]>>({});
+  const [markersBySlide, setMarkersBySlide] = useState<Record<number, { x: number; y: number; icon: string }[]>>({});
   const [activeStroke, setActiveStroke] = useState<{ x: number; y: number }[]>([]);
-  const [markers, setMarkers] = useState<{ x: number; y: number; icon: string }[]>([]);
   const [selectedIcon, setSelectedIcon] = useState("💡");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contentAreaRef = useRef<HTMLDivElement>(null);
@@ -514,12 +515,16 @@ export default function BriefingPlayer() {
     return { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.height };
   };
 
+  // Derived: current slide annotations
+  const penStrokes = strokesBySlide[currentIdx] || [];
+  const markers = markersBySlide[currentIdx] || [];
+
   const clearAnnotations = useCallback(() => {
-    setPenStrokes([]);
-    setMarkers([]);
+    setStrokesBySlide(prev => { const n = { ...prev }; delete n[currentIdx]; return n; });
+    setMarkersBySlide(prev => { const n = { ...prev }; delete n[currentIdx]; return n; });
     setActiveStroke([]);
     drawingRef.current = false;
-  }, []);
+  }, [currentIdx]);
 
   const toggleMode = useCallback((mode: "pen" | "marker") => {
     setDrawMode(prev => prev === mode ? "none" : mode);
@@ -543,7 +548,7 @@ export default function BriefingPlayer() {
     } else if (drawMode === "marker") {
       e.preventDefault();
       const pos = getRelPos(e.clientX, e.clientY);
-      setMarkers(prev => [...prev, { ...pos, icon: selectedIcon }]);
+      setMarkersBySlide(prev => ({ ...prev, [currentIdx]: [...(prev[currentIdx] || []), { ...pos, icon: selectedIcon }] }));
     }
   };
 
@@ -568,7 +573,7 @@ export default function BriefingPlayer() {
       if (draggingMarkerRef.current !== null) {
         e.preventDefault();
         const pos = getRelPos(e.clientX, e.clientY);
-        setMarkers(prev => prev.map((m, i) => i === draggingMarkerRef.current ? { ...m, ...pos } : m));
+        setMarkersBySlide(prev => ({ ...prev, [currentIdx]: (prev[currentIdx] || []).map((m, i) => i === draggingMarkerRef.current ? { ...m, ...pos } : m) }));
       }
     };
     const onUp = () => {
@@ -578,7 +583,7 @@ export default function BriefingPlayer() {
         setActiveStroke(prev => {
           if (prev.length > 1) {
             const stroke = prev;
-            queueMicrotask(() => setPenStrokes(s => [...s, stroke]));
+            queueMicrotask(() => setStrokesBySlide(s => ({ ...s, [currentIdx]: [...(s[currentIdx] || []), stroke] })));
           }
           return [];
         });
@@ -594,8 +599,7 @@ export default function BriefingPlayer() {
     };
   }, []);
 
-  // Clear annotations on slide change
-  useEffect(() => { clearAnnotations(); }, [currentIdx, clearAnnotations]);
+  // Note: annotations persist per-slide, no auto-clear on slide change
 
   // Render canvas
   useEffect(() => {
@@ -635,7 +639,7 @@ export default function BriefingPlayer() {
     const ro = new ResizeObserver(render);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [penStrokes, activeStroke]);
+  }, [strokesBySlide, markersBySlide, activeStroke, currentIdx]);
   if (loading && !selectedDir) {
     return (
       <div className="flex items-center justify-center h-full text-stone-400 text-sm gap-2">
@@ -1013,7 +1017,7 @@ Markdown 格式:
             onMouseDown={(e) => handleMarkerMouseDown(e, i)}
             onDoubleClick={(e) => {
               e.stopPropagation();
-              setMarkers(prev => prev.filter((_, idx) => idx !== i));
+              setMarkersBySlide(prev => ({ ...prev, [currentIdx]: (prev[currentIdx] || []).filter((_, idx) => idx !== i) }));
             }}
             title="拖曳移動 · 雙擊刪除"
           >
