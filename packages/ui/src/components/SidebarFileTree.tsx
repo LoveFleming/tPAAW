@@ -14,7 +14,7 @@ interface CtxMenuState {
   isWsRoot?: boolean;
 }
 
-function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace }: { menu: CtxMenuState; onDelete: (menu: CtxMenuState) => void; onClose: () => void; onRemoveWorkspace?: (dir: string) => void; }) {
+function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace, onEdit }: { menu: CtxMenuState; onDelete: (menu: CtxMenuState) => void; onClose: () => void; onRemoveWorkspace?: (dir: string) => void; onEdit?: (path: string) => void; }) {
   const { info: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -73,6 +73,16 @@ function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace }: { menu: Ctx
         </div>
       ) : (
         <>
+          {!menu.isDir && (
+            <div
+              style={itemStyle}
+              onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              onClick={() => { onEdit?.(menu.fullPath); onClose(); }}
+            >
+              ✏️ Edit
+            </div>
+          )}
           <div
             style={itemStyle}
             onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
@@ -238,9 +248,10 @@ interface Props {
   onSelectFile: (path: string) => void;
   startDepth?: number;
   onRemoveWorkspace?: (dir: string) => void;
+  onEditFile?: (path: string) => void;
 }
 
-export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace }: Props) {
+export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile }: Props) {
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -379,7 +390,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         isWorkspaceRoot={true}
         onRemoveWorkspace={onRemoveWorkspace}
       />
-      {ctxMenu && <ContextMenu menu={ctxMenu} onDelete={(m) => { setCtxMenu(null); setConfirmDelete(m); }} onClose={() => setCtxMenu(null)} onRemoveWorkspace={onRemoveWorkspace} />}
+      {ctxMenu && <ContextMenu menu={ctxMenu} onDelete={(m) => { setCtxMenu(null); setConfirmDelete(m); }} onClose={() => setCtxMenu(null)} onRemoveWorkspace={onRemoveWorkspace} onEdit={onEditFile} />}
       {confirmDelete && (
         <div
           style={{

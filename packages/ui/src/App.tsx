@@ -811,6 +811,7 @@ function AppInner() {
                         openFilePaths={openFilePaths}
                         onSelectFile={handleSelectFile}
                         onRemoveWorkspace={removeWorkspace}
+                        onEditFile={handleEditFile}
                       />
                       <button
                         onClick={() => removeWorkspace(dir)}
