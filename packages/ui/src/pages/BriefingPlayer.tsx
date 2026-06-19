@@ -944,6 +944,11 @@ Markdown 格式:
             flex: imageUrl ? "1 1 38%" : "1 1 auto",
             scrollbarWidth: "thin",
             borderLeft: imageUrl ? "1px solid rgba(255,255,255,0.08)" : "none",
+            display: !imageUrl ? "flex" : undefined,
+            flexDirection: !imageUrl ? "column" : undefined,
+            justifyContent: !imageUrl ? "center" : undefined,
+            maxWidth: !imageUrl ? "760px" : undefined,
+            margin: !imageUrl ? "0 auto" : undefined,
           }}
         >
           {mdLoading ? (
