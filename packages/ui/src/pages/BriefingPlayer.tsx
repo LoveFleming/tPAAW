@@ -141,64 +141,77 @@ function renderInline(text: string): React.ReactNode {
   });
 }
 
-// ── File Reference Component ──
-function FileRefView({ refPath, expanded, onToggle }: {
-  refPath: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+// ── Full-screen Reference Overlay ──
+function RefOverlay({ refPath, onClose }: { refPath: string; onClose: () => void }) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!expanded) return;
-    if (content !== null) return; // already loaded
     setLoading(true);
     fetch(`${API}/api/fs/file?path=${encodeURIComponent(refPath)}`)
-      .then(r => {
-        if (!r.ok) throw new Error(r.statusText);
-        return r.json();
-      })
+      .then(r => r.json())
       .then(data => { setContent(data.content || ""); setError(""); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [expanded, refPath, content]);
+  }, [refPath]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   const fileName = refPath.split("/").pop() || refPath;
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
 
   return (
-    <div className="rounded-lg overflow-hidden my-1.5 border border-white/10">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-white/5"
-        style={{ backgroundColor: expanded ? "rgba(255,255,255,0.05)" : "transparent" }}
+    <div
+      className="fixed inset-0 z-[100] flex flex-col"
+      style={{ backgroundColor: "rgba(0,0,0,0.92)" }}
+      onClick={onClose}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-5 py-2.5 shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}
+        onClick={e => e.stopPropagation()}
       >
-        <span className="text-xs text-white/50">{expanded ? "▾" : "▸"}</span>
-        <span className="text-sm">📄</span>
-        <span className="font-mono text-white/60 truncate flex-1 text-left">{fileName}</span>
-        <span className="text-[10px] text-white/30 uppercase">{ext}</span>
-      </button>
-      {expanded && (
-        <div className="border-t border-white/10">
-          {loading ? (
-            <div className="flex items-center justify-center py-4 text-xs text-white/40 gap-1.5">
-              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading...
-            </div>
-          ) : error ? (
-            <div className="px-3 py-2 text-xs text-rose-400">❌ {error}</div>
-          ) : (
-            <pre className="bg-black/40 text-stone-100 p-3 overflow-x-auto text-xs max-h-80 m-0 border-0">
-              <code>{content}</code>
-            </pre>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-sm">📄</span>
+          <span className="text-sm font-mono text-white/80">{fileName}</span>
+          <span className="text-[10px] text-white/30 uppercase px-1.5 py-0.5 rounded bg-white/5">{ext}</span>
         </div>
-      )}
+        <button
+          onClick={onClose}
+          className="px-3 py-1 rounded-lg text-xs text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          ✕ 關閉 (Esc)
+        </button>
+      </div>
+
+      {/* Content */}
+      <div
+        className="flex-1 overflow-auto"
+        style={{ scrollbarWidth: "thin" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-white/40 text-sm gap-2">
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Loading...
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-full text-rose-400 text-sm">❌ {error}</div>
+        ) : (
+          <pre className="p-6 text-sm font-mono text-stone-100 leading-relaxed" style={{ maxWidth: "1100px", margin: "0 auto" }}>
+            <code>{content}</code>
+          </pre>
+        )}
+      </div>
     </div>
   );
 }
@@ -219,7 +232,6 @@ export default function BriefingPlayer() {
   const [parsedMd, setParsedMd] = useState<ParsedMarkdown>({ content: "", fileRefs: [] });
   const [mdLoading, setMdLoading] = useState(false);
   const [notesContent, setNotesContent] = useState("");
-  const [expandedRefs, setExpandedRefs] = useState<Set<string>>(new Set());
   const [showDirPicker, setShowDirPicker] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -303,7 +315,6 @@ export default function BriefingPlayer() {
     }
     let cancelled = false;
     setMdLoading(true);
-    setExpandedRefs(new Set());
     fetch(`${API}/api/fs/file?path=${encodeURIComponent(slide.markdown)}`)
       .then(r => r.json())
       .then(data => {
@@ -388,15 +399,6 @@ export default function BriefingPlayer() {
     const handler = () => setFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
-  }, []);
-
-  const toggleRef = useCallback((path: string) => {
-    setExpandedRefs(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
   }, []);
 
   // ── Browse directories for picker ──
@@ -630,6 +632,9 @@ Markdown 格式:
     );
   }
 
+  // ── Ref overlay state ──
+  const [refOverlay, setRefOverlay] = useState<string | null>(null);
+
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: fullscreen ? "#0a0a0a" : "#1a1a1a" }} ref={containerRef}>
       {/* ── Top bar ── */}
@@ -648,7 +653,6 @@ Markdown 格式:
         </div>
 
         <div className="flex items-center gap-1">
-          {/* Nav buttons */}
           <button
             onClick={() => setCurrentIdx(i => Math.max(i - 1, 0))}
             disabled={currentIdx === 0}
@@ -697,63 +701,45 @@ Markdown 格式:
         />
       </div>
 
-      {/* ── Main content ── */}
+      {/* ── Main content: left image + right text ── */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Slide area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Image */}
-          {imageUrl && (
-            <div className="flex items-center justify-center overflow-hidden p-2" style={{ flex: "1 1 60%" }}>
-              <img
-                src={imageUrl}
-                alt={slide?.name}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
-              />
-            </div>
-          )}
-
-          {/* Markdown content */}
-          <div
-            className="overflow-y-auto px-6 py-3"
-            style={{
-              flex: imageUrl ? "0 0 35%" : "1 1 auto",
-              maxHeight: imageUrl ? "40%" : "100%",
-              scrollbarWidth: "thin",
-            }}
-          >
-            {mdLoading ? (
-              <div className="flex items-center justify-center py-4 text-white/30 text-xs gap-1.5">
-                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Loading content...
-              </div>
-            ) : parsedMd.content ? (
-              <div className="text-white/90" style={{ maxWidth: "900px", margin: "0 auto" }}>
-                {renderMarkdown(parsedMd.content)}
-              </div>
-            ) : !imageUrl ? (
-              <div className="flex items-center justify-center h-full">
-                <span className="text-white/20 text-sm">No content</span>
-              </div>
-            ) : null}
-
-            {/* File references */}
-            {parsedMd.fileRefs.length > 0 && (
-              <div className="mt-2" style={{ maxWidth: "900px", margin: "8px auto 0" }}>
-                <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wide">📎 Referenced Files</div>
-                {parsedMd.fileRefs.map(refPath => (
-                  <FileRefView
-                    key={refPath}
-                    refPath={refPath}
-                    expanded={expandedRefs.has(refPath)}
-                    onToggle={() => toggleRef(refPath)}
-                  />
-                ))}
-              </div>
-            )}
+        {/* Image — left side */}
+        {imageUrl && (
+          <div className="flex items-center justify-center overflow-hidden p-3" style={{ flex: "0 0 62%" }}>
+            <img
+              src={imageUrl}
+              alt={slide?.name}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+            />
           </div>
+        )}
+
+        {/* Markdown content — right side */}
+        <div
+          className="overflow-y-auto px-5 py-3"
+          style={{
+            flex: imageUrl ? "1 1 38%" : "1 1 auto",
+            scrollbarWidth: "thin",
+            borderLeft: imageUrl ? "1px solid rgba(255,255,255,0.08)" : "none",
+          }}
+        >
+          {mdLoading ? (
+            <div className="flex items-center justify-center py-4 text-white/30 text-xs gap-1.5">
+              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Loading content...
+            </div>
+          ) : parsedMd.content ? (
+            <div className="text-white/90">
+              {renderMarkdown(parsedMd.content)}
+            </div>
+          ) : !imageUrl ? (
+            <div className="flex items-center justify-center h-full">
+              <span className="text-white/20 text-sm">No content</span>
+            </div>
+          ) : null}
         </div>
 
         {/* Notes sidebar */}
@@ -762,7 +748,7 @@ Markdown 格式:
             className="border-l overflow-y-auto px-4 py-3 shrink-0"
             style={{
               borderColor: "rgba(255,255,255,0.1)",
-              width: "280px",
+              width: "260px",
               scrollbarWidth: "thin",
               backgroundColor: "rgba(0,0,0,0.2)",
             }}
@@ -775,13 +761,47 @@ Markdown 格式:
         )}
       </div>
 
-      {/* ── Bottom hint bar ── */}
-      <div className="px-3 py-1 shrink-0 flex items-center justify-center gap-4" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
-        <span className="text-[10px] text-white/20">← → 翻頁</span>
-        <span className="text-[10px] text-white/20">O 概覽</span>
-        <span className="text-[10px] text-white/20">N 備忘</span>
-        <span className="text-[10px] text-white/20">F 全螢幕</span>
+      {/* ── Bottom ref bar + hints ── */}
+      <div className="shrink-0 flex items-center gap-3 px-3 py-1.5" style={{ backgroundColor: "rgba(0,0,0,0.4)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        {/* Ref file icons */}
+        {parsedMd.fileRefs.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-white/30 uppercase tracking-wide">📎</span>
+            {parsedMd.fileRefs.map(refPath => {
+              const fname = refPath.split("/").pop() || refPath;
+              const ext = fname.split(".").pop()?.toLowerCase() ?? "";
+              const isActive = refOverlay === refPath;
+              return (
+                <button
+                  key={refPath}
+                  onClick={() => setRefOverlay(isActive ? null : refPath)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all ${isActive ? "bg-white/20 text-white" : "text-white/50 hover:text-white hover:bg-white/10"}`}
+                  title={refPath}
+                >
+                  📄 {fname}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Spacer + hints */}
+        <div className="flex-1" />
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-white/20">← → 翻頁</span>
+          <span className="text-[10px] text-white/20">O 概覽</span>
+          <span className="text-[10px] text-white/20">N 備忘</span>
+          <span className="text-[10px] text-white/20">F 全螢幕</span>
+        </div>
       </div>
+
+      {/* ── Ref overlay (full screen) ── */}
+      {refOverlay && (
+        <RefOverlay
+          refPath={refOverlay}
+          onClose={() => setRefOverlay(null)}
+        />
+      )}
     </div>
   );
 }
