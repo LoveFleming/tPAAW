@@ -12,6 +12,7 @@ import CronJobsPage from "./pages/CronJobsPage";
 import VibeCoding from "./pages/VibeCoding";
 import VibeCodingIDE from "./pages/VibeCodingIDE";
 import BriefingPlayer from "./pages/BriefingPlayer";
+import FileEditor from "./pages/FileEditor";
 import WorkflowEditor from "./pages/WorkflowEditor";
 import WorkflowExec from "./pages/WorkflowExec";
 import FileViewer from "./pages/FileViewer";
@@ -316,6 +317,12 @@ function AppInner() {
     setActivePage(fullId);
   };
 
+  const handleEditFile = (path: string) => {
+    const fullId = `workspace:workspace:wedit://${path}`;
+    setOpenTabs((prev) => prev.includes(fullId) ? prev : [...prev, fullId]);
+    setActivePage(fullId);
+  };
+
   const [showDirExplorer, setShowDirExplorer] = useState(false);
 
   // ── Workspaces (multi-directory) ──
@@ -475,6 +482,9 @@ function AppInner() {
     if (pageType.startsWith("wfile://")) {
       return pathBasename(pageType.slice(8));
     }
+    if (pageType.startsWith("wedit://")) {
+      return `✏️ ${pathBasename(pageType.slice(8))}`;
+    }
     return pageType;
   }, [factoryNav, crew, t, chatTitle]);
 
@@ -591,6 +601,10 @@ function AppInner() {
     if (pageType.startsWith("wfile://")) {
       const filePath = pageType.slice(8);
       return <FileViewer filePath={filePath} projectRoot={undefined} active={active} />;
+    }
+    if (pageType.startsWith("wedit://")) {
+      const filePath = pageType.slice(8);
+      return <FileEditor filePath={filePath} active={active} />;
     }
     if (pageType.startsWith("employee.")) {
       const employeeId = pageType.split("#")[0].slice(9);
@@ -721,7 +735,7 @@ function AppInner() {
 
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
-              <KnowledgeTree onOpenFile={handleSelectFile} />
+              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} />
             </SidebarSection>
 
             {/* 🏗 Build */}

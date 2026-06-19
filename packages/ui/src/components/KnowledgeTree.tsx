@@ -64,6 +64,7 @@ function CtxMenu({ menu, onAction, onClose }: {
   items.push({ label: t("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
   items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
   items.push({ label: "移動到...", icon: "📦", action: "move" });
+  items.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: "Copy Path", icon: "📎", action: "copyPath" });
@@ -196,8 +197,9 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
 }
 
 // ── Main KnowledgeTree Component ──
-export default function KnowledgeTree({ onOpenFile }: { 
+export default function KnowledgeTree({ onOpenFile, onEditFile }: { 
   onOpenFile?: (path: string) => void;
+  onEditFile?: (path: string) => void;
 }) {
   const { t } = useI18n();
   const [tree, setTree] = useState<TreeNode | null>(null);
@@ -327,6 +329,10 @@ export default function KnowledgeTree({ onOpenFile }: {
       }
       case "rename": {
         setRenamingNode(node.path);
+        break;
+      }
+      case "edit": {
+        onEditFile?.(node.path);
         break;
       }
       case "copyPath": {
