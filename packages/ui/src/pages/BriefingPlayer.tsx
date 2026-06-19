@@ -472,7 +472,6 @@ export default function BriefingPlayer() {
           clearAnnotations();
           break;
         case "Escape":
-          if (drawMode !== "none") { setDrawMode("none"); setActiveStroke([]); break; }
           if (overviewMode) setOverviewMode(false);
           break;
       }
@@ -1071,7 +1070,7 @@ Markdown 格式:
         {drawMode !== "none" && (
           <div data-annotation-ui className="absolute z-40" style={{ top: 8, left: "50%", transform: "translateX(-50%)" }}>
             <div className="px-3 py-1 rounded-full text-xs text-white/90" style={{ background: "rgba(250,204,21,0.2)", border: "1px solid rgba(250,204,21,0.4)" }}>
-              {drawMode === "pen" ? "✏️ 手繪模式" : `📍 標記模式 (${selectedIcon})`} — Esc 退出
+              {drawMode === "pen" ? "✏️ 手繪模式" : `📍 標記模式 (${selectedIcon})`}
             </div>
           </div>
         )}
