@@ -158,9 +158,9 @@ function FileRefView({ refPath, expanded, onToggle }: {
     fetch(`${API}/api/fs/file?path=${encodeURIComponent(refPath)}`)
       .then(r => {
         if (!r.ok) throw new Error(r.statusText);
-        return r.text();
+        return r.json();
       })
-      .then(text => { setContent(text); setError(""); })
+      .then(data => { setContent(data.content || ""); setError(""); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [expanded, refPath, content]);
@@ -305,9 +305,10 @@ export default function BriefingPlayer() {
     setMdLoading(true);
     setExpandedRefs(new Set());
     fetch(`${API}/api/fs/file?path=${encodeURIComponent(slide.markdown)}`)
-      .then(r => r.text())
-      .then(text => {
+      .then(r => r.json())
+      .then(data => {
         if (cancelled) return;
+        const text = data.content || "";
         const mdDir = slide.markdown.substring(0, slide.markdown.lastIndexOf("/"));
         setParsedMd(parseMarkdown(text, mdDir));
       })
@@ -321,8 +322,8 @@ export default function BriefingPlayer() {
     if (!selectedDir) { setNotesContent(""); return; }
     const notesPath = `${selectedDir}/notes.md`;
     fetch(`${API}/api/fs/file?path=${encodeURIComponent(notesPath)}`)
-      .then(r => { if (r.ok) return r.text(); throw new Error("no notes"); })
-      .then(text => setNotesContent(text))
+      .then(r => { if (r.ok) return r.json(); throw new Error("no notes"); })
+      .then(data => setNotesContent(data.content || ""))
       .catch(() => setNotesContent(""));
   }, [selectedDir]);
 
