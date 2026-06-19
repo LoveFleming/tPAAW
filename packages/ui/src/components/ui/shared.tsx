@@ -72,7 +72,7 @@ const NAV_ICONS: Record<string, string> = {
     "Backup":          "shield",
     "Work Sync":       "expand",
     "AI Settings":     "gear",
-    "🎤 Briefing Player": "none",
+    "Briefing Player": "none",
 };
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
@@ -134,7 +134,13 @@ export function NavItem({
             onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
-                {iconName && iconName !== "none" ? <Icon name={iconName} size={14} style={{ color: active ? accentColor : undefined }} /> : null}
+                {iconName && iconName !== "none" ? (
+                    <Icon name={iconName} size={14} style={{ color: active ? accentColor : undefined }} />
+                ) : iconName === "none" ? (
+                    <span style={{ width: 14, flexShrink: 0 }} />
+                ) : (
+                    <Icon name="file-default" size={14} style={{ color: active ? accentColor : undefined }} />
+                )}
                 <span className="truncate">{label}</span>
             </div>
             {right}

@@ -18,24 +18,44 @@ interface BriefingDir {
 }
 
 // ── Parse @file: references from markdown ──
-function parseFileRefs(mdContent: string, basePath: string): string[] {
-  const refs: string[] = [];
-  const regex = /@file:\s*(.+)/g;
-  let match;
-  while ((match = regex.exec(mdContent)) !== null) {
-    let p = match[1].trim();
-    // Resolve relative to the markdown file's directory
-    if (!p.startsWith("/")) {
-      p = basePath + "/" + p;
-    }
-    refs.push(p);
-  }
-  return refs;
+// ── Parse markdown into content + file references ──
+// Schema: markdown above first `---` separator is slide content.
+//         Below `---` (or @file: lines) are reference files.
+interface ParsedMarkdown {
+  content: string;     // slide content (no @file lines)
+  fileRefs: string[];  // resolved file paths
 }
 
-// ── Strip @file: lines for display ──
-function stripFileRefs(content: string): string {
-  return content.replace(/@file:\s*.+/g, "").trim();
+function parseMarkdown(rawText: string, mdDir: string): ParsedMarkdown {
+  // Split on first standalone `---` line
+  const separatorIdx = rawText.indexOf("\n---\n");
+  let contentPart = rawText;
+  let refsPart = "";
+
+  if (separatorIdx >= 0) {
+    contentPart = rawText.slice(0, separatorIdx).trim();
+    refsPart = rawText.slice(separatorIdx + 5).trim(); // skip \n---\n
+  }
+
+  // Extract @file: refs from both parts (support inline @file too)
+  const allRefs: string[] = [];
+  const refRegex = /@file:\s*(.+)/g;
+  let match;
+  while ((match = refRegex.exec(contentPart)) !== null) {
+    let p = match[1].trim();
+    if (!p.startsWith("/")) p = mdDir + "/" + p;
+    allRefs.push(p);
+  }
+  // Remove @file lines from content
+  contentPart = contentPart.replace(/@file:\s*.+/g, "").trim();
+
+  while ((match = refRegex.exec(refsPart)) !== null) {
+    let p = match[1].trim();
+    if (!p.startsWith("/")) p = mdDir + "/" + p;
+    allRefs.push(p);
+  }
+
+  return { content: contentPart, fileRefs: allRefs };
 }
 
 // ── Simple markdown renderer (dark theme for briefing player) ──
@@ -196,7 +216,7 @@ export default function BriefingPlayer() {
   const [overviewMode, setOverviewMode] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [mdContent, setMdContent] = useState("");
+  const [parsedMd, setParsedMd] = useState<ParsedMarkdown>({ content: "", fileRefs: [] });
   const [mdLoading, setMdLoading] = useState(false);
   const [notesContent, setNotesContent] = useState("");
   const [expandedRefs, setExpandedRefs] = useState<Set<string>>(new Set());
@@ -278,7 +298,7 @@ export default function BriefingPlayer() {
   useEffect(() => {
     const slide = slides[currentIdx];
     if (!slide?.markdown) {
-      setMdContent("");
+      setParsedMd({ content: "", fileRefs: [] });
       return;
     }
     let cancelled = false;
@@ -286,8 +306,12 @@ export default function BriefingPlayer() {
     setExpandedRefs(new Set());
     fetch(`${API}/api/fs/file?path=${encodeURIComponent(slide.markdown)}`)
       .then(r => r.text())
-      .then(text => { if (!cancelled) setMdContent(text); })
-      .catch(() => { if (!cancelled) setMdContent(""); })
+      .then(text => {
+        if (cancelled) return;
+        const mdDir = slide.markdown.substring(0, slide.markdown.lastIndexOf("/"));
+        setParsedMd(parseMarkdown(text, mdDir));
+      })
+      .catch(() => { if (!cancelled) setParsedMd({ content: "", fileRefs: [] }); })
       .finally(() => { if (!cancelled) setMdLoading(false); });
     return () => { cancelled = true; };
   }, [currentIdx, slides]);
@@ -301,15 +325,6 @@ export default function BriefingPlayer() {
       .then(text => setNotesContent(text))
       .catch(() => setNotesContent(""));
   }, [selectedDir]);
-
-  // ── Parse file references from current markdown ──
-  const fileRefs = useMemo(() => {
-    if (!mdContent) return [];
-    const slide = slides[currentIdx];
-    if (!slide?.markdown) return [];
-    const baseDir = slide.markdown.substring(0, slide.markdown.lastIndexOf("/"));
-    return parseFileRefs(mdContent, baseDir);
-  }, [mdContent, currentIdx, slides]);
 
   // ── Image URL ──
   const imageUrl = useMemo(() => {
@@ -463,7 +478,7 @@ export default function BriefingPlayer() {
 
           {/* Empty state hint */}
           {briefingDirs.length === 0 && (
-            <div className="mt-8 text-center text-xs text-stone-400 max-w-sm">
+            <div className="mt-8 text-center text-xs text-stone-400 max-w-md">
               <p className="mb-1">💡 將圖片和 markdown 放在同一個目錄中：</p>
               <pre className="text-left bg-stone-100 rounded-lg p-3 text-[10px] font-mono text-stone-500">
 {`my-briefing/
@@ -471,7 +486,16 @@ export default function BriefingPlayer() {
 ├── 01-intro.md
 ├── 02-demo.png
 ├── 02-demo.md
-└── notes.md (optional)`}
+└── notes.md (optional)
+
+Markdown 格式:
+  # 標題
+  簡報內容...
+
+  ---
+
+  @file: ../src/code.js
+  @file: ../docs/api.md`}
               </pre>
             </div>
           )}
@@ -583,7 +607,6 @@ export default function BriefingPlayer() {
 
   // ── Slide view ──
   const slide = slides[currentIdx];
-  const displayContent = stripFileRefs(mdContent);
 
   // Empty state: directory selected but no slides found
   if (slides.length === 0) {
@@ -705,9 +728,9 @@ export default function BriefingPlayer() {
                 </svg>
                 Loading content...
               </div>
-            ) : displayContent ? (
+            ) : parsedMd.content ? (
               <div className="text-white/90" style={{ maxWidth: "900px", margin: "0 auto" }}>
-                {renderMarkdown(displayContent)}
+                {renderMarkdown(parsedMd.content)}
               </div>
             ) : !imageUrl ? (
               <div className="flex items-center justify-center h-full">
@@ -716,10 +739,10 @@ export default function BriefingPlayer() {
             ) : null}
 
             {/* File references */}
-            {fileRefs.length > 0 && (
+            {parsedMd.fileRefs.length > 0 && (
               <div className="mt-2" style={{ maxWidth: "900px", margin: "8px auto 0" }}>
                 <div className="text-[10px] text-white/30 mb-1 uppercase tracking-wide">📎 Referenced Files</div>
-                {fileRefs.map(refPath => (
+                {parsedMd.fileRefs.map(refPath => (
                   <FileRefView
                     key={refPath}
                     refPath={refPath}
