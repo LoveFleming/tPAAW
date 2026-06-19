@@ -507,6 +507,8 @@ export default function BriefingPlayer() {
   // ── Drawing helpers ──
   const drawingRef = useRef(false);  // pen active tracking
   const draggingMarkerRef = useRef<number | null>(null);  // which marker is being dragged
+  const currentIdxRef = useRef(currentIdx);
+  currentIdxRef.current = currentIdx;
 
   const getRelPos = (clientX: number, clientY: number) => {
     const el = contentAreaRef.current;
@@ -573,7 +575,7 @@ export default function BriefingPlayer() {
       if (draggingMarkerRef.current !== null) {
         e.preventDefault();
         const pos = getRelPos(e.clientX, e.clientY);
-        setMarkersBySlide(prev => ({ ...prev, [currentIdx]: (prev[currentIdx] || []).map((m, i) => i === draggingMarkerRef.current ? { ...m, ...pos } : m) }));
+        setMarkersBySlide(prev => ({ ...prev, [currentIdxRef.current]: (prev[currentIdxRef.current] || []).map((m, i) => i === draggingMarkerRef.current ? { ...m, ...pos } : m) }));
       }
     };
     const onUp = () => {
@@ -583,7 +585,7 @@ export default function BriefingPlayer() {
         setActiveStroke(prev => {
           if (prev.length > 1) {
             const stroke = prev;
-            queueMicrotask(() => setStrokesBySlide(s => ({ ...s, [currentIdx]: [...(s[currentIdx] || []), stroke] })));
+            queueMicrotask(() => setStrokesBySlide(s => ({ ...s, [currentIdxRef.current]: [...(s[currentIdxRef.current] || []), stroke] })));
           }
           return [];
         });
