@@ -59,11 +59,16 @@ function CtxMenu({ menu, onAction, onClose }: {
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
+  const isDir = menu.node.type === "dir";
+
   const items: { label: string; icon: string; action: string; danger?: boolean }[] = [];
   items.push({ label: t("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
   items.push({ label: t("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
   items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
   items.push({ label: "移動到...", icon: "📦", action: "move" });
+  if (isDir) {
+    items.push({ label: "在 Briefing Player 開啟", icon: "🎤", action: "briefingPlayer" });
+  }
   items.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
@@ -201,9 +206,10 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
 }
 
 // ── Main KnowledgeTree Component ──
-export default function KnowledgeTree({ onOpenFile, onEditFile }: { 
+export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefingPlayer }: { 
   onOpenFile?: (path: string) => void;
   onEditFile?: (path: string) => void;
+  onOpenInBriefingPlayer?: (dir: string) => void;
 }) {
   const { t } = useI18n();
   const [tree, setTree] = useState<TreeNode | null>(null);
@@ -329,6 +335,12 @@ export default function KnowledgeTree({ onOpenFile, onEditFile }: {
         setMoveTarget({ node });
         setPickerMode("move");
         setShowPicker(true);
+        break;
+      }
+      case "briefingPlayer": {
+        if (node.type === "dir") {
+          onOpenInBriefingPlayer?.(node.path);
+        }
         break;
       }
       case "rename": {

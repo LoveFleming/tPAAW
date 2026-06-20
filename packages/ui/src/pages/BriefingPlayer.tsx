@@ -16,6 +16,17 @@ if (typeof document !== "undefined" && !document.getElementById("briefing-anim")
   document.head.appendChild(style);
 }
 
+// ── Custom pencil cursor for pen drawing mode ──
+const PENCIL_CURSOR_SVG = encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">' +
+  '<path d="M2 16 L4 11 L12 3 L15 6 L7 14 Z" fill="#facc15" stroke="#333" stroke-width="0.8" stroke-linejoin="round"/>' +
+  '<path d="M2 16 L4 11 L7 14 Z" fill="#a0a0a0" stroke="#333" stroke-width="0.8" stroke-linejoin="round"/>' +
+  '<rect x="12" y="2.5" width="3.2" height="3" transform="rotate(45 12 2.5)" fill="#d4a017" stroke="#333" stroke-width="0.6"/>' +
+  '<circle cx="2" cy="16" r="0.8" fill="#222"/>' +
+  '</svg>'
+);
+const PENCIL_CURSOR = `url("data:image/svg+xml,${PENCIL_CURSOR_SVG}") 2 16, crosshair`;
+
 // ── Syntax highlighting for ref overlay ──
 import hljs from "highlight.js/lib/common";
 import java from "highlight.js/lib/languages/java";
@@ -323,12 +334,12 @@ function RefOverlay({ refPath, onClose }: { refPath: string; onClose: () => void
 }
 
 // ── Main BriefingPlayer Component ──
-export default function BriefingPlayer() {
+export default function BriefingPlayer({ initialDir }: { initialDir?: string | null }) {
   const { info: t } = useTheme();
   const { t: tt } = useI18n();
 
   const [briefingDirs, setBriefingDirs] = useState<BriefingDir[]>([]);
-  const [selectedDir, setSelectedDir] = useState<string>("");
+  const [selectedDir, setSelectedDir] = useState<string>(initialDir || "");
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -423,6 +434,13 @@ export default function BriefingPlayer() {
       setLoading(false);
     }
   }, []);
+
+  // ── Auto-load slides when initialDir is provided ──
+  useEffect(() => {
+    if (initialDir) {
+      loadSlides(initialDir);
+    }
+  }, [initialDir, loadSlides]);
 
   // ── Load markdown content for current slide ──
   useEffect(() => {
@@ -981,7 +999,7 @@ Markdown 格式:
         ref={contentAreaRef}
         className="flex-1 flex overflow-hidden relative"
         style={{
-          cursor: drawMode === "pen" ? "crosshair" : drawMode === "marker" ? "copy" : "default",
+          cursor: drawMode === "pen" ? PENCIL_CURSOR : drawMode === "marker" ? "copy" : "default",
         }}
         onMouseDown={drawMode !== "none" ? handleContentMouseDown : undefined}
       >

@@ -414,7 +414,9 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openBriefingPlayer = useCallback(() => {
+  const [briefingInitialDir, setBriefingInitialDir] = useState<string | null>(null);
+  const openBriefingPlayer = useCallback((dir?: string) => {
+    if (dir) setBriefingInitialDir(dir); else setBriefingInitialDir(null);
     const tabId = `${currentScope}:briefing-player`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
@@ -561,7 +563,7 @@ function AppInner() {
       return <VibeCodingIDE />;
     }
     if (pageType === "briefing-player") {
-      return <BriefingPlayer />;
+      return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;
@@ -735,7 +737,7 @@ function AppInner() {
 
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
-              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} />
+              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)} />
             </SidebarSection>
 
             {/* 🏗 Build */}
