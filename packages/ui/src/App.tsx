@@ -621,7 +621,7 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav]);
+  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav, briefingInitialDir]);
 
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();
