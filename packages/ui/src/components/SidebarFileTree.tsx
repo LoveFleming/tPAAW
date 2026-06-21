@@ -2,6 +2,77 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
 import { useTheme } from "../theme";
 import { FileIcon } from "./Icon";
+import { useI18n } from "../i18n";
+import API_BASE from "../api";
+import FileImportPicker from "./FileImportPicker";
+import MoveFolderPicker from "./MoveFolderPicker";
+
+// ── Types ──
+interface TreeNode {
+  name: string;
+  path: string;
+  type: "dir" | "file";
+  children?: TreeNode[];
+  lazy?: boolean;
+}
+
+// ── Inline rename input ──
+function RenameInput({ defaultValue, onConfirm, onCancel }: {
+  defaultValue: string; onConfirm: (name: string) => void; onCancel: () => void;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
+  return (
+    <input
+      ref={ref}
+      value={value}
+      onChange={e => setValue(e.target.value)}
+      onKeyDown={e => {
+        if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
+        if (e.key === "Escape") onCancel();
+      }}
+      onBlur={() => { if (value.trim() && value.trim() !== defaultValue) onConfirm(value.trim()); else onCancel(); }}
+      className="w-full px-1 py-0 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+      onClick={e => e.stopPropagation()}
+    />
+  );
+}
+
+// ── New item input (appears inline) ──
+function NewItemInput({ parentPath, depth, type, onConfirm, onCancel }: {
+  parentPath: string; depth: number; type: "file" | "folder";
+  onConfirm: (path: string) => void; onCancel: () => void;
+}) {
+  const [value, setValue] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+
+  const ext = type === "file" ? ".md" : "";
+  const handleConfirm = () => {
+    const name = value.trim();
+    if (!name) { onCancel(); return; }
+    const fullName = name.endsWith(ext) ? name : name + ext;
+    onConfirm(`${parentPath}/${fullName}`);
+  };
+
+  const indent = 28 + depth * 12;
+
+  return (
+    <div className="flex items-center gap-1 py-1" style={{ paddingLeft: `${indent}px` }}>
+      <span className="text-xs">{type === "folder" ? "📁" : "📄"}</span>
+      <input
+        ref={ref}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") onCancel(); }}
+        onBlur={() => { if (value.trim()) handleConfirm(); else onCancel(); }}
+        placeholder={type === "folder" ? "資料夾名稱" : "檔案名稱"}
+        className="flex-1 px-1 py-0 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white mr-4"
+      />
+    </div>
+  );
+}
 
 // ── Context Menu ──
 interface CtxMenuState {
@@ -14,8 +85,13 @@ interface CtxMenuState {
   isWsRoot?: boolean;
 }
 
-function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace, onEdit }: { menu: CtxMenuState; onDelete: (menu: CtxMenuState) => void; onClose: () => void; onRemoveWorkspace?: (dir: string) => void; onEdit?: (path: string) => void; }) {
+function ContextMenu({ menu, onAction, onClose }: {
+  menu: CtxMenuState;
+  onAction: (action: string, menu: CtxMenuState) => void;
+  onClose: () => void;
+}) {
   const { info: t } = useTheme();
+  const { t: ti18n } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,11 +107,6 @@ function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace, onEdit }: { m
     };
   }, [onClose]);
 
-  const copy = async (text: string) => {
-    try { await navigator.clipboard.writeText(text); } catch { /* fallback */ }
-    onClose();
-  };
-
   const itemStyle: React.CSSProperties = {
     padding: "6px 16px",
     fontSize: 13,
@@ -43,7 +114,56 @@ function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace, onEdit }: { m
     color: "#374151",
     whiteSpace: "nowrap",
     transition: "background 0.1s",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
   };
+
+  // Workspace root: only show 移除目錄
+  if (menu.isWsRoot) {
+    return (
+      <div
+        ref={ref}
+        style={{
+          position: "fixed",
+          left: menu.x,
+          top: menu.y,
+          zIndex: 9999,
+          background: "#ffffff",
+          border: `1px solid #e5e7eb`,
+          borderRadius: 8,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+          padding: "4px 0",
+          minWidth: 180,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{ ...itemStyle, color: "#ef4444" }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          onClick={() => { onAction("removeWorkspace", menu); onClose(); }}
+        >
+          🗑️ 移除目錄
+        </div>
+      </div>
+    );
+  }
+
+  // Non-root: same items as KnowledgeTree
+  const items: { label: string; icon: string; action: string; danger?: boolean }[] = [];
+  items.push({ label: ti18n("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
+  items.push({ label: ti18n("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
+  items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
+  items.push({ label: "移動到...", icon: "📦", action: "move" });
+  if (menu.isDir) {
+    items.push({ label: "在 Briefing Player 開啟", icon: "🎤", action: "briefingPlayer" });
+  }
+  items.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
+  items.push({ label: ti18n("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
+  items.push({ label: ti18n("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
+  items.push({ label: "Copy Path", icon: "📎", action: "copyPath" });
+  items.push({ label: ti18n("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (
     <div
@@ -62,61 +182,24 @@ function ContextMenu({ menu, onDelete, onClose, onRemoveWorkspace, onEdit }: { m
         overflow: "hidden",
       }}
     >
-      {menu.isWsRoot ? (
+      {items.map(item => (
         <div
-          style={{ ...itemStyle, color: "#ef4444" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+          key={item.action}
+          style={item.danger ? { ...itemStyle, color: "#ef4444" } : itemStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#fef2f2" : "#f3f4f6")}
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-          onClick={() => { onRemoveWorkspace?.(menu.fullPath); onClose(); }}
+          onClick={() => { onAction(item.action, menu); onClose(); }}
         >
-          🗑️ 移除目錄
+          <span>{item.icon}</span>
+          <span>{item.label}</span>
         </div>
-      ) : (
-        <>
-          {!menu.isDir && (
-            <div
-              style={itemStyle}
-              onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-              onClick={() => { onEdit?.(menu.fullPath); onClose(); }}
-            >
-              ✏️ Edit
-            </div>
-          )}
-          <div
-            style={itemStyle}
-            onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            onClick={() => copy(menu.fullPath)}
-          >
-            📋 Copy Path
-          </div>
-          <div
-            style={{ ...itemStyle, color: "#ef4444" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            onClick={() => { onDelete(menu); }}
-          >
-            🗑️ Delete{menu.isDir ? " Folder" : ""}
-          </div>
-        </>
-      )}
+      ))}
     </div>
   );
 }
 
 let globalCtxMenuSetter: ((m: CtxMenuState | null) => void) | null = null;
 function closeGlobalCtxMenu() { globalCtxMenuSetter?.(null); }
-
-interface TreeNode {
-  name: string;
-  path: string;
-  type: "dir" | "file";
-  children?: TreeNode[];
-  lazy?: boolean;
-}
-
-import API_BASE from "../api";
 
 /** Check if a path starts with a given prefix, handling both / and \ separators */
 function pathStartsWith(p: string, prefix: string): boolean {
@@ -148,42 +231,41 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
 // VSCode-style indent: compact steps, capped at max depth
 const BASE_INDENT = 28;
 const DEPTH_STEP = 12;
-const MAX_INDENT_DEPTH = 15; // Beyond this, all items share the same indent level
+const MAX_INDENT_DEPTH = 15;
 
 const TreeNodeView = React.memo(function TreeNodeView({
   node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths, projectRoot,
-  isWorkspaceRoot, onRemoveWorkspace,
+  isWorkspaceRoot, onCtx, renamingNode, onRename,
 }: {
   node: TreeNode; depth: number; activeFilePath: string | null; openFilePaths: Set<string>;
   onSelectFile: (path: string) => void; onToggleDir: (path: string) => void; expandedPaths: Set<string>;
   projectRoot: string;
   isWorkspaceRoot?: boolean;
-  onRemoveWorkspace?: (dir: string) => void;
+  onCtx: (e: React.MouseEvent, fullPath: string, relativePath: string, isDir: boolean, name: string, isWsRoot?: boolean) => void;
+  renamingNode: string | null;
+  onRename: (oldPath: string, newName: string) => void;
 }) {
   const { info: t } = useTheme();
   const isDir = node.type === "dir";
   const isExpanded = expandedPaths.has(node.path);
   const isActive = !isDir && activeFilePath === node.path;
   const isOpen = !isDir && openFilePaths.has(node.path);
+  const isRenaming = renamingNode === node.path;
 
-  // Cap the visual indent depth (VSCode style)
   const effectiveDepth = Math.min(depth, MAX_INDENT_DEPTH);
   const indentPx = BASE_INDENT + effectiveDepth * DEPTH_STEP;
 
   const handleCtx = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isWorkspaceRoot && onRemoveWorkspace) {
-      closeGlobalCtxMenu();
-      globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: "", isDir: true, name: node.name, isWsRoot: true });
+    if (isWorkspaceRoot) {
+      onCtx(e, node.path, "", true, node.name, true);
       return;
     }
     const relPath = relativePath(node.path, projectRoot);
-    closeGlobalCtxMenu();
-    globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath: node.path, relativePath: relPath, isDir: node.type === "dir", name: node.name });
-  }, [node.path, projectRoot, isWorkspaceRoot, onRemoveWorkspace]);
+    onCtx(e, node.path, relPath, node.type === "dir", node.name);
+  }, [node.path, node.name, projectRoot, isWorkspaceRoot, onCtx]);
 
-  // Show depth indicator for deeply nested items (dots to indicate skipped levels)
   const showDepthHint = depth > MAX_INDENT_DEPTH;
 
   return (
@@ -216,7 +298,15 @@ const TreeNodeView = React.memo(function TreeNodeView({
           {showDepthHint && (
             <span style={{ color: t.accent + "40", fontSize: 10, letterSpacing: -1 }}>··</span>
           )}
-          <span className="truncate">{node.name}</span>
+          {isRenaming ? (
+            <RenameInput
+              defaultValue={node.name}
+              onConfirm={(newName) => onRename(node.path, newName)}
+              onCancel={() => onRename(node.path, node.name)}
+            />
+          ) : (
+            <span className="truncate">{node.name}</span>
+          )}
         </div>
       </button>
       {isDir && isExpanded && node.children && node.children.length > 0 && (
@@ -232,6 +322,9 @@ const TreeNodeView = React.memo(function TreeNodeView({
               onToggleDir={onToggleDir}
               expandedPaths={expandedPaths}
               projectRoot={projectRoot}
+              onCtx={onCtx}
+              renamingNode={renamingNode}
+              onRename={onRename}
             />
           ))}
         </div>
@@ -249,14 +342,23 @@ interface Props {
   startDepth?: number;
   onRemoveWorkspace?: (dir: string) => void;
   onEditFile?: (path: string) => void;
+  onOpenInBriefingPlayer?: (dir: string) => void;
 }
 
-export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile }: Props) {
+export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer }: Props) {
+  const { info: t } = useTheme();
+  const { t: ti18n } = useI18n();
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CtxMenuState | null>(null);
+  const [renamingNode, setRenamingNode] = useState<string | null>(null);
+  const [newItem, setNewItem] = useState<{ parentPath: string; depth: number; type: "file" | "folder" } | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<"import" | "move">("import");
+  const [importTargetDir, setImportTargetDir] = useState<string>("");
+  const [moveTarget, setMoveTarget] = useState<{ node: TreeNode } | null>(null);
   const treeRef = useRef<TreeNode | null>(null);
   treeRef.current = tree;
 
@@ -289,10 +391,8 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   // ── Merge fresh server tree into existing tree, preserving lazy-loaded children ──
   const mergeTree = useCallback((existing: TreeNode | null, fresh: TreeNode): TreeNode => {
     if (!existing) return fresh;
-    // Start from fresh, but preserve existing loaded children where fresh is lazy
     const merged: TreeNode = { ...fresh };
     if (existing.children && fresh.children) {
-      // Both have children → merge recursively, preserving lazy-loaded subtrees
       merged.children = fresh.children.map(fc => {
         const ec = existing.children!.find(c => c.path === fc.path);
         if (ec && ec.type === "dir" && ec.children && !ec.lazy) {
@@ -301,14 +401,12 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         return fc;
       });
     } else if (existing.children && !existing.lazy) {
-      // Existing has loaded children but fresh is lazy (shallow) → preserve existing children
       merged.children = existing.children;
       merged.lazy = false;
     }
     return merged;
   }, []);
 
-  // ── Auto-refresh tree every 10 seconds ──
   const refreshTree = useCallback(() => {
     if (!projectRoot) return;
     fetch(`${API_BASE}/api/fs/tree?root=${encodeURIComponent(projectRoot)}`)
@@ -338,7 +436,6 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
     if (!currentTree) return;
     const node = findNode(currentTree, dirPath);
     if (!node) return;
-    // Skip fetch if children are already loaded (not lazy)
     if (node.children && !node.lazy) return;
 
     try {
@@ -357,6 +454,185 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
       });
     } catch { /* ignore */ }
   }, [projectRoot]);
+
+  // ── Context menu handler for tree nodes ──
+  const handleCtx = useCallback((e: React.MouseEvent, fullPath: string, relPath: string, isDir: boolean, name: string, isWsRoot?: boolean) => {
+    closeGlobalCtxMenu();
+    globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath, relativePath: relPath, isDir, name, isWsRoot });
+  }, []);
+
+  // ── Context menu actions ──
+  const handleAction = useCallback(async (action: string, menu: CtxMenuState) => {
+    const { fullPath, name, isDir } = menu;
+    const parentPath = fullPath.includes("/") ? fullPath.substring(0, fullPath.lastIndexOf("/")) : projectRoot;
+
+    switch (action) {
+      case "removeWorkspace": {
+        onRemoveWorkspace?.(menu.fullPath);
+        break;
+      }
+      case "newFolder": {
+        const folderTarget = isDir ? fullPath : parentPath;
+        setExpandedPaths(prev => new Set([...prev, folderTarget]));
+        // Calculate depth for indentation
+        const depth = folderTarget === projectRoot ? 1 : 2;
+        setNewItem({ parentPath: folderTarget, depth, type: "folder" });
+        break;
+      }
+      case "newFile": {
+        const fileTarget = isDir ? fullPath : parentPath;
+        setExpandedPaths(prev => new Set([...prev, fileTarget]));
+        const depth = fileTarget === projectRoot ? 1 : 2;
+        setNewItem({ parentPath: fileTarget, depth, type: "file" });
+        break;
+      }
+      case "importFile": {
+        const importDir = isDir ? fullPath : parentPath;
+        setImportTargetDir(importDir);
+        setPickerMode("import");
+        setShowPicker(true);
+        break;
+      }
+      case "move": {
+        setMoveTarget({ node: { name, path: fullPath, type: isDir ? "dir" : "file" } });
+        setPickerMode("move");
+        setShowPicker(true);
+        break;
+      }
+      case "briefingPlayer": {
+        if (isDir) {
+          onOpenInBriefingPlayer?.(fullPath);
+        }
+        break;
+      }
+      case "rename": {
+        setRenamingNode(fullPath);
+        break;
+      }
+      case "edit": {
+        onEditFile?.(fullPath);
+        break;
+      }
+      case "copyPath": {
+        try { await navigator.clipboard.writeText(fullPath); } catch {}
+        break;
+      }
+      case "duplicate": {
+        try {
+          const ext = name.includes(".") ? "." + name.split(".").pop() : "";
+          const baseName = name.replace(ext, "");
+          const destPath = `${parentPath}/${baseName}-copy${ext}`;
+          await fetch(`${API_BASE}/api/fs/copy`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ srcPath: fullPath, destPath }),
+          });
+          refreshTree();
+        } catch {}
+        break;
+      }
+      case "delete": {
+        setConfirmDelete(menu);
+        break;
+      }
+    }
+  }, [projectRoot, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer, refreshTree]);
+
+  // ── Rename handler ──
+  const handleRename = useCallback(async (oldPath: string, newName: string) => {
+    setRenamingNode(null);
+    const oldName = oldPath.split("/").pop() || "";
+    if (newName === oldName) return;
+    const parent = oldPath.substring(0, oldPath.lastIndexOf("/"));
+    const newPath = `${parent}/${newName}`;
+    try {
+      await fetch(`${API_BASE}/api/fs/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPath, newPath }),
+      });
+      refreshTree();
+    } catch {}
+  }, [refreshTree]);
+
+  // ── Create new file/folder ──
+  const handleCreate = useCallback(async (fullPath: string) => {
+    const name = fullPath.split("/").pop() || "";
+    const isFile = name.includes(".");
+    try {
+      if (isFile) {
+        await fetch(`${API_BASE}/api/fs/create-file`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: fullPath, content: `# ${name.replace(/\.[^.]+$/, "")}\n\n` }),
+        });
+      } else {
+        await fetch(`${API_BASE}/api/fs/mkdir`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: fullPath }),
+        });
+      }
+      refreshTree();
+    } catch {}
+    setNewItem(null);
+  }, [refreshTree]);
+
+  // ── Import file handler ──
+  const handleImport = useCallback(async (srcPath: string) => {
+    const targetDir = importTargetDir || projectRoot;
+    const name = srcPath.split("/").pop() || "imported-file";
+    const destPath = `${targetDir}/${name}`;
+    try {
+      const resp = await fetch(`${API_BASE}/api/fs/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ srcPath, destPath }),
+      });
+      if (resp.ok) {
+        refreshTree();
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        alert(`匯入失敗: ${err.error || resp.statusText}`);
+      }
+    } catch (e) {
+      alert(`匯入失敗: ${e}`);
+    }
+  }, [importTargetDir, projectRoot, refreshTree]);
+
+  // ── Move handler ──
+  const handleMove = useCallback(async (destDir: string) => {
+    if (!moveTarget) return;
+    const { node } = moveTarget;
+    const destPath = `${destDir}/${node.name}`;
+    if (node.path === destPath) {
+      setMoveTarget(null);
+      return;
+    }
+    try {
+      const resp = await fetch(`${API_BASE}/api/fs/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPath: node.path, newPath: destPath }),
+      });
+      if (resp.ok) {
+        refreshTree();
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        alert(`移動失敗: ${err.error || resp.statusText}`);
+      }
+    } catch (e) {
+      alert(`移動失敗: ${e}`);
+    }
+    setMoveTarget(null);
+  }, [moveTarget, refreshTree]);
+
+  // ── Existing names for duplicate check ──
+  const [existingNames, setExistingNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!tree?.children) { setExistingNames([]); return; }
+    setExistingNames(tree.children.map(c => c.name));
+  }, [tree]);
 
   if (loading) {
     return (
@@ -388,9 +664,52 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         expandedPaths={expandedPaths}
         projectRoot={projectRoot}
         isWorkspaceRoot={true}
-        onRemoveWorkspace={onRemoveWorkspace}
+        onCtx={handleCtx}
+        renamingNode={renamingNode}
+        onRename={handleRename}
       />
-      {ctxMenu && <ContextMenu menu={ctxMenu} onDelete={(m) => { setCtxMenu(null); setConfirmDelete(m); }} onClose={() => setCtxMenu(null)} onRemoveWorkspace={onRemoveWorkspace} onEdit={onEditFile} />}
+
+      {/* New item inline input */}
+      {newItem && (
+        <NewItemInput
+          parentPath={newItem.parentPath}
+          depth={newItem.depth}
+          type={newItem.type}
+          onConfirm={handleCreate}
+          onCancel={() => setNewItem(null)}
+        />
+      )}
+
+      {/* File Import Picker */}
+      <FileImportPicker
+        open={showPicker && pickerMode === "import"}
+        onClose={() => { setShowPicker(false); setImportTargetDir(""); }}
+        onPick={handleImport}
+        existingNames={existingNames}
+        title={importTargetDir ? `匯入檔案到 ${importTargetDir.split("/").pop()}` : "匯入檔案"}
+      />
+
+      {/* Move Picker */}
+      {moveTarget && (
+        <MoveFolderPicker
+          open={showPicker && pickerMode === "move"}
+          onClose={() => { setShowPicker(false); setMoveTarget(null); }}
+          onPick={handleMove}
+          rootPath={projectRoot}
+          itemName={moveTarget.node.name}
+        />
+      )}
+
+      {/* Context menu */}
+      {ctxMenu && (
+        <ContextMenu
+          menu={ctxMenu}
+          onAction={handleAction}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
+
+      {/* Delete confirmation */}
       {confirmDelete && (
         <div
           style={{
@@ -415,7 +734,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
               {confirmDelete.isDir && (
                 <span style={{ color: "#ef4444", fontWeight: 500 }}>This will delete the folder and all its contents recursively. </span>
               )}
-              <span style={{ fontFamily: "monospace", fontSize: 12 }}>{confirmDelete.relativePath}</span>
+              <span style={{ fontFamily: "monospace", fontSize: 12 }}>{confirmDelete.relativePath || confirmDelete.name}</span>
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
@@ -432,7 +751,6 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
                   try {
                     const resp = await fetch(`${API_BASE}/api/fs/item?path=${encodeURIComponent(confirmDelete.fullPath)}`, { method: "DELETE" });
                     if (resp.ok) {
-                      // Remove from expandedPaths
                       setExpandedPaths(prev => {
                         const next = new Set(prev);
                         for (const p of next) {

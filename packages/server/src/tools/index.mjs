@@ -416,6 +416,88 @@ async function buildToolDefinitions() {
     }
   });
 
+  // ── Cron Job tools (global, always available) ──
+  tools.push({
+    type: "function",
+    function: {
+      name: "schedule_cronjob",
+      description: "建立排程（Cron Job）。可以設定提醒或定期報告。當使用者說「每天提醒我」「每小時跑一次」「排程」時使用。",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "排程名稱（中文），例如：吃保健品提醒" },
+          type: { type: "string", enum: ["reminder", "report"], description: "reminder=定時提醒，report=定期執行 Skill 報告" },
+          reminderText: { type: "string", description: "提醒文字（type=reminder 時必填），例如：該吃保健品了！💊" },
+          skillId: { type: "string", description: "Skill ID（type=report 時必填），例如：translate" },
+          schedule: { type: "string", description: "Cron 表達式（5 欄）：分 時 日 月 週。例如 '0 9 * * *'=每天9點、'0 * * * *'=每小時、'0 9 * * 1'=每週一9點、'*/30 * * * *'=每30分鐘" },
+          prompt: { type: "string", description: "額外指示（type=report 時可選）" },
+          outputTarget: { type: "string", enum: ["chat", "path"], description: "輸出目標：chat=聊天視窗，path=指定路徑。預設 chat" },
+          outputPath: { type: "string", description: "輸出路徑（outputTarget=path 時必填）" },
+        },
+        required: ["name", "type", "schedule"],
+      },
+    },
+  });
+
+  tools.push({
+    type: "function",
+    function: {
+      name: "list_cronjobs",
+      description: "列出所有排程（Cron Jobs）。顯示名稱、類型、排程、狀態。",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  });
+
+  tools.push({
+    type: "function",
+    function: {
+      name: "update_cronjob",
+      description: "更新排程設定。可以修改排程時間、提醒文字、啟用/停用等。",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "排程 ID（名稱轉 kebab-case）" },
+          name: { type: "string", description: "新名稱（可選）" },
+          schedule: { type: "string", description: "新 cron 表達式（可選）" },
+          reminderText: { type: "string", description: "新提醒文字（可選）" },
+          enabled: { type: "boolean", description: "啟用/停用（可選）" },
+          prompt: { type: "string", description: "新指示（可選）" },
+        },
+        required: ["id"],
+      },
+    },
+  });
+
+  tools.push({
+    type: "function",
+    function: {
+      name: "delete_cronjob",
+      description: "刪除排程。",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "排程 ID 或名稱" },
+        },
+        required: ["id"],
+      },
+    },
+  });
+
+  tools.push({
+    type: "function",
+    function: {
+      name: "run_cronjob",
+      description: "立即執行排程（手動觸發）。",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "排程 ID 或名稱" },
+        },
+        required: ["id"],
+      },
+    },
+  });
+
   return { tools, apps };
 }
 
@@ -703,6 +785,115 @@ function buildHandlers(apps) {
       }
     };
   }
+
+  // ── Cron Job handlers (global) ──
+  handlers.schedule_cronjob = async (args) => {
+    try {
+      const resp = await fetch(`${API}/api/cron-jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: args.name,
+          type: args.type || "reminder",
+          reminderText: args.reminderText || "",
+          skillId: args.skillId || "",
+          schedule: args.schedule || "0 9 * * *",
+          prompt: args.prompt || "",
+          outputTarget: args.outputTarget || "chat",
+          outputPath: args.outputPath || "",
+        }),
+      });
+      const job = await resp.json();
+      if (job.error) return { text: `❌ ${job.error}`, error: true };
+      const typeLabel = job.type === "reminder" ? "⏰ 提醒" : "📊 報告";
+      const detail = job.type === "reminder" ? (job.reminderText || "") : (job.skillId || "");
+      return { text: `✅ 已建立排程：${typeLabel} **${job.name}**\n排程：\`${job.schedule}\`${detail ? "\n内容：" + detail : ""}\nID: ${job.id}`, job };
+    } catch (err) {
+      return { text: `❌ 建立排程失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.list_cronjobs = async () => {
+    try {
+      const resp = await fetch(`${API}/api/cron-jobs`);
+      const jobs = await resp.json();
+      if (!Array.isArray(jobs) || jobs.length === 0) return { text: "目前沒有任何排程", jobs: [] };
+      const list = jobs.map(j => {
+        const icon = j.type === "reminder" ? "⏰" : "📊";
+        const status = j.enabled ? "✅" : "⏸️";
+        const detail = j.type === "reminder" ? (j.reminderText || "") : (j.skillId || "");
+        return `${icon} ${status} **${j.name}** — \`${j.schedule}\`${detail ? " → " + detail : ""} (ID: ${j.id})`;
+      }).join("\n");
+      return { text: `排程列表（${jobs.length} 個）：\n\n${list}`, jobs };
+    } catch (err) {
+      return { text: `❌ 讀取排程失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.update_cronjob = async (args) => {
+    try {
+      // If id doesn't look like a kebab ID, try to find by name
+      let jobId = args.id;
+      const listResp = await fetch(`${API}/api/cron-jobs`);
+      const jobs = await listResp.json();
+      if (Array.isArray(jobs)) {
+        const match = jobs.find(j => j.id === args.id || j.name === args.id);
+        if (match) jobId = match.id;
+      }
+      const patch = {};
+      if (args.name !== undefined) patch.name = args.name;
+      if (args.schedule !== undefined) patch.schedule = args.schedule;
+      if (args.reminderText !== undefined) patch.reminderText = args.reminderText;
+      if (args.enabled !== undefined) patch.enabled = args.enabled;
+      if (args.prompt !== undefined) patch.prompt = args.prompt;
+
+      const resp = await fetch(`${API}/api/cron-jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!resp.ok) return { text: `❌ 找不到排程 ID: ${args.id}`, error: true };
+      const job = await resp.json();
+      return { text: `✅ 已更新排程 **${job.name}**`, job };
+    } catch (err) {
+      return { text: `❌ 更新排程失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.delete_cronjob = async ({ id }) => {
+    try {
+      // Try to find by name first
+      let jobId = id;
+      const listResp = await fetch(`${API}/api/cron-jobs`);
+      const jobs = await listResp.json();
+      if (Array.isArray(jobs)) {
+        const match = jobs.find(j => j.id === id || j.name === id);
+        if (match) jobId = match.id;
+      }
+      const resp = await fetch(`${API}/api/cron-jobs/${jobId}`, { method: "DELETE" });
+      if (!resp.ok) return { text: `❌ 找不到排程: ${id}`, error: true };
+      return { text: `🗑️ 已刪除排程 ${id}` };
+    } catch (err) {
+      return { text: `❌ 刪除排程失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.run_cronjob = async ({ id }) => {
+    try {
+      let jobId = id;
+      const listResp = await fetch(`${API}/api/cron-jobs`);
+      const jobs = await listResp.json();
+      if (Array.isArray(jobs)) {
+        const match = jobs.find(j => j.id === id || j.name === id);
+        if (match) jobId = match.id;
+      }
+      const resp = await fetch(`${API}/api/cron-jobs/${jobId}/run`, { method: "POST" });
+      if (!resp.ok) return { text: `❌ 找不到排程: ${id}`, error: true };
+      return { text: `▶ 已立即執行排程 **${id}**` };
+    } catch (err) {
+      return { text: `❌ 執行排程失敗：${err.message}`, error: true };
+    }
+  };
 
   // ── Memory handlers (global) ──
   // Tool definitions are in buildToolDefinitions()

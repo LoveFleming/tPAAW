@@ -814,6 +814,7 @@ function AppInner() {
                         onSelectFile={handleSelectFile}
                         onRemoveWorkspace={removeWorkspace}
                         onEditFile={handleEditFile}
+                        onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)}
                       />
                       <button
                         onClick={() => removeWorkspace(dir)}
