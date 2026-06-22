@@ -303,6 +303,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
           if (data === "[DONE]") continue;
           try {
             const parsed = JSON.parse(data);
+            // Debug: 印每個 SSE event 的 key，抓格式問題
+            if (sseChunkCount <= 10) console.log(`[Chat SSE] event keys:`, Object.keys(parsed), JSON.stringify(parsed).slice(0, 150));
             if (parsed.error) {
               fullContent += `\n❌ ${parsed.message}`;
             } else if (parsed.content) {
