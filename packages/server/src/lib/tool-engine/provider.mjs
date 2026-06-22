@@ -60,6 +60,10 @@ export class OpenAICompatibleAdapter {
     if (body.tools?.length > 0) {
       console.log(`[Provider] Tool names:`, body.tools.map(t => t.function.name).join(', '))
     }
+    // ★ 完整 payload — 直接複製到 Postman 測試
+    console.log(`[Provider] ===== FULL PAYLOAD (copy to Postman) =====`)
+    console.log(JSON.stringify(body, null, 2))
+    console.log(`[Provider] ===== END PAYLOAD =====`)
 
     let response
     try {
