@@ -60,10 +60,12 @@ export class OpenAICompatibleAdapter {
     if (body.tools?.length > 0) {
       console.log(`[Provider] Tool names:`, body.tools.map(t => t.function.name).join(', '))
     }
-    // ★ 完整 payload — 寫到 temp file + 印 log
-    const os = await import('os')
+    // ★ 完整 payload — 寫到 package temp file + 印 log
     const fs = await import('fs')
-    const payloadPath = `${os.tmpdir()}/paaw-payload-${Date.now()}.json`
+    const path = await import('path')
+    const tempDir = path.join(process.cwd(), 'temp')
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
+    const payloadPath = path.join(tempDir, `payload-${Date.now()}.json`)
     fs.writeFileSync(payloadPath, JSON.stringify(body, null, 2))
     console.log(`[Provider] Payload written to: ${payloadPath}`)
     console.log(`[Provider] Headers:`, JSON.stringify(headers, null, 2))
