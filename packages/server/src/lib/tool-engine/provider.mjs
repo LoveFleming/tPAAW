@@ -52,6 +52,14 @@ export class OpenAICompatibleAdapter {
     }
 
     console.log(`[Provider] → POST ${url} model=${modelName} msgs=${messages.length} tools=${body.tools?.length || 0}`)
+    console.log(`[Provider] Request body size: ${JSON.stringify(body).length} bytes`)
+    // 印 request body 關鍵欄位，跟 Postman 比較
+    console.log(`[Provider] Body keys:`, Object.keys(body),
+      `stream=${body.stream}, max_tokens=${body.max_tokens},`,
+      `tool_choice=${body.tool_choice}, tools_count=${body.tools?.length}`)
+    if (body.tools?.length > 0) {
+      console.log(`[Provider] Tool names:`, body.tools.map(t => t.function.name).join(', '))
+    }
 
     let response
     try {
@@ -74,6 +82,9 @@ export class OpenAICompatibleAdapter {
       yield { type: 'error', message: `API error ${response.status}: ${errText.slice(0, 300)}` }
       return
     }
+
+    // 印 response headers — 可能有不支援的線索
+    console.log(`[Provider] Response headers:`, Object.fromEntries([...response.headers.entries()].slice(0, 10)))
 
     if (!response.body) {
       console.log(`[Provider] No response body!`)
