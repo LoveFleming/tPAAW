@@ -61,8 +61,9 @@ export class OpenAICompatibleAdapter {
       console.log(`[Provider] Tool names:`, body.tools.map(t => t.function.name).join(', '))
     }
     // ★ 完整 payload — 寫到 temp file + 印 log
+    const os = await import('os')
     const fs = await import('fs')
-    const payloadPath = `/tmp/paaw-payload-${Date.now()}.json`
+    const payloadPath = `${os.tmpdir()}/paaw-payload-${Date.now()}.json`
     fs.writeFileSync(payloadPath, JSON.stringify(body, null, 2))
     console.log(`[Provider] Payload written to: ${payloadPath}`)
     console.log(`[Provider] Headers:`, JSON.stringify(headers, null, 2))
