@@ -40,11 +40,16 @@ export class OpenAICompatibleAdapter {
       body.tool_choice = 'auto'
     }
 
+    const controller = new AbortController()
+    const timeoutMs = 120_000 // 2 min overall timeout per API call
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-    })
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout))
 
     if (!response.ok) {
       const errText = await response.text()
@@ -58,11 +63,20 @@ export class OpenAICompatibleAdapter {
 
     // 累積 tool calls（index → { id, name, args }）
     const pendingTools = new Map()
+    let lastChunkTime = Date.now()
+    const readTimeoutMs = 60_000 // 60s idle timeout — if no SSE data, abort
+    const readTimeoutCheck = setInterval(() => {
+      if (Date.now() - lastChunkTime > readTimeoutMs) {
+        console.log(`[Provider] Read idle timeout (${readTimeoutMs}ms), aborting`)
+        controller.abort()
+      }
+    }, 10_000)
 
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
+        lastChunkTime = Date.now()
 
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
@@ -149,8 +163,17 @@ export class OpenAICompatibleAdapter {
       } else {
         yield { type: 'done', finishReason: 'stop', toolCalls: [] }
       }
+    } catch (err) {
+      // Abort timeout or manual abort
+      if (err.name === 'AbortError') {
+        console.log(`[Provider] Request aborted (timeout or manual)`)
+        yield { type: 'error', message: 'AI 回應逾時，請稍後再試' }
+        return
+      }
+      throw err
     } finally {
-      reader.releaseLock()
+      clearInterval(readTimeoutCheck)
+      try { reader.releaseLock() } catch {}
     }
   }
 }
