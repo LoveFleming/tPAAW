@@ -71,6 +71,11 @@ export class ToolEngine {
         const roundStart = Date.now()
 
         console.log(`[ToolEngine] Round ${round + 1}/${this.maxToolRounds} calling provider... msgs=${messages.length} tools=${tools.length}`)
+        if (round > 0) {
+          // Round 2+ — 印最後幾個 messages 看 tool result 格式
+          const last3 = messages.slice(-3).map(m => ({ role: m.role, contentLen: typeof m.content === 'string' ? m.content.length : JSON.stringify(m.content).length, tool_call_id: m.tool_call_id, tool_calls: m.tool_calls?.length }))
+          console.log(`[ToolEngine] Round ${round + 1} last 3 msgs:`, JSON.stringify(last3))
+        }
 
         for await (const chunk of this.provider.chat(messages, tools, model)) {
           switch (chunk.type) {
@@ -129,6 +134,7 @@ export class ToolEngine {
             }
 
             messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) })
+            console.log(`[ToolEngine]   ← tool result pushed: ${tc.function.name} id=${tc.id} contentLen=${JSON.stringify(result).length} msgs=${messages.length}`)
           }
           continue // 下一輪
         }
