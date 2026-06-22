@@ -37,8 +37,16 @@ export class OpenAICompatibleAdapter {
     }
 
     if (tools.length > 0 && this.config.supportsTools !== false) {
-      body.tools = tools
-      body.tool_choice = 'auto'
+      const maxTools = this.config.maxTools || tools.length
+      const trimmed = tools.slice(0, maxTools)
+      if (trimmed.length < tools.length) {
+        console.log(`[Provider] Trimmed tools from ${tools.length} to ${trimmed.length} (maxTools=${maxTools})`)
+      }
+      body.tools = trimmed
+      // 有些 API 不支援 tool_choice，不帶
+      if (this.config.supportsToolChoice !== false) {
+        body.tool_choice = 'auto'
+      }
     }
 
     const response = await fetch(url, {
