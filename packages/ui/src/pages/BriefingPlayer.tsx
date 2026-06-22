@@ -77,6 +77,27 @@ interface ParsedMarkdown {
   fileRefs: string[];
 }
 
+function normalizePath(p: string): string {
+  // Convert Windows backslashes to forward slashes for consistent handling
+  return p.replace(/\\+/g, "/");
+}
+
+function isAbsolutePath(p: string): boolean {
+  return p.startsWith("/") || /^[A-Za-z]:/.test(p);
+}
+
+function pathBasename(p: string): string {
+  const normalized = normalizePath(p);
+  return normalized.split("/").pop() || p;
+}
+
+function joinPath(dir: string, rel: string): string {
+  const nd = normalizePath(dir);
+  const nr = normalizePath(rel);
+  if (nd.endsWith("/")) return nd + nr;
+  return nd + "/" + nr;
+}
+
 function parseMarkdown(rawText: string, mdDir: string): ParsedMarkdown {
   const separatorIdx = rawText.indexOf("\n---\n");
   let contentPart = rawText;
@@ -92,14 +113,16 @@ function parseMarkdown(rawText: string, mdDir: string): ParsedMarkdown {
   let match;
   while ((match = refRegex.exec(contentPart)) !== null) {
     let p = match[1].trim();
-    if (!p.startsWith("/")) p = mdDir + "/" + p;
+    p = normalizePath(p);
+    if (!isAbsolutePath(p)) p = joinPath(mdDir, p);
     allRefs.push(p);
   }
   contentPart = contentPart.replace(/@file:\s*.+/g, "").trim();
 
   while ((match = refRegex.exec(refsPart)) !== null) {
     let p = match[1].trim();
-    if (!p.startsWith("/")) p = mdDir + "/" + p;
+    p = normalizePath(p);
+    if (!isAbsolutePath(p)) p = joinPath(mdDir, p);
     allRefs.push(p);
   }
 
@@ -249,7 +272,7 @@ function RefOverlay({ refPath, onClose, theme }: { refPath: string; onClose: () 
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const fileName = refPath.split("/").pop() || refPath;
+  const fileName = pathBasename(refPath);
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
   const hljsLang = getHljsLang(fileName);
 
@@ -412,7 +435,8 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
       .then(data => {
         if (cancelled) return;
         const text = data.content || "";
-        const mdDir = slide.markdown!.substring(0, slide.markdown!.lastIndexOf("/"));
+        const normalizedMdPath = normalizePath(slide.markdown!);
+        const mdDir = normalizedMdPath.substring(0, normalizedMdPath.lastIndexOf("/"));
         setParsedMd(parseMarkdown(text, mdDir));
       })
       .catch(() => { if (!cancelled) setParsedMd({ content: "", fileRefs: [] }); })
@@ -942,7 +966,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-stone-400 uppercase tracking-wide">📎</span>
             {parsedMd.fileRefs.map(refPath => {
-              const fname = refPath.split("/").pop() || refPath;
+              const fname = pathBasename(refPath);
               const isActive = refOverlay === refPath;
               return (
                 <button key={refPath} onClick={() => setRefOverlay(isActive ? null : refPath)} className="px-2.5 py-1 rounded-md text-xs font-mono transition-all" style={isActive ? { background: t.accentBg, color: t.accentText } : { color: "#78716C" }} title={refPath}>📄 {fname}</button>
