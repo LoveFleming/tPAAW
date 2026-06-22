@@ -847,7 +847,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
       {/* Main content */}
       <div
         ref={contentAreaRef}
-        className="flex-1 flex overflow-hidden relative"
+        className="flex-1 flex overflow-hidden relative group"
         style={{ cursor: drawMode === "pen" ? PENCIL_CURSOR : drawMode === "marker" ? "copy" : "default" }}
         onMouseDown={drawMode !== "none" ? handleContentMouseDown : undefined}
       >
@@ -951,12 +951,12 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           </div>
         )}
 
-        {/* Prev / Next hover zones */}
+        {/* Prev / Next hover zones — icon hidden until hover */}
         {currentIdx > 0 && (
-          <button onClick={() => setCurrentIdx(i => i - 1)} className="absolute left-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-stone-300 hover:text-stone-500 hover:bg-black/5 transition-all cursor-pointer" title="上一頁 (←)">◀</button>
+          <button onClick={() => setCurrentIdx(i => i - 1)} className="absolute left-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-stone-300/0 hover:text-stone-500 hover:bg-black/5 transition-all cursor-pointer group-hover:text-stone-300" title="上一頁 (←)">◀</button>
         )}
         {currentIdx < slides.length - 1 && (
-          <button onClick={() => setCurrentIdx(i => i + 1)} className="absolute right-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-stone-300 hover:text-stone-500 hover:bg-black/5 transition-all cursor-pointer" title="下一頁 (→)">▶</button>
+          <button onClick={() => setCurrentIdx(i => i + 1)} className="absolute right-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-stone-300/0 hover:text-stone-500 hover:bg-black/5 transition-all cursor-pointer group-hover:text-stone-300" title="下一頁 (→)">▶</button>
         )}
       </div>
 
