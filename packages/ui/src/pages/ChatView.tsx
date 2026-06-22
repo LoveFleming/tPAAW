@@ -241,6 +241,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
     const withAssistant = [...newMessages, assistantMsg];
     setMessages(withAssistant);
 
+    let stallCheck: ReturnType<typeof setTimeout> | null = null;
+
     try {
       const ctrl = new AbortController();
       abortRef.current = ctrl;
@@ -270,7 +272,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       let fullContent = "";
       let sseChunkCount = 0;
       const sseStart = Date.now();
-      let stallCheck: ReturnType<typeof setTimeout> | null = null;
       console.log(`[Chat SSE] Stream started`);
 
       // 10 秒沒收到任何 data → 印警告
@@ -346,7 +347,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
         await saveMessages(activeChatId, [...newMessages, assistantMsg]);
       }
     } finally {
-      clearTimeout(stallCheck!);
+      clearTimeout(stallCheck);
       setIsLoading(false);
       abortRef.current = null;
     }
