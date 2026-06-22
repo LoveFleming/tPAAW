@@ -45,6 +45,17 @@ export class OpenAICompatibleAdapter {
 
     console.log(`[Provider] → POST ${url} model=${modelName} msgs=${messages.length} tools=${tools.length}`)
 
+    // ★ 寫 payload 到 temp
+    const fs = await import('fs')
+    const nodePath = await import('path')
+    const tempDir = nodePath.join(process.cwd(), 'temp')
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
+    const payloadPath = nodePath.join(tempDir, `payload-${Date.now()}.json`)
+    fs.writeFileSync(payloadPath, JSON.stringify(body, null, 2))
+    console.log(`[Provider] Payload: ${payloadPath}`)
+    console.log(`[Provider] Headers:`, JSON.stringify({ ...headers, Authorization: headers.Authorization?.slice(0, 15) + '...' }, null, 2))
+    console.log(`[Provider] URL: ${url}`)
+
     let response
     try {
       response = await fetch(url, {
@@ -79,12 +90,24 @@ export class OpenAICompatibleAdapter {
     // 累積 tool calls（index → { id, name, args }）
     const pendingTools = new Map()
 
+    // ★ 寫 streaming result 到 temp
+    const streamLogPath = nodePath.join(tempDir, `stream-${Date.now()}.log`)
+    let streamLog = ''
+    const logStream = (line) => { streamLog += line + '\n' }
+
     try {
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          logStream('=== STREAM ENDED ===')
+          break
+        }
 
-        buffer += decoder.decode(value, { stream: true })
+        const rawChunk = decoder.decode(value, { stream: true })
+        logStream(`--- CHUNK ${Date.now()} bytes=${value?.length} ---`)
+        logStream(rawChunk)
+
+        buffer += rawChunk
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
 
@@ -92,12 +115,19 @@ export class OpenAICompatibleAdapter {
           const trimmed = line.trim()
           if (!trimmed || !trimmed.startsWith('data: ')) continue
           const data = trimmed.slice(6)
-          if (data === '[DONE]') continue
+          if (data === '[DONE]') {
+            logStream('[DONE] received')
+            continue
+          }
 
           try {
             const parsed = JSON.parse(data)
+            logStream(`PARSED: ${JSON.stringify(parsed).slice(0, 300)}`)
             const choice = parsed.choices?.[0]
-            if (!choice) continue
+            if (!choice) {
+              logStream(`NO CHOICE: ${JSON.stringify(parsed).slice(0, 200)}`)
+              continue
+            }
 
             const finishReason = choice.finish_reason
             const delta = choice.delta
@@ -127,6 +157,7 @@ export class OpenAICompatibleAdapter {
 
             // Finish
             if (finishReason === 'tool_calls') {
+              logStream(`FINISH: tool_calls, count=${pendingTools.size}`)
               console.log(`[Provider] finishReason=tool_calls, count=${pendingTools.size}`)
               const toolCalls = []
               for (const [, call] of pendingTools) {
@@ -143,12 +174,13 @@ export class OpenAICompatibleAdapter {
             }
 
             if (finishReason === 'stop') {
+              logStream(`FINISH: stop`)
               console.log(`[Provider] finishReason=stop`)
               yield { type: 'done', finishReason, toolCalls: [] }
               break
             }
-          } catch {
-            // parse error, skip
+          } catch (parseErr) {
+            logStream(`PARSE ERROR: ${parseErr.message} data=${data.slice(0, 200)}`)
           }
         }
       }
@@ -168,6 +200,8 @@ export class OpenAICompatibleAdapter {
         yield { type: 'done', finishReason: 'stop', toolCalls: [] }
       }
     } finally {
+      // 寫 stream log 到 temp file
+      try { fs.writeFileSync(streamLogPath, streamLog); console.log(`[Provider] Stream log: ${streamLogPath}`) } catch {}
       reader.releaseLock()
     }
   }
