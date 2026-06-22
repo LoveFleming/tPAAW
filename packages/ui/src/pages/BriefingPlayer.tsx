@@ -834,7 +834,9 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           <span className="text-xs text-stone-500 font-medium truncate max-w-[300px]">📂 {selectedDir.split("/").pop()}</span>
         </div>
         <div className="flex items-center gap-1">
+          <button onClick={() => setCurrentIdx(i => Math.max(i - 1, 0))} disabled={currentIdx === 0} className="px-2 py-1 rounded text-stone-500 hover:text-stone-800 hover:bg-stone-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-sm">←</button>
           <span className="text-xs text-stone-500 font-mono px-2">{currentIdx + 1} / {slides.length}</span>
+          <button onClick={() => setCurrentIdx(i => Math.min(i + 1, slides.length - 1))} disabled={currentIdx === slides.length - 1} className="px-2 py-1 rounded text-stone-500 hover:text-stone-800 hover:bg-stone-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-sm">→</button>
           <span className="text-[10px] text-stone-300 mx-1">|</span>
           <button onClick={() => setOverviewMode(true)} className={`px-2 py-1 rounded text-xs transition-colors ${overviewMode ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={overviewMode ? { background: t.accent } : {}} title="Overview (O)">📊</button>
           <button onClick={() => setShowNotes(v => !v)} className={`px-2 py-1 rounded text-xs transition-colors ${showNotes ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={showNotes ? { background: t.accent } : {}} title="Notes (N)">📝</button>
@@ -1003,12 +1005,12 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           </div>
         )}
 
-        {/* Prev / Next hover zones — icon hidden until hover */}
+        {/* Side click zones for prev/next — no icon, just hover highlight */}
         {currentIdx > 0 && (
-          <button onClick={() => setCurrentIdx(i => i - 1)} className="absolute left-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-stone-300/0 hover:text-stone-500 hover:bg-black/5 transition-all cursor-pointer group-hover:text-stone-300" title="上一頁 (←)">◀</button>
+          <button onClick={() => setCurrentIdx(i => i - 1)} className="absolute left-0 top-0 bottom-0 z-20 w-16 hover:bg-black/5 transition-all cursor-pointer" title="上一頁 (←)" />
         )}
         {currentIdx < slides.length - 1 && (
-          <button onClick={() => setCurrentIdx(i => i + 1)} className="absolute right-0 top-0 bottom-0 z-20 w-16 flex items-center justify-center text-stone-300/0 hover:text-stone-500 hover:bg-black/5 transition-all cursor-pointer group-hover:text-stone-300" title="下一頁 (→)">▶</button>
+          <button onClick={() => setCurrentIdx(i => i + 1)} className="absolute right-0 top-0 bottom-0 z-20 w-16 hover:bg-black/5 transition-all cursor-pointer" title="下一頁 (→)" />
         )}
       </div>
 
