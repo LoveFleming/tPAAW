@@ -837,51 +837,6 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           <button onClick={() => setOverviewMode(true)} className={`px-2 py-1 rounded text-xs transition-colors ${overviewMode ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={overviewMode ? { background: t.accent } : {}} title="Overview (O)">📊</button>
           <button onClick={() => setShowNotes(v => !v)} className={`px-2 py-1 rounded text-xs transition-colors ${showNotes ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={showNotes ? { background: t.accent } : {}} title="Notes (N)">📝</button>
           <button onClick={() => { if (!fullscreen) { containerRef.current?.requestFullscreen?.(); } else { document.exitFullscreen?.(); } }} className="px-2 py-1 rounded text-xs text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors" title="Fullscreen (F)">{fullscreen ? "🗗" : "⛶"}</button>
-          {/* File refs dropdown */}
-          {parsedMd.fileRefs.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setShowFileDropdown(v => !v)}
-                className="relative px-2 py-1 rounded text-xs transition-colors"
-                style={showFileDropdown ? { background: t.accentBg, color: t.accentText } : { color: "#78716C" }}
-                title="參考檔案"
-              >
-                📎
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold text-white px-1" style={{ background: t.accent }}>{parsedMd.fileRefs.length}</span>
-              </button>
-              {showFileDropdown && (
-                <>
-                  {/* Invisible backdrop to close dropdown */}
-                  <div className="fixed inset-0 z-40" onClick={() => setShowFileDropdown(false)} />
-                  <div
-                    className="absolute right-0 top-full mt-1 z-50 rounded-xl border shadow-xl bg-white py-1 min-w-[220px] max-h-[320px] overflow-y-auto"
-                    style={{ borderColor: t.accentBorder, scrollbarWidth: "thin" }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400 border-b" style={{ borderColor: t.accentBorder + "40" }}>
-                      📎 參考檔案 ({parsedMd.fileRefs.length})
-                    </div>
-                    {parsedMd.fileRefs.map(refPath => {
-                      const fname = pathBasename(refPath);
-                      const isActive = refOverlay === refPath;
-                      return (
-                        <button
-                          key={refPath}
-                          onClick={() => { setRefOverlay(isActive ? null : refPath); setShowFileDropdown(false); }}
-                          className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-stone-50 transition-colors"
-                          style={isActive ? { background: t.accentBg, color: t.accentText } : { color: "#57534E" }}
-                          title={refPath}
-                        >
-                          <span className="shrink-0">📄</span>
-                          <span className="font-mono truncate">{fname}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -993,6 +948,55 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           <div data-annotation-ui className="absolute z-40" style={{ top: 8, left: "50%", transform: "translateX(-50%)" }}>
             <div className="px-3 py-1 rounded-full text-xs" style={{ background: t.accentBg, border: `1px solid ${t.accentBorder}`, color: t.accentText }}>
               {drawMode === "pen" ? "✏️ 手繪模式" : `📍 標記模式 (${selectedIcon})`}
+            </div>
+          </div>
+        )}
+
+        {/* File refs dropdown — bottom-left floating button */}
+        {parsedMd.fileRefs.length > 0 && (
+          <div data-annotation-ui className="absolute z-40" style={{ bottom: 12, left: 12 }}>
+            <div className="relative">
+              <button
+                onClick={() => setShowFileDropdown(v => !v)}
+                className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border shadow-lg transition-all hover:shadow-md"
+                style={{ borderColor: showFileDropdown ? t.accent : t.accentBorder }}
+                title="參考檔案"
+              >
+                <span className="text-sm">📎</span>
+                <span className="text-xs font-medium" style={{ color: t.accentText }}>附件</span>
+                <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1" style={{ background: t.accent }}>{parsedMd.fileRefs.length}</span>
+              </button>
+              {showFileDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowFileDropdown(false)} />
+                  <div
+                    className="absolute bottom-full mb-2 left-0 z-50 rounded-xl border shadow-xl bg-white py-1 min-w-[240px] max-h-[300px] overflow-y-auto"
+                    style={{ borderColor: t.accentBorder, scrollbarWidth: "thin" }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400 border-b sticky top-0 bg-white" style={{ borderColor: t.accentBorder + "40" }}>
+                      📎 參考檔案 ({parsedMd.fileRefs.length})
+                    </div>
+                    {parsedMd.fileRefs.map(refPath => {
+                      const fname = pathBasename(refPath);
+                      const isActive = refOverlay === refPath;
+                      return (
+                        <button
+                          key={refPath}
+                          onClick={() => { setRefOverlay(isActive ? null : refPath); setShowFileDropdown(false); }}
+                          className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-stone-50 transition-colors"
+                          style={isActive ? { background: t.accentBg, color: t.accentText } : { color: "#57534E" }}
+                          title={refPath}
+                        >
+                          <span className="shrink-0">📄</span>
+                          <span className="font-mono truncate flex-1">{fname}</span>
+                          {isActive && <span className="shrink-0 text-[9px]">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
