@@ -244,7 +244,7 @@ export default async function chatRoutes(req, res) {
         });
       } catch {}
     } catch (err) {
-      console.error("[chat] Error:", err.message);
+      console.error("[chat] Error:", err.message, "\nStack:", err.stack);
       if (!res.headersSent) {
         json(res, { error: err.message }, 500);
       } else {

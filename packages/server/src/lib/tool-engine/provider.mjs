@@ -51,6 +51,7 @@ export class OpenAICompatibleAdapter {
 
     if (!response.ok) {
       const errText = await response.text()
+      console.log(`[Provider] Error body: ${errText.slice(0, 500)}`)
       yield { type: 'error', message: `API error ${response.status}: ${errText.slice(0, 300)}` }
       return
     }
@@ -80,10 +81,17 @@ export class OpenAICompatibleAdapter {
           try {
             const parsed = JSON.parse(data)
             const choice = parsed.choices?.[0]
-            if (!choice) continue
+            if (!choice) {
+              console.log(`[Provider] No choice in chunk:`, JSON.stringify(parsed).slice(0, 200))
+              continue
+            }
 
             const finishReason = choice.finish_reason
             const delta = choice.delta
+
+            if (finishReason) {
+              console.log(`[Provider] finishReason=${finishReason}, delta content=${delta?.content?.length || 0}, tool_calls=${delta?.tool_calls?.length || 0}`)
+            }
 
             // Text
             if (delta?.content) {
