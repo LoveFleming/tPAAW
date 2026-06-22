@@ -109,15 +109,28 @@ export class OpenAICompatibleAdapter {
     // 累積 tool calls（index → { id, name, args }）
     const pendingTools = new Map()
 
+    // ★ 寫 streaming result 到 temp
+    const streamLogPath = path.join(tempDir, `stream-result-${Date.now()}.log`)
+    let streamLog = ''
+    const writeStreamLog = (line) => {
+      streamLog += line + '\n'
+    }
+
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
           console.log(`[Provider] Stream ended (reader.done=true)`)
+          writeStreamLog(`=== STREAM ENDED ===`)
           break
         }
 
-        buffer += decoder.decode(value, { stream: true })
+        const rawChunk = decoder.decode(value, { stream: true })
+        buffer += rawChunk
+        // 記錄原始 chunk
+        writeStreamLog(`--- CHUNK ${Date.now()} ---`)
+        writeStreamLog(rawChunk)
+
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
 
@@ -125,10 +138,14 @@ export class OpenAICompatibleAdapter {
           const trimmed = line.trim()
           if (!trimmed || !trimmed.startsWith('data: ')) continue
           const data = trimmed.slice(6)
-          if (data === '[DONE]') continue
+          if (data === '[DONE]') {
+            writeStreamLog(`[DONE] received`)
+            continue
+          }
 
           try {
             const parsed = JSON.parse(data)
+            writeStreamLog(`PARSED: ${JSON.stringify(parsed).slice(0, 500)}`)
             const choice = parsed.choices?.[0]
             if (!choice) continue
 
@@ -160,8 +177,10 @@ export class OpenAICompatibleAdapter {
 
             // Finish
             if (finishReason === 'tool_calls') {
+              writeStreamLog(`FINISH: tool_calls, count=${pendingTools.size}`)
               const toolCalls = []
               for (const [, call] of pendingTools) {
+                writeStreamLog(`  TOOL: id=${call.id} name=${call.name} argsLen=${call.args.length}`)
                 toolCalls.push({
                   id: call.id,
                   type: 'function',
@@ -174,11 +193,12 @@ export class OpenAICompatibleAdapter {
             }
 
             if (finishReason === 'stop') {
+              writeStreamLog(`FINISH: stop`)
               yield { type: 'done', finishReason: 'stop', toolCalls: [] }
               break
             }
-          } catch {
-            // parse error, skip
+          } catch (e) {
+            writeStreamLog(`PARSE ERROR: ${e.message} data=${data.slice(0, 200)}`)
           }
         }
       }
@@ -198,6 +218,11 @@ export class OpenAICompatibleAdapter {
         yield { type: 'done', finishReason: 'stop', toolCalls: [] }
       }
     } finally {
+      // 寫 stream log 到 temp file
+      try {
+        fs.writeFileSync(streamLogPath, streamLog)
+        console.log(`[Provider] Stream log written to: ${streamLogPath}`)
+      } catch {}
       try { reader.releaseLock() } catch {}
     }
   }
