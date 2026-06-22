@@ -296,11 +296,16 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
               fullContent += `⏳ ${labelShort} 執行中...`;
             } else if (parsed.tool_result) {
               const tr = parsed.tool_result;
+              // Remove the "⏳ 執行中..." status line
+              fullContent = fullContent.replace(/\n?⏳ [^\n]*執行中\.\.\./g, "");
+              // Show tool result content
               if (tr.result?.error) {
                 fullContent += `\n❌ ${tr.result.text}\n`;
+              } else if (tr.result?.text) {
+                fullContent += `\n${tr.result.text}\n`;
               } else {
-                // Remove the "⏳ 執行中..." status line
-                fullContent = fullContent.replace(/\n?⏳ [^\n]*執行中\.\.\./g, "");
+                const label = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+                fullContent += `\n✅ ${label} 完成\n`;
               }
             }
           } catch {}
