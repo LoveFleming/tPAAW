@@ -47,7 +47,8 @@ export class OpenAICompatibleAdapter {
         console.log(`[Provider] Trimmed tools from ${tools.length} to ${trimmed.length} (maxTools=${maxTools})`)
       }
       body.tools = trimmed
-      body.tool_choice = 'auto'
+      // 不帶 tool_choice — 很多 OpenAI-compatible server 不支援，會回空內容
+      // AI 自然會判斷要不要用 tool，不需要強制 auto
     }
 
     console.log(`[Provider] → POST ${url} model=${modelName} msgs=${messages.length} tools=${body.tools?.length || 0}`)
