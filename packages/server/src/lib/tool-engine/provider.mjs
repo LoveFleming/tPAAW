@@ -36,7 +36,7 @@ export class OpenAICompatibleAdapter {
       max_tokens: 4096,
     }
 
-    if (tools.length > 0) {
+    if (tools.length > 0 && this.config.supportsTools !== false) {
       body.tools = tools
       body.tool_choice = 'auto'
     }
