@@ -3,6 +3,9 @@
  *
  * 把不同 provider 的 API 差異擋在外面。
  * 目前實作 OpenAI-compatible（Qwen、DeepSeek、GLM 都支援）
+ *
+ * 2026-06-22: 清理掉 supportsTools/supportsToolChoice 等複雜設定
+ *             只保留 maxTools（簡單明確）
  */
 
 // ── OpenAI-compatible Provider ──
@@ -36,31 +39,44 @@ export class OpenAICompatibleAdapter {
       max_tokens: 4096,
     }
 
-    if (tools.length > 0 && this.config.supportsTools !== false) {
+    // Tools — 如果有 maxTools 就截斷
+    if (tools.length > 0) {
       const maxTools = this.config.maxTools || tools.length
       const trimmed = tools.slice(0, maxTools)
       if (trimmed.length < tools.length) {
         console.log(`[Provider] Trimmed tools from ${tools.length} to ${trimmed.length} (maxTools=${maxTools})`)
       }
       body.tools = trimmed
-      // 有些 API 不支援 tool_choice，不帶
-      if (this.config.supportsToolChoice !== false) {
-        body.tool_choice = 'auto'
-      }
+      body.tool_choice = 'auto'
     }
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    })
+    console.log(`[Provider] → POST ${url} model=${modelName} msgs=${messages.length} tools=${body.tools?.length || 0}`)
 
-    console.log(`[Provider] ← ${url} status=${response.status} model=${modelName}`)
+    let response
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      })
+    } catch (fetchErr) {
+      console.log(`[Provider] Fetch error: ${fetchErr.message}`)
+      yield { type: 'error', message: `連線錯誤: ${fetchErr.message}` }
+      return
+    }
+
+    console.log(`[Provider] ← status=${response.status} model=${modelName}`)
 
     if (!response.ok) {
-      const errText = await response.text()
+      const errText = await response.text().catch(() => '')
       console.log(`[Provider] Error body: ${errText.slice(0, 500)}`)
       yield { type: 'error', message: `API error ${response.status}: ${errText.slice(0, 300)}` }
+      return
+    }
+
+    if (!response.body) {
+      console.log(`[Provider] No response body!`)
+      yield { type: 'error', message: 'API 回應沒有 body（可能不支援 streaming）' }
       return
     }
 
@@ -92,17 +108,10 @@ export class OpenAICompatibleAdapter {
           try {
             const parsed = JSON.parse(data)
             const choice = parsed.choices?.[0]
-            if (!choice) {
-              console.log(`[Provider] No choice in chunk:`, JSON.stringify(parsed).slice(0, 200))
-              continue
-            }
+            if (!choice) continue
 
             const finishReason = choice.finish_reason
             const delta = choice.delta
-
-            if (finishReason) {
-              console.log(`[Provider] finishReason=${finishReason}, delta content=${delta?.content?.length || 0}, tool_calls=${delta?.tool_calls?.length || 0}`)
-            }
 
             // Text
             if (delta?.content) {
@@ -120,21 +129,17 @@ export class OpenAICompatibleAdapter {
                     name: tc.function?.name || '',
                     args: tc.function?.arguments || '',
                   })
-                  yield { type: 'tool_call_begin', index, id: tc.id, name: tc.function?.name || '' }
                 } else if (tc.function?.arguments) {
                   const existing = pendingTools.get(index)
                   if (existing) existing.args += tc.function.arguments
-                  yield { type: 'tool_call_arg', index, delta: tc.function.arguments }
                 }
               }
             }
 
             // Finish
             if (finishReason === 'tool_calls') {
-              console.log(`[Provider] finishReason=tool_calls, count=${pendingTools.size}`)
               const toolCalls = []
               for (const [, call] of pendingTools) {
-                console.log(`[Provider]   tool: ${call.name}, argsLen=${call.args.length}`)
                 toolCalls.push({
                   id: call.id,
                   type: 'function',
@@ -147,8 +152,7 @@ export class OpenAICompatibleAdapter {
             }
 
             if (finishReason === 'stop') {
-              console.log(`[Provider] finishReason=stop`)
-              yield { type: 'done', finishReason, toolCalls: [] }
+              yield { type: 'done', finishReason: 'stop', toolCalls: [] }
               break
             }
           } catch {
@@ -157,7 +161,7 @@ export class OpenAICompatibleAdapter {
         }
       }
 
-      // Stream ended naturally without finish_reason
+      // Stream ended without finish_reason — yield whatever we have
       if (pendingTools.size > 0) {
         const toolCalls = []
         for (const [, call] of pendingTools) {
@@ -172,7 +176,7 @@ export class OpenAICompatibleAdapter {
         yield { type: 'done', finishReason: 'stop', toolCalls: [] }
       }
     } finally {
-      reader.releaseLock()
+      try { reader.releaseLock() } catch {}
     }
   }
 }
@@ -180,6 +184,5 @@ export class OpenAICompatibleAdapter {
 // ── Factory ──
 
 export function createProviderAdapter(config) {
-  // 現在全部走 OpenAI-compatible
   return new OpenAICompatibleAdapter(config)
 }
