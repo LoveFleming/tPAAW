@@ -12,6 +12,10 @@ if (typeof document !== "undefined" && !document.getElementById("briefing-anim")
       0%, 100% { transform: translate(-50%, -50%) scale(1); }
       50% { transform: translate(-50%, -50%) scale(1.18); }
     }
+    .briefing-topbar:hover .briefing-nav-btn { opacity: 1; }
+    .briefing-nav-btn { opacity: 0; transition: opacity 0.15s; }
+    .briefing-nav-btn:hover { opacity: 1; }
+    .briefing-nav-btn:disabled { opacity: 0 !important; pointer-events: none; }
   `;
   document.head.appendChild(style);
 }
@@ -823,16 +827,16 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: t.accentBg }} ref={containerRef}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-3 py-2 shrink-0 bg-white border-b group/topbar" style={{ borderColor: t.accentBorder }}>
+      <div className="briefing-topbar flex items-center justify-between px-3 py-2 shrink-0 bg-white border-b" style={{ borderColor: t.accentBorder }}>
         <div className="flex items-center gap-2">
           <button onClick={() => { resetAllAnnotations(); setSelectedDir(""); setSlides([]); }} className="text-xs px-2.5 py-1 rounded text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors">← {tt("briefing.changeDir", "切換目錄")}</button>
           <span className="text-[10px] text-stone-300">|</span>
           <span className="text-xs text-stone-500 font-medium truncate max-w-[300px]">📂 {selectedDir.split("/").pop()}</span>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setCurrentIdx(i => Math.max(i - 1, 0))} disabled={currentIdx === 0} className="px-2 py-1 rounded text-stone-500/0 hover:text-stone-800 hover:bg-stone-100 disabled:opacity-0 disabled:cursor-not-allowed transition-colors text-sm group-hover/topbar:text-stone-500" title="上一頁 (←)">←</button>
+          <button onClick={() => setCurrentIdx(i => Math.max(i - 1, 0))} disabled={currentIdx === 0} className="briefing-nav-btn px-2 py-1 rounded hover:text-stone-800 hover:bg-stone-100 disabled:cursor-not-allowed text-sm text-stone-500" title="上一頁 (←)">←</button>
           <span className="text-xs text-stone-500 font-mono px-2">{currentIdx + 1} / {slides.length}</span>
-          <button onClick={() => setCurrentIdx(i => Math.min(i + 1, slides.length - 1))} disabled={currentIdx === slides.length - 1} className="px-2 py-1 rounded text-stone-500/0 hover:text-stone-800 hover:bg-stone-100 disabled:opacity-0 disabled:cursor-not-allowed transition-colors text-sm group-hover/topbar:text-stone-500" title="下一頁 (→)">→</button>
+          <button onClick={() => setCurrentIdx(i => Math.min(i + 1, slides.length - 1))} disabled={currentIdx === slides.length - 1} className="briefing-nav-btn px-2 py-1 rounded hover:text-stone-800 hover:bg-stone-100 disabled:cursor-not-allowed text-sm text-stone-500" title="下一頁 (→)">→</button>
           <span className="text-[10px] text-stone-300 mx-1">|</span>
           <button onClick={() => setOverviewMode(true)} className={`px-2 py-1 rounded text-xs transition-colors ${overviewMode ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={overviewMode ? { background: t.accent } : {}} title="Overview (O)">📊</button>
           <button onClick={() => setShowNotes(v => !v)} className={`px-2 py-1 rounded text-xs transition-colors ${showNotes ? "text-white" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"}`} style={showNotes ? { background: t.accent } : {}} title="Notes (N)">📝</button>
