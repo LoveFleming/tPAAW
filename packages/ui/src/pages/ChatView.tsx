@@ -268,19 +268,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       const decoder = new TextDecoder();
       let buffer = "";
       let fullContent = "";
-      let lastDataTime = Date.now();
-      const SSE_IDLE_TIMEOUT = 90_000; // 90s no data → abort
 
       while (true) {
-        // Check idle timeout before each read
-        if (Date.now() - lastDataTime > SSE_IDLE_TIMEOUT) {
-          ctrl.abort();
-          fullContent += "\n⚠️ AI 回應逾時，請稍後再試";
-          break;
-        }
         const { done, value } = await reader.read();
         if (done) break;
-        lastDataTime = Date.now();
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -307,7 +298,6 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
               const tr = parsed.tool_result;
               // Remove the "⏳ 執行中..." status line
               fullContent = fullContent.replace(/\n?⏳ [^\n]*執行中\.\.\./g, "");
-              // Show tool result content
               if (tr.result?.error) {
                 fullContent += `\n❌ ${tr.result.text}\n`;
               } else if (tr.result?.text) {

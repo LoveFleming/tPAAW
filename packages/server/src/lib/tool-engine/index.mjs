@@ -69,9 +69,6 @@ export class ToolEngine {
         const toolCalls = []
         let finishReason = null
 
-        console.log(`[ToolEngine] Round ${round + 1}: calling provider...`)
-        const roundStart = Date.now()
-
         for await (const chunk of this.provider.chat(messages, tools, model)) {
           switch (chunk.type) {
             case 'text':
@@ -92,7 +89,7 @@ export class ToolEngine {
           }
         }
 
-        console.log(`[ToolEngine] Round ${round + 1}: finish=${finishReason}, tools=${toolCalls.length}, text=${roundText.length}, elapsed=${Date.now() - roundStart}ms`)
+        console.log(`[ToolEngine] Round ${round + 1}: finish=${finishReason}, tools=${toolCalls.length}, text=${roundText.length}`)
 
         // Append assistant response
         const assistantMsg = { role: 'assistant', content: roundText || null }
