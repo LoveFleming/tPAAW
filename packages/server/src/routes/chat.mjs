@@ -131,7 +131,11 @@ export default async function chatRoutes(req, res) {
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
         "Access-Control-Allow-Origin": "*",
+        "X-Accel-Buffering": "no",  // nginx 不緩衝
       });
+      res.flushHeaders(); // 立即刷 header，Windows Chrome 不等 buffer
+      // TCP no-delay：小封包立刻送，不被 Nagle 合併
+      if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
 
       // ── Load tool handlers & convert to executors ──
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
@@ -182,24 +186,29 @@ export default async function chatRoutes(req, res) {
           case 'text':
             fullText += chunk.delta
             res.write(`data: ${JSON.stringify({ content: chunk.delta })}\n\n`)
+            if (typeof res.flush === 'function') res.flush()
             break
 
           case 'tool_start':
             toolsUsed.push(chunk.name)
             res.write(`data: ${JSON.stringify({ tool_call: { name: chunk.name, args: chunk.args, status: 'executing' } })}\n\n`)
+            if (typeof res.flush === 'function') res.flush()
             break
 
           case 'tool_end':
             res.write(`data: ${JSON.stringify({ tool_result: { name: chunk.name, result: chunk.result } })}\n\n`)
+            if (typeof res.flush === 'function') res.flush()
             break
 
           case 'done':
             res.write('data: [DONE]\n\n')
+            if (typeof res.flush === 'function') res.flush()
             res.end()
             break
 
           case 'error':
             res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`)
+            if (typeof res.flush === 'function') res.flush()
             res.end()
             break
         }
@@ -224,6 +233,7 @@ export default async function chatRoutes(req, res) {
         json(res, { error: err.message }, 500);
       } else {
         res.write(`data: ${JSON.stringify({ error: true, message: err.message })}\n\n`);
+        if (typeof res.flush === 'function') res.flush();
         res.end();
       }
     }
