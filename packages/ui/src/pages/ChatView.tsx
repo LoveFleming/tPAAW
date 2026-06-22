@@ -272,6 +272,13 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       const sseStart = Date.now();
       console.log(`[Chat SSE] Stream started`);
 
+      // 10 秒沒收到任何 data → 印警告
+      const stallCheck = setTimeout(() => {
+        if (sseChunkCount === 0) {
+          console.warn(`[Chat SSE] ⚠️ 10秒沒收到任何 SSE data！Server 可能 buffer 住了`);
+        }
+      }, 10000);
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
@@ -296,13 +303,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
             const parsed = JSON.parse(data);
             if (parsed.error) {
               fullContent += `\n❌ ${parsed.message}`;
-            } else if (parsed.status === 'connecting') {
-              // Server 傳來的連接狀態
-              fullContent += `🔗 ${parsed.message}`;
-              console.log(`[Chat SSE] connecting: ${parsed.message} ${Date.now() - sseStart}ms`);
             } else if (parsed.content) {
-              // 收到文字時清掉 connecting 狀態
-              fullContent = fullContent.replace(/🔗 [^\n]*\n?/, '');
               fullContent += parsed.content;
             } else if (parsed.tool_call) {
               // Show executing status — will be cleared when AI responds
@@ -344,6 +345,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
         await saveMessages(activeChatId, [...newMessages, assistantMsg]);
       }
     } finally {
+      clearTimeout(stallCheck);
       setIsLoading(false);
       abortRef.current = null;
     }

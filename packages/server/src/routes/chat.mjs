@@ -140,17 +140,15 @@ export default async function chatRoutes(req, res) {
       if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
       console.log(`[${chatReqId}] SSE headers sent, socket=${res.socket?.remoteAddress}:${res.socket?.remotePort}`);
 
-      // 立即送 connecting 事件，前端不用乾等 API 30 秒
-      res.write(`data: ${JSON.stringify({ status: 'connecting', message: '正在連接 AI...' })}\n\n`);
-      if (typeof res.flush === 'function') res.flush();
-
-      // Heartbeat：每 8 秒送 SSE 註解，保持連線不死
+      // Heartbeat：每 3 秒送 SSE 註解，保持連線 + 強制 flush TCP buffer
       const heartbeatTimer = setInterval(() => {
         try {
           res.write(': heartbeat\n\n');
           if (typeof res.flush === 'function') res.flush();
+          // 強制 flush socket
+          if (res.socket?.write) res.socket.write('');
         } catch {}
-      }, 8000);
+      }, 3000);
 
       // ── Load tool handlers & convert to executors ──
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
