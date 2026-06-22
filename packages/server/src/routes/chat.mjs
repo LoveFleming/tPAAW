@@ -175,7 +175,6 @@ export default async function chatRoutes(req, res) {
           baseURL: provider.baseURL,
           apiKey: provider.apiKey,
           defaultModel: model,
-          maxTools: provider.maxTools,
           extraHeaders: providerId === 'openrouter'
             ? { 'HTTP-Referer': 'https://paaw.ai', 'X-Title': 'PAAW' }
             : undefined,
