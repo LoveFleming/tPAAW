@@ -489,6 +489,10 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
   const draggingMarkerRef = useRef<number | null>(null);
   const currentIdxRef = useRef(currentIdx);
   currentIdxRef.current = currentIdx;
+  // Active stroke stored in ref to avoid per-mousemove re-renders (Chrome crash fix)
+  const activeStrokeRef = useRef<{ x: number; y: number }[]>([]);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const MIN_POINT_DIST = 0.003; // minimum relative distance between points
 
   const getRelPos = (clientX: number, clientY: number) => {
     const el = contentAreaRef.current;
@@ -496,6 +500,35 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
     const rect = el.getBoundingClientRect();
     return { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.height };
   };
+
+  // Draw active stroke segment directly on canvas (no React re-render)
+  const drawActiveSegment = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = contentAreaRef.current;
+    if (!canvas || !container) return;
+    const rect = container.getBoundingClientRect();
+    if (canvas.width !== rect.width || canvas.height !== rect.height) {
+      canvas.width = rect.width; canvas.height = rect.height;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    // Redraw all committed strokes + active stroke in one pass
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = t.accent;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.shadowBlur = 6; ctx.shadowColor = t.accent + "66";
+    const committed = strokesBySlide[currentIdxRef.current] || [];
+    const active = activeStrokeRef.current;
+    for (const stroke of [...committed, ...(active.length > 1 ? [active] : [])]) {
+      if (stroke.length < 2) continue;
+      ctx.beginPath();
+      ctx.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
+      for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x * canvas.width, stroke[i].y * canvas.height);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }, [t, strokesBySlide]);
 
   const resetAllAnnotations = useCallback(() => {
     setStrokesBySlide({}); setMarkersBySlide({}); setActiveStroke([]); setDrawMode("none"); drawingRef.current = false;
@@ -521,7 +554,9 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
     if (target.closest('[data-annotation-ui]')) return;
     if (drawMode === "pen") {
       e.preventDefault(); drawingRef.current = true;
-      setActiveStroke([getRelPos(e.clientX, e.clientY)]);
+      const pos = getRelPos(e.clientX, e.clientY);
+      activeStrokeRef.current = [pos];
+      lastPointRef.current = pos;
     } else if (drawMode === "marker") {
       e.preventDefault();
       const pos = getRelPos(e.clientX, e.clientY);
@@ -537,7 +572,20 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (drawingRef.current) { setActiveStroke(prev => [...prev, getRelPos(e.clientX, e.clientY)]); return; }
+      if (drawingRef.current) {
+        // Throttle: skip points too close together to avoid flooding
+        const pos = getRelPos(e.clientX, e.clientY);
+        const last = lastPointRef.current;
+        if (last) {
+          const dx = pos.x - last.x, dy = pos.y - last.y;
+          if (dx * dx + dy * dy < MIN_POINT_DIST * MIN_POINT_DIST) return;
+        }
+        activeStrokeRef.current.push(pos);
+        lastPointRef.current = pos;
+        // Draw directly on canvas — no React state update
+        drawActiveSegment();
+        return;
+      }
       if (draggingMarkerRef.current !== null) {
         e.preventDefault();
         const pos = getRelPos(e.clientX, e.clientY);
@@ -547,22 +595,23 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
     const onUp = () => {
       if (drawingRef.current) {
         drawingRef.current = false;
-        setActiveStroke(prev => {
-          if (prev.length > 1) {
-            const stroke = prev;
-            queueMicrotask(() => setStrokesBySlide(s => ({ ...s, [currentIdxRef.current]: [...(s[currentIdxRef.current] || []), stroke] })));
-          }
-          return [];
-        });
+        const stroke = activeStrokeRef.current;
+        activeStrokeRef.current = [];
+        lastPointRef.current = null;
+        if (stroke.length > 1) {
+          // Commit stroke to state (single update, triggers canvas re-render)
+          setStrokesBySlide(s => ({ ...s, [currentIdxRef.current]: [...(s[currentIdxRef.current] || []), stroke] }));
+        }
+        setActiveStroke([]); // clear any residual state
       }
       draggingMarkerRef.current = null;
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, []);
+  }, [drawActiveSegment]);
 
-  // Render canvas
+  // Render canvas — only re-renders when committed strokes change (NOT during active drawing)
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = contentAreaRef.current;
@@ -577,9 +626,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
       ctx.globalAlpha = 0.85;
       ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round";
       ctx.shadowBlur = 6; ctx.shadowColor = t.accent + "66";
-      const allStrokes = [...penStrokes];
-      if (activeStroke.length > 0) allStrokes.push(activeStroke);
-      for (const stroke of allStrokes) {
+      for (const stroke of penStrokes) {
         if (stroke.length < 2) continue;
         ctx.beginPath();
         ctx.moveTo(stroke[0].x * canvas.width, stroke[0].y * canvas.height);
@@ -589,10 +636,11 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
       ctx.globalAlpha = 1;
     };
     render();
+    // ResizeObserver kept stable — only depends on container size, not stroke data
     const ro = new ResizeObserver(render);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [strokesBySlide, markersBySlide, activeStroke, currentIdx, t]);
+  }, [strokesBySlide, currentIdx, t]); // removed activeStroke — drawing uses ref now
 
   if (loading && !selectedDir) {
     return (
