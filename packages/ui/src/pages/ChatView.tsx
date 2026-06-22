@@ -296,7 +296,13 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
             const parsed = JSON.parse(data);
             if (parsed.error) {
               fullContent += `\n❌ ${parsed.message}`;
+            } else if (parsed.status === 'connecting') {
+              // Server 傳來的連接狀態
+              fullContent += `🔗 ${parsed.message}`;
+              console.log(`[Chat SSE] connecting: ${parsed.message} ${Date.now() - sseStart}ms`);
             } else if (parsed.content) {
+              // 收到文字時清掉 connecting 狀態
+              fullContent = fullContent.replace(/🔗 [^\n]*\n?/, '');
               fullContent += parsed.content;
             } else if (parsed.tool_call) {
               // Show executing status — will be cleared when AI responds

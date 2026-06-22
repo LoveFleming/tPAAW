@@ -140,6 +140,18 @@ export default async function chatRoutes(req, res) {
       if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
       console.log(`[${chatReqId}] SSE headers sent, socket=${res.socket?.remoteAddress}:${res.socket?.remotePort}`);
 
+      // 立即送 connecting 事件，前端不用乾等 API 30 秒
+      res.write(`data: ${JSON.stringify({ status: 'connecting', message: '正在連接 AI...' })}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+
+      // Heartbeat：每 8 秒送 SSE 註解，保持連線不死
+      const heartbeatTimer = setInterval(() => {
+        try {
+          res.write(': heartbeat\n\n');
+          if (typeof res.flush === 'function') res.flush();
+        } catch {}
+      }, 8000);
+
       // ── Load tool handlers & convert to executors ──
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
       const { tools: toolDefinitions, handlers: toolHandlers } = await getToolsAndHandlers();
@@ -230,6 +242,9 @@ export default async function chatRoutes(req, res) {
 
       console.log(`[${chatReqId}] === Stream ended === ${Date.now() - streamStart}ms total, ${chunkCount} chunks`);
 
+      // 清掉 heartbeat
+      clearInterval(heartbeatTimer);
+
       // ── Log AI interaction for distillation ──
       try {
         const { recordChatInteraction } = await import("./distill.mjs");
@@ -244,6 +259,7 @@ export default async function chatRoutes(req, res) {
         });
       } catch {}
     } catch (err) {
+      clearInterval(heartbeatTimer);
       console.error("[chat] Error:", err.message, "\nStack:", err.stack);
       if (!res.headersSent) {
         json(res, { error: err.message }, 500);
