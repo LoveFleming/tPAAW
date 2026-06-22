@@ -19,7 +19,8 @@ export class OpenAICompatibleAdapter {
    */
   async *chat(messages, tools, model) {
     const baseURL = this.config.baseURL.replace(/\/+$/, '')
-    const url = `${baseURL}/chat/completions`
+    // 如果 baseURL 已包含 /chat/completions 就不再拼
+    const url = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
     const modelName = model || this.config.defaultModel
 
     const headers = {
