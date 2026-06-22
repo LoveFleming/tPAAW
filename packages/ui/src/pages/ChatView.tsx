@@ -268,10 +268,20 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
       const decoder = new TextDecoder();
       let buffer = "";
       let fullContent = "";
+      let sseChunkCount = 0;
+      const sseStart = Date.now();
+      console.log(`[Chat SSE] Stream started`);
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log(`[Chat SSE] Stream done. chunks=${sseChunkCount} elapsed=${Date.now() - sseStart}ms contentLen=${fullContent.length}`);
+          break;
+        }
+        sseChunkCount++;
+        if (sseChunkCount <= 5 || sseChunkCount % 20 === 0) {
+          console.log(`[Chat SSE] chunk #${sseChunkCount} ${Date.now() - sseStart}ms bytes=${value?.length}`);
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -294,6 +304,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
               const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
               const labelShort = label.replace(/ App/g, "");
               fullContent += `⏳ ${labelShort} 執行中...`;
+              console.log(`[Chat SSE] tool_call: ${tc.name} ${Date.now() - sseStart}ms`);
             } else if (parsed.tool_result) {
               const tr = parsed.tool_result;
               // Remove the "⏳ 執行中..." status line
@@ -306,6 +317,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange }: P
                 const label = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
                 fullContent += `\n✅ ${label} 完成\n`;
               }
+              console.log(`[Chat SSE] tool_result: ${tr.name} error=${!!tr.result?.error} ${Date.now() - sseStart}ms`);
             }
           } catch {}
         }

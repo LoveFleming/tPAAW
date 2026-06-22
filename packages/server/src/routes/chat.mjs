@@ -126,16 +126,19 @@ export default async function chatRoutes(req, res) {
       const ctx = await contextEngine.build({ target: "chat" });
 
       // ── SSE headers ──
+      const chatReqId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      console.log(`[${chatReqId}] === Chat request start === provider=${providerId} model=${model} msgs=${messages?.length}`);
+
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
         "Access-Control-Allow-Origin": "*",
-        "X-Accel-Buffering": "no",  // nginx 不緩衝
+        "X-Accel-Buffering": "no",
       });
-      res.flushHeaders(); // 立即刷 header，Windows Chrome 不等 buffer
-      // TCP no-delay：小封包立刻送，不被 Nagle 合併
+      res.flushHeaders();
       if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+      console.log(`[${chatReqId}] SSE headers sent, socket=${res.socket?.remoteAddress}:${res.socket?.remotePort}`);
 
       // ── Load tool handlers & convert to executors ──
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
@@ -180,39 +183,52 @@ export default async function chatRoutes(req, res) {
       // ── 執行 ReAct loop，stream 給前端 ──
       let fullText = ''
       let toolsUsed = []
+      let chunkCount = 0
+      const streamStart = Date.now()
+
+      console.log(`[${chatReqId}] ToolEngine.run() starting...`);
 
       for await (const chunk of engine.run(ctx.systemPrompt, messages || [], model)) {
+        chunkCount++
+        const elapsed = Date.now() - streamStart
         switch (chunk.type) {
           case 'text':
             fullText += chunk.delta
             res.write(`data: ${JSON.stringify({ content: chunk.delta })}\n\n`)
             if (typeof res.flush === 'function') res.flush()
+            if (chunkCount <= 5 || chunkCount % 20 === 0) console.log(`[${chatReqId}] text chunk #${chunkCount} ${elapsed}ms len=${chunk.delta.length}`)
             break
 
           case 'tool_start':
             toolsUsed.push(chunk.name)
             res.write(`data: ${JSON.stringify({ tool_call: { name: chunk.name, args: chunk.args, status: 'executing' } })}\n\n`)
             if (typeof res.flush === 'function') res.flush()
+            console.log(`[${chatReqId}] tool_start: ${chunk.name} ${elapsed}ms`)
             break
 
           case 'tool_end':
             res.write(`data: ${JSON.stringify({ tool_result: { name: chunk.name, result: chunk.result } })}\n\n`)
             if (typeof res.flush === 'function') res.flush()
+            console.log(`[${chatReqId}] tool_end: ${chunk.name} error=${!!chunk.result?.error} ${elapsed}ms`)
             break
 
           case 'done':
             res.write('data: [DONE]\n\n')
             if (typeof res.flush === 'function') res.flush()
             res.end()
+            console.log(`[${chatReqId}] DONE ${elapsed}ms chunks=${chunkCount} tools=${toolsUsed.join(',')} textLen=${fullText.length}`)
             break
 
           case 'error':
             res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`)
             if (typeof res.flush === 'function') res.flush()
             res.end()
+            console.log(`[${chatReqId}] ERROR: ${chunk.message} ${elapsed}ms`)
             break
         }
       }
+
+      console.log(`[${chatReqId}] === Stream ended === ${Date.now() - streamStart}ms total, ${chunkCount} chunks`);
 
       // ── Log AI interaction for distillation ──
       try {

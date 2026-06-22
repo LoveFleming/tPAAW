@@ -46,6 +46,8 @@ export class OpenAICompatibleAdapter {
       body: JSON.stringify(body),
     })
 
+    console.log(`[Provider] ← ${url} status=${response.status} model=${modelName}`)
+
     if (!response.ok) {
       const errText = await response.text()
       yield { type: 'error', message: `API error ${response.status}: ${errText.slice(0, 300)}` }
