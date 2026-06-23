@@ -97,6 +97,7 @@ const FILE_ICONS: Record<string, { icon: string; color: string }> = {
 };
 
 const CLI_OPTIONS = [
+  { id: "shell", label: "Terminal", icon: "⬛", color: "#374151" },
   { id: "qwen", label: "Qwen Code", icon: "🟣", color: "#8B5CF6" },
   { id: "claude", label: "Claude Code", icon: "🟠", color: "#F97316" },
   { id: "opencode", label: "OpenCode", icon: "🔵", color: "#3B82F6" },

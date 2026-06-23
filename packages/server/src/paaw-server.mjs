@@ -3942,6 +3942,21 @@ const CLI_CONFIGS = {
 
 function spawnCli(ptySpawn, opts) {
   const cliType = opts.cli || "qwen";
+
+  // ── Shell mode: spawn system shell directly (like VS Code terminal) ──
+  if (cliType === "shell") {
+    const shellBin = process.platform === "win32"
+      ? (process.env.COMSPEC || "powershell.exe")
+      : (process.env.SHELL || "/bin/zsh");
+    const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
+    console.log(`[PTY] Spawning shell: ${shellBin} (cwd: ${resolvedCwd})`);
+    return ptySpawn(shellBin, [], {
+      name: "xterm-256color", cols: 120, rows: 30,
+      cwd: resolvedCwd,
+      env: { ...process.env },
+    });
+  }
+
   const config = CLI_CONFIGS[cliType];
   if (!config) throw new Error(`Unknown CLI: ${cliType}`);
 
@@ -4117,6 +4132,11 @@ wss.on("connection", (ws, req) => {
         });
 
         ws.send(JSON.stringify({ type: "ready", sessionId, platform: process.platform }));
+        // Shell mode: immediately ready (no CLI startup sequence)
+        if (cliType === "shell") {
+          cliReadyFired = true;
+          ws.send(JSON.stringify({ type: "cliReady" }));
+        }
       } catch (err) {
         console.error(`[PTY] Spawn failed:`, err.message);
         ws.send(JSON.stringify({ type: "error", message: `Failed to start CLI: ${err.message}` }));

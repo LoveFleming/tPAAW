@@ -389,8 +389,17 @@ const TerminalConsoleInner = React.forwardRef(function TerminalConsoleInner({
                     <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${connected && ready ? "bg-emerald-500" : connected ? "bg-yellow-500 animate-pulse" : "bg-red-500"}`} />
                         <span className="text-[10px] text-[#8b949e]">
-                            {connected && ready ? `${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'} ready (${approvalMode})` :
-                             connected ? `Starting ${cli === 'claude' ? 'Claude Code' : cli === 'opencode' ? 'OpenCode' : 'Qwen CLI'}...` : "Disconnected"}
+                            {connected && ready
+                                ? (cli === 'shell' ? 'Terminal ready'
+                                  : cli === 'claude' ? `Claude Code ready (${approvalMode})`
+                                  : cli === 'opencode' ? `OpenCode ready (${approvalMode})`
+                                  : `Qwen CLI ready (${approvalMode})`)
+                                : connected
+                                    ? (cli === 'shell' ? 'Starting terminal...'
+                                      : cli === 'claude' ? 'Starting Claude Code...'
+                                      : cli === 'opencode' ? 'Starting OpenCode...'
+                                      : 'Starting Qwen CLI...')
+                                    : "Disconnected"}
                         </span>
                     </div>
                     <div className="flex gap-1.5">
