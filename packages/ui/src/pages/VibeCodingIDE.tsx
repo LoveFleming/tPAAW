@@ -1045,7 +1045,7 @@ export default function VibeCodingIDE() {
             {activeSubPanel === "api-tester" && showApiTester && (
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* ── Top: Request Builder ── */}
-                <div className="shrink-0 border-b overflow-y-auto p-3 space-y-2" style={{ maxHeight: "55%", borderColor: tk.borderLight }}>
+                <div data-api-panel="request" className="shrink-0 border-b overflow-y-auto p-3 space-y-2 flex flex-col" style={{ flex: "0 0 50%", borderColor: tk.borderLight, maxHeight: "70%" }}>
                   {/* Title bar + History dropdown */}
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-stone-500">🌐 API Tester</span>
@@ -1168,52 +1168,71 @@ export default function VibeCodingIDE() {
                   </details>
                   {/* Body */}
                   {apiMethod !== "GET" && apiMethod !== "HEAD" && (
-                    <div>
-                      <div className="text-[10px] font-bold text-stone-500 mb-1">{t('vibe.apiBody')}</div>
+                    <div className="flex flex-col flex-1 min-h-0">
+                      <div className="flex items-center gap-2 mb-1 shrink-0">
+                        <span className="text-[10px] font-bold text-stone-500 shrink-0">{t('vibe.apiBody')}</span>
+                        <button onClick={() => setApiBody(tryFormatJson(apiBody))}
+                          className="text-[9px] text-stone-400 hover:text-stone-600">📐 {t("vibe.format")}</button>
+                      </div>
                       <textarea value={apiBody} onChange={e => setApiBody(e.target.value)}
                         placeholder='{"key": "value"}'
-                        className="w-full text-[11px] font-mono px-3 py-2 border rounded-lg outline-none focus:border-blue-400 resize-y"
-                        style={{ borderColor: "#ddd", minHeight: 200 }} />
-                      <button onClick={() => setApiBody(tryFormatJson(apiBody))}
-                        className="text-[9px] text-stone-400 hover:text-stone-600 mt-1">📐 {t("vibe.format")}</button>
+                        className="w-full flex-1 min-h-0 text-[11px] font-mono px-3 py-2 border rounded-lg outline-none focus:border-blue-400 resize-none"
+                        style={{ borderColor: "#ddd" }} />
                     </div>
                   )}
                 </div>
 
+                {/* ── Splitter ── */}
+                <div className="h-1 cursor-row-resize hover:bg-blue-300 active:bg-blue-500 transition-colors shrink-0"
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    const container = e.currentTarget.parentElement;
+                    if (!container) return;
+                    const startY = e.clientY;
+                    const reqPanel = container.querySelector('[data-api-panel="request"]') as HTMLElement;
+                    const respPanel = container.querySelector('[data-api-panel="response"]') as HTMLElement;
+                    if (!reqPanel || !respPanel) return;
+                    const startReqH = reqPanel.offsetHeight;
+                    const totalH = container.offsetHeight;
+                    const onMove = (ev: MouseEvent) => {
+                      const delta = ev.clientY - startY;
+                      const newReqH = Math.max(120, Math.min(totalH - 120, startReqH + delta));
+                      const pct = (newReqH / totalH) * 100;
+                      reqPanel.style.flex = `0 0 ${pct}%`;
+                      respPanel.style.flex = `1 1 ${100 - pct}%`;
+                    };
+                    const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+                    document.addEventListener("mousemove", onMove);
+                    document.addEventListener("mouseup", onUp);
+                  } } style={{ backgroundColor: tk.border }} />
+
                 {/* ── Bottom: Response Viewer ── */}
-                <div className="flex-1 overflow-y-auto p-3 min-h-0">
+                <div data-api-panel="response" className="flex-1 overflow-y-auto p-3 min-h-0">
                   {/* ── Streaming response ── */}
                   {apiStreamMode && (apiStreamContent || apiLoading) ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
+                    <div className="flex flex-col h-full gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         {apiStreamInfo && (
-                          <span className="text-sm font-bold" style={{ color: apiStreamInfo.status < 300 ? "#10B981" : apiStreamInfo.status < 400 ? "#F59E0B" : "#EF4444" }}>
+                          <span className="text-xs font-bold" style={{ color: apiStreamInfo.status < 300 ? "#10B981" : apiStreamInfo.status < 400 ? "#F59E0B" : "#EF4444" }}>
                             {apiStreamInfo.status || "..."} {apiStreamInfo.statusText}
                           </span>
                         )}
                         {apiLoading && <span className="text-[10px] text-purple-500 animate-pulse">⚡ streaming...</span>}
-                        <span className="flex-1" />
-                        <button onClick={() => navigator.clipboard?.writeText(apiStreamContent)}
-                          className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
                       </div>
-                      {apiStreamInfo?.contentType && <div className="text-[9px] text-stone-400">📋 {apiStreamInfo.contentType}</div>}
-                      <pre className="text-[11px] font-mono bg-stone-900 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap break-words">
+                      <pre className="flex-1 text-[11px] font-mono bg-stone-900 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
                         {apiStreamContent || "⏳ Waiting for response..."}
                       </pre>
                     </div>
                   ) : /* ── Normal response ── */ apiResponse ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>
+                    <div className="flex flex-col h-full gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>
                           {apiResponse.status} {apiResponse.statusText}
                         </span>
                         <span className="text-[10px] text-stone-400">{apiResponse.elapsed}ms · {fmtBytes(apiResponse.size)}</span>
-                        <span className="flex-1" />
-                        <button onClick={() => navigator.clipboard?.writeText(apiResponse.body)}
-                          className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
                       </div>
                       {Object.keys(apiResponse.headers).length > 0 && (
-                        <details>
+                        <details className="shrink-0">
                           <summary className="text-[10px] font-bold text-stone-400 cursor-pointer hover:text-stone-600">{t('vibe.apiRespHeaders')}</summary>
                           <div className="text-[10px] font-mono bg-stone-50 rounded-lg p-2 space-y-0.5 mt-1">
                             {Object.entries(apiResponse.headers).map(([k, v]) => (
@@ -1222,16 +1241,9 @@ export default function VibeCodingIDE() {
                           </div>
                         </details>
                       )}
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold text-stone-500">{t('vibe.apiRespBody')}</span>
-                          <button onClick={() => { try { setApiResponse({ ...apiResponse, body: JSON.stringify(JSON.parse(apiResponse.body), null, 2) }); } catch {} }}
-                            className="text-[9px] text-stone-400 hover:text-stone-600">📐 Format</button>
-                        </div>
-                        <pre className="text-[11px] font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[400px] overflow-y-auto whitespace-pre-wrap break-words">
-                          {apiResponse.body}
-                        </pre>
-                      </div>
+                      <pre className="flex-1 text-[11px] font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-auto whitespace-pre-wrap break-words min-h-0">
+                        {apiResponse.body}
+                      </pre>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">
