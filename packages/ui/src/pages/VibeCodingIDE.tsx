@@ -80,7 +80,7 @@ interface BlameLine { hash: string; author: string; authorMail: string; authorTi
 // API Tester types
 interface ApiHeader { key: string; value: string; enabled: boolean; }
 interface ApiResponse { status: number; statusText: string; headers: Record<string, string>; body: string; elapsed: number; size: number; error?: boolean; }
-interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; }
+interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; response?: ApiResponse; streamResponse?: string; }
 
 // ── Constants ──
 const FILE_ICONS: Record<string, { icon: string; color: string }> = {
@@ -583,7 +583,7 @@ export default function VibeCodingIDE() {
         }
 
         const elapsed = Date.now() - startTime;
-        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode };
+        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, streamResponse: apiStreamContent };
         setApiHistory(prev => [item, ...prev].slice(0, 50));
         try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
       } catch (err: any) {
@@ -612,7 +612,7 @@ export default function VibeCodingIDE() {
       const data = await res.json();
       setApiResponse(data);
       // Save to history
-      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode };
+      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, response: data };
       setApiHistory(prev => [item, ...prev].slice(0, 50));
       // Save to server
       try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
@@ -1046,6 +1046,41 @@ export default function VibeCodingIDE() {
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* ── Top: Request Builder ── */}
                 <div className="shrink-0 border-b overflow-y-auto p-3 space-y-2" style={{ maxHeight: "55%", borderColor: tk.borderLight }}>
+                  {/* Title bar + History dropdown */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-stone-500">🌐 API Tester</span>
+                    <span className="flex-1" />
+                    {apiHistory.length > 0 && (
+                      <div className="relative group">
+                        <button className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 hover:bg-stone-200 font-semibold">
+                          📜 {apiHistory.length}
+                        </button>
+                        {/* Dropdown */}
+                        <div className="absolute right-0 top-full mt-1 w-80 max-h-64 overflow-y-auto bg-white rounded-lg shadow-xl border z-50 hidden group-hover:block" style={{ borderColor: tk.borderInput }}>
+                          <div className="flex items-center px-3 py-1.5 border-b sticky top-0 bg-white z-10" style={{ borderColor: "#f0f0f0" }}>
+                            <span className="text-[10px] font-bold text-stone-500">History</span>
+                            <span className="flex-1" />
+                            <button onClick={() => setApiHistory([])} className="text-[9px] text-red-400 hover:text-red-600">Clear</button>
+                          </div>
+                          {apiHistory.map((h, hi) => (
+                            <div key={h.id || hi} className="flex flex-col px-3 py-1.5 border-b hover:bg-stone-50 cursor-pointer" style={{ borderColor: "#f5f5f5" }}
+                              onClick={() => { setApiMethod(h.method); setApiUrl(h.url); if (h.headers) setApiHeaders(h.headers); if (h.body !== undefined) setApiBody(h.body); if (h.streamMode !== undefined) setApiStreamMode(h.streamMode); }}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold w-10 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
+                                <span className="text-stone-600 truncate flex-1 font-mono text-[10px]">{h.url}</span>
+                                <span className="text-[10px] font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
+                                <span className="text-[9px] text-stone-400 shrink-0">{h.elapsed}ms</span>
+                              </div>
+                              {/* Response preview for e2e */}
+                              {(h.response?.body || h.streamResponse) && (
+                                <pre className="text-[9px] font-mono text-stone-400 mt-0.5 truncate">{tryFormatJson(h.response?.body || h.streamResponse || "").slice(0, 120)}</pre>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   {/* Quick URLs */}
                   <div className="flex flex-wrap gap-1 mb-1">
                     {[
@@ -1141,25 +1176,6 @@ export default function VibeCodingIDE() {
                       <button onClick={() => setApiBody(tryFormatJson(apiBody))}
                         className="text-[9px] text-stone-400 hover:text-stone-600 mt-1">📐 {t("vibe.format")}</button>
                     </div>
-                  )}
-                  {/* History (collapsible) */}
-                  {apiHistory.length > 0 && (
-                    <details className="mt-1">
-                      <summary className="text-[10px] font-bold text-stone-400 cursor-pointer hover:text-stone-600">
-                        📜 History ({apiHistory.length})
-                      </summary>
-                      <div className="mt-1 max-h-32 overflow-y-auto">
-                        {apiHistory.map((h, i) => (
-                          <div key={h.id || i} className="flex items-center gap-2 py-1 px-1 hover:bg-stone-50 cursor-pointer text-xs"
-                            onClick={() => { setApiMethod(h.method); setApiUrl(h.url); if (h.headers) setApiHeaders(h.headers); if (h.body !== undefined) setApiBody(h.body); if (h.streamMode !== undefined) setApiStreamMode(h.streamMode); }}>
-                            <span className="text-[10px] font-bold w-10 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
-                            <span className="text-stone-600 truncate flex-1 font-mono text-[10px]">{h.url}</span>
-                            <span className="text-[10px] font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
-                            <span className="text-[9px] text-stone-400 shrink-0">{h.elapsed}ms</span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
                   )}
                 </div>
 
