@@ -1148,12 +1148,13 @@ export default function VibeCodingIDE() {
                       </button>
                     )}
                   </div>
-                  {/* Headers */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
+                  {/* Headers (collapsible) */}
+                  <details open>
+                    <summary className="flex items-center gap-2 cursor-pointer select-none">
                       <span className="text-[10px] font-bold text-stone-500">{t('vibe.apiHeaders')}</span>
-                      <button onClick={addHeader} className="text-[10px] text-blue-500 hover:text-blue-600">{t("vibe.apiAddHeader")}</button>
-                    </div>
+                      <button onClick={e => { e.stopPropagation(); addHeader(); }} className="text-[10px] text-blue-500 hover:text-blue-600">{t("vibe.apiAddHeader")}</button>
+                      <span className="text-[9px] text-stone-400">{apiHeaders.filter(h => h.enabled).length}/{apiHeaders.length}</span>
+                    </summary>
                     {apiHeaders.map((h, i) => (
                       <div key={i} className="flex items-center gap-1.5 mb-1">
                         <input type="checkbox" checked={h.enabled} onChange={e => updateHeader(i, "enabled", e.target.checked)} className="w-3 h-3" />
@@ -1164,7 +1165,7 @@ export default function VibeCodingIDE() {
                         <button onClick={() => removeHeader(i)} className="text-stone-300 hover:text-red-500 text-xs">✕</button>
                       </div>
                     ))}
-                  </div>
+                  </details>
                   {/* Body */}
                   {apiMethod !== "GET" && apiMethod !== "HEAD" && (
                     <div>
@@ -1172,7 +1173,7 @@ export default function VibeCodingIDE() {
                       <textarea value={apiBody} onChange={e => setApiBody(e.target.value)}
                         placeholder='{"key": "value"}'
                         className="w-full text-[11px] font-mono px-3 py-2 border rounded-lg outline-none focus:border-blue-400 resize-y"
-                        style={{ borderColor: "#ddd", minHeight: 80 }} />
+                        style={{ borderColor: "#ddd", minHeight: 200 }} />
                       <button onClick={() => setApiBody(tryFormatJson(apiBody))}
                         className="text-[9px] text-stone-400 hover:text-stone-600 mt-1">📐 {t("vibe.format")}</button>
                     </div>
