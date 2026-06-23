@@ -80,7 +80,7 @@ interface BlameLine { hash: string; author: string; authorMail: string; authorTi
 // API Tester types
 interface ApiHeader { key: string; value: string; enabled: boolean; }
 interface ApiResponse { status: number; statusText: string; headers: Record<string, string>; body: string; elapsed: number; size: number; error?: boolean; }
-interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; }
+interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; }
 
 // ── Constants ──
 const FILE_ICONS: Record<string, { icon: string; color: string }> = {
@@ -583,7 +583,7 @@ export default function VibeCodingIDE() {
         }
 
         const elapsed = Date.now() - startTime;
-        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed };
+        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode };
         setApiHistory(prev => [item, ...prev].slice(0, 50));
         try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
       } catch (err: any) {
@@ -612,7 +612,7 @@ export default function VibeCodingIDE() {
       const data = await res.json();
       setApiResponse(data);
       // Save to history
-      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed };
+      const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: data.status, elapsed: data.elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode };
       setApiHistory(prev => [item, ...prev].slice(0, 50));
       // Save to server
       try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
@@ -1151,7 +1151,7 @@ export default function VibeCodingIDE() {
                       <div className="mt-1 max-h-32 overflow-y-auto">
                         {apiHistory.map((h, i) => (
                           <div key={h.id || i} className="flex items-center gap-2 py-1 px-1 hover:bg-stone-50 cursor-pointer text-xs"
-                            onClick={() => { setApiMethod(h.method); setApiUrl(h.url); }}>
+                            onClick={() => { setApiMethod(h.method); setApiUrl(h.url); if (h.headers) setApiHeaders(h.headers); if (h.body !== undefined) setApiBody(h.body); if (h.streamMode !== undefined) setApiStreamMode(h.streamMode); }}>
                             <span className="text-[10px] font-bold w-10 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
                             <span className="text-stone-600 truncate flex-1 font-mono text-[10px]">{h.url}</span>
                             <span className="text-[10px] font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
