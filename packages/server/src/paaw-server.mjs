@@ -4378,7 +4378,7 @@ async function getDistillModule() {
 }
 
 // ── Cron Job Scheduler ──
-const CRON_JOBS_FILE = resolve(PAAW_ROOT, "factories/default/cron-jobs.json");
+const CRON_JOBS_FILE = resolve(PAAW_ROOT, "data/cron/cron-jobs.json");
 const CRON_LOGS_DIR = resolve(PAAW_ROOT, "logs/cron");
 const CRON_RESULTS_DIR = resolve(PAAW_ROOT, "logs/cron-results");
 const CRON_CHAT_DIR = resolve(PAAW_ROOT, "data/chats");
@@ -4499,7 +4499,7 @@ async function runCronJob(job) {
       prompt += `\n\nParameters:\n${Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
     }
 
-    const skillDir = resolve(PAAW_ROOT, "skills/physical-skill", job.skillId || job.reportAppId);
+    const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", job.skillId || job.reportAppId);
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
     const child = spawn(_cronBin, ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {
