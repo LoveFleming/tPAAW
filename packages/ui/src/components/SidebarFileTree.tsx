@@ -157,12 +157,12 @@ function ContextMenu({ menu, onAction, onClose }: {
   items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
   items.push({ label: "移動到...", icon: "📦", action: "move" });
   if (menu.isDir) {
-    items.push({ label: "在 Briefing Player 開啟", icon: "🎤", action: "briefingPlayer" });
+    items.push({ label: "開啟簡報", icon: "🎤", action: "briefingPlayer" });
   }
   items.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
   items.push({ label: ti18n("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: ti18n("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
-  items.push({ label: "Copy Path", icon: "📎", action: "copyPath" });
+  items.push({ label: "複製路徑", icon: "📎", action: "copyPath" });
   items.push({ label: ti18n("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (
