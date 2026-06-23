@@ -412,6 +412,63 @@ ${context ? "\n## Context\n" + context : ""}
   }
 
   // ══════════════════════════════════════════════════
+  // API Tester — Streaming Proxy (for LLM SSE streaming)
+  // ══════════════════════════════════════════════════
+
+  // POST /api/api-tester/stream
+  // Proxies request to upstream and pipes response body back as raw stream.
+  // Frontend reads via fetch().body.getReader() for real-time SSE display.
+  if (req.method === "POST" && req.url === "/api/api-tester/stream") {
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid JSON" })); return; }
+    const { method: tMethod, url: tUrl, headers: tHeaders = {}, body: tBody } = body;
+    if (!tUrl) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing url" })); return; }
+
+    try {
+      const fetchOpts = { method: tMethod || "GET", headers: tHeaders, redirect: "follow" };
+      if (tBody && tMethod !== "GET" && tMethod !== "HEAD") fetchOpts.body = typeof tBody === "string" ? tBody : JSON.stringify(tBody);
+
+      const tRes = await fetch(tUrl, fetchOpts);
+
+      // Pass upstream status + content-type through
+      const respHeaders = {
+        "Content-Type": tRes.headers.get("content-type") || "text/event-stream",
+        "X-Response-Status": String(tRes.status),
+        "X-Response-Status-Text": tRes.statusText || "",
+      };
+      // Copy select upstream headers for debugging
+      for (const hk of ["x-request-id", "openai-organization", "openai-processing-ms", "cf-ray"]) {
+        const hv = tRes.headers.get(hk);
+        if (hv) respHeaders[`X-Upstream-${hk}`] = hv;
+      }
+      res.writeHead(200, respHeaders);
+
+      // Pipe upstream body → client response
+      const reader = tRes.body?.getReader();
+      if (!reader) { res.end(); return; }
+      const pump = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(value);
+          }
+        } catch (err) {
+          // Upstream error mid-stream — write error marker
+          res.write(`\n[STREAM_ERROR] ${String(err.message || err)}\n`);
+        }
+        res.end();
+      };
+      pump();
+      return; // Don't fall through — pump handles res.end()
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: 0, statusText: "Network Error", headers: {}, body: String(err.message || err), elapsed: 0, error: true }));
+      return;
+    }
+  }
+
+  // ══════════════════════════════════════════════════
   // Vibe Sessions API (persist CLI sessions to server)
   // ══════════════════════════════════════════════════
 

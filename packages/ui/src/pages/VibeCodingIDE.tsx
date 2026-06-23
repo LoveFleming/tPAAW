@@ -270,6 +270,10 @@ export default function VibeCodingIDE() {
   const [apiLoading, setApiLoading] = useState(false);
   const [apiHistory, setApiHistory] = useState<ApiHistoryItem[]>([]);
   const [apiTab, setApiTab] = useState<"request" | "response" | "history">("request");
+  const [apiStreamMode, setApiStreamMode] = useState(false);
+  const [apiStreamContent, setApiStreamContent] = useState("");
+  const [apiStreamInfo, setApiStreamInfo] = useState<{ status: number; statusText: string; contentType: string } | null>(null);
+  const apiStreamAbortRef = useRef<AbortController | null>(null);
 
   // ── Coding Behavior Tracking ──
   const codingLogRef = useRef<CodingEvent[]>([]);
@@ -283,7 +287,7 @@ export default function VibeCodingIDE() {
   const [formApproval, setFormApproval] = useState("yolo");
   const [formName, setFormName] = useState("");
 
-  const activeTab = useMemo(() => openTabs.find(t => t.id === activeTabId), [openTabs, activeTabId]);
+  const activeTab = useMemo(() => openTabs.find(ot => ot.id === activeTabId), [openTabs, activeTabId]);
   const activeSession = useMemo(() => sessions.find(s => s.id === activeSessionId), [sessions, activeSessionId]);
 
   // ═══════════════════════════════════════════════
@@ -348,7 +352,7 @@ export default function VibeCodingIDE() {
       try {
         await fetch(`${API_BASE}/api/distill/record`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ source: "vibe-coding", events, rootPath, activeFiles: openTabs.map(t => t.path), session: activeSession ? { cli: activeSession.cli, cwd: activeSession.cwd } : null }),
+          body: JSON.stringify({ source: "vibe-coding", events, rootPath, activeFiles: openTabs.map(tab => tab.path), session: activeSession ? { cli: activeSession.cli, cwd: activeSession.cwd } : null }),
         });
       } catch {}
     }, 30_000);
@@ -378,7 +382,7 @@ export default function VibeCodingIDE() {
   // File Operations
   // ═══════════════════════════════════════════════
   const openFile = useCallback(async (path: string) => {
-    const existing = openTabs.find(t => t.path === path);
+    const existing = openTabs.find(ot => ot.path === path);
     if (existing) { setActiveTabId(existing.id); return; }
     setLoadingFile(true);
     try {
@@ -398,8 +402,8 @@ export default function VibeCodingIDE() {
   }, [openTabs, logEvent]);
 
   const closeTab = useCallback((id: string) => {
-    setOpenTabs(prev => prev.filter(t => t.id !== id));
-    if (activeTabId === id) { const remaining = openTabs.filter(t => t.id !== id); setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null); }
+    setOpenTabs(prev => prev.filter(ot => ot.id !== id));
+    if (activeTabId === id) { const remaining = openTabs.filter(ot => ot.id !== id); setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null); }
     logEvent("close_file", { path: id });
   }, [activeTabId, openTabs, logEvent]);
 
@@ -407,7 +411,7 @@ export default function VibeCodingIDE() {
     if (!tab.modified) return;
     try {
       await fetch(`${API_BASE}/api/vibe-fs/write`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: tab.path, content: tab.content }) });
-      setOpenTabs(prev => prev.map(t => t.id === tab.id ? { ...t, originalContent: t.content, modified: false, lastSaved: new Date().toISOString() } : t));
+      setOpenTabs(prev => prev.map(ot => ot.id === tab.id ? { ...ot, originalContent: ot.content, modified: false, lastSaved: new Date().toISOString() } : ot));
       logEvent("save_file", { path: tab.path, size: tab.content.length });
     } catch {}
   }, [logEvent]);
@@ -417,10 +421,10 @@ export default function VibeCodingIDE() {
 
   const handleContentChange = useCallback((newContent: string) => {
     if (!activeTabId) return;
-    setOpenTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, content: newContent, modified: newContent !== t.originalContent } : t));
+    setOpenTabs(prev => prev.map(ot => ot.id === activeTabId ? { ...ot, content: newContent, modified: newContent !== ot.originalContent } : ot));
     logEvent("edit_file", { path: activeTabId });
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => { const current = openTabs.find(t => t.id === activeTabId); if (current?.modified) saveFile(current); }, 3000);
+    saveTimerRef.current = setTimeout(() => { const current = openTabs.find(ot => ot.id === activeTabId); if (current?.modified) saveFile(current); }, 3000);
   }, [activeTabId, openTabs, saveFile, logEvent]);
 
   // Cmd+S
@@ -541,6 +545,60 @@ export default function VibeCodingIDE() {
   // ═══════════════════════════════════════════════
   const sendApiRequest = useCallback(async () => {
     if (!apiUrl.trim() || apiLoading) return;
+
+    // ── Streaming mode ──
+    if (apiStreamMode) {
+      setApiLoading(true);
+      setApiTab("response");
+      setApiStreamContent("");
+      setApiStreamInfo(null);
+      const startTime = Date.now();
+      const ac = new AbortController();
+      apiStreamAbortRef.current = ac;
+      const headersObj: Record<string, string> = {};
+      apiHeaders.filter(h => h.enabled && h.key).forEach(h => { headersObj[h.key] = h.value; });
+      try {
+        const res = await fetch(`${API_BASE}/api/api-tester/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ method: apiMethod, url: apiUrl.trim(), headers: headersObj, body: apiBody }),
+          signal: ac.signal,
+        });
+        const status = parseInt(res.headers.get("X-Response-Status") || "0", 10);
+        const statusText = res.headers.get("X-Response-Status-Text") || "";
+        const contentType = res.headers.get("Content-Type") || "";
+        setApiStreamInfo({ status, statusText, contentType });
+
+        const reader = res.body?.getReader();
+        if (!reader) { setApiStreamContent("No response body"); setApiLoading(false); return; }
+        const decoder = new TextDecoder();
+        let accumulated = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          accumulated += chunk;
+          setApiStreamContent(accumulated);
+        }
+
+        const elapsed = Date.now() - startTime;
+        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed };
+        setApiHistory(prev => [item, ...prev].slice(0, 50));
+        try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          setApiStreamContent(prev => prev + "\n\n[⏹ Aborted by user]");
+        } else {
+          setApiStreamContent(`❌ Error: ${err.message}`);
+        }
+      }
+      apiStreamAbortRef.current = null;
+      setApiLoading(false);
+      return;
+    }
+
+    // ── Normal (non-streaming) mode ──
     setApiLoading(true);
     setApiResponse(null);
     setApiTab("response");
@@ -560,7 +618,7 @@ export default function VibeCodingIDE() {
       try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
     } catch (err: any) { setApiResponse({ status: 0, statusText: "Error", headers: {}, body: err.message, elapsed: 0, size: 0, error: true }); }
     setApiLoading(false);
-  }, [apiMethod, apiUrl, apiHeaders, apiBody, apiLoading]);
+  }, [apiMethod, apiUrl, apiHeaders, apiBody, apiLoading, apiStreamMode]);
 
   const loadApiHistory = useCallback(async () => {
     try { const res = await fetch(`${API_BASE}/api/api-tester/history`); const data = await res.json(); if (data.history) setApiHistory(data.history); } catch {}
@@ -628,7 +686,7 @@ export default function VibeCodingIDE() {
   const lines = useMemo(() => (activeTab?.content || "").split("\n"), [activeTab?.content]);
   const lineCount = lines.length;
   const lineNumWidth = Math.max(3, String(lineCount).length) * 10 + 16;
-  const modifiedCount = useMemo(() => openTabs.filter(t => t.modified).length, [openTabs]);
+  const modifiedCount = useMemo(() => openTabs.filter(ot => ot.modified).length, [openTabs]);
 
   // ── File Explorer Tree Render ──
   const renderTree = (parentPath: string, depth: number) => {
@@ -656,7 +714,7 @@ export default function VibeCodingIDE() {
           style={{ paddingLeft: depth * 12 + 20 }} onClick={() => openFile(item.path)}>
           <span className="text-[9px] font-bold shrink-0 w-4 text-center" style={{ color: fi.color }}>{fi.icon}</span>
           <span className="truncate">{item.name}</span>
-          {openTabs.find(t => t.id === item.path)?.modified && <span className="text-[8px] text-amber-500 ml-auto shrink-0">●</span>}
+          {openTabs.find(ot => ot.id === item.path)?.modified && <span className="text-[8px] text-amber-500 ml-auto shrink-0">●</span>}
         </div>
       );
     });
@@ -988,11 +1046,11 @@ export default function VibeCodingIDE() {
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* API sub-tabs */}
                 <div className="flex items-center px-2 py-1 border-b shrink-0 gap-0.5" style={{ backgroundColor: tk.bg, borderColor: tk.borderLight }}>
-                  {(["request", "response", "history"] as const).map(t => (
-                    <button key={t} onClick={() => setApiTab(t)}
+                  {(["request", "response", "history"] as const).map(tabKey => (
+                    <button key={tabKey} onClick={() => setApiTab(tabKey)}
                       className={cn("px-2.5 py-1 rounded text-[10px] font-semibold transition-colors",
-                        apiTab === t ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
-                      {t === "request" ? t("vibe.apiRequest") : t === "response" ? t("vibe.apiResponse") : t("vibe.apiHistory")}
+                        apiTab === tabKey ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
+                      {tabKey === "request" ? t("vibe.apiRequest") : tabKey === "response" ? t("vibe.apiResponse") : t("vibe.apiHistory")}
                     </button>
                   ))}
                 </div>
@@ -1008,15 +1066,29 @@ export default function VibeCodingIDE() {
                         {HTTP_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
                       <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") sendApiRequest(); }}
+                        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) sendApiRequest(); }}
                         placeholder="https://api.example.com/endpoint"
                         className="flex-1 text-[11px] font-mono px-3 py-1.5 border rounded-lg outline-none focus:border-blue-400"
                         style={{ borderColor: "#ddd" }} />
-                      <button onClick={sendApiRequest} disabled={apiLoading || !apiUrl.trim()}
-                        className="px-4 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 active:scale-95 transition-transform"
-                        style={{ backgroundColor: tk.accent }}>
-                        {apiLoading ? "⏳" : "Send"}
+                      <button
+                        onClick={() => setApiStreamMode(!apiStreamMode)}
+                        className={cn("text-[10px] px-2 py-1.5 rounded-lg border font-semibold transition-colors",
+                          apiStreamMode ? "bg-purple-600 text-white border-purple-600" : "text-stone-400 border-stone-200 hover:bg-stone-50")}
+                        title="Toggle streaming mode (for LLM SSE endpoints)">
+                        ⚡ Stream
                       </button>
+                      {apiLoading && apiStreamMode ? (
+                        <button onClick={() => apiStreamAbortRef.current?.abort()}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all">
+                          ⏹ Stop
+                        </button>
+                      ) : (
+                        <button onClick={sendApiRequest} disabled={apiLoading || !apiUrl.trim()}
+                          className="px-4 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 active:scale-95 transition-transform"
+                          style={{ backgroundColor: tk.accent }}>
+                          {apiLoading ? "⏳" : "Send"}
+                        </button>
+                      )}
                     </div>
                     {/* Headers */}
                     <div>
@@ -1052,15 +1124,34 @@ export default function VibeCodingIDE() {
                       <div className="text-[10px] font-bold text-stone-500 mb-1.5">{t('vibe.apiQuickUrls')}</div>
                       <div className="flex flex-wrap gap-1">
                         {[
-                          { label: "PAAW Chat", url: `${API_BASE}/api/chat` },
-                          { label: "PAAW Status", url: `${API_BASE}/api/vibe-git/status` },
-                          { label: "PAAW FS", url: `${API_BASE}/api/vibe-fs/list` },
-                          { label: "Distill Config", url: `${API_BASE}/api/distill/config` },
-                          { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1" },
-                          { label: "HTTPBin", url: "https://httpbin.org/get" },
+                          { label: "PAAW Chat", url: `${API_BASE}/api/chat`, method: "POST" },
+                          { label: "PAAW Status", url: `${API_BASE}/api/vibe-git/status`, method: "GET" },
+                          { label: "PAAW FS", url: `${API_BASE}/api/vibe-fs/list`, method: "GET" },
+                          { label: "Distill Config", url: `${API_BASE}/api/distill/config`, method: "GET" },
+                          { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1", method: "GET" },
+                          { label: "HTTPBin", url: "https://httpbin.org/get", method: "GET" },
+                          { label: "⚡ LLM Stream", url: "", method: "POST", stream: true },
                         ].map(q => (
-                          <button key={q.label} onClick={() => { setApiUrl(q.url); setApiMethod(q.label.includes("Chat") ? "POST" : "GET"); }}
-                            className="text-[9px] px-2 py-0.5 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">
+                          <button key={q.label} onClick={() => {
+                            if (q.url) setApiUrl(q.url);
+                            setApiMethod(q.method);
+                            if (q.stream) {
+                              setApiStreamMode(true);
+                              setApiHeaders([
+                                { key: "Content-Type", value: "application/json", enabled: true },
+                                { key: "Authorization", value: "Bearer YOUR_API_KEY", enabled: true },
+                              ]);
+                              setApiBody(JSON.stringify({
+                                model: "gpt-4o-mini",
+                                messages: [{ role: "user", content: "Say hello in 3 languages" }],
+                                stream: true,
+                              }, null, 2));
+                            } else {
+                              setApiStreamMode(false);
+                            }
+                          }}
+                            className={cn("text-[9px] px-2 py-0.5 rounded-full border transition-colors",
+                              q.stream ? "border-purple-200 text-purple-500 hover:bg-purple-50" : "border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300")}>
                             {q.label}
                           </button>
                         ))}
@@ -1072,7 +1163,37 @@ export default function VibeCodingIDE() {
                 {/* Response Viewer */}
                 {apiTab === "response" && (
                   <div className="flex-1 overflow-y-auto p-3">
-                    {apiResponse ? (
+                    {/* ── Streaming response ── */}
+                    {apiStreamMode && (apiStreamContent || apiLoading) ? (
+                      <div className="space-y-3">
+                        {/* Status line */}
+                        <div className="flex items-center gap-3">
+                          {apiStreamInfo && (
+                            <span className="text-lg font-bold" style={{ color: apiStreamInfo.status < 300 ? "#10B981" : apiStreamInfo.status < 400 ? "#F59E0B" : "#EF4444" }}>
+                              {apiStreamInfo.status || "..."} {apiStreamInfo.statusText}
+                            </span>
+                          )}
+                          {apiLoading && <span className="text-[10px] text-purple-500 animate-pulse">⚡ streaming...</span>}
+                          <span className="flex-1" />
+                          <button onClick={() => navigator.clipboard?.writeText(apiStreamContent)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
+                        </div>
+                        {/* Content-Type badge */}
+                        {apiStreamInfo?.contentType && (
+                          <div className="text-[9px] text-stone-400">📋 {apiStreamInfo.contentType}</div>
+                        )}
+                        {/* Streaming body */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold text-stone-500">⚡ Stream Output</span>
+                            <span className="text-[9px] text-stone-400">{apiStreamContent.length} chars</span>
+                          </div>
+                          <pre className="text-[11px] font-mono bg-stone-900 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap break-words">
+                            {apiStreamContent || "⏳ Waiting for response..."}
+                          </pre>
+                        </div>
+                      </div>
+                    ) : /* ── Normal response ── */ apiResponse ? (
                       <div className="space-y-3">
                         {/* Status line */}
                         <div className="flex items-center gap-3">

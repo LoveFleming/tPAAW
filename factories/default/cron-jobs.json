@@ -1,0 +1,18 @@
+[
+  {
+    "id": "cron-1782007179382",
+    "name": "運動提醒",
+    "type": "reminder",
+    "reminderText": "該去運動了！🏃‍♂️",
+    "skillId": "",
+    "schedule": "30 10 * * *",
+    "prompt": "",
+    "params": {},
+    "outputTarget": "chat",
+    "outputPath": "",
+    "enabled": true,
+    "createdAt": "2026-06-21T01:59:39.382Z",
+    "lastRun": "2026-06-22T02:30:26.358Z",
+    "lastStatus": "done"
+  }
+]
