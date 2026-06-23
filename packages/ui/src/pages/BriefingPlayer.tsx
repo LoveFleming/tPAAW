@@ -290,6 +290,8 @@ function RefOverlay({ refPath, onClose, theme }: { refPath: string; onClose: () 
     }
   })();
 
+  const isMarkdown = ext === "md" || ext === "markdown";
+
   return (
     <div
       className="fixed inset-0 z-[100] flex flex-col"
@@ -302,7 +304,7 @@ function RefOverlay({ refPath, onClose, theme }: { refPath: string; onClose: () 
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm">📄</span>
+          <span className="text-sm">{isMarkdown ? "📝" : "📄"}</span>
           <span className="text-sm font-mono text-stone-700">{fileName}</span>
           <span className="text-[10px] text-stone-400 uppercase px-1.5 py-0.5 rounded bg-stone-100">{ext}</span>
         </div>
@@ -329,6 +331,10 @@ function RefOverlay({ refPath, onClose, theme }: { refPath: string; onClose: () 
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-full text-rose-500 text-sm">❌ {error}</div>
+        ) : isMarkdown ? (
+          <div className="p-6" style={{ maxWidth: "900px", margin: "0 auto" }}>
+            {renderMarkdown(content || "")}
+          </div>
         ) : (
           <pre className="p-6 text-sm font-mono leading-relaxed overflow-auto" style={{ maxWidth: "1100px", margin: "0 auto" }}>
             {highlightedHtml ? (
