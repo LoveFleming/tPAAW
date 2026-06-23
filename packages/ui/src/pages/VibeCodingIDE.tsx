@@ -1044,220 +1044,185 @@ export default function VibeCodingIDE() {
             {/* === API TESTER === */}
             {activeSubPanel === "api-tester" && showApiTester && (
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* API sub-tabs */}
-                <div className="flex items-center px-2 py-1 border-b shrink-0 gap-0.5" style={{ backgroundColor: tk.bg, borderColor: tk.borderLight }}>
-                  {(["request", "response", "history"] as const).map(tabKey => (
-                    <button key={tabKey} onClick={() => setApiTab(tabKey)}
-                      className={cn("px-2.5 py-1 rounded text-[10px] font-semibold transition-colors",
-                        apiTab === tabKey ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
-                      {tabKey === "request" ? t("vibe.apiRequest") : tabKey === "response" ? t("vibe.apiResponse") : t("vibe.apiHistory")}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Request Builder */}
-                {apiTab === "request" && (
-                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                    {/* URL bar */}
-                    <div className="flex items-center gap-2">
-                      <select value={apiMethod} onChange={e => setApiMethod(e.target.value)}
-                        className="text-[11px] font-bold px-2 py-1.5 border rounded-lg outline-none cursor-pointer"
-                        style={{ borderColor: "#ddd", color: METHOD_COLORS[apiMethod] }}>
-                        {HTTP_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                      <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) sendApiRequest(); }}
-                        placeholder="https://api.example.com/endpoint"
-                        className="flex-1 text-[11px] font-mono px-3 py-1.5 border rounded-lg outline-none focus:border-blue-400"
-                        style={{ borderColor: "#ddd" }} />
-                      <button
-                        onClick={() => setApiStreamMode(!apiStreamMode)}
-                        className={cn("text-[10px] px-2 py-1.5 rounded-lg border font-semibold transition-colors",
-                          apiStreamMode ? "bg-purple-600 text-white border-purple-600" : "text-stone-400 border-stone-200 hover:bg-stone-50")}
-                        title="Toggle streaming mode (for LLM SSE endpoints)">
-                        ⚡ Stream
+                {/* ── Top: Request Builder ── */}
+                <div className="shrink-0 border-b overflow-y-auto p-3 space-y-2" style={{ maxHeight: "55%", borderColor: tk.borderLight }}>
+                  {/* Quick URLs */}
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {[
+                      { label: "PAAW Chat", url: `${API_BASE}/api/chat`, method: "POST" },
+                      { label: "PAAW Status", url: `${API_BASE}/api/vibe-git/status`, method: "GET" },
+                      { label: "PAAW FS", url: `${API_BASE}/api/vibe-fs/list`, method: "GET" },
+                      { label: "Distill Config", url: `${API_BASE}/api/distill/config`, method: "GET" },
+                      { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1", method: "GET" },
+                      { label: "HTTPBin", url: "https://httpbin.org/get", method: "GET" },
+                      { label: "⚡ LLM Stream", url: "", method: "POST", stream: true },
+                    ].map(q => (
+                      <button key={q.label} onClick={() => {
+                        if (q.url) setApiUrl(q.url);
+                        setApiMethod(q.method);
+                        if (q.stream) {
+                          setApiStreamMode(true);
+                          setApiHeaders([
+                            { key: "Content-Type", value: "application/json", enabled: true },
+                            { key: "Authorization", value: "Bearer YOUR_API_KEY", enabled: true },
+                          ]);
+                          setApiBody(JSON.stringify({
+                            model: "gpt-4o-mini",
+                            messages: [{ role: "user", content: "Say hello in 3 languages" }],
+                            stream: true,
+                          }, null, 2));
+                        } else {
+                          setApiStreamMode(false);
+                        }
+                      }}
+                        className={cn("text-[9px] px-2 py-0.5 rounded-full border transition-colors",
+                          q.stream ? "border-purple-200 text-purple-500 hover:bg-purple-50" : "border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300")}>
+                        {q.label}
                       </button>
-                      {apiLoading && apiStreamMode ? (
-                        <button onClick={() => apiStreamAbortRef.current?.abort()}
-                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all">
-                          ⏹ Stop
-                        </button>
-                      ) : (
-                        <button onClick={sendApiRequest} disabled={apiLoading || !apiUrl.trim()}
-                          className="px-4 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 active:scale-95 transition-transform"
-                          style={{ backgroundColor: tk.accent }}>
-                          {apiLoading ? "⏳" : "Send"}
-                        </button>
-                      )}
-                    </div>
-                    {/* Headers */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-bold text-stone-500">{t('vibe.apiHeaders')}</span>
-                        <button onClick={addHeader} className="text-[10px] text-blue-500 hover:text-blue-600">{t("vibe.apiAddHeader")}</button>
-                      </div>
-                      {apiHeaders.map((h, i) => (
-                        <div key={i} className="flex items-center gap-1.5 mb-1">
-                          <input type="checkbox" checked={h.enabled} onChange={e => updateHeader(i, "enabled", e.target.checked)} className="w-3 h-3" />
-                          <input value={h.key} onChange={e => updateHeader(i, "key", e.target.value)} placeholder="Key"
-                            className="flex-1 text-[10px] font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
-                          <input value={h.value} onChange={e => updateHeader(i, "value", e.target.value)} placeholder="Value"
-                            className="flex-1 text-[10px] font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
-                          <button onClick={() => removeHeader(i)} className="text-stone-300 hover:text-red-500 text-xs">✕</button>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Body */}
-                    {apiMethod !== "GET" && apiMethod !== "HEAD" && (
-                      <div>
-                        <div className="text-[10px] font-bold text-stone-500 mb-1.5">{t('vibe.apiBody')}</div>
-                        <textarea value={apiBody} onChange={e => setApiBody(e.target.value)}
-                          placeholder='{"key": "value"}'
-                          className="w-full text-[11px] font-mono px-3 py-2 border rounded-lg outline-none focus:border-blue-400 resize-y"
-                          style={{ borderColor: "#ddd", minHeight: 120 }} />
-                        <button onClick={() => setApiBody(tryFormatJson(apiBody))}
-                          className="text-[9px] text-stone-400 hover:text-stone-600 mt-1">📐 {t("vibe.format")}</button>
-                      </div>
+                    ))}
+                  </div>
+                  {/* URL bar */}
+                  <div className="flex items-center gap-2">
+                    <select value={apiMethod} onChange={e => setApiMethod(e.target.value)}
+                      className="text-[11px] font-bold px-2 py-1.5 border rounded-lg outline-none cursor-pointer"
+                      style={{ borderColor: "#ddd", color: METHOD_COLORS[apiMethod] }}>
+                      {HTTP_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <input value={apiUrl} onChange={e => setApiUrl(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) sendApiRequest(); }}
+                      placeholder="https://api.example.com/endpoint"
+                      className="flex-1 text-[11px] font-mono px-3 py-1.5 border rounded-lg outline-none focus:border-blue-400"
+                      style={{ borderColor: "#ddd" }} />
+                    <button
+                      onClick={() => setApiStreamMode(!apiStreamMode)}
+                      className={cn("text-[10px] px-2 py-1.5 rounded-lg border font-semibold transition-colors",
+                        apiStreamMode ? "bg-purple-600 text-white border-purple-600" : "text-stone-400 border-stone-200 hover:bg-stone-50")}
+                      title="Toggle streaming mode (for LLM SSE endpoints)">
+                      ⚡ Stream
+                    </button>
+                    {apiLoading && apiStreamMode ? (
+                      <button onClick={() => apiStreamAbortRef.current?.abort()}
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all">
+                        ⏹ Stop
+                      </button>
+                    ) : (
+                      <button onClick={sendApiRequest} disabled={apiLoading || !apiUrl.trim()}
+                        className="px-4 py-1.5 rounded-lg text-[11px] font-bold text-white disabled:opacity-40 active:scale-95 transition-transform"
+                        style={{ backgroundColor: tk.accent }}>
+                        {apiLoading ? "⏳" : "Send"}
+                      </button>
                     )}
-                    {/* Quick URLs */}
+                  </div>
+                  {/* Headers */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold text-stone-500">{t('vibe.apiHeaders')}</span>
+                      <button onClick={addHeader} className="text-[10px] text-blue-500 hover:text-blue-600">{t("vibe.apiAddHeader")}</button>
+                    </div>
+                    {apiHeaders.map((h, i) => (
+                      <div key={i} className="flex items-center gap-1.5 mb-1">
+                        <input type="checkbox" checked={h.enabled} onChange={e => updateHeader(i, "enabled", e.target.checked)} className="w-3 h-3" />
+                        <input value={h.key} onChange={e => updateHeader(i, "key", e.target.value)} placeholder="Key"
+                          className="flex-1 text-[10px] font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
+                        <input value={h.value} onChange={e => updateHeader(i, "value", e.target.value)} placeholder="Value"
+                          className="flex-1 text-[10px] font-mono px-2 py-1 border rounded outline-none" style={{ borderColor: "#ddd" }} />
+                        <button onClick={() => removeHeader(i)} className="text-stone-300 hover:text-red-500 text-xs">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Body */}
+                  {apiMethod !== "GET" && apiMethod !== "HEAD" && (
                     <div>
-                      <div className="text-[10px] font-bold text-stone-500 mb-1.5">{t('vibe.apiQuickUrls')}</div>
-                      <div className="flex flex-wrap gap-1">
-                        {[
-                          { label: "PAAW Chat", url: `${API_BASE}/api/chat`, method: "POST" },
-                          { label: "PAAW Status", url: `${API_BASE}/api/vibe-git/status`, method: "GET" },
-                          { label: "PAAW FS", url: `${API_BASE}/api/vibe-fs/list`, method: "GET" },
-                          { label: "Distill Config", url: `${API_BASE}/api/distill/config`, method: "GET" },
-                          { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1", method: "GET" },
-                          { label: "HTTPBin", url: "https://httpbin.org/get", method: "GET" },
-                          { label: "⚡ LLM Stream", url: "", method: "POST", stream: true },
-                        ].map(q => (
-                          <button key={q.label} onClick={() => {
-                            if (q.url) setApiUrl(q.url);
-                            setApiMethod(q.method);
-                            if (q.stream) {
-                              setApiStreamMode(true);
-                              setApiHeaders([
-                                { key: "Content-Type", value: "application/json", enabled: true },
-                                { key: "Authorization", value: "Bearer YOUR_API_KEY", enabled: true },
-                              ]);
-                              setApiBody(JSON.stringify({
-                                model: "gpt-4o-mini",
-                                messages: [{ role: "user", content: "Say hello in 3 languages" }],
-                                stream: true,
-                              }, null, 2));
-                            } else {
-                              setApiStreamMode(false);
-                            }
-                          }}
-                            className={cn("text-[9px] px-2 py-0.5 rounded-full border transition-colors",
-                              q.stream ? "border-purple-200 text-purple-500 hover:bg-purple-50" : "border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300")}>
-                            {q.label}
-                          </button>
+                      <div className="text-[10px] font-bold text-stone-500 mb-1">{t('vibe.apiBody')}</div>
+                      <textarea value={apiBody} onChange={e => setApiBody(e.target.value)}
+                        placeholder='{"key": "value"}'
+                        className="w-full text-[11px] font-mono px-3 py-2 border rounded-lg outline-none focus:border-blue-400 resize-y"
+                        style={{ borderColor: "#ddd", minHeight: 80 }} />
+                      <button onClick={() => setApiBody(tryFormatJson(apiBody))}
+                        className="text-[9px] text-stone-400 hover:text-stone-600 mt-1">📐 {t("vibe.format")}</button>
+                    </div>
+                  )}
+                  {/* History (collapsible) */}
+                  {apiHistory.length > 0 && (
+                    <details className="mt-1">
+                      <summary className="text-[10px] font-bold text-stone-400 cursor-pointer hover:text-stone-600">
+                        📜 History ({apiHistory.length})
+                      </summary>
+                      <div className="mt-1 max-h-32 overflow-y-auto">
+                        {apiHistory.map((h, i) => (
+                          <div key={h.id || i} className="flex items-center gap-2 py-1 px-1 hover:bg-stone-50 cursor-pointer text-xs"
+                            onClick={() => { setApiMethod(h.method); setApiUrl(h.url); }}>
+                            <span className="text-[10px] font-bold w-10 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
+                            <span className="text-stone-600 truncate flex-1 font-mono text-[10px]">{h.url}</span>
+                            <span className="text-[10px] font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
+                            <span className="text-[9px] text-stone-400 shrink-0">{h.elapsed}ms</span>
+                          </div>
                         ))}
                       </div>
-                    </div>
-                  </div>
-                )}
+                    </details>
+                  )}
+                </div>
 
-                {/* Response Viewer */}
-                {apiTab === "response" && (
-                  <div className="flex-1 overflow-y-auto p-3">
-                    {/* ── Streaming response ── */}
-                    {apiStreamMode && (apiStreamContent || apiLoading) ? (
-                      <div className="space-y-3">
-                        {/* Status line */}
-                        <div className="flex items-center gap-3">
-                          {apiStreamInfo && (
-                            <span className="text-lg font-bold" style={{ color: apiStreamInfo.status < 300 ? "#10B981" : apiStreamInfo.status < 400 ? "#F59E0B" : "#EF4444" }}>
-                              {apiStreamInfo.status || "..."} {apiStreamInfo.statusText}
-                            </span>
-                          )}
-                          {apiLoading && <span className="text-[10px] text-purple-500 animate-pulse">⚡ streaming...</span>}
-                          <span className="flex-1" />
-                          <button onClick={() => navigator.clipboard?.writeText(apiStreamContent)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
-                        </div>
-                        {/* Content-Type badge */}
-                        {apiStreamInfo?.contentType && (
-                          <div className="text-[9px] text-stone-400">📋 {apiStreamInfo.contentType}</div>
-                        )}
-                        {/* Streaming body */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-stone-500">⚡ Stream Output</span>
-                            <span className="text-[9px] text-stone-400">{apiStreamContent.length} chars</span>
-                          </div>
-                          <pre className="text-[11px] font-mono bg-stone-900 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap break-words">
-                            {apiStreamContent || "⏳ Waiting for response..."}
-                          </pre>
-                        </div>
-                      </div>
-                    ) : /* ── Normal response ── */ apiResponse ? (
-                      <div className="space-y-3">
-                        {/* Status line */}
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>
-                            {apiResponse.status} {apiResponse.statusText}
+                {/* ── Bottom: Response Viewer ── */}
+                <div className="flex-1 overflow-y-auto p-3 min-h-0">
+                  {/* ── Streaming response ── */}
+                  {apiStreamMode && (apiStreamContent || apiLoading) ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        {apiStreamInfo && (
+                          <span className="text-sm font-bold" style={{ color: apiStreamInfo.status < 300 ? "#10B981" : apiStreamInfo.status < 400 ? "#F59E0B" : "#EF4444" }}>
+                            {apiStreamInfo.status || "..."} {apiStreamInfo.statusText}
                           </span>
-                          <span className="text-[10px] text-stone-400">{apiResponse.elapsed}ms · {fmtBytes(apiResponse.size)}</span>
-                          <span className="flex-1" />
-                          <button onClick={() => navigator.clipboard?.writeText(apiResponse.body)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
-                        </div>
-                        {/* Headers */}
-                        <div>
-                          <div className="text-[10px] font-bold text-stone-500 mb-1">{t('vibe.apiRespHeaders')}</div>
-                          <div className="text-[10px] font-mono bg-stone-50 rounded-lg p-2 space-y-0.5">
+                        )}
+                        {apiLoading && <span className="text-[10px] text-purple-500 animate-pulse">⚡ streaming...</span>}
+                        <span className="flex-1" />
+                        <button onClick={() => navigator.clipboard?.writeText(apiStreamContent)}
+                          className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
+                      </div>
+                      {apiStreamInfo?.contentType && <div className="text-[9px] text-stone-400">📋 {apiStreamInfo.contentType}</div>}
+                      <pre className="text-[11px] font-mono bg-stone-900 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap break-words">
+                        {apiStreamContent || "⏳ Waiting for response..."}
+                      </pre>
+                    </div>
+                  ) : /* ── Normal response ── */ apiResponse ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>
+                          {apiResponse.status} {apiResponse.statusText}
+                        </span>
+                        <span className="text-[10px] text-stone-400">{apiResponse.elapsed}ms · {fmtBytes(apiResponse.size)}</span>
+                        <span className="flex-1" />
+                        <button onClick={() => navigator.clipboard?.writeText(apiResponse.body)}
+                          className="text-[10px] px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">📋 Copy</button>
+                      </div>
+                      {Object.keys(apiResponse.headers).length > 0 && (
+                        <details>
+                          <summary className="text-[10px] font-bold text-stone-400 cursor-pointer hover:text-stone-600">{t('vibe.apiRespHeaders')}</summary>
+                          <div className="text-[10px] font-mono bg-stone-50 rounded-lg p-2 space-y-0.5 mt-1">
                             {Object.entries(apiResponse.headers).map(([k, v]) => (
                               <div key={k}><span className="text-blue-600">{k}</span>: <span className="text-stone-600">{v}</span></div>
                             ))}
                           </div>
+                        </details>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold text-stone-500">{t('vibe.apiRespBody')}</span>
+                          <button onClick={() => { try { setApiResponse({ ...apiResponse, body: JSON.stringify(JSON.parse(apiResponse.body), null, 2) }); } catch {} }}
+                            className="text-[9px] text-stone-400 hover:text-stone-600">📐 Format</button>
                         </div>
-                        {/* Body */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-stone-500">{t('vibe.apiRespBody')}</span>
-                            <button onClick={() => { try { setApiResponse({ ...apiResponse, body: JSON.stringify(JSON.parse(apiResponse.body), null, 2) }); } catch {} }}
-                              className="text-[9px] text-stone-400 hover:text-stone-600">📐 Format</button>
-                          </div>
-                          <pre className="text-[11px] font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[400px] overflow-y-auto whitespace-pre-wrap break-words">
-                            {apiResponse.body}
-                          </pre>
-                        </div>
+                        <pre className="text-[11px] font-mono bg-stone-800 text-green-300 rounded-lg p-3 overflow-x-auto max-h-[400px] overflow-y-auto whitespace-pre-wrap break-words">
+                          {apiResponse.body}
+                        </pre>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">
-                        <span className="text-2xl">📥</span>
-                        <p>{t("vibe.apiNoResponse")}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* History */}
-                {apiTab === "history" && (
-                  <div className="flex-1 overflow-y-auto">
-                    <div className="flex items-center px-3 py-1.5 border-b" style={{ borderColor: "#f0f0f0" }}>
-                      <span className="text-[10px] font-bold text-stone-500">{apiHistory.length} requests</span>
-                      <span className="flex-1" />
-                      <button onClick={() => setApiHistory([])} className="text-[10px] text-red-400 hover:text-red-600">{t('vibe.clear')}</button>
                     </div>
-                    {apiHistory.map((h, i) => (
-                      <div key={h.id || i} className="flex items-center gap-2 px-3 py-1.5 border-b hover:bg-stone-50 cursor-pointer text-xs"
-                        style={{ borderColor: tk.borderLight }}
-                        onClick={() => { setApiMethod(h.method); setApiUrl(h.url); setApiTab("request"); }}>
-                        <span className="text-[10px] font-bold w-12 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
-                        <span className="text-stone-600 truncate flex-1 font-mono text-[10px]">{h.url}</span>
-                        <span className="text-[10px] font-bold shrink-0" style={{ color: h.status < 300 ? "#10B981" : h.status < 400 ? "#F59E0B" : "#EF4444" }}>{h.status}</span>
-                        <span className="text-[9px] text-stone-400 shrink-0">{h.elapsed}ms</span>
-                      </div>
-                    ))}
-                    {apiHistory.length === 0 && (
-                      <div className="flex items-center justify-center h-32 text-stone-400 text-xs">{t('vibe.apiNoHistory')}</div>
-                    )}
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">
+                      <span className="text-2xl">📥</span>
+                      <p>{t("vibe.apiNoResponse")}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1275,14 +1240,14 @@ export default function VibeCodingIDE() {
               </div>
             )}
 
-            {/* Session overlay */}
+            {/* Session panel — inline in code area */}
             {showSessionPanel && (
-              <div className="absolute right-2 top-2 w-72 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden" style={{ borderColor: tk.borderInput }}>
-                <div className="px-3 py-2 border-b font-bold text-xs text-stone-700 flex items-center gap-2" style={{ borderColor: "#f0f0f0" }}>
+              <div className="absolute left-0 right-0 top-0 bottom-0 z-40 bg-white/95 backdrop-blur-sm flex flex-col">
+                <div className="flex items-center px-3 py-2 border-b font-bold text-xs text-stone-700 shrink-0" style={{ borderColor: "#f0f0f0" }}>
                   ⚡ Sessions <span className="flex-1" />
-                  <button onClick={() => setShowSessionPanel(false)} className="text-stone-400 hover:text-stone-700">✕</button>
+                  <button onClick={() => setShowSessionPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
                 </div>
-                <div className="max-h-36 overflow-y-auto">
+                <div className="max-h-40 overflow-y-auto border-b" style={{ borderColor: "#f0f0f0" }}>
                   {sessions.map(s => {
                     const cliOpt = CLI_OPTIONS.find(c => c.id === s.cli);
                     return (
@@ -1298,7 +1263,7 @@ export default function VibeCodingIDE() {
                     );
                   })}
                 </div>
-                <div className="p-2.5 border-t space-y-1.5" style={{ borderColor: "#f0f0f0", backgroundColor: "#fafaf9" }}>
+                <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5" style={{ backgroundColor: "#fafaf9" }}>
                   <input value={formName} onChange={e => setFormName(e.target.value)} placeholder={t("vibe.sessionName")}
                     className="w-full text-[11px] px-2 py-1.5 border rounded outline-none" style={{ borderColor: "#ddd" }} />
                   <div className="flex gap-0.5">
