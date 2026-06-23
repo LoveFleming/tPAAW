@@ -426,7 +426,15 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
   }, []);
 
   useEffect(() => {
-    if (initialDir) loadSlides(initialDir);
+    if (initialDir) {
+      loadSlides(initialDir);
+      setSelectedDir(initialDir);
+    } else {
+      // Sidebar click — always go back to dir picker
+      setSelectedDir("");
+      setSlides([]);
+      resetAllAnnotations();
+    }
   }, [initialDir, loadSlides]);
 
   // ── Load markdown content ──
