@@ -51,8 +51,17 @@ async function scanSkillsDir(root, kind) {
       const { stat } = await import("fs/promises");
       const s = await stat(join(root, dir));
       if (!s.isDirectory()) continue;
-      const raw = await readFile(join(root, dir, "SKILL.md"), "utf-8");
-      const parsed = parseSkillFrontmatter(raw);
+      let raw, parsed;
+      try {
+        raw = await readFile(join(root, dir, "SKILL.md"), "utf-8");
+        parsed = parseSkillFrontmatter(raw);
+      } catch {
+        // No SKILL.md — try inputs.json fallback (input-prompt dir)
+        const inputsRaw = await readFile(join(root, dir, "inputs.json"), "utf-8");
+        const inputsData = JSON.parse(inputsRaw);
+        parsed = { name: dir, description: "", body: "", userInputs: inputsData.userInputs || [] };
+        raw = JSON.stringify(parsed, null, 2);
+      }
       skills.push({
         id: dir, kind,
         name: parsed.name || dir, description: parsed.description || "",

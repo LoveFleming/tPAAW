@@ -658,8 +658,19 @@ ${context ? "\n## Context\n" + context : ""}
             const stat = await import("fs/promises").then(m => m.stat(join(root, dir)));
             if (!stat.isDirectory()) continue;
             const skillPath = join(root, dir, "SKILL.md");
-            const raw = await readFile(skillPath, "utf-8");
-            const parsed = parseSkillFrontmatter(raw);
+            let raw, parsed, skillPathResolved = skillPath;
+            try {
+              raw = await readFile(skillPath, "utf-8");
+              parsed = parseSkillFrontmatter(raw);
+            } catch {
+              // No SKILL.md — try inputs.json fallback (input-prompt dir)
+              const inputsJsonPath = join(root, dir, "inputs.json");
+              const inputsRaw = await readFile(inputsJsonPath, "utf-8");
+              const inputsData = JSON.parse(inputsRaw);
+              parsed = { name: dir, description: "", userInputs: inputsData.userInputs || [] };
+              raw = JSON.stringify(parsed, null, 2);
+              skillPathResolved = inputsJsonPath;
+            }
             skills.push({
               id: dir,
               kind,
@@ -668,7 +679,7 @@ ${context ? "\n## Context\n" + context : ""}
               version: parsed.version || "1.0.0",
               category: parsed.category || "",
               skillPrompt: "",  // 不再展開 SKILL.md 內容，AI 執行時自行讀取
-              skillPath: skillPath,  // 提供絕對路徑讓 AI 按需讀取
+              skillPath: skillPathResolved,  // 提供絕對路徑讓 AI 按需讀取
               useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
               usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
               userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
