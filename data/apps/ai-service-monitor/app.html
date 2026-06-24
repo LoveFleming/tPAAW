@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Service Monitor — Trend Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg-primary:   #1c1917;
+    --bg-secondary: #292524;
+    --bg-card:      #1f1d1b;
+    --bg-elevated:  #2c2926;
+    --border:       #44403c;
+    --border-light: #57534e;
+    --text-primary:   #f5f5f4;
+    --text-secondary: #a8a29e;
+    --text-muted:     #78716c;
+    --accent-blue:  #38bdf8;
+    --accent-green: #4ade80;
+    --accent-red:   #f87171;
+    --accent-amber: #fbbf24;
+    --accent-purple:#a78bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+  /* === HEADER === */
+  .header {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .header-title h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  .header-title .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+  .header-meta span { display: flex; align-items: center; gap: 0.4rem; }
+  .header-meta strong { color: var(--text-primary); font-weight: 600; }
+
+  /* === FILTER BAR === */
+  .filter-bar {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.4rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .filter-btn:hover {
+    border-color: var(--border-light);
+    color: var(--text-primary);
+  }
+  .filter-btn.active {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: #0c4a6e;
+    font-weight: 600;
+  }
+
+  /* === KPI ROW === */
+  .kpi-row {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    transition: border-color 0.15s ease;
+  }
+  .kpi-card:hover { border-color: var(--border-light); }
+  .kpi-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+  .kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .kpi-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.75rem;
+    margin-top: 0.4rem;
+  }
+  .kpi-trend.up   { color: var(--accent-green); }
+  .kpi-trend.down { color: var(--accent-red); }
+  .kpi-trend.flat { color: var(--text-muted); }
+
+  /* === CHART GRID === */
+  .chart-grid {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.5rem;
+  }
+  .chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .chart-card.full-width { grid-column: 1 / -1; }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .chart-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .chart-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+  }
+  .chart-legend {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 280px;
+  }
+  .chart-wrap.tall { height: 340px; }
+
+  /* === TABLE === */
+  .table-section {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem 3rem;
+  }
+  .table-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+  .table-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  thead th {
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+  }
+  tbody td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid rgba(68, 64, 60, 0.5);
+    color: var(--text-secondary);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg-elevated); color: var(--text-primary); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .badge-green { background: rgba(74,222,128,0.15); color: var(--accent-green); }
+  .badge-red   { background: rgba(248,113,113,0.15); color: var(--accent-red); }
+
+  @media (max-width: 640px) {
+    .header { padding: 1rem; }
+    .filter-bar, .kpi-row, .chart-grid, .table-section { padding-left: 1rem; padding-right: 1rem; }
+    .chart-wrap { height: 240px; }
+    .chart-wrap.tall { height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-title">
+      <span class="dot"></span>
+      <h1>AI Service Monitor</h1>
+    </div>
+    <div class="header-meta">
+      <span>🔴 Endpoint: <strong>/v1/chat/completions</strong></span>
+      <span>🌍 Region: <strong>us-east-1</strong></span>
+      <span>🕐 Updated: <strong>Jun 24, 14:30 UTC</strong></span>
+    </div>
+  </div>
+</header>
+
+<!-- FILTER -->
+<div class="filter-bar">
+  <button class="filter-btn">1H</button>
+  <button class="filter-btn">6H</button>
+  <button class="filter-btn active">24H</button>
+  <button class="filter-btn">7D</button>
+  <button class="filter-btn">30D</button>
+</div>
+
+<!-- KPI CARDS -->
+<div class="kpi-row">
+  <div class="kpi-card">
+    <div class="kpi-label">Total Requests</div>
+    <div class="kpi-value">142,830</div>
+    <div class="kpi-trend up">▲ 8.2% vs yesterday</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Success Rate</div>
+    <div class="kpi-value" style="color:var(--accent-green)">99.72%</div>
+    <div class="kpi-trend up">▲ 0.04%</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg Response</div>
+    <div class="kpi-value">247<span style="font-size:1rem;color:var(--text-muted)">ms</span></div>
+    <div class="kpi-trend down">▼ 12ms faster</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">P95 Latency</div>
+    <div class="kpi-value" style="color:var(--accent-amber)">684<span style="font-size:1rem;color:var(--text-muted)">ms</span></div>
+    <div class="kpi-trend flat">— stable</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Error Count</div>
+    <div class="kpi-value" style="color:var(--accent-red)">398</div>
+    <div class="kpi-trend down">▼ 42 fewer</div>
+  </div>
+</div>
+
+<!-- CHARTS -->
+<div class="chart-grid">
+
+  <!-- Request Volume -->
+  <div class="chart-card full-width">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Request Volume (Success vs Fail)</div>
+        <div class="chart-subtitle">Hourly request count over the last 24 hours</div>
+      </div>
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--accent-green)"></span>Success</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--accent-red)"></span>Failed</span>
+      </div>
+    </div>
+    <div class="chart-wrap tall"><canvas id="chartVolume"></canvas></div>
+  </div>
+
+  <!-- Response Time Trends -->
+  <div class="chart-card full-width">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Response Time Trends</div>
+        <div class="chart-subtitle">Average, P95, and Max latency (ms)</div>
+      </div>
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--accent-blue)"></span>Average</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--accent-amber)"></span>P95</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--accent-purple)"></span>Max</span>
+      </div>
+    </div>
+    <div class="chart-wrap tall"><canvas id="chartLatency"></canvas></div>
+  </div>
+
+  <!-- Success Rate Trend -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Success Rate Trend</div>
+        <div class="chart-subtitle">Percentage of successful requests</div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="chartSuccessRate"></canvas></div>
+  </div>
+
+  <!-- Error Rate Trend -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Error Rate Trend</div>
+        <div class="chart-subtitle">Percentage of failed requests</div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="chartErrorRate"></canvas></div>
+  </div>
+
+</div>
+
+<!-- DATA TABLE -->
+<div class="table-section">
+  <div class="table-card">
+    <div class="table-header">📋 Hourly Breakdown</div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th class="num">Success</th>
+            <th class="num">Failed</th>
+            <th class="num">Avg (ms)</th>
+            <th class="num">P95 (ms)</th>
+            <th class="num">Max (ms)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// === STATIC DATA (24-hour, hourly) ===
+const hours = [];
+for (let i = 23; i >= 0; i--) {
+  const h = new Date();
+  h.setHours(h.getHours() - i);
+  hours.push(h.getHours().toString().padStart(2,'0') + ':00');
+}
+
+const successData = [4820,4510,3980,3600,3450,3320,3680,4100,4550,5210,5680,6320,6180,5940,5720,5480,5310,5660,6100,6520,7180,6840,6210,5980];
+const failData    = [  18,  22,  15,  12,   8,  10,  14,  20,  25,  18,  22,  30,  28,  35,  42,  38,  20,  16,  12,   8,  10,  14,   9,   5];
+const avgData     = [265,278,290,310,320,315,298,275,260,245,230,220,228,235,242,250,255,248,240,235,228,245,255,247];
+const p95Data     = [620,650,680,720,740,730,700,660,640,620,600,580,590,610,630,650,660,640,620,600,590,620,640,684];
+const maxData     = [980,1020,1100,1180,1220,1200,1120,1050,1010,980,950,920,940,970,990,1020,1040,1010,980,960,950,990,1020,1150];
+
+// Chart.js global defaults
+Chart.defaults.color = '#a8a29e';
+Chart.defaults.borderColor = 'rgba(68,64,60,0.5)';
+Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif';
+
+// --- Chart 1: Request Volume (stacked bar) ---
+new Chart(document.getElementById('chartVolume'), {
+  type: 'bar',
+  data: {
+    labels: hours,
+    datasets: [
+      { label:'Success', data: successData, backgroundColor:'rgba(74,222,128,0.7)', borderRadius:3, borderSkipped:false, stack:'s' },
+      { label:'Failed',  data: failData,    backgroundColor:'rgba(248,113,113,0.8)', borderRadius:3, borderSkipped:false, stack:'s' },
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      legend:{ display:false },
+      tooltip:{ backgroundColor:'#292524', borderColor:'#57534e', borderWidth:1, padding:10 }
+    },
+    scales:{
+      x:{ stacked:true, grid:{ display:false }, ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:12 } },
+      y:{ stacked:true, grid:{ color:'rgba(68,64,60,0.3)' }, ticks:{ callback:v=>v>=1000?(v/1000)+'k':v } }
+    }
+  }
+});
+
+// --- Chart 2: Latency Trends (line) ---
+new Chart(document.getElementById('chartLatency'), {
+  type: 'line',
+  data: {
+    labels: hours,
+    datasets: [
+      { label:'Average', data: avgData, borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.1)', tension:0.35, fill:true, borderWidth:2, pointRadius:0, pointHoverRadius:5 },
+      { label:'P95',     data: p95Data, borderColor:'#fbbf24', backgroundColor:'transparent', tension:0.35, borderWidth:2, borderDash:[6,3], pointRadius:0, pointHoverRadius:5 },
+      { label:'Max',     data: maxData, borderColor:'#a78bfa', backgroundColor:'transparent', tension:0.35, borderWidth:1.5, borderDash:[2,2], pointRadius:0, pointHoverRadius:5 },
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      legend:{ display:false },
+      tooltip:{ backgroundColor:'#292524', borderColor:'#57534e', borderWidth:1, padding:10, callbacks:{ label:c=>c.dataset.label+': '+c.parsed.y+' ms' } }
+    },
+    scales:{
+      x:{ grid:{ display:false }, ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:12 } },
+      y:{ grid:{ color:'rgba(68,64,60,0.3)' }, ticks:{ callback:v=>v+'ms' } }
+    }
+  }
+});
+
+// --- Chart 3: Success Rate ---
+const successRateData = successData.map((s,i) => +(s/(s+failData[i])*100).toFixed(2));
+new Chart(document.getElementById('chartSuccessRate'), {
+  type: 'line',
+  data: {
+    labels: hours,
+    datasets: [{
+      label:'Success %',
+      data: successRateData,
+      borderColor:'#4ade80',
+      backgroundColor:'rgba(74,222,128,0.12)',
+      tension:0.4,
+      fill:true,
+      borderWidth:2,
+      pointRadius:0,
+      pointHoverRadius:5
+    }]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{ display:false },
+      tooltip:{ backgroundColor:'#292524', borderColor:'#57534e', borderWidth:1, padding:10, callbacks:{ label:c=>c.parsed.y+'%' } }
+    },
+    scales:{
+      x:{ grid:{ display:false }, ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:8 } },
+      y:{ min:98, max:100, grid:{ color:'rgba(68,64,60,0.3)' }, ticks:{ callback:v=>v+'%' } }
+    }
+  }
+});
+
+// --- Chart 4: Error Rate ---
+const errorRateData = failData.map((f,i) => +(f/(successData[i]+f)*100).toFixed(2));
+new Chart(document.getElementById('chartErrorRate'), {
+  type: 'line',
+  data: {
+    labels: hours,
+    datasets: [{
+      label:'Error %',
+      data: errorRateData,
+      borderColor:'#f87171',
+      backgroundColor:'rgba(248,113,113,0.12)',
+      tension:0.4,
+      fill:true,
+      borderWidth:2,
+      pointRadius:0,
+      pointHoverRadius:5
+    }]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{ display:false },
+      tooltip:{ backgroundColor:'#292524', borderColor:'#57534e', borderWidth:1, padding:10, callbacks:{ label:c=>c.parsed.y+'%' } }
+    },
+    scales:{
+      x:{ grid:{ display:false }, ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:8 } },
+      y:{ beginAtZero:true, grid:{ color:'rgba(68,64,60,0.3)' }, ticks:{ callback:v=>v+'%' } }
+    }
+  }
+});
+
+// --- Populate Table ---
+const tbody = document.getElementById('tableBody');
+// Show every 3rd hour for readability
+hours.forEach((hour, i) => {
+  if (i % 3 !== 0 && i !== 23) return;
+  const succ = successData[i], fail = failData[i];
+  const rate = (succ/(succ+fail)*100).toFixed(2);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${hour}</td>
+    <td class="num">${succ.toLocaleString()}</td>
+    <td class="num">${fail}</td>
+    <td class="num">${avgData[i]}</td>
+    <td class="num">${p95Data[i]}</td>
+    <td class="num">${maxData[i]}</td>
+    <td><span class="badge ${rate >= 99.5 ? 'badge-green' : 'badge-red'}">${rate}%</span></td>
+  `;
+  tbody.appendChild(tr);
+});
+</script>
+</body>
+</html>

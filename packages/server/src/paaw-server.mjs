@@ -4130,7 +4130,8 @@ wss.on("connection", (ws, req) => {
           if (!cliReadyFired) {
             const plain = stripAnsi(data);
             const pattern = cliReadyPatterns[cliType];
-            if (pattern && pattern.test(plain)) {
+            // If no pattern defined for this CLI, auto-ready after first data
+            if (!pattern || pattern.test(plain)) {
               cliReadyFired = true;
               console.log(`[PTY] CLI ready detected: ${cliType} (${sessionId})`);
               if (ws.readyState === 1) {
@@ -4138,8 +4139,9 @@ wss.on("connection", (ws, req) => {
               }
             }
           }
-          // Detect CLI task done — ONLY after cliReady (avoid false positive during startup)
-          if (cliReadyFired && !cliDoneFired) {
+          // Detect CLI task done — requires cliReady OR 15s elapsed (fallback if ready pattern doesn't match)
+          const readyOrTimeout = cliReadyFired || (Date.now() - ptyStartTime > 15000);
+          if (readyOrTimeout && !cliDoneFired) {
             const plain = stripAnsi(data);
             if (/\bDONE\b|已完成|完成！|✅.*完成|^完成$|Task completed|finished/i.test(plain)) {
               cliDoneFired = true;
