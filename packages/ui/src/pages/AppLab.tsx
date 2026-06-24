@@ -602,7 +602,7 @@ export default function AppLab() {
         setPollTrigger(t => t + 1);
 
         const skillId = selectedSkill?.id || "no-skill";
-        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 apps/${reportId}/app.html。\n4. 完成後輸出 DONE。`;
+        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 完成後輸出 DONE。`;
         const filledPrompt = systemPrompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
@@ -636,7 +636,7 @@ export default function AppLab() {
         }]);
 
         // Send to terminal for processing
-        const refinement = `${msg}\n\n修改完成後請更新 apps/${reportId}/app.html。完成後輸出 DONE。`;
+        const refinement = `${msg}\n\n修改完成後請更新 data/apps/${reportId}/app.html。完成後輸出 DONE。`;
         sendToTerminal(refinement);
 
         // Start polling for preview update
