@@ -1,0 +1,40 @@
+{
+  "messages": [
+    {
+      "id": "1782304372847",
+      "role": "user",
+      "text": "Endpoint:\n/v1/chat/completions\n🌍 Region:\nus-east-1\n最上面 endpoint region 拿掉",
+      "ts": 1782304372847
+    },
+    {
+      "id": "1782304373349",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1782304373348
+    },
+    {
+      "id": "1782304572513",
+      "role": "user",
+      "text": "網頁的資料 data 要從api 來 沒有資料就顯示0",
+      "ts": 1782304572513
+    },
+    {
+      "id": "1782304573014",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1782304573013
+    },
+    {
+      "id": "1782305862137",
+      "role": "user",
+      "text": "幫我從萬用api 塞100筆資料我看看 這app 可以不可以用",
+      "ts": 1782305862137
+    },
+    {
+      "id": "1782305862639",
+      "role": "assistant",
+      "text": "✅ 完成！",
+      "ts": 1782305862638
+    }
+  ]
+}
