@@ -93,6 +93,7 @@ function ContextMenu({ menu, onAction, onClose }: {
   const { info: t } = useTheme();
   const { t: ti18n } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x: menu.x, y: menu.y });
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -106,6 +107,24 @@ function ContextMenu({ menu, onAction, onClose }: {
       document.removeEventListener("keydown", handleKey);
     };
   }, [onClose]);
+
+  // Measure menu height after render and flip up if it would overflow viewport
+  useEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const menuH = rect.height;
+    let x = menu.x;
+    let y = menu.y;
+    // Flip up if menu would overflow bottom edge
+    if (y + menuH > window.innerHeight - 8) {
+      y = Math.max(8, y - menuH);
+    }
+    // Clamp horizontal if menu would overflow right edge
+    if (x + rect.width > window.innerWidth - 8) {
+      x = Math.max(8, window.innerWidth - rect.width - 8);
+    }
+    setPos({ x, y });
+  }, []);
 
   const itemStyle: React.CSSProperties = {
     padding: "6px 16px",
@@ -126,8 +145,8 @@ function ContextMenu({ menu, onAction, onClose }: {
         ref={ref}
         style={{
           position: "fixed",
-          left: menu.x,
-          top: menu.y,
+          left: pos.x,
+          top: pos.y,
           zIndex: 9999,
           background: "#ffffff",
           border: `1px solid #e5e7eb`,
@@ -170,8 +189,8 @@ function ContextMenu({ menu, onAction, onClose }: {
       ref={ref}
       style={{
         position: "fixed",
-        left: menu.x,
-        top: menu.y,
+        left: pos.x,
+        top: pos.y,
         zIndex: 9999,
         background: "#ffffff",
         border: `1px solid #e5e7eb`,

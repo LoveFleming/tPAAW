@@ -50,6 +50,7 @@ function CtxMenu({ menu, onAction, onClose }: {
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
+  const [pos, setPos] = useState({ x: menu.x, y: menu.y });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -58,6 +59,21 @@ function CtxMenu({ menu, onAction, onClose }: {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
+
+  // Measure menu height after render and flip up if it would overflow viewport
+  useEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    let x = menu.x;
+    let y = menu.y;
+    if (y + rect.height > window.innerHeight - 8) {
+      y = Math.max(8, y - rect.height);
+    }
+    if (x + rect.width > window.innerWidth - 8) {
+      x = Math.max(8, window.innerWidth - rect.width - 8);
+    }
+    setPos({ x, y });
+  }, []);
 
   const isDir = menu.node.type === "dir";
 
@@ -77,7 +93,7 @@ function CtxMenu({ menu, onAction, onClose }: {
 
   return (
     <div ref={ref} className="fixed z-[9999] bg-white border border-stone-200 rounded-xl shadow-2xl py-1 min-w-[180px]"
-      style={{ left: menu.x, top: menu.y }}>
+      style={{ left: pos.x, top: pos.y }}>
       {items.map(item => (
         <button key={item.action}
           onClick={() => { onAction(item.action, menu); onClose(); }}
