@@ -15,9 +15,8 @@ const PAAW_ROOT = process.env.PAAW_ROOT || resolve(process.cwd(), "../..");
 const REGISTRY_DIR = resolve(PAAW_ROOT, "data/api-registry");
 const TOOLS_DIR = resolve(PAAW_ROOT, "data/skills/tools");
 
-// Ensure dirs exist
+// Ensure registry dir exists (tools dir is created on-demand only)
 await mkdir(REGISTRY_DIR, { recursive: true });
-await mkdir(TOOLS_DIR, { recursive: true });
 
 // ── Helpers ──
 async function loadRegistryIndex() {

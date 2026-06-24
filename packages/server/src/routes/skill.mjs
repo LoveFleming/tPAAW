@@ -44,8 +44,8 @@ async function listFiles(dir, prefix = "") {
 
 async function scanSkillsDir(root, kind) {
   const skills = [];
-  await mkdir(root, { recursive: true });
-  const dirs = await readdir(root);
+  let dirs;
+  try { dirs = await readdir(root); } catch { return skills; }
   for (const dir of dirs) {
     try {
       const { stat } = await import("fs/promises");

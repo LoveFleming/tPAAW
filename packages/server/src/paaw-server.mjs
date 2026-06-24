@@ -650,8 +650,9 @@ ${context ? "\n## Context\n" + context : ""}
       const skills = [];
       // Helper to scan a skill directory
       const scanSkillsDir = async (root, kind) => {
-        await mkdir(root, { recursive: true });
-        const dirs = await readdir(root);
+        // Don't auto-create skill subdirectories (pool, tools) — only scan if they exist
+        let dirs;
+        try { dirs = await readdir(root); } catch { return; }
         for (const dir of dirs) {
           try {
             const stat = await import("fs/promises").then(m => m.stat(join(root, dir)));
