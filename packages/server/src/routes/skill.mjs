@@ -83,9 +83,23 @@ export default async function skillRoutes(req, res) {
   // GET /api/skills — list all
   if (req.method === "GET" && path.match(/^\/api\/skills(?:\?.*)?$/)) {
     try {
-      const skills = [];
+      const allSkills = [];
       for (let i = 0; i < ROOTS.length; i++) {
-        skills.push(...await scanSkillsDir(ROOTS[i], ROOT_KINDS[i]));
+        allSkills.push(...await scanSkillsDir(ROOTS[i], ROOT_KINDS[i]));
+      }
+      // Dedup by skill id — merge userInputs
+      const seen = new Map();
+      const skills = [];
+      for (const sk of allSkills) {
+        const existing = seen.get(sk.id);
+        if (existing) {
+          if (existing.userInputs.length === 0 && sk.userInputs.length > 0) existing.userInputs = sk.userInputs;
+          if (!existing.hasApp && sk.hasApp) existing.hasApp = true;
+          if (sk.kind === "physical-skill") existing.kind = "physical-skill";
+        } else {
+          seen.set(sk.id, sk);
+          skills.push(sk);
+        }
       }
       for (const sk of skills) {
         const base = ROOT_KINDS.indexOf(sk.kind);

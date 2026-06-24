@@ -691,6 +691,24 @@ ${context ? "\n## Context\n" + context : ""}
       await scanSkillsDir(INPUT_PROMPT_ROOT, "input-prompt");
       await scanSkillsDir(PHYSICAL_SKILL_ROOT, "physical-skill");
       await scanSkillsDir(SKILL_POOL_ROOT, "skill-pool");
+      // Dedup by skill id — merge userInputs/hasApp across directories
+      const deduped = [];
+      const seen = new Map();
+      for (const sk of skills) {
+        const existing = seen.get(sk.id);
+        if (existing) {
+          // Merge: prefer non-empty values
+          if (existing.userInputs.length === 0 && sk.userInputs.length > 0) existing.userInputs = sk.userInputs;
+          if (!existing.hasApp && sk.hasApp) existing.hasApp = true;
+          // Keep the physical-skill kind as primary (executable)
+          if (sk.kind === "physical-skill") existing.kind = "physical-skill";
+        } else {
+          seen.set(sk.id, sk);
+          deduped.push(sk);
+        }
+      }
+      skills.length = 0;
+      skills.push(...deduped);
       // Check hasApp for each skill
       for (const sk of skills) {
         try {
