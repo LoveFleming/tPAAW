@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTheme } from "../theme";
-
+import yaml from "js-yaml";
 import API from "../api";
 
 interface CronJob {
@@ -106,15 +106,38 @@ export default function CronJobsPage() {
                 console.log(`[CronJobs] /api/skills/${formSkillId} status:`, r.status);
                 return r.ok ? r.json() : null;
             })
-            .then((data) => {
-                console.log(`[CronJobs] Skill data:`, data ? { id: data.id, userInputs: data.userInputs } : null);
+            .then((data: any) => {
+                console.log(`[CronJobs] Skill data:`, data ? `id=${data.id}, userInputs=${JSON.stringify(data.userInputs)?.slice(0,100)}, hasFullContent=${!!data?.fullContent}` : 'null');
                 const inputs = data?.userInputs;
                 if (!inputs || !Array.isArray(inputs) || inputs.length === 0) {
-                    console.log(`[CronJobs] No userInputs found, trying to parse from fullContent`);
+                    console.log(`[CronJobs] No userInputs from API, trying fallback parse`);
                     // Fallback: try parsing from fullContent frontmatter if available
                     if (data?.fullContent) {
-                        const fmMatch = data.fullContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+                        // Normalize line endings (Windows \r\n → \n)
+                        const normalized = data.fullContent.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+                        const fmMatch = normalized.match(/^---\n([\s\S]*?)\n---/);
+                        console.log(`[CronJobs] Fallback: frontmatter found=${!!fmMatch}, length=${fmMatch?.[1]?.length || 0}`);
                         if (fmMatch) {
+                            // Try js-yaml first (same as server)
+                            try {
+                                const yamlParsed = yaml.load(fmMatch[1]) as any;
+                                if (Array.isArray(yamlParsed?.userInputs) && yamlParsed.userInputs.length > 0) {
+                                    console.log(`[CronJobs] Fallback yaml.parse found ${yamlParsed.userInputs.length} inputs`);
+                                    setSkillInputs(yamlParsed.userInputs.map((inp: any) => ({
+                                        id: inp.id || "",
+                                        label: inp.label || inp.id || "",
+                                        placeholder: inp.placeholder,
+                                        required: inp.required,
+                                        multiline: inp.multiline,
+                                    })));
+                                    setFormParams(prev => {
+                                        const existing = new Map(prev.map(p => [p.key, p.value]));
+                                        return yamlParsed.userInputs.map((inp: any) => ({ key: inp.id, value: existing.get(inp.id) || "" }));
+                                    });
+                                    return;
+                                }
+                            } catch (e) { console.log(`[CronJobs] Fallback yaml.parse failed:`, e); }
+                            // Try regex as last resort
                             const inputsMatch = fmMatch[1].match(/userInputs:\s*\n([\s\S]*?)(?=\n\S|\s*$)/);
                             if (inputsMatch) {
                                 const blocks = inputsMatch[1].split(/\s*-\s+id:\s*/).filter(Boolean);
