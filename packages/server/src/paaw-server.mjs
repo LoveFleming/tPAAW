@@ -733,7 +733,7 @@ ${context ? "\n## Context\n" + context : ""}
     // Search in both input-prompt and physical-skill
     const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT];
     let found = null;
-    for (const root of dirs) {
+    for (const root of roots) {
       // 1. Try inputs.json first (canonical source for userInputs)
       const inputsJsonPath = join(root, skillId, "inputs.json");
       try {
