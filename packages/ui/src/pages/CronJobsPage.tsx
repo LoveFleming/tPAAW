@@ -100,36 +100,22 @@ export default function CronJobsPage() {
     // Load skill inputs when skill is selected
     useEffect(() => {
         if (!formSkillId) { setSkillInputs([]); return; }
-        fetch(`${API}/api/fs/file?path=${encodeURIComponent(`/Users/steward/App/tAgent/data/skills/physical-skill/${formSkillId}/SKILL.md`)}`)
+        fetch(`${API}/api/skills/${formSkillId}`)
             .then(r => r.ok ? r.json() : null)
             .then((data) => {
-                if (!data?.content) return;
-                const fmMatch = data.content.match(/^---\n([\s\S]*?)\n---/);
-                if (!fmMatch) return;
-                const fm = fmMatch[1];
-                const inputsMatch = fm.match(/userInputs:\s*\n([\s\S]*?)(?=\n\S|\s*$)/);
-                if (!inputsMatch) return;
-                const blocks = inputsMatch[1].split(/\s*-\s+id:\s*/).filter(Boolean);
-                const parsed: { id: string; label: string; placeholder?: string; required?: boolean; multiline?: boolean }[] = [];
-                for (const block of blocks) {
-                    const idM = block.match(/^(\S+)/);
-                    const labelM = block.match(/label:\s*(.+)/);
-                    const phM = block.match(/placeholder:\s*"([^"]*)"/);
-                    const reqM = block.match(/required:\s*(true|false)/);
-                    const mlM = block.match(/multiline:\s*(true|false)/);
-                    if (idM) parsed.push({
-                        id: idM[1].trim(),
-                        label: labelM ? labelM[1].trim() : idM[1].trim(),
-                        placeholder: phM ? phM[1] : undefined,
-                        required: reqM ? reqM[1] === "true" : false,
-                        multiline: mlM ? mlM[1] === "true" : false,
-                    });
-                }
+                if (!data?.userInputs || !Array.isArray(data.userInputs)) { setSkillInputs([]); return; }
+                const parsed = data.userInputs.map((inp: any) => ({
+                    id: inp.id || "",
+                    label: inp.label || inp.id || "",
+                    placeholder: inp.placeholder,
+                    required: inp.required,
+                    multiline: inp.multiline,
+                }));
                 setSkillInputs(parsed);
                 // Pre-fill formParams with skill input ids (empty values)
                 setFormParams(prev => {
                     const existing = new Map(prev.map(p => [p.key, p.value]));
-                    return parsed.map(inp => ({ key: inp.id, value: existing.get(inp.id) || "" }));
+                    return parsed.map((inp: any) => ({ key: inp.id, value: existing.get(inp.id) || "" }));
                 });
             })
             .catch(() => setSkillInputs([]));
