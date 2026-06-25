@@ -733,7 +733,32 @@ ${context ? "\n## Context\n" + context : ""}
     // Search in both input-prompt and physical-skill
     const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT];
     let found = null;
-    for (const root of roots) {
+    for (const root of dirs) {
+      // 1. Try inputs.json first (canonical source for userInputs)
+      const inputsJsonPath = join(root, skillId, "inputs.json");
+      try {
+        const inputsRaw = await readFile(inputsJsonPath, "utf-8");
+        const inputsData = JSON.parse(inputsRaw);
+        // Also try to read SKILL.md for fullContent
+        let fullContent = "";
+        try { fullContent = await readFile(join(root, skillId, "SKILL.md"), "utf-8"); } catch {}
+        const kind = root === INPUT_PROMPT_ROOT ? "input-prompt" : "physical-skill";
+        found = {
+          id: skillId,
+          kind,
+          name: inputsData.name || skillId,
+          description: inputsData.description || "",
+          version: "1.0.0",
+          category: "",
+          skillPath: inputsJsonPath,
+          useSkills: [],
+          usePhysicalSkills: [],
+          userInputs: Array.isArray(inputsData.userInputs) ? inputsData.userInputs : [],
+          fullContent,
+        };
+        break;
+      } catch { /* inputs.json not found in this root */ }
+      // 2. Fall back to SKILL.md
       const skillPath = join(root, skillId, "SKILL.md");
       try {
         const raw = await readFile(skillPath, "utf-8");
@@ -746,7 +771,7 @@ ${context ? "\n## Context\n" + context : ""}
           description: parsed.description || "",
           version: parsed.version || "1.0.0",
           category: parsed.category || "",
-          skillPrompt: "",  // 不再展開
+          skillPrompt: "",
           skillPath: skillPath,
           useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
           usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
