@@ -737,7 +737,10 @@ ${context ? "\n## Context\n" + context : ""}
     let inputsData = null;
     try {
       inputsData = JSON.parse(await readFile(inputsJsonPath, "utf-8"));
-    } catch {}
+      console.log(`[API] /api/skills/${skillId} → inputs.json OK: ${inputsData.userInputs?.length || 0} inputs from ${inputsJsonPath}`);
+    } catch (e) {
+      console.log(`[API] /api/skills/${skillId} → inputs.json NOT FOUND: ${inputsJsonPath} (${e.message})`);
+    }
 
     if (inputsData) {
       found = {
