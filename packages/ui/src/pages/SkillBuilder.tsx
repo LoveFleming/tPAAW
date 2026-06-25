@@ -68,8 +68,6 @@ function parseSkillMd(content: string): SkillForm {
     else if (key === "description") form.description = val.trim();
     else if (key === "runner") form.runner = val.trim() as SkillForm["runner"];
     else if (key === "tags") form.tags = val.trim();
-    else if (key === "examples") form.examples = val.trim();
-    else if (key === "notes") form.notes = val.trim();
     else if (key === "visibility") form.visibility = val.trim() as SkillForm["visibility"];
   }
   const inputsMatch = fm.match(/userInputs:\s*\n([\s\S]*?)(?=\n\S|\s*$)/);
@@ -169,8 +167,6 @@ function buildSkillMd(form: SkillForm): string {
       lines.push(`    multiline: ${inp.multiline}`);
     }
   }
-  if (form.examples) lines.push(`examples: |\n${form.examples.split("\n").map((l: string) => "  " + l).join("\n")}`);
-  if (form.notes) lines.push(`notes: |\n${form.notes.split("\n").map((l: string) => "  " + l).join("\n")}`);
   lines.push("---", "");
   if (promptBody) lines.push(promptBody);
   return lines.join("\n");
