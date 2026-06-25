@@ -30,7 +30,6 @@ data/db/*.sqlite-wal
 data/db/*.sqlite-shm
 data/uploads/
 data/chats/
-data/app-data/
 data/cron/
 
 # Personal lab data (NOT versioned)

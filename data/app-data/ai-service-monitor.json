@@ -1,0 +1,1002 @@
+[
+  {
+    "id": "ai-service-monitor_h1",
+    "createdAt": "2026-06-20T12:00:00.000Z",
+    "hour": "Jun 20 12:00",
+    "success": 1068,
+    "fail": 10,
+    "avg": 72,
+    "p95": 170,
+    "max": 351
+  },
+  {
+    "id": "ai-service-monitor_h2",
+    "createdAt": "2026-06-20T13:00:00.000Z",
+    "hour": "Jun 20 13:00",
+    "success": 1187,
+    "fail": 10,
+    "avg": 83,
+    "p95": 243,
+    "max": 468
+  },
+  {
+    "id": "ai-service-monitor_h3",
+    "createdAt": "2026-06-20T14:00:00.000Z",
+    "hour": "Jun 20 14:00",
+    "success": 1104,
+    "fail": 9,
+    "avg": 88,
+    "p95": 199,
+    "max": 410
+  },
+  {
+    "id": "ai-service-monitor_h4",
+    "createdAt": "2026-06-20T15:00:00.000Z",
+    "hour": "Jun 20 15:00",
+    "success": 1092,
+    "fail": 5,
+    "avg": 83,
+    "p95": 224,
+    "max": 383
+  },
+  {
+    "id": "ai-service-monitor_h5",
+    "createdAt": "2026-06-20T16:00:00.000Z",
+    "hour": "Jun 20 16:00",
+    "success": 1106,
+    "fail": 9,
+    "avg": 68,
+    "p95": 160,
+    "max": 354
+  },
+  {
+    "id": "ai-service-monitor_h6",
+    "createdAt": "2026-06-20T17:00:00.000Z",
+    "hour": "Jun 20 17:00",
+    "success": 1207,
+    "fail": 3,
+    "avg": 89,
+    "p95": 215,
+    "max": 393
+  },
+  {
+    "id": "ai-service-monitor_h7",
+    "createdAt": "2026-06-20T18:00:00.000Z",
+    "hour": "Jun 20 18:00",
+    "success": 1412,
+    "fail": 5,
+    "avg": 75,
+    "p95": 184,
+    "max": 282
+  },
+  {
+    "id": "ai-service-monitor_h8",
+    "createdAt": "2026-06-20T19:00:00.000Z",
+    "hour": "Jun 20 19:00",
+    "success": 371,
+    "fail": 2,
+    "avg": 64,
+    "p95": 159,
+    "max": 327
+  },
+  {
+    "id": "ai-service-monitor_h9",
+    "createdAt": "2026-06-20T20:00:00.000Z",
+    "hour": "Jun 20 20:00",
+    "success": 428,
+    "fail": 3,
+    "avg": 68,
+    "p95": 161,
+    "max": 329
+  },
+  {
+    "id": "ai-service-monitor_h10",
+    "createdAt": "2026-06-20T21:00:00.000Z",
+    "hour": "Jun 20 21:00",
+    "success": 420,
+    "fail": 1,
+    "avg": 76,
+    "p95": 211,
+    "max": 334
+  },
+  {
+    "id": "ai-service-monitor_h11",
+    "createdAt": "2026-06-20T22:00:00.000Z",
+    "hour": "Jun 20 22:00",
+    "success": 435,
+    "fail": 1,
+    "avg": 53,
+    "p95": 122,
+    "max": 248
+  },
+  {
+    "id": "ai-service-monitor_h12",
+    "createdAt": "2026-06-20T23:00:00.000Z",
+    "hour": "Jun 20 23:00",
+    "success": 374,
+    "fail": 2,
+    "avg": 56,
+    "p95": 136,
+    "max": 291
+  },
+  {
+    "id": "ai-service-monitor_h13",
+    "createdAt": "2026-06-21T00:00:00.000Z",
+    "hour": "Jun 21 00:00",
+    "success": 389,
+    "fail": 2,
+    "avg": 65,
+    "p95": 188,
+    "max": 313
+  },
+  {
+    "id": "ai-service-monitor_h14",
+    "createdAt": "2026-06-21T01:00:00.000Z",
+    "hour": "Jun 21 01:00",
+    "success": 408,
+    "fail": 2,
+    "avg": 53,
+    "p95": 119,
+    "max": 166
+  },
+  {
+    "id": "ai-service-monitor_h15",
+    "createdAt": "2026-06-21T02:00:00.000Z",
+    "hour": "Jun 21 02:00",
+    "success": 448,
+    "fail": 2,
+    "avg": 72,
+    "p95": 172,
+    "max": 308
+  },
+  {
+    "id": "ai-service-monitor_h16",
+    "createdAt": "2026-06-21T03:00:00.000Z",
+    "hour": "Jun 21 03:00",
+    "success": 354,
+    "fail": 3,
+    "avg": 65,
+    "p95": 163,
+    "max": 290
+  },
+  {
+    "id": "ai-service-monitor_h17",
+    "createdAt": "2026-06-21T04:00:00.000Z",
+    "hour": "Jun 21 04:00",
+    "success": 354,
+    "fail": 2,
+    "avg": 73,
+    "p95": 164,
+    "max": 279
+  },
+  {
+    "id": "ai-service-monitor_h18",
+    "createdAt": "2026-06-21T05:00:00.000Z",
+    "hour": "Jun 21 05:00",
+    "success": 375,
+    "fail": 4,
+    "avg": 54,
+    "p95": 141,
+    "max": 265
+  },
+  {
+    "id": "ai-service-monitor_h19",
+    "createdAt": "2026-06-21T06:00:00.000Z",
+    "hour": "Jun 21 06:00",
+    "success": 425,
+    "fail": 1,
+    "avg": 70,
+    "p95": 193,
+    "max": 279
+  },
+  {
+    "id": "ai-service-monitor_h20",
+    "createdAt": "2026-06-21T07:00:00.000Z",
+    "hour": "Jun 21 07:00",
+    "success": 409,
+    "fail": 3,
+    "avg": 60,
+    "p95": 156,
+    "max": 297
+  },
+  {
+    "id": "ai-service-monitor_h21",
+    "createdAt": "2026-06-21T08:00:00.000Z",
+    "hour": "Jun 21 08:00",
+    "success": 380,
+    "fail": 2,
+    "avg": 63,
+    "p95": 181,
+    "max": 368
+  },
+  {
+    "id": "ai-service-monitor_h22",
+    "createdAt": "2026-06-21T09:00:00.000Z",
+    "hour": "Jun 21 09:00",
+    "success": 1309,
+    "fail": 6,
+    "avg": 82,
+    "p95": 189,
+    "max": 307
+  },
+  {
+    "id": "ai-service-monitor_h23",
+    "createdAt": "2026-06-21T10:00:00.000Z",
+    "hour": "Jun 21 10:00",
+    "success": 1213,
+    "fail": 9,
+    "avg": 85,
+    "p95": 234,
+    "max": 346
+  },
+  {
+    "id": "ai-service-monitor_h24",
+    "createdAt": "2026-06-21T11:00:00.000Z",
+    "hour": "Jun 21 11:00",
+    "success": 1330,
+    "fail": 12,
+    "avg": 69,
+    "p95": 187,
+    "max": 331
+  },
+  {
+    "id": "ai-service-monitor_h25",
+    "createdAt": "2026-06-21T12:00:00.000Z",
+    "hour": "Jun 21 12:00",
+    "success": 1223,
+    "fail": 11,
+    "avg": 88,
+    "p95": 211,
+    "max": 288
+  },
+  {
+    "id": "ai-service-monitor_h26",
+    "createdAt": "2026-06-21T13:00:00.000Z",
+    "hour": "Jun 21 13:00",
+    "success": 1168,
+    "fail": 9,
+    "avg": 68,
+    "p95": 179,
+    "max": 351
+  },
+  {
+    "id": "ai-service-monitor_h27",
+    "createdAt": "2026-06-21T14:00:00.000Z",
+    "hour": "Jun 21 14:00",
+    "success": 1224,
+    "fail": 65,
+    "avg": 80,
+    "p95": 306,
+    "max": 603
+  },
+  {
+    "id": "ai-service-monitor_h28",
+    "createdAt": "2026-06-21T15:00:00.000Z",
+    "hour": "Jun 21 15:00",
+    "success": 1390,
+    "fail": 11,
+    "avg": 85,
+    "p95": 236,
+    "max": 364
+  },
+  {
+    "id": "ai-service-monitor_h29",
+    "createdAt": "2026-06-21T16:00:00.000Z",
+    "hour": "Jun 21 16:00",
+    "success": 1077,
+    "fail": 6,
+    "avg": 65,
+    "p95": 176,
+    "max": 349
+  },
+  {
+    "id": "ai-service-monitor_h30",
+    "createdAt": "2026-06-21T17:00:00.000Z",
+    "hour": "Jun 21 17:00",
+    "success": 1399,
+    "fail": 11,
+    "avg": 72,
+    "p95": 165,
+    "max": 367
+  },
+  {
+    "id": "ai-service-monitor_h31",
+    "createdAt": "2026-06-21T18:00:00.000Z",
+    "hour": "Jun 21 18:00",
+    "success": 1414,
+    "fail": 7,
+    "avg": 80,
+    "p95": 196,
+    "max": 412
+  },
+  {
+    "id": "ai-service-monitor_h32",
+    "createdAt": "2026-06-21T19:00:00.000Z",
+    "hour": "Jun 21 19:00",
+    "success": 341,
+    "fail": 1,
+    "avg": 65,
+    "p95": 189,
+    "max": 350
+  },
+  {
+    "id": "ai-service-monitor_h33",
+    "createdAt": "2026-06-21T20:00:00.000Z",
+    "hour": "Jun 21 20:00",
+    "success": 431,
+    "fail": 1,
+    "avg": 69,
+    "p95": 161,
+    "max": 270
+  },
+  {
+    "id": "ai-service-monitor_h34",
+    "createdAt": "2026-06-21T21:00:00.000Z",
+    "hour": "Jun 21 21:00",
+    "success": 421,
+    "fail": 2,
+    "avg": 66,
+    "p95": 166,
+    "max": 303
+  },
+  {
+    "id": "ai-service-monitor_h35",
+    "createdAt": "2026-06-21T22:00:00.000Z",
+    "hour": "Jun 21 22:00",
+    "success": 424,
+    "fail": 1,
+    "avg": 54,
+    "p95": 120,
+    "max": 224
+  },
+  {
+    "id": "ai-service-monitor_h36",
+    "createdAt": "2026-06-21T23:00:00.000Z",
+    "hour": "Jun 21 23:00",
+    "success": 344,
+    "fail": 20,
+    "avg": 67,
+    "p95": 276,
+    "max": 484
+  },
+  {
+    "id": "ai-service-monitor_h37",
+    "createdAt": "2026-06-22T00:00:00.000Z",
+    "hour": "Jun 22 00:00",
+    "success": 550,
+    "fail": 3,
+    "avg": 72,
+    "p95": 163,
+    "max": 260
+  },
+  {
+    "id": "ai-service-monitor_h38",
+    "createdAt": "2026-06-22T01:00:00.000Z",
+    "hour": "Jun 22 01:00",
+    "success": 552,
+    "fail": 5,
+    "avg": 55,
+    "p95": 141,
+    "max": 203
+  },
+  {
+    "id": "ai-service-monitor_h39",
+    "createdAt": "2026-06-22T02:00:00.000Z",
+    "hour": "Jun 22 02:00",
+    "success": 553,
+    "fail": 4,
+    "avg": 73,
+    "p95": 180,
+    "max": 265
+  },
+  {
+    "id": "ai-service-monitor_h40",
+    "createdAt": "2026-06-22T03:00:00.000Z",
+    "hour": "Jun 22 03:00",
+    "success": 571,
+    "fail": 4,
+    "avg": 78,
+    "p95": 210,
+    "max": 368
+  },
+  {
+    "id": "ai-service-monitor_h41",
+    "createdAt": "2026-06-22T04:00:00.000Z",
+    "hour": "Jun 22 04:00",
+    "success": 510,
+    "fail": 1,
+    "avg": 57,
+    "p95": 130,
+    "max": 239
+  },
+  {
+    "id": "ai-service-monitor_h42",
+    "createdAt": "2026-06-22T05:00:00.000Z",
+    "hour": "Jun 22 05:00",
+    "success": 557,
+    "fail": 4,
+    "avg": 69,
+    "p95": 154,
+    "max": 256
+  },
+  {
+    "id": "ai-service-monitor_h43",
+    "createdAt": "2026-06-22T06:00:00.000Z",
+    "hour": "Jun 22 06:00",
+    "success": 623,
+    "fail": 1,
+    "avg": 80,
+    "p95": 222,
+    "max": 409
+  },
+  {
+    "id": "ai-service-monitor_h44",
+    "createdAt": "2026-06-22T07:00:00.000Z",
+    "hour": "Jun 22 07:00",
+    "success": 684,
+    "fail": 6,
+    "avg": 78,
+    "p95": 224,
+    "max": 359
+  },
+  {
+    "id": "ai-service-monitor_h45",
+    "createdAt": "2026-06-22T08:00:00.000Z",
+    "hour": "Jun 22 08:00",
+    "success": 512,
+    "fail": 3,
+    "avg": 78,
+    "p95": 232,
+    "max": 407
+  },
+  {
+    "id": "ai-service-monitor_h46",
+    "createdAt": "2026-06-22T09:00:00.000Z",
+    "hour": "Jun 22 09:00",
+    "success": 1901,
+    "fail": 17,
+    "avg": 88,
+    "p95": 237,
+    "max": 417
+  },
+  {
+    "id": "ai-service-monitor_h47",
+    "createdAt": "2026-06-22T10:00:00.000Z",
+    "hour": "Jun 22 10:00",
+    "success": 2117,
+    "fail": 8,
+    "avg": 83,
+    "p95": 191,
+    "max": 286
+  },
+  {
+    "id": "ai-service-monitor_h48",
+    "createdAt": "2026-06-22T11:00:00.000Z",
+    "hour": "Jun 22 11:00",
+    "success": 1694,
+    "fail": 9,
+    "avg": 85,
+    "p95": 194,
+    "max": 354
+  },
+  {
+    "id": "ai-service-monitor_h49",
+    "createdAt": "2026-06-22T12:00:00.000Z",
+    "hour": "Jun 22 12:00",
+    "success": 1893,
+    "fail": 12,
+    "avg": 86,
+    "p95": 219,
+    "max": 443
+  },
+  {
+    "id": "ai-service-monitor_h50",
+    "createdAt": "2026-06-22T13:00:00.000Z",
+    "hour": "Jun 22 13:00",
+    "success": 1911,
+    "fail": 14,
+    "avg": 94,
+    "p95": 235,
+    "max": 326
+  },
+  {
+    "id": "ai-service-monitor_h51",
+    "createdAt": "2026-06-22T14:00:00.000Z",
+    "hour": "Jun 22 14:00",
+    "success": 1950,
+    "fail": 11,
+    "avg": 104,
+    "p95": 298,
+    "max": 523
+  },
+  {
+    "id": "ai-service-monitor_h52",
+    "createdAt": "2026-06-22T15:00:00.000Z",
+    "hour": "Jun 22 15:00",
+    "success": 1727,
+    "fail": 8,
+    "avg": 88,
+    "p95": 200,
+    "max": 322
+  },
+  {
+    "id": "ai-service-monitor_h53",
+    "createdAt": "2026-06-22T16:00:00.000Z",
+    "hour": "Jun 22 16:00",
+    "success": 1632,
+    "fail": 12,
+    "avg": 96,
+    "p95": 271,
+    "max": 496
+  },
+  {
+    "id": "ai-service-monitor_h54",
+    "createdAt": "2026-06-22T17:00:00.000Z",
+    "hour": "Jun 22 17:00",
+    "success": 1831,
+    "fail": 4,
+    "avg": 89,
+    "p95": 220,
+    "max": 412
+  },
+  {
+    "id": "ai-service-monitor_h55",
+    "createdAt": "2026-06-22T18:00:00.000Z",
+    "hour": "Jun 22 18:00",
+    "success": 2109,
+    "fail": 5,
+    "avg": 87,
+    "p95": 193,
+    "max": 343
+  },
+  {
+    "id": "ai-service-monitor_h56",
+    "createdAt": "2026-06-22T19:00:00.000Z",
+    "hour": "Jun 22 19:00",
+    "success": 679,
+    "fail": 6,
+    "avg": 80,
+    "p95": 213,
+    "max": 416
+  },
+  {
+    "id": "ai-service-monitor_h57",
+    "createdAt": "2026-06-22T20:00:00.000Z",
+    "hour": "Jun 22 20:00",
+    "success": 655,
+    "fail": 4,
+    "avg": 65,
+    "p95": 162,
+    "max": 343
+  },
+  {
+    "id": "ai-service-monitor_h58",
+    "createdAt": "2026-06-22T21:00:00.000Z",
+    "hour": "Jun 22 21:00",
+    "success": 603,
+    "fail": 3,
+    "avg": 72,
+    "p95": 209,
+    "max": 387
+  },
+  {
+    "id": "ai-service-monitor_h59",
+    "createdAt": "2026-06-22T22:00:00.000Z",
+    "hour": "Jun 22 22:00",
+    "success": 688,
+    "fail": 4,
+    "avg": 75,
+    "p95": 197,
+    "max": 427
+  },
+  {
+    "id": "ai-service-monitor_h60",
+    "createdAt": "2026-06-22T23:00:00.000Z",
+    "hour": "Jun 22 23:00",
+    "success": 594,
+    "fail": 5,
+    "avg": 60,
+    "p95": 175,
+    "max": 265
+  },
+  {
+    "id": "ai-service-monitor_h61",
+    "createdAt": "2026-06-23T00:00:00.000Z",
+    "hour": "Jun 23 00:00",
+    "success": 530,
+    "fail": 2,
+    "avg": 74,
+    "p95": 181,
+    "max": 357
+  },
+  {
+    "id": "ai-service-monitor_h62",
+    "createdAt": "2026-06-23T01:00:00.000Z",
+    "hour": "Jun 23 01:00",
+    "success": 568,
+    "fail": 4,
+    "avg": 68,
+    "p95": 158,
+    "max": 347
+  },
+  {
+    "id": "ai-service-monitor_h63",
+    "createdAt": "2026-06-23T02:00:00.000Z",
+    "hour": "Jun 23 02:00",
+    "success": 609,
+    "fail": 1,
+    "avg": 70,
+    "p95": 156,
+    "max": 308
+  },
+  {
+    "id": "ai-service-monitor_h64",
+    "createdAt": "2026-06-23T03:00:00.000Z",
+    "hour": "Jun 23 03:00",
+    "success": 542,
+    "fail": 4,
+    "avg": 72,
+    "p95": 200,
+    "max": 370
+  },
+  {
+    "id": "ai-service-monitor_h65",
+    "createdAt": "2026-06-23T04:00:00.000Z",
+    "hour": "Jun 23 04:00",
+    "success": 689,
+    "fail": 2,
+    "avg": 81,
+    "p95": 196,
+    "max": 289
+  },
+  {
+    "id": "ai-service-monitor_h66",
+    "createdAt": "2026-06-23T05:00:00.000Z",
+    "hour": "Jun 23 05:00",
+    "success": 652,
+    "fail": 3,
+    "avg": 64,
+    "p95": 151,
+    "max": 333
+  },
+  {
+    "id": "ai-service-monitor_h67",
+    "createdAt": "2026-06-23T06:00:00.000Z",
+    "hour": "Jun 23 06:00",
+    "success": 621,
+    "fail": 6,
+    "avg": 66,
+    "p95": 149,
+    "max": 243
+  },
+  {
+    "id": "ai-service-monitor_h68",
+    "createdAt": "2026-06-23T07:00:00.000Z",
+    "hour": "Jun 23 07:00",
+    "success": 594,
+    "fail": 6,
+    "avg": 69,
+    "p95": 181,
+    "max": 354
+  },
+  {
+    "id": "ai-service-monitor_h69",
+    "createdAt": "2026-06-23T08:00:00.000Z",
+    "hour": "Jun 23 08:00",
+    "success": 634,
+    "fail": 2,
+    "avg": 66,
+    "p95": 168,
+    "max": 275
+  },
+  {
+    "id": "ai-service-monitor_h70",
+    "createdAt": "2026-06-23T09:00:00.000Z",
+    "hour": "Jun 23 09:00",
+    "success": 2126,
+    "fail": 21,
+    "avg": 84,
+    "p95": 192,
+    "max": 388
+  },
+  {
+    "id": "ai-service-monitor_h71",
+    "createdAt": "2026-06-23T10:00:00.000Z",
+    "hour": "Jun 23 10:00",
+    "success": 2119,
+    "fail": 13,
+    "avg": 89,
+    "p95": 214,
+    "max": 345
+  },
+  {
+    "id": "ai-service-monitor_h72",
+    "createdAt": "2026-06-23T11:00:00.000Z",
+    "hour": "Jun 23 11:00",
+    "success": 1666,
+    "fail": 8,
+    "avg": 88,
+    "p95": 230,
+    "max": 375
+  },
+  {
+    "id": "ai-service-monitor_h73",
+    "createdAt": "2026-06-23T12:00:00.000Z",
+    "hour": "Jun 23 12:00",
+    "success": 1924,
+    "fail": 9,
+    "avg": 81,
+    "p95": 191,
+    "max": 289
+  },
+  {
+    "id": "ai-service-monitor_h74",
+    "createdAt": "2026-06-23T13:00:00.000Z",
+    "hour": "Jun 23 13:00",
+    "success": 1679,
+    "fail": 10,
+    "avg": 94,
+    "p95": 268,
+    "max": 409
+  },
+  {
+    "id": "ai-service-monitor_h75",
+    "createdAt": "2026-06-23T14:00:00.000Z",
+    "hour": "Jun 23 14:00",
+    "success": 2009,
+    "fail": 15,
+    "avg": 104,
+    "p95": 303,
+    "max": 575
+  },
+  {
+    "id": "ai-service-monitor_h76",
+    "createdAt": "2026-06-23T15:00:00.000Z",
+    "hour": "Jun 23 15:00",
+    "success": 2137,
+    "fail": 6,
+    "avg": 89,
+    "p95": 205,
+    "max": 369
+  },
+  {
+    "id": "ai-service-monitor_h77",
+    "createdAt": "2026-06-23T16:00:00.000Z",
+    "hour": "Jun 23 16:00",
+    "success": 1804,
+    "fail": 9,
+    "avg": 95,
+    "p95": 247,
+    "max": 340
+  },
+  {
+    "id": "ai-service-monitor_h78",
+    "createdAt": "2026-06-23T17:00:00.000Z",
+    "hour": "Jun 23 17:00",
+    "success": 1895,
+    "fail": 9,
+    "avg": 89,
+    "p95": 200,
+    "max": 327
+  },
+  {
+    "id": "ai-service-monitor_h79",
+    "createdAt": "2026-06-23T18:00:00.000Z",
+    "hour": "Jun 23 18:00",
+    "success": 1713,
+    "fail": 7,
+    "avg": 77,
+    "p95": 196,
+    "max": 382
+  },
+  {
+    "id": "ai-service-monitor_h80",
+    "createdAt": "2026-06-23T19:00:00.000Z",
+    "hour": "Jun 23 19:00",
+    "success": 598,
+    "fail": 5,
+    "avg": 64,
+    "p95": 158,
+    "max": 264
+  },
+  {
+    "id": "ai-service-monitor_h81",
+    "createdAt": "2026-06-23T20:00:00.000Z",
+    "hour": "Jun 23 20:00",
+    "success": 603,
+    "fail": 3,
+    "avg": 66,
+    "p95": 178,
+    "max": 279
+  },
+  {
+    "id": "ai-service-monitor_h82",
+    "createdAt": "2026-06-23T21:00:00.000Z",
+    "hour": "Jun 23 21:00",
+    "success": 567,
+    "fail": 23,
+    "avg": 63,
+    "p95": 237,
+    "max": 385
+  },
+  {
+    "id": "ai-service-monitor_h83",
+    "createdAt": "2026-06-23T22:00:00.000Z",
+    "hour": "Jun 23 22:00",
+    "success": 590,
+    "fail": 2,
+    "avg": 65,
+    "p95": 152,
+    "max": 223
+  },
+  {
+    "id": "ai-service-monitor_h84",
+    "createdAt": "2026-06-23T23:00:00.000Z",
+    "hour": "Jun 23 23:00",
+    "success": 567,
+    "fail": 5,
+    "avg": 63,
+    "p95": 171,
+    "max": 314
+  },
+  {
+    "id": "ai-service-monitor_h85",
+    "createdAt": "2026-06-24T00:00:00.000Z",
+    "hour": "Jun 24 00:00",
+    "success": 670,
+    "fail": 4,
+    "avg": 73,
+    "p95": 198,
+    "max": 365
+  },
+  {
+    "id": "ai-service-monitor_h86",
+    "createdAt": "2026-06-24T01:00:00.000Z",
+    "hour": "Jun 24 01:00",
+    "success": 540,
+    "fail": 4,
+    "avg": 56,
+    "p95": 158,
+    "max": 379
+  },
+  {
+    "id": "ai-service-monitor_h87",
+    "createdAt": "2026-06-24T02:00:00.000Z",
+    "hour": "Jun 24 02:00",
+    "success": 540,
+    "fail": 1,
+    "avg": 64,
+    "p95": 145,
+    "max": 297
+  },
+  {
+    "id": "ai-service-monitor_h88",
+    "createdAt": "2026-06-24T03:00:00.000Z",
+    "hour": "Jun 24 03:00",
+    "success": 630,
+    "fail": 3,
+    "avg": 58,
+    "p95": 135,
+    "max": 280
+  },
+  {
+    "id": "ai-service-monitor_h89",
+    "createdAt": "2026-06-24T04:00:00.000Z",
+    "hour": "Jun 24 04:00",
+    "success": 660,
+    "fail": 2,
+    "avg": 60,
+    "p95": 149,
+    "max": 223
+  },
+  {
+    "id": "ai-service-monitor_h90",
+    "createdAt": "2026-06-24T05:00:00.000Z",
+    "hour": "Jun 24 05:00",
+    "success": 687,
+    "fail": 4,
+    "avg": 68,
+    "p95": 184,
+    "max": 292
+  },
+  {
+    "id": "ai-service-monitor_h91",
+    "createdAt": "2026-06-24T06:00:00.000Z",
+    "hour": "Jun 24 06:00",
+    "success": 687,
+    "fail": 5,
+    "avg": 66,
+    "p95": 149,
+    "max": 249
+  },
+  {
+    "id": "ai-service-monitor_h92",
+    "createdAt": "2026-06-24T07:00:00.000Z",
+    "hour": "Jun 24 07:00",
+    "success": 538,
+    "fail": 3,
+    "avg": 57,
+    "p95": 161,
+    "max": 283
+  },
+  {
+    "id": "ai-service-monitor_h93",
+    "createdAt": "2026-06-24T08:00:00.000Z",
+    "hour": "Jun 24 08:00",
+    "success": 636,
+    "fail": 6,
+    "avg": 63,
+    "p95": 174,
+    "max": 308
+  },
+  {
+    "id": "ai-service-monitor_h94",
+    "createdAt": "2026-06-24T09:00:00.000Z",
+    "hour": "Jun 24 09:00",
+    "success": 1680,
+    "fail": 11,
+    "avg": 96,
+    "p95": 286,
+    "max": 552
+  },
+  {
+    "id": "ai-service-monitor_h95",
+    "createdAt": "2026-06-24T10:00:00.000Z",
+    "hour": "Jun 24 10:00",
+    "success": 2146,
+    "fail": 12,
+    "avg": 100,
+    "p95": 243,
+    "max": 362
+  },
+  {
+    "id": "ai-service-monitor_h96",
+    "createdAt": "2026-06-24T11:00:00.000Z",
+    "hour": "Jun 24 11:00",
+    "success": 1954,
+    "fail": 9,
+    "avg": 94,
+    "p95": 261,
+    "max": 524
+  },
+  {
+    "id": "ai-service-monitor_h97",
+    "createdAt": "2026-06-24T12:00:00.000Z",
+    "hour": "Jun 24 12:00",
+    "success": 1856,
+    "fail": 6,
+    "avg": 89,
+    "p95": 201,
+    "max": 341
+  },
+  {
+    "id": "ai-service-monitor_h98",
+    "createdAt": "2026-06-24T13:00:00.000Z",
+    "hour": "Jun 24 13:00",
+    "success": 2007,
+    "fail": 13,
+    "avg": 97,
+    "p95": 222,
+    "max": 319
+  },
+  {
+    "id": "ai-service-monitor_h99",
+    "createdAt": "2026-06-24T14:00:00.000Z",
+    "hour": "Jun 24 14:00",
+    "success": 1918,
+    "fail": 8,
+    "avg": 83,
+    "p95": 236,
+    "max": 458
+  },
+  {
+    "id": "ai-service-monitor_h100",
+    "createdAt": "2026-06-24T15:00:00.000Z",
+    "hour": "Jun 24 15:00",
+    "success": 1907,
+    "fail": 12,
+    "avg": 85,
+    "p95": 219,
+    "max": 454
+  }
+]

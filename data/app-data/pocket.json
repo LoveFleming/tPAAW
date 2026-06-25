@@ -1,0 +1,25 @@
+[
+  {
+    "type": "todo",
+    "title": "明早六點記得去公園走路運動放鬆一下心情",
+    "text": "明早六點記得去公園走路運動放鬆一下心情",
+    "done": true,
+    "id": "pocket_mqce7zat",
+    "createdAt": "2026-06-13T13:30:31.925Z"
+  },
+  {
+    "type": "todo",
+    "text": "6/26 AI Agent 報告",
+    "id": "pocket_mqf9ml7s",
+    "createdAt": "2026-06-15T13:45:13.960Z"
+  },
+  {
+    "type": "mood",
+    "event": "連假都在準備報告，沒陪小孩複習功課",
+    "feeling": "很對不起小孩",
+    "text": "連假都在準備報告，沒陪小孩複習功課，很對不起小孩",
+    "title": "連假沒陪小孩",
+    "id": "pocket_mqn56jtm",
+    "createdAt": "2026-06-21T02:02:56.602Z"
+  }
+]
