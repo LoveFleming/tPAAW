@@ -323,6 +323,7 @@ export default function SkillBuilder() {
   // Builder mode: visual (step cards) vs advanced (raw prompt)
   const [builderMode, setBuilderMode] = useState<"visual" | "advanced">("visual");
   const [rawBuildPrompt, setRawBuildPrompt] = useState("");
+  const lastSyncSource = useRef<"visual" | "advanced" | null>(null);
 
   // Builder CLI (interactive)
   const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
@@ -704,15 +705,32 @@ ${userInputLines.join("\n")}
                     </div>
                   </div>
 
-                  {/* ── Mode Toggle: Visual vs Advanced ── */}
+                  {/* ── Mode Toggle: Visual vs Advanced (synced) ── */}
                   <div className="flex items-center gap-1 p-1 bg-stone-100 rounded-xl w-fit">
-                    <button onClick={() => setBuilderMode("visual")}
+                    <button onClick={() => {
+                      // Switching to Visual: parse raw prompt back into form
+                      if (builderMode === "advanced" && rawBuildPrompt.trim()) {
+                        const parsed = parseSkillMd(rawBuildPrompt);
+                        setForm(parsed);
+                        const inputs: Record<string, string> = {};
+                        parsed.inputs.forEach(inp => { inputs[inp.id] = ""; });
+                        setTestInputs(inputs);
+                        triggerSave();
+                      }
+                      setBuilderMode("visual");
+                    }}
                       className={cn("px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
                         builderMode === "visual" ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
                       style={builderMode === "visual" ? { background: accent } : {}}>
                       📝 Visual
                     </button>
-                    <button onClick={() => setBuilderMode("advanced")}
+                    <button onClick={() => {
+                      // Switching to Advanced: assemble form into raw prompt
+                      if (builderMode === "visual") {
+                        setRawBuildPrompt(buildSkillMd(form));
+                      }
+                      setBuilderMode("advanced");
+                    }}
                       className={cn("px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
                         builderMode === "advanced" ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
                       style={builderMode === "advanced" ? { background: accent } : {}}>
@@ -725,7 +743,7 @@ ${userInputLines.join("\n")}
                     <div className="space-y-3">
                       <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                         <p className="text-sm text-amber-700">
-                          ⚡ <strong>Advanced Mode</strong> — 直接貼上完整的 Build Skill Prompt，跳過表單。CLI 會收到你貼的內容作為 prompt。
+                          ⚡ <strong>Advanced Mode</strong> — 直接編輯 Build Skill Prompt。切回 Visual 會自動解析回表單欄位。
                         </p>
                       </div>
                       <textarea
@@ -736,7 +754,7 @@ ${userInputLines.join("\n")}
                         className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-y font-mono"
                         style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30", minHeight: "400px" } as React.CSSProperties}
                       />
-                      <p className="text-sm text-stone-400">💡 這裡的內容會直接送給 CLI 作為 build prompt，不經過表單組裝</p>
+                      <p className="text-sm text-stone-400">💡 與 Visual 模式同步 — 切回 Visual 會將內容解析回表單</p>
                     </div>
                   ) : (
                   <>
