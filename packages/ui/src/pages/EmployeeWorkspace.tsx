@@ -998,18 +998,19 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                                         setTaskInput(w.inputData!.task || "");
                                                     }
                                                     // 3. Pre-fill input dialog data (non-task fields)
+                                                    const restoredDialogData: Record<string, string> = {};
                                                     if (hasInputs) {
-                                                        const dialogData: Record<string, string> = {};
                                                         for (const [k, v] of Object.entries(w.inputData!)) {
-                                                            if (k !== "task" && v) dialogData[k] = String(v);
+                                                            if (k !== "task" && v) restoredDialogData[k] = String(v);
                                                         }
-                                                        setInputDialogData(dialogData);
                                                     }
+                                                    setInputDialogData(restoredDialogData);
+                                                    // 4. Close work log, open input dialog so user can see/edit restored data
                                                     setShowWorkLog(false);
-                                                    // 4. If chat already started, show a hint instead of re-launching
-                                                    if (!chatStarted) {
-                                                        // Don't auto-launch — let user review pre-filled data first
-                                                        // They can click 開始 to launch with restored config
+                                                    // Only auto-open dialog if there are skill inputs to show
+                                                    const restoredSkillCount = Object.keys(restoredSkills).length;
+                                                    if (restoredSkillCount > 0) {
+                                                        setShowInputDialog(true);
                                                     }
                                                 }}
                                             >
