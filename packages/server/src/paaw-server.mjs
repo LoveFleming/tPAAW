@@ -4547,64 +4547,27 @@ async function runCronJob(job) {
     // Load skill content: SKILL.md from physical-skill for prompt body
     const skillId = job.skillId || job.reportAppId;
     const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId);
-    let skillContent = "";
-    try {
-      skillContent = await readFile(join(skillDir, "SKILL.md"), "utf-8");
-    } catch {
-      console.log(`[cron] Error: SKILL.md not found at ${join(skillDir, "SKILL.md")}`);
-    }
-    if (!skillContent) {
-      skillContent = `Execute skill: ${skillId}`;
-      console.log(`[cron] Warning: No SKILL.md found for ${skillId} in physical-skill/`);
-    }
+    console.log(`[cron] Skill ${skillId}: workDir=${skillDir}`);
 
-    console.log(`[cron] Skill ${skillId}: workDir=${skillDir}, prompt length=${skillContent.length}`);
+    // Build short prompt: skill name + user inputs as JSON
+    // CLI already runs in skillDir, it reads SKILL.md itself
+    const inputsJson = job.params && Object.keys(job.params).length > 0
+      ? JSON.stringify(job.params)
+      : "{}";
+    const prompt = `Please use skill ${skillId} with the following user inputs: ${inputsJson}`;
 
-    // Build prompt: SKILL.md content + user inputs/params + extra prompt
-    let prompt = "";
-    if (skillContent) {
-      prompt += skillContent;
-    }
-    if (job.params && Object.keys(job.params).length > 0) {
-      prompt += "\n\n## User Inputs\n";
-      prompt += Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n");
-    }
-    if (job.prompt) {
-      prompt += `\n\n${job.prompt}`;
-    }
-    if (!prompt.trim()) {
-      prompt = `Execute skill ${job.skillId || job.reportAppId}`;
-    }
+    console.log(`[cron] Skill ${skillId}: workDir=${skillDir}, prompt: ${prompt.slice(0, 120)}`);
+
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
 
-    // Write prompt to a file in the skill directory to avoid Windows shell arg escaping
-    // qwen CLI can't handle multi-line args on Windows, so we tell it to read the file
-    const promptFileName = `_cron-prompt-${Date.now()}.md`;
-    const promptFilePath = join(skillDir, promptFileName);
-    await writeFile(promptFilePath, prompt, "utf-8");
-    console.log(`[cron] Prompt written to ${promptFilePath} (${prompt.length} chars)`);
-
-    const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20"];
-    let child;
-    if (_cronWin) {
-      // Windows: pass a short single-line instruction to read the prompt file
-      cliArgs.push(`Read ${promptFileName} and execute the instructions inside.`);
-      child = spawn(_cronBin, cliArgs, {
-        cwd: skillDir,
-        env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: true,
-      });
-    } else {
-      // Mac/Linux: pass prompt directly as arg (safe without shell)
-      cliArgs.push(prompt);
-      child = spawn(_cronBin, cliArgs, {
-        cwd: skillDir,
-        env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-    }
+    const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt];
+    const child = spawn(_cronBin, cliArgs, {
+      cwd: skillDir,
+      env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
+      stdio: ["pipe", "pipe", "pipe"],
+      shell: _cronWin,
+    });
 
     let output = "";
     child.stdout.on("data", c => { output += c.toString(); });
