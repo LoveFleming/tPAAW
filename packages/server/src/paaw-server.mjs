@@ -4577,12 +4577,29 @@ async function runCronJob(job) {
     }
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
-    const child = spawn(_cronBin, ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {
-      cwd: skillDir,
-      env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
-      shell: _cronWin,  // Windows: .cmd files need shell:true
-    });
+
+    // Write prompt to temp file to avoid Windows shell arg escaping issues
+    const { tmpdir } = await import("os");
+    const promptFile = join(tmpdir(), `paaw-cron-${job.id}-${Date.now()}.md`);
+    await writeFile(promptFile, prompt, "utf-8");
+    console.log(`[cron] Prompt written to ${promptFile} (${prompt.length} chars)`);
+
+    let child;
+    if (_cronWin) {
+      // Windows: pipe file content to qwen via cmd to avoid multi-line arg corruption
+      child = spawn("cmd", ["/c", `type "${promptFile}" | "${_cronBin}" --approval-mode yolo -o text --max-session-turns 20`], {
+        cwd: skillDir,
+        env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } else {
+      // Mac/Linux: pass prompt directly as arg (safe without shell)
+      child = spawn(_cronBin, ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {
+        cwd: skillDir,
+        env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    }
 
     let output = "";
     child.stdout.on("data", c => { output += c.toString(); });
