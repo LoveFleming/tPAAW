@@ -110,11 +110,21 @@ export default async function skillRoutes(req, res) {
     return true;
   }
 
-  // GET /api/skills/:id — get single
+  // GET /api/skills/:id — get single (userInputs from input-prompt/inputs.json)
   const getMatch = req.method === "GET" && path.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
   if (getMatch) {
     const skillId = getMatch[1];
     try {
+      // 1. Read userInputs from input-prompt/{skillId}/inputs.json
+      let inputsData = null;
+      try {
+        inputsData = JSON.parse(await readFile(join(PATHS.INPUT_PROMPT_ROOT, skillId, "inputs.json"), "utf-8"));
+      } catch {}
+      if (inputsData) {
+        json(res, { id: skillId, kind: "input-prompt", name: inputsData.name || skillId, description: inputsData.description || "", version: "1.0.0", userInputs: Array.isArray(inputsData.userInputs) ? inputsData.userInputs : [] });
+        return true;
+      }
+      // 2. Fallback: scan ROOTS for SKILL.md
       for (let i = 0; i < ROOTS.length; i++) {
         const skillPath = join(ROOTS[i], skillId, "SKILL.md");
         try {
