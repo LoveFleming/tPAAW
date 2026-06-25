@@ -4549,14 +4549,17 @@ async function runCronJob(job) {
     const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId);
     console.log(`[cron] Skill ${skillId}: workDir=${skillDir}`);
 
-    // Build short prompt: skill name + user inputs as JSON
-    // CLI already runs in skillDir, it reads SKILL.md itself
-    const inputsJson = job.params && Object.keys(job.params).length > 0
-      ? JSON.stringify(job.params)
-      : "{}";
-    const prompt = `Please use skill ${skillId} with the following user inputs: ${inputsJson}`;
+    // Write user inputs to a small JSON file in the skill dir
+    // This avoids passing special chars (double quotes) through Windows shell
+    const inputsFileName = "_cron_inputs.json";
+    if (job.params && Object.keys(job.params).length > 0) {
+      await writeFile(join(skillDir, inputsFileName), JSON.stringify(job.params, null, 2), "utf-8");
+    }
 
-    console.log(`[cron] Skill ${skillId}: workDir=${skillDir}, prompt: ${prompt.slice(0, 120)}`);
+    // Short prompt, no special chars — CLI reads SKILL.md + _cron_inputs.json from cwd
+    const prompt = `Please use skill ${skillId} with user inputs from ${inputsFileName}`;
+
+    console.log(`[cron] Skill ${skillId}: workDir=${skillDir}, prompt: ${prompt}`);
 
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
