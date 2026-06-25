@@ -320,6 +320,10 @@ export default function SkillBuilder() {
   const [newFileName, setNewFileName] = useState("");
   const [workingDir, setWorkingDir] = useState("");
 
+  // Builder mode: visual (step cards) vs advanced (raw prompt)
+  const [builderMode, setBuilderMode] = useState<"visual" | "advanced">("visual");
+  const [rawBuildPrompt, setRawBuildPrompt] = useState("");
+
   // Builder CLI (interactive)
   const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
   const [model, setModel] = useState("");
@@ -457,16 +461,22 @@ export default function SkillBuilder() {
 
   // ── Build: interactive CLI ──
   const handleBuild = async () => {
-    const skillDef = buildSkillMd(form);
-    // Get assembled context from context-engine
-    let prompt = skillDef;
-    try {
-      const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillDef }),
-      });
-      if (res.ok) { const ctx = await res.json(); prompt = ctx.prompt || skillDef; }
-    } catch { /* context-engine unavailable, use raw skillDef */ }
+    let prompt: string;
+    if (builderMode === "advanced" && rawBuildPrompt.trim()) {
+      // Advanced mode: use raw prompt directly
+      prompt = rawBuildPrompt.trim();
+    } else {
+      // Visual mode: build from form fields
+      const skillDef = buildSkillMd(form);
+      prompt = skillDef;
+      try {
+        const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ skillDef }),
+        });
+        if (res.ok) { const ctx = await res.json(); prompt = ctx.prompt || skillDef; }
+      } catch { /* context-engine unavailable, use raw skillDef */ }
+    }
     if (!chatStarted) { setInitialPrompt(prompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
     else { terminalRef.current?.sendPrompt(prompt); }
   };
@@ -596,7 +606,7 @@ ${userInputLines.join("\n")}
 
   const canPublish = outputFiles.length > 0;
 
-  const canBuild = form.purpose.trim();
+  const canBuild = builderMode === "advanced" ? rawBuildPrompt.trim().length > 0 : form.purpose.trim().length > 0;
   const hasEmptyRequired = form.inputs.some(inp => inp.required && !(testInputs[inp.id] || "").trim() && inp.id !== "output_path");
   const canTest = canBuild && !hasEmptyRequired;
 
@@ -693,6 +703,43 @@ ${userInputLines.join("\n")}
                       <input type="text" value={form.name} onChange={e => update("name", e.target.value)} placeholder="例：錯誤分析器" className="w-full px-3 py-2 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     </div>
                   </div>
+
+                  {/* ── Mode Toggle: Visual vs Advanced ── */}
+                  <div className="flex items-center gap-1 p-1 bg-stone-100 rounded-xl w-fit">
+                    <button onClick={() => setBuilderMode("visual")}
+                      className={cn("px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
+                        builderMode === "visual" ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                      style={builderMode === "visual" ? { background: accent } : {}}>
+                      📝 Visual
+                    </button>
+                    <button onClick={() => setBuilderMode("advanced")}
+                      className={cn("px-4 py-1.5 text-sm font-medium rounded-lg transition-colors",
+                        builderMode === "advanced" ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                      style={builderMode === "advanced" ? { background: accent } : {}}>
+                      ⚡ Advanced
+                    </button>
+                  </div>
+
+                  {/* ── Advanced Mode: Raw Prompt Editor ── */}
+                  {builderMode === "advanced" ? (
+                    <div className="space-y-3">
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                        <p className="text-sm text-amber-700">
+                          ⚡ <strong>Advanced Mode</strong> — 直接貼上完整的 Build Skill Prompt，跳過表單。CLI 會收到你貼的內容作為 prompt。
+                        </p>
+                      </div>
+                      <textarea
+                        value={rawBuildPrompt}
+                        onChange={e => setRawBuildPrompt(e.target.value)}
+                        placeholder={"直接貼上完整的 build skill prompt...\n\n例如：\n---\nid: my-skill\nname: My Skill\n---\n@@@purpose@@@\n...\n@@@steps@@@\n..."}
+                        rows={24}
+                        className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-y font-mono"
+                        style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30", minHeight: "400px" } as React.CSSProperties}
+                      />
+                      <p className="text-sm text-stone-400">💡 這裡的內容會直接送給 CLI 作為 build prompt，不經過表單組裝</p>
+                    </div>
+                  ) : (
+                  <>
                   <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder="例：根據錯誤訊息和 log，分析問題的根因並產生報告" rows={3} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     <p className="text-sm text-stone-400">💡 想像你在跟一個新同事解釋這個任務</p>
@@ -720,6 +767,8 @@ ${userInputLines.join("\n")}
                   <StepCard number={8} icon="📝" title="Notes" hint="備註" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder="開發者備註或額外說明" rows={4} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
+                  </>
+                  )}
                 </div>
               )
             )}
