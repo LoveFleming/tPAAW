@@ -260,7 +260,7 @@ function SkillPickerDialog({
                             className="w-full text-left p-3 border rounded-lg hover:shadow-sm transition-all text-sm"
                             style={{ borderColor: "#e7e5e4" }}>
                             <span className="font-semibold text-stone-700">{sk.name}</span>
-                            <span className="text-[10px] text-stone-400 ml-2 font-mono">{sk.id}</span>
+                            <span className="text-xs text-stone-400 ml-2 font-mono">{sk.id}</span>
                         </button>
                     ))}
                     {filtered.length === 0 && (
@@ -714,11 +714,11 @@ export default function AppLab() {
                                             <span className="text-lg">{TEMPLATE_ICONS[app.template] || "📊"}</span>
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-semibold text-stone-700 truncate">{app.name}</div>
-                                                <div className="text-[10px] text-stone-400 font-mono">{app.id}</div>
+                                                <div className="text-xs text-stone-400 font-mono">{app.id}</div>
                                             </div>
                                         </button>
                                         <span className={cn(
-                                            "text-[10px] px-2 py-0.5 rounded-full font-semibold",
+                                            "text-xs px-2 py-0.5 rounded-full font-semibold",
                                             app.status === "published" ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-500"
                                         )}>{app.status === "published" ? "Published" : "Draft"}</span>
                                         <button onClick={() => handleEditApp(app.id)}
@@ -729,11 +729,11 @@ export default function AppLab() {
                                                 title="下架">🗑️</button>
                                         )}
                                     </div>
-                                    {app.description && <div className="text-[10px] text-stone-500 mt-1 line-clamp-1">{app.description}</div>}
+                                    {app.description && <div className="text-xs text-stone-500 mt-1 line-clamp-1">{app.description}</div>}
                                 </div>
                             ))}
                         </div>
-                        <div className="px-5 py-3 border-t text-xs text-stone-400 flex justify-between" style={{ borderColor: "#e7e5e4" }}>
+                        <div className="px-5 py-3 border-t text-sm text-stone-400 flex justify-between" style={{ borderColor: "#e7e5e4" }}>
                             <span>共 {existingApps.length} 個 App</span>
                             <button onClick={() => setShowAppPicker(false)} className="text-stone-500 hover:text-stone-700">取消</button>
                         </div>
@@ -751,12 +751,12 @@ export default function AppLab() {
                 <div className="flex items-center gap-1 ml-3 p-0.5 rounded-lg bg-white border" style={{ borderColor: t.accentBorder }}>
                     <button
                         onClick={() => { setEditingAppId(null); setStep(1); setReportName(""); setDescription(""); setPreviewReady(false); setChatStarted(false); setChatMessages([]); }}
-                        className={cn("px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all", !editingAppId ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                        className={cn("px-2.5 py-1 rounded-md text-sm font-semibold transition-all", !editingAppId ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
                         style={!editingAppId ? { backgroundColor: t.accent } : undefined}
                     >✨ 新建</button>
                     <button
                         onClick={() => setShowAppPicker(true)}
-                        className={cn("px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1", editingAppId ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
+                        className={cn("px-2.5 py-1 rounded-md text-sm font-semibold transition-all flex items-center gap-1", editingAppId ? "text-white shadow-sm" : "text-stone-500 hover:text-stone-700")}
                         style={editingAppId ? { backgroundColor: t.accent } : undefined}
                     >📝 修改{editingAppId ? `: ${editingAppId}` : ""} <span className="bg-stone-200 px-1 rounded text-[9px]">{existingApps.length}</span></button>
                 </div>
@@ -768,7 +768,7 @@ export default function AppLab() {
                             <button
                                 onClick={() => { if (s.n < step || (s.n === 2 && selectedTemplate) || (s.n === 3 && selectedTemplate && reportName)) setStep(s.n as Step); }}
                                 className={cn(
-                                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all",
+                                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold transition-all",
                                     step === s.n ? "text-white shadow-sm" : step > s.n ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400 cursor-not-allowed"
                                 )}
                                 style={step === s.n ? { backgroundColor: t.accent } : undefined}
@@ -788,7 +788,7 @@ export default function AppLab() {
                     <div className="relative">
                         <button onClick={() => setShowAppPicker(true)} className="flex items-center gap-1 text-xs px-2 py-1 border rounded-lg bg-white hover:bg-stone-50 transition-colors"
                             style={{ borderColor: "#d6d3d1" }}>
-                            📜 歷史 <span className="text-[10px] bg-stone-100 px-1 rounded">{history.length}</span>
+                            📜 歷史 <span className="text-xs bg-stone-100 px-1 rounded">{history.length}</span>
                         </button>
                     </div>
                     <select value={cli} onChange={e => setCli(e.target.value as CliEngine)}
@@ -833,9 +833,9 @@ export default function AppLab() {
                                     <div className="p-3 text-left">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-lg">{tmpl.icon}</span>
-                                            <span className="font-bold text-sm text-stone-800">{tmpl.name}</span>
+                                            <span className="font-bold text-base text-stone-800">{tmpl.name}</span>
                                         </div>
-                                        <p className="text-[11px] text-stone-500">{tmpl.desc}</p>
+                                        <p className="text-xs text-stone-500">{tmpl.desc}</p>
                                     </div>
                                 </button>
                             ))}
@@ -861,13 +861,13 @@ export default function AppLab() {
                                         <span className="text-lg">{TEMPLATES.find(t => t.id === selectedTemplate)?.icon}</span>
                                         <span className="font-bold text-stone-800">{TEMPLATES.find(t => t.id === selectedTemplate)?.name}</span>
                                     </div>
-                                    <button onClick={() => setStep(1)} className="text-xs text-stone-400 hover:text-stone-600 mt-1">← 換一個</button>
+                                    <button onClick={() => setStep(1)} className="text-sm text-stone-400 hover:text-stone-600 mt-1">← 換一個</button>
                                 </div>
                             </div>
 
                             {/* App Name */}
                             <div className="mb-4">
-                                <label className="block text-xs font-bold text-stone-500 mb-1">App 名稱 *</label>
+                                <label className="block text-sm font-bold text-stone-500 mb-1">App 名稱 *</label>
                                 <input value={reportName}
                                     onChange={e => setReportName(e.target.value)}
                                     placeholder="例：project-board"
@@ -877,19 +877,19 @@ export default function AppLab() {
 
                             {/* Description - natural language */}
                             <div className="mb-4">
-                                <label className="block text-xs font-bold text-stone-500 mb-1">描述你想要什麼 *</label>
+                                <label className="block text-sm font-bold text-stone-500 mb-1">描述你想要什麼 *</label>
                                 <textarea value={description}
                                     onChange={e => setDescription(e.target.value)}
                                     placeholder="用自然語言描述，例：做一個專案進度看板，深色主題，顯示各階段任務卡片，可以展開看細節..."
                                     rows={4}
                                     className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
                                     style={{ borderColor: "#d6d3d1", lineHeight: 1.6 }} />
-                                <p className="text-[10px] text-stone-400 mt-1">💡 越具體越好：配色、佈局、功能、資料來源...</p>
+                                <p className="text-xs text-stone-400 mt-1">💡 越具體越好：配色、佈局、功能、資料來源...</p>
                             </div>
 
                             {/* Skill binding */}
                             <div className="mb-4">
-                                <label className="block text-xs font-bold text-stone-500 mb-1">綁定 Skill（選填）</label>
+                                <label className="block text-sm font-bold text-stone-500 mb-1">綁定 Skill（選填）</label>
                                 {!selectedSkill ? (
                                     <button onClick={() => setShowSkillPicker(true)}
                                         className="w-full p-3 border-2 border-dashed rounded-xl text-sm text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-colors"
@@ -900,11 +900,11 @@ export default function AppLab() {
                                     <div className="flex items-center gap-2 p-3 rounded-xl border"
                                         style={{ borderColor: t.accent, backgroundColor: t.accentBg }}>
                                         <span className="text-sm font-bold text-stone-700">{selectedSkill.name}</span>
-                                        <span className="text-[10px] text-stone-400 font-mono">{selectedSkill.id}</span>
+                                        <span className="text-xs text-stone-400 font-mono">{selectedSkill.id}</span>
                                         <div className="ml-auto flex gap-1">
-                                            <button onClick={() => setShowSkillPicker(true)} className="text-[10px] px-2 py-1 rounded-md border"
+                                            <button onClick={() => setShowSkillPicker(true)} className="text-xs px-2 py-1 rounded-md border"
                                                 style={{ borderColor: t.accentBorder, color: t.accent }}>換</button>
-                                            <button onClick={() => setSelectedSkill(null)} className="text-xs text-stone-400 hover:text-red-400">✕</button>
+                                            <button onClick={() => setSelectedSkill(null)} className="text-sm text-stone-400 hover:text-red-400">✕</button>
                                         </div>
                                     </div>
                                 )}
@@ -913,7 +913,7 @@ export default function AppLab() {
                             {/* Advanced (collapsed) */}
                             <div className="mb-6">
                                 <button onClick={() => setShowAdvanced(!showAdvanced)}
-                                    className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 transition-colors">
+                                    className="flex items-center gap-1 text-sm text-stone-400 hover:text-stone-600 transition-colors">
                                     <span style={{ transform: showAdvanced ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
                                     進階設定（System Prompt）
                                 </button>
@@ -948,24 +948,24 @@ export default function AppLab() {
                         {/* Top: Preview */}
                         <div className={fullscreen ? "flex-1 min-h-0" : "min-h-0 border-b"} style={{ borderColor: fullscreen ? undefined : "#e7e5e4", backgroundColor: "#f5f5f4" }}>
                             <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-white shrink-0" style={{ borderColor: "#e7e5e4" }}>
-                                <span className="text-xs font-semibold text-stone-500">🖼️ Preview</span>
-                                {previewUrl && <span className="text-[10px] text-stone-400 font-mono">{reportId}</span>}
+                                <span className="text-sm font-semibold text-stone-500">🖼️ Preview</span>
+                                {previewUrl && <span className="text-xs text-stone-400 font-mono">{reportId}</span>}
                                 <div className="ml-auto flex gap-2">
                                     {editingAppId && (
                                         <button onClick={() => setShowSettings(true)}
-                                            className="text-[10px] text-stone-400 hover:text-stone-600 font-semibold">⚙️ 設定</button>
+                                            className="text-xs text-stone-400 hover:text-stone-600 font-semibold">⚙️ 設定</button>
                                     )}
                                     {previewReady && (
-                                        <span className="text-[10px] text-green-500">✅ 已生成</span>
+                                        <span className="text-xs text-green-500">✅ 已生成</span>
                                     )}
                                     {generating && (
-                                        <span className="text-[10px] text-amber-500 animate-pulse">⏳ 生成中...</span>
+                                        <span className="text-xs text-amber-500 animate-pulse">⏳ 生成中...</span>
                                     )}
                                     <button onClick={() => { setPreviewReady(false); setPollTrigger(t => t + 1); setPreviewKey(Date.now()); }}
-                                        className="text-[10px] text-stone-400 hover:text-stone-600">🔄</button>
+                                        className="text-xs text-stone-400 hover:text-stone-600">🔄</button>
                                     {previewReady && previewUrl && (
                                         <button onClick={() => setFullscreen(f => !f)}
-                                            className="text-[10px] text-stone-400 hover:text-stone-600" title={fullscreen ? "退出全螢幕" : "全螢幕預覽"}>{fullscreen ? "✕" : "⛶"}</button>
+                                            className="text-xs text-stone-400 hover:text-stone-600" title={fullscreen ? "退出全螢幕" : "全螢幕預覽"}>{fullscreen ? "✕" : "⛶"}</button>
                                     )}
                                 </div>
                             </div>
@@ -977,7 +977,7 @@ export default function AppLab() {
                                     <div className="flex flex-col items-center justify-center h-full text-stone-400 text-sm gap-3">
                                         <span className="text-3xl">{generating ? "⏳" : "🖼️"}</span>
                                         <p>{generating ? "正在生成中，請稍候..." : previewUrl ? "等待生成完成..." : "請先設定 App 名稱"}</p>
-                                        {generating && <p className="text-[10px] text-stone-500">生成完成後會自動顯示預覽</p>}
+                                        {generating && <p className="text-xs text-stone-500">生成完成後會自動顯示預覽</p>}
                                     </div>
                                 )}
                             </div>
@@ -989,7 +989,7 @@ export default function AppLab() {
                             {/* Terminal (left half) */}
                             <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#333" }}>
                                 <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
-                                    <span className="text-[10px] font-semibold text-stone-400">💻 Terminal</span>
+                                    <span className="text-sm font-semibold text-stone-400">💻 Terminal</span>
                                     <span className="text-[9px] text-stone-500">({cli}{model ? "/" + model.split("/").pop() : ""})</span>
                                 </div>
                                 <div className="flex-1 min-h-0">
@@ -1020,8 +1020,8 @@ export default function AppLab() {
                                         <div className="flex items-center justify-center h-full text-stone-500 text-xs text-center px-4">
                                             <div>
                                                 <p className="mb-2">還沒有對話</p>
-                                                <p className="text-stone-600 text-[10px]">生成完成後可以在這裡輸入微調指令：</p>
-                                                <p className="text-stone-600 text-[10px] mt-1 italic">「改成藍色系」「加一個 filter」「表格太擠，改成卡片」</p>
+                                                <p className="text-stone-600 text-xs">生成完成後可以在這裡輸入微調指令：</p>
+                                                <p className="text-stone-600 text-xs mt-1 italic">「改成藍色系」「加一個 filter」「表格太擠，改成卡片」</p>
                                             </div>
                                         </div>
                                     )}
@@ -1080,7 +1080,7 @@ export default function AppLab() {
                                 <div className="flex items-center justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
                                     <h3 className="text-sm font-bold" style={{ color: t.accentText }}>⚙️ App 設定 — {editingAppId}</h3>
                                     <div className="flex items-center gap-2">
-                                        {settingsSaved && <span className="text-[10px] text-green-600 font-semibold">✅ 已儲存</span>}
+                                        {settingsSaved && <span className="text-xs text-green-600 font-semibold">✅ 已儲存</span>}
                                         <button onClick={() => setShowSettings(false)} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
                                     </div>
                                 </div>
@@ -1089,14 +1089,14 @@ export default function AppLab() {
                                     {/* Row: name + icon */}
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="col-span-2">
-                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">App 名稱</label>
+                                            <label className="block text-sm font-semibold text-stone-500 mb-1">App 名稱</label>
                                             <input value={appSettings.name}
                                                 onChange={e => setAppSettings(p => ({ ...p, name: e.target.value }))}
                                                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
                                                 style={{ borderColor: "#d6d3d1" }} />
                                         </div>
                                         <div>
-                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">Icon (emoji)</label>
+                                            <label className="block text-sm font-semibold text-stone-500 mb-1">Icon (emoji)</label>
                                             <input value={appSettings.icon}
                                                 onChange={e => setAppSettings(p => ({ ...p, icon: e.target.value }))}
                                                 placeholder="📦"
@@ -1106,7 +1106,7 @@ export default function AppLab() {
                                     </div>
                                     {/* Description */}
                                     <div>
-                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">描述</label>
+                                        <label className="block text-sm font-semibold text-stone-500 mb-1">描述</label>
                                         <textarea value={appSettings.description}
                                             onChange={e => setAppSettings(p => ({ ...p, description: e.target.value }))}
                                             rows={2}
@@ -1116,7 +1116,7 @@ export default function AppLab() {
                                     {/* Row: type + dataShape + cli */}
                                     <div className="grid grid-cols-3 gap-3">
                                         <div>
-                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">Type</label>
+                                            <label className="block text-sm font-semibold text-stone-500 mb-1">Type</label>
                                             <select value={appSettings.type}
                                                 onChange={e => setAppSettings(p => ({ ...p, type: e.target.value }))}
                                                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
@@ -1126,7 +1126,7 @@ export default function AppLab() {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">Data Shape</label>
+                                            <label className="block text-sm font-semibold text-stone-500 mb-1">Data Shape</label>
                                             <select value={appSettings.dataShape}
                                                 onChange={e => setAppSettings(p => ({ ...p, dataShape: e.target.value }))}
                                                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
@@ -1137,7 +1137,7 @@ export default function AppLab() {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-[11px] font-semibold text-stone-500 mb-1">CLI Engine</label>
+                                            <label className="block text-sm font-semibold text-stone-500 mb-1">CLI Engine</label>
                                             <select value={appSettings.cli}
                                                 onChange={e => setAppSettings(p => ({ ...p, cli: e.target.value }))}
                                                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
@@ -1150,7 +1150,7 @@ export default function AppLab() {
                                     </div>
                                     {/* Triggers */}
                                     <div>
-                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">觸發關鍵字 (逗號分隔)</label>
+                                        <label className="block text-sm font-semibold text-stone-500 mb-1">觸發關鍵字 (逗號分隔)</label>
                                         <input value={appSettings.triggers}
                                             onChange={e => setAppSettings(p => ({ ...p, triggers: e.target.value }))}
                                             placeholder="翻譯, translate, 幫我翻譯"
@@ -1159,7 +1159,7 @@ export default function AppLab() {
                                     </div>
                                     {/* AI Prompt */}
                                     <div>
-                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">AI Prompt（給 LLM 的 App 操作提示）</label>
+                                        <label className="block text-sm font-semibold text-stone-500 mb-1">AI Prompt（給 LLM 的 App 操作提示）</label>
                                         <textarea value={appSettings.aiPrompt}
                                             onChange={e => setAppSettings(p => ({ ...p, aiPrompt: e.target.value }))}
                                             rows={4}
@@ -1168,7 +1168,7 @@ export default function AppLab() {
                                     </div>
                                     {/* Schema (JSON) */}
                                     <div>
-                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">Schema (JSON)</label>
+                                        <label className="block text-sm font-semibold text-stone-500 mb-1">Schema (JSON)</label>
                                         <textarea value={appSettings.schema}
                                             onChange={e => setAppSettings(p => ({ ...p, schema: e.target.value }))}
                                             rows={8}
@@ -1177,14 +1177,14 @@ export default function AppLab() {
                                     </div>
                                     {/* Skills (JSON array) */}
                                     <div>
-                                        <label className="block text-[11px] font-semibold text-stone-500 mb-1">綁定的 Skills (JSON 陣列)</label>
+                                        <label className="block text-sm font-semibold text-stone-500 mb-1">綁定的 Skills (JSON 陣列)</label>
                                         <textarea value={appSettings.skillsText}
                                             onChange={e => setAppSettings(p => ({ ...p, skillsText: e.target.value }))}
                                             rows={6}
                                             placeholder='[{ "id": "translate", "path": "./skills/translate/SKILL.md", "role": "main" }]'
                                             className="w-full px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
                                             style={{ borderColor: "#d6d3d1", lineHeight: 1.5 }} />
-                                        <p className="text-[10px] text-stone-400 mt-1">每個 skill: {`{ id, path, role }`}，role 可選 main / support</p>
+                                        <p className="text-xs text-stone-400 mt-1">每個 skill: {`{ id, path, role }`}，role 可選 main / support</p>
                                     </div>
                                 </div>
                                 {/* Footer */}
