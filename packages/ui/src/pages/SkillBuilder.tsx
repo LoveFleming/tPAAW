@@ -35,20 +35,17 @@ const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description
 // ── Helpers ──
 function buildPromptFromFields(form: SkillForm): string {
   const parts: string[] = [];
-  if (form.purpose) parts.push(`@@@purpose@@@\n${form.purpose}`);
+  // Always output all sections so Advanced mode shows the full template
+  parts.push(`@@@purpose@@@\n${form.purpose || ""}`);
   if (form.inputs.length > 0) {
     parts.push("@@@inputs@@@\n" + form.inputs.map(inp => `- **${inp.label}**${inp.required ? " (required)" : " (optional)"}: ${inp.description || inp.placeholder}`).join("\n"));
   }
-  if (form.steps) parts.push(`@@@steps@@@\n${form.steps}`);
-  if (form.outputFormat) parts.push(`@@@output@@@\n${form.outputFormat}`);
-  if (form.guardrails) parts.push(`@@@guardrails@@@
-${form.guardrails}`);
-  if (form.examples) parts.push(`@@@examples@@@
-${form.examples}`);
-  if (form.validation) parts.push(`@@@validation@@@
-${form.validation}`);
-  if (form.notes) parts.push(`@@@notes@@@
-${form.notes}`);
+  parts.push(`@@@steps@@@\n${form.steps || ""}`);
+  parts.push(`@@@output@@@\n${form.outputFormat || ""}`);
+  parts.push(`@@@guardrails@@@\n${form.guardrails || ""}`);
+  parts.push(`@@@examples@@@\n${form.examples || ""}`);
+  parts.push(`@@@validation@@@\n${form.validation || ""}`);
+  parts.push(`@@@notes@@@\n${form.notes || ""}`);
   return parts.join("\n\n");
 }
 
