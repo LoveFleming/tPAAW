@@ -100,17 +100,62 @@ export default function CronJobsPage() {
     // Load skill inputs when skill is selected
     useEffect(() => {
         if (!formSkillId) { setSkillInputs([]); return; }
-        fetch(`${API}/api/skills/${formSkillId}`)
-            .then(r => r.ok ? r.json() : null)
+        console.log(`[CronJobs] Loading skill inputs for: ${formSkillId}`);
+        fetch(`${API}/api/skills/${encodeURIComponent(formSkillId)}`)
+            .then(r => {
+                console.log(`[CronJobs] /api/skills/${formSkillId} status:`, r.status);
+                return r.ok ? r.json() : null;
+            })
             .then((data) => {
-                if (!data?.userInputs || !Array.isArray(data.userInputs)) { setSkillInputs([]); return; }
-                const parsed = data.userInputs.map((inp: any) => ({
+                console.log(`[CronJobs] Skill data:`, data ? { id: data.id, userInputs: data.userInputs } : null);
+                const inputs = data?.userInputs;
+                if (!inputs || !Array.isArray(inputs) || inputs.length === 0) {
+                    console.log(`[CronJobs] No userInputs found, trying to parse from fullContent`);
+                    // Fallback: try parsing from fullContent frontmatter if available
+                    if (data?.fullContent) {
+                        const fmMatch = data.fullContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+                        if (fmMatch) {
+                            const inputsMatch = fmMatch[1].match(/userInputs:\s*\n([\s\S]*?)(?=\n\S|\s*$)/);
+                            if (inputsMatch) {
+                                const blocks = inputsMatch[1].split(/\s*-\s+id:\s*/).filter(Boolean);
+                                const parsed: typeof skillInputs = [];
+                                for (const block of blocks) {
+                                    const idM = block.match(/^(\S+)/);
+                                    const labelM = block.match(/label:\s*(.+)/);
+                                    const phM = block.match(/placeholder:\s*"([^"]*)"/);
+                                    const reqM = block.match(/required:\s*(true|false)/);
+                                    const mlM = block.match(/multiline:\s*(true|false)/);
+                                    if (idM) parsed.push({
+                                        id: idM[1].trim(),
+                                        label: labelM ? labelM[1].trim() : idM[1].trim(),
+                                        placeholder: phM ? phM[1] : undefined,
+                                        required: reqM ? reqM[1] === "true" : false,
+                                        multiline: mlM ? mlM[1] === "true" : false,
+                                    });
+                                }
+                                if (parsed.length > 0) {
+                                    console.log(`[CronJobs] Parsed ${parsed.length} inputs from fullContent fallback`);
+                                    setSkillInputs(parsed);
+                                    setFormParams(prev => {
+                                        const existing = new Map(prev.map(p => [p.key, p.value]));
+                                        return parsed.map(inp => ({ key: inp.id, value: existing.get(inp.id) || "" }));
+                                    });
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    setSkillInputs([]);
+                    return;
+                }
+                const parsed = inputs.map((inp: any) => ({
                     id: inp.id || "",
                     label: inp.label || inp.id || "",
                     placeholder: inp.placeholder,
                     required: inp.required,
                     multiline: inp.multiline,
                 }));
+                console.log(`[CronJobs] Parsed ${parsed.length} skill inputs`);
                 setSkillInputs(parsed);
                 // Pre-fill formParams with skill input ids (empty values)
                 setFormParams(prev => {
@@ -118,7 +163,10 @@ export default function CronJobsPage() {
                     return parsed.map((inp: any) => ({ key: inp.id, value: existing.get(inp.id) || "" }));
                 });
             })
-            .catch(() => setSkillInputs([]));
+            .catch((err) => {
+                console.error(`[CronJobs] Failed to load skill inputs:`, err);
+                setSkillInputs([]);
+            });
     }, [formSkillId]);
 
     const loadJobDetail = (jobId: string) => {
