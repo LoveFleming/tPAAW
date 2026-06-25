@@ -730,43 +730,25 @@ ${context ? "\n## Context\n" + context : ""}
   const skillGetMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
   if (skillGetMatch) {
     const skillId = skillGetMatch[1];
-    // userInputs always come from input-prompt/{skillId}/inputs.json
-    // SKILL.md (in physical-skill) is only for fullContent/prompt body
+    // userInputs: always from input-prompt/{skillId}/inputs.json
     let found = null;
 
-    // 1. Read inputs.json from input-prompt (canonical source)
     const inputsJsonPath = join(INPUT_PROMPT_ROOT, skillId, "inputs.json");
     let inputsData = null;
     try {
       inputsData = JSON.parse(await readFile(inputsJsonPath, "utf-8"));
     } catch {}
 
-    // 2. Read SKILL.md from physical-skill for fullContent (fallback to input-prompt)
-    let fullContent = "";
-    const skillMdPaths = [
-      join(PHYSICAL_SKILL_ROOT, skillId, "SKILL.md"),
-      join(INPUT_PROMPT_ROOT, skillId, "SKILL.md"),
-    ];
-    for (const p of skillMdPaths) {
-      try { fullContent = await readFile(p, "utf-8"); break; } catch {}
-    }
-
-    if (inputsData || fullContent) {
-      // Parse SKILL.md frontmatter for metadata if available
-      let parsed = {};
-      if (fullContent) parsed = parseSkillFrontmatter(fullContent);
+    if (inputsData) {
       found = {
         id: skillId,
-        kind: inputsData ? "input-prompt" : "physical-skill",
-        name: inputsData?.name || parsed.name || skillId,
-        description: inputsData?.description || parsed.description || "",
-        version: parsed.version || "1.0.0",
-        category: parsed.category || "",
+        kind: "input-prompt",
+        name: inputsData.name || skillId,
+        description: inputsData.description || "",
+        version: "1.0.0",
         skillPath: inputsJsonPath,
-        useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
-        usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
-        userInputs: Array.isArray(inputsData?.userInputs) ? inputsData.userInputs : [],
-        fullContent,
+        userInputs: Array.isArray(inputsData.userInputs) ? inputsData.userInputs : [],
+        fullContent: "",
       };
     }
     if (found) {
