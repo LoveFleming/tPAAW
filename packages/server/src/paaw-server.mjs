@@ -4578,23 +4578,28 @@ async function runCronJob(job) {
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
 
-    // Write prompt to temp file to avoid Windows shell arg escaping issues
-    const { tmpdir } = await import("os");
-    const promptFile = join(tmpdir(), `paaw-cron-${job.id}-${Date.now()}.md`);
-    await writeFile(promptFile, prompt, "utf-8");
-    console.log(`[cron] Prompt written to ${promptFile} (${prompt.length} chars)`);
+    // Write prompt to a file in the skill directory to avoid Windows shell arg escaping
+    // qwen CLI can't handle multi-line args on Windows, so we tell it to read the file
+    const promptFileName = `_cron-prompt-${Date.now()}.md`;
+    const promptFilePath = join(skillDir, promptFileName);
+    await writeFile(promptFilePath, prompt, "utf-8");
+    console.log(`[cron] Prompt written to ${promptFilePath} (${prompt.length} chars)`);
 
+    const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20"];
     let child;
     if (_cronWin) {
-      // Windows: pipe file content to qwen via cmd to avoid multi-line arg corruption
-      child = spawn("cmd", ["/c", `type "${promptFile}" | "${_cronBin}" --approval-mode yolo -o text --max-session-turns 20`], {
+      // Windows: pass a short single-line instruction to read the prompt file
+      cliArgs.push(`Read ${promptFileName} and execute the instructions inside.`);
+      child = spawn(_cronBin, cliArgs, {
         cwd: skillDir,
         env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
         stdio: ["pipe", "pipe", "pipe"],
+        shell: true,
       });
     } else {
       // Mac/Linux: pass prompt directly as arg (safe without shell)
-      child = spawn(_cronBin, ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {
+      cliArgs.push(prompt);
+      child = spawn(_cronBin, cliArgs, {
         cwd: skillDir,
         env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
         stdio: ["pipe", "pipe", "pipe"],
