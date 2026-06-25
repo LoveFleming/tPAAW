@@ -4143,7 +4143,7 @@ wss.on("connection", (ws, req) => {
           const readyOrTimeout = cliReadyFired || (Date.now() - ptyStartTime > 15000);
           if (readyOrTimeout && !cliDoneFired) {
             const plain = stripAnsi(data);
-            if (/\bDONE\b|已完成|完成！|✅.*完成|^完成$|Task completed|finished/i.test(plain)) {
+            if (/\bDONE\b|已完成|完成！|✅.*完成|^完成$|Task completed|finished|已寫入|已生成|創建完成|建立完成|app\.html.*(saved|written|created|updated)|generation.*(complete|done|finished)/i.test(plain)) {
               cliDoneFired = true;
               console.log(`[PTY] CLI done detected (${sessionId})`);
               if (ws.readyState === 1) {

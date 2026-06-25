@@ -387,7 +387,36 @@ export default function AppLab() {
         setPreviewReady(false);
         let stopped = false;
         let lastSeenMtime = 0;
+        let fileExistedDuringWarmup = false;
         let pollCount = 0;
+
+        // Shared completion handler — called when polling detects app is ready
+        const finishPolling = (reason: string) => {
+            if (stopped) return;
+            clearInterval(timer);
+            stopped = true;
+            console.log(`[Poll] finishPolling: ${reason}`);
+            setPreviewReady(true);
+            setPreviewKey(Date.now());
+            setGenerating(false); generatingRef.current = false;
+            fetch(`${API}/api/app/${reportId}/publish`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({}),
+            }).catch(() => {});
+            setChatMessages(prev => {
+                const updated = [...prev];
+                for (let i = updated.length - 1; i >= 0; i--) {
+                    if (updated[i].role === "assistant") {
+                        updated[i] = { ...updated[i], text: "✅ 完成！" };
+                        break;
+                    }
+                }
+                saveAppChat(reportId, updated);
+                return updated;
+            });
+        };
+
         const timer = setInterval(() => {
             if (stopped || pollStoppedRef.current) return;
             pollCount++;
@@ -395,37 +424,25 @@ export default function AppLab() {
                 .then(r => r.json())
                 .then(({ exists, mtime }) => {
                     if (stopped || pollStoppedRef.current) return;
-                    // Skip first 2 polls (4s warmup)
-                    if (pollCount <= 2) return;
+                    // Skip first 2 polls (4s warmup) but track file existence
+                    if (pollCount <= 2) {
+                        if (exists) fileExistedDuringWarmup = true;
+                        return;
+                    }
                     if (!exists || !mtime) return;
+                    // Case 1: File didn't exist during warmup → newly created → DONE
+                    if (!fileExistedDuringWarmup) {
+                        finishPolling(`new file appeared (mtime=${mtime})`);
+                        return;
+                    }
+                    // Case 2: File existed → wait for mtime change
                     if (!lastSeenMtime) {
                         lastSeenMtime = mtime;
                         console.log(`[Poll #${pollCount}] baseline mtime=${mtime}`);
                         return;
                     }
                     if (mtime > lastSeenMtime) {
-                        console.log(`[Poll #${pollCount}] mtime changed ${lastSeenMtime} → ${mtime} → DONE`);
-                        clearInterval(timer);
-                        stopped = true;
-                        setPreviewReady(true);
-                        setPreviewKey(Date.now());
-                        setGenerating(false); generatingRef.current = false;
-                        fetch(`${API}/api/app/${reportId}/publish`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({}),
-                        }).catch(() => {});
-                        setChatMessages(prev => {
-                            const updated = [...prev];
-                            for (let i = updated.length - 1; i >= 0; i--) {
-                                if (updated[i].role === "assistant") {
-                                    updated[i] = { ...updated[i], text: "✅ 完成！" };
-                                    break;
-                                }
-                            }
-                            saveAppChat(reportId, updated);
-                            return updated;
-                        });
+                        finishPolling(`mtime changed ${lastSeenMtime} → ${mtime}`);
                     }
                 })
                 .catch(() => {});
