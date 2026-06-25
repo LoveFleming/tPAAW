@@ -989,10 +989,27 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                                 className="w-full text-left p-3 rounded-lg border transition-colors hover:shadow-sm cursor-pointer"
                                                 style={{ borderColor: t.accentBorder + "60", background: t.accentLight + "40" }}
                                                 onClick={() => {
-                                                    // Load this work log's inputs into the form
+                                                    // 1. Restore skill selection
+                                                    const restoredSkills: Record<string, boolean> = {};
+                                                    (w.skillIds || []).forEach(sid => { restoredSkills[sid] = true; });
+                                                    setEnabledSkills(restoredSkills);
+                                                    // 2. Restore task input
                                                     if (hasInputs) {
                                                         setTaskInput(w.inputData!.task || "");
-                                                        setShowWorkLog(false);
+                                                    }
+                                                    // 3. Pre-fill input dialog data (non-task fields)
+                                                    if (hasInputs) {
+                                                        const dialogData: Record<string, string> = {};
+                                                        for (const [k, v] of Object.entries(w.inputData!)) {
+                                                            if (k !== "task" && v) dialogData[k] = String(v);
+                                                        }
+                                                        setInputDialogData(dialogData);
+                                                    }
+                                                    setShowWorkLog(false);
+                                                    // 4. If chat already started, show a hint instead of re-launching
+                                                    if (!chatStarted) {
+                                                        // Don't auto-launch — let user review pre-filled data first
+                                                        // They can click 開始 to launch with restored config
                                                     }
                                                 }}
                                             >
@@ -1040,7 +1057,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                                 )}
                                                 {w.cli && <span className="text-xs mt-1 inline-block" style={{ color: t.accentText + "40" }}>via {w.cli}</span>}
                                                 {hasInputs && (
-                                                    <div className="text-[10px] mt-1.5 font-medium" style={{ color: t.accent + "90" }}>點擊載入此工作</div>
+                                                    <div className="text-[10px] mt-1.5 font-medium" style={{ color: t.accent + "90" }}>點擊載入此工作（含 Skills + 輸入參數）</div>
                                                 )}
                                             </button>
                                         );
