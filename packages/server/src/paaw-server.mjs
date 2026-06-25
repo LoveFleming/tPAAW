@@ -4544,17 +4544,39 @@ async function runCronJob(job) {
   try {
     const { spawn } = await import("child_process");
 
-    // Load SKILL.md content for the selected skill
-    const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", job.skillId || job.reportAppId);
+    // Load skill content: SKILL.md from physical-skill for prompt body
+    const skillId = job.skillId || job.reportAppId;
+    const skillDirs = [
+      resolve(PAAW_ROOT, "data/skills/physical-skill", skillId),
+      resolve(PAAW_ROOT, "data/skills/building", skillId, "package"),
+      resolve(PAAW_ROOT, "data/skills/input-prompt", skillId),
+    ];
     let skillContent = "";
-    try {
-      skillContent = await readFile(join(skillDir, "SKILL.md"), "utf-8");
-    } catch {
-      // Fallback: try building/ directory
+    let workDir = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId);
+    for (const d of skillDirs) {
       try {
-        skillContent = await readFile(join(PAAW_ROOT, "data/skills/building", job.skillId, "package/SKILL.md"), "utf-8");
+        skillContent = await readFile(join(d, "SKILL.md"), "utf-8");
+        workDir = d;
+        break;
       } catch {}
     }
+    // Also try loading prompt from inputs.json if SKILL.md not found
+    if (!skillContent) {
+      try {
+        const inputsJson = JSON.parse(await readFile(join(PAAW_ROOT, "data/skills/input-prompt", skillId, "inputs.json"), "utf-8"));
+        if (inputsJson.systemPrompt) skillContent = inputsJson.systemPrompt;
+        if (inputsJson.prompt) skillContent = inputsJson.prompt;
+        workDir = resolve(PAAW_ROOT, "data/skills/input-prompt", skillId);
+      } catch {}
+    }
+    // Ensure workDir exists, fallback to PAAW root
+    try { await mkdir(workDir, { recursive: true }); } catch {}
+    if (!skillContent) {
+      skillContent = `Execute skill: ${skillId}`;
+      console.log(`[cron] Warning: No SKILL.md or prompt found for ${skillId}`);
+    }
+
+    console.log(`[cron] Skill ${skillId}: workDir=${workDir}, prompt length=${skillContent.length}`);
 
     // Build prompt: SKILL.md content + user inputs/params + extra prompt
     let prompt = "";
@@ -4574,7 +4596,7 @@ async function runCronJob(job) {
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
     const child = spawn(_cronBin, ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {
-      cwd: skillDir,
+      cwd: workDir,
       env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
       stdio: ["pipe", "pipe", "pipe"],
       shell: _cronWin,  // Windows: .cmd files need shell:true
