@@ -4542,16 +4542,37 @@ async function runCronJob(job) {
     return;
   }
 
-  // ── Report type: run CLI ──
+  // ── Report type: run CLI with Skill ──
   try {
     const { spawn } = await import("child_process");
-    // Build prompt with params
-    let prompt = job.prompt || `Execute skill ${job.skillId || job.reportAppId}`;
-    if (job.params && Object.keys(job.params).length > 0) {
-      prompt += `\n\nParameters:\n${Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
+
+    // Load SKILL.md content for the selected skill
+    const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", job.skillId || job.reportAppId);
+    let skillContent = "";
+    try {
+      skillContent = await readFile(join(skillDir, "SKILL.md"), "utf-8");
+    } catch {
+      // Fallback: try building/ directory
+      try {
+        skillContent = await readFile(join(PAAW_ROOT, "data/skills/building", job.skillId, "package/SKILL.md"), "utf-8");
+      } catch {}
     }
 
-    const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", job.skillId || job.reportAppId);
+    // Build prompt: SKILL.md content + user inputs/params + extra prompt
+    let prompt = "";
+    if (skillContent) {
+      prompt += skillContent;
+    }
+    if (job.params && Object.keys(job.params).length > 0) {
+      prompt += "\n\n## User Inputs\n";
+      prompt += Object.entries(job.params).map(([k, v]) => `- ${k}: ${v}`).join("\n");
+    }
+    if (job.prompt) {
+      prompt += `\n\n${job.prompt}`;
+    }
+    if (!prompt.trim()) {
+      prompt = `Execute skill ${job.skillId || job.reportAppId}`;
+    }
     const _cronBin = resolveCliBin("qwen");
     const _cronWin = process.platform === "win32";
     const child = spawn(_cronBin, ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt], {

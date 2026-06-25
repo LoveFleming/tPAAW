@@ -76,6 +76,7 @@ export default function CronJobsPage() {
     const [formParams, setFormParams] = useState<{ key: string; value: string }[]>([]);
     const [formOutputTarget, setFormOutputTarget] = useState<"chat" | "path">("chat");
     const [formOutputPath, setFormOutputPath] = useState("");
+    const [skillInputs, setSkillInputs] = useState<{ id: string; label: string; placeholder?: string; required?: boolean; multiline?: boolean }[]>([]);
 
     const resultIframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -96,6 +97,44 @@ export default function CronJobsPage() {
 
     useEffect(() => { reload(); }, []);
 
+    // Load skill inputs when skill is selected
+    useEffect(() => {
+        if (!formSkillId) { setSkillInputs([]); return; }
+        fetch(`${API}/api/fs/file?path=${encodeURIComponent(`/Users/steward/App/tAgent/data/skills/physical-skill/${formSkillId}/SKILL.md`)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then((data) => {
+                if (!data?.content) return;
+                const fmMatch = data.content.match(/^---\n([\s\S]*?)\n---/);
+                if (!fmMatch) return;
+                const fm = fmMatch[1];
+                const inputsMatch = fm.match(/userInputs:\s*\n([\s\S]*?)(?=\n\S|\s*$)/);
+                if (!inputsMatch) return;
+                const blocks = inputsMatch[1].split(/\s*-\s+id:\s*/).filter(Boolean);
+                const parsed: { id: string; label: string; placeholder?: string; required?: boolean; multiline?: boolean }[] = [];
+                for (const block of blocks) {
+                    const idM = block.match(/^(\S+)/);
+                    const labelM = block.match(/label:\s*(.+)/);
+                    const phM = block.match(/placeholder:\s*"([^"]*)"/);
+                    const reqM = block.match(/required:\s*(true|false)/);
+                    const mlM = block.match(/multiline:\s*(true|false)/);
+                    if (idM) parsed.push({
+                        id: idM[1].trim(),
+                        label: labelM ? labelM[1].trim() : idM[1].trim(),
+                        placeholder: phM ? phM[1] : undefined,
+                        required: reqM ? reqM[1] === "true" : false,
+                        multiline: mlM ? mlM[1] === "true" : false,
+                    });
+                }
+                setSkillInputs(parsed);
+                // Pre-fill formParams with skill input ids (empty values)
+                setFormParams(prev => {
+                    const existing = new Map(prev.map(p => [p.key, p.value]));
+                    return parsed.map(inp => ({ key: inp.id, value: existing.get(inp.id) || "" }));
+                });
+            })
+            .catch(() => setSkillInputs([]));
+    }, [formSkillId]);
+
     const loadJobDetail = (jobId: string) => {
         setSelectedJob(jobId);
         setRightTab("logs");
@@ -115,6 +154,7 @@ export default function CronJobsPage() {
     const resetForm = () => {
         setFormName(""); setFormType("reminder"); setFormSkillId(""); setFormSchedule("0 9 * * *");
         setFormPrompt(""); setFormReminderText(""); setFormParams([]); setFormOutputTarget("chat"); setFormOutputPath("");
+        setSkillInputs([]);
     };
 
     const openEdit = (job: CronJob) => {
@@ -334,21 +374,62 @@ export default function CronJobsPage() {
                                         ))}
                                     </div>
                                 </div>
-                                <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <label className="text-xs text-stone-500 font-semibold">參數</label>
-                                        <button onClick={addParam} className="text-xs text-blue-500 font-semibold hover:text-blue-600">+ 新增參數</button>
-                                    </div>
-                                    {formParams.map((p, i) => (
-                                        <div key={i} className="flex gap-1.5 mb-1.5">
-                                            <input value={p.key} onChange={e => updateParam(i, "key", e.target.value)} placeholder="key"
-                                                className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
-                                            <input value={p.value} onChange={e => updateParam(i, "value", e.target.value)} placeholder="value"
-                                                className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
-                                            <button onClick={() => removeParam(i)} className="text-red-400 hover:text-red-600 text-sm px-1">✕</button>
+                                {/* ── Skill User Inputs ── */}
+                                {formType === "report" && skillInputs.length > 0 && (
+                                    <div>
+                                        <label className="text-xs text-stone-500 font-semibold mb-1.5 block">Skill 輸入參數</label>
+                                        <div className="space-y-2">
+                                            {skillInputs.map(inp => (
+                                                <div key={inp.id}>
+                                                    <label className="text-xs text-stone-400 mb-0.5 block">{inp.label}{inp.required && <span className="text-rose-400"> *</span>}</label>
+                                                    {inp.multiline ? (
+                                                        <textarea
+                                                            value={formParams.find(p => p.key === inp.id)?.value || ""}
+                                                            onChange={e => {
+                                                                const idx = formParams.findIndex(p => p.key === inp.id);
+                                                                if (idx >= 0) updateParam(idx, "value", e.target.value);
+                                                                else setFormParams([...formParams, { key: inp.id, value: e.target.value }]);
+                                                            }}
+                                                            placeholder={inp.placeholder || `輸入 ${inp.label}...`}
+                                                            rows={2}
+                                                            className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none" style={{ borderColor: "#d6d3d1" }} />
+                                                    ) : (
+                                                        <input
+                                                            value={formParams.find(p => p.key === inp.id)?.value || ""}
+                                                            onChange={e => {
+                                                                const idx = formParams.findIndex(p => p.key === inp.id);
+                                                                if (idx >= 0) updateParam(idx, "value", e.target.value);
+                                                                else setFormParams([...formParams, { key: inp.id, value: e.target.value }]);
+                                                            }}
+                                                            placeholder={inp.placeholder || `輸入 ${inp.label}...`}
+                                                            className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                )}
+                                {/* ── Extra params (manual key-value) ── */}
+                                {formType === "report" && (
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="text-xs text-stone-500 font-semibold">額外參數</label>
+                                            <button onClick={addParam} className="text-xs text-blue-500 font-semibold hover:text-blue-600">+ 新增參數</button>
+                                        </div>
+                                        {formParams.filter(p => !skillInputs.some(si => si.id === p.key)).map((p) => {
+                                            const realIdx = formParams.indexOf(p);
+                                            return (
+                                                <div key={realIdx} className="flex gap-1.5 mb-1.5">
+                                                    <input value={p.key} onChange={e => updateParam(realIdx, "key", e.target.value)} placeholder="key"
+                                                        className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                                    <input value={p.value} onChange={e => updateParam(realIdx, "value", e.target.value)} placeholder="value"
+                                                        className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
+                                                    <button onClick={() => removeParam(realIdx)} className="text-red-400 hover:text-red-600 text-sm px-1">✕</button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                             <div className="px-6 py-4 border-t flex gap-3 justify-end" style={{ borderColor: "#e7e5e4" }}>
                                 <button onClick={closeForm}
