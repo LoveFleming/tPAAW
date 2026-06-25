@@ -341,7 +341,7 @@ export const contextEngine = {
       : "";
 
     // Tell AI where config files are — it reads them itself to discover directories
-    const paawRoot = PAAW_ROOT || process.env.PAAW_ROOT || "/Users/steward/App/tAgent";
+    const paawRoot = PAAW_ROOT;
     const knowledgeInfo = `\n\n📚 Knowledge 目錄：${paawRoot}/data/knowledge\n使用 file_list({ path: "${paawRoot}/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "絕對路徑/檔名" }) 讀取檔案。`;
 
     const parts = [];
