@@ -730,56 +730,44 @@ ${context ? "\n## Context\n" + context : ""}
   const skillGetMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
   if (skillGetMatch) {
     const skillId = skillGetMatch[1];
-    // Search in both input-prompt and physical-skill
-    const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT];
+    // userInputs always come from input-prompt/{skillId}/inputs.json
+    // SKILL.md (in physical-skill) is only for fullContent/prompt body
     let found = null;
-    for (const root of roots) {
-      // 1. Try inputs.json first (canonical source for userInputs)
-      const inputsJsonPath = join(root, skillId, "inputs.json");
-      try {
-        const inputsRaw = await readFile(inputsJsonPath, "utf-8");
-        const inputsData = JSON.parse(inputsRaw);
-        // Also try to read SKILL.md for fullContent
-        let fullContent = "";
-        try { fullContent = await readFile(join(root, skillId, "SKILL.md"), "utf-8"); } catch {}
-        const kind = root === INPUT_PROMPT_ROOT ? "input-prompt" : "physical-skill";
-        found = {
-          id: skillId,
-          kind,
-          name: inputsData.name || skillId,
-          description: inputsData.description || "",
-          version: "1.0.0",
-          category: "",
-          skillPath: inputsJsonPath,
-          useSkills: [],
-          usePhysicalSkills: [],
-          userInputs: Array.isArray(inputsData.userInputs) ? inputsData.userInputs : [],
-          fullContent,
-        };
-        break;
-      } catch { /* inputs.json not found in this root */ }
-      // 2. Fall back to SKILL.md
-      const skillPath = join(root, skillId, "SKILL.md");
-      try {
-        const raw = await readFile(skillPath, "utf-8");
-        const parsed = parseSkillFrontmatter(raw);
-        const kind = root === INPUT_PROMPT_ROOT ? "input-prompt" : "physical-skill";
-        found = {
-          id: skillId,
-          kind,
-          name: parsed.name || skillId,
-          description: parsed.description || "",
-          version: parsed.version || "1.0.0",
-          category: parsed.category || "",
-          skillPrompt: "",
-          skillPath: skillPath,
-          useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
-          usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
-          userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
-          fullContent: raw,
-        };
-        break;
-      } catch { /* not found in this root */ }
+
+    // 1. Read inputs.json from input-prompt (canonical source)
+    const inputsJsonPath = join(INPUT_PROMPT_ROOT, skillId, "inputs.json");
+    let inputsData = null;
+    try {
+      inputsData = JSON.parse(await readFile(inputsJsonPath, "utf-8"));
+    } catch {}
+
+    // 2. Read SKILL.md from physical-skill for fullContent (fallback to input-prompt)
+    let fullContent = "";
+    const skillMdPaths = [
+      join(PHYSICAL_SKILL_ROOT, skillId, "SKILL.md"),
+      join(INPUT_PROMPT_ROOT, skillId, "SKILL.md"),
+    ];
+    for (const p of skillMdPaths) {
+      try { fullContent = await readFile(p, "utf-8"); break; } catch {}
+    }
+
+    if (inputsData || fullContent) {
+      // Parse SKILL.md frontmatter for metadata if available
+      let parsed = {};
+      if (fullContent) parsed = parseSkillFrontmatter(fullContent);
+      found = {
+        id: skillId,
+        kind: inputsData ? "input-prompt" : "physical-skill",
+        name: inputsData?.name || parsed.name || skillId,
+        description: inputsData?.description || parsed.description || "",
+        version: parsed.version || "1.0.0",
+        category: parsed.category || "",
+        skillPath: inputsJsonPath,
+        useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
+        usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
+        userInputs: Array.isArray(inputsData?.userInputs) ? inputsData.userInputs : [],
+        fullContent,
+      };
     }
     if (found) {
       res.writeHead(200, { "Content-Type": "application/json" });
