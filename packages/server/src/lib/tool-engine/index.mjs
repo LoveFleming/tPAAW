@@ -4,6 +4,8 @@
  * Chat 介面只負責收發文字。
  * Tool Engine 在背景管理所有工具呼叫邏輯（ReAct loop），
  * 並整合 Security Kernel 做安全檢查。
+ *
+ * 2026-06-26: 加入 Result Validation（error detection + success verification）
  */
 
 import { createProviderAdapter } from './provider.mjs'
@@ -25,6 +27,93 @@ const FAKE_TOOL_PATTERNS = [
 function looksLikeFakeToolCall(text) {
   if (!text) return false
   return FAKE_TOOL_PATTERNS.some(p => p.test(text))
+}
+
+// ── Result Validation ──
+
+/**
+ * 判斷 tool name 是否為寫入操作（add / update / delete / set）
+ */
+function isWriteOperation(name) {
+  return /_(add|update|delete|set)$/.test(name)
+}
+
+/**
+ * 從 tool name 推導出對應的 verify 操作
+ * pocket_add → pocket_get
+ * pocket_update → pocket_get
+ * pocket_delete → pocket_list
+ */
+function getVerifyToolName(name) {
+  if (/_delete$/.test(name)) return name.replace(/_delete$/, '_list')
+  return name.replace(/_(add|update|set)$/, '_get')
+}
+
+/**
+ * 從 write 操作的 args 和 result 中提取 verify 時需要的 lookup id
+ */
+function extractVerifyId(writeName, args, result) {
+  // add 操作：result 裡有 record.id
+  if (/_add$/.test(writeName)) {
+    return result?.record?.id || result?.id || args?.id || null
+  }
+  // update 操作：args 裡有 id
+  if (/_update$/.test(writeName)) {
+    return args?.id || null
+  }
+  return null
+}
+
+/**
+ * Error Detection — 檢查 tool result 是否為錯誤
+ * 回傳 null（沒問題）或錯誤描述字串
+ */
+function detectToolError(result) {
+  if (!result) return '工具回傳了空結果'
+  if (result.error === true) return result.text || '工具執行失敗'
+  if (result.success === false) return result.text || '工具執行失敗'
+  if (result.text && result.text.startsWith('❌')) return result.text
+  return null
+}
+
+/**
+ * Success Verification — 寫入操作後回查確認
+ * 回傳 { verified: true/false, detail: string }
+ */
+async function verifyWriteResult(toolName, args, result, registry) {
+  const id = extractVerifyId(toolName, args, result)
+  const verifyName = getVerifyToolName(toolName)
+
+  // delete 特殊處理：用 list 確認資料不在了
+  if (/_delete$/.test(toolName)) {
+    const deletedId = args?.id
+    if (!deletedId) return { verified: true, detail: '刪除完成（無 ID 可回查）' }
+    try {
+      const verifyResult = await registry.execute(verifyName, {})
+      const records = verifyResult?.records || []
+      const stillExists = records.some(r => r.id === deletedId)
+      if (stillExists) {
+        return { verified: false, detail: `⚠️ 刪除後 ID ${deletedId} 仍存在於資料中` }
+      }
+      return { verified: true, detail: `✅ 已確認 ID ${deletedId} 已刪除` }
+    } catch {
+      return { verified: true, detail: '刪除完成（無法回查）' }
+    }
+  }
+
+  // add / update：用 get 確認資料存在
+  if (!id) return { verified: true, detail: '操作完成（無 ID 可回查）' }
+  if (!registry.has(verifyName)) return { verified: true, detail: '操作完成（無對應的 verify 工具）' }
+
+  try {
+    const verifyResult = await registry.execute(verifyName, { id })
+    if (detectToolError(verifyResult)) {
+      return { verified: false, detail: `⚠️ 寫入後回查失敗：${detectToolError(verifyResult)}` }
+    }
+    return { verified: true, detail: `✅ 已確認資料存在（ID: ${id}）` }
+  } catch (err) {
+    return { verified: false, detail: `⚠️ 回查失敗：${err.message}` }
+  }
 }
 
 export class ToolEngine {
@@ -127,14 +216,57 @@ export class ToolEngine {
             const startTime = Date.now()
             yield { type: 'tool_start', name: tc.function.name, args }
             const result = await this.registry.execute(tc.function.name, args)
-            yield { type: 'tool_end', name: tc.function.name, result }
+
+            // ── Result Validation ──
+            // 1. Error Detection
+            const errMsg = detectToolError(result)
+            if (errMsg) {
+              console.log(`[ToolEngine]   ❌ tool error detected: ${tc.function.name} → ${errMsg}`)
+              const enriched = {
+                ...result,
+                _validation: { error: true, message: errMsg },
+              }
+              yield { type: 'tool_end', name: tc.function.name, result: enriched }
+              if (this.security) {
+                await this.security.recordResult(tc.function.name, args, result, { sessionKey: this.sessionKey, agentId: this.agentId, duration: Date.now() - startTime })
+              }
+              // 明確告訴 LLM 工具失敗了
+              messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({
+                ...result,
+                _validation: { error: true, message: errMsg },
+                _instruction: '⚠️ 工具執行失敗。你必須如實告訴使用者操作沒有成功，不要假裝成功。',
+              }) })
+              console.log(`[ToolEngine]   ← tool error pushed: ${tc.function.name}`)
+              continue
+            }
+
+            // 2. Success Verification（只對寫入操作）
+            let verifyDetail = null
+            if (isWriteOperation(tc.function.name)) {
+              const verify = await verifyWriteResult(tc.function.name, args, result, this.registry)
+              verifyDetail = verify
+              console.log(`[ToolEngine]   🔍 verify: ${tc.function.name} → ${verify.verified ? 'PASS' : 'FAIL'} ${verify.detail}`)
+
+              // 把驗證結果附加到 tool result，讓 LLM 知道
+              const enriched = {
+                ...result,
+                _validation: { verified: verify.verified, detail: verify.detail },
+              }
+              yield { type: 'tool_end', name: tc.function.name, result: enriched }
+            } else {
+              yield { type: 'tool_end', name: tc.function.name, result }
+            }
 
             if (this.security) {
               await this.security.recordResult(tc.function.name, args, result, { sessionKey: this.sessionKey, agentId: this.agentId, duration: Date.now() - startTime })
             }
 
-            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) })
-            console.log(`[ToolEngine]   ← tool result pushed: ${tc.function.name} id=${tc.id} contentLen=${JSON.stringify(result).length} msgs=${messages.length}`)
+            // 組裝給 LLM 的 message（含驗證結果）
+            const msgContent = verifyDetail
+              ? { ...result, _validation: { verified: verifyDetail.verified, detail: verifyDetail.detail } }
+              : result
+            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(msgContent) })
+            console.log(`[ToolEngine]   ← tool result pushed: ${tc.function.name} id=${tc.id} verified=${verifyDetail?.verified ?? 'N/A'} msgs=${messages.length}`)
           }
           continue // 下一輪
         }
