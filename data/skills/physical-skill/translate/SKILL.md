@@ -1,21 +1,3 @@
----
-id: translate
-name: 我的翻譯
-userInputs:
-  - id: output_path
-    label: 輸出路徑
-    description: Skill 執行結果的儲存路徑
-    placeholder: "例：output/report.md"
-    required: true
-    multiline: false
-  - id: _
-    label: 輸入你要翻譯的內容
-    description: 要翻譯的原文文字
-    placeholder: "貼上想翻譯的內容"
-    required: true
-    multiline: true
----
-
 ## Purpose
 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語），產出一份完整的 Translation Learning Output markdown 學習筆記。
 

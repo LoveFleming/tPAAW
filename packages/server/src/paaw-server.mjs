@@ -1088,9 +1088,8 @@ ${context ? "\n## Context\n" + context : ""}
     return;
   }
 
-  // POST /api/apps/:appId/exec — generic skill execution (any skill-based app)
+  // POST /api/apps/:appId/exec — generic skill execution via PAAW Agent Loop
   // Supports both JSON (simple) and NDJSON (streaming) responses.
-  // Client requests streaming by sending Accept: application/x-ndjson header.
   const appExecMatch = req.method === "POST" && req.url?.match(/^\/api\/apps\/([\w.-]+)\/exec(?:\?.*)?$/);
   if (appExecMatch) {
     const appId = appExecMatch[1];
@@ -1140,23 +1139,8 @@ ${context ? "\n## Context\n" + context : ""}
 
       const systemPrompt = `你是「${appMeta.name || appId}」App 的執行引擎。你必須嚴格按照以下 Skill 定義（deterministic script）來處理。\n\n${skillsSection}\n\n## === 輸入參數 ===\n${inputSection}\n\n## === 輸出指示 ===\n只輸出結果。如果是結構化資料，輸出 JSON（不要加 markdown code block）。不要加解釋。`;
 
-      // 4. Resolve CLI binary (per-app override or default qwen)
-      const cliType = appMeta.cli || args._cli || "qwen";
-      const resolvedBin = resolveCliBin(cliType);
-
-      // 5. Build CLI args per CLI type
-      let cliArgs;
-      if (cliType === "claude") {
-        cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", systemPrompt];
-      } else if (cliType === "opencode") {
-        cliArgs = ["-m", args._model || "default", systemPrompt];
-      } else {
-        // qwen (default)
-        cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "10", systemPrompt];
-      }
-
-      // ── Streaming mode (NDJSON via pty) ──
       if (wantStream) {
+        // ── Streaming mode (NDJSON via agent loop SSE) ──
         res.writeHead(200, {
           "Content-Type": "application/x-ndjson",
           "Transfer-Encoding": "chunked",
@@ -1165,61 +1149,53 @@ ${context ? "\n## Context\n" + context : ""}
         });
         res.write(JSON.stringify({ type: "status", data: { message: `${appMeta.name || appId}: skill 執行中...` } }) + "\n");
 
-        const ptyProc = ptySpawn(resolvedBin, cliArgs, {
-          name: "xterm-256color",
-          cols: 200,
-          rows: 30,
-          cwd: appDir,
-          env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-        });
+        try {
+          const agentResult = await runAgentLoop({
+            prompt: systemPrompt,
+            cwd: appDir,
+            maxTurns: 15,
+            timeout: 120,
+            rootDir: PAAW_ROOT,
+            onEvent: (evt) => {
+              if (evt.type === "tool_end") {
+                try { res.write(JSON.stringify({ type: "stdout", data: `🔧 ${evt.name}: ${evt.result || ""}\n` }) + "\n"); } catch {}
+              }
+            },
+          });
 
-        let fullOutput = "";
-        ptyProc.onData((data) => {
-          fullOutput += data;
-          res.write(JSON.stringify({ type: "stdout", data }) + "\n");
-        });
-
-        ptyProc.onExit(({ exitCode }) => {
-          // Try to extract JSON from output
           let parsedResult = null;
-          const jsonMatch = fullOutput.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            try { parsedResult = JSON.parse(jsonMatch[0]); } catch {}
-          }
-          res.write(JSON.stringify({
-            type: "result",
-            data: parsedResult || { output: fullOutput.trim() },
-          }) + "\n");
-          res.write(JSON.stringify({ type: "done", data: { exitCode } }) + "\n");
+          const jsonMatch = agentResult.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) { try { parsedResult = JSON.parse(jsonMatch[0]); } catch {} }
+
+          res.write(JSON.stringify({ type: "result", data: parsedResult || { output: agentResult.content } }) + "\n");
+          res.write(JSON.stringify({ type: "done", data: { exitCode: agentResult.success ? 0 : 1 } }) + "\n");
           res.end();
-        });
+        } catch (err) {
+          res.write(JSON.stringify({ type: "error", message: err.message }) + "\n");
+          res.end();
+        }
         return;
       }
 
-      // ── Simple mode (JSON via child_process spawn) ──
-      let fullOutput = "";
-      const _isWin = process.platform === "win32";
-      const child = spawn(resolvedBin, cliArgs, {
-        cwd: appDir,
-        env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: _isWin,  // Windows: .cmd files need shell:true
-      });
-
-      child.stdout.on("data", (d) => { fullOutput += d.toString(); });
-
-      // Timeout guard (120s)
-      const timeoutTimer = setTimeout(() => { try { child.kill(); } catch {} }, 120_000);
-
-      await new Promise((resolve, reject) => {
-        child.on("close", (code) => { result.exitCode = code; resolve(); });
-        child.on("error", (err) => { result.error = err.message; reject(err); });
-      });
-      clearTimeout(timeoutTimer);
-
-      result.output = fullOutput.trim();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(result));
+      // ── Simple mode (JSON via agent loop) ──
+      try {
+        const agentResult = await runAgentLoop({
+          prompt: systemPrompt,
+          cwd: appDir,
+          maxTurns: 15,
+          timeout: 120,
+          rootDir: PAAW_ROOT,
+        });
+        result.output = agentResult.content;
+        result.exitCode = agentResult.success ? 0 : 1;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        result.error = err.message;
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      }
+      return;
     } catch (err) {
       result.error = err.message;
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -1900,129 +1876,86 @@ async function paawApiHandler(req, res) {
     return true;
   }
 
-  // POST /api/skill-test/run — non-interactive CLI test: create dir → run → scan files → SSE result
+  // POST /api/skill-test/run — PAAW Agent Loop test: create dir → run → scan files → SSE result
   if (req.method === "POST" && req.url === "/api/skill-test/run") {
     const body = JSON.parse(await readBody(req));
-    const { skillId, prompt, cwd, cli = "qwen", timeout = 120, maxToolCalls = 10 } = body;
-    // 1. Create temp dir — use relative path for CLI compatibility
+    const { skillId, prompt, cwd, timeout = 120, maxToolCalls = 10 } = body;
+    // 1. Create temp dir
     const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
     const testDir = resolve(PAAW_ROOT, relTestDir);
-    // Clean previous test output (always overwrite)
     try { await rm(testDir, { recursive: true, force: true }); } catch {}
     await mkdir(testDir, { recursive: true });
     // 2. SSE headers
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
     const sendEvent = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
-    // 3. Build full prompt — respect user-specified output_path
-    //    Only inject test dir if prompt doesn't already contain an output path
+    // 3. Build full prompt
     const hasOutputPath = /輸出路徑|output_path|輸出目錄|請將.*輸出/i.test(prompt);
     const fullPrompt = hasOutputPath
       ? prompt
       : `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${relTestDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
-    // 4. Write prompt to temp file (Windows safe — no /dev/stdin)
-    const promptFile = join(testDir, "_prompt.txt");
-    const { writeFile: writePromptFile, unlink: removePromptFile } = await import("fs/promises");
-    await writePromptFile(promptFile, fullPrompt, "utf-8");
-    // 5. Spawn CLI via CliAdapter (unified abstraction)
-    let cliAdapter;
-    try {
-      cliAdapter = await CliAdapter.load(cli, PAAW_ROOT);
-    } catch {
-      // Fallback to hardcoded if adapter config not found
-      cliAdapter = null;
-    }
-    const spawnCwd = cwd || PAAW_ROOT;
-    let cliBin, args, spawnOpts;
-    if (cliAdapter) {
-      const info = cliAdapter.spawnInfo("noninteractive", { approvalMode: "yolo", maxTurns: maxToolCalls, cwd: spawnCwd }, promptFile);
-      cliBin = info.bin;
-      args = info.args;
-      spawnOpts = info.opts;
-    } else {
-      // Hardcoded fallback
-      const _platform = process.platform;
-      cliBin = resolveCliBin(cli);
-      args = ["-o", "text", "--approval-mode", "yolo", "--max-session-turns", String(maxToolCalls), promptFile];
-      spawnOpts = { cwd: spawnCwd, env: { ...process.env }, stdio: ["pipe", "pipe", "pipe"] };
-      if (_platform === "win32") { spawnOpts.shell = true; }
-    }
-    // Send debug info to frontend
-    sendEvent({ type: "debug", cliBin, args, cwd: spawnCwd, platform: process.platform, promptFile, testDir: relTestDir, adapter: cliAdapter ? cliAdapter.id : "fallback" });
-    console.log(`[skill-test] spawn: ${cliBin} ${args.join(" ")}, cwd=${spawnCwd}, platform=${process.platform}, adapter=${cliAdapter ? cliAdapter.id : "fallback"}`);
-    const child = spawn(cliBin, args, spawnOpts);
-    let stderr = "";
-    let stdout = "";
-    let finished = false;
-    child.stdout.on("data", (d) => { stdout += d.toString(); });
-    child.stderr.on("data", (d) => { stderr += d.toString(); });
-    child.on("error", (err) => {
-      if (finished) return; finished = true;
-      clearTimeout(timer); clearInterval(heartbeat);
-      console.error(`[skill-test] spawn error:`, err);
-      sendEvent({ type: "error", message: `CLI 執行失敗: ${err.message}\ncmd: ${cliBin} ${args.join(" ")}\ncwd: ${spawnCwd}` });
-      try { res.end(); } catch {}
-      removePromptFile(promptFile).catch(() => {});
-    });
-    // Heartbeat every 5s
+    // 4. Run via PAAW Agent Loop
+    sendEvent({ type: "debug", engine: "paaw-agent-loop", cwd: cwd || PAAW_ROOT, testDir: relTestDir });
+    console.log(`[skill-test] running via PAAW Agent Loop, skillId=${skillId}, testDir=${testDir}`);
+    // Heartbeat
     const heartbeat = setInterval(() => sendEvent({ type: "heartbeat" }), 5000);
-    const timer = setTimeout(() => {
-      if (finished) return; finished = true;
-      child.kill();
+    try {
+      const agentResult = await runAgentLoop({
+        prompt: fullPrompt,
+        cwd: cwd || PAAW_ROOT,
+        maxTurns: maxToolCalls,
+        timeout,
+        rootDir: PAAW_ROOT,
+        onEvent: (evt) => {
+          if (evt.type === "tool_start") sendEvent({ type: "stdout", data: `🔧 ${evt.name}...\n` });
+          if (evt.type === "tool_end") sendEvent({ type: "stdout", data: `✅ ${evt.name}: ${evt.result || ""}\n` });
+          if (evt.type === "assistant_thinking") sendEvent({ type: "stdout", data: `💭 ${evt.content}\n` });
+        },
+      });
       clearInterval(heartbeat);
-      sendEvent({ type: "error", message: `Timeout after ${timeout}s` });
-      try { res.end(); } catch {}
-      removePromptFile(promptFile).catch(() => {});
-    }, timeout * 1000);
-    child.on("close", async (code) => {
-      if (finished) return; finished = true;
-      clearTimeout(timer);
-      clearInterval(heartbeat);
-      // 6. Clean up prompt file
-      removePromptFile(promptFile).catch(() => {});
-      console.log(`[skill-test] close: code=${code}, stdout=${stdout.length} chars, stderr=${stderr.length} chars`);
-      // 7. Scan for output files — check user-specified output path first, then test dir
+      // 5. Scan for output files
+      const files = [];
       const scanDirs = [testDir];
-      // Also try to read user-specified output path from original prompt
       const outputPathMatch = prompt.match(/輸出路徑:\s*(.+)/);
       if (outputPathMatch) {
         const userPath = outputPathMatch[1].trim();
         const userDir = resolve(PAAW_ROOT, userPath);
         if (!scanDirs.includes(userDir)) scanDirs.unshift(userDir);
       }
-      const files = [];
       for (const scanDir of scanDirs) {
-      try {
-        const entries = await readdir(scanDir);
-      for (const name of entries) {
-        if (name === "_prompt.txt") continue;
-        const fp = join(scanDir, name);
-        const s = await stat(fp);
-        if (s.isFile()) {
-          const ext = name.split(".").pop()?.toLowerCase() || "";
-          let type = "text";
-          if (["json", "jsonl"].includes(ext)) type = "json";
-          else if (["html", "htm"].includes(ext)) type = "html";
-          else if (["md", "markdown"].includes(ext)) type = "markdown";
-          else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
-          else if (["csv"].includes(ext)) type = "csv";
-          else if (["yaml", "yml"].includes(ext)) type = "yaml";
-          else if (["txt", "log"].includes(ext)) type = "text";
-          files.push({ name, path: fp, size: s.size, type, ext });
-        }
+        try {
+          const entries = await readdir(scanDir);
+          for (const name of entries) {
+            if (name === "_prompt.txt") continue;
+            const fp = join(scanDir, name);
+            const s = await stat(fp);
+            if (s.isFile()) {
+              const ext = name.split(".").pop()?.toLowerCase() || "";
+              let type = "text";
+              if (["json", "jsonl"].includes(ext)) type = "json";
+              else if (["html", "htm"].includes(ext)) type = "html";
+              else if (["md", "markdown"].includes(ext)) type = "markdown";
+              else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) type = "image";
+              else if (["csv"].includes(ext)) type = "csv";
+              else if (["yaml", "yml"].includes(ext)) type = "yaml";
+              files.push({ name, path: fp, size: s.size, type, ext });
+            }
+          }
+        } catch {}
       }
-      } catch {}
+      // If no files but agent produced output, save as fallback
+      if (files.length === 0 && agentResult.content.trim()) {
+        const fallbackFile = join(testDir, "output.md");
+        await writeFile(fallbackFile, agentResult.content, "utf-8");
+        files.push({ name: "output.md", path: fallbackFile, size: Buffer.byteLength(agentResult.content), type: "markdown", ext: "md" });
       }
-        // If no files found but CLI produced stdout, save it as fallback
-        if (files.length === 0 && stdout.trim()) {
-          const fallbackFile = join(testDir, "output.md");
-          const { writeFile: writeFallback } = await import("fs/promises");
-          await writeFallback(fallbackFile, stdout, "utf-8");
-          files.push({ name: "output.md", path: fallbackFile, size: Buffer.byteLength(stdout), type: "markdown", ext: "md" });
-        }
-        const noFilesMsg = files.length === 0 ? `\n\nDebug info:\n- CLI bin: ${cliBin}\n- Exit code: ${code}\n- CWD: ${spawnCwd}\n- Test dir: ${relTestDir}\n- stdout (${stdout.length} chars): ${stdout.slice(0, 500) || "(empty)"}\n- stderr (${stderr.length} chars): ${stderr.slice(0, 500) || "(empty)"}` : "";
-        sendEvent({ type: "done", exitCode: code, testDir, files, stdout: stdout.slice(-2000), stderr: stderr.slice(-500), debug: noFilesMsg });
+      sendEvent({ type: "done", exitCode: agentResult.success ? 0 : 1, testDir, files, stdout: agentResult.content.slice(-2000), stderr: "", debug: `Agent Loop: ${agentResult.turns} turns, ${agentResult.toolCalls.length} tool calls, ${agentResult.durationMs}ms` });
       try { res.end(); } catch {}
-    });
+    } catch (err) {
+      clearInterval(heartbeat);
+      console.error(`[skill-test] error:`, err);
+      sendEvent({ type: "error", message: `Agent Loop 執行失敗: ${err.message}` });
+      try { res.end(); } catch {}
+    }
     return true;
   }
 
@@ -2042,85 +1975,46 @@ async function paawApiHandler(req, res) {
     return true;
   }
 
-  // POST /api/skill-test — run CLI non-interactively, stream output via SSE, then final result
+  // POST /api/cli-run — run via PAAW Agent Loop (replaces external CLI)
   if (req.method === "POST" && req.url === "/api/cli-run") {
     let body = "";
     for await (const chunk of req) body += chunk;
     try {
-      const { cli: cliName = "qwen", prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120, stream: wantStream = false } = JSON.parse(body);
+      const { prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120, stream: wantStream = false } = JSON.parse(body);
       if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return true; }
 
-      const resolvedBin = resolveCliBin(cliName);
+      const workCwd = runCwd || PAAW_ROOT;
 
-      const cliArgs = [
-        "--approval-mode", "yolo",
-        "-o", "text",
-        "--max-session-turns", String(maxToolCalls),
-        "/dev/stdin",
-      ];
+      if (wantStream) {
+        // ── Streaming mode (SSE) ──
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+        const sendSSE = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
 
-      // Windows: /dev/stdin doesn't exist; write prompt to temp file and pass as last arg
-      const _isWin = process.platform === "win32";
-      if (_isWin) {
-        const { writeFile: _wf } = await import("fs/promises");
-        const { join: _join } = await import("path");
-        const { tmpdir: _tmp } = await import("os");
-        const _tmpPrompt = _join(_tmp(), `_paaw_prompt_${Date.now()}.txt`);
-        await _wf(_tmpPrompt, prompt, "utf-8");
-        cliArgs[cliArgs.length - 1] = _tmpPrompt;  // replace /dev/stdin with temp file
-      }
-
-      console.log(`[cli-run] Spawning ${resolvedBin} with ${prompt.length}char prompt via stdin (stream=${wantStream})`);
-
-      const child = spawn(resolvedBin, cliArgs, {
-        cwd: runCwd || PAAW_ROOT,
-        env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: _isWin,  // Windows: .cmd files need shell:true
-      });
-
-      if (!_isWin) {
-        child.stdin.write(prompt);
-        child.stdin.end();
-      }
-
-      let stdout = "";
-      let stderr = "";
-      child.stdout.on("data", d => {
-        stdout += d;
-        if (wantStream && !res.headersSent) {
-          res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-        }
-        if (wantStream) {
-          res.write(`data: ${JSON.stringify({ type: "stdout", data: d.toString() })}\n\n`);
-        }
-      });
-      child.stderr.on("data", d => {
-        stderr += d;
-        if (wantStream && !res.headersSent) {
-          res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-        }
-        if (wantStream) {
-          res.write(`data: ${JSON.stringify({ type: "stderr", data: d.toString() })}\n\n`);
-        }
-      });
-
-      const timer = setTimeout(() => {
-        console.log("[cli-run] Timeout, killing");
-        child.kill("SIGTERM");
-      }, timeout * 1000);
-
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        console.log(`[cli-run] Done exit=${code}, stdout=${stdout.length}chars`);
-        if (!res.headersSent) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ ok: true, exitCode: code, output: stdout.trim(), stderr: stderr.trim() }));
-        } else {
-          res.write(`data: ${JSON.stringify({ type: "done", exitCode: code, output: stdout.trim() })}\n\n`);
+        try {
+          const agentResult = await runAgentLoop({
+            prompt, cwd: workCwd, maxTurns: maxToolCalls, timeout,
+            rootDir: PAAW_ROOT,
+            onEvent: (evt) => {
+              if (evt.type === "tool_start") sendSSE({ type: "stdout", data: `🔧 ${evt.name}...\n` });
+              if (evt.type === "tool_end") sendSSE({ type: "stdout", data: `✅ ${evt.name}: ${evt.result || ""}\n` });
+              if (evt.type === "assistant_thinking") sendSSE({ type: "stdout", data: `💭 ${evt.content}\n` });
+            },
+          });
+          sendSSE({ type: "done", exitCode: agentResult.success ? 0 : 1, output: agentResult.content });
+          res.end();
+        } catch (err) {
+          sendSSE({ type: "error", message: err.message });
           res.end();
         }
-      });
+      } else {
+        // ── Simple mode (JSON) ──
+        const agentResult = await runAgentLoop({
+          prompt, cwd: workCwd, maxTurns: maxToolCalls, timeout,
+          rootDir: PAAW_ROOT,
+        });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, exitCode: agentResult.success ? 0 : 1, output: agentResult.content, stderr: "" }));
+      }
     } catch (err) {
       if (!res.headersSent) {
         res.writeHead(500, { "Content-Type": "application/json" });

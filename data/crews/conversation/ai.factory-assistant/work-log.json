@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "id": "work-1782384896246",
+      "skillIds": [
+        "translate"
+      ],
+      "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 快速演進",
+      "cli": "qwen",
+      "inputData": {
+        "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
+        "_": "快速演進",
+        "task": ""
+      },
+      "timestamp": "2026-06-25T10:54:56.246Z"
+    },
+    {
       "id": "work-1781701246655",
       "skillIds": [
         "translate"
