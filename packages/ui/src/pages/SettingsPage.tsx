@@ -44,7 +44,7 @@ export default function SettingsPage() {
       .catch(() => {});
   }, []);
 
-  // Load CLIs
+  // Load Engine Config
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw/skill-config`)
       .then(r => r.json())
@@ -262,7 +262,7 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-sm font-medium text-stone-600 mb-1">🔧 最大 Session Turn 次數</label>
                   <input type="number" value={skillConfig.maxToolCalls} onChange={e => { setSkillConfig(prev => ({ ...prev, maxToolCalls: Math.max(1, parseInt(e.target.value) || 50) })); setSaved(false); }} min={1} max={200} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
-                  <p className="text-xs text-stone-400 mt-1">預設 50，對應 CLI 的 --max-session-turns</p>
+                  <p className="text-xs text-stone-400 mt-1">預設 50，AI Agent 的最大執行步數</p>
                 </div>
               </div>
             </div>

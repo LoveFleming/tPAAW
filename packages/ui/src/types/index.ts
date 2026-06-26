@@ -10,7 +10,7 @@ export type PortalApp = {
     risk: Risk;
 };
 
-export type SkillEngine = "qwen" | "deterministic" | "cline";
+export type SkillEngine = "paaw-agent" | "deterministic";
 
 export type CliEngine = "paaw-agent";
 
@@ -41,7 +41,7 @@ export interface UserInput {
  * 三個核心欄位：
  *   skillPrompt        → 具體任務指令（告訴 AI 做什麼、怎麼做）
  *   useSkills          → 引用其他 input-prompt skill
- *   usePhysicalSkills  → 引用 physical-skill（CLI runtime 載入執行）
+ *   usePhysicalSkills  → 引用 physical-skill（Agent runtime 載入執行）
  *   userInputs         → 操作員要填的表單欄位
  */
 export interface SkillDefinition {
@@ -57,7 +57,7 @@ export interface SkillDefinition {
     skillPath?: string;
     /** 引用其他 input-prompt skill */
     useSkills: string[];
-    /** 引用 physical-skill（CLI runtime 載入執行） */
+    /** 引用 physical-skill（Agent runtime 載入執行） */
     usePhysicalSkills: string[];
     /** 操作員要填的表單 */
     userInputs: UserInput[];
@@ -81,7 +81,7 @@ export interface ChatConfig {
  * Crew — AI 員工
  *
  * 員工只存 skill IDs（引用共享技能池）
- * CLI、Model、Approval Mode 歸員工管
+ * Engine、Model、Approval Mode 歸員工管
  */
 export interface Crew {
     id: string;

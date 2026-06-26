@@ -90,7 +90,7 @@ function AppInner() {
         if (data && data.onboarded) setProfile(data);
       })
       .catch(() => {});
-    // Check provider & CLI config (info only, no blocking)
+    // Check provider config (info only, no blocking)
     fetch(`${API_BASE}/api/paaw/providers`).catch(() => {});
     setLoading(false);
   }, []);

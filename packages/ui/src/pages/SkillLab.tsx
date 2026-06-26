@@ -274,7 +274,7 @@ export default function SkillLab() {
     // ── Terminal ref for sending prompts without restart ──
     const terminalRef = useRef<AgentConsoleHandle>(null);
 
-    // ── Send to CLI ──
+    // ── Send to Agent ──
     const sendToTerminal = useCallback((prompt: string) => {
         if (!prompt.trim()) return;
         if (!chatStarted) {

@@ -318,7 +318,7 @@ export default function SkillBuilder() {
   const [rawBuildPrompt, setRawBuildPrompt] = useState("");
   const lastSyncSource = useRef<"visual" | "advanced" | null>(null);
 
-  // Builder CLI (interactive)
+  // Builder Agent (interactive)
   const [model, setModel] = useState("");
   const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
   const [consoleKey, setConsoleKey] = useState(0);
@@ -451,7 +451,7 @@ export default function SkillBuilder() {
     setSaveStatus("saved"); setTab("builder");
   };
 
-  // ── Build: interactive CLI ──
+  // ── Build: interactive Agent ──
   const handleBuild = async () => {
     let prompt: string;
     if (builderMode === "advanced" && rawBuildPrompt.trim()) {
@@ -547,17 +547,17 @@ ${userInputLines.join("\n")}
                 // Auto-select first file
                 loadFileContent(event.files[0]);
               } else if (event.stdout) {
-                setTestError(`CLI 完成但沒有寫入檔案。CLI 輸出如下：\n\n${event.stdout.slice(0, 2000)}`);
+                setTestError(`AI 完成但沒有寫入檔案。輸出如下：\n\n${event.stdout.slice(0, 2000)}`);
               } else if (event.debug) {
-                setTestError(`CLI 完成但沒有輸出檔案。${event.debug}`);
+                setTestError(`AI 完成但沒有輸出檔案。${event.debug}`);
               } else if (event.error) {
-                setTestError(`CLI 完成但沒有輸出檔案：${event.error}`);
+                setTestError(`AI 完成但沒有輸出檔案：${event.error}`);
               } else {
-                setTestError("CLI 完成但沒有輸出檔案。CLI 可能沒有正確儲存到指定目錄。");
+                setTestError("AI 完成但沒有輸出檔案。可能沒有正確儲存到指定目錄。");
               }
             } else if (event.type === "error") {
               clearInterval(elapsedTimer);
-              setTestError(event.message || "CLI 執行失敗");
+              setTestError(event.message || "AI 執行失敗");
             }
           } catch {}
         }
@@ -810,7 +810,7 @@ ${userInputLines.join("\n")}
                     {showPromptPreview && (
                       <div className="border border-stone-200 rounded-xl overflow-hidden">
                         <div className="flex items-center justify-between px-4 py-2 bg-stone-50 border-b border-stone-200">
-                          <span className="text-xs font-semibold text-stone-600">📋 送給 CLI 的完整提示詞</span>
+                          <span className="text-xs font-semibold text-stone-600">📋 送給 AI 的完整提示詞</span>
                           <button onClick={() => { navigator.clipboard?.writeText(buildTestPrompt()); }} className="text-sm text-stone-400 hover:text-stone-600">複製</button>
                         </div>
                         <pre className="p-4 text-xs text-stone-700 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{buildTestPrompt()}</pre>
@@ -876,7 +876,7 @@ ${userInputLines.join("\n")}
         {/* ━━ Right Panel ━━ */}
         <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1e1e2e" }}>
 
-          {/* Builder: interactive CLI — always mounted, hidden via display */}
+          {/* Builder: interactive Agent — always mounted, hidden via display */}
           <div style={{ display: tab === "builder" ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
             {!chatStarted ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
@@ -901,8 +901,8 @@ ${userInputLines.join("\n")}
                   <span className="absolute inset-0 flex items-center justify-center text-lg font-bold" style={{ color: accent }}>{testElapsed}</span>
                 </div>
                 <div className="text-center">
-                  <p className="text-stone-300 text-sm font-medium">CLI 正在執行 Skill 測試</p>
-                  <p className="text-stone-500 text-xs mt-1">等待 AI 產出結果檔案...</p>
+                  <p className="text-stone-300 text-sm font-medium">AI 正在執行 Skill 測試</p>
+                  <p className="text-stone-500 text-xs mt-1">等待產出結果檔案...</p>
                 </div>
               </div>
             ) : outputFiles.length > 0 ? (
@@ -949,7 +949,7 @@ ${userInputLines.join("\n")}
                 <span className="text-5xl opacity-30">▶️</span>
                 <div className="text-center">
                   <p className="text-stone-400 text-sm">填入輸入，按 <strong className="text-white">▶️ 執行測試</strong></p>
-                  <p className="text-stone-500 text-xs mt-2">CLI 會把結果存到 temp 目錄，完成後自動顯示</p>
+                  <p className="text-stone-500 text-xs mt-2">AI 會把結果存到 test-output 目錄，完成後自動顯示</p>
                 </div>
               </div>
             )

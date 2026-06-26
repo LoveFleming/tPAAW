@@ -16,7 +16,7 @@
  *  - 🤖 AI Chat — PAAW chat integration with file context
  *  - 🔀 Git — status, diff, blame, AI auto-comment
  *  - 🌐 API Tester — Postman-like request builder
- *  - ⌨️ Terminal — CLI sessions (resizable)
+ *  - ⌨️ Terminal — Agent sessions (resizable)
  */
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTheme } from "../theme";
@@ -95,7 +95,7 @@ const FILE_ICONS: Record<string, { icon: string; color: string }> = {
   toml: { icon: "TM", color: "#9C4221" }, graphql: { icon: "GQ", color: "#E535AB" },
 };
 
-const CLI_OPTIONS = [
+const ENGINE_OPTIONS = [
   { id: "paaw-agent", label: "PAAW Agent", icon: "🤖", color: "#3B82F6" },
 ];
 
@@ -1337,7 +1337,7 @@ const sendChat = useCallback(async () => {
                 </div>
                 <div className="max-h-40 overflow-y-auto border-b" style={{ borderColor: "#f0f0f0" }}>
                   {sessions.map(s => {
-                    const cliOpt = CLI_OPTIONS.find(c => c.id === s.engine);
+                    const cliOpt = ENGINE_OPTIONS.find(c => c.id === s.engine);
                     return (
                       <div key={s.id}
                         className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-stone-50 text-xs border-b", activeSessionId === s.id && "bg-blue-50")}
@@ -1355,7 +1355,7 @@ const sendChat = useCallback(async () => {
                   <input value={formName} onChange={e => setFormName(e.target.value)} placeholder={t("vibe.sessionName")}
                     className="w-full text-sm px-2 py-1.5 border rounded outline-none" style={{ borderColor: "#ddd" }} />
                   <div className="flex gap-0.5">
-                    {CLI_OPTIONS.map(cli => (
+                    {ENGINE_OPTIONS.map(cli => (
                       <button key={cli.id} onClick={() => setFormCli(cli.id)}
                         className={cn("flex-1 py-1 rounded text-xs font-semibold border transition-colors", formEngine === cli.id ? "text-white" : "border-stone-200 text-stone-500")}
                         style={formEngine === cli.id ? { backgroundColor: cli.color, borderColor: cli.color } : {}}>{cli.icon}</button>

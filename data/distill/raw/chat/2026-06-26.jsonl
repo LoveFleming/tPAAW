@@ -1,0 +1,2 @@
+{"ts":"2026-06-26T14:14:34.541Z","user":"hello , tell me your llm?","assistant":"哈囉！我目前是跑在 **DeepSeek** 上面的～ 🧠✨\n\n有什麼可以幫你的嗎？😊","model":"deepseek/deepseek-v4-flash","provider":"openrouter","tools":[]}
+{"ts":"2026-06-26T14:15:53.829Z","user":"現在呢 你使用哪個model?","assistant":"根據之前的對話記錄，我上一次回答是跑在 **DeepSeek** 上。不過我目前沒有工具可以即時確認現在切換到了哪個 model 😅\n\n老實說，model 可能會被切換，我無法 100% 確定當下的設定。你可以在系統設定（Settings）裡查看目前配置的 LLM，那邊會有最準確的資訊！\n\n要我幫你查一下系統設定嗎？","model":"glm-5.1","provider":"zai","tools":[]}

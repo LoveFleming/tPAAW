@@ -260,7 +260,7 @@ export function IconLabel({ name, children, size = 14, gap = 4, className = "" }
     );
 }
 
-// CLI brand icon helper
+// Engine brand icon helper
 export function CliIcon({ cli, size = 14 }: { cli: string; size?: number }) {
     const map: Record<string, string> = {
         qwen: "dot-purple",

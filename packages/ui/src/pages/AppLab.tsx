@@ -341,7 +341,7 @@ export default function AppLab() {
         return [];
     }, []);
 
-    // ── CLI done handler ──
+    // ── Agent done handler ──
     const handleCliDone = useCallback(() => {
         // Only accept cliDone if we're actively generating
         if (!generatingRef.current) {
@@ -779,7 +779,7 @@ export default function AppLab() {
                     ))}
                 </div>
 
-                {/* Right side: history + CLI */}
+                {/* Right side: history + agent */}
                 <div className="flex items-center gap-2 ml-auto">
                     <div className="relative">
                         <button onClick={() => setShowAppPicker(true)} className="flex items-center gap-1 text-xs px-2 py-1 border rounded-lg bg-white hover:bg-stone-50 transition-colors"

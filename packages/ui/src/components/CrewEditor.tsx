@@ -35,7 +35,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(crew?.skillIds || []);
     const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
 
-    // Load models when CLI changes
+    // Load models when engine changes
     useEffect(() => {
         setModel("");
         setAvailableModels([]);

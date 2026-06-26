@@ -81,7 +81,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     }, []);
 
     // "Running" config = what the active console is using (persisted in chatConfig)
-    // Fallback chain: employee.chatConfig → global CLI config → "qwen"
+    // Fallback chain: employee.chatConfig → global engine config → "paaw-agent"
     const savedModel = employee?.chatConfig?.model || "";
     const savedApproval = employee?.chatConfig?.approvalMode || "yolo";
     const [runningModel, setRunningModel] = useState(savedModel);
@@ -682,7 +682,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                     </div>
                 </Card>
 
-                {/* --- CLI Console or Empty State --- */}
+                {/* --- Agent Console or Empty State --- */}
                 {!chatStarted ? (
                     <div className="flex-1 min-h-[280px] sm:min-h-[400px] flex flex-col border rounded-xl" style={{ borderColor: t.accentBorder + "60" }}>
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4">
@@ -816,7 +816,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                             : "text-white hover:opacity-90"
                                     )}
                                     style={!fullscreen ? { backgroundColor: t.accent } : undefined}
-                                    title="套用變更並重啟 CLI"
+                                    title="套用變更並重啟 Agent"
                                 >
                                     <Icon name="restart" size={12} /> 套用
                                 </button>
