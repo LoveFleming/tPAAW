@@ -242,12 +242,16 @@ const PAAW_TOOLS = [
 
 // ── Shell Execution Helper ──
 
+const IS_WIN = process.platform === "win32";
+
 function runShell(command, cwd, timeoutMs = 30_000) {
   return new Promise((resolve) => {
+    const shellOpt = IS_WIN ? "powershell.exe" : true;
     const child = execCb(command, {
       cwd,
       timeout: Math.min(timeoutMs, 120_000),
       maxBuffer: 5 * 1024 * 1024,
+      shell: shellOpt,
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
     }, (err, stdout, stderr) => {
       let output = "";
@@ -348,17 +352,26 @@ async function executeTool(call, cwd, rootDir, onEvent) {
       case "glob": {
         const basePath = resolvePath(args.path);
         if (!isPathAllowed(args.path || ".")) return `Error: path is outside allowed directory`;
-        // Use `find` with pattern matching — fast and reliable
-        // Convert glob pattern to find-compatible expression
         const pattern = args.pattern;
-        // Use ripgrep --files for glob matching (faster than find)
-        const rgArgs = ["--files", "--glob", pattern, "--max-depth", "20"];
-        const cmd = `rg ${rgArgs.map(a => `'${a}'`).join(" ")} '${basePath}'`;
-        let result = await runShell(cmd, cwd, 10_000);
-        // If rg not available, fallback to find
-        if (result.includes("command not found") || result.includes("not recognized")) {
-          const findCmd = `find '${basePath}' -name '${pattern}' -not -path '*/node_modules/*' -not -path '*/.git/*' -type f | head -100`;
-          result = await runShell(findCmd, cwd, 10_000);
+        // ripgrep is cross-platform (rg.exe on Windows)
+        let result;
+        if (IS_WIN) {
+          // Windows: PowerShell-compatible command
+          const cmd = `rg --files --glob "${pattern}" --max-depth 20 "${basePath}"`;
+          result = await runShell(cmd, cwd, 10_000);
+          if (result.includes("not recognized") || result.includes("command not found")) {
+            // Fallback: PowerShell Get-ChildItem with -Recurse
+            const psCmd = `Get-ChildItem -Path "${basePath}" -Recurse -Filter "${pattern.replace('**/', '').replace('**', '*')}" -File | Select-Object -First 100 -ExpandProperty FullName`;
+            result = await runShell(psCmd, cwd, 10_000);
+          }
+        } else {
+          // Unix: use rg with glob, fallback to find
+          const cmd = `rg --files --glob '${pattern}' --max-depth 20 '${basePath}'`;
+          result = await runShell(cmd, cwd, 10_000);
+          if (result.includes("command not found")) {
+            const findCmd = `find '${basePath}' -name '${pattern}' -not -path '*/node_modules/*' -not -path '*/.git/*' -type f | head -100`;
+            result = await runShell(findCmd, cwd, 10_000);
+          }
         }
         // Truncate
         const maxLen = 20_000;
@@ -375,14 +388,28 @@ async function executeTool(call, cwd, rootDir, onEvent) {
         if (!isPathAllowed(args.path || ".")) return `Error: path is outside allowed directory`;
         const maxResults = args.max_results || 50;
         const caseFlag = args.case_sensitive ? "" : "-i";
-        const includeFlag = args.include ? `--glob '${args.include}'` : "";
-        const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading '${args.pattern}' '${searchPath}'`;
-        let result = await runShell(cmd, cwd, 15_000);
-        // Fallback to grep if rg not available
-        if (result.includes("command not found") || result.includes("not recognized")) {
-          const grepInclude = args.include ? `--include='${args.include}'` : "";
-          const grepCmd = `grep -rn ${caseFlag} ${grepInclude} --max-count=${maxResults} '${args.pattern}' '${searchPath}'`;
-          result = await runShell(grepCmd, cwd, 15_000);
+        let result;
+        if (IS_WIN) {
+          // Windows: rg.exe is cross-platform
+          const includeFlag = args.include ? `--glob "${args.include}"` : "";
+          const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading "${args.pattern}" "${searchPath}"`;
+          result = await runShell(cmd, cwd, 15_000);
+          if (result.includes("not recognized") || result.includes("command not found")) {
+            // Fallback: PowerShell Select-String
+            const psInclude = args.include ? `-Include "${args.include}"` : "";
+            const psCmd = `Get-ChildItem -Path "${searchPath}" -Recurse ${psInclude} -File | Select-String -Pattern "${args.pattern}" ${args.case_sensitive ? "" : "-SimpleMatch"} | Select-Object -First ${maxResults}`;
+            result = await runShell(psCmd, cwd, 15_000);
+          }
+        } else {
+          // Unix: rg with fallback to grep
+          const includeFlag = args.include ? `--glob '${args.include}'` : "";
+          const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading '${args.pattern}' '${searchPath}'`;
+          result = await runShell(cmd, cwd, 15_000);
+          if (result.includes("command not found")) {
+            const grepInclude = args.include ? `--include='${args.include}'` : "";
+            const grepCmd = `grep -rn ${caseFlag} ${grepInclude} --max-count=${maxResults} '${args.pattern}' '${searchPath}'`;
+            result = await runShell(grepCmd, cwd, 15_000);
+          }
         }
         // Truncate
         const maxLen = 30_000;
@@ -403,19 +430,32 @@ async function executeTool(call, cwd, rootDir, onEvent) {
           const fileA = resolvePath(args.file_a);
           const fileB = resolvePath(args.file_b);
           if (!isPathAllowed(args.file_a) || !isPathAllowed(args.file_b)) return `Error: path outside allowed directory`;
+          if (IS_WIN) {
+            // Windows: fc.exe (file compare) is always available
+            const cmd = `fc "${fileA}" "${fileB}"`;
+            const result = await runShell(cmd, cwd, 10_000);
+            if (onEvent) onEvent({ type: "tool_end", name, result: result.slice(0, 300) });
+            return result;
+          }
           const result = await runShell(`diff '${fileA}' '${fileB}'`, cwd, 10_000);
           if (onEvent) onEvent({ type: "tool_end", name, result: result.slice(0, 300) });
           return result;
         }
-        // Git diff
+        // Git diff — git works on both platforms
         const diffPath = args.path ? resolvePath(args.path) : cwd;
         const against = args.against || "HEAD";
+        if (IS_WIN) {
+          const cmd = `git diff "${against}"${args.path ? ` -- "${diffPath}"` : ""}`;
+          const result = await runShell(cmd, cwd, 15_000);
+          const maxLen = 30_000;
+          const truncated = result.length > maxLen ? result.slice(0, maxLen) + `\n... (truncated)` : result;
+          if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+          return truncated || "(no changes)";
+        }
         const cmd = `git diff '${against}'${args.path ? ` -- '${diffPath}'` : ""}`;
         const result = await runShell(cmd, cwd, 15_000);
         const maxLen = 30_000;
-        const truncated = result.length > maxLen
-          ? result.slice(0, maxLen) + `\n... (truncated)`
-          : result;
+        const truncated = result.length > maxLen ? result.slice(0, maxLen) + `\n... (truncated)` : result;
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
         return truncated || "(no changes)";
       }
@@ -527,7 +567,8 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
 7. Be concise and focused — complete the task efficiently
 8. If something is unclear, use ask_user
 9. Never delete files unless explicitly asked
-10. Keep changes minimal — don't rewrite entire files for small edits`);
+10. Keep changes minimal — don't rewrite entire files for small edits
+11. Cross-platform: your tools work on both Windows and Linux/macOS. When using bash for shell commands, prefer cross-platform commands (git, npm, node) or use platform-appropriate syntax.`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
