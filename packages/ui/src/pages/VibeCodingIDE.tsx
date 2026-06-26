@@ -1490,7 +1490,7 @@ const sendChat = useCallback(async () => {
               <div className="px-2 py-2 border-t shrink-0" style={{ borderColor: "#f0f0f0" }}>
                 <div className="flex items-end gap-1.5">
                   <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); setChatInput(""); sendChat(); } }}
                     placeholder={t("vibe.aiPlaceholder")}
                     className="flex-1 text-xs px-2.5 py-1.5 border rounded-lg resize-none outline-none focus:border-blue-400"
                     style={{ borderColor: "#ddd", minHeight: 36, maxHeight: 100 }} rows={1} />
