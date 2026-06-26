@@ -20,8 +20,7 @@ import { spawn as ptySpawn } from "node-pty";
 import { tmpdir } from "os";
 import { exec as execCb, spawn } from "child_process";
 import yaml from "js-yaml";
-import { CliAdapter } from "./lib/cli-adapter.mjs";
-import { resolveCliBin, isWindows as _isWin } from "./lib/cli-resolve.mjs";
+
 import { runAgentLoop, runAgentLoopStream } from "./lib/paaw-agent-loop.mjs";
 import { promisify } from "util";
 import { getToolsAndHandlers, invalidateCache } from "./tools/index.mjs";
@@ -46,7 +45,7 @@ const DATA_ROOT = resolve(PAAW_ROOT, "data");
 
 const PORT = parseInt(process.env.PAAW_PORT || "4097", 10);
 
-// resolveCliBin() is imported from ./lib/cli-resolve.mjs — shared across routes.
+
 
 // Simple path hash: replace non-alphanumeric with underscore
 function projectPathHash(path) {
@@ -1798,34 +1797,6 @@ async function paawApiHandler(req, res) {
   const url = new URL(req.url, "http://localhost");
   const path = url.pathname;
 
-  // GET /api/paaw/cli-config — get CLI defaults
-  if (req.method === "GET" && path === "/api/paaw/cli-config") {
-    try {
-      const filePath = resolve(PAAW_DATA_DIR, "cli-config.json");
-      const data = JSON.parse(await readFile(filePath, "utf-8"));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(data));
-    } catch {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ configured: false }));
-    }
-    return true;
-  }
-
-  // POST /api/paaw/cli-config — save CLI defaults
-  if (req.method === "POST" && path === "/api/paaw/cli-config") {
-    try {
-      const body = JSON.parse(await readBody(req));
-      body.configured = true;
-      await writeFile(resolve(PAAW_DATA_DIR, "cli-config.json"), JSON.stringify(body, null, 2), "utf-8");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
   // GET /api/paaw/skill-config — get Skill Builder settings
   if (req.method === "GET" && path === "/api/paaw/skill-config") {
     try {
@@ -2002,178 +1973,20 @@ async function paawApiHandler(req, res) {
     return true;
   }
 
-  // GET /api/clis — list installed CLI tools
-  if (req.method === "GET" && req.url === "/api/clis") {
-    try {
-      const clis = await checkInstalledClis();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(clis));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return;
-  }
-
-  // GET /api/cli-adapters — list all CLI adapter configs
-  if (req.method === "GET" && path === "/api/cli-adapters") {
-    try {
-      const adapters = await CliAdapter.loadAll(PAAW_ROOT);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(adapters.map(a => a.toJSON())));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return;
-  }
-
-  // GET /api/cli-adapters/:id — get single adapter config
-  if (req.method === "GET" && path.startsWith("/api/cli-adapters/")) {
-    try {
-      const adapterId = path.replace("/api/cli-adapters/", "");
-      const adapter = await CliAdapter.load(adapterId, PAAW_ROOT);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(adapter.toJSON()));
-    } catch (err) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `Adapter not found: ${err.message}` }));
-    }
-    return;
-  }
-
-  // GET /api/models — list available models for a CLI
-  // ?cli=qwen|claude|opencode (default: qwen)
+  // GET /api/models — list available models from provider config
   const modelsMatch = req.method === "GET" && req.url?.match(/^\/api\/models(?:\?(.*))?$/);
   if (modelsMatch) {
-    const qs = new URLSearchParams(modelsMatch[1] || "");
-    const cliType = qs.get("cli") || "qwen";
     try {
-      const homeDir = process.env.HOME || process.env.USERPROFILE;
-      const models = [];
-      let currentModel = "";
-
-      if (cliType === "qwen") {
-        // Qwen has no CLI list command — read from settings
-        const settingsPath = join(homeDir, ".qwen/settings.json");
-        try {
-          const raw = await readFile(settingsPath, "utf-8");
-          const settings = JSON.parse(raw);
-          const providers = settings.modelProviders || {};
-          currentModel = settings.model?.name || "";
-          for (const [, list] of Object.entries(providers)) {
-            if (!Array.isArray(list)) continue;
-            for (const m of list) {
-              models.push({
-                id: m.id, name: m.name,
-                contextWindowSize: m.generationConfig?.contextWindowSize,
-                vision: m.capabilities?.vision || false,
-                current: m.id === currentModel,
-              });
-            }
-          }
-        } catch {}
-      } else if (cliType === "claude") {
-        // Claude has no CLI list command — try reading config for current model
-        try {
-          const raw = await readFile(join(homeDir, ".claude.json"), "utf-8");
-          const cs = JSON.parse(raw);
-          if (cs.model) currentModel = cs.model;
-        } catch {}
-        const claudeModels = [
-          { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
-          { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
-          { id: "claude-haiku-4-20250506", name: "Claude Haiku 4" },
-          { id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet" },
-          { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
-        ];
-        for (const m of claudeModels) {
-          models.push({ id: m.id, name: m.name, current: m.id === currentModel });
-        }
-      } else if (cliType === "opencode") {
-        // OpenCode: read ~/.config/opencode/opencode.json for model config
-        // Provider config has: models (custom defs), whitelist (only show these)
-        // Agent config has: model (default)
-        // Path is the same on Mac, Linux, and Windows (via %APPDATA% or %USERPROFILE%\.config)
-        const configPaths = [
-          join(homeDir, ".config/opencode/opencode.json"),
-          // Windows fallback
-          join(process.env.APPDATA || join(homeDir, "AppData/Roaming"), "opencode/opencode.json"),
-        ];
-        let opencodeConfig = null;
-        for (const cp of configPaths) {
-          try {
-            const raw = await readFile(cp, "utf-8");
-            opencodeConfig = JSON.parse(raw);
-            break;
-          } catch {}
-        }
-
-        if (opencodeConfig) {
-          // Get default model from agent config
-          const agents = opencodeConfig.agent || opencodeConfig.agents || {};
-          if (agents.model) currentModel = agents.model;
-
-          // Collect models from provider configs
-          const providers = opencodeConfig.provider || opencodeConfig.providers || {};
-          for (const [provName, provConf] of Object.entries(providers)) {
-            const pc = provConf;
-            // If whitelist is set, only show those models
-            if (Array.isArray(pc.whitelist)) {
-              for (const m of pc.whitelist) {
-                const id = typeof m === "string" ? m : m.id;
-                models.push({ id, name: id, current: id === currentModel });
-              }
-            }
-            // Also include custom model definitions
-            if (pc.models && typeof pc.models === "object") {
-              for (const [modelId, modelDef] of Object.entries(pc.models)) {
-                const md = modelDef;
-                if (!models.find(m => m.id === modelId)) {
-                  models.push({ id: modelId, name: md.name || modelId, current: modelId === currentModel });
-                }
-              }
-            }
-          }
-        }
-
-        if (models.length === 0) {
-          // Fallback: execute `opencode models` to get live model list
-          const config = CLI_CONFIGS.opencode;
-          const bin = resolveCliBin("opencode");
-          try {
-            const { stdout } = await execAsync(`"${bin}" models 2>&1`, { timeout: 15000 });
-            const lines = (stdout || "").split("\n").map(l => l.trim()).filter(Boolean);
-            const seen = new Set();
-            for (const line of lines) {
-              if (!seen.has(line)) {
-                seen.add(line);
-                models.push({ id: line, name: line, current: false });
-              }
-            }
-          } catch (err) {
-            console.log(`[Models] opencode models fallback failed: ${err.message}`);
-          }
-        }
-
-        if (models.length === 0) {
-          models.push({ id: "default", name: "OpenCode Default", current: true });
-        }
-      }
-
+      const providerConfig = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf-8"));
+      const providerId = providerConfig.active;
+      const provider = providerConfig.providers[providerId];
+      const models = (provider?.models || []).map(m => ({ id: m.id || m, name: m.name || m.id || m, current: m.id === providerConfig.defaultModel }));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ paawRoot: PAAW_ROOT, models, currentModel }));
+      res.end(JSON.stringify({ models, current: providerConfig.defaultModel }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ paawRoot: PAAW_ROOT, models: [], currentModel: "", error: err.message }));
+      res.end(JSON.stringify({ models: [], current: "" }));
     }
-    return;
-  }
-
-  // ── OpenCode endpoints removed (obsolete) ──
-  if (req.url?.startsWith("/api/opencode/")) {
-    res.writeHead(410, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "OpenCode integration removed" }));
     return;
   }
 
@@ -3796,125 +3609,6 @@ const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
 const ptySessions = new Map(); // ws -> { pty, id }
 const agentSessions = new Map(); // ws -> agent state for paaw-agent mode
 
-// ── Multi-CLI spawn system ──
-// Supports: qwen, claude, opencode
-// Each CLI has its own binary name, flags, and platform resolution
-
-const CLI_CONFIGS = {
-  qwen: {
-    name: "Qwen Code",
-    get bins() { return { darwin: resolveCliBin("qwen", PAAW_ROOT), linux: "qwen", win32: "qwen.cmd" }; },
-    envBin: "QWEN_BIN",
-    buildArgs: (opts) => {
-      const args = [];
-      if (opts.model) args.push("-m", opts.model);
-      if (opts.approvalMode === "yolo") args.push("-y");
-      else if (opts.approvalMode) args.push("--approval-mode", opts.approvalMode);
-      return args;
-    },
-  },
-  claude: {
-    name: "Claude Code",
-    get bins() { return { darwin: resolveCliBin("claude", PAAW_ROOT), linux: "claude", win32: "claude.cmd" }; },
-    envBin: "CLAUDE_BIN",
-    buildArgs: (opts) => {
-      const args = [];
-      if (opts.model) args.push("--model", opts.model);
-      // Claude Code permission modes
-      if (opts.approvalMode === "yolo") args.push("--dangerously-skip-permissions", "--allow-dangerously-skip-permissions");
-      else if (opts.approvalMode === "auto-edit") args.push("--permission-mode", "acceptEdits");
-      else if (opts.approvalMode === "plan") args.push("--permission-mode", "plan");
-      else if (opts.approvalMode) args.push("--permission-mode", opts.approvalMode);
-      return args;
-    },
-  },
-  opencode: {
-    name: "OpenCode",
-    get bins() { return { darwin: resolveCliBin("opencode", PAAW_ROOT), linux: "opencode", win32: "opencode.cmd" }; },
-    envBin: "OPENCODE_BIN",
-    buildArgs: (opts) => {
-      const args = [];
-      if (opts.model && opts.model.includes("/")) {
-        args.push("-m", opts.model);
-      }
-      // Fixed port for health check + future SDK API use
-      if (opts.serverPort) {
-        args.push("--port", String(opts.serverPort));
-      }
-      return args;
-    },
-  },
-};
-
-function spawnCli(ptySpawn, opts) {
-  const cliType = opts.cli || "qwen";
-
-  // ── Shell mode: spawn system shell directly (like VS Code terminal) ──
-  if (cliType === "shell") {
-    const shellBin = process.platform === "win32"
-      ? (process.env.COMSPEC || "powershell.exe")
-      : (process.env.SHELL || "/bin/zsh");
-    const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
-    console.log(`[PTY] Spawning shell: ${shellBin} (cwd: ${resolvedCwd})`);
-    return ptySpawn(shellBin, [], {
-      name: "xterm-256color", cols: 120, rows: 30,
-      cwd: resolvedCwd,
-      env: { ...process.env },
-    });
-  }
-
-  const config = CLI_CONFIGS[cliType];
-  if (!config) throw new Error(`Unknown CLI: ${cliType}`);
-
-  const platform = process.platform;
-  let bin = resolveCliBin(cliType);
-  const args = config.buildArgs(opts);
-  const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
-
-  const ptyOpts = {
-    name: "xterm-256color", cols: 120, rows: 30,
-    cwd: resolvedCwd,
-    env: { ...process.env },
-  };
-
-  // Windows: .cmd files need to be spawned via cmd.exe
-  if (platform === "win32" && bin.endsWith(".cmd")) {
-    const cmdBin = process.env.COMSPEC || "cmd.exe";
-    const cmdArgs = ["/c", bin, ...args];
-    console.log(`[PTY] Spawning ${config.name}: ${cmdBin} ${cmdArgs.join(" ")} (cwd: ${resolvedCwd})`);
-    try {
-      return ptySpawn(cmdBin, cmdArgs, ptyOpts);
-    } catch (e) {
-      // Fallback: try without cmd.exe wrapper
-      console.log(`[PTY] cmd.exe spawn failed, trying direct: ${bin} ${args.join(" ")}`);
-      return ptySpawn(bin, args, ptyOpts);
-    }
-  }
-
-  return ptySpawn(bin, args, ptyOpts);
-}
-
-// ── Check which CLIs are installed ──
-async function checkInstalledClis() {
-  const results = {};
-  const platform = process.platform;
-  for (const [key, config] of Object.entries(CLI_CONFIGS)) {
-    const bin = resolveCliBin(key);
-    try {
-      // For PATH-based binaries, check if they resolve
-      const { execFile } = await import("child_process");
-      await new Promise((res, rej) => {
-        const cmd = platform === "win32" ? "where" : "which";
-        execFile(cmd, [bin], (err) => err ? rej(err) : res(true));
-      });
-      results[key] = { installed: true, bin, name: config.name };
-    } catch {
-      results[key] = { installed: false, bin, name: config.name };
-    }
-  }
-  return results;
-}
-
 // ── WebSocket connection handler ──
 
 wss.on("connection", (ws, req) => {
@@ -3984,15 +3678,24 @@ wss.on("connection", (ws, req) => {
       }
 
       // ════════════════════════════════════════════════════════════
-      // Legacy CLI Mode (qwen/claude/opencode/shell)
+      // Shell Mode (system shell only — legacy CLI modes removed)
       // ════════════════════════════════════════════════════════════
-      if (opts.cli === "opencode") {
-        opts.serverPort = 4199 + Math.floor(Math.random() * 100);
+      const cliType = opts.cli || "shell";
+      if (cliType !== "shell") {
+        ws.send(JSON.stringify({ type: "error", text: `Legacy CLI mode '${cliType}' is no longer supported. Use paaw-agent engine instead.` }));
+        return;
       }
 
       try {
-        const pty = spawnCli(ptySpawn, opts);
-        const cliType = opts.cli || "qwen";
+        const shellBin = process.platform === "win32"
+          ? (process.env.COMSPEC || "powershell.exe")
+          : (process.env.SHELL || "/bin/zsh");
+        const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
+        const pty = ptySpawn(shellBin, [], {
+          name: "xterm-256color", cols: 120, rows: 30,
+          cwd: resolvedCwd,
+          env: { ...process.env },
+        });
         ptySessions.set(ws, { pty, id: sessionId, cliType, serverPort: opts.serverPort });
 
         // ── Session logging for Vibe Coding ──
@@ -4915,9 +4618,3 @@ const agentLoopHandler = async (req, res) => {
   return false;
 };
 
-// Log installed CLIs on startup
-checkInstalledClis().then(clis => {
-  for (const [key, info] of Object.entries(clis)) {
-    console.log(`[CLI] ${info.name}: ${info.installed ? `✅ ${info.bin}` : "❌ not found"}`);
-  }
-}).catch(() => {});

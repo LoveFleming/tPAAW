@@ -3,8 +3,8 @@
  */
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import { join, resolve } from "path";
-import { spawn } from "node-pty";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
+import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
 
 export default async function workflowRoutes(req, res) {
   const path = urlPath(req);
@@ -168,34 +168,12 @@ export default async function workflowRoutes(req, res) {
       if (appSystemPrompt) fullSystem += appSystemPrompt + "\n\n";
       fullSystem += `你是「${appId}」App 的 Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。`; 
 
-      // Execute via CLI (same approach as tools/index.mjs skillExec)
-      const { resolveCliBin } = await import("../lib/cli-resolve.mjs");
-      const resolvedBin = resolveCliBin("qwen");
-      const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-tool-calls", "10", prompt];
       const appDir = resolve(PATHS.APPS_ROOT, appId);
 
-      let fullOutput;
-      try {
-        fullOutput = await new Promise((pResolve, reject) => {
-          let output = "";
-          const proc = spawn(resolvedBin, cliArgs, {
-            name: "xterm-256color",
-            cols: 200,
-            rows: 30,
-            cwd: appDir,
-            env: { ...process.env, HOME: process.env.HOME, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-          });
-          proc.onData((data) => { output += data; });
-          proc.onExit(({ exitCode }) => {
-            if (exitCode === 0) pResolve(output);
-            else reject(new Error(`CLI exited with code ${exitCode}`));
-          });
-          setTimeout(() => { try { proc.kill(); } catch {} reject(new Error("Timeout (90s)")); }, 90000);
-        });
-      } catch (err) {
-        json(res, { error: `執行失敗：${err.message}` }, 500);
-        return true;
-      }
+      const agentResult = await runAgentLoop({
+        prompt, cwd: appDir, maxTurns: 15, timeout: 90, rootDir: PATHS.PAAW_ROOT,
+      });
+      const fullOutput = agentResult.content || "";
 
       // Clean ANSI escape codes from output
       const cleanOutput = fullOutput

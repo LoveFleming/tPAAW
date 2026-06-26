@@ -20,7 +20,7 @@
         "greeting": "你好！我是小春 林 Koharu Hayashi 🌸 AI 軟體工廠的技能設計師。需要我幫你設計或優化技能嗎？",
         "maxTokens": 4096,
         "temperature": 0.4,
-        "cli": "qwen",
+        "engine": "paaw-agent",
         "model": "moonshotai/kimi-k2.6",
         "approvalMode": "yolo"
     }

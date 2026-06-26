@@ -22,7 +22,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
-import TerminalConsole from "../components/TerminalConsole";
+import AgentConsole from "../components/AgentConsole";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 
@@ -49,14 +49,13 @@ interface OpenTab {
   lastSaved?: string;
 }
 
-interface CliSession {
+interface AgentSession {
   id: string;
   name: string;
-  cli: string;
   model: string;
   cwd: string;
-  approvalMode: string;
   systemPrompt: string;
+  engine?: string;
   createdAt: string;
 }
 
@@ -97,12 +96,7 @@ const FILE_ICONS: Record<string, { icon: string; color: string }> = {
 };
 
 const CLI_OPTIONS = [
-  { id: "shell", label: "Terminal", icon: "⬛", color: "#374151" },
-  { id: "qwen", label: "Qwen Code", icon: "🟣", color: "#8B5CF6" },
-  { id: "claude", label: "Claude Code", icon: "🟠", color: "#F97316" },
-  { id: "opencode", label: "OpenCode", icon: "🔵", color: "#3B82F6" },
-  { id: "aider", label: "Aider", icon: "🟢", color: "#10B981" },
-  { id: "custom", label: "Custom", icon: "⚪", color: "#6B7280" },
+  { id: "paaw-agent", label: "PAAW Agent", icon: "🤖", color: "#3B82F6" },
 ];
 
 const APPROVAL_MODES = [
@@ -237,7 +231,7 @@ export default function VibeCodingIDE() {
   const highlightRef = useRef<HTMLPreElement>(null);
 
   // ── Terminal / Session State ──
-  const [sessions, setSessions] = useState<CliSession[]>([]);
+  const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const termRef = useRef<any>(null);
 
@@ -281,7 +275,7 @@ export default function VibeCodingIDE() {
   const distillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── New Session Form ──
-  const [formCli, setFormCli] = useState("qwen");
+  const [formEngine, setFormCli] = useState("paaw-agent");
   const [formModel, setFormModel] = useState("");
   const [formCwd, setFormCwd] = useState("");
   const [showDirExplorer, setShowDirExplorer] = useState(false);
@@ -353,7 +347,6 @@ export default function VibeCodingIDE() {
       try {
         await fetch(`${API_BASE}/api/distill/record`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ source: "vibe-coding", events, rootPath, activeFiles: openTabs.map(tab => tab.path), session: activeSession ? { cli: activeSession.cli, cwd: activeSession.cwd } : null }),
         });
       } catch {}
     }, 30_000);
@@ -702,15 +695,14 @@ const sendChat = useCallback(async () => {
   // ═══════════════════════════════════════════════
   const createSession = useCallback(() => {
     const id = `vibe-${Date.now()}`;
-    const name = formName || `${CLI_OPTIONS.find(c => c.id === formCli)?.label || formCli}`;
-    const session: CliSession = { id, name, cli: formCli, model: formModel, cwd: formCwd || rootPath, approvalMode: formApproval, systemPrompt: "", createdAt: new Date().toISOString() };
-    setSessions(prev => [session, ...prev]);
+    const name = formName || `PAAW Agent`;
+    const s: AgentSession = { id, name, engine: "paaw-agent", model: formModel, cwd: formCwd || rootPath, systemPrompt: "", createdAt: new Date().toISOString() };
+    setSessions(prev => [s, ...prev]);
     setActiveSessionId(id);
     setShowSessionPanel(false);
     setFormName("");
-    if (!rootPath && session.cwd) { setRootPath(session.cwd); expandDir(session.cwd); }
-    logEvent("session_start", { cli: formCli, cwd: session.cwd });
-  }, [formCli, formModel, formCwd, formApproval, formName, rootPath, expandDir, logEvent]);
+    if (!rootPath && s.cwd) { setRootPath(s.cwd); expandDir(s.cwd); }
+  }, [formEngine, formModel, formCwd, formApproval, formName, rootPath, expandDir, logEvent]);
 
   const sendPrompt = useCallback((prompt: string) => { if (termRef.current) termRef.current.sendPrompt(prompt); }, []);
 
@@ -1345,7 +1337,7 @@ const sendChat = useCallback(async () => {
                 </div>
                 <div className="max-h-40 overflow-y-auto border-b" style={{ borderColor: "#f0f0f0" }}>
                   {sessions.map(s => {
-                    const cliOpt = CLI_OPTIONS.find(c => c.id === s.cli);
+                    const cliOpt = CLI_OPTIONS.find(c => c.id === s.engine);
                     return (
                       <div key={s.id}
                         className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-stone-50 text-xs border-b", activeSessionId === s.id && "bg-blue-50")}
@@ -1365,8 +1357,8 @@ const sendChat = useCallback(async () => {
                   <div className="flex gap-0.5">
                     {CLI_OPTIONS.map(cli => (
                       <button key={cli.id} onClick={() => setFormCli(cli.id)}
-                        className={cn("flex-1 py-1 rounded text-xs font-semibold border transition-colors", formCli === cli.id ? "text-white" : "border-stone-200 text-stone-500")}
-                        style={formCli === cli.id ? { backgroundColor: cli.color, borderColor: cli.color } : {}}>{cli.icon}</button>
+                        className={cn("flex-1 py-1 rounded text-xs font-semibold border transition-colors", formEngine === cli.id ? "text-white" : "border-stone-200 text-stone-500")}
+                        style={formEngine === cli.id ? { backgroundColor: cli.color, borderColor: cli.color } : {}}>{cli.icon}</button>
                     ))}
                   </div>
                   <input value={formModel} onChange={e => setFormModel(e.target.value)} placeholder={t("vibe.sessionModel")}
@@ -1402,7 +1394,7 @@ const sendChat = useCallback(async () => {
             <div className="shrink-0 flex flex-col" style={{ height: terminalHeight }}>
               <div className="flex items-center px-2 py-0.5 border-b shrink-0 select-none" style={{ backgroundColor: "#1e1717", borderColor: "#2d2424" }}>
                 <span className="text-xs text-stone-400 font-semibold">
-                  {activeSession ? `${activeSession.name} (${activeSession.cli})` : t("vibe.terminal")}
+                  {activeSession ? `${activeSession.name} (${"PAAW Agent"})` : t("vibe.terminal")}
                 </span>
                 <span className="flex-1" />
                 {activeSession && QUICK_ACTIONS.slice(0, 5).map(a => (
@@ -1413,9 +1405,9 @@ const sendChat = useCallback(async () => {
               </div>
               <div className="flex-1 min-h-0">
                 {activeSession ? (
-                  <TerminalConsole key={activeSession.id} ref={termRef}
-                    cli={activeSession.cli} model={activeSession.model || undefined}
-                    cwd={activeSession.cwd} approvalMode={activeSession.approvalMode} />
+                  <AgentConsole key={activeSession.id} ref={termRef}
+                    model={activeSession.model || undefined}
+                    cwd={activeSession.cwd} />
                 ) : (
                   <div className="flex items-center justify-center h-full" style={{ backgroundColor: "#1e1e2e" }}>
                     <p className="text-xs text-stone-500">{t("vibe.noSession")}</p>
@@ -1530,7 +1522,7 @@ const sendChat = useCallback(async () => {
         {activeSession && (
           <span className="text-stone-500 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            {activeSession.cli} · {activeSession.cwd.split("/").pop()}
+            {"PAAW Agent"} · {activeSession.cwd.split("/").pop()}
           </span>
         )}
         <span className="text-stone-300 mx-1">|</span>

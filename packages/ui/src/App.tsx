@@ -92,7 +92,6 @@ function AppInner() {
       .catch(() => {});
     // Check provider & CLI config (info only, no blocking)
     fetch(`${API_BASE}/api/paaw/providers`).catch(() => {});
-    fetch(`${API_BASE}/api/paaw/cli-config`).catch(() => {});
     setLoading(false);
   }, []);
 
@@ -185,7 +184,7 @@ function AppInner() {
       }
     } catch {}
     try {
-      const r = await fetch(`${API_BASE}/api/models?cli=qwen`);
+      const r = await fetch(`${API_BASE}/api/models`);
       const d = await r.json();
       if (d.paawRoot) setPaawRoot(d.paawRoot);
     } catch {}

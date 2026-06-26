@@ -30,7 +30,6 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const [greeting, setGreeting] = useState(crew?.chatConfig?.greeting || "");
     const [maxTokens, setMaxTokens] = useState(crew?.chatConfig?.maxTokens || 4096);
     const [temperature, setTemperature] = useState(crew?.chatConfig?.temperature ?? 0.3);
-    const [cli, setCli] = useState(crew?.chatConfig?.cli || "qwen");
     const [model, setModel] = useState(crew?.chatConfig?.model || "");
     const [approvalMode, setApprovalMode] = useState(crew?.chatConfig?.approvalMode || "yolo");
     const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(crew?.skillIds || []);
@@ -40,7 +39,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     useEffect(() => {
         setModel("");
         setAvailableModels([]);
-        fetch(`${API_BASE}/api/models?cli=${cli}`)
+        fetch(`${API_BASE}/api/models`)
             .then(r => r.ok ? r.json() : [])
             .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
                 const list = data.models || [];
@@ -56,7 +55,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                 }
             })
             .catch(() => {});
-    }, [cli]);
+    }, []);
 
     // Fetch all skill definitions from shared pool
     const [allSkills, setAllSkills] = useState<SkillDefinition[]>([]);
@@ -95,7 +94,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                 greeting: greeting.trim() || undefined,
                 maxTokens,
                 temperature,
-                cli: cli as any,
+                engine: "paaw-agent" as const,
                 model: model.trim() || undefined,
                 approvalMode: approvalMode.trim() || undefined,
             },
@@ -143,7 +142,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                             <div className="text-lg font-bold text-stone-800">{title || "Employee Name"}</div>
                             <div className="text-sm text-stone-500">{codename || "Codename"}</div>
                             <div className="text-xs text-stone-400 mt-1">
-                                {selectedSkillIds.length === 0 ? '純 Prompt 模式' : `${selectedSkillIds.length} 個技能`} • {cli} • {approvalMode}
+                                {selectedSkillIds.length === 0 ? '純 Prompt 模式' : `${selectedSkillIds.length} 個技能`} • {approvalMode}
                             </div>
                         </div>
                     </div>
@@ -263,16 +262,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                     {/* Execution Config — 歸員工管 */}
                     <fieldset className="space-y-3">
                         <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5"><Icon name="settings" size={16} /> 執行設定 <span className="text-stone-400 font-normal text-xs">（歸員工管）</span></legend>
-                        <div className="grid grid-cols-3 gap-3">
-                            <div>
-                                <label className="text-sm font-semibold text-stone-500">CLI Engine</label>
-                                <select value={cli} onChange={e => setCli(e.target.value)}
-                                    className={`${inputCls}`} style={inputStyle}>
-                                    <option value="qwen">Qwen Code</option>
-                                    <option value="claude">Claude Code</option>
-                                    <option value="opencode">OpenCode</option>
-                                </select>
-                            </div>
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-sm font-semibold text-stone-500">Model</label>
                                 <select value={model} onChange={e => setModel(e.target.value)}

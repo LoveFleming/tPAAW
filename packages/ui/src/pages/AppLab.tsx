@@ -17,8 +17,6 @@ const TEMPLATE_ICONS: Record<string, string> = {
 
 // ── Types ──
 type Step = 1 | 2 | 3;
-type CliEngine = "qwen" | "claude" | "opencode";
-
 interface ChatMessage {
     id: string;
     role: "user" | "assistant";
@@ -281,16 +279,14 @@ export default function AppLab() {
     const [selectedTemplate, setSelectedTemplate] = useState<string>("");
     const [reportName, setReportName] = useState("");
     const [description, setDescription] = useState("");
-    const [cli, setCli] = useState<CliEngine>("qwen");
     const [model, setModel] = useState("");
     const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
     const [selectedSkill, setSelectedSkill] = useState<SkillDefinition | null>(null);
 
-    // Load models when CLI changes
+    // Load models from provider config
     useEffect(() => {
-        setModel("");
         setAvailableModels([]);
-        fetch(`${API}/api/models?cli=${cli}`)
+        fetch(`${API}/api/models`)
             .then(r => r.ok ? r.json() : [])
             .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
                 const list = data.models || [];
@@ -300,7 +296,7 @@ export default function AppLab() {
                 else if (list.length > 0) setModel(list[0].id);
             })
             .catch(() => {});
-    }, [cli]);
+    }, []);
 
     // ── Advanced settings (collapsed by default) ──
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -470,10 +466,10 @@ export default function AppLab() {
     const [showSettings, setShowSettings] = useState(false);
     const [appSettings, setAppSettings] = useState<{
         name: string; icon: string; description: string; type: string;
-        dataShape: string; cli: string; aiPrompt: string; triggers: string;
+        dataShape: string; engine: string; aiPrompt: string; triggers: string;
         schema: string;
         skillsText: string;
-    }>({ name: "", icon: "", description: "", type: "data", dataShape: "array", cli: "qwen", aiPrompt: "", triggers: "", schema: "", skillsText: "" });
+    }>({ name: "", icon: "", description: "", type: "data", dataShape: "array", engine: "paaw-agent", aiPrompt: "", triggers: "", schema: "", skillsText: "" });
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -529,7 +525,7 @@ export default function AppLab() {
                     description: app.description || "",
                     type: app.type || "data",
                     dataShape: app.dataShape || "array",
-                    cli: app.cli || "qwen",
+                    engine: app.engine || "paaw-agent",
                     aiPrompt: app.aiPrompt || "",
                     triggers: (app.triggers || []).join(", "),
                     schema: app.schema ? JSON.stringify(app.schema, null, 2) : "",
@@ -569,7 +565,7 @@ export default function AppLab() {
                 description: appSettings.description,
                 type: appSettings.type,
                 dataShape: appSettings.dataShape,
-                cli: appSettings.cli,
+                engine: appSettings.engine,
                 aiPrompt: appSettings.aiPrompt,
                 triggers: appSettings.triggers.split(",").map((s: string) => s.trim()).filter(Boolean),
             };
@@ -791,12 +787,6 @@ export default function AppLab() {
                             📜 歷史 <span className="text-xs bg-stone-100 px-1 rounded">{history.length}</span>
                         </button>
                     </div>
-                    <select value={cli} onChange={e => setCli(e.target.value as CliEngine)}
-                        className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white">
-                        <option value="qwen">Qwen</option>
-                        <option value="claude">Claude</option>
-                        <option value="opencode">OpenCode</option>
-                    </select>
                     <select value={model} onChange={e => setModel(e.target.value)}
                         className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white min-w-[140px]">
                         <option value="">預設 Model</option>
@@ -990,7 +980,7 @@ export default function AppLab() {
                             <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#333" }}>
                                 <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
                                     <span className="text-sm font-semibold text-stone-400">💻 Terminal</span>
-                                    <span className="text-[9px] text-stone-500">({cli}{model ? "/" + model.split("/").pop() : ""})</span>
+                                    <span className="text-[9px] text-stone-500">({model ? model.split("/").pop() : "default"})</span>
                                 </div>
                                 <div className="flex-1 min-h-0">
                                     {chatStarted ? (
@@ -1134,15 +1124,10 @@ export default function AppLab() {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-stone-500 mb-1">CLI Engine</label>
-                                            <select value={appSettings.cli}
-                                                onChange={e => setAppSettings(p => ({ ...p, cli: e.target.value }))}
-                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
-                                                style={{ borderColor: "#d6d3d1" }}>
-                                                <option value="qwen">qwen</option>
-                                                <option value="claude">claude</option>
-                                                <option value="opencode">opencode</option>
-                                            </select>
+                                            <label className="block text-sm font-semibold text-stone-500 mb-1">Engine</label>
+                                            <input value={appSettings.engine} readOnly
+                                                className="w-full px-3 py-2 border rounded-lg text-sm bg-stone-50 text-stone-400"
+                                                style={{ borderColor: "#d6d3d1" }} />
                                         </div>
                                     </div>
                                     {/* Triggers */}

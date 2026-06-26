@@ -12,7 +12,7 @@ export type PortalApp = {
 
 export type SkillEngine = "qwen" | "deterministic" | "cline";
 
-export type CliEngine = "qwen" | "claude" | "opencode";
+export type CliEngine = "paaw-agent";
 
 /**
  * UserInput — 操作員在啟動 Skill 前要填的表單欄位
@@ -71,7 +71,8 @@ export interface ChatConfig {
     greeting?: string;
     maxTokens?: number;
     temperature?: number;
-    cli?: CliEngine;
+    cli?: CliEngine; // legacy compat, always "paaw-agent"
+    engine?: string; // "paaw-agent"
     model?: string;
     approvalMode?: string;
 }

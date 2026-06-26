@@ -13,7 +13,7 @@
         "greeting": "嗨！我是林雨晴 Rainy Lin ☔\n\n有任何問題都能找我聊，也可以幫你操作 PAAW 的功能喔。",
         "maxTokens": 8192,
         "temperature": 0.4,
-        "cli": "qwen",
+        "engine": "paaw-agent",
         "model": "zai/glm-5.1",
         "approvalMode": "yolo"
     }

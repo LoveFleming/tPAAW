@@ -319,7 +319,6 @@ export default function SkillBuilder() {
   const lastSyncSource = useRef<"visual" | "advanced" | null>(null);
 
   // Builder CLI (interactive)
-  const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
   const [model, setModel] = useState("");
   const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
   const [consoleKey, setConsoleKey] = useState(0);
@@ -328,11 +327,10 @@ export default function SkillBuilder() {
   const terminalRef = useRef<AgentConsoleHandle>(null);
   const loadingRef = useRef(false);
 
-  // Load models when CLI changes
+  // Load models from provider config
   useEffect(() => {
-    setModel("");
     setAvailableModels([]);
-    fetch(`${API_BASE}/api/models?cli=${cli}`)
+    fetch(`${API_BASE}/api/models`)
       .then(r => r.ok ? r.json() : [])
       .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
         const list = data.models || [];
@@ -343,7 +341,7 @@ export default function SkillBuilder() {
         else if (list.length > 0) setModel(list[0].id);
       })
       .catch(() => {});
-  }, [cli]);
+  }, []);
 
   // Skill creator
   const [skillCreatorContent, setSkillCreatorContent] = useState("");
@@ -626,11 +624,6 @@ ${userInputLines.join("\n")}
           {saveStatus === "dirty" && <span className="text-xs text-rose-500">●</span>}
         </div>
         <div className="flex items-center gap-2 ml-2">
-          <select value={cli} onChange={e => setCli(e.target.value as typeof cli)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white">
-          <option value="qwen">Qwen</option>
-          <option value="claude">Claude Code</option>
-          <option value="opencode">OpenCode</option>
-        </select>
           <select value={model} onChange={e => setModel(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white min-w-[140px]">
             <option value="">預設 Model</option>
             {availableModels.map(m => (
@@ -894,7 +887,7 @@ ${userInputLines.join("\n")}
                 </div>
               </div>
             ) : (
-              <AgentConsole ref={terminalRef} key={`cli-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} />
+              <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} />
             )}
           </div>
 

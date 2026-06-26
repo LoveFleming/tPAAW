@@ -6,7 +6,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 快速演進",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "快速演進",
@@ -20,7 +20,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 快速演進",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "快速演進",
@@ -34,7 +34,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 解凍資金",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "解凍資金",
@@ -48,7 +48,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 重建基金",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "重建基金",
@@ -62,7 +62,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 霸主地位",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "霸主地位",
@@ -76,7 +76,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 解凍資金",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "解凍資金",
@@ -90,7 +90,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 最爆炸條款",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "最爆炸條款",
@@ -104,7 +104,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 要求讓步的訊息",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "要求讓步的訊息",
@@ -118,7 +118,7 @@
         "translate"
       ],
       "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 關鍵承諾",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
         "_": "關鍵承諾",
@@ -130,7 +130,7 @@
       "id": "work-1780122021669",
       "skillIds": [],
       "inputSummary": "hello",
-      "cli": "qwen",
+      "engine": "paaw-agent",
       "inputData": {
         "task": "hello"
       },

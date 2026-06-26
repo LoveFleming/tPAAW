@@ -14,7 +14,7 @@ interface ProviderData {
 export default function SettingsPage() {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTab] = useState<"profile" | "providers" | "cli" | "skill" | "distill" | "tools" | "language">("profile");
+  const [tab, setTab] = useState<"profile" | "providers" | "skill" | "distill" | "tools" | "language">("profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -22,9 +22,6 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [installedClis, setInstalledClis] = useState<Record<string, { installed: boolean; bin: string; name: string }>>({});
-  const [cliConfig, setCliConfig] = useState({ defaultCli: "", defaultModel: "" });
-  const [cliModels, setCliModels] = useState<{ id: string; name: string }[]>([]);
   const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
   const [distillConfig, setDistillConfig] = useState<any>(null);
   const [distillRunning, setDistillRunning] = useState(false);
@@ -49,16 +46,6 @@ export default function SettingsPage() {
 
   // Load CLIs
   useEffect(() => {
-    fetch(`${API_BASE}/api/clis`)
-      .then(r => r.json())
-      .then(data => setInstalledClis(data))
-      .catch(() => {});
-    fetch(`${API_BASE}/api/paaw/cli-config`)
-      .then(r => r.json())
-      .then(data => {
-        if (data?.configured) setCliConfig({ defaultCli: data.defaultCli || "", defaultModel: data.defaultModel || "" });
-      })
-      .catch(() => {});
     fetch(`${API_BASE}/api/paaw/skill-config`)
       .then(r => r.json())
       .then(data => { if (data) setSkillConfig({ testTimeout: data.testTimeout || 600, maxToolCalls: data.maxToolCalls || 50 }); })
@@ -106,33 +93,6 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
-  const handleCliChange = (cli: string) => {
-    setCliConfig(prev => ({ ...prev, defaultCli: cli }));
-    setSaved(false);
-    fetch(`${API_BASE}/api/models?cli=${cli}`)
-      .then(r => r.json())
-      .then(data => {
-        setCliModels(data.models || []);
-        if (data.current) setCliConfig(prev => ({ ...prev, defaultModel: data.current }));
-        else if (data.models?.length) setCliConfig(prev => ({ ...prev, defaultModel: data.models[0].id }));
-      })
-      .catch(() => setCliModels([]));
-  };
-
-  const handleSaveCli = async () => {
-    setSaving(true);
-    try {
-      await fetch(`${API_BASE}/api/paaw/cli-config`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cliConfig),
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {}
-    setSaving(false);
-  };
-
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -173,9 +133,6 @@ export default function SettingsPage() {
           </button>
           <button onClick={() => setTab("providers")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "providers" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🤖 Provider
-          </button>
-          <button onClick={() => setTab("cli")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "cli" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
-            🛠️ CLI
           </button>
           <button onClick={() => setTab("skill")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "skill" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🔨 Skill Builder
@@ -288,53 +245,6 @@ export default function SettingsPage() {
             ))}
             <button onClick={handleSaveProviders} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 Provider 設定"}
-            </button>
-          </div>
-        )}
-        {/* CLI tab */}
-        {tab === "cli" && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">預設 CLI 引擎</label>
-              <div className="space-y-2">
-                {Object.entries(installedClis).map(([key, info]: [string, any]) => (
-                  <button
-                    key={key}
-                    onClick={() => info.installed && handleCliChange(key)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left ${!info.installed ? "opacity-50 cursor-not-allowed" : ""}`}
-                    style={{ borderColor: cliConfig.defaultCli === key ? themeInfo.accent : "#e7e5e4" }}
-                    disabled={!info.installed}
-                  >
-                    <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: cliConfig.defaultCli === key ? themeInfo.accent : "#d6d3d1" }}>
-                      {cliConfig.defaultCli === key && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: themeInfo.accent }} />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-stone-700">{info.name}</p>
-                      <p className="text-xs text-stone-400 font-mono">{info.bin}</p>
-                    </div>
-                    <span className={`ml-auto text-xs px-2 py-0.5 rounded ${info.installed ? "text-emerald-500 bg-emerald-50" : "text-stone-400 bg-stone-100"}`}>
-                      {info.installed ? "✓ 已安裝" : "未安裝"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {cliConfig.defaultCli && cliModels.length > 0 && (
-              <div className="bg-white rounded-xl border border-stone-200 p-5">
-                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">預設模型</label>
-                <select
-                  value={cliConfig.defaultModel}
-                  onChange={(e) => { setCliConfig(prev => ({ ...prev, defaultModel: e.target.value })); setSaved(false); }}
-                  className="w-full px-3 py-2.5 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400"
-                >
-                  {cliModels.map(m => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
-                </select>
-              </div>
-            )}
-
-            <button onClick={handleSaveCli} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 CLI 設定"}
             </button>
           </div>
         )}

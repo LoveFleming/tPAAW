@@ -15,7 +15,7 @@
         "greeting": "嗨！我是林曉薇 Xiaowei Lin，大家都叫我 Spec Architect 📐\n\n請告訴我你的需求，我來幫你轉成精確的技術規格。",
         "maxTokens": 4096,
         "temperature": 0.3,
-        "cli": "qwen",
+        "engine": "paaw-agent",
         "model": "moonshotai/kimi-k2.6",
         "approvalMode": "yolo"
     }

@@ -6,13 +6,11 @@ import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 
 // ── Types ──
-interface CliSession {
+interface AgentSession {
     id: string;
     name: string;
-    cli: string; // "qwen" | "claude" | "opencode" | "aider" | custom
     model: string;
     cwd: string;
-    approvalMode: string;
     systemPrompt: string;
     createdAt: string;
     lastActive: string;
@@ -20,10 +18,8 @@ interface CliSession {
 
 interface VibeHistorySession {
     id: string;
-    cli: string;
     model: string | null;
     cwd: string | null;
-    approvalMode: string | null;
     createdAt: string;
     lastActive: string;
     logSize: number;
@@ -40,70 +36,15 @@ interface QuickAction {
 }
 
 // ── Presets ──
-const CLI_OPTIONS = [
-    { id: "qwen", label: "Qwen Code", icon: "🟣", color: "#8B5CF6" },
-    { id: "claude", label: "Claude Code", icon: "🟠", color: "#F97316" },
-    { id: "opencode", label: "OpenCode", icon: "🔵", color: "#3B82F6" },
-    { id: "aider", label: "Aider", icon: "🟢", color: "#10B981" },
-    { id: "custom", label: "Custom CLI", icon: "⚪", color: "#6B7280" },
-];
-
-const APPROVAL_MODES = [
-    { id: "yolo", label: "YOLO (全自動)", icon: "🚀", desc: "自動執行所有操作" },
-    { id: "auto-edit", label: "Auto Edit", icon: "✏️", desc: "自動編輯，需確認外部操作" },
-    { id: "default", label: "Default", icon: "🔒", desc: "需確認所有操作" },
-    { id: "plan", label: "Plan First", icon: "📋", desc: "先規劃再執行" },
-];
-
 const QUICK_ACTIONS: QuickAction[] = [
-    {
-        id: "refactor",
-        label: "重構",
-        icon: "🔧",
-        prompt: "請重構這個專案的程式碼，改善可讀性和效能。先分析現有結構，再逐步修改。",
-    },
-    {
-        id: "debug",
-        label: "Debug",
-        icon: "🐛",
-        prompt: "請幫我找出並修復程式中的 bug。先看 error log，再定位問題，最後修復。",
-    },
-    {
-        id: "feature",
-        label: "新功能",
-        icon: "✨",
-        prompt: "我要新增一個功能。請先了解現有架構，再提出實作方案，確認後開始開發。",
-    },
-    {
-        id: "review",
-        label: "Code Review",
-        icon: "👀",
-        prompt: "請 review 目前的程式碼，指出潛在問題、安全風險、效能瓶頸，並給出改善建議。",
-    },
-    {
-        id: "test",
-        label: "寫測試",
-        icon: "🧪",
-        prompt: "請為目前的程式碼寫單元測試。先分析需要測試的模組，再逐一撰寫測試案例。",
-    },
-    {
-        id: "docs",
-        label: "寫文件",
-        icon: "📝",
-        prompt: "請為這個專案寫文件，包括 README、API 文件、使用範例。",
-    },
-    {
-        id: "migrate",
-        label: "遷移",
-        icon: "📦",
-        prompt: "請幫我進行版本遷移/升級。先確認目前版本和目標版本，再規劃遷移步驟。",
-    },
-    {
-        id: "deploy",
-        label: "部署",
-        icon: "🚢",
-        prompt: "請幫我準備部署流程。檢查環境設定、建置配置、部署腳本。",
-    },
+    { id: "refactor", label: "重構", icon: "🔧", prompt: "請重構這個專案的程式碼，改善可讀性和效能。先分析現有結構，再逐步修改。" },
+    { id: "debug", label: "Debug", icon: "🐛", prompt: "請幫我找出並修復程式中的 bug。先看 error log，再定位問題，最後修復。" },
+    { id: "feature", label: "新功能", icon: "✨", prompt: "我要新增一個功能。請先了解現有架構，再提出實作方案，確認後開始開發。" },
+    { id: "review", label: "Code Review", icon: "👀", prompt: "請 review 目前的程式碼，指出潛在問題、安全風險、效能瓶頸，並給出改善建議。" },
+    { id: "test", label: "寫測試", icon: "🧪", prompt: "請為目前的程式碼寫單元測試。先分析需要測試的模組，再逐一撰寫測試案例。" },
+    { id: "docs", label: "寫文件", icon: "📝", prompt: "請為這個專案寫文件，包括 README、API 文件、使用範例。" },
+    { id: "migrate", label: "遷移", icon: "📦", prompt: "請幫我進行版本遷移/升級。先確認目前版本和目標版本，再規劃遷移步驟。" },
+    { id: "deploy", label: "部署", icon: "🚢", prompt: "請幫我準備部署流程。檢查環境設定、建置配置、部署腳本。" },
 ];
 
 type LeftTab = "sessions" | "history";
@@ -113,7 +54,7 @@ export default function VibeCoding() {
 
     // ── State ──
     const [leftTab, setLeftTab] = useState<LeftTab>("sessions");
-    const [sessions, setSessions] = useState<CliSession[]>([]);
+    const [sessions, setSessions] = useState<AgentSession[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     const [showNewSession, setShowNewSession] = useState(false);
     const [showQuickActions, setShowQuickActions] = useState(true);
@@ -128,10 +69,8 @@ export default function VibeCoding() {
     const [historyViewTab, setHistoryViewTab] = useState<"log" | "distill">("log");
 
     // New session form
-    const [formCli, setFormCli] = useState("qwen");
     const [formModel, setFormModel] = useState("");
     const [formCwd, setFormCwd] = useState("");
-    const [formApproval, setFormApproval] = useState("yolo");
     const [formSystemPrompt, setFormSystemPrompt] = useState("");
     const [formName, setFormName] = useState("");
 
@@ -199,7 +138,7 @@ export default function VibeCoding() {
             if (data.success) {
                 setDistillResult(data.content);
                 setHistoryViewTab("distill");
-                loadHistory(); // refresh to show distilled status
+                loadHistory();
             } else {
                 setDistillResult(`❌ 蒸餾失敗: ${data.error || "unknown error"}`);
             }
@@ -221,14 +160,9 @@ export default function VibeCoding() {
     // ── Handlers ──
     const createSession = useCallback(() => {
         const id = `vibe-${Date.now()}`;
-        const name = formName || `${CLI_OPTIONS.find(c => c.id === formCli)?.label || formCli} Session`;
-        const session: CliSession = {
-            id,
-            name,
-            cli: formCli,
-            model: formModel,
-            cwd: formCwd,
-            approvalMode: formApproval,
+        const name = formName || `Session ${sessions.length + 1}`;
+        const session: AgentSession = {
+            id, name, model: formModel, cwd: formCwd,
             systemPrompt: formSystemPrompt,
             createdAt: new Date().toISOString(),
             lastActive: new Date().toISOString(),
@@ -238,7 +172,7 @@ export default function VibeCoding() {
         setShowNewSession(false);
         setFormName("");
         setFormSystemPrompt("");
-    }, [formCli, formModel, formCwd, formApproval, formSystemPrompt, formName]);
+    }, [formModel, formCwd, formSystemPrompt, formName]);
 
     const deleteSession = useCallback((id: string) => {
         setSessions(prev => prev.filter(s => s.id !== id));
@@ -246,7 +180,6 @@ export default function VibeCoding() {
     }, [activeSessionId]);
 
     const activeSession = useMemo(() => sessions.find(s => s.id === activeSessionId), [sessions, activeSessionId]);
-    const selectedCli = CLI_OPTIONS.find(c => c.id === (activeSession?.cli || formCli));
     const selectedHistory = useMemo(() => historySessions.find(s => s.id === selectedHistoryId), [historySessions, selectedHistoryId]);
 
     // ── Render: Quick Action Button ──
@@ -280,18 +213,14 @@ export default function VibeCoding() {
 
     // ── Render: History Session Item ──
     const renderHistoryItem = (s: VibeHistorySession) => {
-        const cliOpt = CLI_OPTIONS.find(c => c.id === s.cli);
         const isActive = selectedHistoryId === s.id;
         return (
-            <div
-                key={s.id}
-                onClick={() => loadHistoryLog(s.id)}
+            <div key={s.id} onClick={() => loadHistoryLog(s.id)}
                 className={cn("group px-3 py-2.5 border-b cursor-pointer transition-all", isActive ? "bg-stone-50" : "hover:bg-stone-50/50")}
-                style={{ borderColor: "#e7e5e4", borderLeftColor: isActive ? themeInfo.accent : undefined, borderLeftWidth: isActive ? 3 : undefined }}
-            >
+                style={{ borderColor: "#e7e5e4", borderLeftColor: isActive ? themeInfo.accent : undefined, borderLeftWidth: isActive ? 3 : undefined }}>
                 <div className="flex items-center gap-1.5">
-                    <span className="text-xs">{cliOpt?.icon || "⚪"}</span>
-                    <span className="text-xs font-semibold text-stone-700 flex-1 truncate">{s.cli}</span>
+                    <span className="text-xs">🤖</span>
+                    <span className="text-xs font-semibold text-stone-700 flex-1 truncate">PAAW Agent</span>
                     {s.distilled && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-600 font-bold">蒸餾</span>}
                     <button onClick={e => { e.stopPropagation(); handleDeleteHistory(s.id); }} className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-[10px] transition-all">✕</button>
                 </div>
@@ -345,24 +274,8 @@ export default function VibeCoding() {
                                 <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Session 名稱（可選）"
                                     className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }} />
 
-                                <div>
-                                    <div className="text-[11px] text-stone-500 font-bold mb-1.5 uppercase tracking-wider">AI CLI</div>
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                        {CLI_OPTIONS.map(cli => (
-                                            <button key={cli.id} onClick={() => setFormCli(cli.id)}
-                                                className={cn("flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-all",
-                                                    formCli === cli.id ? "border-stone-400 bg-stone-50" : "border-stone-200 text-stone-500")}
-                                                style={formCli === cli.id ? { borderColor: cli.color, backgroundColor: cli.color + "10" } : {}}>
-                                                <span>{cli.icon}</span><span className="truncate">{cli.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {formCli !== "custom" && (
-                                    <input value={formModel} onChange={e => setFormModel(e.target.value)} placeholder="Model（留空用預設）"
-                                        className="w-full px-3 py-2 border rounded-lg text-xs font-mono" style={{ borderColor: "#d6d3d1" }} />
-                                )}
+                                <input value={formModel} onChange={e => setFormModel(e.target.value)} placeholder="Model（留空用預設）"
+                                    className="w-full px-3 py-2 border rounded-lg text-xs font-mono" style={{ borderColor: "#d6d3d1" }} />
 
                                 <div>
                                     <div className="text-[11px] text-stone-500 font-bold mb-1.5 uppercase tracking-wider">工作目錄</div>
@@ -372,9 +285,7 @@ export default function VibeCoding() {
                                         <button onClick={() => setShowDirExplorer(true)}
                                             className="shrink-0 px-2.5 py-2 rounded-lg border text-sm font-medium transition-colors"
                                             style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accent }}
-                                            title="瀏覽選擇目錄">
-                                            📂
-                                        </button>
+                                            title="瀏覽選擇目錄">📂</button>
                                     </div>
                                     {recentProjects.length > 0 && (
                                         <div className="mt-1.5 space-y-0.5 max-h-24 overflow-y-auto">
@@ -388,21 +299,6 @@ export default function VibeCoding() {
                                             ))}
                                         </div>
                                     )}
-                                </div>
-
-                                <div>
-                                    <div className="text-[11px] text-stone-500 font-bold mb-1.5 uppercase tracking-wider">執行模式</div>
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                        {APPROVAL_MODES.map(mode => (
-                                            <button key={mode.id} onClick={() => setFormApproval(mode.id)}
-                                                className={cn("flex flex-col items-start px-2.5 py-2 rounded-lg text-left border transition-all",
-                                                    formApproval === mode.id ? "border-stone-400 bg-stone-50" : "border-stone-200")}
-                                                style={formApproval === mode.id ? { borderColor: themeInfo.accent, backgroundColor: themeInfo.accentBg } : {}}>
-                                                <span className="text-xs font-semibold flex items-center gap-1"><span>{mode.icon}</span> {mode.label}</span>
-                                                <span className="text-[10px] text-stone-400 mt-0.5">{mode.desc}</span>
-                                            </button>
-                                        ))}
-                                    </div>
                                 </div>
 
                                 <details className="group">
@@ -429,25 +325,23 @@ export default function VibeCoding() {
                                 <div className="flex flex-col items-center justify-center h-64 gap-3 px-6 text-center">
                                     <span className="text-5xl">⚡</span>
                                     <p className="text-stone-800 font-semibold text-base">Vibe Coding</p>
-                                    <p className="text-stone-400 text-xs leading-relaxed">用 AI CLI 快速打造程式碼<br />選擇工具、設定目錄、開始 coding</p>
+                                    <p className="text-stone-400 text-xs leading-relaxed">用 PAAW Agent 快速打造程式碼<br />設定工作目錄、開始 coding</p>
                                 </div>
                             )}
                             {sessions.map(session => {
-                                const cliOpt = CLI_OPTIONS.find(c => c.id === session.cli);
                                 const isActive = activeSessionId === session.id;
                                 return (
                                     <div key={session.id} onClick={() => setActiveSessionId(session.id)}
                                         className={cn("group px-4 py-3 border-b cursor-pointer transition-all", isActive ? "bg-stone-50" : "hover:bg-stone-50/50")}
                                         style={{ borderColor: "#e7e5e4", borderLeftColor: isActive ? themeInfo.accent : undefined, borderLeftWidth: isActive ? 3 : undefined }}>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm">{cliOpt?.icon || "⚪"}</span>
+                                            <span className="text-sm">🤖</span>
                                             <span className="text-sm font-semibold text-stone-700 flex-1 truncate">{session.name}</span>
                                             <button onClick={e => { e.stopPropagation(); deleteSession(session.id); }}
                                                 className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-xs transition-all">✕</button>
                                         </div>
                                         <div className="flex items-center gap-1.5 mt-1">
-                                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                                                style={{ backgroundColor: (cliOpt?.color || "#6B7280") + "15", color: cliOpt?.color || "#6B7280" }}>{session.cli}</span>
+                                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">PAAW Agent</span>
                                             <span className="text-[10px] text-stone-400 truncate">{session.cwd.split("/").pop()}</span>
                                         </div>
                                         {session.model && <div className="text-[10px] text-stone-400 mt-0.5 font-mono">{session.model}</div>}
@@ -474,38 +368,27 @@ export default function VibeCoding() {
 
                 {/* Footer */}
                 <div className="px-4 py-2 border-t shrink-0" style={{ borderColor: themeInfo.accentBorder + "60" }}>
-                    <div className="text-[10px] text-stone-400 text-center">⚡ Vibe Coding — AI 幫你寫程式</div>
+                    <div className="text-[10px] text-stone-400 text-center">⚡ Vibe Coding — PAAW Agent 幫你寫程式</div>
                 </div>
             </div>
 
             {/* Directory Explorer Modal */}
             {showDirExplorer && (
-                <DirectoryExplorer
-                    initialPath={formCwd || undefined}
+                <DirectoryExplorer initialPath={formCwd || undefined}
                     onSelect={(path) => { setFormCwd(path); setShowDirExplorer(false); }}
-                    onClose={() => setShowDirExplorer(false)}
-                    title="📂 選擇工作目錄"
-                />
+                    onClose={() => setShowDirExplorer(false)} title="📂 選擇工作目錄" />
             )}
 
             {/* ── Right: Main Area ── */}
             <div className="flex-1 flex flex-col min-w-0">
-                {/* Sessions mode */}
+                {/* Sessions mode - empty */}
                 {leftTab === "sessions" && !activeSession && (
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8">
                         <div className="text-6xl">⚡</div>
                         <h2 className="text-xl font-bold text-stone-700">Vibe Coding</h2>
                         <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
-                            用你最順手的 AI CLI 工具，在終端機裡快速打造程式碼。<br />支援 Qwen Code、Claude Code、OpenCode 等。
+                            用 PAAW Agent 快速打造程式碼。<br />設定工作目錄，開始 coding。
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
-                            {CLI_OPTIONS.slice(0, 3).map(cli => (
-                                <span key={cli.id} className="text-xs px-3 py-1.5 rounded-full border font-semibold"
-                                    style={{ borderColor: cli.color + "40", color: cli.color, backgroundColor: cli.color + "08" }}>
-                                    {cli.icon} {cli.label}
-                                </span>
-                            ))}
-                        </div>
                         <button onClick={() => setShowNewSession(true)}
                             className="mt-4 text-sm font-bold px-6 py-2.5 rounded-xl text-white shadow-lg transition-all hover:shadow-xl active:scale-95"
                             style={{ backgroundColor: themeInfo.accent }}>🚀 開始 Coding</button>
@@ -517,18 +400,14 @@ export default function VibeCoding() {
                     <>
                         {/* Session Header */}
                         <div className="flex items-center gap-3 px-4 py-2 border-b shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-                            <span className="text-base">{selectedCli?.icon || "⚪"}</span>
+                            <span className="text-base">🤖</span>
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-bold text-stone-700 truncate">{activeSession.name}</div>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                                        style={{ backgroundColor: (selectedCli?.color || "#6B7280") + "15", color: selectedCli?.color || "#6B7280" }}>
-                                        {activeSession.cli} {activeSession.model && `· ${activeSession.model}`}
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                                        PAAW Agent {activeSession.model && `· ${activeSession.model}`}
                                     </span>
                                     <span className="text-[10px] text-stone-400 font-mono truncate">{activeSession.cwd}</span>
-                                    <span className="text-[10px] text-stone-300">
-                                        {APPROVAL_MODES.find(m => m.id === activeSession.approvalMode)?.icon} {activeSession.approvalMode}
-                                    </span>
                                 </div>
                             </div>
                             <button onClick={() => setShowQuickActions(!showQuickActions)}
@@ -551,8 +430,8 @@ export default function VibeCoding() {
 
                         {/* Terminal */}
                         <div className="flex-1 min-h-0 p-3">
-                            <TerminalPanel key={activeSession.id} cli={activeSession.cli} model={activeSession.model}
-                                cwd={activeSession.cwd} approvalMode={activeSession.approvalMode} systemPrompt={activeSession.systemPrompt} />
+                            <TerminalPanel key={activeSession.id} model={activeSession.model}
+                                cwd={activeSession.cwd} systemPrompt={activeSession.systemPrompt} />
                         </div>
                     </>
                 )}
@@ -573,10 +452,10 @@ export default function VibeCoding() {
                     <>
                         {/* History Header */}
                         <div className="flex items-center gap-3 px-4 py-2 border-b shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
-                            <span className="text-base">{CLI_OPTIONS.find(c => c.id === selectedHistory?.cli)?.icon || "⚪"}</span>
+                            <span className="text-base">🤖</span>
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm font-bold text-stone-700 truncate">
-                                    {selectedHistory?.cli} — {selectedHistory?.cwd?.split("/").pop() || "unknown"}
+                                    PAAW Agent — {selectedHistory?.cwd?.split("/").pop() || "unknown"}
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <span className="text-[10px] text-stone-400">{formatTime(selectedHistory?.createdAt || "")}</span>
@@ -586,7 +465,6 @@ export default function VibeCoding() {
                                     {selectedHistory?.distilled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 font-bold">已蒸餾</span>}
                                 </div>
                             </div>
-                            {/* Distill button */}
                             <button onClick={() => handleDistill(selectedHistoryId)} disabled={distilling}
                                 className="text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-50 transition-all active:scale-95"
                                 style={{ backgroundColor: "#F59E0B" }}>
@@ -625,7 +503,6 @@ export default function VibeCoding() {
                                     <div className="flex flex-col items-center justify-center py-16 gap-3">
                                         <div className="text-4xl animate-pulse">⚗️</div>
                                         <p className="text-stone-400 text-sm">正在蒸餾 session 內容...</p>
-                                        <p className="text-stone-400 text-xs">AI 正在分析 log，提取關鍵知識</p>
                                     </div>
                                 )}
                                 {!distilling && distillResult && (
@@ -639,7 +516,6 @@ export default function VibeCoding() {
                                     <div className="flex flex-col items-center justify-center py-8 gap-3">
                                         <span className="text-3xl">✅</span>
                                         <p className="text-stone-500 text-sm">此 session 已蒸餾</p>
-                                        <p className="text-stone-400 text-xs">結果已存入 Knowledge / vibe-sessions</p>
                                     </div>
                                 )}
                                 {!distilling && !distillResult && !selectedHistory?.distilled && (
@@ -647,7 +523,7 @@ export default function VibeCoding() {
                                         <span className="text-4xl">⚗️</span>
                                         <p className="text-stone-500 text-sm font-semibold">尚未蒸餾</p>
                                         <p className="text-stone-400 text-xs text-center max-w-sm">
-                                            點擊上方「⚗️ 蒸餾」按鈕，<br />AI 會分析 session log，精煉出關鍵知識存入 Knowledge。
+                                            點擊上方「⚗️ 蒸餾」按鈕，AI 會分析 session log，精煉出關鍵知識。
                                         </p>
                                     </div>
                                 )}
@@ -664,14 +540,12 @@ export default function VibeCoding() {
 import AgentConsole from "../components/AgentConsole";
 
 interface TerminalPanelProps {
-    cli: string;
     model: string;
     cwd: string;
-    approvalMode: string;
     systemPrompt: string;
 }
 
-function TerminalPanel({ cli, model, cwd, approvalMode, systemPrompt }: TerminalPanelProps) {
+function TerminalPanel({ model, cwd, systemPrompt }: TerminalPanelProps) {
     const termRef = useRef<any>(null);
     const [customPrompt, setCustomPrompt] = useState("");
 
@@ -700,7 +574,7 @@ function TerminalPanel({ cli, model, cwd, approvalMode, systemPrompt }: Terminal
                     <span className="text-stone-500 text-sm pl-3 pr-1 shrink-0">💬</span>
                     <input value={customPrompt} onChange={e => setCustomPrompt(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") handlePromptSubmit(); }}
-                        placeholder="輸入 prompt 直接送到終端機..."
+                        placeholder="輸入 prompt 直接送到 Agent..."
                         className="flex-1 bg-transparent text-sm text-stone-200 px-2 py-2 outline-none placeholder:text-stone-600 font-mono" />
                     <button onClick={handlePromptSubmit} disabled={!customPrompt.trim()}
                         className="px-3 py-1.5 text-xs font-bold text-white rounded-md mr-1.5 disabled:opacity-30 transition-opacity"

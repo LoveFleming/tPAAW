@@ -82,19 +82,8 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
 
     // "Running" config = what the active console is using (persisted in chatConfig)
     // Fallback chain: employee.chatConfig → global CLI config → "qwen"
-    const [globalCliConfig, setGlobalCliConfig] = useState({ defaultCli: "qwen", defaultModel: "" });
-    useEffect(() => {
-        fetch(`${API_BASE}/api/paaw/cli-config`)
-            .then(r => r.ok ? r.json() : null)
-            .then(data => {
-                if (data?.configured) setGlobalCliConfig({ defaultCli: data.defaultCli || "qwen", defaultModel: data.defaultModel || "" });
-            })
-            .catch(() => {});
-    }, []);
-    const savedCli = employee?.chatConfig?.cli || globalCliConfig.defaultCli || "qwen";
-    const savedModel = employee?.chatConfig?.model || globalCliConfig.defaultModel || "";
+    const savedModel = employee?.chatConfig?.model || "";
     const savedApproval = employee?.chatConfig?.approvalMode || "yolo";
-    const [runningCli, setRunningCli] = useState(savedCli);
     const [runningModel, setRunningModel] = useState(savedModel);
     const [runningApproval, setRunningApproval] = useState(savedApproval);
     // Sync running config when employee changes (different employee selected)
@@ -102,11 +91,10 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     useEffect(() => {
         if (employee?.id !== prevEmpIdRef.current) {
             prevEmpIdRef.current = employee?.id;
-            setRunningCli(savedCli);
             setRunningModel(savedModel);
             setRunningApproval(savedApproval);
             setSelectedModel(savedModel);
-            fetchModels(savedCli, savedModel);
+            fetchModels(savedModel);
         }
     }, [employee?.id]); // eslint-disable-line react-hooks/exhaustive-deps
     const [paawRoot, setPaawRoot] = useState("");
@@ -115,7 +103,6 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const [models, setModels] = useState<ModelOption[]>([]);
     const [selectedModel, setSelectedModel] = useState<string>("");
     const [permissionMode, setPermissionMode] = useState<string>("yolo");
-    const [installedClis, setInstalledClis] = useState<Record<string, { installed: boolean; name: string }>>({});
     const [conversations, setConversations] = useState<ConvSummary[]>([]);
     const [fullscreen, setFullscreen] = useState(false);
     const [showInputDialog, setShowInputDialog] = useState(false);
@@ -127,9 +114,9 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const [showSkillPrompts, setShowSkillPrompts] = useState(false);
     const [workLog, setWorkLog] = useState<Array<{ id: string; skillIds: string[]; inputSummary: string; cli: string; inputData?: Record<string, string>; timestamp: string }>>([]);
 
-    // Fetch models for a specific CLI
-    const fetchModels = useCallback((cli: string, preferModel?: string) => {
-        fetch(`${API_BASE}/api/models?cli=${cli}`)
+    // Fetch models from provider config
+    const fetchModels = useCallback((preferModel?: string) => {
+        fetch(`${API_BASE}/api/models`)
             .then(r => r.json())
             .then(data => {
                 if (data.paawRoot) setPaawRoot(data.paawRoot);
@@ -151,15 +138,8 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     useEffect(() => {
         if (mountedRef.current) return;
         mountedRef.current = true;
-        fetchModels(savedCli, savedModel);
+        fetchModels(savedModel);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
-        fetch(`${API_BASE}/api/clis`)
-            .then(r => r.json())
-            .then(data => setInstalledClis(data))
-            .catch(() => {});
-    }, []);
 
     // Initialize skills
     const prevEmployeeIdRef = useRef<string>(employeeId);
@@ -238,26 +218,6 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         return inputs;
     }, [employee, selectedSkillIds, skillDefinitions]);
 
-    // Default CLI from employee chatConfig
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const defaultCliFromSkills = useMemo(() => {
-        return employee?.chatConfig?.cli || "qwen";
-    }, [selectedSkillIds]);
-
-    const [selectedCli, setSelectedCli] = useState<string>(savedCli);
-
-    // Sync selectedCli from saved config or skill default — only on mount
-    useEffect(() => {
-        if (savedCli) {
-            setSelectedCli(savedCli);
-        } else if (defaultCliFromSkills) {
-            setSelectedCli(defaultCliFromSkills);
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // effectiveCli always follows user selection
-    const effectiveCli = selectedCli;
-
     const effectiveModel = selectedModel;
 
     // Initialize permissionMode from skill config (only on first skill selection)
@@ -280,7 +240,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const effectiveApprovalMode = permissionMode;
 
     // Save runtime setting changes back to crew JSON (all selected skills)
-    const saveSkillConfig = useCallback(async (field: 'cli' | 'model' | 'approvalMode', value: string) => {
+    const saveSkillConfig = useCallback(async (field: 'model' | 'approvalMode', value: string) => {
         if (!employee) return;
         const updated = { ...employee, chatConfig: { ...employee.chatConfig, [field]: value } };
         try {
@@ -296,7 +256,6 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
 
     // Check if pending config differs from running config
     const configDirty = chatStarted && (
-        effectiveCli !== runningCli ||
         (effectiveModel || "") !== runningModel ||
         permissionMode !== runningApproval
     );
@@ -305,7 +264,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const applyConfig = useCallback(async () => {
         // Save cli and model to crew JSON chatConfig for persistence
         if (!employee) return;
-        const updated = { ...employee, chatConfig: { ...employee.chatConfig, cli: effectiveCli, model: effectiveModel || "", approvalMode: permissionMode } };
+        const updated = { ...employee, chatConfig: { ...employee.chatConfig, model: effectiveModel || "", approvalMode: permissionMode } };
         try {
             await fetch(`${API_BASE}/api/crew/${employee.id}?factory=${factoryId}`, {
                 method: "PUT",
@@ -316,12 +275,11 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
             console.error("[PAAW] Failed to save config:", err);
         }
         // Update running state
-        setRunningCli(effectiveCli);
         setRunningModel(effectiveModel || "");
         setRunningApproval(permissionMode);
         // Hot-restart console
         setRestartCount(prev => prev + 1);
-    }, [effectiveCli, effectiveModel, permissionMode, runningCli, runningModel, runningApproval, employee, selectedSkillIds]);
+    }, [effectiveModel, permissionMode, runningModel, runningApproval, employee, selectedSkillIds]);
 
     const handleStartClick = () => {
         if (!employee) return;
@@ -377,7 +335,6 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         setChatStarted(true);
         setShowInputDialog(false);
         // Snapshot running config
-        setRunningCli(effectiveCli);
         setRunningModel(effectiveModel || "");
         setRunningApproval(permissionMode);
 
@@ -415,7 +372,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 body: JSON.stringify({
                     skillIds: selectedSkillIds,
                     inputSummary: inputSummary.slice(0, 100),
-                    cli: effectiveCli,
+                    cli: "paaw-agent",
                     inputData: allData,
                 }),
             });
@@ -825,28 +782,6 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                 <option value="auto-edit">Auto-Edit</option>
                                 <option value="yolo">YOLO</option>
                                 <option value="plan">Plan</option>
-                            </select>
-                            {/* CLI Engine */}
-                            <select
-                                value={selectedCli}
-                                onChange={e => {
-                                    const newCli = e.target.value;
-                                    setSelectedCli(newCli);
-                                    fetchModels(newCli);
-                                }}
-                                className={cn(
-                                    "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer",
-                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
-                                    chatStarted && effectiveCli !== runningCli && !fullscreen && "border-amber-400"
-                                )}
-                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
-                                title="CLI Engine"
-                            >
-                                {Object.entries(installedClis).map(([key, info]: [string, any]) => (
-                                    <option key={key} value={key}>
-                                        {info.name} {!info.installed ? '(未安裝)' : ''}
-                                    </option>
-                                ))}
                             </select>
                             {/* Model */}
                             {models.length > 0 && (

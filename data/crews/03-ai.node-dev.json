@@ -16,7 +16,7 @@
         "greeting": "嗨！我是普里亞·夏爾馬 Priya Sharma，Node Developer ⚙️\n\n操作員已經為你準備好規格資料，我收到後就會開始開發節點程式。",
         "maxTokens": 8192,
         "temperature": 0.3,
-        "cli": "qwen",
+        "engine": "paaw-agent",
         "model": "moonshotai/kimi-k2.6",
         "approvalMode": "yolo"
     }

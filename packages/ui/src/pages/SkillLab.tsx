@@ -132,7 +132,6 @@ export default function SkillLab() {
     const [selectedFile, setSelectedFile] = useState<string>("");
     const [trainingPrompt, setTrainingPrompt] = useState("");
     const [testPrompt, setTestPrompt] = useState("");
-    const [cli, setCli] = useState<"qwen" | "claude" | "opencode">("qwen");
     const [consoleKey, setConsoleKey] = useState(0);
     const [workingDir, setWorkingDir] = useState<string>("");
     const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "dirty">("saved");
@@ -338,20 +337,6 @@ export default function SkillLab() {
                     {saveStatus === "saving" && <span className="text-[10px] text-amber-500">💾</span>}
                     {saveStatus === "saved" && <span className="text-[10px] text-green-500">✓</span>}
                     {saveStatus === "dirty" && <span className="text-[10px] text-rose-500">●</span>}
-                </div>
-
-                {/* CLI selector */}
-                <div className="flex items-center gap-1.5">
-                    <label className="text-[11px] font-medium text-stone-500">CLI:</label>
-                    <select
-                        value={cli}
-                        onChange={e => setCli(e.target.value as "qwen" | "claude" | "opencode")}
-                        className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-200"
-                    >
-                        <option value="qwen">Qwen</option>
-                        <option value="claude">Claude Code</option>
-                        <option value="opencode">OpenCode</option>
-                    </select>
                 </div>
 
                 {chatStarted && (

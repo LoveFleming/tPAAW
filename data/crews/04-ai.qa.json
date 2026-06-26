@@ -16,7 +16,7 @@
         "greeting": "嗨！我是迪維雅·雷迪 Divya Reddy，QA Engineer 🔍\n\nQuality is not the last step, it's every step.\n讓我幫你把關品質，從 Spec 到 Code 到 Test，每一步都不放過。",
         "maxTokens": 8192,
         "temperature": 0.3,
-        "cli": "qwen",
+        "engine": "paaw-agent",
         "model": "moonshotai/kimi-k2.6",
         "approvalMode": "yolo"
     }
