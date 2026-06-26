@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
-import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
+import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -325,7 +325,7 @@ export default function SkillBuilder() {
   const [consoleKey, setConsoleKey] = useState(0);
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
   const [chatStarted, setChatStarted] = useState(false);
-  const terminalRef = useRef<TerminalConsoleHandle>(null);
+  const terminalRef = useRef<AgentConsoleHandle>(null);
   const loadingRef = useRef(false);
 
   // Load models when CLI changes
@@ -894,7 +894,7 @@ ${userInputLines.join("\n")}
                 </div>
               </div>
             ) : (
-              <TerminalConsole ref={terminalRef} key={`cli-${consoleKey}-${model}`} cwd={workingDir || undefined} cli={cli} model={model || undefined} approvalMode="yolo" initialPrompt={initialPrompt} />
+              <AgentConsole ref={terminalRef} key={`cli-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} />
             )}
           </div>
 

@@ -5,7 +5,7 @@
  * Uses node-pty for CLI interaction.
  *
  * Key endpoints:
- *   POST /api/report-train   — Run CLI to generate app.html
+ *   POST /api/report-train   — Run Agent Loop to generate app.html
  *   POST /api/report-publish — Publish app to apps/ directory
  *   WebSocket :4098         — PTY sessions for employee consoles
  */
@@ -1210,8 +1210,7 @@ ${context ? "\n## Context\n" + context : ""}
     const appId = appRunMatch[1];
     let parsed = {};
     try { parsed = JSON.parse(body); } catch {}
-    const { prompt: userPrompt, cli: cliType } = parsed;
-    const cliName = cliType || "qwen";
+    const { prompt: userPrompt } = parsed;
 
     const outDir = join(APPS_ROOT, appId);
     await mkdir(outDir, { recursive: true });
@@ -1279,64 +1278,60 @@ ${context ? "\n## Context\n" + context : ""}
 - 所有數字必須來自資料檔案，不可編造
 - 標題顯示「載入時間」為現在
 - 先讀取 ${dataFile} 取得完整資料，再生成 HTML
+- 使用 write_file 將完整 HTML 寫到 ${join(outDir, "app.html")}
 ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
 
-    // Write prompt to temp file to avoid CLI arg length limit
-    const promptFile = join(outDir, "_prompt.txt");
-    await writeFile(promptFile, systemPrompt, "utf-8");
-
     res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
-    res.write(JSON.stringify({ type: "status", data: { message: `AI 正在計算 ${appId}...` } }) + "\n");
+    res.write(JSON.stringify({ type: "status", data: { message: `Agent Loop 正在計算 ${appId}...` } }) + "\n");
 
-    const resolvedBin = resolveCliBin(cliName);
+    // Helper: extract HTML from text
+    const extractHtml = (text) => {
+      let h = text;
+      const codeBlock = h.match(/```(?:html)?\s*([\s\S]*?)```/);
+      if (codeBlock) h = codeBlock[1].trim();
+      let m = h.match(/<!DOCTYPE\s+html[^>]*>[\s\S]*<\/html>/i);
+      if (m) return m[0];
+      m = h.match(/<html[\s\S]*<\/html>/i);
+      if (m) return m[0];
+      return h.includes("<html") ? h : null;
+    };
 
-    // Use prompt via file to avoid arg length limits
-    let cliArgs;
-    if (cliName === "qwen") {
-      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "30", systemPrompt];
-    } else if (cliName === "claude") {
-      cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", systemPrompt, "--output-format", "text"];
-    } else if (cliName === "opencode") {
-      cliArgs = ["--non-interactive", "-p", systemPrompt];
-    } else {
-      cliArgs = [systemPrompt];
-    }
+    try {
+      const agentResult = await runAgentLoop({
+        prompt: systemPrompt,
+        cwd: outDir,
+        maxTurns: 25,
+        timeout: 180,
+        rootDir: PAAW_ROOT,
+        onEvent: (evt) => {
+          if (evt.type === "tool_start") {
+            try { res.write(JSON.stringify({ type: "stdout", data: `🔧 ${evt.name}...\n` }) + "\n"); } catch {}
+          }
+          if (evt.type === "tool_end") {
+            try { res.write(JSON.stringify({ type: "stdout", data: `✅ ${evt.name}: ${(evt.result || "").slice(0, 200)}\n` }) + "\n"); } catch {}
+          }
+          if (evt.type === "assistant_thinking") {
+            try { res.write(JSON.stringify({ type: "stdout", data: `💭 ${evt.content}\n` }) + "\n"); } catch {}
+          }
+        },
+      });
 
-    const ptyProc = ptySpawn(resolvedBin, cliArgs, {
-      name: "xterm-256color",
-      cols: 200,
-      rows: 50,
-      cwd: outDir,
-      env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-    });
+      // Check if agent wrote app.html directly
+      let htmlContent = null;
+      try { htmlContent = await readFile(join(outDir, "app.html"), "utf-8"); } catch {}
+      if (!htmlContent) htmlContent = extractHtml(agentResult.content);
 
-    let fullOutput = "";
-    ptyProc.onData((data) => {
-      fullOutput += data;
-      res.write(JSON.stringify({ type: "stdout", data }) + "\n");
-    });
-
-    ptyProc.onExit(async ({ exitCode }) => {
-      let htmlContent = fullOutput;
-      const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
-      if (codeBlockMatch) htmlContent = codeBlockMatch[1].trim();
-      let htmlMatch = htmlContent.match(/<!DOCTYPE\s+html[^>]*>[\s\S]*<\/html>/i);
-      if (htmlMatch) htmlContent = htmlMatch[0];
-      else {
-        htmlMatch = htmlContent.match(/<html[\s\S]*<\/html>/i);
-        if (htmlMatch) htmlContent = htmlMatch[0];
-      }
-
-      if (htmlContent.includes("<html")) {
+      if (htmlContent && htmlContent.includes("<html")) {
         await writeFile(join(outDir, "app.html"), htmlContent, "utf-8");
-        res.write(JSON.stringify({ type: "done", data: { appId, exitCode } }) + "\n");
+        res.write(JSON.stringify({ type: "done", data: { appId, exitCode: 0 } }) + "\n");
       } else {
-        res.write(JSON.stringify({ type: "error", data: { message: `AI 回應中找不到有效 HTML (${fullOutput.length} chars)`, rawOutput: fullOutput.slice(-2000) } }) + "\n");
+        res.write(JSON.stringify({ type: "error", data: { message: `Agent Loop 完成，但未產出有效 HTML (${agentResult.content.length} chars)`, rawOutput: agentResult.content.slice(-2000) } }) + "\n");
       }
       res.end();
-    });
-
-    setTimeout(() => { try { ptyProc.kill(); } catch {} }, 180_000);
+    } catch (err) {
+      console.error(`[app-run] error:`, err);
+      try { res.write(JSON.stringify({ type: "error", data: { message: err.message } }) + "\n"); res.end(); } catch {}
+    }
     return;
   }
 
@@ -1465,96 +1460,79 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     return;
   }
 
-  // POST /api/report-train — run CLI to generate app.html, stream output
+  // POST /api/report-train — run PAAW Agent Loop to generate app.html, stream output
   if (req.method === "POST" && req.url === "/api/report-train") {
     let parsed;
-    try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
-    const { skillId, reportName, template, prompt, runId, cli: cliType } = parsed;
-    const cliName = cliType || "qwen";
+    try { parsed = JSON.parse(await _readBody(req)); } catch { res.writeHead(400); res.end("Invalid JSON"); return; }
+    const { skillId, reportName, template, prompt, runId } = parsed;
 
     // Prepare output dir
     const reportId = (reportName || skillId).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || skillId;
     const outDir = join(PHYSICAL_SKILL_ROOT, reportId);
     await mkdir(outDir, { recursive: true });
 
-    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
-
-    // Write prompt to a temp file so CLI can read it
-    const promptFile = join(outDir, "_prompt.txt");
-    await writeFile(promptFile, prompt, "utf-8");
-
-    // Use qwen CLI to generate
     const htmlOutFile = join(outDir, "app.html");
 
-    // Resolve CLI binary and args
-    const resolvedBin = resolveCliBin(cliName);
+    res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
+    res.write(JSON.stringify({ type: "status", data: { message: `Training ${reportId} via Agent Loop...`, runId } }) + "\n");
 
-    // Build CLI-specific args
-    let cliArgs;
-    if (cliName === "qwen") {
-      cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt];
-    } else if (cliName === "claude") {
-      cliArgs = ["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", prompt, "--output-format", "text"];
-    } else if (cliName === "opencode") {
-      cliArgs = ["--non-interactive", "-p", prompt];
-    } else {
-      cliArgs = [prompt];
-    }
+    console.log(`[report-train] Running Agent Loop for ${reportId}, template=${template}`);
 
-    console.log(`[report-train] Spawning ${cliName} (${resolvedBin}) for ${reportId}, template=${template}`);
+    // Helper: extract HTML from text
+    const extractHtml = (text) => {
+      let h = text;
+      const codeBlock = h.match(/```(?:html)?\s*([\s\S]*?)```/);
+      if (codeBlock) h = codeBlock[1].trim();
+      let m = h.match(/<!DOCTYPE\s+html[^>]*>[\s\S]*<\/html>/i);
+      if (m) return m[0];
+      m = h.match(/<html[\s\S]*<\/html>/i);
+      if (m) return m[0];
+      return h.includes("<html") ? h : null;
+    };
 
-    // Use node-pty so CLI thinks it's on a real terminal → stdout flushes immediately
-    // Plain child_process.spawn causes qwen -o text to buffer everything until exit
-    const ptyProc = ptySpawn(resolvedBin, cliArgs, {
-      name: "xterm-256color",
-      cols: 200,
-      rows: 50,
-      cwd: outDir,
-      env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1", FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-    });
+    try {
+      const fullPrompt = `${prompt}\n\n### 輸出指示\n請將完整的 HTML 頁面使用 write_file 寫到 ${htmlOutFile}\n檔案必須是完整的 <!DOCTYPE html>...<\/html> 頁面。`;
 
-    // Send initial status so frontend knows connection is alive
-    res.write(JSON.stringify({ type: "status", data: { message: `Training ${reportId} with ${cliName}...`, runId } }) + "\n");
+      const agentResult = await runAgentLoop({
+        prompt: fullPrompt,
+        cwd: outDir,
+        maxTurns: 20,
+        timeout: 180,
+        rootDir: PAAW_ROOT,
+        onEvent: (evt) => {
+          if (evt.type === "tool_start") {
+            try { res.write(JSON.stringify({ type: "stdout", data: `🔧 ${evt.name}...\n` }) + "\n"); } catch {}
+          }
+          if (evt.type === "tool_end") {
+            try { res.write(JSON.stringify({ type: "stdout", data: `✅ ${evt.name}: ${(evt.result || "").slice(0, 200)}\n` }) + "\n"); } catch {}
+          }
+          if (evt.type === "assistant_thinking") {
+            try { res.write(JSON.stringify({ type: "stdout", data: `💭 ${evt.content}\n` }) + "\n"); } catch {}
+          }
+        },
+      });
 
-    let fullOutput = "";
+      // Check if agent wrote the HTML file directly
+      let htmlContent = null;
+      try {
+        htmlContent = await readFile(htmlOutFile, "utf-8");
+      } catch {}
+      // Fallback: extract from agent output
+      if (!htmlContent) htmlContent = extractHtml(agentResult.content);
 
-    ptyProc.onData((data) => {
-      fullOutput += data;
-      res.write(JSON.stringify({ type: "stdout", data }) + "\n");
-    });
-
-    ptyProc.onExit(async ({ exitCode }) => {
-      // Extract HTML from CLI output
-      let htmlContent = fullOutput;
-      const codeBlockMatch = htmlContent.match(/```(?:html)?\s*([\s\S]*?)```/);
-      if (codeBlockMatch) htmlContent = codeBlockMatch[1].trim();
-      let htmlMatch = htmlContent.match(/<!DOCTYPE\s+html[^>]*>[\s\S]*<\/html>/i);
-      if (htmlMatch) htmlContent = htmlMatch[0];
-      else {
-        htmlMatch = htmlContent.match(/<html[\s\S]*<\/html>/i);
-        if (htmlMatch) htmlContent = htmlMatch[0];
-      }
-
-      if (htmlContent.includes("<html")) {
+      if (htmlContent && htmlContent.includes("<html")) {
         await writeFile(htmlOutFile, htmlContent, "utf-8");
-
-        // Write report.json
         const reportMeta = { template, status: "trained", generatedFrom: skillId, generatedAt: new Date().toISOString(), reportName };
         await writeFile(join(outDir, "report.json"), JSON.stringify(reportMeta, null, 2), "utf-8");
-
-        res.write(JSON.stringify({ type: "done", data: { reportId, htmlPath: htmlOutFile, exitCode } }) + "\n");
+        res.write(JSON.stringify({ type: "done", data: { reportId, htmlPath: htmlOutFile, exitCode: 0 } }) + "\n");
       } else {
-        res.write(JSON.stringify({ type: "error", data: { message: `CLI finished (code=${exitCode}) but no valid HTML found in output (${fullOutput.length} chars)` } }) + "\n");
+        res.write(JSON.stringify({ type: "error", data: { message: `Agent Loop 完成，但未產出有效 HTML (${agentResult.content.length} chars)`, rawOutput: agentResult.content.slice(-2000) } }) + "\n");
       }
-
-      // Cleanup prompt file
-      try { await unlink(promptFile); } catch {}
       res.end();
-    });
-
-    // No 'error' event on PTY, but handle spawn failures
-    // 180s timeout
-    setTimeout(() => { try { ptyProc.kill(); } catch {} }, 180_000);
+    } catch (err) {
+      console.error(`[report-train] error:`, err);
+      try { res.write(JSON.stringify({ type: "error", data: { message: err.message } }) + "\n"); res.end(); } catch {}
+    }
     return;
   }
 
@@ -3816,6 +3794,7 @@ server.listen(PORT, async () => {
 const WS_PORT = parseInt(process.env.PAAW_WS_PORT || "4098", 10);
 const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
 const ptySessions = new Map(); // ws -> { pty, id }
+const agentSessions = new Map(); // ws -> agent state for paaw-agent mode
 
 // ── Multi-CLI spawn system ──
 // Supports: qwen, claude, opencode
@@ -3963,6 +3942,50 @@ wss.on("connection", (ws, req) => {
       if (old?.pty) { old.pty.kill(); }
 
       const opts = msg.options || {};
+
+      // ════════════════════════════════════════════════════════════
+      // PAAW Agent Mode — no CLI spawn, uses runAgentLoop
+      // ════════════════════════════════════════════════════════════
+      if (opts.engine === "paaw-agent" || opts.cli === "paaw-agent") {
+        console.log(`[PTY] Agent mode session: ${sessionId} (cwd: ${opts.cwd || PAAW_ROOT})`);
+        const agentCwd = opts.cwd || PAAW_ROOT;
+        const agentState = {
+          id: sessionId,
+          mode: "paaw-agent",
+          cwd: agentCwd,
+          model: opts.model || null,
+          systemPrompt: opts.systemPrompt || null,
+          busy: false,
+          history: [],  // conversation history for multi-turn
+          createdAt: new Date().toISOString(),
+        };
+        agentSessions.set(ws, agentState);
+
+        // Vibe session logging (same as CLI mode)
+        const vibeLogDir = resolve(PAAW_ROOT, "logs/vibe-sessions");
+        mkdirSync(vibeLogDir, { recursive: true });
+        const vibeLogFile = resolve(vibeLogDir, `${sessionId}.log`);
+        const vibeMetaFile = resolve(vibeLogDir, `${sessionId}.json`);
+        writeFileSync(vibeMetaFile, JSON.stringify({
+          id: sessionId, cli: "paaw-agent", model: opts.model || null,
+          cwd: agentCwd, approvalMode: opts.approvalMode || null,
+          systemPrompt: opts.systemPrompt || null,
+          createdAt: new Date().toISOString(), lastActive: new Date().toISOString(),
+        }, null, 2));
+        appendFileSync(vibeLogFile, `# PAAW Agent Session: ${sessionId}\n`);
+        appendFileSync(vibeLogFile, `# Engine: paaw-agent | CWD: ${agentCwd} | Mode: ${opts.approvalMode || 'default'}\n`);
+        appendFileSync(vibeLogFile, `# Started: ${new Date().toISOString()}\n\n`);
+        agentState.vibeLogFile = vibeLogFile;
+        agentState.vibeMetaFile = vibeMetaFile;
+
+        ws.send(JSON.stringify({ type: "ready", sessionId, platform: process.platform }));
+        ws.send(JSON.stringify({ type: "cliReady" }));
+        return;
+      }
+
+      // ════════════════════════════════════════════════════════════
+      // Legacy CLI Mode (qwen/claude/opencode/shell)
+      // ════════════════════════════════════════════════════════════
       if (opts.cli === "opencode") {
         opts.serverPort = 4199 + Math.floor(Math.random() * 100);
       }
@@ -4072,6 +4095,98 @@ wss.on("connection", (ws, req) => {
       }
     }
     else if (msg.type === "input") {
+      // ── Agent mode: run PAAW Agent Loop ──
+      const agentState = agentSessions.get(ws);
+      if (agentState) {
+        const userText = (msg.text || "").trim();
+        if (!userText || agentState.busy) {
+          if (agentState.busy) ws.send(JSON.stringify({ type: "agent_busy" }));
+          return;
+        }
+        agentState.busy = true;
+        ws.send(JSON.stringify({ type: "agent_running" }));
+
+        // Append user message to conversation history
+        agentState.history.push({ role: "user", content: userText });
+
+        // Log to vibe session
+        if (agentState.vibeLogFile) {
+          try { appendFileSync(agentState.vibeLogFile, `\n## User\n${userText}\n`); } catch {}
+        }
+
+        // Build prompt with conversation context
+        const contextMessages = agentState.history.slice(-20); // last 20 messages for context
+        const prompt = contextMessages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n');
+
+        console.log(`[Agent] Running for session ${agentState.id}, prompt length: ${prompt.length}`);
+
+        try {
+          const agentResult = await runAgentLoop({
+            prompt: userText,
+            cwd: agentState.cwd,
+            systemPrompt: agentState.systemPrompt || undefined,
+            model: agentState.model || undefined,
+            maxTurns: 25,
+            timeout: 180,
+            rootDir: PAAW_ROOT,
+            onEvent: (evt) => {
+              if (evt.type === "tool_start") {
+                try { ws.send(JSON.stringify({ type: "agent_event", event: "tool_start", name: evt.name, args: evt.args })); } catch {}
+              }
+              if (evt.type === "tool_end") {
+                try { ws.send(JSON.stringify({ type: "agent_event", event: "tool_end", name: evt.name, result: (evt.result || "").slice(0, 500) })); } catch {}
+              }
+              if (evt.type === "assistant_thinking") {
+                try { ws.send(JSON.stringify({ type: "agent_event", event: "thinking", content: evt.content })); } catch {}
+              }
+              if (evt.type === "assistant") {
+                try { ws.send(JSON.stringify({ type: "agent_event", event: "response", content: evt.content })); } catch {}
+              }
+            },
+          });
+
+          // Store assistant response in history
+          agentState.history.push({ role: "assistant", content: agentResult.content });
+
+          // Log to vibe session
+          if (agentState.vibeLogFile) {
+            try { appendFileSync(agentState.vibeLogFile, `\n## Assistant\n${agentResult.content.slice(0, 5000)}\n`); } catch {}
+          }
+
+          // Send completion
+          ws.send(JSON.stringify({
+            type: "agent_done",
+            content: agentResult.content,
+            turns: agentResult.turns,
+            toolCalls: agentResult.toolCalls?.length || 0,
+            success: agentResult.success,
+          }));
+
+          // Detect "done" patterns for frontend
+          const donePatterns = /\bDONE\b|已完成|完成！|✅.*完成|Task completed|finished|已寫入|已生成|創建完成|建立完成/i;
+          if (donePatterns.test(agentResult.content)) {
+            ws.send(JSON.stringify({ type: "cliDone" }));
+          }
+
+        } catch (err) {
+          console.error(`[Agent] Error for session ${agentState.id}:`, err.message);
+          ws.send(JSON.stringify({ type: "agent_error", message: err.message }));
+        }
+
+        agentState.busy = false;
+
+        // Update vibe meta
+        if (agentState.vibeMetaFile) {
+          try {
+            const meta = JSON.parse(readFileSync(agentState.vibeMetaFile, "utf8"));
+            meta.lastActive = new Date().toISOString();
+            writeFileSync(agentState.vibeMetaFile, JSON.stringify(meta, null, 2));
+          } catch {}
+        }
+        return;
+      }
+
+      // ── Legacy CLI mode: forward to PTY ──
       const session = ptySessions.get(ws);
       if (session?.pty) {
         session.pty.write(msg.text || "");
@@ -4102,6 +4217,12 @@ wss.on("connection", (ws, req) => {
       }
     }
     else if (msg.type === "kill") {
+      const agentState = agentSessions.get(ws);
+      if (agentState) {
+        console.log(`[Agent] Killing session: ${agentState.id}`);
+        agentSessions.delete(ws);
+        return;
+      }
       const session = ptySessions.get(ws);
       if (session?.pty) {
         session.pty.kill();
@@ -4111,6 +4232,12 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", () => {
+    const agentState = agentSessions.get(ws);
+    if (agentState) {
+      console.log(`[Agent] Connection closed: ${agentState.id}`);
+      agentSessions.delete(ws);
+      return;
+    }
     const session = ptySessions.get(ws);
     if (session?.pty) {
       console.log(`[PTY] Connection closed, killing: ${session.id}`);

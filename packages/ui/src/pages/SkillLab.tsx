@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
-import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
+import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 
 // ── Types ──
 interface TrainingFile {
@@ -273,7 +273,7 @@ export default function SkillLab() {
     };
 
     // ── Terminal ref for sending prompts without restart ──
-    const terminalRef = useRef<TerminalConsoleHandle>(null);
+    const terminalRef = useRef<AgentConsoleHandle>(null);
 
     // ── Send to CLI ──
     const sendToTerminal = useCallback((prompt: string) => {
@@ -445,12 +445,10 @@ export default function SkillLab() {
                             <p className="text-stone-500 text-xs text-center">Ctrl+Enter 快速送出</p>
                         </div>
                     ) : (
-                        <TerminalConsole
+                        <AgentConsole
                             ref={terminalRef}
                             key={`skilllab-${consoleKey}`}
                             cwd={workingDir || undefined}
-                            cli={cli}
-                            approvalMode="yolo"
                             initialPrompt={initialPrompt}
                         />
                     )}

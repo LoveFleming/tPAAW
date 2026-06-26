@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import { useTheme } from "../theme";
 import { SkillDefinition } from "../types";
-import TerminalConsole, { TerminalConsoleHandle } from "../components/TerminalConsole";
+import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 
 import API from "../api";
 
@@ -314,7 +314,7 @@ export default function AppLab() {
     const [consoleKey, setConsoleKey] = useState(0);
     const [initialPrompt, setInitialPrompt] = useState("");
     const [chatStarted, setChatStarted] = useState(false);
-    const terminalRef = useRef<TerminalConsoleHandle>(null);
+    const terminalRef = useRef<AgentConsoleHandle>(null);
 
         // ── Derived values (must be before everything that uses them) ──
     const reportId = reportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-)$/g, "");
@@ -994,14 +994,11 @@ export default function AppLab() {
                                 </div>
                                 <div className="flex-1 min-h-0">
                                     {chatStarted ? (
-                                        <TerminalConsole
+                                        <AgentConsole
                                             key={`applab-${consoleKey}-${model}`}
                                             ref={terminalRef}
-                                            cli={cli as any}
                                             model={model || undefined}
                                             initialPrompt={initialPrompt}
-                                            approvalMode="yolo"
-                                            onCliDone={undefined}
                                         />
                                     ) : (
                                         <div className="flex items-center justify-center h-full text-stone-500 text-xs">

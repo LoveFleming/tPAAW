@@ -4,7 +4,7 @@ import { Card, cn } from "../components/ui/shared";
 import { Crew, SkillDefinition, UserInput, buildSystemPrompt, migrateCrew } from "../types";
 import { useTheme } from "../theme";
 import Icon from "../components/Icon";
-import TerminalConsole from "../components/TerminalConsole";
+import AgentConsole from "../components/AgentConsole";
 
 interface ModelOption {
     id: string;
@@ -802,7 +802,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                 <span className="text-white text-[10px] font-black">O</span>
                             </div>
                             <span className={cn("font-bold text-sm truncate", fullscreen && "text-gray-200")} style={!fullscreen ? { color: t.accentText } : undefined}>
-                                {effectiveCli === 'claude' ? 'Claude Code' : effectiveCli === 'opencode' ? 'OpenCode' : 'Qwen'} CLI
+                                PAAW Agent
                                 {fullscreen && ' — 全螢幕'}
                             </span>
                         </div>
@@ -904,13 +904,11 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
 
                     {/* Terminal — single instance, shared between normal and fullscreen */}
                     <div className="flex-1 min-h-0">
-                        <TerminalConsole
+                        <AgentConsole
                             key={`terminal-${consoleKey}`}
                             cwd={projectRoot}
-                            cli={effectiveCli}
                             model={effectiveModel || undefined}
-                            approvalMode={effectiveApprovalMode}
-                            systemPrompt={undefined}
+                            systemPrompt={systemPrompt || undefined}
                             initialPrompt={chatStarted ? [
                                 systemPrompt ? `# System Instructions\n${systemPrompt}` : '',
                             ].filter(Boolean).join('\n\n') : undefined}

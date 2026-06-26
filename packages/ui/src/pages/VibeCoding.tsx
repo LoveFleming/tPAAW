@@ -661,7 +661,7 @@ export default function VibeCoding() {
 }
 
 // ── Terminal Panel ──
-import TerminalConsole from "../components/TerminalConsole";
+import AgentConsole from "../components/AgentConsole";
 
 interface TerminalPanelProps {
     cli: string;
@@ -692,8 +692,8 @@ function TerminalPanel({ cli, model, cwd, approvalMode, systemPrompt }: Terminal
     return (
         <div className="flex flex-col h-full gap-2">
             <div className="flex-1 min-h-0">
-                <TerminalConsole ref={termRef} cli={cli} model={model || undefined} cwd={cwd}
-                    approvalMode={approvalMode} systemPrompt={systemPrompt || undefined} />
+                <AgentConsole ref={termRef} model={model || undefined} cwd={cwd}
+                    systemPrompt={systemPrompt || undefined} />
             </div>
             <div className="shrink-0 flex items-center gap-2 px-1">
                 <div className="flex-1 flex items-center rounded-lg border overflow-hidden" style={{ borderColor: "#313244", backgroundColor: "#181825" }}>
