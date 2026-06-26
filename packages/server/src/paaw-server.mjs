@@ -4433,22 +4433,36 @@ const CRON_LOGS_DIR = resolve(PAAW_ROOT, "logs/cron");
 const CRON_RESULTS_DIR = resolve(PAAW_ROOT, "logs/cron-results");
 const CRON_CHAT_DIR = resolve(PAAW_ROOT, "data/chats");
 
-// Simple cron expression parser: "min hour day month dow"
+// Cron expression parser — compatible with standard Linux cron syntax
+// Supports: *  N  N-M  N,M,K  */N  N-M/S  (and any comma-list of these)
 function matchesCron(expr, date) {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) return false;
   const [mMin, mHour, mDay, mMon, mDow] = parts;
-  const check = (val, spec, max) => {
+
+  const check = (val, spec) => {
     if (spec === "*") return true;
     for (const s of spec.split(",")) {
-      if (s.startsWith("*/")) {
-        // Step syntax: */N matches every N units
-        const step = parseInt(s.slice(2));
-        if (step > 0 && val % step === 0) return true;
-      } else if (s.includes("-")) {
+      // Step syntax: */N or lo-hi/N
+      if (s.includes("/")) {
+        const [range, stepStr] = s.split("/");
+        const step = parseInt(stepStr);
+        if (!(step > 0)) continue;
+        let lo, hi;
+        if (range === "*") { lo = 0; hi = 59; }
+        else if (range.includes("-")) { [lo, hi] = range.split("-").map(Number); }
+        else { lo = 0; hi = parseInt(range); }
+        if (val >= lo && val <= hi && (val - lo) % step === 0) return true;
+        continue;
+      }
+      // Range: N-M
+      if (s.includes("-")) {
         const [lo, hi] = s.split("-").map(Number);
         if (val >= lo && val <= hi) return true;
-      } else if (parseInt(s) === val) return true;
+        continue;
+      }
+      // Exact value
+      if (parseInt(s) === val) return true;
     }
     return false;
   };
