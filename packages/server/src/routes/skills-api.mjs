@@ -1,0 +1,240 @@
+/**
+ * Skills CRUD API
+ * Routes: /api/skills, /api/skills/:id, /api/skill-app/:id, /api/skill-lab/build-files
+ */
+
+import { readdir, readFile, writeFile, mkdir, rm, stat } from "fs/promises";
+import { existsSync } from "fs";
+import { join, resolve } from "path";
+import {
+  yaml,
+  PAAW_ROOT, INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT,
+  readBody,
+} from "./shared.mjs";
+
+// ── Helper: parse YAML frontmatter from SKILL.md ──
+function parseSkillFrontmatter(raw) {
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fmMatch) return { body: raw };
+  const body = raw.slice(fmMatch[0].length).trim();
+  const fm = fmMatch[1];
+  try {
+    const parsed = yaml.load(fm, { schema: yaml.DEFAULT_SCHEMA });
+    if (typeof parsed === "object" && parsed !== null) {
+      return { ...parsed, body };
+    }
+  } catch {}
+  return { body };
+}
+
+export { parseSkillFrontmatter };
+
+export default async function skillsApiRoute(req, res) {
+  // ── GET /api/skills — list all skills ──
+  if (req.method === "GET" && req.url?.match(/^\/api\/skills(?:\?.*)?$/)) {
+    try {
+      const skills = [];
+      const scanSkillsDir = async (root, kind) => {
+        let dirs;
+        try { dirs = await readdir(root); } catch { return; }
+        for (const dir of dirs) {
+          try {
+            const s = await stat(join(root, dir));
+            if (!s.isDirectory()) continue;
+            const skillPath = join(root, dir, "SKILL.md");
+            let raw, parsed, skillPathResolved = skillPath;
+            try {
+              raw = await readFile(skillPath, "utf-8");
+              parsed = parseSkillFrontmatter(raw);
+            } catch {
+              const inputsJsonPath = join(root, dir, "inputs.json");
+              const inputsRaw = await readFile(inputsJsonPath, "utf-8");
+              const inputsData = JSON.parse(inputsRaw);
+              parsed = { name: dir, description: "", userInputs: inputsData.userInputs || [] };
+              raw = JSON.stringify(parsed, null, 2);
+              skillPathResolved = inputsJsonPath;
+            }
+            skills.push({
+              id: dir, kind,
+              name: parsed.name || dir,
+              description: parsed.description || "",
+              version: parsed.version || "1.0.0",
+              category: parsed.category || "",
+              skillPrompt: "",
+              skillPath: skillPathResolved,
+              useSkills: Array.isArray(parsed.useSkills) ? parsed.useSkills : [],
+              usePhysicalSkills: Array.isArray(parsed.usePhysicalSkills) ? parsed.usePhysicalSkills : [],
+              userInputs: Array.isArray(parsed.userInputs) ? parsed.userInputs : [],
+              fullContent: raw,
+            });
+          } catch {}
+        }
+      };
+      await scanSkillsDir(INPUT_PROMPT_ROOT, "input-prompt");
+      await scanSkillsDir(PHYSICAL_SKILL_ROOT, "physical-skill");
+      await scanSkillsDir(SKILL_POOL_ROOT, "skill-pool");
+
+      // Dedup by skill id
+      const deduped = [];
+      const seen = new Map();
+      for (const sk of skills) {
+        const existing = seen.get(sk.id);
+        if (existing) {
+          if (existing.userInputs.length === 0 && sk.userInputs.length > 0) existing.userInputs = sk.userInputs;
+          if (!existing.hasApp && sk.hasApp) existing.hasApp = true;
+          if (sk.kind === "physical-skill") existing.kind = "physical-skill";
+        } else {
+          seen.set(sk.id, sk);
+          deduped.push(sk);
+        }
+      }
+      skills.length = 0;
+      skills.push(...deduped);
+
+      // Check hasApp
+      for (const sk of skills) {
+        try {
+          const base = sk.kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : sk.kind === "skill-pool" ? SKILL_POOL_ROOT : INPUT_PROMPT_ROOT;
+          await import("fs/promises").then(m => m.access(join(base, sk.id, "app.html")));
+          sk.hasApp = true;
+        } catch { sk.hasApp = false; }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(skills));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── GET /api/skills/:id — get single skill ──
+  const skillGetMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/);
+  if (skillGetMatch) {
+    const skillId = skillGetMatch[1];
+    const inputsJsonPath = join(INPUT_PROMPT_ROOT, skillId, "inputs.json");
+    let inputsData = null;
+    try {
+      inputsData = JSON.parse(await readFile(inputsJsonPath, "utf-8"));
+    } catch {}
+
+    if (inputsData) {
+      const found = {
+        id: skillId, kind: "input-prompt",
+        name: inputsData.name || skillId,
+        description: inputsData.description || "",
+        version: "1.0.0",
+        skillPath: inputsJsonPath,
+        userInputs: Array.isArray(inputsData.userInputs) ? inputsData.userInputs : [],
+        fullContent: "",
+      };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(found));
+    } else {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Skill not found" }));
+    }
+    return true;
+  }
+
+  // ── PUT /api/skills/:id — create or update ──
+  if (req.method === "PUT" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
+    const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
+    try {
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw);
+      const content = payload.content;
+      const kind = payload.kind || "input-prompt";
+      if (!content || !skillId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing content or skillId" }));
+        return true;
+      }
+      const baseRoot = kind === "physical-skill" ? PHYSICAL_SKILL_ROOT : kind === "skill-pool" ? SKILL_POOL_ROOT : INPUT_PROMPT_ROOT;
+      const skillDir = join(baseRoot, skillId);
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, "SKILL.md"), content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, id: skillId, kind }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── DELETE /api/skills/:id — delete ──
+  if (req.method === "DELETE" && req.url?.match(/^\/api\/skills\/([\w.-]+)(?:\?.*)?$/)) {
+    const skillId = req.url.match(/^\/api\/skills\/([\w.-]+)/)?.[1];
+    try {
+      const roots = [INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT];
+      let deleted = false;
+      for (const root of roots) {
+        const skillDir = join(root, skillId);
+        try {
+          await rm(skillDir, { recursive: true, force: true });
+          deleted = true;
+        } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, deleted }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── GET /api/skill-app/:id — serve app.html from skill ──
+  const skillAppMatch = req.method === "GET" && req.url?.match(/^\/api\/skill-app\/([\w.-]+)(?:\?.*)?$/);
+  if (skillAppMatch) {
+    const skillId = skillAppMatch[1];
+    const roots = [PHYSICAL_SKILL_ROOT, INPUT_PROMPT_ROOT];
+    try {
+      for (const root of roots) {
+        const appPath = join(root, skillId, "app.html");
+        try {
+          const content = await readFile(appPath, "utf-8");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(content);
+          return true;
+        } catch {}
+      }
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "app.html not found for skill: " + skillId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── GET /api/skill-lab/build-files ──
+  if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/build-files")) {
+    try {
+      const skillsDir = join(PAAW_ROOT, "data/skills");
+      const results = [];
+      try {
+        const buildingDir = join(skillsDir, "building");
+        await mkdir(buildingDir, { recursive: true });
+        const bEntries = await readdir(buildingDir, { withFileTypes: true });
+        for (const entry of bEntries) {
+          if (entry.isFile() && /\.md$/i.test(entry.name) && !entry.name.startsWith("_")) {
+            results.push({ name: "building/" + entry.name, path: join(buildingDir, entry.name) });
+          } else if (entry.isDirectory()) {
+            const srcFile = join(buildingDir, entry.name, "skill-source.md");
+            try { await readFile(srcFile, "utf-8"); results.push({ name: "building/" + entry.name + "/skill-source.md", path: srcFile }); } catch {}
+          }
+        }
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(results));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  return false;
+}
