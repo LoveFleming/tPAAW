@@ -11,15 +11,17 @@
  *   4. LLM responds with text → done
  *   5. Repeat 2-4 until maxTurns
  *
+ * Tool set aligned with Claude Code:
+ *   read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user
+ *
  * Security: All tools are PAAW-owned. Every action is audit-logged.
  * Future: wrap in Docker container for sandbox isolation.
  */
 
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, readFileSync as readSync } from "fs";
 import { exec as execCb } from "child_process";
-import { resolve, join, dirname, relative, extname } from "path";
-import { readFileSync } from "fs";
+import { resolve, join, dirname, relative } from "path";
 
 // ── Types ──
 
@@ -52,7 +54,7 @@ import { readFileSync } from "fs";
 function loadProviderConfig(rootDir) {
   const configPath = resolve(rootDir, "data/config/providers.json");
   try {
-    return JSON.parse(readFileSync(configPath, "utf-8"));
+    return JSON.parse(readSync(configPath, "utf-8"));
   } catch {
     return null;
   }
@@ -85,17 +87,21 @@ function resolveLLMConfig(rootDir, modelOverride) {
 }
 
 // ── Tool Definitions (OpenAI function-calling format) ──
+// Aligned with Claude Code tool set
 
 const PAAW_TOOLS = [
+  // ── File Operations ──
   {
     type: "function",
     function: {
       name: "read_file",
-      description: "Read the contents of a file. Returns the text content.",
+      description: "Read file contents. Supports offset/limit for reading specific line ranges of large files.",
       parameters: {
         type: "object",
         properties: {
           path: { type: "string", description: "File path (relative to cwd or absolute)" },
+          offset: { type: "number", description: "Starting line number (1-indexed, default: 1)" },
+          limit: { type: "number", description: "Number of lines to read (default: all)" },
         },
         required: ["path"],
       },
@@ -120,7 +126,7 @@ const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "edit_file",
-      description: "Edit a file by replacing exact text matches. Safer than rewriting entire files.",
+      description: "Edit a file by replacing exact text matches. Safer than rewriting entire files. old_text must be unique in the file.",
       parameters: {
         type: "object",
         properties: {
@@ -132,16 +138,55 @@ const PAAW_TOOLS = [
       },
     },
   },
+
+  // ── Search & Discovery ──
   {
     type: "function",
     function: {
-      name: "list_dir",
-      description: "List files and directories in a path. Returns names, types, and sizes.",
+      name: "glob",
+      description: "Find files matching a glob pattern. Returns matching file paths relative to cwd. Use to discover project structure, find config files, etc.",
       parameters: {
         type: "object",
         properties: {
-          path: { type: "string", description: "Directory path (defaults to cwd)" },
-          recursive: { type: "boolean", description: "List recursively (default: false)" },
+          pattern: { type: "string", description: "Glob pattern (e.g. '**/*.tsx', 'src/**/*.test.*', '*.json')" },
+          path: { type: "string", description: "Base directory to search (defaults to cwd)" },
+        },
+        required: ["pattern"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "grep",
+      description: "Search file contents using ripgrep (rg). Returns matching lines with file paths and line numbers. Supports regex patterns.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string", description: "Search pattern (regex supported by ripgrep)" },
+          path: { type: "string", description: "Directory or file to search (defaults to cwd)" },
+          include: { type: "string", description: "File glob to include (e.g. '*.tsx', '*.mjs')" },
+          case_sensitive: { type: "boolean", description: "Case-sensitive search (default: false)" },
+          max_results: { type: "number", description: "Max number of results (default: 50)" },
+        },
+        required: ["pattern"],
+      },
+    },
+  },
+
+  // ── Diff & Git ──
+  {
+    type: "function",
+    function: {
+      name: "diff",
+      description: "Show differences. Can diff two files, show git working-tree changes, or compare against a commit. Essential for reviewing changes before committing.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "File or directory to diff (for git diff)" },
+          against: { type: "string", description: "Git ref to diff against (e.g. 'HEAD', 'main', 'dev') — defaults to working tree vs HEAD" },
+          file_a: { type: "string", description: "First file path (for file-to-file diff)" },
+          file_b: { type: "string", description: "Second file path (for file-to-file diff)" },
         },
       },
     },
@@ -149,18 +194,36 @@ const PAAW_TOOLS = [
   {
     type: "function",
     function: {
-      name: "exec",
-      description: "Run a shell command and return stdout/stderr. Use for building, testing, git operations, etc.",
+      name: "git",
+      description: "Run a git command. Common: status, log, diff, add, commit, push, branch, checkout. Returns stdout/stderr.",
       parameters: {
         type: "object",
         properties: {
-          command: { type: "string", description: "Shell command to execute" },
-          timeout: { type: "number", description: "Timeout in seconds (default: 30)" },
+          command: { type: "string", description: "Git subcommand and args (e.g. 'status', 'log --oneline -5', 'add -A', 'commit -m \"fix: typo\"')" },
         },
         required: ["command"],
       },
     },
   },
+
+  // ── Shell ──
+  {
+    type: "function",
+    function: {
+      name: "bash",
+      description: "Run a shell command and return stdout/stderr. Use for build, test, install, npm, pip, and any general shell operations. Timeout default: 30s.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: { type: "string", description: "Shell command to execute" },
+          timeout: { type: "number", description: "Timeout in seconds (default: 30, max: 120)" },
+        },
+        required: ["command"],
+      },
+    },
+  },
+
+  // ── User Interaction ──
   {
     type: "function",
     function: {
@@ -176,6 +239,25 @@ const PAAW_TOOLS = [
     },
   },
 ];
+
+// ── Shell Execution Helper ──
+
+function runShell(command, cwd, timeoutMs = 30_000) {
+  return new Promise((resolve) => {
+    const child = execCb(command, {
+      cwd,
+      timeout: Math.min(timeoutMs, 120_000),
+      maxBuffer: 5 * 1024 * 1024,
+      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
+    }, (err, stdout, stderr) => {
+      let output = "";
+      if (stdout) output += stdout;
+      if (stderr) output += (output ? "\n" : "") + stderr;
+      if (err && !output.includes(err.message)) output += (output ? "\n" : "") + `Exit code: ${err.code || 1}`;
+      resolve(output || "(no output)");
+    });
+  });
+}
 
 // ── Tool Execution ──
 
@@ -194,20 +276,39 @@ async function executeTool(call, cwd, rootDir, onEvent) {
     return p.startsWith("/") ? p : resolve(cwd, p);
   };
 
+  // Security: check path is within allowed dirs
+  const isPathAllowed = (p, write = false) => {
+    const abs = resolvePath(p);
+    if (write && !abs.startsWith(cwd)) return false;
+    if (!abs.startsWith(cwd) && !abs.startsWith(rootDir)) return false;
+    return true;
+  };
+
   // Emit tool event for SSE
   if (onEvent) onEvent({ type: "tool_start", name, args });
 
   try {
     switch (name) {
-      // ── read_file ──
+
+      // ══════════════════════════════════════════
+      // ── File Operations ──
+      // ══════════════════════════════════════════
+
       case "read_file": {
         const filePath = resolvePath(args.path);
-        // Security: only allow reading under cwd or rootDir
-        if (!filePath.startsWith(cwd) && !filePath.startsWith(rootDir)) {
-          return `Error: path '${args.path}' is outside allowed directory`;
-        }
+        if (!isPathAllowed(args.path)) return `Error: path '${args.path}' is outside allowed directory`;
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
         const content = await readFile(filePath, "utf-8");
+        // Line-based reading with offset/limit
+        if (args.offset || args.limit) {
+          const lines = content.split("\n");
+          const start = (args.offset || 1) - 1;
+          const end = args.limit ? start + args.limit : lines.length;
+          const selected = lines.slice(start, end);
+          const result = selected.join("\n");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Read ${filePath} lines ${start+1}-${Math.min(end, lines.length)} of ${lines.length}` });
+          return result + (end < lines.length ? `\n... (lines ${end+1}-${lines.length} omitted)` : "");
+        }
         // Truncate very large files
         const maxLen = 100_000;
         const result = content.length > maxLen
@@ -217,25 +318,18 @@ async function executeTool(call, cwd, rootDir, onEvent) {
         return result;
       }
 
-      // ── write_file ──
       case "write_file": {
         const filePath = resolvePath(args.path);
-        // Security: only allow writing under cwd
-        if (!filePath.startsWith(cwd)) {
-          return `Error: path '${args.path}' is outside working directory`;
-        }
+        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
         await mkdir(dirname(filePath), { recursive: true });
         await writeFile(filePath, args.content, "utf-8");
         if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)` });
         return `Successfully wrote ${args.content.length} bytes to ${args.path}`;
       }
 
-      // ── edit_file ──
       case "edit_file": {
         const filePath = resolvePath(args.path);
-        if (!filePath.startsWith(cwd)) {
-          return `Error: path '${args.path}' is outside working directory`;
-        }
+        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
         const content = await readFile(filePath, "utf-8");
         const occurrences = content.split(args.old_text).length - 1;
@@ -247,66 +341,106 @@ async function executeTool(call, cwd, rootDir, onEvent) {
         return `Successfully edited ${args.path} (1 replacement)`;
       }
 
-      // ── list_dir ──
-      case "list_dir": {
-        const dirPath = resolvePath(args.path);
-        if (!dirPath.startsWith(cwd) && !dirPath.startsWith(rootDir)) {
-          return `Error: path is outside allowed directory`;
+      // ══════════════════════════════════════════
+      // ── Search & Discovery ──
+      // ══════════════════════════════════════════
+
+      case "glob": {
+        const basePath = resolvePath(args.path);
+        if (!isPathAllowed(args.path || ".")) return `Error: path is outside allowed directory`;
+        // Use `find` with pattern matching — fast and reliable
+        // Convert glob pattern to find-compatible expression
+        const pattern = args.pattern;
+        // Use ripgrep --files for glob matching (faster than find)
+        const rgArgs = ["--files", "--glob", pattern, "--max-depth", "20"];
+        const cmd = `rg ${rgArgs.map(a => `'${a}'`).join(" ")} '${basePath}'`;
+        let result = await runShell(cmd, cwd, 10_000);
+        // If rg not available, fallback to find
+        if (result.includes("command not found") || result.includes("not recognized")) {
+          const findCmd = `find '${basePath}' -name '${pattern}' -not -path '*/node_modules/*' -not -path '*/.git/*' -type f | head -100`;
+          result = await runShell(findCmd, cwd, 10_000);
         }
-        if (!existsSync(dirPath)) return `Error: directory not found: ${args.path || "."}`;
-        const entries = await readdir(dirPath, { withFileTypes: true });
-        const items = [];
-        for (const entry of entries) {
-          // Skip common noise
-          if (entry.name.startsWith(".") && entry.name !== ".env") continue;
-          if (entry.name === "node_modules" || entry.name === "__pycache__") continue;
-          try {
-            const s = await stat(join(dirPath, entry.name));
-            items.push({
-              name: entry.name,
-              type: entry.isDirectory() ? "dir" : "file",
-              size: s.size,
-            });
-          } catch { items.push({ name: entry.name, type: "unknown" }); }
-        }
-        // Recursive listing
-        if (args.recursive) {
-          const subDirs = items.filter(i => i.type === "dir");
-          for (const sub of subDirs.slice(0, 20)) { // limit depth
-            try {
-              const subEntries = await readdir(join(dirPath, sub.name), { withFileTypes: true });
-              for (const se of subEntries) {
-                if (se.name.startsWith(".")) continue;
-                items.push({
-                  name: `${sub.name}/${se.name}`,
-                  type: se.isDirectory() ? "dir" : "file",
-                });
-              }
-            } catch {}
-          }
-        }
-        const result = items.map(i => `${i.type === "dir" ? "📁" : "📄"} ${i.name}${i.size ? ` (${i.size}B)` : ""}`).join("\n");
-        if (onEvent) onEvent({ type: "tool_end", name, result: `Listed ${items.length} items in ${dirPath}` });
-        return result || "(empty directory)";
+        // Truncate
+        const maxLen = 20_000;
+        const truncated = result.length > maxLen
+          ? result.slice(0, maxLen) + `\n... (truncated)`
+          : result;
+        const count = truncated.split("\n").filter(l => l.trim()).length;
+        if (onEvent) onEvent({ type: "tool_end", name, result: `Found ${count} files matching '${pattern}'` });
+        return truncated;
       }
 
-      // ── exec ──
-      case "exec": {
-        const timeoutMs = (args.timeout || 30) * 1000;
-        const result = await new Promise((resolve) => {
-          const child = execCb(args.command, {
-            cwd,
-            timeout: timeoutMs,
-            maxBuffer: 5 * 1024 * 1024,
-            env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-          }, (err, stdout, stderr) => {
-            let output = "";
-            if (stdout) output += stdout;
-            if (stderr) output += (output ? "\n" : "") + stderr;
-            if (err && !output.includes(err.message)) output += (output ? "\n" : "") + `Exit code: ${err.code || 1}`;
-            resolve(output || "(no output)");
-          });
-        });
+      case "grep": {
+        const searchPath = resolvePath(args.path);
+        if (!isPathAllowed(args.path || ".")) return `Error: path is outside allowed directory`;
+        const maxResults = args.max_results || 50;
+        const caseFlag = args.case_sensitive ? "" : "-i";
+        const includeFlag = args.include ? `--glob '${args.include}'` : "";
+        const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading '${args.pattern}' '${searchPath}'`;
+        let result = await runShell(cmd, cwd, 15_000);
+        // Fallback to grep if rg not available
+        if (result.includes("command not found") || result.includes("not recognized")) {
+          const grepInclude = args.include ? `--include='${args.include}'` : "";
+          const grepCmd = `grep -rn ${caseFlag} ${grepInclude} --max-count=${maxResults} '${args.pattern}' '${searchPath}'`;
+          result = await runShell(grepCmd, cwd, 15_000);
+        }
+        // Truncate
+        const maxLen = 30_000;
+        const truncated = result.length > maxLen
+          ? result.slice(0, maxLen) + `\n... (truncated, ${result.length} bytes total)`
+          : result;
+        if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+        return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Diff & Git ──
+      // ══════════════════════════════════════════
+
+      case "diff": {
+        // File-to-file diff
+        if (args.file_a && args.file_b) {
+          const fileA = resolvePath(args.file_a);
+          const fileB = resolvePath(args.file_b);
+          if (!isPathAllowed(args.file_a) || !isPathAllowed(args.file_b)) return `Error: path outside allowed directory`;
+          const result = await runShell(`diff '${fileA}' '${fileB}'`, cwd, 10_000);
+          if (onEvent) onEvent({ type: "tool_end", name, result: result.slice(0, 300) });
+          return result;
+        }
+        // Git diff
+        const diffPath = args.path ? resolvePath(args.path) : cwd;
+        const against = args.against || "HEAD";
+        const cmd = `git diff '${against}'${args.path ? ` -- '${diffPath}'` : ""}`;
+        const result = await runShell(cmd, cwd, 15_000);
+        const maxLen = 30_000;
+        const truncated = result.length > maxLen
+          ? result.slice(0, maxLen) + `\n... (truncated)`
+          : result;
+        if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+        return truncated || "(no changes)";
+      }
+
+      case "git": {
+        // All git operations go through this tool
+        const cmd = `git ${args.command}`;
+        const timeoutMs = Math.min((args._timeout || 30) * 1000, 60_000);
+        const result = await runShell(cmd, cwd, timeoutMs);
+        const maxLen = 30_000;
+        const truncated = result.length > maxLen
+          ? result.slice(0, maxLen) + `\n... (truncated, ${result.length} bytes total)`
+          : result;
+        if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
+        return truncated;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Shell ──
+      // ══════════════════════════════════════════
+
+      case "bash": {
+        const timeoutSec = Math.min(args.timeout || 30, 120);
+        const timeoutMs = timeoutSec * 1000;
+        const result = await runShell(args.command, cwd, timeoutMs);
         // Truncate large output
         const maxLen = 50_000;
         const truncated = result.length > maxLen
@@ -316,9 +450,11 @@ async function executeTool(call, cwd, rootDir, onEvent) {
         return truncated;
       }
 
-      // ── ask_user ──
+      // ══════════════════════════════════════════
+      // ── User Interaction ──
+      // ══════════════════════════════════════════
+
       case "ask_user": {
-        // In non-interactive mode, we can't ask — return as hint to LLM
         if (onEvent) onEvent({ type: "tool_end", name, result: `Asked: ${args.question}` });
         return `[User interaction not available in agent loop. Please make your best judgment and proceed. Question was: ${args.question}]`;
       }
@@ -370,21 +506,28 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
 
   parts.push(`You are PAAW Agent, an AI coding assistant. You help users write, edit, and debug code.
 
-## Your Capabilities
-- Read, write, and edit files in the working directory
-- List directory contents
-- Execute shell commands (build, test, git, etc.)
-- Ask questions when you need clarification
+## Your Tools (aligned with Claude Code)
+- **read_file** — Read file contents, with optional line offset/limit for large files
+- **write_file** — Write or create files (auto-creates parent dirs)
+- **edit_file** — Precise text replacement in existing files (old_text must be unique)
+- **glob** — Find files by name pattern (e.g. '**/*.tsx', '*.json')
+- **grep** — Search file contents with ripgrep (regex, line numbers, file filtering)
+- **diff** — Show differences: file-to-file or git diff against a branch/commit
+- **git** — Run git commands (status, log, add, commit, push, branch, checkout...)
+- **bash** — Run any shell command (build, test, npm, pip, curl...)
+- **ask_user** — Ask for clarification when needed
 
 ## Rules
 1. Always resolve file paths relative to the working directory: ${cwd}
-2. Before writing code, read existing files to understand the project structure
+2. Before writing code, read existing files and use glob/grep to understand the project structure
 3. Use edit_file for small changes, write_file for new files or large rewrites
-4. Run tests/builds after making changes to verify correctness
-5. Be concise and focused — complete the task efficiently
-6. If something is unclear, use ask_user
-7. Never delete files unless explicitly asked
-8. Keep changes minimal — don't rewrite entire files for small edits`);
+4. Use grep to find relevant code before making changes
+5. Use diff to review your changes before committing
+6. Run tests/builds after making changes to verify correctness (bash)
+7. Be concise and focused — complete the task efficiently
+8. If something is unclear, use ask_user
+9. Never delete files unless explicitly asked
+10. Keep changes minimal — don't rewrite entire files for small edits`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
