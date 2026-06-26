@@ -22,6 +22,7 @@ import { exec as execCb, spawn } from "child_process";
 import yaml from "js-yaml";
 import { CliAdapter } from "./lib/cli-adapter.mjs";
 import { resolveCliBin, isWindows as _isWin } from "./lib/cli-resolve.mjs";
+import { runAgentLoop, runAgentLoopStream } from "./lib/paaw-agent-loop.mjs";
 import { promisify } from "util";
 import { getToolsAndHandlers, invalidateCache } from "./tools/index.mjs";
 import chokidar from "chokidar";
@@ -109,6 +110,10 @@ const server = createServer(async (req, res) => {
   // Cron API
   const handled = await cronApiHandler(req, res);
   if (handled) return;
+
+  // PAAW Agent Loop API
+  const agentHandled = await agentLoopHandler(req, res);
+  if (agentHandled) return;
 
   // Vibe Sessions API
   const vibeHandled = await vibeSessionsApiHandler(req, res);
@@ -4558,46 +4563,32 @@ async function runCronJob(job) {
     return;
   }
 
-  // ── Report type: run CLI with Skill ──
+  // ── Report type: run via PAAW Agent Loop (replaces CLI dependency) ──
   try {
-    const { spawn } = await import("child_process");
-
-    // Load skill content: SKILL.md from physical-skill for prompt body
     const skillId = job.skillId || job.reportAppId;
     const skillDir = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId);
     console.log(`[cron] Skill ${skillId}: workDir=${skillDir}`);
 
-    // Write user inputs to a small JSON file in the skill dir
-    // This avoids passing special chars (double quotes) through Windows shell
+    // Load SKILL.md for system context
+    let skillMd = "";
+    try { skillMd = await readFile(join(skillDir, "SKILL.md"), "utf-8"); } catch {}
+
+    // Build prompt from params
     const inputsFileName = "_cron_inputs.json";
     if (job.params && Object.keys(job.params).length > 0) {
       await writeFile(join(skillDir, inputsFileName), JSON.stringify(job.params, null, 2), "utf-8");
     }
-
-    // Short prompt, no special chars — CLI reads SKILL.md + _cron_inputs.json from cwd
     const prompt = `Please use skill ${skillId} with user inputs from ${inputsFileName}`;
 
-    console.log(`[cron] Skill ${skillId}: workDir=${skillDir}, prompt: ${prompt}`);
+    console.log(`[cron] Skill ${skillId}: running via PAAW Agent Loop`);
 
-    const _cronBin = resolveCliBin("qwen");
-    const _cronWin = process.platform === "win32";
-
-    const cliArgs = ["--approval-mode", "yolo", "-o", "text", "--max-session-turns", "20", prompt];
-    const child = spawn(_cronBin, cliArgs, {
-      cwd: skillDir,
-      env: { ...process.env, HOME: process.env.HOME || process.env.USERPROFILE, QWEN_CODE_SUPPRESS_YOLO_WARNING: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
-      shell: _cronWin,
+    const result = await runAgentLoop({
+      prompt, cwd: skillDir, skillMd,
+      maxTurns: 20, timeout: 120, params: job.params || {},
+      rootDir: PAAW_ROOT,
     });
 
-    let output = "";
-    child.stdout.on("data", c => { output += c.toString(); });
-    child.stderr.on("data", c => { output += c.toString(); });
-
-    await new Promise((resolve, reject) => {
-      child.on("close", resolve);
-      child.on("error", reject);
-    });
+    const output = result.content || "";
 
     // Save result snapshot
     const resultDir = join(CRON_RESULTS_DIR, job.id);
@@ -4622,7 +4613,7 @@ async function runCronJob(job) {
     // Also save raw text output
     await writeFile(join(resultDir, `${runTs}.txt`), output, "utf-8");
 
-    await appendCronLog(job.id, { runId, status: "done", outputLength: output.length, hasHtml, resultFile: `${runTs}.${hasHtml ? "html" : "txt"}` });
+    await appendCronLog(job.id, { runId, status: result.success ? "done" : "error", outputLength: output.length, hasHtml, resultFile: `${runTs}.${hasHtml ? "html" : "txt"}`, turns: result.turns, via: "paaw-agent-loop" });
 
     // Update job's lastRun
     const jobs = await loadCronJobs();
@@ -4827,6 +4818,79 @@ const cronApiHandler = async (req, res) => {
     res.end(JSON.stringify({ ok: true, message: "Job triggered" }));
     return true;
   }
+  return false;
+};
+
+// ── PAAW Agent Loop API ──
+const agentLoopHandler = async (req, res) => {
+  // Helper: read body (defensive — body may already be consumed by earlier handlers)
+  const _readBody = () => new Promise((ok, fail) => {
+    let d = "";
+    req.on("data", c => d += c);
+    req.on("end", () => ok(d));
+    req.on("error", fail);
+  });
+
+  // POST /api/agent-run — run the PAAW agent loop (non-streaming)
+  if (req.method === "POST" && req.url === "/api/agent-run") {
+    let body;
+    try { body = JSON.parse(await _readBody()); } catch { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid JSON" })); return true; }
+
+    const { prompt, cwd, skillId, systemPrompt, model, maxTurns, timeout, params } = body;
+    if (!prompt) { res.writeHead(400); res.end(JSON.stringify({ error: "prompt is required" })); return true; }
+
+    const workDir = cwd || PAAW_ROOT;
+    // Try to load SKILL.md if skillId provided
+    let skillMd = "";
+    if (skillId) {
+      const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
+      try { skillMd = await readFile(skillPath, "utf-8"); } catch {}
+    }
+
+    try {
+      const result = await runAgentLoop({
+        prompt, cwd: workDir, skillMd, systemPrompt, model,
+        maxTurns: maxTurns || 20, timeout: timeout || 120, params, rootDir: PAAW_ROOT,
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/agent-run/stream — run the PAAW agent loop with SSE streaming
+  if (req.method === "POST" && req.url === "/api/agent-run/stream") {
+    let body;
+    try { body = JSON.parse(await _readBody()); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+
+    const { prompt, cwd, skillId, systemPrompt, model, maxTurns, timeout, params } = body;
+    if (!prompt) { res.writeHead(400); res.end("prompt is required"); return true; }
+
+    const workDir = cwd || PAAW_ROOT;
+    let skillMd = "";
+    if (skillId) {
+      const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
+      try { skillMd = await readFile(skillPath, "utf-8"); } catch {}
+    }
+
+    // SSE headers
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
+
+    try {
+      await runAgentLoopStream({
+        prompt, cwd: workDir, skillMd, systemPrompt, model,
+        maxTurns: maxTurns || 20, timeout: timeout || 120, params, rootDir: PAAW_ROOT,
+      }, res);
+    } catch (err) {
+      try { res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`); } catch {}
+    }
+    try { res.end(); } catch {}
+    return true;
+  }
+
   return false;
 };
 

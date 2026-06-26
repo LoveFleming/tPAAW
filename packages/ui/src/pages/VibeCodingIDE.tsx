@@ -440,42 +440,108 @@ export default function VibeCodingIDE() {
   // ═══════════════════════════════════════════════
   // AI Chat Sidebar
   // ═══════════════════════════════════════════════
-  const sendChat = useCallback(async () => {
+  const [chatMode, setChatMode] = useState<"chat" | "agent">("agent");
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentToolLog, setAgentToolLog] = useState<Array<{name: string; args: string; result: string}>>([]);
+
+const sendChat = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
     const userMsg: ChatMessage = { role: "user", content: chatInput.trim(), ts: new Date().toISOString() };
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput("");
-    setChatLoading(true);
     logEvent("ai_chat", { prompt: chatInput.trim().slice(0, 200) });
-    try {
-      const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
-      const res = await fetch(`${API_BASE}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: userMsg.content + context }], providerId: "default", appId: "vibe-coding" }) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantContent = "";
-      let buffer = "";
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (line.startsWith("data: ") && line !== "data: [DONE]") {
-            try { const chunk = JSON.parse(line.slice(6)); if (chunk.content) { assistantContent += chunk.content; setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: assistantContent }] : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; }); } } catch {}
+
+    if (chatMode === "agent") {
+      // ── PAAW Agent Loop (self-owned runtime, no external CLI) ──
+      setChatLoading(true);
+      setAgentRunning(true);
+      setAgentToolLog([]);
+      try {
+        const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
+        const res = await fetch(`${API_BASE}/api/agent-run/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: userMsg.content + context,
+            cwd: rootPath || undefined,
+            maxTurns: 15,
+            timeout: 90,
+          }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Agent error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
+          setChatLoading(false); setAgentRunning(false); return;
+        }
+
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        let assistantContent = "";
+        let buffer = "";
+
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.content && data.done) {
+                  assistantContent = data.content;
+                  setChatMessages(prev => [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]);
+                } else if (data.name && data.args !== undefined) {
+                  setAgentToolLog(prev => [...prev, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args), result: data.result || "..." }]);
+                } else if (data.content) {
+                  assistantContent = data.content;
+                  setChatMessages(prev => {
+                    const last = prev[prev.length - 1];
+                    return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: `💭 ${assistantContent}` }] : prev;
+                  });
+                }
+              } catch {}
+            }
           }
         }
+        if (!assistantContent) {
+          setChatMessages(prev => [...prev, { role: "assistant", content: "(agent completed with no output)", ts: new Date().toISOString() }]);
+        }
+      } catch (err: any) {
+        setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Agent error: ${err.message}`, ts: new Date().toISOString() }]);
       }
-      if (assistantContent) setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" && last.content === assistantContent ? prev : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; });
-    } catch (err: any) { setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]); }
-    setChatLoading(false);
-    // Persist chat to server
-    try {
-      const allMsgs = [...chatMessages];
-      fetch(`${API_BASE}/api/vibe-chat?sessionId=vibe-ide`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: allMsgs }) }).catch(() => {});
-    } catch {}
-  }, [chatInput, chatLoading, activeTab, logEvent, chatMessages]);
+      setChatLoading(false);
+      setAgentRunning(false);
+    } else {
+      // ── Legacy Chat SSE mode ──
+      setChatLoading(true);
+      try {
+        const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
+        const res = await fetch(`${API_BASE}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: userMsg.content + context }], providerId: "default", appId: "vibe-coding" }) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        let assistantContent = "";
+        let buffer = "";
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ") && line !== "data: [DONE]") {
+              try { const chunk = JSON.parse(line.slice(6)); if (chunk.content) { assistantContent += chunk.content; setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: assistantContent }] : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; }); } } catch {}
+            }
+          }
+        }
+        if (assistantContent) setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" && last.content === assistantContent ? prev : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; });
+      } catch (err: any) { setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]); }
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
 
@@ -1370,6 +1436,20 @@ export default function VibeCodingIDE() {
                 <span className="text-xs font-bold text-stone-700">{t("vibe.aiChat")}</span>
                 {activeTab && <span className="text-xs text-stone-400 ml-2 truncate">({activeTab.name})</span>}
                 <span className="flex-1" />
+                {/* Mode toggle: Agent vs Chat */}
+                <div className="flex items-center gap-1 mr-2">
+                  <button onClick={() => setChatMode("agent")}
+                    className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-colors",
+                      chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                    🤖 Agent
+                  </button>
+                  <button onClick={() => setChatMode("chat")}
+                    className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-colors",
+                      chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                    💬 Chat
+                  </button>
+                </div>
+                {agentRunning && <span className="text-[10px] text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
                 <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
               </div>
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ fontSize: 13 }}>
@@ -1394,6 +1474,19 @@ export default function VibeCodingIDE() {
                 {chatLoading && <div className="text-xs text-stone-400 animate-pulse px-3">🤖 {t("vibe.aiThinking")}</div>}
                 <div ref={chatEndRef} />
               </div>
+              {/* Agent Tool Log */}
+              {agentToolLog.length > 0 && (
+                <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: "#f0f0f0", maxHeight: 150, overflowY: "auto" }}>
+                  <div className="text-[10px] font-bold text-purple-500 mb-1">⚡ Agent Tools ({agentToolLog.length})</div>
+                  {agentToolLog.map((t, i) => (
+                    <div key={i} className="text-[10px] text-stone-500 py-0.5 border-b" style={{ borderColor: "#f5f5f5" }}>
+                      <span className="font-semibold text-purple-600">{t.name}</span>
+                      <span className="text-stone-400 ml-1">{t.args?.slice(0, 60)}</span>
+                      {t.result && <span className="text-emerald-500 ml-1">✓ {t.result.slice(0, 50)}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="px-2 py-2 border-t shrink-0" style={{ borderColor: "#f0f0f0" }}>
                 <div className="flex items-end gap-1.5">
                   <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
