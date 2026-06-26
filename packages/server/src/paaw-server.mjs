@@ -4438,10 +4438,14 @@ function matchesCron(expr, date) {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) return false;
   const [mMin, mHour, mDay, mMon, mDow] = parts;
-  const check = (val, spec) => {
+  const check = (val, spec, max) => {
     if (spec === "*") return true;
     for (const s of spec.split(",")) {
-      if (s.includes("-")) {
+      if (s.startsWith("*/")) {
+        // Step syntax: */N matches every N units
+        const step = parseInt(s.slice(2));
+        if (step > 0 && val % step === 0) return true;
+      } else if (s.includes("-")) {
         const [lo, hi] = s.split("-").map(Number);
         if (val >= lo && val <= hi) return true;
       } else if (parseInt(s) === val) return true;
