@@ -3618,7 +3618,7 @@ wss.on("connection", (ws, req) => {
   // ── Local spawn mode ──
   let spawned = false;
 
-  ws.on("message", (raw) => {
+  ws.on("message", async (raw) => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch {
       const session = ptySessions.get(ws);
