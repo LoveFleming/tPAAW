@@ -182,12 +182,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
   useEffect(() => {
     if (seedMessage && activeChatId && !isLoading) {
-      setInput(seedMessage);
       onSeedConsumed?.();
-      // Focus textarea so user can just press Enter to send
-      setTimeout(() => textareaRef.current?.focus(), 50);
+      handleSend(seedMessage);
     }
-  }, [seedMessage, activeChatId, isLoading]);
+  }, [seedMessage, activeChatId, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chat actions ──
   const createNewChat = async () => {
@@ -239,8 +237,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   };
 
   // ── Send message (SSE streaming) ──
-  const handleSend = async () => {
-    const text = input.trim();
+  const handleSend = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || !activeChatId || isLoading) return;
 
     const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };

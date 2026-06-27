@@ -182,7 +182,7 @@ function ContextMenu({ menu, onAction, onClose }: {
   items.push({ label: ti18n("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: ti18n("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: "複製路徑", icon: "📎", action: "copyPath" });
-  items.push({ label: "🤖 AI 摘要", icon: "🤖", action: "aiSummary" });
+  items.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
   items.push({ label: ti18n("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (

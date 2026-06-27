@@ -89,7 +89,7 @@ function CtxMenu({ menu, onAction, onClose }: {
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: "Copy Path", icon: "📎", action: "copyPath" });
-  items.push({ label: "🤖 AI 摘要", icon: "🤖", action: "aiSummary" });
+  items.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
   items.push({ label: t("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (
