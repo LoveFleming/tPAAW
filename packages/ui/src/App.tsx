@@ -12,6 +12,7 @@ import CronJobsPage from "./pages/CronJobsPage";
 import VibeCoding from "./pages/VibeCoding";
 import VibeCodingIDE from "./pages/VibeCodingIDE";
 import BriefingPlayer from "./pages/BriefingPlayer";
+import MindMapViewer from "./pages/MindMapViewer";
 import FileEditor from "./pages/FileEditor";
 import WorkflowEditor from "./pages/WorkflowEditor";
 import WorkflowExec from "./pages/WorkflowExec";
@@ -421,6 +422,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openMindMap = useCallback(() => {
+    const tabId = `${currentScope}:mind-map`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openWorkflowEditor = useCallback(() => {
     const tabId = `${currentScope}:wf-editor`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -464,6 +471,7 @@ function AppInner() {
     if (pageType === "ai-settings") return "AI Settings";
     if (pageType === "vibe-coding") return t("sidebar.vibeCoding");
     if (pageType === "briefing-player") return t("sidebar.briefingPlayer", "Briefing Player");
+    if (pageType === "mind-map") return "Mind Map";
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
     if (pageType.startsWith("skillapp.")) {
@@ -563,6 +571,9 @@ function AppInner() {
     }
     if (pageType === "briefing-player") {
       return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;
+    }
+    if (pageType === "mind-map") {
+      return <MindMapViewer />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;
@@ -759,6 +770,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":vibe-coding")} label={t("sidebar.vibeCoding")} onClick={openVibeCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":mind-map")} label="Mind Map" onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
