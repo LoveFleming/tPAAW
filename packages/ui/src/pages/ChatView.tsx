@@ -502,14 +502,14 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                       {msg.role === "assistant" ? (
                         <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
                           {msg.content ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ node, href, ...props }) => {
-                              if (href && href.startsWith("paaw://")) {
+                              // 攔截筆記 deep link: #/notes?note=xxx&notebook=yyy
+                              if (href && href.startsWith("#/notes")) {
                                 try {
-                                  const u = new URL(href);
-                                  const path = u.hostname;
+                                  const u = new URL("http://dummy" + href.slice(1)); // /notes?note=xxx
                                   const params: Record<string, string> = {};
                                   u.searchParams.forEach((v, k) => { params[k] = v; });
-                                  return <a {...props} href="#" onClick={(e) => { e.preventDefault(); onDeepLink?.(path, params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
-                                } catch { return <a {...props} target="_blank" rel="noopener noreferrer" />; }
+                                  return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink?.("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
+                                } catch { /* fallback */ }
                               }
                               return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
                             } }}>{msg.content}</ReactMarkdown> : (

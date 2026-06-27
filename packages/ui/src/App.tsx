@@ -417,6 +417,32 @@ function AppInner() {
 
   const [briefingInitialDir, setBriefingInitialDir] = useState<string | null>(null);
   const [deepLinkNote, setDeepLinkNote] = useState<{ noteId: string; notebookId: string } | null>(null);
+
+  // Hash-based deep link: #/notes?note=xxx&notebook=yyy
+  const handleHashDeepLink = useCallback(() => {
+    const hash = window.location.hash;
+    if (!hash || !hash.startsWith("#/notes")) return false;
+    try {
+      const u = new URL("http://dummy" + hash.slice(1));
+      const noteId = u.searchParams.get("note");
+      const notebookId = u.searchParams.get("notebook") || "default";
+      if (!noteId) return false;
+      const tabId = `${currentScope}:notes`;
+      setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+      setActivePage(tabId);
+      setDeepLinkNote({ noteId, notebookId });
+      window.location.hash = ""; // 清掉 hash
+      return true;
+    } catch { return false; }
+  }, [currentScope]);
+
+  useEffect(() => {
+    const handler = () => handleHashDeepLink();
+    window.addEventListener("hashchange", handler);
+    // 初始載入也檢查
+    handleHashDeepLink();
+    return () => window.removeEventListener("hashchange", handler);
+  }, [handleHashDeepLink]);
   const openBriefingPlayer = useCallback((dir?: string) => {
     if (dir) setBriefingInitialDir(dir); else setBriefingInitialDir(null);
     const tabId = `${currentScope}:briefing-player`;

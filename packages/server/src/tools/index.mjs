@@ -1180,7 +1180,7 @@ function buildHandlers(apps) {
       const results = data.results || [];
       if (results.length === 0) return { text: `找不到包含「${q}」的筆記` };
       const lines = results.map(r => {
-        const link = `paaw://notes?note=${r.id}&notebook=${r.notebookId}`;
+        const link = `#/notes?note=${r.id}&notebook=${r.notebookId}`;
         return `📝 **${r.title}**\n   📁 ${r.notebookName || ""}\n   ${r.excerpt}...\n   🔗 [開啟筆記](${link})`;
       });
       return { text: `找到 ${results.length} 則相關筆記：\n\n${lines.join("\n\n")}`, results };
@@ -1196,7 +1196,7 @@ function buildHandlers(apps) {
       if (!data.note) return { text: "找不到這則筆記", error: true };
       const note = data.note;
       const plain = (note.content || "").replace(/<[^>]+>/g, "");
-      const link = `paaw://notes?note=${note.id}&notebook=${note.notebookId}`;
+      const link = `#/notes?note=${note.id}&notebook=${note.notebookId}`;
       return { text: `📝 **${note.title}**\n📁 ${note.notebookId}\n🕐 ${note.updatedAt}\n\n${plain.slice(0, 500)}${plain.length > 500 ? "..." : ""}\n\n🔗 [開啟筆記](${link})`, note };
     } catch (err) {
       return { text: `❌ 讀取失敗：${err.message}`, error: true };
@@ -1210,7 +1210,7 @@ function buildHandlers(apps) {
       const notes = data.notes || [];
       if (notes.length === 0) return { text: "沒有筆記" };
       const lines = notes.map(n => {
-        const link = `paaw://notes?note=${n.id}&notebook=${n.notebookId}`;
+        const link = `#/notes?note=${n.id}&notebook=${n.notebookId}`;
         return `📝 **${n.title}**\n   📁 ${n.notebookName || ""} · 🕐 ${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString("zh-TW") : ""}\n   ${n.excerpt || ""}...\n   🔗 [開啟筆記](${link})`;
       });
       return { text: `最近 ${notes.length} 則筆記：\n\n${lines.join("\n\n")}`, notes };
@@ -1245,7 +1245,7 @@ function buildHandlers(apps) {
       const createData = await createResp.json();
       if (!createData.ok) return { text: `❌ 建立筆記失敗`, error: true };
 
-      const link = `paaw://notes?note=${createData.note.id}&notebook=${createData.note.notebookId}`;
+      const link = `#/notes?note=${createData.note.id}&notebook=${createData.note.notebookId}`;
       const preview = (aiData.content || "").replace(/<[^>]+>/g, "").slice(0, 200);
       return { text: `✅ 已建立筆記！\n\n📝 **${createData.note.title}**\n${preview}...\n\n🔗 [開啟筆記](${link})`, note: createData.note };
     } catch (err) {

@@ -67,9 +67,9 @@
 - `notes_get({ id: "xxx", notebook: "default" })` — 讀取完整筆記
 - `notes_recent({ limit: 10 })` — 最近編輯的筆記
 - `notes_create({ content, prompt?, notebook?, section?, title?, tags? })` — AI 幫忙寫筆記
-- 搜尋結果包含 `🔗 [開啟筆記](paaw://notes?note=xxx&notebook=yyy)` 連結
+- 搜尋結果包含 `🔗 [開啟筆記](#/notes?note=xxx&notebook=yyy)` 連結
 - 使用者點擊連結會直接打開 Notes app 並顯示該筆記
 - 當使用者問「我有沒有寫過關於 X 的筆記」→ 用 `notes_search`
 - 當使用者問「我上次記的什麼什麼」→ 用 `notes_search` 或 `notes_recent`
 - 當使用者說「幫我記下來」「整理成筆記」「幫我寫筆記」→ 用 `notes_create`
-- `notes_create` 會先讓 AI 整理內容，再自動建立筆記，回傳可點擊連結
+- `notes_create` 會先讓 AI 整理內容，再自動建立筆記，回傳 `#/notes?note=xxx&notebook=yyy` 連結
