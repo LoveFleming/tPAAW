@@ -93,6 +93,21 @@ export default function MindMapViewer() {
       maxWidth: 300,
       spacingHorizontal: 80,
       spacingVertical: 20,
+      style: (id: string) => `
+        .${id} {
+          --markmap-text-color: #f1f5f9;
+          --markmap-circle-open-bg: ${themeInfo.accent};
+          --markmap-a-color: ${themeInfo.accent};
+          --markmap-a-hover-color: ${themeInfo.accentHover};
+          --markmap-code-bg: #1e293b;
+          --markmap-code-color: #e2e8f0;
+          --markmap-font: 400 15px/22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .${id} foreignObject div { color: #f1f5f9 !important; }
+        .${id} .markmap-node text { fill: #f1f5f9; }
+        .${id} .markmap-node > circle { stroke-width: 2.5; }
+        .${id} .markmap-link { stroke-width: 2; opacity: 0.6; }
+      `,
     };
 
     if (!mmRef.current) {
