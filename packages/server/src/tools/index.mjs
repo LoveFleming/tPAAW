@@ -100,7 +100,7 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "notes_search",
-      description: "搜尋筆記。可以搜尋標題、內容、標籤。結果包含可點擊的連結，點擊可直接打開該筆記。",
+      description: "搜尋筆記。可以搜尋標題、內容、標籤。結果包含可點擊的連結，點擊可直接打開該筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
       parameters: {
         type: "object",
         properties: {
@@ -146,7 +146,7 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "notes_create",
-      description: "AI 幫忙寫筆記。提供原始內容，AI 會整理成結構化筆記並儲存。也可以從聊天中直接把內容整理成筆記。",
+      description: "AI 幫忙寫筆記。提供原始內容，AI 會整理成結構化筆記並儲存。也可以從聊天中直接把內容整理成筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
       parameters: {
         type: "object",
         properties: {

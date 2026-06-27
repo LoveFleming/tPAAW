@@ -73,3 +73,20 @@ PAAW 可用的 CLI（Skill 執行時可能呼叫）：
 - `qwen` — Qwen Code CLI
 - `claude` — Claude Code CLI
 - `opencode` — OpenCode CLI
+
+## 筆記連結格式（嚴格）
+
+當 notes_search / notes_get / notes_recent / notes_create 工具回傳搜尋結果時，結果中會包含連結。
+
+**連結格式固定為：** `#/notes?note=NOTE_ID&notebook=NOTEBOOK_ID`
+
+- ✅ 正確：`[開啟筆記](#/notes?note=note_xxx&notebook=default)`
+- ❌ 錯誤：`[開啟筆記](paaw://notes?note=note_xxx&notebook=default)`
+- ❌ 錯誤：`[開啟筆記](http://localhost:5173/notes?note=note_xxx)`
+
+**絕對不要：**
+- 把 `#/notes?...` 改成 `paaw://` 或任何其他格式
+- 自己編造連結格式
+- 修改 tool 回傳的連結 URL
+
+請直接使用 tool 回傳文字中的連結，原樣輸出給使用者。
