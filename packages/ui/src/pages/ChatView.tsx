@@ -188,38 +188,21 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   }, [input]);
 
   // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
-  const sendingSeedRef = useRef(false);
-  const [localSeed, setLocalSeed] = useState<string | null>(null);
+  // Strategy: set input text → ensure chat exists → defer send until state is ready
+  const deferredSendRef = useRef<string | null>(null);
 
-  // Check module-level pending seed on mount + when event fires
+  // Pick up module-level seed
   useEffect(() => {
-    const check = () => {
-      if (_pendingSeed) {
-        setLocalSeed(_pendingSeed);
-        _pendingSeed = null;
-      }
-    };
-    // Check immediately (covers case where event fired before mount)
-    check();
-    // Listen for future events
-    window.addEventListener("paaw-seed-chat-ready", check);
-    return () => window.removeEventListener("paaw-seed-chat-ready", check);
-  }, []);
+    const consumeSeed = async () => {
+      if (!_pendingSeed || isLoading) return;
+      const text = _pendingSeed.trim();
+      _pendingSeed = null;
+      if (!text) return;
 
-  // Process seed
-  useEffect(() => {
-    if (!localSeed || sendingSeedRef.current || isLoading) return;
-    const text = localSeed.trim();
-    if (!text) return;
+      setInput(text);
 
-    setLocalSeed(null);
-    sendingSeedRef.current = true;
-
-    const timer = setTimeout(async () => {
-      let chatId = activeChatId;
-      let baseMsgs = messages;
-
-      if (!chatId) {
+      if (!activeChatId) {
+        // Create a new chat first; actual send deferred to the effect below
         const newId = `chat_${Date.now()}`;
         const greeting: Message = {
           role: "assistant",
@@ -232,67 +215,28 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         } catch {}
         setChats(prev => [newChat, ...prev]);
         setActiveChatId(newId);
-        chatId = newId;
-        baseMsgs = [greeting];
         setMessages([greeting]);
+        deferredSendRef.current = text; // will be picked up by the effect below
+      } else {
+        // Chat already active — send after a microtask
+        deferredSendRef.current = text;
       }
+    };
 
-      const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };
-      const newMsgs = [...baseMsgs, userMsg];
-      setMessages(newMsgs);
-      setIsLoading(true);
-      scrollToBottom(false);
+    consumeSeed();
+    window.addEventListener("paaw-seed-chat-ready", consumeSeed);
+    return () => window.removeEventListener("paaw-seed-chat-ready", consumeSeed);
+  }, [isLoading, activeChatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      const withAssistant = [...newMsgs, { role: "assistant" as const, content: "", timestamp: new Date().toISOString() }];
-      setMessages(withAssistant);
-
-      try {
-        const ctrl = new AbortController();
-        abortRef.current = ctrl;
-        const resp = await fetch(`${API_BASE}/api/paaw/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: text,
-            chatId,
-            history: newMsgs.map(m => ({ role: m.role, content: m.content })),
-          }),
-          signal: ctrl.signal,
-        });
-        if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let full = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          full += decoder.decode(value, { stream: true });
-          setMessages(prev => {
-            const u = [...prev];
-            u[u.length - 1] = { ...u[u.length - 1], content: full };
-            return u;
-          });
-        }
-        try {
-          const finalMsgs = [...newMsgs, { role: "assistant", content: full, timestamp: new Date().toISOString() }];
-          await fetch(`${API_BASE}/api/paaw/chats/${chatId}`, {
-            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: finalMsgs, title: text.slice(0, 30) }),
-          });
-          setChats(prev => prev.map((c: any) => c.id === chatId ? { ...c, messages: finalMsgs, title: text.slice(0, 30) } : c));
-        } catch {}
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
-          setMessages(prev => { const u = [...prev]; u[u.length - 1] = { ...u[u.length - 1], content: "⚠️ " + (err.message || "發送失敗") }; return u; });
-        }
-      } finally {
-        setIsLoading(false);
-        sendingSeedRef.current = false;
-        scrollToBottom(true);
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [localSeed, activeChatId, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Deferred send — fires when activeChatId / isLoading settle
+  useEffect(() => {
+    if (deferredSendRef.current && activeChatId && !isLoading) {
+      const text = deferredSendRef.current;
+      deferredSendRef.current = null;
+      const t = setTimeout(() => handleSend(text), 50);
+      return () => clearTimeout(t);
+    }
+  }, [activeChatId, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chat actions ──
   const createNewChat = async () => {
