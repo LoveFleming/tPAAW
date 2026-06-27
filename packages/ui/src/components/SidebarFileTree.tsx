@@ -182,6 +182,7 @@ function ContextMenu({ menu, onAction, onClose }: {
   items.push({ label: ti18n("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: ti18n("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: "複製路徑", icon: "📎", action: "copyPath" });
+  items.push({ label: "🤖 AI 摘要", icon: "🤖", action: "aiSummary" });
   items.push({ label: ti18n("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (
@@ -362,9 +363,10 @@ interface Props {
   onRemoveWorkspace?: (dir: string) => void;
   onEditFile?: (path: string) => void;
   onOpenInBriefingPlayer?: (dir: string) => void;
+  onAiSummary?: (path: string, name: string, isDir: boolean) => void;
 }
 
-export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer }: Props) {
+export default function SidebarFileTree({ projectRoot, activeFilePath, openFilePaths, onSelectFile, startDepth = 0, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer, onAiSummary }: Props) {
   const { info: t } = useTheme();
   const { t: ti18n } = useI18n();
   const [tree, setTree] = useState<TreeNode | null>(null);
@@ -536,6 +538,10 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         try { await navigator.clipboard.writeText(fullPath); } catch {}
         break;
       }
+      case "aiSummary": {
+        onAiSummary?.(fullPath, name, isDir);
+        break;
+      }
       case "duplicate": {
         try {
           const ext = name.includes(".") ? "." + name.split(".").pop() : "";
@@ -555,7 +561,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         break;
       }
     }
-  }, [projectRoot, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer, refreshTree]);
+  }, [projectRoot, onRemoveWorkspace, onEditFile, onOpenInBriefingPlayer, onAiSummary, refreshTree]);
 
   // ── Rename handler ──
   const handleRename = useCallback(async (oldPath: string, newName: string) => {

@@ -38,9 +38,11 @@ interface Props {
   embedded?: boolean;
   onTitleChange?: (title: string) => void;
   onDeepLink?: (path: string, params: Record<string, string>) => void;
+  seedMessage?: string | null;
+  onSeedConsumed?: () => void;
 }
 
-export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink }: Props) {
+export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed }: Props) {
   const { info: themeInfo } = useTheme();
   const assistantName = profile.assistantName || "林語晴";
 
@@ -176,6 +178,16 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 150) + "px";
     }
   }, [input]);
+
+  // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
+  useEffect(() => {
+    if (seedMessage && activeChatId && !isLoading) {
+      setInput(seedMessage);
+      onSeedConsumed?.();
+      // Focus textarea so user can just press Enter to send
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+  }, [seedMessage, activeChatId, isLoading]);
 
   // ── Chat actions ──
   const createNewChat = async () => {

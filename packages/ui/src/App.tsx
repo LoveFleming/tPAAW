@@ -141,6 +141,7 @@ function AppInner() {
   const [activePage, setActivePage] = useState<string>("_chat");
   const [openTabs, setOpenTabs] = useState<string[]>(["_chat"]);
   const [chatTitle, setChatTitle] = useState<string>("新對話");
+  const [chatSeedMessage, setChatSeedMessage] = useState<string | null>(null);
 
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
   const visibleTabs = useMemo(() => {
@@ -574,7 +575,7 @@ function AppInner() {
 
     // ── Chat (home) ──
     if (fullId === "_chat") {
-      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} onDeepLink={(path, params) => {
+      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} seedMessage={chatSeedMessage} onSeedConsumed={() => setChatSeedMessage(null)} onDeepLink={(path, params) => {
         if (path === "notes" && params.note) {
           const tabId = `${currentScope}:notes`;
           setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -800,7 +801,7 @@ function AppInner() {
 
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
-              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)} />
+              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)} onAiSummary={(path, name, isDir) => { setChatSeedMessage(isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`); setActivePage("_chat"); }} />
             </SidebarSection>
 
             {/* 🏗 Build */}
@@ -881,6 +882,7 @@ function AppInner() {
                         onRemoveWorkspace={removeWorkspace}
                         onEditFile={handleEditFile}
                         onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)}
+                        onAiSummary={(path, name, isDir) => { setChatSeedMessage(isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`); setActivePage("_chat"); }}
                       />
                       <button
                         onClick={() => removeWorkspace(dir)}

@@ -89,6 +89,7 @@ function CtxMenu({ menu, onAction, onClose }: {
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
   items.push({ label: "Copy Path", icon: "📎", action: "copyPath" });
+  items.push({ label: "🤖 AI 摘要", icon: "🤖", action: "aiSummary" });
   items.push({ label: t("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (
@@ -222,10 +223,11 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
 }
 
 // ── Main KnowledgeTree Component ──
-export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefingPlayer }: { 
+export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefingPlayer, onAiSummary }: { 
   onOpenFile?: (path: string) => void;
   onEditFile?: (path: string) => void;
   onOpenInBriefingPlayer?: (dir: string) => void;
+  onAiSummary?: (path: string, name: string, isDir: boolean) => void;
 }) {
   const { t } = useI18n();
   const [tree, setTree] = useState<TreeNode | null>(null);
@@ -369,6 +371,10 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
       }
       case "copyPath": {
         try { await navigator.clipboard.writeText(node.path); } catch {}
+        break;
+      }
+      case "aiSummary": {
+        onAiSummary?.(node.path, node.name, node.type === "dir");
         break;
       }
       case "duplicate": {
