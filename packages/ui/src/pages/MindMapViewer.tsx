@@ -2,12 +2,13 @@
  * MindMapViewer — AI 心智圖（markmap引擎）
  *
  * 使用 markmap-view 渲染，AI 輸出 Markdown 自動排版。
- * 支援：縮放、拖曳、展開/收合、SVG 匯出、儲存/載入。
+ * 顏色跟隨 PAAW 主題，支援縮放、拖曳、展開/收合、SVG 匯出、儲存/載入。
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Transformer } from "markmap-lib";
 import { Markmap } from "markmap-view";
+import { useTheme, THEMES } from "../theme";
 
 const transformer = new Transformer();
 
@@ -26,9 +27,32 @@ interface FileItem {
   isDir: boolean;
 }
 
+// ── 根據主題 accent 產生 markmap 色系（5 色） ──
+
+function themeColors(accent: string): string[] {
+  // 從主題 accent 為基準，產生 5 個和諧色
+  const palette: Record<string, string[]> = {
+    "sunny":           ["#F59E0B", "#3B82F6", "#10B981", "#EF4444", "#8B5CF6"],
+    "sky":             ["#3B82F6", "#06B6D4", "#8B5CF6", "#F59E0B", "#EC4899"],
+    "calm-anxiety":    ["#4A7BA7", "#5B9BD5", "#6BBFB8", "#A8C5E0", "#7B9EA8"],
+    "calm-tension":    ["#2D6A4F", "#52B788", "#74C69D", "#95D5B2", "#40916C"],
+    "calm-anger":      ["#78716C", "#A8A29E", "#B89B7A", "#9C8B7A", "#6B5D54"],
+    "boost-creative":  ["#7C3AED", "#A78BFA", "#06B6D4", "#EC4899", "#F59E0B"],
+    "calm-exhaustion": ["#B45309", "#D97706", "#92400E", "#C2841A", "#78350F"],
+  };
+  // 找最接近的 accent
+  for (const [, colors] of Object.entries(palette)) {
+    if (colors[0].toLowerCase() === accent.toLowerCase()) return colors;
+  }
+  // Fallback: 用 accent 為首色，加通用色
+  return [accent, "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
+}
+
 // ── Main Component ──
 
 export default function MindMapViewer() {
+  const { info: themeInfo, theme: themeId } = useTheme();
+
   // Mind map state
   const [markdown, setMarkdown] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -50,18 +74,41 @@ export default function MindMapViewer() {
   const svgRef = useRef<SVGSVGElement>(null);
   const mmRef = useRef<Markmap | null>(null);
 
-  // ── Init markmap when markdown changes ──
+  // ── 建立或更新 markmap ──
   useEffect(() => {
     if (!markdown || !svgRef.current) return;
 
     const { root } = transformer.transform(markdown);
+    const colors = themeColors(themeInfo.accent);
+
+    const options = {
+      color: (node: any) => {
+        const depth = node?.state?.depth ?? 0;
+        return colors[depth % colors.length];
+      },
+      initialExpandLevel: 3,   // 預設展開三層
+      pan: true,                // 拖拉
+      zoom: true,               // 縮放
+      duration: 300,
+      maxWidth: 300,
+      spacingHorizontal: 80,
+      spacingVertical: 20,
+    };
 
     if (!mmRef.current) {
-      mmRef.current = Markmap.create(svgRef.current, {});
+      mmRef.current = Markmap.create(svgRef.current, options);
+    } else {
+      mmRef.current.setOptions(options);
     }
     mmRef.current.setData(root);
-    setTimeout(() => mmRef.current?.fit(), 100);
-  }, [markdown]);
+    setTimeout(() => mmRef.current?.fit(), 200);
+  }, [markdown, themeId]);  // 主題變了也重建
+
+  // ── 主題變了時更新背景色 ──
+  useEffect(() => {
+    if (!svgRef.current) return;
+    svgRef.current.style.background = "transparent";
+  }, [themeId]);
 
   // ── Browse directories ──
   const browsePath = useCallback(async (path: string) => {
@@ -180,6 +227,12 @@ export default function MindMapViewer() {
     if (!svgRef.current) return;
     const svgEl = svgRef.current.cloneNode(true) as SVGElement;
     svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    // 填入背景色
+    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bg.setAttribute("width", "100%");
+    bg.setAttribute("height", "100%");
+    bg.setAttribute("fill", themeInfo.accentBg);
+    svgEl.insertBefore(bg, svgEl.firstChild);
     const svgData = new XMLSerializer().serializeToString(svgEl);
     const blob = new Blob([svgData], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
@@ -188,22 +241,27 @@ export default function MindMapViewer() {
     a.download = "mindmap.svg";
     a.click();
     URL.revokeObjectURL(url);
-  }, []);
+  }, [themeInfo]);
 
   // ════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0f172a", color: "#e2e8f0" }}>
+    <div style={{
+      display: "flex", flexDirection: "column", height: "100%",
+      background: themeInfo.accentBg, color: "#e2e8f0",
+    }}>
       {/* ── Toolbar ── */}
       <div style={{
         display: "flex", alignItems: "center", gap: 8, padding: "8px 16px",
-        background: "#1e293b", borderBottom: "1px solid #334155", flexShrink: 0,
+        background: "#1e293b", borderBottom: `2px solid ${themeInfo.accent}`, flexShrink: 0,
       }}>
-        <span style={{ fontSize: 18, fontWeight: 700, marginRight: 8 }}>🧠 Mind Map</span>
+        <span style={{ fontSize: 18, fontWeight: 700, marginRight: 8, color: themeInfo.accent }}>
+          🧠 Mind Map
+        </span>
         {markdown && (
-          <button onClick={() => { setMarkdown(""); setSelectedFiles([]); setSelectedDir(null); }} style={btnStyle}>
+          <button onClick={() => { setMarkdown(""); setSelectedFiles([]); setSelectedDir(null); mmRef.current = null; }} style={btnStyle}>
             ← 新建
           </button>
         )}
@@ -223,10 +281,10 @@ export default function MindMapViewer() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 24px", maxWidth: 900, margin: "0 auto", width: "100%", minHeight: 0 }}>
           {/* Mode Tabs */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexShrink: 0 }}>
-            <button onClick={() => setMode("select")} style={mode === "select" ? activeTabStyle : tabStyle}>
+            <button onClick={() => setMode("select")} style={mode === "select" ? { ...activeTabStyle, background: themeInfo.accent, borderColor: themeInfo.accent } : tabStyle}>
               📁 選擇檔案/目錄
             </button>
-            <button onClick={() => setMode("text")} style={mode === "text" ? activeTabStyle : tabStyle}>
+            <button onClick={() => setMode("text")} style={mode === "text" ? { ...activeTabStyle, background: themeInfo.accent, borderColor: themeInfo.accent } : tabStyle}>
               ✏️ 貼上文字
             </button>
           </div>
@@ -251,13 +309,13 @@ export default function MindMapViewer() {
                   onClick={() => { setSelectedDir(browserPath); setSelectedFiles([]); }}
                   style={{
                     padding: "8px 12px", cursor: "pointer", borderRadius: 4,
-                    background: selectedDir === browserPath ? "#4F46E533" : "transparent",
+                    background: selectedDir === browserPath ? `${themeInfo.accent}33` : "transparent",
                     display: "flex", alignItems: "center", gap: 8,
                   }}
                 >
                   <span>📂</span>
                   <span style={{ fontWeight: 600 }}>選擇整個目錄: {browserPath.split("/").pop() || "/"}</span>
-                  {selectedDir === browserPath && <span style={{ color: "#818cf8" }}>✓</span>}
+                  {selectedDir === browserPath && <span style={{ color: themeInfo.accent }}>✓</span>}
                 </div>
 
                 {browserDirs.map(d => (
@@ -283,7 +341,7 @@ export default function MindMapViewer() {
                       }}
                       style={{
                         padding: "6px 12px", cursor: "pointer", borderRadius: 4,
-                        background: selected ? "#4F46E533" : "transparent",
+                        background: selected ? `${themeInfo.accent}33` : "transparent",
                         display: "flex", alignItems: "center", gap: 8,
                       }}
                       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "#334155"; }}
@@ -322,7 +380,7 @@ export default function MindMapViewer() {
                 disabled={loading || (!selectedDir && selectedFiles.length === 0)}
                 style={{
                   ...btnStyle, marginTop: 10, flexShrink: 0,
-                  background: loading || (!selectedDir && selectedFiles.length === 0) ? "#334155" : "#4F46E5",
+                  background: loading || (!selectedDir && selectedFiles.length === 0) ? "#334155" : themeInfo.accent,
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || (!selectedDir && selectedFiles.length === 0) ? "not-allowed" : "pointer",
                 }}
@@ -370,7 +428,7 @@ export default function MindMapViewer() {
                 disabled={loading || inputText.trim().length < 10}
                 style={{
                   ...btnStyle, marginTop: 10, flexShrink: 0,
-                  background: loading || inputText.trim().length < 10 ? "#334155" : "#4F46E5",
+                  background: loading || inputText.trim().length < 10 ? "#334155" : themeInfo.accent,
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || inputText.trim().length < 10 ? "not-allowed" : "pointer",
                 }}
@@ -383,7 +441,7 @@ export default function MindMapViewer() {
           {loading && (
             <div style={{
               marginTop: 24, textAlign: "center", padding: 40,
-              color: "#818cf8", fontSize: 15,
+              color: themeInfo.accent, fontSize: 15,
             }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🧠⚡</div>
               AI 正在分析內容並整理知識結構...
@@ -392,7 +450,7 @@ export default function MindMapViewer() {
         </div>
       ) : (
         /* ── Mind Map Canvas (markmap) ── */
-        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#0f172a" }}>
+        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: themeInfo.accentBg }}>
           <svg
             ref={svgRef}
             style={{ width: "100%", height: "100%" }}
@@ -420,7 +478,7 @@ export default function MindMapViewer() {
               <button
                 onClick={saveMindMap}
                 disabled={!saveName.trim()}
-                style={{ ...btnStyle, background: saveName.trim() ? "#4F46E5" : "#334155" }}
+                style={{ ...btnStyle, background: saveName.trim() ? themeInfo.accent : "#334155" }}
               >儲存</button>
             </div>
           </div>
@@ -447,7 +505,7 @@ export default function MindMapViewer() {
                       padding: "10px 14px", background: "#0f172a", borderRadius: 6,
                       cursor: "pointer", border: "1px solid #334155",
                     }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = "#4F46E5"}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = themeInfo.accent}
                     onMouseLeave={e => e.currentTarget.style.borderColor = "#334155"}
                   >
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</div>
