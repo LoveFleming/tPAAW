@@ -423,20 +423,7 @@ export default function MindMapViewer() {
             >✏️ 貼上文字</button>
           </div>
 
-          {/* Prompt Input */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
-              AI 提示詞
-            </label>
-            <input
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              style={{
-                width: "100%", padding: "8px 12px", background: "#1e293b",
-                border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 14,
-              }}
-            />
-          </div>
+          {/* Prompt Input — 移到下方 */}
 
           {mode === "select" ? (
             /* File Browser */
@@ -514,6 +501,23 @@ export default function MindMapViewer() {
                 {selectedFiles.length > 0 && `已選 ${selectedFiles.length} 個檔案`}
               </div>
 
+              {/* AI Prompt */}
+              <div style={{ marginTop: 16 }}>
+                <label style={{ display: "block", fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
+                  AI 提示詞
+                </label>
+                <textarea
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  rows={16}
+                  style={{
+                    width: "100%", padding: "10px 12px", background: "#1e293b",
+                    border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0",
+                    fontSize: 14, fontFamily: "monospace", resize: "vertical", lineHeight: 1.6,
+                  }}
+                />
+              </div>
+
               <button
                 onClick={generateFromFiles}
                 disabled={loading || (!selectedDir && selectedFiles.length === 0)}
@@ -541,6 +545,23 @@ export default function MindMapViewer() {
                   fontSize: 14, fontFamily: "monospace", resize: "vertical",
                 }}
               />
+
+              {/* AI Prompt */}
+              <div style={{ marginTop: 16 }}>
+                <label style={{ display: "block", fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
+                  AI 提示詞
+                </label>
+                <textarea
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  rows={16}
+                  style={{
+                    width: "100%", padding: "10px 12px", background: "#1e293b",
+                    border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0",
+                    fontSize: 14, fontFamily: "monospace", resize: "vertical", lineHeight: 1.6,
+                  }}
+                />
+              </div>
               <button
                 onClick={generateFromText}
                 disabled={loading || inputText.trim().length < 10}
