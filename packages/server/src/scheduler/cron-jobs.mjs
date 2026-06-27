@@ -79,6 +79,28 @@ async function runCronJob(job) {
 
   await appendCronLog(job.id, { runId, status: "started" });
 
+  // ── System Backup type ──
+  if (job._systemBackup) {
+    try {
+      const resp = await fetch("http://127.0.0.1:4097/api/backup/run", { method: "POST" });
+      const data = await resp.json();
+      if (data.ok) {
+        console.log(`[cron] System backup done: ${data.backup?.filename} (${(data.backup?.size / 1024 / 1024).toFixed(1)} MB)`);
+        await appendCronLog(job.id, { runId, status: "done", result: data.backup?.filename });
+      } else {
+        console.error(`[cron] System backup failed:`, data.error);
+        await appendCronLog(job.id, { runId, status: "error", error: data.error });
+      }
+    } catch (err) {
+      console.error(`[cron] System backup error:`, err.message);
+      await appendCronLog(job.id, { runId, status: "error", error: err.message });
+    }
+    job.lastRun = new Date().toISOString();
+    job.lastStatus = "done";
+    await saveCronJobs(await loadCronJobs().then(jobs => jobs.map(j => j.id === job.id ? job : j)));
+    return;
+  }
+
   // ── Reminder type ──
   if (job.type === "reminder") {
     const reminderContent = `⏰ **提醒**：${job.reminderText || job.name}`;

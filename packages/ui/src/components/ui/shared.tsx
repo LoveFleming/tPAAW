@@ -75,6 +75,7 @@ const NAV_ICONS: Record<string, string> = {
     "Briefing Player": "presentation",
     "Mind Map":       "share-nodes",
     "Notes":          "notebook",
+    "Backup":         "shield",
 };
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {

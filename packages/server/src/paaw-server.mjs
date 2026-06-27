@@ -32,6 +32,7 @@ const ROUTE_MODULES = [
   "./routes/pocket.mjs",
   "./routes/mindmap.mjs",
   "./routes/notes.mjs",
+  "./routes/backup.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)
@@ -91,6 +92,44 @@ server.listen(PORT, async () => {
   // Ensure required directories exist
   await mkdir(SYSTEM_DIR, { recursive: true });
   await mkdir(`${PAAW_ROOT}/data/knowledge`, { recursive: true });
+
+  // Ensure daily backup cron job exists
+  try {
+    const cronPath = resolve(PAAW_ROOT, "data/cron/cron-jobs.json");
+    await mkdir(dirname(cronPath), { recursive: true });
+    let cronJobs = [];
+    try { cronJobs = JSON.parse(await readFile(cronPath, "utf-8")); } catch {}
+    const existingBackup = cronJobs.find(j => j.id === "system-daily-backup");
+    if (!existingBackup) {
+      // Load backup config for schedule hour
+      let scheduleHour = 0;
+      try {
+        const bkConfig = JSON.parse(await readFile(resolve(PAAW_ROOT, "data/config/backup.json"), "utf-8"));
+        scheduleHour = bkConfig.scheduleHour || 0;
+      } catch {}
+      cronJobs.push({
+        id: "system-daily-backup",
+        name: "📦 每日資料備份",
+        type: "reminder",
+        reminderText: `[系統排程] 每日資料備份正在執行。`,
+        skillId: "",
+        schedule: `0 ${scheduleHour} * * *`,
+        prompt: "",
+        params: {},
+        outputTarget: "chat",
+        outputPath: "",
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        lastRun: null,
+        lastStatus: null,
+        _systemBackup: true,
+      });
+      await writeFile(cronPath, JSON.stringify(cronJobs, null, 2), "utf-8");
+      console.log(`[PAAW] Daily backup cron job created (schedule: 0 ${scheduleHour} * * *)`);
+    }
+  } catch (err) {
+    console.error(`[PAAW] Failed to create backup cron job:`, err.message);
+  }
 
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] ${ROUTE_MODULES.length} route modules + scheduler loaded`);
