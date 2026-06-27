@@ -180,20 +180,42 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   }, [input]);
 
   // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
+  // Listen for both prop-based and event-based seed messages
   const sendingSeedRef = useRef(false);
+  const [localSeed, setLocalSeed] = useState<string | null>(null);
+
+  // Prop-based seed
   useEffect(() => {
-    if (!seedMessage || sendingSeedRef.current || isLoading) return;
-    const text = seedMessage.trim();
+    if (seedMessage) {
+      setLocalSeed(seedMessage);
+      onSeedConsumed?.();
+    }
+  }, [seedMessage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Event-based seed (from window event, works across re-mounts)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.message) setLocalSeed(detail.message);
+    };
+    window.addEventListener("paaw-seed-chat", handler as EventListener);
+    return () => window.removeEventListener("paaw-seed-chat", handler as EventListener);
+  }, []);
+
+  // Process seed
+  useEffect(() => {
+    if (!localSeed || sendingSeedRef.current || isLoading) return;
+    const text = localSeed.trim();
     if (!text) return;
-    onSeedConsumed?.();
+
+    setLocalSeed(null);
     sendingSeedRef.current = true;
 
-    (async () => {
-      // Ensure there's an active chat
+    const timer = setTimeout(async () => {
       let chatId = activeChatId;
       let baseMsgs = messages;
+
       if (!chatId) {
-        // Create a new chat first
         const newId = `chat_${Date.now()}`;
         const greeting: Message = {
           role: "assistant",
@@ -211,16 +233,13 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         setMessages([greeting]);
       }
 
-      // Send the seed message
       const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };
       const newMsgs = [...baseMsgs, userMsg];
       setMessages(newMsgs);
-      setInput("");
       setIsLoading(true);
       scrollToBottom(false);
 
-      const assistantMsg: Message = { role: "assistant", content: "", timestamp: new Date().toISOString() };
-      const withAssistant = [...newMsgs, assistantMsg];
+      const withAssistant = [...newMsgs, { role: "assistant" as const, content: "", timestamp: new Date().toISOString() }];
       setMessages(withAssistant);
 
       try {
@@ -245,12 +264,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
           if (done) break;
           full += decoder.decode(value, { stream: true });
           setMessages(prev => {
-            const updated = [...prev];
-            updated[updated.length - 1] = { ...updated[updated.length - 1], content: full };
-            return updated;
+            const u = [...prev];
+            u[u.length - 1] = { ...u[u.length - 1], content: full };
+            return u;
           });
         }
-        // persist
         try {
           const finalMsgs = [...newMsgs, { role: "assistant", content: full, timestamp: new Date().toISOString() }];
           await fetch(`${API_BASE}/api/paaw/chats/${chatId}`, {
@@ -267,8 +285,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         sendingSeedRef.current = false;
         scrollToBottom(true);
       }
-    })();
-  }, [seedMessage, activeChatId, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [localSeed, activeChatId, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chat actions ──
   const createNewChat = async () => {

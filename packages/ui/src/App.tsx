@@ -801,7 +801,7 @@ function AppInner() {
 
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
-              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)} onAiSummary={(path, name, isDir) => { setChatSeedMessage(isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`); setActivePage("_chat"); }} />
+              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)} onAiSummary={(path, name, isDir) => { const msg = isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`; setActivePage("_chat"); window.dispatchEvent(new CustomEvent("paaw-seed-chat", { detail: { message: msg } })); }} />
             </SidebarSection>
 
             {/* 🏗 Build */}
@@ -882,7 +882,7 @@ function AppInner() {
                         onRemoveWorkspace={removeWorkspace}
                         onEditFile={handleEditFile}
                         onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)}
-                        onAiSummary={(path, name, isDir) => { setChatSeedMessage(isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`); setActivePage("_chat"); }}
+                        onAiSummary={(path, name, isDir) => { const msg = isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`; setActivePage("_chat"); window.dispatchEvent(new CustomEvent("paaw-seed-chat", { detail: { message: msg } })); }}
                       />
                       <button
                         onClick={() => removeWorkspace(dir)}
