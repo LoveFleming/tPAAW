@@ -828,8 +828,8 @@ const sendChat = useCallback(async () => {
       {/* ── Main Content ── */}
       <div className="flex-1 flex min-h-0">
         {/* ── File Explorer ── */}
-        <div className="flex flex-col border-r shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
-          <div className="px-2 py-1.5 border-b" style={{ borderColor: "#f0f0f0" }}>
+        <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
+          <div className="px-2 py-1.5 " style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             <div className="flex items-center gap-1.5">
               <input value={rootPath} onChange={e => setRootPath(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && rootPath) { expandDir(rootPath); setExpandedDirs(new Set()); } }}
@@ -858,24 +858,24 @@ const sendChat = useCallback(async () => {
               </div>
             )}
           </div>
-          <div className="px-2 py-1 border-t flex items-center" style={{ borderColor: "#f0f0f0" }}>
+          <div className="px-2 py-1 flex items-center" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
             <span className="text-xs text-stone-400 truncate">{rootPath ? rootPath.split("/").pop() : "No project"}</span>
           </div>
         </div>
 
         {/* Sidebar resize */}
-        <div className="w-1 cursor-col-resize hover:bg-blue-300 active:bg-blue-500 transition-colors shrink-0"
-          onMouseDown={e => startResize("sidebar", e)} style={{ backgroundColor: tk.border }} />
+        <div className="w-px cursor-col-resize hover:w-0.5 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
+          onMouseDown={e => startResize("sidebar", e)} style={{ backgroundColor: tk.borderLight }} />
 
         {/* ── Center: Editor + Git/API Panels + Terminal ── */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Tab Bar */}
-          <div className="flex items-end border-b shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgHover, borderColor: tk.border }}>
+          <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgHover, borderBottom: `1px solid ${tk.borderLight}` }}>
             {activeSubPanel === "editor" && openTabs.map(tab => {
               const fi = getFileIcon(tab.name);
               return (
                 <div key={tab.id}
-                  className={cn("group flex items-center gap-1 px-3 py-1 border-r cursor-pointer select-none text-xs shrink-0 transition-colors",
+                  className={cn("group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors",
                     activeTabId === tab.id ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
                   style={activeTabId === tab.id ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
                   onClick={() => { setActiveTabId(tab.id); setIsEditing(false); setActiveSubPanel("editor"); }}>
@@ -930,7 +930,7 @@ const sendChat = useCallback(async () => {
             {(activeSubPanel === "diff" || activeSubPanel === "blame") && showGitPanel && (
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Git sub-tabs */}
-                <div className="flex items-center px-2 py-1 border-b shrink-0 gap-0.5" style={{ backgroundColor: tk.bg, borderColor: tk.borderLight }}>
+                <div className="flex items-center px-2 py-1 shrink-0 gap-0.5" style={{ backgroundColor: tk.bg, borderBottom: `1px solid ${tk.borderLight}` }}>
                   {(["status", "diff", "blame", "review"] as const).map(gitT => (
                     <button key={gitT} onClick={() => { setGitTab(gitT); if (gitT === "diff") setActiveSubPanel("diff"); if (gitT === "blame" && blameData) setActiveSubPanel("blame"); }}
                       className={cn("px-2.5 py-1 rounded text-xs font-semibold transition-colors",
@@ -1002,7 +1002,7 @@ const sendChat = useCallback(async () => {
                 {/* Diff View */}
                 {gitTab === "diff" && (
                   <div className="flex-1 overflow-auto">
-                    <div className="flex items-center gap-2 px-3 py-1.5 border-b sticky top-0 bg-white z-10" style={{ borderColor: "#f0f0f0" }}>
+                    <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
                       <span className="text-xs font-bold text-stone-500">{gitDiffFile || t("vibe.allChanges")}</span>
                       <label className="flex items-center gap-1 text-xs text-stone-400 cursor-pointer">
                         <input type="checkbox" checked={gitDiffCached} onChange={e => { setGitDiffCached(e.target.checked); loadGitDiff(gitDiffFile || undefined, e.target.checked); }} className="w-3 h-3" />
@@ -1025,7 +1025,7 @@ const sendChat = useCallback(async () => {
                 {/* Blame View */}
                 {gitTab === "blame" && blameData && (
                   <div className="flex-1 overflow-auto">
-                    <div className="flex items-center gap-2 px-3 py-1.5 border-b sticky top-0 bg-white z-10" style={{ borderColor: "#f0f0f0" }}>
+                    <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
                       <span className="text-xs font-bold text-stone-500">🔍 Blame — {blameFile}</span>
                     </div>
                     <table className="w-full text-sm font-mono" style={{ borderCollapse: "collapse" }}>
@@ -1072,7 +1072,7 @@ const sendChat = useCallback(async () => {
                     ) : null}
                     {/* Review History */}
                     {gitReviews.length > 0 && (
-                      <div className="mt-4 border-t pt-3" style={{ borderColor: "#f0f0f0" }}>
+                      <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
                         <div className="text-xs font-bold text-stone-500 mb-2">📜 {t("vibe.gitReviewHistory")} ({gitReviews.length})</div>
                         {gitReviews.filter(r => r.comment !== aiComment).slice(0, 10).map((r, i) => (
                           <details key={r.id || i} className="mb-2">
@@ -1104,7 +1104,7 @@ const sendChat = useCallback(async () => {
             {activeSubPanel === "api-tester" && showApiTester && (
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* ── Top: Request Builder ── */}
-                <div data-api-panel="request" className="shrink-0 border-b overflow-y-auto p-3 space-y-2 flex flex-col" style={{ flex: "0 0 50%", borderColor: tk.borderLight, maxHeight: "70%" }}>
+                <div data-api-panel="request" className="shrink-0 overflow-y-auto p-3 space-y-2 flex flex-col" style={{ flex: "0 0 50%", borderBottom: `1px solid ${tk.borderLight}`, maxHeight: "70%" }}>
                   {/* Title bar + History dropdown */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-stone-500">🌐 API Tester</span>
@@ -1116,13 +1116,13 @@ const sendChat = useCallback(async () => {
                         </button>
                         {/* Dropdown */}
                         <div className="absolute right-0 top-full mt-1 w-80 max-h-64 overflow-y-auto bg-white rounded-lg shadow-xl border z-50 hidden group-hover:block" style={{ borderColor: tk.borderInput }}>
-                          <div className="flex items-center px-3 py-1.5 border-b sticky top-0 bg-white z-10" style={{ borderColor: "#f0f0f0" }}>
+                          <div className="flex items-center px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
                             <span className="text-xs font-bold text-stone-500">History</span>
                             <span className="flex-1" />
                             <button onClick={() => setApiHistory([])} className="text-xs text-red-400 hover:text-red-600">Clear</button>
                           </div>
                           {apiHistory.map((h, hi) => (
-                            <div key={h.id || hi} className="flex flex-col px-3 py-1.5 border-b hover:bg-stone-50 cursor-pointer" style={{ borderColor: "#f5f5f5" }}
+                            <div key={h.id || hi} className="flex flex-col px-3 py-1.5 hover:bg-stone-50 cursor-pointer" style={{ borderBottom: "1px solid #f5f5f5" }}
                               onClick={() => { setApiMethod(h.method); setApiUrl(h.url); if (h.headers) setApiHeaders(h.headers); if (h.body !== undefined) setApiBody(h.body); if (h.streamMode !== undefined) setApiStreamMode(h.streamMode); }}>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold w-10 shrink-0" style={{ color: METHOD_COLORS[h.method] || "#6B7280" }}>{h.method}</span>
@@ -1242,7 +1242,7 @@ const sendChat = useCallback(async () => {
                 </div>
 
                 {/* ── Splitter ── */}
-                <div className="h-1 cursor-row-resize hover:bg-blue-300 active:bg-blue-500 transition-colors shrink-0"
+                <div className="h-px cursor-row-resize hover:h-1 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
                   onMouseDown={e => {
                     e.preventDefault();
                     const container = e.currentTarget.parentElement;
@@ -1335,12 +1335,12 @@ const sendChat = useCallback(async () => {
                   ⚡ Sessions <span className="flex-1" />
                   <button onClick={() => setShowSessionPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
                 </div>
-                <div className="max-h-40 overflow-y-auto border-b" style={{ borderColor: "#f0f0f0" }}>
+                <div className="max-h-40 overflow-y-auto " style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
                   {sessions.map(s => {
                     const cliOpt = ENGINE_OPTIONS.find(c => c.id === s.engine);
                     return (
                       <div key={s.id}
-                        className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-stone-50 text-xs border-b", activeSessionId === s.id && "bg-blue-50")}
+                        className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-stone-50 text-xs", activeSessionId === s.id && "bg-blue-50")}
                         style={{ borderColor: tk.borderLight }}
                         onClick={() => { setActiveSessionId(s.id); setShowSessionPanel(false); }}>
                         <span>{cliOpt?.icon || "⚪"}</span>
@@ -1386,13 +1386,13 @@ const sendChat = useCallback(async () => {
           </div>
 
           {/* Terminal resize handle */}
-          {showTerminal && <div className="h-1 cursor-row-resize hover:bg-blue-300 active:bg-blue-500 transition-colors shrink-0"
+          {showTerminal && <div className="h-px cursor-row-resize hover:h-1 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
             onMouseDown={e => startResize("terminal", e)} style={{ backgroundColor: tk.border }} />}
 
           {/* Terminal */}
           {showTerminal && (
             <div className="shrink-0 flex flex-col" style={{ height: terminalHeight }}>
-              <div className="flex items-center px-2 py-0.5 border-b shrink-0 select-none" style={{ backgroundColor: "#1e1717", borderColor: "#2d2424" }}>
+              <div className="flex items-center px-2 py-0.5 shrink-0 select-none" style={{ backgroundColor: "#1e1717", borderBottom: "1px solid #2d2424" }}>
                 <span className="text-xs text-stone-400 font-semibold">
                   {activeSession ? `${activeSession.name} (${"PAAW Agent"})` : t("vibe.terminal")}
                 </span>
@@ -1421,10 +1421,10 @@ const sendChat = useCallback(async () => {
         {/* ── AI Chat Sidebar ── */}
         {showAiPanel && (
           <>
-            <div className="w-1 cursor-col-resize hover:bg-blue-300 active:bg-blue-500 transition-colors shrink-0"
+            <div className="w-px cursor-col-resize hover:w-0.5 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
               onMouseDown={e => startResize("ai", e)} style={{ backgroundColor: tk.border }} />
-            <div className="flex flex-col border-l shrink-0 select-none" style={{ width: aiPanelWidth, backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
-              <div className="flex items-center px-3 py-2 border-b shrink-0" style={{ borderColor: "#f0f0f0" }}>
+            <div className="flex flex-col shrink-0 select-none" style={{ width: aiPanelWidth, backgroundColor: "#fff" }}>
+              <div className="flex items-center px-3 py-2 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
                 <span className="text-xs font-bold text-stone-700">{t("vibe.aiChat")}</span>
                 {activeTab && <span className="text-xs text-stone-400 ml-2 truncate">({activeTab.name})</span>}
                 <span className="flex-1" />
@@ -1468,7 +1468,7 @@ const sendChat = useCallback(async () => {
               </div>
               {/* Agent Tool Log */}
               {agentToolLog.length > 0 && (
-                <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: "#f0f0f0", maxHeight: 150, overflowY: "auto" }}>
+                <div className="px-3 py-2 shrink-0" style={{ borderTop: `1px solid ${tk.borderLight}`, maxHeight: 150, overflowY: "auto" }}>
                   <div className="text-[10px] font-bold text-purple-500 mb-1">⚡ Agent Tools ({agentToolLog.length})</div>
                   {agentToolLog.map((t, i) => (
                     <div key={i} className="text-[10px] text-stone-500 py-0.5 border-b" style={{ borderColor: "#f5f5f5" }}>
@@ -1479,7 +1479,7 @@ const sendChat = useCallback(async () => {
                   ))}
                 </div>
               )}
-              <div className="px-2 py-2 border-t shrink-0" style={{ borderColor: "#f0f0f0" }}>
+              <div className="px-2 py-2 shrink-0" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
                 <div className="flex items-end gap-1.5">
                   <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); setChatInput(""); sendChat(); } }}
@@ -1501,7 +1501,7 @@ const sendChat = useCallback(async () => {
       </div>
 
       {/* ── Status Bar ── */}
-      <div className="flex items-center h-5 px-3 border-t shrink-0 select-none text-xs" style={{ backgroundColor: tk.bg, borderColor: tk.border }}>
+      <div className="flex items-center h-5 px-3 shrink-0 select-none text-xs" style={{ backgroundColor: tk.bg, borderTop: `1px solid ${tk.borderLight}` }}>
         {activeTab && activeSubPanel === "editor" && (
           <>
             <span className="text-stone-500">{activeTab.language}</span>
