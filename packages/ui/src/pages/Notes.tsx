@@ -72,6 +72,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nbDropdownRef = useRef<HTMLDivElement>(null);
+  const deepLinkProcessed = useRef<string | null>(null);
 
   // ════════════════════════════════════════
   // API
@@ -350,13 +351,45 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   // Deep link: auto-open a specific note
   useEffect(() => {
     if (!deepLinkNote) return;
+    const key = `${deepLinkNote.noteId}:${deepLinkNote.notebookId}`;
+    if (deepLinkProcessed.current === key) return; // 已處理過
+    deepLinkProcessed.current = key;
+
     (async () => {
-      // Switch to the right notebook first
-      if (deepLinkNote.notebookId !== activeNotebook) {
-        await switchNotebook(deepLinkNote.notebookId);
+      try {
+        // 1. 確保 notebooks 已載入
+        const nbs = await api.get("/api/notes/notebooks");
+        setNotebooks(nbs.notebooks || []);
+
+        // 2. 切到正確的 notebook
+        if (deepLinkNote.notebookId !== activeNotebook) {
+          setActiveNotebook(deepLinkNote.notebookId);
+          const secData = await api.get(`/api/notes/sections?notebook=${encodeURIComponent(deepLinkNote.notebookId)}`);
+          setSections(secData.sections || []);
+          const noteData = await api.get(`/api/notes/list?notebook=${encodeURIComponent(deepLinkNote.notebookId)}`);
+          setNotes(noteData.notes || []);
+        }
+
+        // 3. 載入筆記內容
+        const noteData = await api.get(`/api/notes/get?id=${deepLinkNote.noteId}&notebook=${encodeURIComponent(deepLinkNote.notebookId)}`);
+        if (noteData.note) {
+          setActiveNote(noteData.note);
+          setTagsInput((noteData.note.tags || []).join(", "));
+          // 直接設定 editor 內容
+          if (editorRef.current) editorRef.current.innerHTML = noteData.note.content || "";
+          // 等 title ref 可用後設定
+          setTimeout(() => {
+            if (titleRef.current) {
+              titleRef.current.value = noteData.note.title || "";
+            }
+          }, 100);
+        }
+
+        onDeepLinkConsumed?.();
+      } catch (err) {
+        console.error("Deep link failed:", err);
+        onDeepLinkConsumed?.();
       }
-      await loadNote(deepLinkNote.noteId, deepLinkNote.notebookId);
-      onDeepLinkConsumed?.();
     })();
   }, [deepLinkNote]);
 

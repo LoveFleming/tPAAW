@@ -618,7 +618,7 @@ function AppInner() {
       return <MindMapViewer />;
     }
     if (pageType === "notes") {
-      return <Notes key={deepLinkNote?.noteId || "default"} deepLinkNote={deepLinkNote} onDeepLinkConsumed={() => setDeepLinkNote(null)} />;
+      return <Notes deepLinkNote={deepLinkNote} onDeepLinkConsumed={() => setDeepLinkNote(null)} />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;
