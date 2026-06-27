@@ -23,7 +23,12 @@ interface NoteMeta {
 }
 interface Note extends NoteMeta { content: string; }
 
-export default function Notes() {
+interface NotesProps {
+  deepLinkNote?: { noteId: string; notebookId: string } | null;
+  onDeepLinkConsumed?: () => void;
+}
+
+export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) {
   const { info: th } = useTheme();
 
   const tk = {
@@ -305,6 +310,19 @@ export default function Notes() {
   useEffect(() => {
     (async () => { await loadNotebooks(); await loadSections("default"); await loadNotes("default", "default"); await loadTags(); })();
   }, []);
+
+  // Deep link: auto-open a specific note
+  useEffect(() => {
+    if (!deepLinkNote) return;
+    (async () => {
+      // Switch to the right notebook first
+      if (deepLinkNote.notebookId !== activeNotebook) {
+        await switchNotebook(deepLinkNote.notebookId);
+      }
+      await loadNote(deepLinkNote.noteId, deepLinkNote.notebookId);
+      onDeepLinkConsumed?.();
+    })();
+  }, [deepLinkNote]);
 
   const displayNotes = searchResults || notes;
   const activeNb = notebooks.find(n => n.id === activeNotebook);

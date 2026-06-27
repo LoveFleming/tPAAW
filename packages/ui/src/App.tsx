@@ -416,6 +416,7 @@ function AppInner() {
   }, [currentScope]);
 
   const [briefingInitialDir, setBriefingInitialDir] = useState<string | null>(null);
+  const [deepLinkNote, setDeepLinkNote] = useState<{ noteId: string; notebookId: string } | null>(null);
   const openBriefingPlayer = useCallback((dir?: string) => {
     if (dir) setBriefingInitialDir(dir); else setBriefingInitialDir(null);
     const tabId = `${currentScope}:briefing-player`;
@@ -542,7 +543,14 @@ function AppInner() {
 
     // ── Chat (home) ──
     if (fullId === "_chat") {
-      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} />;
+      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} onDeepLink={(path, params) => {
+        if (path === "notes" && params.note) {
+          const tabId = `${currentScope}:notes`;
+          setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+          setActivePage(tabId);
+          setDeepLinkNote({ noteId: params.note, notebookId: params.notebook || "default" });
+        }
+      }} />;
     }
 
     // ── Settings ──
@@ -584,7 +592,7 @@ function AppInner() {
       return <MindMapViewer />;
     }
     if (pageType === "notes") {
-      return <Notes />;
+      return <Notes key={deepLinkNote?.noteId || "default"} deepLinkNote={deepLinkNote} onDeepLinkConsumed={() => setDeepLinkNote(null)} />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;

@@ -95,6 +95,53 @@ async function buildToolDefinitions() {
   const apps = await loadApps();
   const tools = [];
 
+  // ── Notes tools (built-in, not data app) ──
+  tools.push({
+    type: "function",
+    function: {
+      name: "notes_search",
+      description: "搜尋筆記。可以搜尋標題、內容、標籤。結果包含可點擊的連結，點擊可直接打開該筆記。",
+      parameters: {
+        type: "object",
+        properties: {
+          q: { type: "string", description: "搜尋關鍵字" }
+        },
+        required: ["q"]
+      }
+    }
+  });
+
+  tools.push({
+    type: "function",
+    function: {
+      name: "notes_get",
+      description: "讀取一則筆記的完整內容",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "筆記 ID" },
+          notebook: { type: "string", description: "筆記本 ID（預設 default）" }
+        },
+        required: ["id"]
+      }
+    }
+  });
+
+  tools.push({
+    type: "function",
+    function: {
+      name: "notes_recent",
+      description: "列出最近編輯的筆記",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "數量（預設 10）" }
+        },
+        required: []
+      }
+    }
+  });
+
   // app_list — list all available apps
   tools.push({
     type: "function",
@@ -1102,6 +1149,53 @@ function buildHandlers(apps) {
       return { text: `找不到檔案「${filePath}」${wsHint}`, error: true };
     } catch (err) {
       return { text: `讀取失敗: ${err.message}`, error: true };
+    }
+  };
+
+  // ── Notes handlers (built-in) ──
+  handlers.notes_search = async ({ q }) => {
+    try {
+      const resp = await fetch(`${API}/api/notes/search?q=${encodeURIComponent(q)}`);
+      const data = await resp.json();
+      const results = data.results || [];
+      if (results.length === 0) return { text: `找不到包含「${q}」的筆記` };
+      const lines = results.map(r => {
+        const link = `paaw://notes?note=${r.id}&notebook=${r.notebookId}`;
+        return `📝 **${r.title}**\n   📁 ${r.notebookName || ""}\n   ${r.excerpt}...\n   🔗 [開啟筆記](${link})`;
+      });
+      return { text: `找到 ${results.length} 則相關筆記：\n\n${lines.join("\n\n")}`, results };
+    } catch (err) {
+      return { text: `❌ 搜尋失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.notes_get = async ({ id, notebook = "default" }) => {
+    try {
+      const resp = await fetch(`${API}/api/notes/get?id=${id}&notebook=${encodeURIComponent(notebook)}`);
+      const data = await resp.json();
+      if (!data.note) return { text: "找不到這則筆記", error: true };
+      const note = data.note;
+      const plain = (note.content || "").replace(/<[^>]+>/g, "");
+      const link = `paaw://notes?note=${note.id}&notebook=${note.notebookId}`;
+      return { text: `📝 **${note.title}**\n📁 ${note.notebookId}\n🕐 ${note.updatedAt}\n\n${plain.slice(0, 500)}${plain.length > 500 ? "..." : ""}\n\n🔗 [開啟筆記](${link})`, note };
+    } catch (err) {
+      return { text: `❌ 讀取失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.notes_recent = async ({ limit = 10 } = {}) => {
+    try {
+      const resp = await fetch(`${API}/api/notes/recent?limit=${limit}`);
+      const data = await resp.json();
+      const notes = data.notes || [];
+      if (notes.length === 0) return { text: "沒有筆記" };
+      const lines = notes.map(n => {
+        const link = `paaw://notes?note=${n.id}&notebook=${n.notebookId}`;
+        return `📝 **${n.title}**\n   📁 ${n.notebookName || ""} · 🕐 ${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString("zh-TW") : ""}\n   ${n.excerpt || ""}...\n   🔗 [開啟筆記](${link})`;
+      });
+      return { text: `最近 ${notes.length} 則筆記：\n\n${lines.join("\n\n")}`, notes };
+    } catch (err) {
+      return { text: `❌ 讀取失敗：${err.message}`, error: true };
     }
   };
 

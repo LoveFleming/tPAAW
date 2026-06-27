@@ -60,3 +60,13 @@
 
 
 
+
+## 筆記搜尋（Notes）
+
+- `notes_search({ q: "關鍵字" })` — 搜尋所有筆記（標題、內容、標籤）
+- `notes_get({ id: "xxx", notebook: "default" })` — 讀取完整筆記
+- `notes_recent({ limit: 10 })` — 最近編輯的筆記
+- 搜尋結果包含 `🔗 [開啟筆記](paaw://notes?note=xxx&notebook=yyy)` 連結
+- 使用者點擊連結會直接打開 Notes app 並顯示該筆記
+- 當使用者問「我有沒有寫過關於 X 的筆記」→ 用 `notes_search`
+- 當使用者問「我上次記的什麼什麼」→ 用 `notes_search` 或 `notes_recent`
