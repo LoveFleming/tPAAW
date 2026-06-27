@@ -56,14 +56,23 @@ function withAlpha(hex: string, alpha: number): string {
 export default function MindMapViewer() {
   const { info: themeInfo, theme: themeId } = useTheme();
 
-  // 主題衍生色 — 不再用深色 hardcode
-  const panelBg     = withAlpha(themeInfo.accent, 0.10);
-  const inputBg     = withAlpha(themeInfo.accent, 0.06);
-  const borderColor = withAlpha(themeInfo.accent, 0.25);
-  const hoverBg     = withAlpha(themeInfo.accent, 0.15);
-  const toolbarBg   = withAlpha(themeInfo.accent, 0.12);
-  const textColor   = themeInfo.accentText;
-  const subText     = withAlpha(themeInfo.accentText, 0.65);
+  // 跟 VibeCodingIDE 一樣的 token 系統：白色外圍 + 主題色點綴
+  const tk = {
+    bg:           "#fff",
+    bgMuted:      "#fafafa",
+    bgHover:      themeInfo.accentLight || "#f5f5f4",
+    border:       themeInfo.accentBorder || "#e5e5e5",
+    borderLight:  "#f0f0f0",
+    borderInput:  "#e0e0e0",
+    textMuted:    "#9ca3af",
+    textPrimary:  "#374151",
+    textSecondary:"#6b7280",
+    accent:       themeInfo.accent,
+    accentBg:     themeInfo.accentBg,
+    accentText:   themeInfo.accentText,
+    accentHover:  themeInfo.accentHover,
+    accentLight:  themeInfo.accentLight,
+  };
 
   // Mind map state
   const [markdown, setMarkdown] = useState<string>("");
@@ -107,16 +116,16 @@ export default function MindMapViewer() {
       spacingVertical: 20,
       style: (id: string) => `
         .${id} {
-          --markmap-text-color: ${textColor};
-          --markmap-circle-open-bg: ${themeInfo.accent};
-          --markmap-a-color: ${themeInfo.accent};
-          --markmap-a-hover-color: ${themeInfo.accentHover};
-          --markmap-code-bg: ${panelBg};
-          --markmap-code-color: ${textColor};
+          --markmap-text-color: ${tk.textPrimary};
+          --markmap-circle-open-bg: ${tk.accent};
+          --markmap-a-color: ${tk.accent};
+          --markmap-a-hover-color: ${tk.accentHover};
+          --markmap-code-bg: ${tk.bgMuted};
+          --markmap-code-color: ${tk.textPrimary};
           --markmap-font: 400 15px/22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-        .${id} foreignObject div { color: ${textColor} !important; }
-        .${id} .markmap-node text { fill: ${textColor}; }
+        .${id} foreignObject div { color: ${tk.textPrimary} !important; }
+        .${id} .markmap-node text { fill: ${tk.textPrimary}; }
         .${id} .markmap-node > circle { stroke-width: 2.5; }
         .${id} .markmap-link { stroke-width: 2; opacity: 0.5; }
       `,
@@ -250,7 +259,7 @@ export default function MindMapViewer() {
     const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     bg.setAttribute("width", "100%");
     bg.setAttribute("height", "100%");
-    bg.setAttribute("fill", themeInfo.accentBg);
+    bg.setAttribute("fill", tk.bgHover);
     svgEl.insertBefore(bg, svgEl.firstChild);
     const svgData = new XMLSerializer().serializeToString(svgEl);
     const blob = new Blob([svgData], { type: "image/svg+xml" });
@@ -265,10 +274,10 @@ export default function MindMapViewer() {
   // ── 動態 styles ──
   const btnStyle: React.CSSProperties = {
     padding: "6px 14px",
-    background: hoverBg,
-    border: `1px solid ${borderColor}`,
+    background: tk.bgMuted,
+    border: `1px solid ${tk.border}`,
     borderRadius: 6,
-    color: textColor,
+    color: tk.textSecondary,
     fontSize: 13,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -276,25 +285,25 @@ export default function MindMapViewer() {
 
   const tabStyle: React.CSSProperties = {
     padding: "8px 16px",
-    background: panelBg,
-    border: `1px solid ${borderColor}`,
+    background: tk.bgMuted,
+    border: `1px solid ${tk.borderLight}`,
     borderRadius: 6,
-    color: subText,
+    color: tk.textSecondary,
     fontSize: 14,
     cursor: "pointer",
   };
 
   const activeTabStyle: React.CSSProperties = {
     ...tabStyle,
-    background: themeInfo.accent,
-    border: `1px solid ${themeInfo.accent}`,
+    background: tk.accent,
+    border: `1px solid ${tk.accent}`,
     color: "#ffffff",
   };
 
   const overlayStyle: React.CSSProperties = {
     position: "fixed",
     top: 0, left: 0, right: 0, bottom: 0,
-    background: "rgba(0,0,0,0.35)",
+    background: "rgba(0,0,0,0.25)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -302,12 +311,13 @@ export default function MindMapViewer() {
   };
 
   const dialogStyle: React.CSSProperties = {
-    background: themeInfo.accentBg,
+    background: tk.bg,
     borderRadius: 12,
     padding: 24,
     minWidth: 400,
     maxWidth: 500,
-    border: `1px solid ${borderColor}`,
+    border: `1px solid ${tk.border}`,
+    boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
   };
 
   // ════════════════════════════════════════
@@ -317,14 +327,14 @@ export default function MindMapViewer() {
   return (
     <div style={{
       display: "flex", flexDirection: "column", height: "100%",
-      background: themeInfo.accentBg, color: textColor,
+      background: tk.bgHover, color: tk.textPrimary,
     }}>
       {/* ── Toolbar ── */}
       <div style={{
         display: "flex", alignItems: "center", gap: 8, padding: "8px 16px",
-        background: toolbarBg, borderBottom: `2px solid ${themeInfo.accent}`, flexShrink: 0,
+        background: tk.bg, borderBottom: `1px solid ${tk.border}`, flexShrink: 0,
       }}>
-        <span style={{ fontSize: 18, fontWeight: 700, marginRight: 8, color: themeInfo.accent }}>
+        <span style={{ fontSize: 18, fontWeight: 700, marginRight: 8, color: tk.accent }}>
           🧠 Mind Map
         </span>
         {markdown && (
@@ -363,33 +373,33 @@ export default function MindMapViewer() {
                   onClick={() => browsePath(browserPath ? browserPath.split("/").slice(0, -1).join("/") || "/" : "/")}
                   style={btnStyle}
                 >↑</button>
-                <span style={{ fontSize: 13, color: subText, fontFamily: "monospace" }}>{browserPath || "/"}</span>
+                <span style={{ fontSize: 13, color: tk.textMuted, fontFamily: "monospace" }}>{browserPath || "/"}</span>
               </div>
 
               {/* File list */}
               <div style={{
-                background: panelBg, borderRadius: 8, border: `1px solid ${borderColor}`,
+                background: tk.bgMuted, borderRadius: 8, border: `1px solid ${tk.borderLight}`,
                 flex: 2, minHeight: 0, overflow: "auto", padding: 8,
               }}>
                 <div
                   onClick={() => { setSelectedDir(browserPath); setSelectedFiles([]); }}
                   style={{
                     padding: "8px 12px", cursor: "pointer", borderRadius: 4,
-                    background: selectedDir === browserPath ? withAlpha(themeInfo.accent, 0.2) : "transparent",
+                    background: selectedDir === browserPath ? tk.accentBg : "transparent",
                     display: "flex", alignItems: "center", gap: 8,
                   }}
                 >
                   <span>📂</span>
-                  <span style={{ fontWeight: 600, color: textColor }}>選擇整個目錄: {browserPath.split("/").pop() || "/"}</span>
-                  {selectedDir === browserPath && <span style={{ color: themeInfo.accent }}>✓</span>}
+                  <span style={{ fontWeight: 600, color: tk.textPrimary }}>選擇整個目錄: {browserPath.split("/").pop() || "/"}</span>
+                  {selectedDir === browserPath && <span style={{ color: tk.accent }}>✓</span>}
                 </div>
 
                 {browserDirs.map(d => (
                   <div
                     key={d.path}
                     onClick={() => browsePath(d.path)}
-                    style={{ padding: "6px 12px", cursor: "pointer", borderRadius: 4, display: "flex", alignItems: "center", gap: 8, color: textColor }}
-                    onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+                    style={{ padding: "6px 12px", cursor: "pointer", borderRadius: 4, display: "flex", alignItems: "center", gap: 8, color: tk.textPrimary }}
+                    onMouseEnter={e => e.currentTarget.style.background = tk.bgHover}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
                     <span>📁</span><span>{d.name}</span>
@@ -407,10 +417,10 @@ export default function MindMapViewer() {
                       }}
                       style={{
                         padding: "6px 12px", cursor: "pointer", borderRadius: 4,
-                        background: selected ? withAlpha(themeInfo.accent, 0.2) : "transparent",
-                        display: "flex", alignItems: "center", gap: 8, color: textColor,
+                        background: selected ? tk.accentBg : "transparent",
+                        display: "flex", alignItems: "center", gap: 8, color: tk.textPrimary,
                       }}
-                      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = hoverBg; }}
+                      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = tk.bgHover; }}
                       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = "transparent"; }}
                     >
                       <span>{selected ? "✅" : "📄"}</span><span>{f.name}</span>
@@ -420,14 +430,14 @@ export default function MindMapViewer() {
               </div>
 
               {/* Selection Summary */}
-              <div style={{ marginTop: 6, fontSize: 13, color: subText, flexShrink: 0 }}>
+              <div style={{ marginTop: 6, fontSize: 13, color: tk.textMuted, flexShrink: 0 }}>
                 {selectedDir && `已選目錄: ${selectedDir}`}
                 {selectedFiles.length > 0 && `已選 ${selectedFiles.length} 個檔案`}
               </div>
 
               {/* AI Prompt */}
               <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, marginTop: 6 }}>
-                <label style={{ fontSize: 13, color: subText, marginBottom: 4, flexShrink: 0 }}>
+                <label style={{ fontSize: 13, color: tk.textMuted, marginBottom: 4, flexShrink: 0 }}>
                   AI 提示詞
                 </label>
                 <textarea
@@ -435,8 +445,8 @@ export default function MindMapViewer() {
                   onChange={e => setPrompt(e.target.value)}
                   style={{
                     width: "100%", flex: 1, minHeight: 0, padding: "10px 12px",
-                    background: inputBg,
-                    border: `1px solid ${borderColor}`, borderRadius: 6, color: textColor,
+                    background: tk.bg,
+                    border: `1px solid ${tk.borderInput}`, borderRadius: 6, color: tk.textPrimary,
                     fontSize: 14, fontFamily: "monospace", resize: "none", lineHeight: 1.6,
                   }}
                 />
@@ -447,8 +457,8 @@ export default function MindMapViewer() {
                 disabled={loading || (!selectedDir && selectedFiles.length === 0)}
                 style={{
                   ...btnStyle, marginTop: 10, flexShrink: 0,
-                  background: loading || (!selectedDir && selectedFiles.length === 0) ? withAlpha(themeInfo.accent, 0.2) : themeInfo.accent,
-                  color: "#fff",
+                  background: loading || (!selectedDir && selectedFiles.length === 0) ? tk.bgMuted : tk.accent,
+                  color: loading || (!selectedDir && selectedFiles.length === 0) ? tk.textMuted : "#fff",
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || (!selectedDir && selectedFiles.length === 0) ? "not-allowed" : "pointer",
                 }}
@@ -460,7 +470,7 @@ export default function MindMapViewer() {
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
               {/* Text input */}
               <div style={{ display: "flex", flexDirection: "column", flex: 2, minHeight: 0 }}>
-                <label style={{ fontSize: 13, color: subText, marginBottom: 4, flexShrink: 0 }}>
+                <label style={{ fontSize: 13, color: tk.textMuted, marginBottom: 4, flexShrink: 0 }}>
                   要整理的內容
                 </label>
                 <textarea
@@ -469,8 +479,8 @@ export default function MindMapViewer() {
                   placeholder="貼上你想整理成心智圖的文字內容..."
                   style={{
                     width: "100%", flex: 1, minHeight: 0, padding: 12,
-                    background: inputBg,
-                    border: `1px solid ${borderColor}`, borderRadius: 8, color: textColor,
+                    background: tk.bg,
+                    border: `1px solid ${tk.borderInput}`, borderRadius: 8, color: tk.textPrimary,
                     fontSize: 14, fontFamily: "monospace", resize: "none",
                   }}
                 />
@@ -478,7 +488,7 @@ export default function MindMapViewer() {
 
               {/* AI Prompt */}
               <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, marginTop: 8 }}>
-                <label style={{ fontSize: 13, color: subText, marginBottom: 4, flexShrink: 0 }}>
+                <label style={{ fontSize: 13, color: tk.textMuted, marginBottom: 4, flexShrink: 0 }}>
                   AI 提示詞
                 </label>
                 <textarea
@@ -486,8 +496,8 @@ export default function MindMapViewer() {
                   onChange={e => setPrompt(e.target.value)}
                   style={{
                     width: "100%", flex: 1, minHeight: 0, padding: "10px 12px",
-                    background: inputBg,
-                    border: `1px solid ${borderColor}`, borderRadius: 6, color: textColor,
+                    background: tk.bg,
+                    border: `1px solid ${tk.borderInput}`, borderRadius: 6, color: tk.textPrimary,
                     fontSize: 14, fontFamily: "monospace", resize: "none", lineHeight: 1.6,
                   }}
                 />
@@ -498,8 +508,8 @@ export default function MindMapViewer() {
                 disabled={loading || inputText.trim().length < 10}
                 style={{
                   ...btnStyle, marginTop: 10, flexShrink: 0,
-                  background: loading || inputText.trim().length < 10 ? withAlpha(themeInfo.accent, 0.2) : themeInfo.accent,
-                  color: "#fff",
+                  background: loading || inputText.trim().length < 10 ? tk.bgMuted : tk.accent,
+                  color: loading || inputText.trim().length < 10 ? tk.textMuted : "#fff",
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || inputText.trim().length < 10 ? "not-allowed" : "pointer",
                 }}
@@ -512,7 +522,7 @@ export default function MindMapViewer() {
           {loading && (
             <div style={{
               marginTop: 24, textAlign: "center", padding: 40,
-              color: themeInfo.accent, fontSize: 15,
+              color: tk.accent, fontSize: 15,
             }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🧠⚡</div>
               AI 正在分析內容並整理知識結構...
@@ -520,7 +530,7 @@ export default function MindMapViewer() {
           )}
         </div>
       ) : (
-        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: themeInfo.accentBg }}>
+        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: tk.bgHover }}>
           <svg ref={svgRef} style={{ width: "100%", height: "100%" }} />
         </div>
       )}
@@ -529,14 +539,14 @@ export default function MindMapViewer() {
       {showSaveDialog && markdown && (
         <div style={overlayStyle}>
           <div style={dialogStyle}>
-            <h3 style={{ margin: "0 0 16px 0", color: textColor }}>💾 儲存心智圖</h3>
+            <h3 style={{ margin: "0 0 16px 0", color: tk.textPrimary }}>💾 儲存心智圖</h3>
             <input
               value={saveName}
               onChange={e => setSaveName(e.target.value)}
               placeholder="輸入名稱..."
               style={{
-                width: "100%", padding: "8px 12px", background: inputBg,
-                border: `1px solid ${borderColor}`, borderRadius: 6, color: textColor, fontSize: 14,
+                width: "100%", padding: "8px 12px", background: tk.bgMuted,
+                border: `1px solid ${tk.borderInput}`, borderRadius: 6, color: tk.textPrimary, fontSize: 14,
               }}
               autoFocus
             />
@@ -545,7 +555,7 @@ export default function MindMapViewer() {
               <button
                 onClick={saveMindMap}
                 disabled={!saveName.trim()}
-                style={{ ...btnStyle, background: saveName.trim() ? themeInfo.accent : withAlpha(themeInfo.accent, 0.2), color: "#fff" }}
+                style={{ ...btnStyle, background: saveName.trim() ? tk.accent : tk.bgMuted, color: saveName.trim() ? "#fff" : tk.textMuted }}
               >儲存</button>
             </div>
           </div>
@@ -557,11 +567,11 @@ export default function MindMapViewer() {
         <div style={overlayStyle}>
           <div style={{ ...dialogStyle, maxHeight: 500, overflow: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: textColor }}>📂 已存的心智圖</h3>
+              <h3 style={{ margin: 0, color: tk.textPrimary }}>📂 已存的心智圖</h3>
               <button onClick={() => setShowSaved(false)} style={btnStyle}>✕</button>
             </div>
             {savedMaps.length === 0 ? (
-              <p style={{ color: subText, textAlign: "center", padding: 24 }}>尚未儲存任何心智圖</p>
+              <p style={{ color: tk.textMuted, textAlign: "center", padding: 24 }}>尚未儲存任何心智圖</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {savedMaps.map(m => (
@@ -569,15 +579,15 @@ export default function MindMapViewer() {
                     key={m.id}
                     onClick={() => loadMindMap(m.id)}
                     style={{
-                      padding: "10px 14px", background: inputBg, borderRadius: 6,
-                      cursor: "pointer", border: `1px solid ${borderColor}`,
+                      padding: "10px 14px", background: tk.bgMuted, borderRadius: 6,
+                      cursor: "pointer", border: `1px solid ${tk.borderLight}`,
                     }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = themeInfo.accent}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = borderColor}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = tk.accent}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = tk.borderLight}
                   >
-                    <div style={{ fontWeight: 600, fontSize: 14, color: textColor }}>{m.name}</div>
-                    {m.summary && <div style={{ fontSize: 12, color: subText, marginTop: 2 }}>{m.summary}</div>}
-                    <div style={{ fontSize: 11, color: withAlpha(themeInfo.accentText, 0.45), marginTop: 2 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: tk.textPrimary }}>{m.name}</div>
+                    {m.summary && <div style={{ fontSize: 12, color: tk.textSecondary, marginTop: 2 }}>{m.summary}</div>}
+                    <div style={{ fontSize: 11, color: tk.textMuted, marginTop: 2 }}>
                       {new Date(m.createdAt).toLocaleString("zh-TW")}
                     </div>
                   </div>
