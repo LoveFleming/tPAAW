@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "../theme";
+import API_BASE from "../api";
 
 interface BackupConfig {
   backupDir: string;
@@ -47,14 +48,14 @@ export default function BackupSettings() {
   };
 
   const loadConfig = useCallback(async () => {
-    const data = await api.get("/api/backup/config");
+    const data = await api.get(`${API_BASE}/api/backup/config`);
     setConfig(data.config);
     setEditDir(data.config?.backupDir || "");
     setEditRetention(data.config?.retentionCount || 7);
   }, []);
 
   const loadBackups = useCallback(async () => {
-    const data = await api.get("/api/backup/list");
+    const data = await api.get(`${API_BASE}/api/backup/list`);
     setBackups(data.backups || []);
   }, []);
 
@@ -67,7 +68,7 @@ export default function BackupSettings() {
   const runBackup = async () => {
     setLoading(true);
     try {
-      const data = await api.post("/api/backup/run");
+      const data = await api.post(`${API_BASE}/api/backup/run`);
       if (data.ok) {
         msg("ok", `✅ 備份完成！${formatSize(data.backup.size)}`);
         await loadBackups();
@@ -84,7 +85,7 @@ export default function BackupSettings() {
 
   // 儲存設定
   const saveConfig = async () => {
-    const data = await api.put("/api/backup/config", {
+    const data = await api.put(`${API_BASE}/api/backup/config`, {
       backupDir: editDir,
       retentionCount: editRetention,
     });
@@ -102,7 +103,7 @@ export default function BackupSettings() {
     if (!confirm(`確定要從 ${filename} 還原嗎？\n\n⚠️ 現有資料會被覆蓋，系統會先自動建立一份還原前備份。`)) return;
     setRestoring(filename);
     try {
-      const data = await api.post("/api/backup/restore", { filename });
+      const data = await api.post(`${API_BASE}/api/backup/restore`, { filename });
       if (data.ok) {
         msg("ok", `✅ 已從 ${filename} 還原完成！`);
         await loadBackups();
@@ -119,7 +120,7 @@ export default function BackupSettings() {
   // 刪除備份
   const deleteBackup = async (filename: string) => {
     if (!confirm(`確定刪除 ${filename}？`)) return;
-    const data = await api.del(`/api/backup/delete?filename=${encodeURIComponent(filename)}`);
+    const data = await api.del(`${API_BASE}/api/backup/delete?filename=${encodeURIComponent(filename)}`);
     if (data.ok) {
       msg("ok", "✅ 已刪除");
       await loadBackups();
