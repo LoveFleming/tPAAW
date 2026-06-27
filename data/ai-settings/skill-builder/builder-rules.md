@@ -28,8 +28,25 @@ building/{skill-id}/
 
 ## 輸入輸出路徑規則
 
+### Output Mode（SKILL.md 必須定義）
+
+每個 Skill 的 Output Contract 必須宣告輸出模式：
+
+| 模式 | 說明 | output_path | 適用場景 |
+|---|---|---|---|
+| `file` | 一定存檔 | required | 報告、筆記、資料處理 |
+| `display` | 只顯示不存檔 | 不需要 | 即時問答、查詢、翻譯預覽 |
+| `both` | 有路徑存檔，沒有則顯示 | optional | 彈性最大，推薦預設 |
+
+在 Output Contract 裡加一行：
+```
+**輸出模式：both**（有 output_path 存檔，沒有則僅顯示）
+```
+
+### 路徑規則
 - 輸出檔案統一放在 `package/` 下（test 時）或 `physical-skill/{id}/` 下（發佈後）
-- output_path 欄位固定指向 package 目錄
+- 若 output_path 為 optional，Execution Steps 要分「有值」和「為空」兩種處理方式
+- userInputs 裡 output_path 的 `required` 要跟 output mode 一致
 
 ## 必須使用的工具
 

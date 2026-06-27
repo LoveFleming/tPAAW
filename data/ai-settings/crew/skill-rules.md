@@ -17,4 +17,8 @@
 - **路徑是絕對路徑**，不需要再加前綴或 resolve
 - 讀取後按照 SKILL.md 的 Execution Steps 執行
 - 如果 SKILL.md 有 Output Contract，輸出必須符合
+- **Output Mode**：看 SKILL.md 的 Output Contract 宣告 `file` / `display` / `both`：
+  - `file` → 一定要寫檔案
+  - `display` → 直接在回應中顯示結果
+  - `both` → 有 output_path 存檔，沒有就顯示
 - user input 會接在 prompt 最後面

@@ -10,10 +10,10 @@ tags:
   - vocabulary
 userInputs:
   - id: output_path
-    label: 輸出路徑
-    description: Skill 執行結果的儲存路徑
-    placeholder: "例：/Users/xxx/App/tAgent/data/output/translation.md"
-    required: true
+    label: 輸出路徑（留空則僅顯示）
+    description: 留空 = 結果直接顯示在畫面；填入絕對路徑 = 存成 .md 檔案
+    placeholder: "例：{{PAAW_ROOT}}/data/output/translation.md"
+    required: false
     type: text
     multiline: false
   - id: _
@@ -31,7 +31,7 @@ userInputs:
 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語），產出一份完整的 Translation Learning Output markdown 學習筆記。
 
 ## Inputs
-- **輸出路徑** (`output_path`, required)：Skill 執行結果的儲存路徑（絕對路徑），指向一個 `.md` 檔案。例如 `{{PAAW_ROOT}}/data/output/translation.md`
+- **輸出路徑** (`output_path`, optional)：留空 = 結果直接顯示在畫面；填入絕對路徑 = 存成 `.md` 檔案。例如 `{{PAAW_ROOT}}/data/output/translation.md`
 - **輸入你要翻譯的內容** (`_`, required)：要翻譯的原文文字，支援多行
 
 ## Deterministic Script
@@ -75,10 +75,9 @@ userInputs:
    - 表格格式正確，欄位對齊
    - 確保所有 placeholder 都被實際內容取代
 
-6. **寫入檔案**
-   - 將完整 markdown 寫入 `output_path` 指定的路徑（必須是絕對路徑）
-   - 若目錄不存在則自動建立
-   - 回覆使用者「已產生翻譯學習筆記：{output_path}」
+6. **輸出結果**
+   - **若 `output_path` 有值**：將完整 markdown 寫入該路徑（絕對路徑），若目錄不存在則自動建立，回覆「已產生翻譯學習筆記：{output_path}」
+   - **若 `output_path` 為空**：直接將完整 markdown 顯示在回應中，不寫入檔案，回覆「以下是你的翻譯學習筆記：」
 
 ### Business Rules
 - 目標語言與來源語言不可相同（若相同則自動切換為中英互譯）
@@ -89,8 +88,9 @@ userInputs:
 
 ### Error Handling
 1. **輸入為空或過短**：原文少於 2 個字元時，回覆錯誤訊息「原文內容過短，請提供至少 2 個字以上的文字」，不產生輸出檔案
-2. **輸出路徑無效**：路徑包含非法字元（如 `* ? < > |`）時，回覆錯誤訊息「輸出路徑包含非法字元，請使用有效的檔案路徑」，並建議使用絕對路徑格式（例如 `{{PAAW_ROOT}}/data/output/translation.md`）
+2. **輸出路徑無效**：`output_path` 有值但包含非法字元（如 `* ? < > |`）時，回覆錯誤訊息「輸出路徑包含非法字元，請使用有效的檔案路徑」，並建議使用絕對路徑格式
 3. **寫入失敗**：若目標目錄無法寫入（權限不足或磁碟空間不足），回覆錯誤訊息「無法寫入指定路徑，請檢查目錄權限或磁碟空間」
+4. **未指定 output_path**：不視為錯誤，直接將結果顯示在回應中
 
 ## Guardrails
 - 不翻譯違法或有害內容（如暴力、色情、仇恨言論），若偵測到則回覆「無法翻譯包含敏感內容的文字」
@@ -101,7 +101,9 @@ userInputs:
 
 ## Output Contract
 
-產出檔案為 markdown 格式（`.md`），結構如下：
+**輸出模式：both**（有 `output_path` 存檔，沒有則僅顯示）
+
+產出內容為 markdown 格式（`.md`），結構如下：
 
 ```json
 {
@@ -130,4 +132,5 @@ userInputs:
 - 每個特殊詞彙的例句確實包含該詞彙（字串比對確認）
 - Sentence Pattern 和 Example 不為空
 - Speaking Version 與 Natural Translation 內容不同
-- 檔案成功寫入指定路徑
+- 若有 output_path → 檔案成功寫入指定路徑
+- 若無 output_path → 結果完整顯示在回應中
