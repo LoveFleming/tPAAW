@@ -251,7 +251,7 @@ export default async function appsRoute(req, res) {
           for (const sd of skillDirs) {
             try {
               const content = await readFile(join(skillsDir, sd, "SKILL.md"), "utf-8");
-              const sBody = content.replace(/^---[\s\S]*?---\n*/, "");
+              const sBody = content.replace(/^---[\s\S]*?---\n*/, "").replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT);
               skillContents.push({ name: sd, body: sBody });
             } catch {}
           }

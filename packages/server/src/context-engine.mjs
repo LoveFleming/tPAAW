@@ -456,8 +456,8 @@ export const contextEngine = {
 
     const { meta, body } = parseSkillFrontmatter(raw);
 
-    // Replace {{key}} with input values
-    let prompt = body || "";
+    // Replace {{PAAW_ROOT}} with absolute path, then replace {{key}} with input values
+    let prompt = resolvePaths(body || "");
     if (input && typeof input === "object") {
       for (const [k, v] of Object.entries(input)) {
         prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));

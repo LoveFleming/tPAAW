@@ -146,7 +146,7 @@ async function runCronJob(job) {
     console.log(`[cron] Skill ${skillId}: workDir=${skillDir}`);
 
     let skillMd = "";
-    try { skillMd = await readFile(join(skillDir, "SKILL.md"), "utf-8"); } catch {}
+    try { skillMd = await readFile(join(skillDir, "SKILL.md"), "utf-8"); skillMd = skillMd.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT); } catch {}
 
     const inputsFileName = "_cron_inputs.json";
     if (job.params && Object.keys(job.params).length > 0) {
@@ -411,7 +411,7 @@ async function agentLoopHandler(req, res) {
     let skillMd = "";
     if (skillId) {
       const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
-      try { skillMd = await readFile(skillPath, "utf-8"); } catch {}
+      try { skillMd = await readFile(skillPath, "utf-8"); skillMd = skillMd.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT); } catch {}
     }
 
     try {
@@ -440,7 +440,7 @@ async function agentLoopHandler(req, res) {
     let skillMd = "";
     if (skillId) {
       const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
-      try { skillMd = await readFile(skillPath, "utf-8"); } catch {}
+      try { skillMd = await readFile(skillPath, "utf-8"); skillMd = skillMd.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT); } catch {}
     }
 
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });

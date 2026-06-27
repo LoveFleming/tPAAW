@@ -12,7 +12,7 @@ userInputs:
   - id: output_path
     label: 輸出路徑
     description: Skill 執行結果的儲存路徑
-    placeholder: "例：output/report.md"
+    placeholder: "例：/Users/xxx/App/tAgent/data/output/translation.md"
     required: true
     type: text
     multiline: false
@@ -31,7 +31,7 @@ userInputs:
 將使用者輸入的文字翻譯為目標語言（預設中→英），同時識別特殊詞彙（成語、俚語、專業術語），產出一份完整的 Translation Learning Output markdown 學習筆記。
 
 ## Inputs
-- **輸出路徑** (`output_path`, required)：Skill 執行結果的儲存路徑，指向一個 `.md` 檔案
+- **輸出路徑** (`output_path`, required)：Skill 執行結果的儲存路徑（絕對路徑），指向一個 `.md` 檔案。例如 `{{PAAW_ROOT}}/data/output/translation.md`
 - **輸入你要翻譯的內容** (`_`, required)：要翻譯的原文文字，支援多行
 
 ## Deterministic Script
@@ -76,7 +76,7 @@ userInputs:
    - 確保所有 placeholder 都被實際內容取代
 
 6. **寫入檔案**
-   - 將完整 markdown 寫入 `output_path` 指定的路徑
+   - 將完整 markdown 寫入 `output_path` 指定的路徑（必須是絕對路徑）
    - 若目錄不存在則自動建立
    - 回覆使用者「已產生翻譯學習筆記：{output_path}」
 
@@ -89,7 +89,7 @@ userInputs:
 
 ### Error Handling
 1. **輸入為空或過短**：原文少於 2 個字元時，回覆錯誤訊息「原文內容過短，請提供至少 2 個字以上的文字」，不產生輸出檔案
-2. **輸出路徑無效**：路徑包含非法字元（如 `* ? < > |`）時，回覆錯誤訊息「輸出路徑包含非法字元，請使用有效的檔案路徑」，並建議正確格式
+2. **輸出路徑無效**：路徑包含非法字元（如 `* ? < > |`）時，回覆錯誤訊息「輸出路徑包含非法字元，請使用有效的檔案路徑」，並建議使用絕對路徑格式（例如 `{{PAAW_ROOT}}/data/output/translation.md`）
 3. **寫入失敗**：若目標目錄無法寫入（權限不足或磁碟空間不足），回覆錯誤訊息「無法寫入指定路徑，請檢查目錄權限或磁碟空間」
 
 ## Guardrails
