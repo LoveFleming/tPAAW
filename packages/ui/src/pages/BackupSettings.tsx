@@ -142,13 +142,14 @@ export default function BackupSettings() {
   if (!config) return <div className="p-8" style={{ color: tk.textMuted }}>載入中...</div>;
 
   return (
-    <div className="h-full overflow-auto" style={{ background: tk.bg }}>
-      <div className="max-w-3xl mx-auto p-8">
-        {/* Header */}
-        <h1 className="text-2xl font-bold mb-1" style={{ color: tk.textPrimary }}>💾 備份與還原</h1>
-        <p className="text-sm mb-6" style={{ color: tk.textSecondary }}>
+    <div className="space-y-4">
+      {/* Header */}
+      <div>
+        <h3 className="text-lg font-bold text-stone-800">💾 備份與還原</h3>
+        <p className="text-sm text-stone-500">
           備份 PAAW 所有使用者資料（知識庫、技能、Apps、筆記、聊天記錄、設定等）
         </p>
+      </div>
 
         {/* Message toast */}
         {message && (
@@ -159,7 +160,7 @@ export default function BackupSettings() {
         )}
 
         {/* ── 備份設定 ── */}
-        <div className="rounded-xl border p-5 mb-6" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
+        <div className="rounded-xl border p-5 mb-4" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold" style={{ color: tk.textPrimary }}>⚙️ 備份設定</h2>
             <button onClick={() => setEditing(!editing)} className="text-sm px-3 py-1 rounded-lg"
@@ -213,7 +214,7 @@ export default function BackupSettings() {
         </div>
 
         {/* ── 手動備份 ── */}
-        <div className="rounded-xl border p-5 mb-6" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
+        <div className="rounded-xl border p-5 mb-4" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold" style={{ color: tk.textPrimary }}>▶️ 立即備份</h2>
@@ -263,7 +264,6 @@ export default function BackupSettings() {
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

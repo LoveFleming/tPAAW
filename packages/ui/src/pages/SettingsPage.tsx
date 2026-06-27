@@ -3,6 +3,7 @@ import { useTheme } from "../theme";
 import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
 
 import API_BASE from "../api";
+import BackupSettings from "./BackupSettings";
 
 interface ProviderData {
   name: string;
@@ -14,7 +15,7 @@ interface ProviderData {
 export default function SettingsPage() {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTab] = useState<"profile" | "providers" | "skill" | "distill" | "tools" | "language">("profile");
+  const [tab, setTab] = useState<"profile" | "providers" | "skill" | "distill" | "tools" | "language" | "backup">("profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -142,6 +143,9 @@ export default function SettingsPage() {
           </button>
           <button onClick={() => setTab("tools")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "tools" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🛠️ System Tools
+          </button>
+          <button onClick={() => setTab("backup")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "backup" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            💾 備份還原
           </button>
           <button onClick={() => setTab("language")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "language" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🌐 {t("settings.language")}
@@ -421,6 +425,9 @@ export default function SettingsPage() {
 
         {/* Tools tab */}
         {tab === "tools" && <ToolsTab />}
+
+        {/* Backup tab */}
+        {tab === "backup" && <BackupSettings />}
 
         {/* Language tab */}
         {tab === "language" && (
