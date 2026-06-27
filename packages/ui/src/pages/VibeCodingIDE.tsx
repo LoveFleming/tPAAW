@@ -1501,34 +1501,7 @@ const sendChat = useCallback(async () => {
         )}
       </div>
 
-      {/* ── Status Bar ── */}
-      <div className="flex items-center h-5 px-3 shrink-0 select-none text-xs" style={{ backgroundColor: tk.bg, borderTop: `1px solid ${tk.borderLight}` }}>
-        {activeTab && activeSubPanel === "editor" && (
-          <>
-            <span className="text-stone-500">{activeTab.language}</span>
-            <span className="text-stone-300 mx-1">|</span>
-            <span className="text-stone-500">{lineCount} lines</span>
-            {activeTab.modified && <><span className="text-stone-300 mx-1">|</span><span className="text-amber-500">modified</span></>}
-            <span className="text-stone-300 mx-1">|</span>
-            <span className="text-stone-400 font-mono truncate max-w-[250px]">{activeTab.path}</span>
-          </>
-        )}
-        {activeSubPanel === "diff" && <span className="text-stone-500">🔀 Diff</span>}
-        {activeSubPanel === "blame" && <span className="text-stone-500">🔍 Blame</span>}
-        {activeSubPanel === "api-tester" && apiResponse && <span className="font-bold" style={{ color: apiResponse.status < 300 ? "#10B981" : apiResponse.status < 400 ? "#F59E0B" : "#EF4444" }}>{apiResponse.status} {apiResponse.statusText}</span>}
-        {activeSubPanel === "api-tester" && !apiResponse && <span className="text-stone-400">🌐 API Tester</span>}
-        <span className="flex-1" />
-        {gitStatus?.branch && <span className="text-emerald-600 mr-2">🔀 {gitStatus.branch}</span>}
-        {modifiedCount > 0 && <span className="text-amber-500 mr-2">{modifiedCount} unsaved</span>}
-        {activeSession && (
-          <span className="text-stone-500 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            {"PAAW Agent"} · {activeSession.cwd.split("/").pop()}
-          </span>
-        )}
-        <span className="text-stone-300 mx-1">|</span>
-        <span className="text-stone-400">tracked</span>
-      </div>
+
     </div>
     </>
   );
