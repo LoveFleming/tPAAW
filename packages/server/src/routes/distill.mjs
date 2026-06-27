@@ -183,7 +183,9 @@ export function recordCronExecution({ jobName, success, result, duration }) {
   });
 }
 
-// ── LLM Call Helper ──
+// ── LLM Call Helper (with retry + sanitize) ──
+import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
+
 async function callLLM(systemPrompt, userPrompt, maxTokens = 4096) {
   try {
     const providerConfig = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8"));
@@ -197,31 +199,35 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096) {
     const model = providerConfig.defaultModel || "glm-5.1";
     const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
 
-    const resp = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${provider.apiKey}`,
-        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: maxTokens,
-      }),
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${provider.apiKey}`,
+      ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+    };
+
+    const body = {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: maxTokens,
+    };
+
+    const result = await callLLMWithRetry(apiUrl, headers, body, {
+      maxRetries: 3,
+      timeoutMs: 60_000,
+      validateContent: true,
+      sanitize: true,
     });
 
-    if (resp.ok) {
-      const data = await resp.json();
-      return data.choices?.[0]?.message?.content || null;
-    } else {
-      console.error(`[distill] LLM returned ${resp.status}: ${await resp.text().catch(() => "")}`);
+    if (!isMeaningfulContent(result.content)) {
+      console.error(`[distill] LLM returned empty/whitespace content after ${result.attempts} attempts`);
+      return null;
     }
+    return result.content;
   } catch (err) {
-    console.error(`[distill] LLM call failed: ${err.message}`);
+    console.error(`[distill] LLM call failed after retries: ${err.message}`);
   }
   return null;
 }

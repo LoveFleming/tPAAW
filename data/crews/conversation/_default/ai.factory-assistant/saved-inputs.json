@@ -1,0 +1,14 @@
+{
+  "inputs": [
+    {
+      "hash": "a3cadc93abbfe0aaf7d4cf987bd4f35b3c44de87c4e9be5bd4c4f3783fbc9fd4",
+      "skillId": "translate",
+      "data": {
+        "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
+        "_": "大雨特報",
+        "task": ""
+      },
+      "savedAt": "2026-06-26T14:27:39.509Z"
+    }
+  ]
+}

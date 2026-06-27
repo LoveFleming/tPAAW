@@ -5,7 +5,10 @@
  * 目前實作 OpenAI-compatible（Qwen、DeepSeek、GLM 都支援）
  *
  * 2026-06-22: 退回上週四乾淨版本 + URL 檢查 + fetch try-catch
+ * 2026-06-27: 加 fetchStreamWithRetry + 內容 sanitize
  */
+
+import { fetchStreamWithRetry, sanitizeContent } from '../llm-utils.mjs'
 
 // ── OpenAI-compatible Provider ──
 
@@ -58,14 +61,18 @@ export class OpenAICompatibleAdapter {
 
     let response
     try {
-      response = await fetch(url, {
+      response = await fetchStreamWithRetry(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
+      }, {
+        maxRetries: 3,
+        timeoutMs: 60_000,
+        onRetry: (info) => console.log(`[Provider] ${info.error ? info.error : 'HTTP ' + info.status} → retry ${info.attempt} in ${info.delayMs}ms`),
       })
     } catch (fetchErr) {
-      console.log(`[Provider] Fetch error: ${fetchErr.message}`)
-      yield { type: 'error', message: `連線錯誤: ${fetchErr.message}` }
+      console.log(`[Provider] Fetch error after retries: ${fetchErr.message}`)
+      yield { type: 'error', message: `連線錯誤（已 retry）: ${fetchErr.message}` }
       return
     }
 
@@ -134,7 +141,10 @@ export class OpenAICompatibleAdapter {
 
             // Text
             if (delta?.content) {
-              yield { type: 'text', delta: delta.content }
+              const cleanDelta = sanitizeContent(delta.content)
+              if (cleanDelta) {
+                yield { type: 'text', delta: cleanDelta }
+              }
             }
 
             // Tool calls delta

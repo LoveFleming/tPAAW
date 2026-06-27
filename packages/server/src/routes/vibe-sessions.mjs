@@ -13,6 +13,7 @@ import {
   DATA_ROOT, PAAW_ROOT, VIBE_SESSIONS_DIR,
   readBody,
 } from "./shared.mjs";
+import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 
 async function readBodyStr(req) {
   return new Promise((ok) => {
@@ -200,29 +201,29 @@ export default async function vibeSessionsRoute(req, res) {
           if (provider?.apiKey && provider.apiKey !== "na") {
             const model = providerConfig.defaultModel || "glm-5.1";
             const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-            const llmResp = await fetch(apiUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${provider.apiKey}`,
-                ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-              },
-              body: JSON.stringify({
-                model,
-                messages: [
-                  { role: "system", content: distillPrompt },
-                  { role: "user", content: fullPrompt },
-                ],
-                max_tokens: 4096,
-              }),
+            const headers = {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${provider.apiKey}`,
+              ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+            };
+            const reqBody = {
+              model,
+              messages: [
+                { role: "system", content: distillPrompt },
+                { role: "user", content: fullPrompt },
+              ],
+              max_tokens: 4096,
+            };
+            const result = await callLLMWithRetry(apiUrl, headers, reqBody, {
+              maxRetries: 3,
+              timeoutMs: 60_000,
+              validateContent: true,
+              sanitize: true,
             });
-            if (llmResp.ok) {
-              const data = await llmResp.json();
-              distilled = data.choices?.[0]?.message?.content || null;
-            }
+            distilled = isMeaningfulContent(result.content) ? result.content : null;
           }
         } catch (err) {
-          console.error(`[distill] LLM call failed: ${err.message}`);
+          console.error(`[vibe-sessions] LLM distill call failed after retries: ${err.message}`);
         }
 
         if (!distilled || distilled.length < 50) {

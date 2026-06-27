@@ -22,6 +22,7 @@ import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { exec as execCb } from "child_process";
 import { resolve, join, dirname, relative } from "path";
+import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 
 // ── Types ──
 
@@ -521,22 +522,32 @@ async function callLLM(apiUrl, headers, model, messages, tools, stream = false) 
     stream,
   };
 
-  const resp = await fetch(apiUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`LLM API error ${resp.status}: ${text.slice(0, 500)}`);
-  }
-
   if (stream) {
+    // 串流模式：用 fetchStreamWithRetry 取得連線，回傳 raw response
+    const { fetchStreamWithRetry } = await import("./llm-utils.mjs");
+    const resp = await fetchStreamWithRetry(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    }, { timeoutMs: 90_000 });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      throw new Error(`LLM API error ${resp.status}: ${text.slice(0, 500)}`);
+    }
     return resp; // Return raw response for SSE streaming
   }
 
-  return await resp.json();
+  // 非串流：用 callLLMWithRetry 統一處理 retry + 內容驗證
+  const result = await callLLMWithRetry(apiUrl, headers, body, {
+    maxRetries: 3,
+    timeoutMs: 90_000,
+    validateContent: true,
+    sanitize: true,
+  });
+
+  // 回傳跟原本一樣的 shape（把 result.raw 當 json 回傳）
+  return result.raw;
 }
 
 // ── System Prompt Assembly ──
@@ -653,11 +664,13 @@ export async function runAgentLoop(config) {
     const choice = response.choices?.[0];
     if (!choice) {
       finalContent = "LLM returned empty response";
+      if (onEvent) onEvent({ type: "error", error: "LLM returned no choices" });
       break;
     }
 
     const assistantMsg = choice.message;
-    const content = assistantMsg.content || "";
+    // sanitize content（清隱藏字元）
+    let content = sanitizeContent(assistantMsg.content || "");
     const toolCalls = assistantMsg.tool_calls;
 
     // Add assistant message to history
@@ -667,8 +680,14 @@ export async function runAgentLoop(config) {
 
     // If LLM just responded with text (no tool calls), we're done
     if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
-      finalContent = content;
-      if (onEvent) onEvent({ type: "assistant", content });
+      // 防禦：如果 content 是空的或只有隱藏字元，標記為失敗
+      if (!isMeaningfulContent(content)) {
+        finalContent = "[LLM returned empty or whitespace-only response after retries]";
+        if (onEvent) onEvent({ type: "assistant", content: finalContent });
+      } else {
+        finalContent = content;
+        if (onEvent) onEvent({ type: "assistant", content });
+      }
       break;
     }
 
