@@ -141,11 +141,11 @@ async function ensureDefaultProject() {
         icon: "🏗️",
         description: "LLM retry、路徑系統、安全防護、備份還原",
         tasks: [
-          { id: genId("t"), name: "LLM API 重試/清理/驗證 (llm-utils.mjs)", status: "done", priority: "high" },
-          { id: genId("t"), name: "絕對路徑系統 ({{PAAW_ROOT}} placeholder)", status: "done", priority: "high" },
-          { id: genId("t"), name: "Backup/Restore 系統 (跨平台 tar.gz)", status: "done", priority: "high" },
-          { id: genId("t"), name: "Security Kernel (approval + audit)", status: "progress", priority: "medium" },
-          { id: genId("t"), name: "多 Provider fallback chain", status: "done", priority: "high" },
+          { id: genId("t"), name: "LLM API 重試/清理/驗證", status: "done", priority: "high", start: "2026-02-01", end: "2026-02-15" },
+          { id: genId("t"), name: "絕對路徑系統 ({{PAAW_ROOT}})", status: "done", priority: "high", start: "2026-02-10", end: "2026-02-28" },
+          { id: genId("t"), name: "多 Provider fallback chain", status: "done", priority: "high", start: "2026-03-01", end: "2026-03-10" },
+          { id: genId("t"), name: "Backup/Restore 系統 (跨平台)", status: "done", priority: "high", start: "2026-06-15", end: "2026-06-25" },
+          { id: genId("t"), name: "Security Kernel (approval + audit)", status: "progress", priority: "medium", start: "2026-06-20", end: "2026-07-15" },
         ],
       },
       {
@@ -154,11 +154,11 @@ async function ensureDefaultProject() {
         icon: "🔨",
         description: "技能定義、Skill Builder、測試執行",
         tasks: [
-          { id: genId("t"), name: "Skill 格式標準化 (SKILL.md schema)", status: "done", priority: "high" },
-          { id: genId("t"), name: "Skill Builder (AI 建構技能)", status: "done", priority: "high" },
-          { id: genId("t"), name: "Skill 輸出模式 (file/display/both)", status: "done", priority: "medium" },
-          { id: genId("t"), name: "Skill 測試沙盒 + timeout 控制", status: "done", priority: "medium" },
-          { id: genId("t"), name: "Skill 版本管理", status: "todo", priority: "low" },
+          { id: genId("t"), name: "Skill 格式標準化 (schema)", status: "done", priority: "high", start: "2026-03-01", end: "2026-03-15" },
+          { id: genId("t"), name: "Skill Builder (AI 建構技能)", status: "done", priority: "high", start: "2026-03-15", end: "2026-04-30" },
+          { id: genId("t"), name: "Skill 測試沙盒 + timeout", status: "done", priority: "medium", start: "2026-05-01", end: "2026-05-15" },
+          { id: genId("t"), name: "Skill 輸出模式 (file/display/both)", status: "done", priority: "medium", start: "2026-06-10", end: "2026-06-18" },
+          { id: genId("t"), name: "Skill 版本管理", status: "todo", priority: "low", start: "", end: "" },
         ],
       },
       {
@@ -167,11 +167,11 @@ async function ensureDefaultProject() {
         icon: "📱",
         description: "App Builder、自動註冊為 Chat Tool、雙入口",
         tasks: [
-          { id: genId("t"), name: "App Builder (AI 建構 App)", status: "done", priority: "high" },
-          { id: genId("t"), name: "App 自動註冊為 Chat Tool", status: "done", priority: "high" },
-          { id: genId("t"), name: "雙入口：聊天視窗 + App 視窗", status: "done", priority: "high" },
-          { id: genId("t"), name: "App 資料 = AI 記憶 (資料飛輪)", status: "progress", priority: "high" },
-          { id: genId("t"), name: "觸發關鍵字自動路由", status: "todo", priority: "medium" },
+          { id: genId("t"), name: "App Builder (AI 建構 App)", status: "done", priority: "high", start: "2026-04-01", end: "2026-04-30" },
+          { id: genId("t"), name: "App 自動註冊為 Chat Tool", status: "done", priority: "high", start: "2026-05-01", end: "2026-05-15" },
+          { id: genId("t"), name: "雙入口：聊天 + App 視窗", status: "done", priority: "high", start: "2026-05-15", end: "2026-06-01" },
+          { id: genId("t"), name: "App 資料 = AI 記憶", status: "progress", priority: "high", start: "2026-06-20", end: "2026-07-30" },
+          { id: genId("t"), name: "觸發關鍵字自動路由", status: "todo", priority: "medium", start: "", end: "" },
         ],
       },
       {
@@ -180,11 +180,11 @@ async function ensureDefaultProject() {
         icon: "💬",
         description: "Context Engine、Tool Engine、串流回應",
         tasks: [
-          { id: genId("t"), name: "Context Engine (per-message 動態建構)", status: "done", priority: "high" },
-          { id: genId("t"), name: "Tool Engine (ReAct loop + 5 rounds)", status: "done", priority: "high" },
-          { id: genId("t"), name: "串流回應 (SSE)", status: "done", priority: "high" },
-          { id: genId("t"), name: "聊天工具整合 (notes_search, project_status 等)", status: "done", priority: "medium" },
-          { id: genId("t"), name: "Deep Link 機制 (#/notes?note=...)", status: "done", priority: "medium" },
+          { id: genId("t"), name: "Context Engine (per-message)", status: "done", priority: "high", start: "2026-03-10", end: "2026-03-25" },
+          { id: genId("t"), name: "Tool Engine (ReAct loop)", status: "done", priority: "high", start: "2026-03-25", end: "2026-04-10" },
+          { id: genId("t"), name: "串流回應 (SSE)", status: "done", priority: "high", start: "2026-04-10", end: "2026-04-25" },
+          { id: genId("t"), name: "聊天工具整合", status: "done", priority: "medium", start: "2026-06-20", end: "2026-06-28" },
+          { id: genId("t"), name: "Deep Link 機制", status: "done", priority: "medium", start: "2026-06-25", end: "2026-06-27" },
         ],
       },
       {
@@ -193,12 +193,12 @@ async function ensureDefaultProject() {
         icon: "📦",
         description: "Notes、Mind Map、Briefing Player、Vibe Coding IDE",
         tasks: [
-          { id: genId("t"), name: "Notes 筆記系統 (OneNote 式三層)", status: "done", priority: "high" },
-          { id: genId("t"), name: "Mind Map Viewer (markmap 引擎)", status: "done", priority: "medium" },
-          { id: genId("t"), name: "Briefing Player", status: "done", priority: "low" },
-          { id: genId("t"), name: "Vibe Coding IDE (檔案+Git+終端機+AI)", status: "done", priority: "high" },
-          { id: genId("t"), name: "Project Board (專案管理看板)", status: "progress", priority: "high" },
-          { id: genId("t"), name: "Gantt Chart 甘特圖", status: "todo", priority: "medium" },
+          { id: genId("t"), name: "Notes 筆記系統 (OneNote 式)", status: "done", priority: "high", start: "2026-06-20", end: "2026-06-27" },
+          { id: genId("t"), name: "Mind Map Viewer (markmap)", status: "done", priority: "medium", start: "2026-06-15", end: "2026-06-22" },
+          { id: genId("t"), name: "Briefing Player", status: "done", priority: "low", start: "2026-05-20", end: "2026-05-30" },
+          { id: genId("t"), name: "Vibe Coding IDE", status: "done", priority: "high", start: "2026-05-25", end: "2026-06-20" },
+          { id: genId("t"), name: "Project Board (專案看板)", status: "progress", priority: "high", start: "2026-06-27", end: "2026-06-30" },
+          { id: genId("t"), name: "Gantt Chart 甘特圖", status: "progress", priority: "medium", start: "2026-06-28", end: "2026-07-05" },
         ],
       },
       {
@@ -207,10 +207,10 @@ async function ensureDefaultProject() {
         icon: "🧠",
         description: "AI 蒸餾、知識庫、自動學習",
         tasks: [
-          { id: genId("t"), name: "AI 蒸餾系統 (互動紀錄 → 知識)", status: "done", priority: "medium" },
-          { id: genId("t"), name: "Knowledge 知識庫管理", status: "done", priority: "medium" },
-          { id: genId("t"), name: "自動蒸餾排程", status: "done", priority: "low" },
-          { id: genId("t"), name: "AI 寫筆記 (聊天/UI → 結構化筆記)", status: "done", priority: "medium" },
+          { id: genId("t"), name: "AI 蒸餾系統", status: "done", priority: "medium", start: "2026-04-15", end: "2026-05-15" },
+          { id: genId("t"), name: "Knowledge 知識庫管理", status: "done", priority: "medium", start: "2026-05-15", end: "2026-05-30" },
+          { id: genId("t"), name: "自動蒸餾排程", status: "done", priority: "low", start: "2026-05-30", end: "2026-06-05" },
+          { id: genId("t"), name: "AI 寫筆記", status: "done", priority: "medium", start: "2026-06-25", end: "2026-06-28" },
         ],
       },
       {
@@ -219,10 +219,10 @@ async function ensureDefaultProject() {
         icon: "🎨",
         description: "主題系統、響應式設計、VibeCodingIDE 風格",
         tasks: [
-          { id: genId("t"), name: "7 種主題色系統", status: "done", priority: "medium" },
-          { id: genId("t"), name: "tk token 系統 (外圍白 + accent 點綴)", status: "done", priority: "medium" },
-          { id: genId("t"), name: "i18n 多語系 (zh-mix/en/zh/ja)", status: "done", priority: "low" },
-          { id: genId("t"), name: "VibeCodingIDE 邊框優化", status: "done", priority: "low" },
+          { id: genId("t"), name: "7 種主題色系統", status: "done", priority: "medium", start: "2026-04-01", end: "2026-04-15" },
+          { id: genId("t"), name: "tk token 系統", status: "done", priority: "medium", start: "2026-06-20", end: "2026-06-25" },
+          { id: genId("t"), name: "i18n 多語系", status: "done", priority: "low", start: "2026-05-10", end: "2026-05-20" },
+          { id: genId("t"), name: "VibeCodingIDE 邊框優化", status: "done", priority: "low", start: "2026-06-26", end: "2026-06-27" },
         ],
       },
       {
@@ -231,11 +231,11 @@ async function ensureDefaultProject() {
         icon: "🚀",
         description: "Cron 排程、系統設定、部署流程",
         tasks: [
-          { id: genId("t"), name: "Cron Job 系統 (排程 + 監控)", status: "done", priority: "medium" },
-          { id: genId("t"), name: "設定頁 (Provider/Skill/Distill/Tools/Backup/Language)", status: "done", priority: "medium" },
-          { id: genId("t"), name: "Vercel 靜態部署 (ai-factory-portal)", status: "done", priority: "low" },
-          { id: genId("t"), name: "Windows 跨平台相容", status: "done", priority: "medium" },
-          { id: genId("t"), name: "Docker 容器化部署", status: "todo", priority: "low" },
+          { id: genId("t"), name: "Cron Job 系統", status: "done", priority: "medium", start: "2026-05-01", end: "2026-05-15" },
+          { id: genId("t"), name: "設定頁 (Provider/Skill/Backup)", status: "done", priority: "medium", start: "2026-05-15", end: "2026-06-01" },
+          { id: genId("t"), name: "Vercel 靜態部署", status: "done", priority: "low", start: "2026-04-20", end: "2026-05-01" },
+          { id: genId("t"), name: "Windows 跨平台相容", status: "done", priority: "medium", start: "2026-06-10", end: "2026-06-20" },
+          { id: genId("t"), name: "Docker 容器化部署", status: "todo", priority: "low", start: "", end: "" },
         ],
       },
     ],
@@ -434,6 +434,9 @@ async function handleProjectRoutes(req, res) {
       name: body.name || "新任務",
       status: body.status || "todo",
       priority: body.priority || "medium",
+      start: body.start || "",
+      end: body.end || "",
+      assignee: body.assignee || "",
     };
     cat.tasks = cat.tasks || [];
     cat.tasks.push(task);
@@ -457,6 +460,9 @@ async function handleProjectRoutes(req, res) {
         if (body.name !== undefined) found.name = body.name;
         if (body.status !== undefined) found.status = body.status;
         if (body.priority !== undefined) found.priority = body.priority;
+        if (body.start !== undefined) found.start = body.start;
+        if (body.end !== undefined) found.end = body.end;
+        if (body.assignee !== undefined) found.assignee = body.assignee;
         break;
       }
     }
