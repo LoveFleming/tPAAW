@@ -2,7 +2,7 @@ import Icon from "./components/Icon";
 import DirectoryExplorer from "./components/DirectoryExplorer";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import ChatView from "./pages/ChatView";
+import ChatView, { sendSeedToChat } from "./pages/ChatView";
 import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
 import SkillBuilder from "./pages/SkillBuilder";
@@ -141,7 +141,7 @@ function AppInner() {
   const [activePage, setActivePage] = useState<string>("_chat");
   const [openTabs, setOpenTabs] = useState<string[]>(["_chat"]);
   const [chatTitle, setChatTitle] = useState<string>("新對話");
-  const [chatSeedMessage, setChatSeedMessage] = useState<string | null>(null);
+
 
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
   const visibleTabs = useMemo(() => {
@@ -575,7 +575,7 @@ function AppInner() {
 
     // ── Chat (home) ──
     if (fullId === "_chat") {
-      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} seedMessage={chatSeedMessage} onSeedConsumed={() => setChatSeedMessage(null)} onDeepLink={(path, params) => {
+      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} onDeepLink={(path, params) => {
         if (path === "notes" && params.note) {
           const tabId = `${currentScope}:notes`;
           setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -685,7 +685,7 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav, briefingInitialDir, deepLinkNote, chatSeedMessage]);
+  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav, briefingInitialDir, deepLinkNote]);
 
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();
@@ -801,7 +801,7 @@ function AppInner() {
 
             {/* 📚 Knowledge */}
             <SidebarSection title={t("sidebar.knowledge")}>
-              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)} onAiSummary={(path, name, isDir) => { const msg = isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`; setActivePage("_chat"); window.dispatchEvent(new CustomEvent("paaw-seed-chat", { detail: { message: msg } })); }} />
+              <KnowledgeTree onOpenFile={handleSelectFile} onEditFile={handleEditFile} onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)} onAiSummary={(path, name, isDir) => { const msg = isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`; setActivePage("_chat"); sendSeedToChat(msg); }} />
             </SidebarSection>
 
             {/* 🏗 Build */}
@@ -882,7 +882,7 @@ function AppInner() {
                         onRemoveWorkspace={removeWorkspace}
                         onEditFile={handleEditFile}
                         onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)}
-                        onAiSummary={(path, name, isDir) => { const msg = isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`; setActivePage("_chat"); window.dispatchEvent(new CustomEvent("paaw-seed-chat", { detail: { message: msg } })); }}
+                        onAiSummary={(path, name, isDir) => { const msg = isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`; setActivePage("_chat"); sendSeedToChat(msg); }}
                       />
                       <button
                         onClick={() => removeWorkspace(dir)}

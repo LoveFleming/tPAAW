@@ -3,6 +3,14 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTheme } from "../theme";
 
+// ── Module-level pending seed message ──
+let _pendingSeed: string | null = null;
+export function sendSeedToChat(msg: string) {
+  _pendingSeed = msg;
+  // Also fire event in case ChatView is already mounted
+  window.dispatchEvent(new CustomEvent("paaw-seed-chat-ready"));
+}
+
 import API_BASE from "../api";
 
 interface Message {
@@ -180,26 +188,22 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   }, [input]);
 
   // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
-  // Listen for both prop-based and event-based seed messages
   const sendingSeedRef = useRef(false);
   const [localSeed, setLocalSeed] = useState<string | null>(null);
 
-  // Prop-based seed
+  // Check module-level pending seed on mount + when event fires
   useEffect(() => {
-    if (seedMessage) {
-      setLocalSeed(seedMessage);
-      onSeedConsumed?.();
-    }
-  }, [seedMessage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Event-based seed (from window event, works across re-mounts)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.message) setLocalSeed(detail.message);
+    const check = () => {
+      if (_pendingSeed) {
+        setLocalSeed(_pendingSeed);
+        _pendingSeed = null;
+      }
     };
-    window.addEventListener("paaw-seed-chat", handler as EventListener);
-    return () => window.removeEventListener("paaw-seed-chat", handler as EventListener);
+    // Check immediately (covers case where event fired before mount)
+    check();
+    // Listen for future events
+    window.addEventListener("paaw-seed-chat-ready", check);
+    return () => window.removeEventListener("paaw-seed-chat-ready", check);
   }, []);
 
   // Process seed
