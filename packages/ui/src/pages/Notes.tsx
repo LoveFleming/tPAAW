@@ -379,10 +379,12 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
         if (noteData.note) {
           setActiveNote(noteData.note);
           setTagsInput((noteData.note.tags || []).join(", "));
-          // 直接設定 editor 內容
-          if (editorRef.current) editorRef.current.innerHTML = noteData.note.content || "";
-          // 等 title ref 可用後設定
+          // 等 React render 完 editor div 再設內容
           setTimeout(() => {
+            if (editorRef.current) {
+              editorRef.current.innerHTML = noteData.note.content || "";
+              console.log("[Notes DeepLink] editor content set, len=", (noteData.note.content || "").length);
+            }
             if (titleRef.current) {
               titleRef.current.value = noteData.note.title || "";
             }
