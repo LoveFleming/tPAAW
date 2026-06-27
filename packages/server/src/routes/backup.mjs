@@ -1,8 +1,8 @@
 /**
- * PAAW Backup/Restore API
+ * PAAW Backup/Restore API（跨平台 — 不依賴外部 tar 命令）
  *
  * 備份 data/ 下所有使用者資料（knowledge, skills, apps, notes, chats, config 等）
- * 排除暫存和系統產出（distill, system/temp）
+ * 使用 Node.js 內建 zlib 壓縮，Windows/Mac/Linux 都能跑。
  *
  * API:
  *   GET  /api/backup/config       — 取得備份設定
@@ -13,15 +13,15 @@
  *   DELETE /api/backup/delete?id= — 刪除一個備份
  */
 
-import { readFile, writeFile, readdir, mkdir, rm, stat, copyFile } from "fs/promises";
-import { existsSync, createReadStream, createWriteStream } from "fs";
-import { resolve, join, basename } from "path";
+import { readFile, writeFile, readdir, mkdir, rm, stat } from "fs/promises";
+import { existsSync } from "fs";
+import { resolve, join, basename, relative } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { execSync } from "child_process";
 import { createGzip, createGunzip } from "zlib";
+import { createWriteStream, createReadStream } from "fs";
 import { pipeline } from "stream/promises";
-import { Readable } from "stream";
 import { readBody } from "./shared.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,9 +38,6 @@ const BACKUP_DIRS = [
   "skills", "workflows", "api-registry",
 ];
 
-// 不備份的（暫存/系統產出）
-const EXCLUDE_DIRS = ["distill", "system"];
-
 function genId() {
   return `bk_${Date.now().toString(36)}`;
 }
@@ -49,6 +46,196 @@ function timestampLabel() {
   const d = new Date();
   return d.toISOString().replace(/[:.]/g, "-").slice(0, 19);
 }
+
+// ════════════════════════════════════════
+// 跨平台 tar.gz 打包/解包（純 Node.js）
+// ════════════════════════════════════════
+
+/**
+ * 遞迴收集目錄下所有檔案的相對路徑
+ */
+async function collectFiles(baseDir, subDir = "") {
+  const results = [];
+  const fullDir = subDir ? join(baseDir, subDir) : baseDir;
+
+  if (!existsSync(fullDir)) return results;
+
+  const entries = await readdir(fullDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const relPath = subDir ? `${subDir}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      results.push(...await collectFiles(baseDir, relPath));
+    } else if (entry.isFile()) {
+      results.push(relPath);
+    }
+  }
+  return results;
+}
+
+/**
+ * USTAR 格式 header（512 bytes）— 跨平台相容
+ */
+function makeTarHeader(filename, size) {
+  const header = Buffer.alloc(512, 0);
+
+  // name (100 bytes)
+  const nameBuf = Buffer.from(filename, "utf-8");
+  nameBuf.copy(header, 0);
+
+  // mode (8 bytes) — "0000644\0"
+  header.write("0000644\0", 100, "ascii");
+
+  // uid (8 bytes) — "0000000\0"
+  header.write("0000000\0", 108, "ascii");
+
+  // gid (8 bytes) — "0000000\0"
+  header.write("0000000\0", 116, "ascii");
+
+  // size (12 bytes) — octal, 11 digits + null
+  const sizeStr = size.toString(8).padStart(11, "0") + "\0";
+  header.write(sizeStr, 124, "ascii");
+
+  // mtime (12 bytes) — current time in octal
+  const mtime = Math.floor(Date.now() / 1000);
+  header.write(mtime.toString(8).padStart(11, "0") + "\0", 136, "ascii");
+
+  // typeflag (1 byte) — "0" = regular file
+  header.write("0", 156, "ascii");
+
+  // magic (6 bytes) — "ustar\0"
+  header.write("ustar\0", 257, "ascii");
+
+  // version (2 bytes) — "00"
+  header.write("00", 263, "ascii");
+
+  // checksum (8 bytes) — calculate after filling everything
+  // 先填空白計算
+  header.write("        ", 148, "ascii");
+  let checksum = 0;
+  for (let i = 0; i < 512; i++) checksum += header[i];
+  header.write(checksum.toString(8).padStart(6, "0") + "\0 ", 148, "ascii");
+
+  return header;
+}
+
+/**
+ * 打包成 .tar.gz（純 Node.js，跨平台）
+ */
+async function createTarGz(srcDir, dirs, outFile) {
+  const chunks = [];
+
+  for (const dir of dirs) {
+    const fullPath = join(srcDir, dir);
+    if (!existsSync(fullPath)) continue;
+
+    const files = await collectFiles(fullPath);
+    for (const relFile of files) {
+      const tarPath = `${dir}/${relFile}`; // tar 內的路徑
+      const absPath = join(fullPath, relFile);
+      const fileData = await readFile(absPath);
+      const size = fileData.length;
+
+      // header + data + padding
+      const header = makeTarHeader(tarPath, size);
+      chunks.push(header);
+      chunks.push(fileData);
+
+      // pad to 512 boundary
+      const remainder = (512 - (size % 512)) % 512;
+      if (remainder > 0) {
+        chunks.push(Buffer.alloc(remainder, 0));
+      }
+    }
+  }
+
+  // End-of-archive: two 512-byte zero blocks
+  chunks.push(Buffer.alloc(1024, 0));
+
+  // Combine and gzip
+  const tarBuffer = Buffer.concat(chunks);
+
+  // Write with gzip compression
+  return new Promise((resolve, reject) => {
+    const ws = createWriteStream(outFile);
+    const gz = createGzip({ level: 6 });
+    ws.on("finish", resolve);
+    ws.on("error", reject);
+    gz.on("error", reject);
+
+    // Pipe: tarBuffer → gzip → file
+    const rs = Readable.from(tarBuffer);
+    rs.pipe(gz).pipe(ws);
+  });
+}
+
+/**
+ * 從 tar.gz 解包到目標目錄（純 Node.js，跨平台）
+ */
+async function extractTarGz(tarFile, destDir) {
+  return new Promise((resolve, reject) => {
+    const gunzip = createGunzip();
+    const rs = createReadStream(tarFile);
+
+    let tarBuffer = Buffer.alloc(0);
+
+    gunzip.on("data", (chunk) => {
+      tarBuffer = Buffer.concat([tarBuffer, chunk]);
+    });
+
+    gunzip.on("end", async () => {
+      try {
+        let offset = 0;
+        while (offset + 512 <= tarBuffer.length) {
+          // Read header
+          const header = tarBuffer.subarray(offset, offset + 512);
+
+          // Check for end-of-archive (all zeros)
+          if (header.every(b => b === 0)) {
+            offset += 512;
+            continue;
+          }
+
+          // Extract filename (null-terminated)
+          let nameEnd = 0;
+          while (nameEnd < 100 && header[nameEnd] !== 0) nameEnd++;
+          const filename = header.subarray(0, nameEnd).toString("utf-8");
+
+          // Extract size (octal at offset 124, 12 bytes)
+          let sizeEnd = 124;
+          while (sizeEnd < 136 && header[sizeEnd] !== 0) sizeEnd++;
+          const sizeStr = header.subarray(124, sizeEnd).toString("ascii").trim();
+          const size = parseInt(sizeStr, 8) || 0;
+
+          offset += 512; // move past header
+
+          if (size > 0) {
+            const fileData = tarBuffer.subarray(offset, offset + size);
+            const destPath = join(destDir, filename);
+
+            // Ensure parent dir exists
+            const parentDir = dirname(resolve(destPath));
+            await mkdir(parentDir, { recursive: true });
+
+            await writeFile(destPath, fileData);
+          }
+
+          // Move to next record (align to 512)
+          offset += size + ((512 - (size % 512)) % 512);
+        }
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    gunzip.on("error", reject);
+    rs.on("error", reject);
+    rs.pipe(gunzip);
+  });
+}
+
+// 用 Readable 串流載入
+import { Readable } from "stream";
 
 // ── Config ──
 
@@ -60,7 +247,7 @@ async function loadConfig() {
       backupDir: BACKUP_DIR_DEFAULT,
       retentionCount: 7,
       enabled: true,
-      scheduleHour: 0, // 00:00
+      scheduleHour: 0,
       lastBackupAt: null,
     };
   }
@@ -78,25 +265,20 @@ async function runBackup(config) {
   await mkdir(backupDir, { recursive: true });
 
   const label = timestampLabel();
-  const tarFile = resolve(backupDir, `backup-${label}.tar.gz`);
+  const outFile = resolve(backupDir, `backup-${label}.tar.gz`);
 
-  // 構建 tar 命令：只包含要備份的目錄
+  // 確認要備份的目錄
   const includes = BACKUP_DIRS.filter(d => existsSync(resolve(DATA_DIR, d)));
   if (includes.length === 0) throw new Error("No data directories to backup");
 
-  // 用 tar 打包
-  const tarCmd = `cd "${DATA_DIR}" && tar czf "${tarFile}" ${includes.join(" ")}`;
-  console.log(`[Backup] Running: ${tarCmd}`);
+  console.log(`[Backup] Creating ${outFile} from ${includes.length} dirs...`);
 
-  try {
-    execSync(tarCmd, { maxBuffer: 50 * 1024 * 1024 });
-  } catch (err) {
-    throw new Error(`Backup tar failed: ${err.message}`);
-  }
+  // 純 Node.js 打包 + gzip
+  await createTarGz(DATA_DIR, includes, outFile);
 
-  // 驗證檔案
-  if (!existsSync(tarFile)) throw new Error("Backup file not created");
-  const stats = await stat(tarFile);
+  // 驗證
+  if (!existsSync(outFile)) throw new Error("Backup file not created");
+  const stats = await stat(outFile);
 
   // 清理超過保留數量的舊備份
   await cleanupOldBackups(config);
@@ -107,18 +289,18 @@ async function runBackup(config) {
 
   const result = {
     id: genId(),
-    filename: basename(tarFile),
-    path: tarFile,
+    filename: basename(outFile),
+    path: outFile,
     size: stats.size,
     createdAt: new Date().toISOString(),
     dirs: includes,
   };
 
-  // 存一份 metadata
+  // metadata
   const metaFile = resolve(backupDir, `backup-${label}.json`);
   await writeFile(metaFile, JSON.stringify(result, null, 2), "utf-8");
 
-  console.log(`[Backup] Done: ${tarFile} (${(stats.size / 1024 / 1024).toFixed(1)} MB)`);
+  console.log(`[Backup] Done: ${result.filename} (${(stats.size / 1024 / 1024).toFixed(1)} MB)`);
   return result;
 }
 
@@ -135,12 +317,10 @@ async function cleanupOldBackups(config) {
     .map(f => ({ name: f, path: resolve(backupDir, f) }))
     .sort((a, b) => b.name.localeCompare(a.name)); // 新→舊
 
-  // 保留最新的 N 個，刪掉其餘的
   const toDelete = backups.slice(retention);
   for (const f of toDelete) {
     try {
       await rm(f.path);
-      // 也刪對應的 metadata json
       const metaPath = f.path.replace(".tar.gz", ".json");
       if (existsSync(metaPath)) await rm(metaPath);
       console.log(`[Backup] Cleaned up old: ${f.name}`);
@@ -193,19 +373,13 @@ async function restoreBackup(config, filename) {
     throw new Error("Invalid backup filename");
   }
 
-  // 先建立一個還原前的自動備份（安全網）
+  // 還原前自動建立安全備份
   console.log("[Restore] Creating pre-restore backup...");
   await runBackup({ ...config, retentionCount: config.retentionCount + 1 });
 
-  // 解壓到 data/ （覆蓋現有檔案）
-  const tarCmd = `cd "${DATA_DIR}" && tar xzf "${tarFile}" --overwrite`;
-  console.log(`[Restore] Running: ${tarCmd}`);
-
-  try {
-    execSync(tarCmd, { maxBuffer: 50 * 1024 * 1024 });
-  } catch (err) {
-    throw new Error(`Restore tar failed: ${err.message}`);
-  }
+  // 純 Node.js 解包
+  console.log(`[Restore] Extracting ${filename}...`);
+  await extractTarGz(tarFile, DATA_DIR);
 
   console.log(`[Restore] Done from: ${filename}`);
   return { ok: true, restoredFrom: filename };
@@ -253,6 +427,7 @@ async function handleBackupRoutes(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, backup: result }));
     } catch (err) {
+      console.error("[Backup] Run error:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
@@ -280,6 +455,7 @@ async function handleBackupRoutes(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
     } catch (err) {
+      console.error("[Backup] Restore error:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }

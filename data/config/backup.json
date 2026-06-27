@@ -1,0 +1,7 @@
+{
+  "backupDir": "/Users/steward/App/tAgent/backups",
+  "retentionCount": 3,
+  "enabled": true,
+  "scheduleHour": 0,
+  "lastBackupAt": "2026-06-27T11:13:56.824Z"
+}
