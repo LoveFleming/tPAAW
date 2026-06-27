@@ -327,7 +327,7 @@ export default function MindMapViewer() {
   return (
     <div style={{
       display: "flex", flexDirection: "column", height: "100%",
-      background: tk.bgHover, color: tk.textPrimary,
+      background: tk.bg, color: tk.textPrimary,
     }}>
       {/* ── Toolbar ── */}
       <div style={{
@@ -530,7 +530,7 @@ export default function MindMapViewer() {
           )}
         </div>
       ) : (
-        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: tk.bgHover }}>
+        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: tk.accentBg }}>
           <svg ref={svgRef} style={{ width: "100%", height: "100%" }} />
         </div>
       )}
