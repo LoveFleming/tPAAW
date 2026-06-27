@@ -748,6 +748,7 @@ const sendChat = useCallback(async () => {
   const modifiedCount = useMemo(() => openTabs.filter(ot => ot.modified).length, [openTabs]);
 
   // ── File Explorer Tree Render ──
+  // Matches PAAW workspace NavItem styling: text-sm, py-1.5, gap-2.5
   const renderTree = (parentPath: string, depth: number) => {
     const items = dirContents[parentPath];
     if (!items) return null;
@@ -757,11 +758,11 @@ const sendChat = useCallback(async () => {
         const isExpanded = expandedDirs.has(item.path);
         return (
           <div key={item.path}>
-            <div className={cn("flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-stone-100 text-xs select-none")}
-              style={{ paddingLeft: depth * 12 + 8 }} onClick={() => toggleDir(item.path)}>
-              <span className="text-xs text-stone-400 w-3 shrink-0">{isExpanded ? "▾" : "▸"}</span>
-              <span className="text-xs shrink-0">📁</span>
-              <span className="truncate text-stone-700 font-medium">{item.name}</span>
+            <div className={cn("flex items-center gap-2.5 pr-4 py-1.5 cursor-pointer hover:bg-stone-100 text-sm select-none transition-colors")}
+              style={{ paddingLeft: depth * 16 + 28 }} onClick={() => toggleDir(item.path)}>
+              <span className="text-sm text-stone-400 w-3.5 shrink-0">{isExpanded ? "▾" : "▸"}</span>
+              <span className="text-sm shrink-0">📁</span>
+              <span className="truncate text-stone-700" style={{ fontWeight: 500 }}>{item.name}</span>
             </div>
             {isExpanded && renderTree(item.path, depth + 1)}
           </div>
@@ -769,11 +770,11 @@ const sendChat = useCallback(async () => {
       }
       return (
         <div key={item.path}
-          className={cn("flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-stone-100 text-xs select-none", activeTabId === item.path && "bg-blue-50 text-blue-700")}
-          style={{ paddingLeft: depth * 12 + 20 }} onClick={() => openFile(item.path)}>
-          <span className="text-xs font-bold shrink-0 w-4 text-center" style={{ color: fi.color }}>{fi.icon}</span>
+          className={cn("flex items-center gap-2.5 pr-4 py-1.5 cursor-pointer hover:bg-stone-100 text-sm select-none transition-colors", activeTabId === item.path && "bg-blue-50 text-blue-700")}
+          style={{ paddingLeft: depth * 16 + 40 }} onClick={() => openFile(item.path)}>
+          <span className="text-sm shrink-0 w-4 text-center" style={{ color: fi.color }}>{fi.icon}</span>
           <span className="truncate">{item.name}</span>
-          {openTabs.find(ot => ot.id === item.path)?.modified && <span className="text-[8px] text-amber-500 ml-auto shrink-0">●</span>}
+          {openTabs.find(ot => ot.id === item.path)?.modified && <span className="text-[10px] text-amber-500 ml-auto shrink-0">●</span>}
         </div>
       );
     });
@@ -850,7 +851,7 @@ const sendChat = useCallback(async () => {
               </div>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto py-0.5" style={{ fontSize: 12 }}>
+          <div className="flex-1 overflow-y-auto py-0.5" style={{ fontSize: 14 }}>
             {rootPath ? renderTree(rootPath, 0) : (
               <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
                 <span className="text-3xl">📂</span>
