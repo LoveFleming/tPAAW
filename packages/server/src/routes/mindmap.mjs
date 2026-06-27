@@ -23,6 +23,7 @@ import { resolve, join, extname } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { readBody } from "./shared.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -234,12 +235,7 @@ async function handleMindMapRoutes(req, res) {
   if (req.method === "POST" && req.url?.startsWith("/api/mindmap/generate")) {
     let body;
     try {
-      const raw = await new Promise(resolve => {
-        let d = "";
-        req.on("data", c => d += c);
-        req.on("end", () => resolve(d));
-      });
-      body = JSON.parse(raw);
+      body = JSON.parse(await readBody(req));
     } catch {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid JSON body" }));
@@ -309,12 +305,7 @@ async function handleMindMapRoutes(req, res) {
   if (req.method === "POST" && req.url?.startsWith("/api/mindmap/from-text")) {
     let body;
     try {
-      const raw = await new Promise(resolve => {
-        let d = "";
-        req.on("data", c => d += c);
-        req.on("end", () => resolve(d));
-      });
-      body = JSON.parse(raw);
+      body = JSON.parse(await readBody(req));
     } catch {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid JSON body" }));
@@ -400,12 +391,7 @@ async function handleMindMapRoutes(req, res) {
   if (req.method === "POST" && req.url?.startsWith("/api/mindmap/save")) {
     let body;
     try {
-      const raw = await new Promise(resolve => {
-        let d = "";
-        req.on("data", c => d += c);
-        req.on("end", () => resolve(d));
-      });
-      body = JSON.parse(raw);
+      body = JSON.parse(await readBody(req));
     } catch {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid JSON body" }));
