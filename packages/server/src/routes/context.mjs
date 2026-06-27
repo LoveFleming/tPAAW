@@ -31,7 +31,7 @@ export const PATHS = {
   DOCS_ROOT:       resolve(PAAW_ROOT, "docs"),
   CONFIG_ROOT:     resolve(PAAW_ROOT, "data/config"),
   CHAT_DIR:        resolve(PAAW_ROOT, "data/chats"),
-  SYSTEM_DIR:      resolve(PAAW_ROOT, "data/system"),
+  SYSTEM_DIR:      resolve(PAAW_ROOT, "data/ai-settings/_base"), // legacy name kept, now points to ai-settings/_base
   PAAW_ROOT_DATA:  resolve(PAAW_ROOT, "data"),
 };
 

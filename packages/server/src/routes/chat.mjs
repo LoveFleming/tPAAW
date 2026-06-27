@@ -274,14 +274,13 @@ export default async function chatRoutes(req, res) {
   // System Prompt API（讀取/更新提示詞檔案）
   // ════════════════════════════════════════
 
-  const SYSTEM_DIR = resolve(PAAW_DATA_DIR, "system");
   const CHAT_AI_DIR = resolve(PAAW_DATA_DIR, "ai-settings/chat");
   const PROMPT_FILES = ["identity.md", "tool-rules.md", "system-prompt.md", "guardrails.md", "reply-rules.md"];
 
-  // Helper: read from ai-settings/chat/ first, fallback to data/system/
+  // Helper: read from ai-settings/chat/
   async function readPromptFile(file) {
     try { return await readFile(resolve(CHAT_AI_DIR, file), "utf-8"); }
-    catch { try { return await readFile(resolve(SYSTEM_DIR, file), "utf-8"); } catch { return null; } }
+    catch { return null; }
   }
   async function writePromptFile(file, content) {
     await mkdir(CHAT_AI_DIR, { recursive: true });

@@ -24,7 +24,6 @@ const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../");
 const DATA_DIR = resolve(PAAW_ROOT, "data");
 const CONFIG_DIR = resolve(DATA_DIR, "config");
-const SYSTEM_DIR = resolve(DATA_DIR, "system");
 const APPS_DIR = resolve(DATA_DIR, "apps");
 const CHAT_DIR = resolve(DATA_DIR, "chats");
 const SKILL_POOL_DIR = resolve(DATA_DIR, "skills/physical-skill");
@@ -375,7 +374,7 @@ export const contextEngine = {
     if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
 
     // 4.5 Tool 使用規則（從檔案讀取，方便透過 API 編輯）
-    const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md")) || safeRead(resolve(SYSTEM_DIR, "tool-rules.md"));
+    const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
     if (toolRules) {
       parts.push(resolvePaths(toolRules));
     } else {

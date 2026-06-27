@@ -10,7 +10,7 @@
  */
 
 import { createServer } from "http";
-import { PORT, PAAW_ROOT, SYSTEM_DIR, mkdir } from "./routes/shared.mjs";
+import { PORT, PAAW_ROOT, mkdir } from "./routes/shared.mjs";
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
 
 // ── Lazy-loaded route modules (existing) ──
@@ -90,7 +90,6 @@ setupWebSocket();   // WebSocket on port 4098
 
 server.listen(PORT, async () => {
   // Ensure required directories exist
-  await mkdir(SYSTEM_DIR, { recursive: true });
   await mkdir(`${PAAW_ROOT}/data/knowledge`, { recursive: true });
 
   // Ensure daily backup cron job exists

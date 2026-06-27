@@ -71,7 +71,7 @@ export class SecurityKernel {
 
       const path = ctx.args?.path || ctx.args?.target || ''
       // 保護 PAAW 系統目錄
-      const protectedPaths = ['/data/system/', '/data/config/', '/data/db/']
+      const protectedPaths = ['/data/config/', '/data/db/']
       for (const pp of protectedPaths) {
         if (path.includes(pp)) {
           return { blocked: true, reason: `保護的系統目錄: ${pp}` }
