@@ -410,9 +410,9 @@ export default function MindMapViewer() {
       {/* ── Main Area ── */}
       {!mindMap ? (
         /* ── Input Panel ── */
-        <div style={{ flex: 1, overflow: "auto", padding: 24, maxWidth: 900, margin: "0 auto", width: "100%" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 24px", maxWidth: 900, margin: "0 auto", width: "100%", minHeight: 0 }}>
           {/* Mode Tabs */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexShrink: 0 }}>
             <button
               onClick={() => setMode("select")}
               style={mode === "select" ? activeTabStyle : tabStyle}
@@ -423,12 +423,11 @@ export default function MindMapViewer() {
             >✏️ 貼上文字</button>
           </div>
 
-          {/* Prompt Input — 移到下方 */}
-
           {mode === "select" ? (
-            /* File Browser */
-            <div>
-              <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            /* File Browser — flex column，跟 prompt 分螢幕高度 */
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+              {/* Path bar */}
+              <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                 <button
                   onClick={() => browsePath(browserPath ? browserPath.split("/").slice(0, -1).join("/") || "/" : "/")}
                   style={btnStyle}
@@ -436,9 +435,10 @@ export default function MindMapViewer() {
                 <span style={{ fontSize: 13, color: "#94a3b8", fontFamily: "monospace" }}>{browserPath || "/"}</span>
               </div>
 
+              {/* File list — flex: 2 */}
               <div style={{
                 background: "#1e293b", borderRadius: 8, border: "1px solid #334155",
-                maxHeight: 350, overflow: "auto", padding: 8,
+                flex: 2, minHeight: 0, overflow: "auto", padding: 8,
               }}>
                 {/* Directory option */}
                 <div
@@ -496,34 +496,34 @@ export default function MindMapViewer() {
               </div>
 
               {/* Selection Summary */}
-              <div style={{ marginTop: 12, fontSize: 13, color: "#94a3b8" }}>
+              <div style={{ marginTop: 6, fontSize: 13, color: "#94a3b8", flexShrink: 0 }}>
                 {selectedDir && `已選目錄: ${selectedDir}`}
                 {selectedFiles.length > 0 && `已選 ${selectedFiles.length} 個檔案`}
               </div>
 
-              {/* AI Prompt */}
-              <div style={{ marginTop: 16 }}>
-                <label style={{ display: "block", fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
+              {/* AI Prompt — flex: 1 */}
+              <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, marginTop: 6 }}>
+                <label style={{ fontSize: 13, color: "#94a3b8", marginBottom: 4, flexShrink: 0 }}>
                   AI 提示詞
                 </label>
                 <textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
-                  rows={16}
                   style={{
-                    width: "100%", padding: "10px 12px", background: "#1e293b",
+                    width: "100%", flex: 1, minHeight: 0, padding: "10px 12px", background: "#1e293b",
                     border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0",
-                    fontSize: 14, fontFamily: "monospace", resize: "vertical", lineHeight: 1.6,
+                    fontSize: 14, fontFamily: "monospace", resize: "none", lineHeight: 1.6,
                   }}
                 />
               </div>
 
+              {/* Generate button */}
               <button
                 onClick={generateFromFiles}
                 disabled={loading || (!selectedDir && selectedFiles.length === 0)}
                 style={{
                   ...btnStyle,
-                  marginTop: 16,
+                  marginTop: 10, flexShrink: 0,
                   background: loading || (!selectedDir && selectedFiles.length === 0) ? "#334155" : "#4F46E5",
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || (!selectedDir && selectedFiles.length === 0) ? "not-allowed" : "pointer",
@@ -533,41 +533,47 @@ export default function MindMapViewer() {
               </button>
             </div>
           ) : (
-            /* Text Input */
-            <div>
-              <textarea
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                placeholder="貼上你想整理成心智圖的文字內容..."
-                style={{
-                  width: "100%", minHeight: 250, padding: 12, background: "#1e293b",
-                  border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0",
-                  fontSize: 14, fontFamily: "monospace", resize: "vertical",
-                }}
-              />
+            /* Text Input — flex column */
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+              {/* Text input — flex: 2 */}
+              <div style={{ display: "flex", flexDirection: "column", flex: 2, minHeight: 0 }}>
+                <label style={{ fontSize: 13, color: "#94a3b8", marginBottom: 4, flexShrink: 0 }}>
+                  要整理的內容
+                </label>
+                <textarea
+                  value={inputText}
+                  onChange={e => setInputText(e.target.value)}
+                  placeholder="貼上你想整理成心智圖的文字內容..."
+                  style={{
+                    width: "100%", flex: 1, minHeight: 0, padding: 12, background: "#1e293b",
+                    border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0",
+                    fontSize: 14, fontFamily: "monospace", resize: "none",
+                  }}
+                />
+              </div>
 
-              {/* AI Prompt */}
-              <div style={{ marginTop: 16 }}>
-                <label style={{ display: "block", fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
+              {/* AI Prompt — flex: 1 */}
+              <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, marginTop: 8 }}>
+                <label style={{ fontSize: 13, color: "#94a3b8", marginBottom: 4, flexShrink: 0 }}>
                   AI 提示詞
                 </label>
                 <textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
-                  rows={16}
                   style={{
-                    width: "100%", padding: "10px 12px", background: "#1e293b",
+                    width: "100%", flex: 1, minHeight: 0, padding: "10px 12px", background: "#1e293b",
                     border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0",
-                    fontSize: 14, fontFamily: "monospace", resize: "vertical", lineHeight: 1.6,
+                    fontSize: 14, fontFamily: "monospace", resize: "none", lineHeight: 1.6,
                   }}
                 />
               </div>
+
               <button
                 onClick={generateFromText}
                 disabled={loading || inputText.trim().length < 10}
                 style={{
                   ...btnStyle,
-                  marginTop: 12,
+                  marginTop: 10, flexShrink: 0,
                   background: loading || inputText.trim().length < 10 ? "#334155" : "#4F46E5",
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || inputText.trim().length < 10 ? "not-allowed" : "pointer",
