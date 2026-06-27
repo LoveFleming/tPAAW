@@ -73,6 +73,8 @@ const NAV_ICONS: Record<string, string> = {
     "Work Sync":       "expand",
     "AI Settings":     "gear",
     "Briefing Player": "presentation",
+    "Mind Map":       "share-nodes",
+    "Notes":          "notebook",
 };
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
