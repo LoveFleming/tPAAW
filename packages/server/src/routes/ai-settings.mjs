@@ -14,15 +14,15 @@
  *   POST   /api/ai-settings/skill-builder/build          — assembled context for CLI
  */
 import { readdir, readFile, writeFile, mkdir, rm } from "fs/promises";
-import { join, resolve } from "path";
+import { join, resolve, dirname } from "path";
 import { existsSync, statSync } from "fs";
+import { fileURLToPath } from "url";
 import { readBody, json, urlPath } from "./context.mjs";
 
-const AI_SETTINGS_ROOT = resolve(
-  import.meta.dirname
-    ? join(import.meta.dirname, "../../../../data/ai-settings")
-    : join(process.cwd(), "data/ai-settings")
-);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const AI_SETTINGS_ROOT = resolve(__dirname, "../../../../data/ai-settings");
 
 // Category metadata — fixed set, but files are dynamic
 const CATEGORIES = [

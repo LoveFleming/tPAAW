@@ -33,7 +33,7 @@ building/{skill-id}/
 
 ## 必須使用的工具
 
-**建立 Skill 時，必須參考 `data/skills/physical-skill/skill-creator/SKILL.md` 裡的 Skill Creator 定義。** 這是 PAAW 的官方 Skill 建構器，確保產出的 skill 符合格式和品質標準。
+**建立 Skill 時，必須參考 `{{PAAW_ROOT}}/data/skills/physical-skill/skill-creator/SKILL.md` 裡的 Skill Creator 定義。** 這是 PAAW 的官方 Skill 建構器，確保產出的 skill 符合格式和品質標準。
 
 - 先讀取 Skill Creator 的 SKILL.md 了解標準格式
 - 按照 Skill Creator 的 Execution Steps 和 Business Rules 產出

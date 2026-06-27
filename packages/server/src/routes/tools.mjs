@@ -9,9 +9,12 @@
  *   PUT  /api/tool-registry/:id     — 更新工具設定（enabled/autoTool）
  */
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
-import { resolve, join } from "path";
+import { resolve, join, dirname } from "path";
+import { fileURLToPath } from "url";
 
-const PAAW_ROOT = process.env.PAAW_ROOT || resolve(process.cwd(), "../..");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PAAW_ROOT = process.env.PAAW_ROOT || resolve(__dirname, "../../../");
 const REGISTRY_DIR = resolve(PAAW_ROOT, "data/api-registry");
 const TOOLS_DIR = resolve(PAAW_ROOT, "data/skills/tools");
 

@@ -9,6 +9,8 @@
  */
 
 import { fetchStreamWithRetry, sanitizeContent } from '../llm-utils.mjs'
+import { fileURLToPath } from 'url'
+import { dirname, resolve as pathResolve } from 'path'
 
 // ── OpenAI-compatible Provider ──
 
@@ -49,9 +51,11 @@ export class OpenAICompatibleAdapter {
     console.log(`[Provider] → POST ${url} model=${modelName} msgs=${messages.length} tools=${tools.length}`)
 
     // ★ 寫 payload 到 temp
+    const __dirname = dirname(fileURLToPath(import.meta.url))
+    const PAAW_ROOT = pathResolve(__dirname, '../../../')
     const fs = await import('fs')
     const nodePath = await import('path')
-    const tempDir = nodePath.join(process.cwd(), 'temp')
+    const tempDir = nodePath.join(PAAW_ROOT, 'temp')
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
     const payloadPath = nodePath.join(tempDir, `payload-${Date.now()}.json`)
     fs.writeFileSync(payloadPath, JSON.stringify(body, null, 2))

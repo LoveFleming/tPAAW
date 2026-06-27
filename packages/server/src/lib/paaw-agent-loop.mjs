@@ -569,7 +569,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
 - **ask_user** — Ask for clarification when needed
 
 ## Rules
-1. Always resolve file paths relative to the working directory: ${cwd}
+1. Always use ABSOLUTE paths when reading or writing files. The working directory is: ${cwd}
 2. Before writing code, read existing files and use glob/grep to understand the project structure
 3. Use edit_file for small changes, write_file for new files or large rewrites
 4. Use grep to find relevant code before making changes
@@ -579,7 +579,8 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
 8. If something is unclear, use ask_user
 9. Never delete files unless explicitly asked
 10. Keep changes minimal — don't rewrite entire files for small edits
-11. Cross-platform: your tools work on both Windows and Linux/macOS. When using bash for shell commands, prefer cross-platform commands (git, npm, node) or use platform-appropriate syntax.`);
+11. Cross-platform: your tools work on both Windows and Linux/macOS. When using bash for shell commands, prefer cross-platform commands (git, npm, node) or use platform-appropriate syntax.
+12. When referencing data files in prompts or configs, always use absolute paths starting from the project root: ${cwd}`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

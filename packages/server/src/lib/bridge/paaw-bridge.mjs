@@ -44,16 +44,22 @@ import { join, resolve, relative, dirname } from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { createHash } from "crypto";
+import { fileURLToPath } from "url";
 
 const execFileAsync = promisify(execFile);
 
 // ── Config ──────────────────────────────────────────────
 
+// Resolve PAAW_ROOT from module location, not process.cwd()
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);  // .../packages/server/src/lib/bridge/
+const PAAW_ROOT = resolve(__dirname, "../../../../");
+
 const PORT = parseInt(process.env.BRIDGE_PORT || "4100", 10);
 const HOST = process.env.BRIDGE_HOST || "0.0.0.0";
 const PAAW_CONTAINER = process.env.PAAW_CONTAINER || "paaw";
 const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || "";
-const HOST_DATA_DIR = resolve(process.cwd(), "data");
+const HOST_DATA_DIR = resolve(PAAW_ROOT, "data");
 
 // ── State ───────────────────────────────────────────────
 
@@ -155,7 +161,7 @@ async function createSyncRequest(subPath, label) {
   }
 
   // Copy current container data to temp for comparison
-  const tempDir = resolve(process.cwd(), ".sync-temp", id, subPath);
+  const tempDir = resolve(PAAW_ROOT, ".sync-temp", id, subPath);
   await mkdir(tempDir, { recursive: true });
   try {
     await execFileAsync("docker", ["cp", `${PAAW_CONTAINER}:${containerDir}/.`, tempDir]);
@@ -316,7 +322,7 @@ async function updateContainer(action) {
       return { ok: true, action: "start" };
     }
     case "rebuild": {
-      const cwd = process.cwd();
+      const cwd = PAAW_ROOT;
       await execFileAsync("docker", ["compose", "build", "--no-cache", "paaw"], { cwd });
       await execFileAsync("docker", ["compose", "up", "-d", "paaw"], { cwd });
       return { ok: true, action: "rebuild" };

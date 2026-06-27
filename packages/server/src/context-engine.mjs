@@ -36,6 +36,12 @@ function safeRead(filePath) {
   try { return readFileSync(filePath, "utf-8"); } catch { return ""; }
 }
 
+/** Replace {{PAAW_ROOT}} placeholder with absolute path */
+function resolvePaths(text) {
+  if (!text) return text;
+  return text.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT);
+}
+
 function safeReadJSON(filePath, fallback) {
   try { return JSON.parse(readFileSync(filePath, "utf-8")); } catch { return fallback; }
 }
@@ -68,9 +74,9 @@ function loadSystemPrompt() {
 function loadBaseContext() {
   const parts = [];
   const paawCtx = safeRead(resolve(BASE_SETTINGS_DIR, "paaw-context.md"));
-  if (paawCtx) parts.push(paawCtx);
+  if (paawCtx) parts.push(resolvePaths(paawCtx));
   const coreRules = safeRead(resolve(BASE_SETTINGS_DIR, "core-rules.md"));
-  if (coreRules) parts.push(coreRules);
+  if (coreRules) parts.push(resolvePaths(coreRules));
   return parts.join("\n\n");
 }
 
@@ -341,8 +347,8 @@ export const contextEngine = {
       : "";
 
     // Tell AI where config files are — it reads them itself to discover directories
-    const paawRoot = PAAW_ROOT;
-    const knowledgeInfo = `\n\n📚 Knowledge 目錄：${paawRoot}/data/knowledge\n使用 file_list({ path: "${paawRoot}/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "絕對路徑/檔名" }) 讀取檔案。`;
+    // PAAW_ROOT is already injected into paaw-context.md via {{PAAW_ROOT}} placeholder
+    const knowledgeInfo = `\n\n📚 Knowledge 目錄：${PAAW_ROOT}/data/knowledge\n使用 file_list({ path: "${PAAW_ROOT}/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "${PAAW_ROOT}/data/knowledge/檔名" }) 讀取檔案。`;
 
     const parts = [];
 
@@ -371,25 +377,25 @@ export const contextEngine = {
     // 4.5 Tool 使用規則（從檔案讀取，方便透過 API 編輯）
     const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md")) || safeRead(resolve(SYSTEM_DIR, "tool-rules.md"));
     if (toolRules) {
-      parts.push(toolRules);
+      parts.push(resolvePaths(toolRules));
     } else {
       parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具（例如 fs_tree、fs_browse）\n- Knowledge 目錄是固定的：file_read({ path: "檔名", workspace: "knowledge" })\n- Workspace 是外掛目錄：file_read({ path: "相對路徑", workspace: "目錄名" })\n- 列出檔案：file_list({ workspace: "knowledge" }) 或 file_list({ workspace: "目錄名" })`);
     }
 
     // 4.6 Skill 執行規則（從 crew 分類讀取）
     const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
-    if (skillRules) parts.push(skillRules);
+    if (skillRules) parts.push(resolvePaths(skillRules));
 
     // 5. App builder rules
-    if (appRules) parts.push(`=== App 建構規則 ===\n當使用者想建新 App 或修改 App 時，遵循以下規則：\n${appRules}`);
+    if (appRules) parts.push(resolvePaths(`=== App 建構規則 ===\n當使用者想建新 App 或修改 App 時，遵循以下規則：\n${appRules}`));
 
     // 6. System base + guardrails
-    if (systemBase) parts.push(systemBase);
-    if (guardrails) parts.push(guardrails);
+    if (systemBase) parts.push(resolvePaths(systemBase));
+    if (guardrails) parts.push(resolvePaths(guardrails));
 
     // 7. Reply rules
     const replyRules = loadReplyRules();
-    if (replyRules) parts.push(replyRules);
+    if (replyRules) parts.push(resolvePaths(replyRules));
 
     // 7.5 API Tools — 系統工具列表
     const apiTools = loadApiTools();
@@ -518,10 +524,10 @@ export const contextEngine = {
     if (baseCtx) parts.push(baseCtx);
 
     const skillFormat = loadSkillFormat();
-    if (skillFormat) parts.push(`### Skill Format\n${skillFormat}`);
+    if (skillFormat) parts.push(`### Skill Format\n${resolvePaths(skillFormat)}`);
 
     const builderRules = loadSkillBuilderRules();
-    if (builderRules) parts.push(`### Builder Rules\n${builderRules}`);
+    if (builderRules) parts.push(`### Builder Rules\n${resolvePaths(builderRules)}`);
 
     const contextSection = parts.join("\n\n");
     const systemPrompt = "你是 PAAW Skill 建構專家。根據使用者提供的資訊和規則，產出完整的 SKILL.md。";
