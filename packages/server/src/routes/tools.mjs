@@ -186,7 +186,7 @@ export default async function toolRegistryRoutes(req, res) {
   }
 
   // POST /api/tool-registry/:id/generate — generate SKILL.md
-  if (req.method === "POST" && path.includes("/generate")) {
+  if (req.method === "POST" && path.startsWith("/api/tool-registry/") && path.endsWith("/generate")) {
     const routeId = path.split("/")[3]; // /api/tool-registry/:id/generate
     const contract = await loadContract(routeId);
     if (!contract) { res.writeHead(404); res.end(JSON.stringify({ error: "Not found" })); return true; }
