@@ -1,20 +1,13 @@
 /**
  * Mind Map API — AI 生成心智圖
  *
- * POST /api/mindmap/generate
- *   body: { files: string[], prompt: string }
- *   讀取檔案內容 → 送 LLM → 回傳 mind map JSON tree
+ * AI 輸出 Markdown，前端用 markmap-view 渲染。
  *
- * POST /api/mindmap/from-text
- *   body: { text: string, prompt: string }
- *   直接從文字 → 送 LLM → 回傳 mind map JSON tree
- *
- * GET  /api/mindmap/list
- *   列出已存檔的心智圖
- *
- * POST /api/mindmap/save
- *   body: { name: string, data: MindMapNode }
- *   儲存心智圖
+ * POST /api/mindmap/generate   — 從檔案/目錄產生
+ * POST /api/mindmap/from-text  — 從文字產生
+ * GET  /api/mindmap/list       — 列出已存檔
+ * GET  /api/mindmap/get?id=    — 載入
+ * POST /api/mindmap/save       — 儲存
  */
 
 import { readFile, writeFile, readdir, mkdir } from "fs/promises";
@@ -29,62 +22,30 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../../");
 const MINDMAP_DIR = resolve(PAAW_ROOT, "data/mindmaps");
+const SYSTEM_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/mindmap/system-prompt.md");
 
-// ── System Prompt ──
+// ── 載入系統提示詞 ──
 
-const MINDMAP_SYSTEM_PROMPT = `你是心智圖產生器。你會收到一份文件或資料的內容，請將其整理成結構化的心智圖。
+let _cachedPrompt = null;
 
-## 輸出格式（嚴格遵守）
+function getSystemPrompt() {
+  if (_cachedPrompt) return _cachedPrompt;
+  try {
+    _cachedPrompt = readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
+    return _cachedPrompt;
+  } catch {
+    // Fallback 內建提示詞
+    _cachedPrompt = `你是心智圖產生器。請將收到的內容整理成 Markdown 格式的心智圖。
 
-只輸出一個 JSON 物件，不要加任何 markdown 格式標記、不要加說明文字。
+直接輸出 Markdown：
+- # 根主題（只有一個）
+- ## 主要分支（3-7 個）
+- - 子節點（可多層縮排）
 
-JSON 結構：
-\`\`\`
-{
-  "root": {
-    "title": "主題名稱",
-    "color": "#4F46E5",
-    "children": [
-      {
-        "title": "主要分支 1",
-        "color": "#3B82F6",
-        "children": [
-          {
-            "title": "子主題",
-            "color": "#60A5FA",
-            "children": []
-          }
-        ]
-      },
-      {
-        "title": "主要分支 2",
-        "color": "#10B981",
-        "children": []
-      }
-    ]
-  },
-  "summary": "一句話描述這張心智圖的核心內容"
+只輸出 Markdown，不要加說明文字。`;
+    return _cachedPrompt;
+  }
 }
-\`\`\`
-
-## 規則
-
-1. **root.title** 是最核心的主題
-2. 第一層 children 是主要分類（3-7 個）
-3. 第二層是子主題（每個分支 2-5 個）
-4. 第三層如果內容豐富才加，否則不要硬塞
-5. **每個節點都要有 color**（hex 格式）
-6. title 要簡潔（通常 2-8 個字），不要長句子
-7. 如果內容有多個維度（例如時間、分類、重要性），選最自然的分類方式
-8. summary 用一句話總結
-9. **只輸出 JSON，不要加 \`\`\`json 標記**
-
-## 顏色建議
-
-- root: 深色（#4F46E5, #1E40AF, #7C3AED）
-- 第一層：每個分支不同色系
-  - 藍 #3B82F6, 綠 #10B981, 橙 #F59E0B, 紅 #EF4444, 紫 #8B5CF6, 青 #06B6D4, 粉 #EC4899
-- 第二層之後：父節點顏色的淺色變體`;
 
 // ── 檔案讀取 ──
 
@@ -94,23 +55,20 @@ const READABLE_EXTS = new Set([
   ".py", ".go", ".rs", ".java", ".c", ".cpp", ".h",
 ]);
 
-const MAX_FILE_SIZE = 100 * 1024; // 100KB per file
-const MAX_TOTAL_SIZE = 500 * 1024; // 500KB total
+const MAX_FILE_SIZE = 100 * 1024;
+const MAX_TOTAL_SIZE = 500 * 1024;
 const MAX_FILES = 20;
 
 async function readFilesForMindmap(files) {
   const results = [];
   let totalSize = 0;
-
   for (const filePath of files.slice(0, MAX_FILES)) {
     const absPath = resolve(filePath);
     const ext = extname(absPath).toLowerCase();
-
     if (!READABLE_EXTS.has(ext)) {
       results.push(`--- ${filePath} （略過：不支援的格式 ${ext}）---\n`);
       continue;
     }
-
     try {
       const content = await readFile(absPath, "utf-8");
       const truncated = content.length > MAX_FILE_SIZE
@@ -118,23 +76,20 @@ async function readFilesForMindmap(files) {
         : content;
       totalSize += truncated.length;
       results.push(`--- ${filePath} ---\n${truncated}\n`);
-
       if (totalSize > MAX_TOTAL_SIZE) {
-        results.push(`\n--- 達到總大小上限 (${MAX_TOTAL_SIZE / 1024}KB)，停止讀取後續檔案 ---`);
+        results.push(`\n--- 達到總大小上限 (${MAX_TOTAL_SIZE / 1024}KB)，停止讀取 ---`);
         break;
       }
     } catch (err) {
       results.push(`--- ${filePath} （讀取失敗：${err.message}）---\n`);
     }
   }
-
   return results.join("\n");
 }
 
 async function readDirectoryForMindmap(dirPath) {
   const absPath = resolve(dirPath);
   const files = [];
-
   async function scan(dir, depth) {
     if (depth > 3) return;
     const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".vite", "dist", "build"]);
@@ -149,50 +104,21 @@ async function readDirectoryForMindmap(dirPath) {
       }
     }
   }
-
   await scan(absPath, 0);
   return readFilesForMindmap(files);
 }
 
-// ── 解析 LLM 回應 ──
+// ── 清理 LLM 回應 ──
 
-function parseMindMapResponse(content) {
-  if (!content) return null;
-
+function cleanMarkdownResponse(content) {
+  if (!content) return "";
   let cleaned = sanitizeContent(content);
-
-  // 移除可能的 markdown code fence
-  cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
-
-  // 找 JSON 起始
-  const jsonStart = cleaned.indexOf("{");
-  const jsonEnd = cleaned.lastIndexOf("}");
-  if (jsonStart === -1 || jsonEnd === -1) return null;
-
-  const jsonStr = cleaned.slice(jsonStart, jsonEnd + 1);
-
-  try {
-    const parsed = JSON.parse(jsonStr);
-    if (!parsed.root || !parsed.root.title) return null;
-    return parsed;
-  } catch {
-    // 嘗試修復常見的 JSON 問題
-    try {
-      const fixed = jsonStr
-        .replace(/,\s*}/g, "}")   // trailing comma
-        .replace(/,\s*]/g, "]")   // trailing comma in array
-        .replace(/\n/g, " ")       // newline in strings
-        ;
-      const parsed = JSON.parse(fixed);
-      if (!parsed.root || !parsed.root.title) return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  }
+  // 移除可能的 markdown code fence（保留內容）
+  cleaned = cleaned.replace(/^```(?:markdown|md)?\s*\n?/i, "").replace(/\n?```\s*$/, "");
+  return cleaned.trim();
 }
 
-// ── Provider 解析（跟 distill.mjs 一樣的 pattern）──
+// ── Provider 解析 ──
 
 function loadProviderConfig() {
   const configPath = resolve(PAAW_ROOT, "data/config/providers.json");
@@ -206,26 +132,48 @@ function loadProviderConfig() {
 function resolveLLM() {
   const config = loadProviderConfig();
   if (!config) throw new Error("No provider config found");
-
   const providerId = config.active;
   const provider = config.providers?.[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
-
   const model = config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
   const baseURL = provider.baseURL.replace(/\/+$/, "");
   const apiUrl = `${baseURL}/chat/completions`;
-
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${provider.apiKey}`,
   };
-
   if (providerId === "openrouter") {
     headers["HTTP-Referer"] = "https://paaw.ai";
     headers["X-Title"] = "PAAW";
   }
-
   return { apiUrl, headers, model };
+}
+
+// ── 呼叫 LLM 產生心智圖 ──
+
+async function generateMindMap(userPrompt, content) {
+  const llm = resolveLLM();
+  const fullPrompt = `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`;
+
+  const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
+    model: llm.model,
+    messages: [
+      { role: "system", content: getSystemPrompt() },
+      { role: "user", content: fullPrompt },
+    ],
+    max_tokens: 4096,
+  }, {
+    maxRetries: 3,
+    timeoutMs: 90_000,
+    validateContent: true,
+    sanitize: true,
+  });
+
+  const markdown = cleanMarkdownResponse(result.content);
+  if (!markdown || !markdown.startsWith("#")) {
+    throw new Error("AI 回應格式不正確，無法解析為心智圖");
+  }
+  return markdown;
 }
 
 // ── Route Handler ──
@@ -242,10 +190,9 @@ async function handleMindMapRoutes(req, res) {
       return true;
     }
 
-    const { files = [], dir, prompt = "請整理這份內容的知識結構" } = body;
+    const { files = [], dir, prompt = "請整理這份內容的知識結構，做成心智圖" } = body;
 
     try {
-      // 讀取內容
       let content;
       if (dir) {
         content = await readDirectoryForMindmap(dir);
@@ -263,37 +210,10 @@ async function handleMindMapRoutes(req, res) {
         return true;
       }
 
-      // call LLM
-      const llm = resolveLLM();
-      const userPrompt = `${prompt}\n\n---\n以下是要整理的內容：\n\n${content}`;
-
-      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
-        model: llm.model,
-        messages: [
-          { role: "system", content: MINDMAP_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 4096,
-      }, {
-        maxRetries: 3,
-        timeoutMs: 90_000,
-        validateContent: true,
-        sanitize: true,
-      });
-
-      const mindMap = parseMindMapResponse(result.content);
-
-      if (!mindMap) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          error: "AI 回應無法解析為心智圖 JSON",
-          raw: result.content.slice(0, 500),
-        }));
-        return true;
-      }
+      const markdown = await generateMindMap(prompt, content);
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true, mindMap }));
+      res.end(JSON.stringify({ success: true, markdown }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -312,7 +232,7 @@ async function handleMindMapRoutes(req, res) {
       return true;
     }
 
-    const { text, prompt = "請整理這份內容的知識結構" } = body;
+    const { text, prompt = "請整理這份內容的知識結構，做成心智圖" } = body;
 
     if (!text || text.trim().length < 10) {
       res.writeHead(400, { "Content-Type": "application/json" });
@@ -321,36 +241,10 @@ async function handleMindMapRoutes(req, res) {
     }
 
     try {
-      const llm = resolveLLM();
-      const userPrompt = `${prompt}\n\n---\n以下是要整理的內容：\n\n${text.slice(0, MAX_TOTAL_SIZE)}`;
-
-      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
-        model: llm.model,
-        messages: [
-          { role: "system", content: MINDMAP_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 4096,
-      }, {
-        maxRetries: 3,
-        timeoutMs: 90_000,
-        validateContent: true,
-        sanitize: true,
-      });
-
-      const mindMap = parseMindMapResponse(result.content);
-
-      if (!mindMap) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          error: "AI 回應無法解析為心智圖 JSON",
-          raw: result.content.slice(0, 500),
-        }));
-        return true;
-      }
+      const markdown = await generateMindMap(prompt, text.slice(0, MAX_TOTAL_SIZE));
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true, mindMap }));
+      res.end(JSON.stringify({ success: true, markdown }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -398,10 +292,10 @@ async function handleMindMapRoutes(req, res) {
       return true;
     }
 
-    const { name, mindMap, summary } = body;
-    if (!name || !mindMap) {
+    const { name, markdown } = body;
+    if (!name || !markdown) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Missing name or mindMap" }));
+      res.end(JSON.stringify({ error: "Missing name or markdown" }));
       return true;
     }
 
@@ -414,8 +308,7 @@ async function handleMindMapRoutes(req, res) {
       const data = {
         id,
         name,
-        summary: summary || "",
-        mindMap,
+        markdown,
         createdAt: new Date().toISOString(),
       };
       await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");

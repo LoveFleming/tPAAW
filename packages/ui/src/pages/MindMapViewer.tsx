@@ -1,30 +1,17 @@
 /**
- * MindMapViewer — AI 互動式心智圖 Viewer
+ * MindMapViewer — AI 心智圖（markmap引擎）
  *
- * 功能：
- * 1. 選檔案/目錄 → AI 產生心智圖
- * 2. 直接貼文字 → AI 產生心智圖
- * 3. SVG 互動式渲染（縮放、拖曳、展開/收合）
- * 4. 儲存/載入心智圖
- *
- * Inspired by NotebookLM's mind map feature.
+ * 使用 markmap-view 渲染，AI 輸出 Markdown 自動排版。
+ * 支援：縮放、拖曳、展開/收合、SVG 匯出、儲存/載入。
  */
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Transformer } from "markmap-lib";
+import { Markmap } from "markmap-view";
+
+const transformer = new Transformer();
 
 // ── Types ──
-
-interface MindMapNode {
-  title: string;
-  color?: string;
-  children?: MindMapNode[];
-  collapsed?: boolean;
-}
-
-interface MindMapData {
-  root: MindMapNode;
-  summary?: string;
-}
 
 interface SavedMindMap {
   id: string;
@@ -39,111 +26,11 @@ interface FileItem {
   isDir: boolean;
 }
 
-// ── Layout Constants ──
-
-const NODE_RADIUS = { root: 38, l1: 28, l2: 22, leaf: 18 };
-const FONT_SIZE = { root: 14, l1: 12, l2: 11, leaf: 10 };
-const MIN_NODE_SPACING = 80;
-const LEVEL_DISTANCE = [0, 160, 130, 110, 95];
-
-// ── MindMap Layout Engine ──
-// Radial tree layout: compute (x, y) for each node
-
-interface PositionedNode {
-  node: MindMapNode;
-  x: number;
-  y: number;
-  angle: number;
-  level: number;
-  parent: PositionedNode | null;
-  width: number; // subtree angular width
-}
-
-function computeSubtreeWidth(node: MindMapNode): number {
-  if (!node.children || node.children.length === 0 || node.collapsed) return 1;
-  return node.children.reduce((sum, c) => sum + computeSubtreeWidth(c), 0);
-}
-
-function layoutRadial(
-  root: MindMapNode,
-  centerX: number,
-  centerY: number,
-): PositionedNode[] {
-  const nodes: PositionedNode[] = [];
-
-  function layout(
-    node: MindMapNode,
-    level: number,
-    startAngle: number,
-    endAngle: number,
-    parent: PositionedNode | null,
-  ) {
-    const midAngle = (startAngle + endAngle) / 2;
-    const radius = LEVEL_DISTANCE[Math.min(level, LEVEL_DISTANCE.length - 1)];
-    const x = level === 0 ? centerX : centerX + radius * Math.cos(midAngle);
-    const y = level === 0 ? centerY : centerY + radius * Math.sin(midAngle);
-
-    const positioned: PositionedNode = {
-      node, x, y, angle: midAngle, level, parent,
-      width: endAngle - startAngle,
-    };
-    nodes.push(positioned);
-
-    if (!node.children || node.children.length === 0 || node.collapsed) return;
-
-    const totalWidth = computeSubtreeWidth(node);
-    let currentAngle = startAngle;
-    for (const child of node.children) {
-      const childWidth = computeSubtreeWidth(child);
-      const childAngleRange = (endAngle - startAngle) * (childWidth / totalWidth);
-      layout(child, level + 1, currentAngle, currentAngle + childAngleRange, positioned);
-      currentAngle += childAngleRange;
-    }
-  }
-
-  layout(root, 0, 0, Math.PI * 2, null);
-  return nodes;
-}
-
-// ── SVG Path for edges (curved) ──
-
-function edgePath(from: PositionedNode, to: PositionedNode): string {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const dr = Math.sqrt(dx * dx + dy * dy) * 1.8;
-  return `M ${from.x} ${from.y} A ${dr} ${dr} 0 0 1 ${to.x} ${to.y}`;
-}
-
-// ── Color helpers ──
-
-function getNodeRadius(level: number): number {
-  if (level === 0) return NODE_RADIUS.root;
-  if (level === 1) return NODE_RADIUS.l1;
-  if (level === 2) return NODE_RADIUS.l2;
-  return NODE_RADIUS.leaf;
-}
-
-function getNodeFont(level: number): number {
-  if (level === 0) return FONT_SIZE.root;
-  if (level === 1) return FONT_SIZE.l1;
-  if (level === 2) return FONT_SIZE.l2;
-  return FONT_SIZE.leaf;
-}
-
-function lightenColor(hex: string, amount: number = 0.85): string {
-  const m = hex.match(/^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i);
-  if (!m) return hex;
-  const r = Math.round(parseInt(m[1], 16) + (255 - parseInt(m[1], 16)) * (1 - amount));
-  const g = Math.round(parseInt(m[2], 16) + (255 - parseInt(m[2], 16)) * (1 - amount));
-  const b = Math.round(parseInt(m[3], 16) + (255 - parseInt(m[3], 16)) * (1 - amount));
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-}
-
 // ── Main Component ──
 
 export default function MindMapViewer() {
-  // State
-  const [mindMap, setMindMap] = useState<MindMapData | null>(null);
+  // Mind map state
+  const [markdown, setMarkdown] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"select" | "text">("select");
@@ -159,14 +46,22 @@ export default function MindMapViewer() {
   const [saveName, setSaveName] = useState("");
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
-  // Pan & Zoom
+  // markmap
   const svgRef = useRef<SVGSVGElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const isPanning = useRef(false);
-  const panStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
+  const mmRef = useRef<Markmap | null>(null);
 
-  const W = 1200;
-  const H = 800;
+  // ── Init markmap when markdown changes ──
+  useEffect(() => {
+    if (!markdown || !svgRef.current) return;
+
+    const { root } = transformer.transform(markdown);
+
+    if (!mmRef.current) {
+      mmRef.current = Markmap.create(svgRef.current, {});
+    }
+    mmRef.current.setData(root);
+    setTimeout(() => mmRef.current?.fit(), 100);
+  }, [markdown]);
 
   // ── Browse directories ──
   const browsePath = useCallback(async (path: string) => {
@@ -176,18 +71,17 @@ export default function MindMapViewer() {
       const data = await resp.json();
       setBrowserDirs((data.directories || []).map((d: any) => ({ name: d.name, path: d.path, isDir: true })));
       setBrowserFiles((data.files || []).map((f: any) => ({ name: f.name, path: f.path, isDir: false })));
-    } catch (err) {
+    } catch {
       setBrowserDirs([]);
       setBrowserFiles([]);
     }
   }, []);
 
-  // Initial browse
   useEffect(() => {
     browsePath(browserPath || (window as any).__PAAW_ROOT__ || "/");
   }, []);
 
-  // ── Generate mind map from files/dir ──
+  // ── Generate from files ──
   const generateFromFiles = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -207,11 +101,8 @@ export default function MindMapViewer() {
         body: JSON.stringify(body),
       });
       const data = await resp.json();
-      if (!resp.ok || !data.success) {
-        throw new Error(data.error || "產生失敗");
-      }
-      setMindMap(data.mindMap);
-      setTransform({ x: 0, y: 0, scale: 1 });
+      if (!resp.ok || !data.success) throw new Error(data.error || "產生失敗");
+      setMarkdown(data.markdown);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -219,7 +110,7 @@ export default function MindMapViewer() {
     }
   }, [selectedFiles, selectedDir, prompt]);
 
-  // ── Generate mind map from text ──
+  // ── Generate from text ──
   const generateFromText = useCallback(async () => {
     if (inputText.trim().length < 10) {
       setError("請輸入至少 10 個字的內容");
@@ -234,11 +125,8 @@ export default function MindMapViewer() {
         body: JSON.stringify({ text: inputText, prompt }),
       });
       const data = await resp.json();
-      if (!resp.ok || !data.success) {
-        throw new Error(data.error || "產生失敗");
-      }
-      setMindMap(data.mindMap);
-      setTransform({ x: 0, y: 0, scale: 1 });
+      if (!resp.ok || !data.success) throw new Error(data.error || "產生失敗");
+      setMarkdown(data.markdown);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -259,9 +147,8 @@ export default function MindMapViewer() {
     try {
       const resp = await fetch(`/api/mindmap/get?id=${id}`);
       const data = await resp.json();
-      if (data.mindMap) {
-        setMindMap(data.mindMap);
-        setTransform({ x: 0, y: 0, scale: 1 });
+      if (data.markdown) {
+        setMarkdown(data.markdown);
         setShowSaved(false);
       }
     } catch (err: any) {
@@ -270,108 +157,30 @@ export default function MindMapViewer() {
   }, []);
 
   const saveMindMap = useCallback(async () => {
-    if (!mindMap || !saveName.trim()) return;
+    if (!markdown || !saveName.trim()) return;
     try {
       await fetch("/api/mindmap/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: saveName,
-          mindMap,
-          summary: mindMap.summary,
-        }),
+        body: JSON.stringify({ name: saveName, markdown }),
       });
       setShowSaveDialog(false);
       setSaveName("");
     } catch (err: any) {
       setError(err.message);
     }
-  }, [mindMap, saveName]);
+  }, [markdown, saveName]);
 
-  // ── Toggle node collapse ──
-  const toggleNode = useCallback((path: number[]) => {
-    if (!mindMap) return;
-    const newMap = JSON.parse(JSON.stringify(mindMap));
-    let node = newMap.root;
-    for (let i = 1; i < path.length; i++) node = node.children[path[i]];
-    node.collapsed = !node.collapsed;
-    setMindMap(newMap);
-  }, [mindMap]);
+  // ── Toolbar actions ──
+  const fitToScreen = useCallback(() => mmRef.current?.fit(), []);
+  const zoomIn = useCallback(() => mmRef.current?.rescale(1.25), []);
+  const zoomOut = useCallback(() => mmRef.current?.rescale(0.8), []);
 
-  // ── Pan & Zoom handlers ──
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    isPanning.current = true;
-    panStart.current = { x: e.clientX, y: e.clientY, tx: transform.x, ty: transform.y };
-  }, [transform]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanning.current) return;
-    const dx = e.clientX - panStart.current.x;
-    const dy = e.clientY - panStart.current.y;
-    setTransform(prev => ({ ...prev, x: panStart.current.tx + dx, y: panStart.current.ty + dy }));
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    isPanning.current = false;
-  }, []);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setTransform(prev => ({
-      ...prev,
-      scale: Math.max(0.2, Math.min(5, prev.scale * delta)),
-    }));
-  }, []);
-
-  const fitToScreen = useCallback(() => {
-    setTransform({ x: 0, y: 0, scale: 1 });
-  }, []);
-
-  // ── Compute layout ──
-  const positionedNodes = useMemo(() => {
-    if (!mindMap?.root) return [];
-    return layoutRadial(mindMap.root, W / 2, H / 2);
-  }, [mindMap]);
-
-  const edges = useMemo(() => {
-    return positionedNodes
-      .filter(n => n.parent !== null)
-      .map(n => ({ from: n.parent!, to: n }));
-  }, [positionedNodes]);
-
-  // ── Render node path for toggle ──
-  const nodePaths = useMemo(() => {
-    const paths: Map<PositionedNode, number[]> = new Map();
-    function walk(nodes: PositionedNode[], current: number[]) {
-      for (const n of nodes) {
-        // Reconstruct path from level
-      }
-    }
-    // Build path map from positionedNodes
-    const pathMap: Map<PositionedNode, number[]> = new Map();
-    const rootP = positionedNodes.find(n => n.level === 0);
-    if (rootP) pathMap.set(rootP, [0]);
-
-    // BFS to assign paths
-    const queue = [rootP].filter(Boolean) as PositionedNode[];
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      const currentPath = pathMap.get(current)!;
-      const children = positionedNodes.filter(n => n.parent === current);
-      children.forEach((child, i) => {
-        pathMap.set(child, [...currentPath, i]);
-        queue.push(child);
-      });
-    }
-    return pathMap;
-  }, [positionedNodes]);
-
-  // ── Export SVG ──
   const exportSVG = useCallback(() => {
     if (!svgRef.current) return;
-    const svgData = new XMLSerializer().serializeToString(svgRef.current);
+    const svgEl = svgRef.current.cloneNode(true) as SVGElement;
+    svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const svgData = new XMLSerializer().serializeToString(svgEl);
     const blob = new Blob([svgData], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -393,38 +202,36 @@ export default function MindMapViewer() {
         background: "#1e293b", borderBottom: "1px solid #334155", flexShrink: 0,
       }}>
         <span style={{ fontSize: 18, fontWeight: 700, marginRight: 8 }}>🧠 Mind Map</span>
-        {mindMap && (
-          <button onClick={() => { setMindMap(null); setSelectedFiles([]); setSelectedDir(null); }}
-            style={btnStyle}>
+        {markdown && (
+          <button onClick={() => { setMarkdown(""); setSelectedFiles([]); setSelectedDir(null); }} style={btnStyle}>
             ← 新建
           </button>
         )}
-        {mindMap && <button onClick={fitToScreen} style={btnStyle}>🔍 重置視圖</button>}
-        {mindMap && <button onClick={exportSVG} style={btnStyle}>⬇ 匯出 SVG</button>}
-        {mindMap && <button onClick={() => setShowSaveDialog(true)} style={btnStyle}>💾 儲存</button>}
+        {markdown && <button onClick={zoomIn} style={btnStyle}>🔍+ 放大</button>}
+        {markdown && <button onClick={zoomOut} style={btnStyle}>🔍− 縮小</button>}
+        {markdown && <button onClick={fitToScreen} style={btnStyle}>⛶ 符合視窗</button>}
+        {markdown && <button onClick={exportSVG} style={btnStyle}>⬇ SVG</button>}
+        {markdown && <button onClick={() => setShowSaveDialog(true)} style={btnStyle}>💾 儲存</button>}
         <button onClick={() => { loadSavedList(); setShowSaved(true); }} style={btnStyle}>📂 載入</button>
         <div style={{ flex: 1 }} />
         {error && <span style={{ color: "#f87171", fontSize: 13 }}>{error}</span>}
       </div>
 
       {/* ── Main Area ── */}
-      {!mindMap ? (
+      {!markdown ? (
         /* ── Input Panel ── */
         <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 24px", maxWidth: 900, margin: "0 auto", width: "100%", minHeight: 0 }}>
           {/* Mode Tabs */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexShrink: 0 }}>
-            <button
-              onClick={() => setMode("select")}
-              style={mode === "select" ? activeTabStyle : tabStyle}
-            >📁 選擇檔案/目錄</button>
-            <button
-              onClick={() => setMode("text")}
-              style={mode === "text" ? activeTabStyle : tabStyle}
-            >✏️ 貼上文字</button>
+            <button onClick={() => setMode("select")} style={mode === "select" ? activeTabStyle : tabStyle}>
+              📁 選擇檔案/目錄
+            </button>
+            <button onClick={() => setMode("text")} style={mode === "text" ? activeTabStyle : tabStyle}>
+              ✏️ 貼上文字
+            </button>
           </div>
 
           {mode === "select" ? (
-            /* File Browser — flex column，跟 prompt 分螢幕高度 */
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
               {/* Path bar */}
               <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -435,12 +242,11 @@ export default function MindMapViewer() {
                 <span style={{ fontSize: 13, color: "#94a3b8", fontFamily: "monospace" }}>{browserPath || "/"}</span>
               </div>
 
-              {/* File list — flex: 2 */}
+              {/* File list */}
               <div style={{
                 background: "#1e293b", borderRadius: 8, border: "1px solid #334155",
                 flex: 2, minHeight: 0, overflow: "auto", padding: 8,
               }}>
-                {/* Directory option */}
                 <div
                   onClick={() => { setSelectedDir(browserPath); setSelectedFiles([]); }}
                   style={{
@@ -458,16 +264,11 @@ export default function MindMapViewer() {
                   <div
                     key={d.path}
                     onClick={() => browsePath(d.path)}
-                    onDoubleClick={() => { setSelectedDir(d.path); }}
-                    style={{
-                      padding: "6px 12px", cursor: "pointer", borderRadius: 4,
-                      display: "flex", alignItems: "center", gap: 8,
-                    }}
+                    style={{ padding: "6px 12px", cursor: "pointer", borderRadius: 4, display: "flex", alignItems: "center", gap: 8 }}
                     onMouseEnter={e => e.currentTarget.style.background = "#334155"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
-                    <span>📁</span>
-                    <span>{d.name}</span>
+                    <span>📁</span><span>{d.name}</span>
                   </div>
                 ))}
 
@@ -488,8 +289,7 @@ export default function MindMapViewer() {
                       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "#334155"; }}
                       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = "transparent"; }}
                     >
-                      <span>{selected ? "✅" : "📄"}</span>
-                      <span>{f.name}</span>
+                      <span>{selected ? "✅" : "📄"}</span><span>{f.name}</span>
                     </div>
                   );
                 })}
@@ -501,7 +301,7 @@ export default function MindMapViewer() {
                 {selectedFiles.length > 0 && `已選 ${selectedFiles.length} 個檔案`}
               </div>
 
-              {/* AI Prompt — flex: 1 */}
+              {/* AI Prompt */}
               <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, marginTop: 6 }}>
                 <label style={{ fontSize: 13, color: "#94a3b8", marginBottom: 4, flexShrink: 0 }}>
                   AI 提示詞
@@ -517,13 +317,11 @@ export default function MindMapViewer() {
                 />
               </div>
 
-              {/* Generate button */}
               <button
                 onClick={generateFromFiles}
                 disabled={loading || (!selectedDir && selectedFiles.length === 0)}
                 style={{
-                  ...btnStyle,
-                  marginTop: 10, flexShrink: 0,
+                  ...btnStyle, marginTop: 10, flexShrink: 0,
                   background: loading || (!selectedDir && selectedFiles.length === 0) ? "#334155" : "#4F46E5",
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || (!selectedDir && selectedFiles.length === 0) ? "not-allowed" : "pointer",
@@ -533,9 +331,8 @@ export default function MindMapViewer() {
               </button>
             </div>
           ) : (
-            /* Text Input — flex column */
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-              {/* Text input — flex: 2 */}
+              {/* Text input */}
               <div style={{ display: "flex", flexDirection: "column", flex: 2, minHeight: 0 }}>
                 <label style={{ fontSize: 13, color: "#94a3b8", marginBottom: 4, flexShrink: 0 }}>
                   要整理的內容
@@ -552,7 +349,7 @@ export default function MindMapViewer() {
                 />
               </div>
 
-              {/* AI Prompt — flex: 1 */}
+              {/* AI Prompt */}
               <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, marginTop: 8 }}>
                 <label style={{ fontSize: 13, color: "#94a3b8", marginBottom: 4, flexShrink: 0 }}>
                   AI 提示詞
@@ -572,8 +369,7 @@ export default function MindMapViewer() {
                 onClick={generateFromText}
                 disabled={loading || inputText.trim().length < 10}
                 style={{
-                  ...btnStyle,
-                  marginTop: 10, flexShrink: 0,
+                  ...btnStyle, marginTop: 10, flexShrink: 0,
                   background: loading || inputText.trim().length < 10 ? "#334155" : "#4F46E5",
                   fontSize: 15, padding: "10px 24px",
                   cursor: loading || inputText.trim().length < 10 ? "not-allowed" : "pointer",
@@ -595,131 +391,17 @@ export default function MindMapViewer() {
           )}
         </div>
       ) : (
-        /* ── Mind Map Canvas ── */
-        <div
-          style={{ flex: 1, position: "relative", overflow: "hidden", cursor: isPanning.current ? "grabbing" : "grab" }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
-        >
-          {mindMap.summary && (
-            <div style={{
-              position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
-              background: "#1e293bee", padding: "4px 16px", borderRadius: 20,
-              fontSize: 13, color: "#94a3b8", zIndex: 10, border: "1px solid #334155",
-            }}>
-              {mindMap.summary}
-            </div>
-          )}
-
-          {/* Zoom indicator */}
-          <div style={{
-            position: "absolute", bottom: 12, right: 12,
-            background: "#1e293bee", padding: "4px 10px", borderRadius: 4,
-            fontSize: 12, color: "#64748b", zIndex: 10,
-          }}>
-            {Math.round(transform.scale * 100)}%
-          </div>
-
+        /* ── Mind Map Canvas (markmap) ── */
+        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#0f172a" }}>
           <svg
             ref={svgRef}
-            width="100%"
-            height="100%"
-            viewBox={`0 0 ${W} ${H}`}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <defs>
-              <radialGradient id="bg-grad">
-                <stop offset="0%" stopColor="#1e293b" />
-                <stop offset="100%" stopColor="#0f172a" />
-              </radialGradient>
-            </defs>
-            <rect width={W} height={H} fill="url(#bg-grad)" />
-
-            <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.scale})`}>
-              {/* Edges */}
-              {edges.map((edge, i) => (
-                <path
-                  key={`edge-${i}`}
-                  d={edgePath(edge.from, edge.to)}
-                  fill="none"
-                  stroke={edge.to.node.color || "#475569"}
-                  strokeWidth={Math.max(1, 4 - edge.to.level)}
-                  opacity={0.5}
-                />
-              ))}
-
-              {/* Nodes */}
-              {positionedNodes.map((pn, i) => {
-                const r = getNodeRadius(pn.level);
-                const fontSize = getNodeFont(pn.level);
-                const color = pn.node.color || "#6366f1";
-                const hasChildren = pn.node.children && pn.node.children.length > 0;
-                const isCollapsed = pn.node.collapsed;
-                const path = nodePaths.get(pn);
-
-                return (
-                  <g
-                    key={`node-${i}`}
-                    transform={`translate(${pn.x} ${pn.y})`}
-                    style={{ cursor: hasChildren ? "pointer" : "default" }}
-                    onClick={() => { if (hasChildren && path && pn.level > 0) toggleNode(path); }}
-                  >
-                    {/* Node circle */}
-                    <circle
-                      r={r}
-                      fill={pn.level === 0 ? color : lightenColor(color, 0.3)}
-                      stroke={color}
-                      strokeWidth={pn.level === 0 ? 3 : 2}
-                      opacity={0.95}
-                    />
-
-                    {/* Collapse indicator */}
-                    {hasChildren && pn.level > 0 && (
-                      <circle
-                        r={6}
-                        cx={r * 0.72}
-                        cy={-r * 0.72}
-                        fill="#1e293b"
-                        stroke="#64748b"
-                        strokeWidth={1}
-                      />
-                    )}
-                    {hasChildren && pn.level > 0 && (
-                      <text
-                        x={r * 0.72}
-                        y={-r * 0.72 + 3}
-                        textAnchor="middle"
-                        fontSize={8}
-                        fill="#94a3b8"
-                      >
-                        {isCollapsed ? "+" : "−"}
-                      </text>
-                    )}
-
-                    {/* Node label */}
-                    <text
-                      textAnchor="middle"
-                      dy={fontSize * 0.35}
-                      fontSize={fontSize}
-                      fill={pn.level === 0 ? "#ffffff" : "#1e293b"}
-                      fontWeight={pn.level <= 1 ? 700 : 500}
-                      style={{ pointerEvents: "none", userSelect: "none" }}
-                    >
-                      {pn.node.title.length > 12 ? pn.node.title.slice(0, 11) + "…" : pn.node.title}
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
+            style={{ width: "100%", height: "100%" }}
+          />
         </div>
       )}
 
       {/* ── Save Dialog ── */}
-      {showSaveDialog && mindMap && (
+      {showSaveDialog && markdown && (
         <div style={overlayStyle}>
           <div style={dialogStyle}>
             <h3 style={{ margin: "0 0 16px 0" }}>💾 儲存心智圖</h3>
@@ -738,10 +420,7 @@ export default function MindMapViewer() {
               <button
                 onClick={saveMindMap}
                 disabled={!saveName.trim()}
-                style={{
-                  ...btnStyle,
-                  background: saveName.trim() ? "#4F46E5" : "#334155",
-                }}
+                style={{ ...btnStyle, background: saveName.trim() ? "#4F46E5" : "#334155" }}
               >儲存</button>
             </div>
           </div>
