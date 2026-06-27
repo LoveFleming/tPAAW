@@ -10,7 +10,7 @@
 ## Prompt 組裝
 
 ```
-請使用剛 build 好的 Skill（data/skills/building/{skill-id}/package/SKILL.md）執行以下使用者輸入，驗證 Skill 是否能正常產出結果。
+請使用剛 build 好的 Skill（{{PAAW_ROOT}}/data/skills/building/{skill-id}/package/SKILL.md）執行以下使用者輸入，驗證 Skill 是否能正常產出結果。
 
 ## User Input
 {使用者填的測試值}

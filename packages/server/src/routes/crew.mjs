@@ -201,10 +201,10 @@ export default async function crewRoute(req, res) {
       const provider = providerConfig.providers[providerId];
       const models = (provider?.models || []).map(m => ({ id: m.id || m, name: m.name || m.id || m, current: m.id === providerConfig.defaultModel }));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ models, current: providerConfig.defaultModel }));
+      res.end(JSON.stringify({ models, current: providerConfig.defaultModel, paawRoot: PAAW_ROOT }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ models: [], current: "" }));
+      res.end(JSON.stringify({ models: [], current: "", paawRoot: PAAW_ROOT }));
     }
     return true;
   }

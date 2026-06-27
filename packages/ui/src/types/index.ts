@@ -117,7 +117,8 @@ export function buildSystemPrompt(
 
     // Inject base paths
     if (paths) {
-        let pathLines = `## 環境路徑\n- **Root Base**: ${paths.paawRoot}\n  - Physical Skills: ${paths.paawRoot}/data/skills/physical-skill/`;
+        const root = paths.paawRoot || '/';  // fallback to root if empty
+        let pathLines = `## 環境路徑\n- **Root Base**: ${root}\n  - Physical Skills: ${root}/data/skills/physical-skill/`;
         if (workspaces && workspaces.length > 0) {
             pathLines += `\n\n## Workspaces 目錄\n${workspaces.map(d => `- ${d}`).join("\n")}`;
         }
@@ -134,7 +135,8 @@ export function buildSystemPrompt(
         if (!skillDef) continue;
 
         if (paths) {
-            const skillPath = `${paths.paawRoot}/data/skills/physical-skill/${skillId}/SKILL.md`;
+            const root = paths.paawRoot || '/';
+            const skillPath = `${root}/data/skills/physical-skill/${skillId}/SKILL.md`;
             parts.push(`請使用 ${skillDef.name}\nskill path : ${skillPath}`);
         }
     }
