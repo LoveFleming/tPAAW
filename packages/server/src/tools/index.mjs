@@ -142,6 +142,26 @@ async function buildToolDefinitions() {
     }
   });
 
+  tools.push({
+    type: "function",
+    function: {
+      name: "notes_create",
+      description: "AI 幫忙寫筆記。提供原始內容，AI 會整理成結構化筆記並儲存。也可以從聊天中直接把內容整理成筆記。",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "要整理的原始內容（會議記錄、文章、想法、對話等）" },
+          prompt: { type: "string", description: "AI 提示詞（選填），例如「整理成會議記錄」「列出重點」「翻譯成英文」" },
+          notebook: { type: "string", description: "筆記本 ID（預設 default）" },
+          section: { type: "string", description: "分類 ID（預設 default）" },
+          title: { type: "string", description: "自訂標題（選填，AI 會建議）" },
+          tags: { type: "array", items: { type: "string" }, description: "自訂標籤（選填，AI 會建議）" }
+        },
+        required: ["content"]
+      }
+    }
+  });
+
   // app_list — list all available apps
   tools.push({
     type: "function",
@@ -1196,6 +1216,40 @@ function buildHandlers(apps) {
       return { text: `最近 ${notes.length} 則筆記：\n\n${lines.join("\n\n")}`, notes };
     } catch (err) {
       return { text: `❌ 讀取失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.notes_create = async ({ content, prompt, notebook, section, title, tags }) => {
+    try {
+      // Step 1: AI 整理內容
+      const aiResp = await fetch(`${API}/api/notes/ai-write`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, prompt: prompt || "" }),
+      });
+      const aiData = await aiResp.json();
+      if (!aiData.ok) return { text: `❌ AI 整理失敗：${aiData.error}`, error: true };
+
+      // Step 2: 建立筆記
+      const createResp = await fetch(`${API}/api/notes/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notebookId: notebook || "default",
+          sectionId: section || "default",
+          title: title || aiData.title || "AI 筆記",
+          content: aiData.content || "",
+          tags: tags || aiData.tags || [],
+        }),
+      });
+      const createData = await createResp.json();
+      if (!createData.ok) return { text: `❌ 建立筆記失敗`, error: true };
+
+      const link = `paaw://notes?note=${createData.note.id}&notebook=${createData.note.notebookId}`;
+      const preview = (aiData.content || "").replace(/<[^>]+>/g, "").slice(0, 200);
+      return { text: `✅ 已建立筆記！\n\n📝 **${createData.note.title}**\n${preview}...\n\n🔗 [開啟筆記](${link})`, note: createData.note };
+    } catch (err) {
+      return { text: `❌ 建立筆記失敗：${err.message}`, error: true };
     }
   };
 

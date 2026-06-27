@@ -61,6 +61,10 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   const [tagsInput, setTagsInput] = useState("");
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [aiWriting, setAiWriting] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiInput, setAiInput] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
 
   // ── Refs ──
   const editorRef = useRef<HTMLDivElement>(null);
@@ -207,6 +211,38 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     setSearchQuery(""); setSearchResults(null); setActiveTag(null);
     await loadNotes(activeNotebook, secId);
   }, [activeNotebook, loadNotes]);
+
+  // ── AI 寫筆記 ──
+  const aiWrite = useCallback(async () => {
+    const content = aiInput.trim();
+    if (!content || content.length < 5) return;
+    setAiWriting(true);
+    try {
+      const resp = await fetch("/api/notes/ai-write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, prompt: aiPrompt.trim() || undefined }),
+      });
+      const data = await resp.json();
+      if (!data.ok) { alert(data.error || "AI 寫筆記失敗"); return; }
+
+      // 建立新筆記並寫入 AI 產生的內容
+      const createResp = await api.post("/api/notes/create", {
+        notebookId: activeNotebook, sectionId: activeSection,
+        title: data.title || "AI 筆記", content: data.content || "",
+        tags: data.tags || [],
+      });
+      if (createResp.ok) {
+        setAiInput(""); setAiPrompt(""); setAiPanelOpen(false);
+        await loadNotes(activeNotebook, activeSection);
+        await loadNote(createResp.note.id, activeNotebook);
+      }
+    } catch (err) {
+      alert(`AI 寫筆記失敗：${err}`);
+    } finally {
+      setAiWriting(false);
+    }
+  }, [aiInput, aiPrompt, activeNotebook, activeSection, loadNotes, loadNote]);
 
   // ── Image ──
   const uploadImage = useCallback(async (file: File | Blob): Promise<string | null> => {
@@ -432,6 +468,17 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
           )}
         </div>
 
+        {/* AI write toggle */}
+        <button
+          onClick={() => { setAiPanelOpen(!aiPanelOpen); }}
+          className="shrink-0 px-2.5 py-1.5 rounded-lg text-sm flex items-center gap-1 font-medium"
+          style={{
+            background: aiPanelOpen ? tk.accent : tk.accentBg,
+            color: aiPanelOpen ? "#fff" : tk.accentText,
+            border: `1px solid ${aiPanelOpen ? tk.accent : tk.accentBg}`,
+          }}
+        >✨ AI 寫筆記</button>
+
         {/* Search toggle */}
         <button
           onClick={() => { setSearchPanelOpen(!searchPanelOpen); if (!searchPanelOpen) setSearchQuery(""); }}
@@ -583,6 +630,57 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
             )}
           </div>
         </div>
+
+        {/* ── AI 寫筆記 Panel（可收合） ── */}
+        {aiPanelOpen && (
+          <div className="shrink-0 flex flex-col border-l" style={{ width: 340, background: tk.bg, borderColor: tk.borderLight }}>
+            <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: tk.borderLight }}>
+              <span className="text-sm font-semibold" style={{ color: tk.textPrimary }}>✨ AI 寫筆記</span>
+              <button onClick={() => setAiPanelOpen(false)} className="text-xs px-1.5 rounded" style={{ color: tk.textMuted }}>✕</button>
+            </div>
+
+            <div className="flex-1 flex flex-col p-3 gap-3 overflow-auto">
+              <div className="flex flex-col flex-1">
+                <label className="text-xs font-medium mb-1" style={{ color: tk.textSecondary }}>貼上要整理的內容</label>
+                <textarea
+                  value={aiInput}
+                  onChange={e => setAiInput(e.target.value)}
+                  placeholder="貼上會議記錄、文章、想法、對話內容...\nAI 會幫你整理成結構化筆記"
+                  className="flex-1 w-full px-3 py-2 rounded-lg border outline-none text-sm"
+                  style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary, resize: "none", minHeight: 160, lineHeight: 1.6 }}
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-xs font-medium mb-1" style={{ color: tk.textSecondary }}>AI 提示詞（選填）</label>
+                <input
+                  value={aiPrompt}
+                  onChange={e => setAiPrompt(e.target.value)}
+                  placeholder="例如：整理成會議記錄 / 列出重點 / 翻譯成英文"
+                  className="w-full px-3 py-2 rounded-lg border outline-none text-sm"
+                  style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary }}
+                />
+              </div>
+
+              <button
+                onClick={aiWrite}
+                disabled={aiWriting || aiInput.trim().length < 5}
+                className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
+                style={{
+                  background: aiWriting || aiInput.trim().length < 5 ? tk.bgMuted : tk.accent,
+                  color: aiWriting || aiInput.trim().length < 5 ? tk.textMuted : "#fff",
+                  cursor: aiWriting || aiInput.trim().length < 5 ? "not-allowed" : "pointer",
+                }}
+              >
+                {aiWriting ? "⟳ AI 整理中..." : "✨ 幫我寫筆記"}
+              </button>
+
+              <div className="text-xs text-center" style={{ color: tk.textMuted }}>
+                AI 會自動建立一則新筆記
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── 右側：Search Panel（可收合） ── */}
         {searchPanelOpen && (

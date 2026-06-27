@@ -32,11 +32,12 @@
  */
 
 import { readFile, writeFile, readdir, mkdir, rm } from "fs/promises";
-import { existsSync, createReadStream } from "fs";
+import { existsSync, createReadStream, readFileSync } from "fs";
 import { resolve, join, extname } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { readBody } from "./shared.mjs";
+import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,6 +46,95 @@ const NOTES_DIR = resolve(PAAW_ROOT, "data/notes");
 const NOTEBOOKS_FILE = resolve(NOTES_DIR, "notebooks.json");
 const SECTIONS_FILE = resolve(NOTES_DIR, "sections.json");
 const IMAGES_DIR = resolve(NOTES_DIR, "images");
+const SYSTEM_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/notes/system-prompt.md");
+
+// ── AI 筆記助手 ──
+
+let _cachedSystemPrompt = null;
+function getSystemPrompt() {
+  if (_cachedSystemPrompt) return _cachedSystemPrompt;
+  try {
+    _cachedSystemPrompt = readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
+  } catch {
+    _cachedSystemPrompt = "你是一個專業的筆記整理助手。將使用者提供的內容整理成結構化筆記。第一行用「標題：XXX」建議標題，最後一行用「標籤：tag1, tag2, tag3」建議標籤。使用 HTML 格式輸出。";
+  }
+  return _cachedSystemPrompt;
+}
+
+function loadProviderConfig() {
+  const configPath = resolve(PAAW_ROOT, "data/config/providers.json");
+  try {
+    return JSON.parse(readFileSync(configPath, "utf-8"));
+  } catch { return null; }
+}
+
+function resolveLLM() {
+  const config = loadProviderConfig();
+  if (!config) throw new Error("No provider config found");
+  const providerId = config.active;
+  const provider = config.providers?.[providerId];
+  if (!provider) throw new Error(`Provider '${providerId}' not found`);
+  const model = config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
+  const baseURL = provider.baseURL.replace(/\/+$/, "");
+  const apiUrl = `${baseURL}/chat/completions`;
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` };
+  if (providerId === "openrouter") { headers["HTTP-Referer"] = "https://paaw.ai"; headers["X-Title"] = "PAAW"; }
+  return { apiUrl, headers, model };
+}
+
+async function aiWriteNote(userPrompt, content) {
+  const llm = resolveLLM();
+  const fullPrompt = userPrompt
+    ? `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`
+    : `請幫我整理以下內容成結構化筆記：\n\n${content}`;
+
+  const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
+    model: llm.model,
+    messages: [
+      { role: "system", content: getSystemPrompt() },
+      { role: "user", content: fullPrompt },
+    ],
+    max_tokens: 4096,
+  }, {
+    maxRetries: 3,
+    timeoutMs: 90_000,
+    validateContent: true,
+    sanitize: true,
+  });
+
+  let html = sanitizeContent(result.content);
+  if (!isMeaningfulContent(html)) throw new Error("AI 回應內容為空");
+
+  // 解析標題和標籤
+  let title = "AI 筆記";
+  let tags = [];
+  const titleMatch = html.match(/標題[：:]\s*(.+?)(?:<\/\w+>)?$/m);
+  if (titleMatch) {
+    title = titleMatch[1].replace(/<[^>]+>/g, "").trim();
+    html = html.replace(/標題[：:]\s*.+/m, "");
+  }
+  const tagMatch = html.match(/標籤[：:]\s*(.+?)(?:<\/\w+>)?$/m);
+  if (tagMatch) {
+    tags = tagMatch[1].replace(/<[^>]+>/g, "").split(/[,，、]/).map(t => t.trim()).filter(Boolean);
+    html = html.replace(/標籤[：:]\s*.+/m, "");
+  }
+
+  // 如果 AI 回的是 markdown 而非 HTML，做基本轉換
+  if (!html.includes("<") && (html.includes("## ") || html.includes("- ") || html.includes("**"))) {
+    html = html
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^- (.+)$/gm, "<li>$1</li>")
+      .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
+      .replace(/\n{2,}/g, "</p><p>")
+      .replace(/^(?!<[hulo])/gm, "<p>");
+  }
+
+  return { title, content: html, tags };
+}
 
 // ── Storage helpers ──
 
@@ -407,6 +497,24 @@ async function handleNotesRoutes(req, res) {
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
+    return true;
+  }
+
+  // ── AI Write ──
+
+  if (path === "/api/notes/ai-write" && method === "POST") {
+    const body = JSON.parse(await readBody(req));
+    const { content, prompt } = body;
+    if (!content || content.trim().length < 5) {
+      res.writeHead(400); res.end(JSON.stringify({ error: "內容太短" })); return true;
+    }
+    try {
+      const result = await aiWriteNote(prompt || "", content);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, ...result }));
+    } catch (err) {
+      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+    }
     return true;
   }
 
