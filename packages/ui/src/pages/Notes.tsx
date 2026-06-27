@@ -652,27 +652,34 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
               </div>
 
               <div className="flex flex-col">
-                <label className="text-xs font-medium mb-1" style={{ color: tk.textSecondary }}>AI 提示詞（選填）</label>
-                <input
+                <label className="text-xs font-medium mb-1" style={{ color: tk.textSecondary }}>AI 提示詞（選填）<span style={{ color: tk.textMuted, fontWeight: 400 }}> · Shift+Enter 換行</span></label>
+                <textarea
                   value={aiPrompt}
                   onChange={e => setAiPrompt(e.target.value)}
-                  placeholder="例如：整理成會議記錄 / 列出重點 / 翻譯成英文"
+                  placeholder={"例如：\n整理成會議記錄，列出決策和行動項\n翻譯成英文並加上重點說明\n用表格整理比較"}
+                  rows={3}
                   className="w-full px-3 py-2 rounded-lg border outline-none text-sm"
-                  style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary }}
+                  style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary, resize: "none", lineHeight: 1.6 }}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); aiWrite(); } }}
                 />
               </div>
 
               <button
                 onClick={aiWrite}
                 disabled={aiWriting || aiInput.trim().length < 5}
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
+                className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2"
                 style={{
                   background: aiWriting || aiInput.trim().length < 5 ? tk.bgMuted : tk.accent,
                   color: aiWriting || aiInput.trim().length < 5 ? tk.textMuted : "#fff",
                   cursor: aiWriting || aiInput.trim().length < 5 ? "not-allowed" : "pointer",
                 }}
               >
-                {aiWriting ? "⟳ AI 整理中..." : "✨ 幫我寫筆記"}
+                {aiWriting ? (
+                  <>
+                    <span className="ai-spinner" style={{ fontSize: 18 }}>⏳</span>
+                    AI 整理中...
+                  </>
+                ) : "✨ 幫我寫筆記"}
               </button>
 
               <div className="text-xs text-center" style={{ color: tk.textMuted }}>

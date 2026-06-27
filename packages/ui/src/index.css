@@ -126,3 +126,10 @@ pre { tab-size: 2; }
 
 /* Notes toolbar button hover */
 .toolBtn:hover { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.1); }
+
+/* AI writing spinner */
+@keyframes aiSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.ai-spinner { animation: aiSpin 1.2s ease-in-out infinite; display: inline-block; }
