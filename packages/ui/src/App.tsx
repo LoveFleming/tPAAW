@@ -14,6 +14,7 @@ import VibeCodingIDE from "./pages/VibeCodingIDE";
 import BriefingPlayer from "./pages/BriefingPlayer";
 import MindMapViewer from "./pages/MindMapViewer";
 import Notes from "./pages/Notes";
+import ProjectBoard from "./pages/ProjectBoard";
 import FileEditor from "./pages/FileEditor";
 import WorkflowEditor from "./pages/WorkflowEditor";
 import WorkflowExec from "./pages/WorkflowExec";
@@ -510,6 +511,7 @@ function AppInner() {
     if (pageType === "briefing-player") return t("sidebar.briefingPlayer", "Briefing Player");
     if (pageType === "mind-map") return "Mind Map";
     if (pageType === "notes") return "Notes";
+    if (pageType === "projects") return "Project Board";
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
     if (pageType.startsWith("skillapp.")) {
@@ -622,6 +624,9 @@ function AppInner() {
     }
     if (pageType === "notes") {
       return <Notes deepLinkNote={deepLinkNote} onDeepLinkConsumed={() => setDeepLinkNote(null)} />;
+    }
+    if (pageType === "projects") {
+      return <ProjectBoard />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;
@@ -820,6 +825,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":briefing-player")} label={t("sidebar.briefingPlayer", "Briefing Player")} onClick={() => openBriefingPlayer()} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":mind-map")} label="Mind Map" onClick={openMindMap} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":notes")} label="Notes" onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":projects")} label="Projects" onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 

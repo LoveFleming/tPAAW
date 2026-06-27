@@ -33,6 +33,7 @@ const ROUTE_MODULES = [
   "./routes/mindmap.mjs",
   "./routes/notes.mjs",
   "./routes/backup.mjs",
+  "./routes/projects.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)

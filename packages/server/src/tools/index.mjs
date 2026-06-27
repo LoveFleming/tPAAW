@@ -172,6 +172,37 @@ async function buildToolDefinitions() {
     }
   });
 
+  // ── Project Board tools (built-in) ──
+  tools.push({
+    type: "function",
+    function: {
+      name: "project_status",
+      description: "查看專案看板的整體狀態，包括所有專案的進度、完成率、里程碑。可指定單一專案查看詳情。",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: { type: "string", description: "（可選）指定專案 ID 查看單一專案詳情，不指定則列出所有專案摘要" },
+        },
+      },
+    },
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "project_update_task",
+      description: "更新專案任務狀態。點擊循環切換：todo → progress → done。",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: { type: "string", description: "專案 ID" },
+          taskId: { type: "string", description: "任務 ID" },
+          status: { type: "string", enum: ["todo", "progress", "done"], description: "新狀態" },
+        },
+        required: ["projectId", "taskId", "status"],
+      },
+    },
+  });
+
   // app_create — create a new app (user can create via chat!)
   tools.push({
     type: "function",
@@ -1255,6 +1286,73 @@ function buildHandlers(apps) {
 
   return handlers;
 }
+
+  // ── Project Board handlers ──
+  handlers.project_status = async ({ projectId } = {}) => {
+    try {
+      if (projectId) {
+        const resp = await fetch(`http://127.0.0.1:4097/api/projects/${encodeURIComponent(projectId)}`);
+        const data = await resp.json();
+        if (!data.project) return { error: "專案不存在" };
+        const p = data.project;
+        const allTasks = (p.categories || []).flatMap(c => c.tasks || []);
+        const done = allTasks.filter(t => t.status === "done").length;
+        const prog = allTasks.filter(t => t.status === "progress").length;
+        const total = allTasks.length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        let text = `${p.icon} **${p.name}**\n`;
+        text += `${p.description}\n\n`;
+        text += `📊 進度：${done}/${total} 完成（${pct}%）· 進行中 ${prog}\n\n`;
+        text += `📋 分類：\n`;
+        for (const cat of (p.categories || [])) {
+          const cDone = (cat.tasks || []).filter(t => t.status === "done").length;
+          const cTotal = (cat.tasks || []).length;
+          text += `${cat.icon} ${cat.name} — ${cDone}/${cTotal}\n`;
+          for (const t of (cat.tasks || [])) {
+            const icon = t.status === "done" ? "✅" : t.status === "progress" ? "🔧" : "⬜";
+            text += `  ${icon} ${t.name}\n`;
+          }
+        }
+        text += `\n🏁 里程碑：\n`;
+        for (const m of (p.milestones || [])) {
+          const icon = m.status === "done" ? "✅" : m.status === "progress" ? "🔧" : "⬜";
+          text += `${icon} ${m.name}${m.date ? ` (${m.date})` : ""}\n`;
+        }
+        return { text, project: { id: p.id, name: p.name, pct } };
+      } else {
+        const resp = await fetch("http://127.0.0.1:4097/api/projects");
+        const data = await resp.json();
+        const projects = data.projects || [];
+        if (projects.length === 0) return { text: "尚無專案" };
+        let text = `📋 **專案看板**（${projects.length} 個專案）\n\n`;
+        for (const p of projects) {
+          text += `${p.icon} **${p.name}** — ${p.taskDone}/${p.taskTotal}（${p.taskPct}%）`;
+          if (p.milestonesTotal > 0) text += ` · 🏁 ${p.milestonesDone}/${p.milestonesTotal}`;
+          text += `\n`;
+        }
+        return { text, projects };
+      }
+    } catch (err) {
+      return { error: err.message };
+    }
+  };
+
+  handlers.project_update_task = async ({ projectId, taskId, status }) => {
+    try {
+      const resp = await fetch(`http://127.0.0.1:4097/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        return { text: `已更新任務「${data.task.name}」狀態為 ${status}`, task: data.task };
+      }
+      return { error: data.error || "更新失敗" };
+    } catch (err) {
+      return { error: err.message };
+    }
+  };
 
 // ── Build system prompt section for all apps ──
 // Global rule: API is /api/app-data/{appId}, universal for all apps
