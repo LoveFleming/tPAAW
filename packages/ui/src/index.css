@@ -93,3 +93,36 @@ pre { tab-size: 2; }
 [style*="scrollbar-width: none"]::-webkit-scrollbar {
   display: none;
 }
+
+/* Notes editor placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Notes editor content styles */
+[contenteditable] h2 { font-size: 1.5em; font-weight: 700; margin: 0.8em 0 0.4em; }
+[contenteditable] h3 { font-size: 1.2em; font-weight: 600; margin: 0.6em 0 0.3em; }
+[contenteditable] blockquote {
+  border-left: 3px solid currentColor;
+  padding-left: 12px;
+  margin: 8px 0;
+  opacity: 0.8;
+  font-style: italic;
+}
+[contenteditable] pre {
+  background: #f4f4f5;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  font-size: 13px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+[contenteditable] ul, [contenteditable] ol { padding-left: 24px; }
+[contenteditable] li { margin: 4px 0; }
+[contenteditable] img { max-width: 100%; border-radius: 8px; }
+
+/* Notes toolbar button hover */
+.toolBtn:hover { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.1); }
