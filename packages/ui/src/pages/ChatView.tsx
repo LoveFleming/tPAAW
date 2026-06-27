@@ -180,11 +180,94 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   }, [input]);
 
   // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
+  const sendingSeedRef = useRef(false);
   useEffect(() => {
-    if (seedMessage && activeChatId && !isLoading) {
-      onSeedConsumed?.();
-      handleSend(seedMessage);
-    }
+    if (!seedMessage || sendingSeedRef.current || isLoading) return;
+    const text = seedMessage.trim();
+    if (!text) return;
+    onSeedConsumed?.();
+    sendingSeedRef.current = true;
+
+    (async () => {
+      // Ensure there's an active chat
+      let chatId = activeChatId;
+      let baseMsgs = messages;
+      if (!chatId) {
+        // Create a new chat first
+        const newId = `chat_${Date.now()}`;
+        const greeting: Message = {
+          role: "assistant",
+          content: `嗨${profile.name ? ` ${profile.name}` : ""}！我是${assistantName}，有什麼可以幫你的嗎？ 🌤️`,
+          timestamp: new Date().toISOString(),
+        };
+        const newChat = { id: newId, title: "新對話", messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        try {
+          await fetch(`${API_BASE}/api/paaw/chats`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChat) });
+        } catch {}
+        setChats(prev => [newChat, ...prev]);
+        setActiveChatId(newId);
+        chatId = newId;
+        baseMsgs = [greeting];
+        setMessages([greeting]);
+      }
+
+      // Send the seed message
+      const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };
+      const newMsgs = [...baseMsgs, userMsg];
+      setMessages(newMsgs);
+      setInput("");
+      setIsLoading(true);
+      scrollToBottom(false);
+
+      const assistantMsg: Message = { role: "assistant", content: "", timestamp: new Date().toISOString() };
+      const withAssistant = [...newMsgs, assistantMsg];
+      setMessages(withAssistant);
+
+      try {
+        const ctrl = new AbortController();
+        abortRef.current = ctrl;
+        const resp = await fetch(`${API_BASE}/api/paaw/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            chatId,
+            history: newMsgs.map(m => ({ role: m.role, content: m.content })),
+          }),
+          signal: ctrl.signal,
+        });
+        if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let full = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          full += decoder.decode(value, { stream: true });
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { ...updated[updated.length - 1], content: full };
+            return updated;
+          });
+        }
+        // persist
+        try {
+          const finalMsgs = [...newMsgs, { role: "assistant", content: full, timestamp: new Date().toISOString() }];
+          await fetch(`${API_BASE}/api/paaw/chats/${chatId}`, {
+            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: finalMsgs, title: text.slice(0, 30) }),
+          });
+          setChats(prev => prev.map((c: any) => c.id === chatId ? { ...c, messages: finalMsgs, title: text.slice(0, 30) } : c));
+        } catch {}
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          setMessages(prev => { const u = [...prev]; u[u.length - 1] = { ...u[u.length - 1], content: "⚠️ " + (err.message || "發送失敗") }; return u; });
+        }
+      } finally {
+        setIsLoading(false);
+        sendingSeedRef.current = false;
+        scrollToBottom(true);
+      }
+    })();
   }, [seedMessage, activeChatId, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chat actions ──
@@ -557,7 +640,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             {isLoading ? (
               <button onClick={handleStop} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm bg-rose-500 hover:bg-rose-600 flex-shrink-0 transition-colors">停止</button>
             ) : (
-              <button onClick={handleSend} disabled={!input.trim()} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm disabled:opacity-40 flex-shrink-0 transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
+              <button onClick={() => handleSend()} disabled={!input.trim()} className="px-4 py-2.5 rounded-xl text-white font-medium text-sm disabled:opacity-40 flex-shrink-0 transition-all" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" /></svg>
               </button>
             )}
