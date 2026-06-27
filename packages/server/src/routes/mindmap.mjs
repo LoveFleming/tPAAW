@@ -229,7 +229,7 @@ function resolveLLM() {
 
 // ── Route Handler ──
 
-export async function handleMindMapRoutes(req, res) {
+async function handleMindMapRoutes(req, res) {
   // POST /api/mindmap/generate
   if (req.method === "POST" && req.url?.startsWith("/api/mindmap/generate")) {
     let body;
@@ -465,3 +465,5 @@ export async function handleMindMapRoutes(req, res) {
 
   return false;
 }
+
+export default handleMindMapRoutes;
