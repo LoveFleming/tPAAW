@@ -421,19 +421,22 @@ function AppInner() {
   // Hash-based deep link: #/notes?note=xxx&notebook=yyy
   const handleHashDeepLink = useCallback(() => {
     const hash = window.location.hash;
+    console.log("[DeepLink] hash=", hash);
     if (!hash || !hash.startsWith("#/notes")) return false;
     try {
       const u = new URL("http://dummy" + hash.slice(1));
       const noteId = u.searchParams.get("note");
       const notebookId = u.searchParams.get("notebook") || "default";
+      console.log("[DeepLink] noteId=", noteId, "notebookId=", notebookId);
       if (!noteId) return false;
       const tabId = `${currentScope}:notes`;
+      console.log("[DeepLink] tabId=", tabId);
       setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
       setActivePage(tabId);
       setDeepLinkNote({ noteId, notebookId });
       window.location.hash = ""; // 清掉 hash
       return true;
-    } catch { return false; }
+    } catch (e) { console.error("[DeepLink] error", e); return false; }
   }, [currentScope]);
 
   useEffect(() => {
@@ -676,7 +679,7 @@ function AppInner() {
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav, briefingInitialDir]);
+  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav, briefingInitialDir, deepLinkNote]);
 
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();

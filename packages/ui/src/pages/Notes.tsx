@@ -352,6 +352,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   useEffect(() => {
     if (!deepLinkNote) return;
     const key = `${deepLinkNote.noteId}:${deepLinkNote.notebookId}`;
+    console.log("[Notes DeepLink] received=", key, "processed=", deepLinkProcessed.current);
     if (deepLinkProcessed.current === key) return; // 已處理過
     deepLinkProcessed.current = key;
 
@@ -360,6 +361,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
         // 1. 確保 notebooks 已載入
         const nbs = await api.get("/api/notes/notebooks");
         setNotebooks(nbs.notebooks || []);
+        console.log("[Notes DeepLink] notebooks loaded");
 
         // 2. 切到正確的 notebook
         if (deepLinkNote.notebookId !== activeNotebook) {
@@ -368,10 +370,12 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
           setSections(secData.sections || []);
           const noteData = await api.get(`/api/notes/list?notebook=${encodeURIComponent(deepLinkNote.notebookId)}`);
           setNotes(noteData.notes || []);
+          console.log("[Notes DeepLink] notebook switched, sections/notes loaded");
         }
 
         // 3. 載入筆記內容
         const noteData = await api.get(`/api/notes/get?id=${deepLinkNote.noteId}&notebook=${encodeURIComponent(deepLinkNote.notebookId)}`);
+        console.log("[Notes DeepLink] note loaded=", noteData.note?.id, noteData.note?.title);
         if (noteData.note) {
           setActiveNote(noteData.note);
           setTagsInput((noteData.note.tags || []).join(", "));
@@ -387,7 +391,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
 
         onDeepLinkConsumed?.();
       } catch (err) {
-        console.error("Deep link failed:", err);
+        console.error("[Notes DeepLink] failed:", err);
         onDeepLinkConsumed?.();
       }
     })();
