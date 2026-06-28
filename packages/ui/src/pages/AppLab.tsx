@@ -949,7 +949,10 @@ export default function AppLab() {
                                         <span className="text-xs text-green-500">✅ 已生成</span>
                                     )}
                                     {generating && (
-                                        <span className="text-xs text-amber-500 animate-pulse">⏳ 生成中...</span>
+                                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+                                            <span className="w-3 h-3 border-[1.5px] border-amber-500 border-t-transparent rounded-full animate-spin" />
+                                            AI 生成中...
+                                        </span>
                                     )}
                                     <button onClick={() => { setPreviewReady(false); setPollTrigger(t => t + 1); setPreviewKey(Date.now()); }}
                                         className="text-xs text-stone-400 hover:text-stone-600">🔄</button>
@@ -965,9 +968,18 @@ export default function AppLab() {
                                         className="w-full h-full border-0 bg-white" title="Preview" />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-stone-400 text-sm gap-3">
-                                        <span className="text-3xl">{generating ? "⏳" : "🖼️"}</span>
-                                        <p>{generating ? "正在生成中，請稍候..." : previewUrl ? "等待生成完成..." : "請先設定 App 名稱"}</p>
-                                        {generating && <p className="text-xs text-stone-500">生成完成後會自動顯示預覽</p>}
+                                        {generating ? (
+                                            <>
+                                                <span className="w-10 h-10 border-[3px] border-amber-400 border-t-transparent rounded-full animate-spin" />
+                                                <p className="font-medium text-amber-600">AI 正在生成你的 App...</p>
+                                                <p className="text-xs text-stone-500">生成完成後會自動顯示預覽</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-3xl">🖼️</span>
+                                                <p>{previewUrl ? "等待生成完成..." : "請先設定 App 名稱"}</p>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>

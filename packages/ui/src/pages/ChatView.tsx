@@ -62,6 +62,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [isLoading, setIsLoading] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
+  const [activeTools, setActiveTools] = useState<{ name: string; status: 'running' | 'done' | 'error' }[]>([]);
 
   // Provider / model
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
@@ -372,16 +373,16 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             } else if (parsed.content) {
               fullContent += parsed.content;
             } else if (parsed.tool_call) {
-              // Show executing status — will be cleared when AI responds
               const tc = parsed.tool_call;
               const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
               const labelShort = label.replace(/ App/g, "");
-              fullContent += `⏳ ${labelShort} 執行中...`;
+              setActiveTools(prev => [...prev, { name: labelShort, status: 'running' }]);
               console.log(`[Chat SSE] tool_call: ${tc.name} ${Date.now() - sseStart}ms`);
             } else if (parsed.tool_result) {
               const tr = parsed.tool_result;
-              // Remove the "⏳ 執行中..." status line
-              fullContent = fullContent.replace(/\n?⏳ [^\n]*執行中\.\.\./g, "");
+              const trLabel = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace(/ App/g, "");
+              setActiveTools(prev => prev.map(t => t.name === trLabel ? { ...t, status: tr.result?.error ? 'error' : 'done' } : t));
+              setTimeout(() => setActiveTools(prev => prev.filter(t => t.name !== trLabel)), 1500);
               if (tr.result?.error) {
                 fullContent += `\n❌ ${tr.result.text}\n`;
               } else if (tr.result?.text) {
@@ -414,6 +415,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       clearTimeout(stallCheck);
       setIsLoading(false);
       abortRef.current = null;
+      setActiveTools([]);
     }
   };
 
@@ -540,7 +542,9 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         ) : (
           /* ── Chat messages ── */
           <div className="w-full px-4 py-4 space-y-3">
-            {messages.map((msg, i) => (
+            {messages.map((msg, i) => {
+              const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
+              return (
               <div key={i} className="flex justify-start">
                 <div className="flex gap-2.5 max-w-[95%]">
                   {/* Avatar */}
@@ -574,13 +578,42 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                               }
                               return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
                             } }}>{msg.content}</ReactMarkdown> : (
-                            <div className="flex items-center gap-1.5 text-stone-300">
-                              <div className="flex gap-1">
-                                <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                                <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                                <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                            <div className="flex flex-col gap-3 py-2">
+                              <div className="flex items-center gap-2" style={{ color: themeInfo.accent }}>
+                                <div className="flex gap-1.5">
+                                  <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: themeInfo.accent, animationDelay: "0ms" }} />
+                                  <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: themeInfo.accent, animationDelay: "150ms" }} />
+                                  <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: themeInfo.accent, animationDelay: "300ms" }} />
+                                </div>
+                                <span className="text-xs font-medium">思考中</span>
                               </div>
-                              <span className="text-xs">思考中</span>
+                              {activeTools.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {activeTools.map((tool, i) => (
+                                    <div key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${tool.status === 'running' ? 'bg-amber-50 text-amber-600 border border-amber-200' : tool.status === 'done' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
+                                      {tool.status === 'running' && <span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />}
+                                      {tool.status === 'done' && <span>✅</span>}
+                                      {tool.status === 'error' && <span>❌</span>}
+                                      <span>{tool.name}</span>
+                                      {tool.status === 'running' && <span className="text-amber-400">執行中</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {/* Tool badges — show when tools are running (even with content) */}
+                          {isLoading && isLastAssistant && activeTools.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-stone-100">
+                              {activeTools.map((tool, i) => (
+                                <div key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${tool.status === 'running' ? 'bg-amber-50 text-amber-600 border border-amber-200' : tool.status === 'done' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
+                                  {tool.status === 'running' && <span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />}
+                                  {tool.status === 'done' && <span>✅</span>}
+                                  {tool.status === 'error' && <span>❌</span>}
+                                  <span>{tool.name}</span>
+                                  {tool.status === 'running' && <span className="text-amber-400">執行中</span>}
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -591,7 +624,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
         )}

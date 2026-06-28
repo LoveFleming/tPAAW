@@ -109,7 +109,7 @@ function PromptEditor({
                         )}
                         style={{ backgroundColor: draft.trim() && !sending ? sendColor : undefined }}
                     >
-                        {sending ? "⏳" : "▶"} {sendLabel}
+                        {sending ? <span className="inline-flex items-center gap-1"><span className="w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />{sendLabel}</span> : `▶ ${sendLabel}`}
                     </button>
                 </div>
             </div>

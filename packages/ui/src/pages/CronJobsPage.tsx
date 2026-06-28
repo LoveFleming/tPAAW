@@ -525,12 +525,12 @@ export default function CronJobsPage() {
                                         flashJobs.has(job.id)
                                             ? "bg-green-500 text-white"
                                             : runningJobs.has(job.id)
-                                            ? "bg-stone-200 text-stone-400 animate-pulse"
+                                            ? "bg-stone-200 text-stone-400"
                                             : "bg-amber-100 text-amber-700 hover:bg-amber-200"
                                     }`}
                                     title="立即執行"
                                 >
-                                    {flashJobs.has(job.id) ? "✓" : "▶"} {runningJobs.has(job.id) ? "執行中" : "測試"}
+                                    {flashJobs.has(job.id) ? "✓" : "▶"} {runningJobs.has(job.id) ? <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />執行中</span> : "測試"}
                                 </button>
                                 <button onClick={e => { e.stopPropagation(); handleToggle(job); }}
                                     className={`text-xs px-2 py-0.5 rounded-md font-semibold ${job.enabled ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400"}`}>

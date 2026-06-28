@@ -355,7 +355,12 @@ export default function WorkflowExec() {
                   ))}
                   <button onClick={runWorkflow} disabled={isRunning}
                     className={`px-5 py-2 text-sm rounded-lg font-medium transition-colors ${isRunning ? "bg-amber-100 text-amber-700 cursor-wait" : "bg-violet-600 hover:bg-violet-700 text-white"}`}>
-                    {isRunning ? "⏳ Running..." : "▶ Run"}
+                    {isRunning ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-3.5 h-3.5 border-[1.5px] border-amber-500 border-t-transparent rounded-full animate-spin" />
+                        Running...
+                      </span>
+                    ) : "▶ Run"}
                   </button>
                 </div>
               ) : (
@@ -365,7 +370,11 @@ export default function WorkflowExec() {
                     placeholder="輸入文字" className="flex-1 px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
                   <button onClick={runWorkflow} disabled={isRunning}
                     className={`px-4 py-1.5 text-xs rounded-lg font-medium transition-colors shrink-0 ${isRunning ? "bg-amber-100 text-amber-700 cursor-wait" : "bg-violet-600 hover:bg-violet-700 text-white"}`}>
-                    {isRunning ? "⏳" : "▶ Run"}
+                    {isRunning ? (
+                      <span className="inline-flex items-center justify-center w-6 h-6">
+                        <span className="w-3.5 h-3.5 border-[1.5px] border-amber-500 border-t-transparent rounded-full animate-spin" />
+                      </span>
+                    ) : "▶ Run"}
                   </button>
                 </div>
               )}
@@ -390,12 +399,12 @@ export default function WorkflowExec() {
                 const isStart = node.type === "start";
                 const isEnd = node.type === "end";
                 const statusStyle = isStart ? "border-emerald-300 bg-emerald-50" : isEnd ? "border-indigo-300 bg-indigo-50" : status === "running" ? "border-amber-400 bg-amber-50" : status === "success" ? "border-emerald-400 bg-emerald-50" : status === "error" ? "border-red-400 bg-red-50" : "border-stone-200 bg-white";
-                const statusIcon = isStart ? "🟢" : isEnd ? "🔵" : status === "running" ? "⏳" : status === "success" ? "✅" : status === "error" ? "❌" : "⚡";
+                const statusIcon = isStart ? "🟢" : isEnd ? "🔵" : status === "running" ? null : status === "success" ? "✅" : status === "error" ? "❌" : "⚡";
                 return (
                   <div key={node.id} className="flex items-center shrink-0">
                     <button onClick={() => { if (logEntry) setSelectedNodeId(node.id); }}
                       className={`flex flex-col items-center gap-1 px-4 py-3 rounded-xl border-2 text-xs font-medium transition-all ${statusStyle} ${selectedNodeId === node.id ? "ring-2 ring-violet-400 shadow-sm" : ""}`}>
-                      <span className="text-base">{statusIcon}</span>
+                      <span className="text-base">{statusIcon || <span className="inline-flex items-center justify-center w-4 h-4"><span className="w-3.5 h-3.5 border-[1.5px] border-amber-500 border-t-transparent rounded-full animate-spin" /></span>}</span>
                       <span className="text-stone-700 font-semibold">{node.name}</span>
                       {!isStart && !isEnd && node.skillId && <span className="text-stone-400 text-[10px]">{node.skillId}</span>}
                       {isEnd && <span className="text-[10px]">{outputTarget === "chat" ? "💬" : "📁"}</span>}
@@ -427,7 +436,7 @@ export default function WorkflowExec() {
                 <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border ${entry.status === "running" ? "border-amber-200 bg-amber-50" : entry.status === "success" ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
                   <span>{typeIcon(entry.type)}</span>
                   <div className="flex-1"><span className="text-sm font-medium text-stone-700">{entry.nodeName}</span></div>
-                  {entry.status === "running" && <span className="text-xs text-amber-600 animate-pulse">⏳</span>}
+                  {entry.status === "running" && <span className="inline-flex items-center justify-center w-4 h-4"><span className="w-3 h-3 border-[1.5px] border-amber-500 border-t-transparent rounded-full animate-spin" /></span>}
                   {entry.durationMs != null && <span className="text-xs text-stone-400">{entry.durationMs}ms</span>}
                 </div>
               ))}
