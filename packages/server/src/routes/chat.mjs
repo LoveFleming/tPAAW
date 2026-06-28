@@ -102,6 +102,7 @@ export default async function chatRoutes(req, res) {
 
   // POST /api/paaw/chat
   if (req.method === "POST" && path === "/api/paaw/chat") {
+    let heartbeatTimer = null;
     try {
       const body = JSON.parse(await readBody(req));
       const { messages, model: requestedModel, provider: requestedProvider } = body;
@@ -141,7 +142,7 @@ export default async function chatRoutes(req, res) {
       console.log(`[${chatReqId}] SSE headers sent, socket=${res.socket?.remoteAddress}:${res.socket?.remotePort}`);
 
       // Heartbeat：每 3 秒送 SSE 註解，保持連線 + 強制 flush TCP buffer
-      const heartbeatTimer = setInterval(() => {
+      heartbeatTimer = setInterval(() => {
         try {
           res.write(': heartbeat\n\n');
           if (typeof res.flush === 'function') res.flush();
@@ -257,7 +258,7 @@ export default async function chatRoutes(req, res) {
         });
       } catch {}
     } catch (err) {
-      clearInterval(heartbeatTimer);
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       console.error("[chat] Error:", err.message, "\nStack:", err.stack);
       if (!res.headersSent) {
         json(res, { error: err.message }, 500);
