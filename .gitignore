@@ -53,3 +53,13 @@ data/skills/building/*/test-*
 .paaw-staging/
 .paaw-review/
 packages/server/.paaw/
+
+# PAAW temp/debug files
+packages/server/temp/
+packages/server/data/audit/
+data/distill/raw/
+
+# PAAW temp/debug files
+packages/server/temp/
+packages/server/data/audit/
+data/distill/raw/
