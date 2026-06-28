@@ -31,6 +31,8 @@ const CATEGORIES = [
   { id: "crew",           label: "Crew",          icon: "👤", desc: "AI Crew 的設定 — Skill 執行規則、角色上下文" },
   { id: "skill-builder", label: "Skill Builder", icon: "🔨", desc: "Skill 建構器的 AI 設定 — 格式規範、產出規則" },
   { id: "app-builder",   label: "App Builder",   icon: "📦", desc: "App 建構器的 AI 設定 — App 產出規則" },
+  { id: "notes",         label: "Notes",         icon: "📝", desc: "AI 筆記助手的 AI 設定 — 筆記整理規則、格式規範" },
+  { id: "mindmap",       label: "Mind Map",      icon: "🧠", desc: "AI 心智圖產生器的 AI 設定 — 分支策略、節點規則" },
 ];
 
 // Default icon for unknown file types
