@@ -1,5 +1,5 @@
 {
-  "lastProcessedAt": "2026-06-19T03:20:48.769Z",
+  "lastProcessedAt": "2026-06-27T09:51:19.773Z",
   "processedChats": [
     "chat_1780575384171",
     "chat_1780578869000",
@@ -11,7 +11,9 @@
     "chat_1781360721692",
     "chat_1781683750771",
     "chat_1781705780811",
-    "chat_1781790716005"
+    "chat_1781790716005",
+    "chat_1782120511957",
+    "chat_1782553565770"
   ],
   "skippedChats": [
     "chat_1780811153628",
@@ -20,6 +22,6 @@
     "chat_1780810824081"
   ],
   "skippedReason": "僅有助理打招呼訊息，無使用者對話內容",
-  "distilledAt": "2026-06-20T19:00:00.000Z",
-  "lastRunNotes": "處理 3 個新 chat（6/17~6/19），主要內容：knowledge 目錄擴充、file_read bug、Pocket 書籤/todo 使用"
+  "distilledAt": "2026-06-27T19:00:00.000Z",
+  "lastRunNotes": "處理 3 個 chat（1 個追加更新 + 2 個新），主要內容：PAAW 功能測試（筆記連結）、6/26 AI Agent 報告準備、運動提醒、心情記錄"
 }

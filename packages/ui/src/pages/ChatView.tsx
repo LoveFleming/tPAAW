@@ -188,8 +188,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   }, [input]);
 
   // ── Seed message from outside (e.g. AI 摘要 from file tree) ──
-  // Strategy: set input text → ensure chat exists → defer send until state is ready
-  const deferredSendRef = useRef<string | null>(null);
+  // Strategy: fill input → ensure chat exists → call handleSend directly
+  const pendingSeedTextRef = useRef<string | null>(null);
 
   // Pick up module-level seed
   useEffect(() => {
@@ -202,7 +202,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       setInput(text);
 
       if (!activeChatId) {
-        // Create a new chat first; actual send deferred to the effect below
+        // Create a new chat first; store text for the effect below
         const newId = `chat_${Date.now()}`;
         const greeting: Message = {
           role: "assistant",
@@ -216,10 +216,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         setChats(prev => [newChat, ...prev]);
         setActiveChatId(newId);
         setMessages([greeting]);
-        deferredSendRef.current = text; // will be picked up by the effect below
+        pendingSeedTextRef.current = text; // picked up when activeChatId changes
       } else {
-        // Chat already active — send after a microtask
-        deferredSendRef.current = text;
+        // Chat already active — send immediately
+        handleSend(text);
       }
     };
 
@@ -228,12 +228,12 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     return () => window.removeEventListener("paaw-seed-chat-ready", consumeSeed);
   }, [isLoading, activeChatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Deferred send — fires when activeChatId / isLoading settle
+  // Fires when activeChatId transitions from null → newId (new chat created by seed)
   useEffect(() => {
-    if (deferredSendRef.current && activeChatId && !isLoading) {
-      const text = deferredSendRef.current;
-      deferredSendRef.current = null;
-      const t = setTimeout(() => handleSend(text), 50);
+    if (pendingSeedTextRef.current && activeChatId && !isLoading) {
+      const text = pendingSeedTextRef.current;
+      pendingSeedTextRef.current = null;
+      const t = setTimeout(() => handleSend(text), 80);
       return () => clearTimeout(t);
     }
   }, [activeChatId, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
