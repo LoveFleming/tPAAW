@@ -1284,9 +1284,6 @@ function buildHandlers(apps) {
     }
   };
 
-  return handlers;
-}
-
   // ── Project Board handlers ──
   handlers.project_status = async ({ projectId } = {}) => {
     try {
@@ -1353,6 +1350,9 @@ function buildHandlers(apps) {
       return { error: err.message };
     }
   };
+
+  return handlers;
+}
 
 // ── Build system prompt section for all apps ──
 // Global rule: API is /api/app-data/{appId}, universal for all apps
