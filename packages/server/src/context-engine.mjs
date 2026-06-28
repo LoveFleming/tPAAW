@@ -371,7 +371,7 @@ export const contextEngine = {
     parts.push(`=== 你的長期記憶 (MEMORY.md) ===\n每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。\n${memory || "(記憶是空白的)"}`);
 
     // 4. Apps
-    if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
+    if (apps) parts.push(`=== 可用的 App ===\n${apps}\n\n📌 **App 連結規則：** 當回覆提到某個 App 時，加上可點擊的連結讓使用者直接開啟。\n格式：\`[顯示文字](#/app:app-id)\`\n範例：\`[📖 書籤管理](#/app:bookmarks)\`、\`[🎒 Pocket](#/app:pocket)\`\n只在相關時才加，不要每個回覆都塞連結。`);
 
     // 4.5 Tool 使用規則（從檔案讀取，方便透過 API 編輯）
     const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
