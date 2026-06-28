@@ -612,6 +612,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                                   return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onDeepLink?.("notes", params); }} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer" }} />;
                                 } catch { /* fallback */ }
                               }
+                              // 攔截 App deep link: #/app:bookmarks
+                              if (href && href.startsWith("#/app:")) {
+                                const appId = href.slice(6);
+                                return <a {...props} href={href} onClick={(e) => { e.preventDefault(); onOpenApp?.(appId); }} style={{ color: themeInfo.accent, textDecoration: "underline", cursor: "pointer", fontWeight: 500 }} />;
+                              }
                               return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />;
                             } }}>{msg.content}</ReactMarkdown> : (
                             <div className="flex flex-col gap-3 py-2">
