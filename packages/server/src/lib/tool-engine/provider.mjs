@@ -145,7 +145,14 @@ export class OpenAICompatibleAdapter {
 
             // Text
             if (delta?.content) {
-              const cleanDelta = sanitizeContent(delta.content)
+              // Only strip invisible chars per-chunk; DON'T trim (would eat \n at chunk boundaries)
+              const cleanDelta = delta.content
+                .replace(/\uFEFF/g, '')
+                .replace(/[\u200B\u200C\u200D\u200E\u200F]/g, '')
+                .replace(/\u2060/g, '')
+                .replace(/\u2063/g, '')
+                .replace(/[\u00AD\u2061\u2062\u2064]/g, '')
+                .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
               if (cleanDelta) {
                 yield { type: 'text', delta: cleanDelta }
               }
