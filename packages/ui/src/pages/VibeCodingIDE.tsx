@@ -464,8 +464,8 @@ export default function VibeCodingIDE() {
   const quickOpenSelect = useCallback((path: string) => {
     setShowQuickOpen(false);
     setQuickOpenQuery("");
-    if (rootPath) openFile(path);
-  }, [rootPath]);
+    openFile(path);
+  }, [openFile]);
 
   // ── Quick Open: focus input when shown ──
   useEffect(() => {
@@ -1619,7 +1619,7 @@ const sendChat = useCallback(async () => {
                     <div
                       key={mi}
                       className="flex items-start gap-2 px-3 py-0.5 pl-8 cursor-pointer hover:bg-blue-50 text-xs"
-                      onClick={() => { openFile(file.path); }}
+                      onClick={() => { openFile(file.path); setActiveSubPanel("editor"); }}
                     >
                       <span className="text-stone-400 shrink-0 w-8 text-right">{match.line}</span>
                       <span className="text-stone-600 truncate">{highlightMatch(match.content, searchQuery, searchCaseSensitive)}</span>

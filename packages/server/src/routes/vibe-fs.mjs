@@ -347,8 +347,10 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
           try {
             const evt = JSON.parse(line);
             if (evt.type === "match") {
-              const filePath = evt.data.path.text;
-              const fileName = filePath.split("/").pop();
+              const relPath = evt.data.path.text;
+              const absPath = resolve(cwd, relPath);
+              const filePath = absPath;
+              const fileName = relPath.split("/").pop();
               if (!fileMap.has(filePath)) {
                 fileMap.set(filePath, { path: filePath, filename: fileName, matches: [] });
               }
