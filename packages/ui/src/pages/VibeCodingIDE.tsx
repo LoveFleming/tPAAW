@@ -16,13 +16,13 @@
  *  - 🤖 AI Chat — PAAW chat integration with file context
  *  - 🔀 Git — status, diff, blame, AI auto-comment
  *  - 🌐 API Tester — Postman-like request builder
- *  - ⌨️ Terminal — Agent sessions (resizable)
+ *  - ⌨️ Terminal — Real shell terminal (resizable)
  */
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
-import AgentConsole from "../components/AgentConsole";
+import ShellTerminal from "../components/ShellTerminal";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 
@@ -47,16 +47,6 @@ interface OpenTab {
   language: string;
   hljsLang: string;
   lastSaved?: string;
-}
-
-interface AgentSession {
-  id: string;
-  name: string;
-  model: string;
-  cwd: string;
-  systemPrompt: string;
-  engine?: string;
-  createdAt: string;
 }
 
 interface ChatMessage {
@@ -94,27 +84,6 @@ const FILE_ICONS: Record<string, { icon: string; color: string }> = {
   env: { icon: "EV", color: "#ECD53F" }, lock: { icon: "🔒", color: "#6B7280" },
   toml: { icon: "TM", color: "#9C4221" }, graphql: { icon: "GQ", color: "#E535AB" },
 };
-
-const ENGINE_OPTIONS = [
-  { id: "paaw-agent", label: "PAAW Agent", icon: "🤖", color: "#3B82F6" },
-];
-
-const APPROVAL_MODES = [
-  { id: "yolo", label: "YOLO", icon: "🚀" },
-  { id: "auto-edit", label: "Auto Edit", icon: "✏️" },
-  { id: "default", label: "Default", icon: "🔒" },
-];
-
-const QUICK_ACTIONS = [
-  { id: "refactor", label: "重構", icon: "🔧", prompt: "請重構這個檔案，改善可讀性和效能" },
-  { id: "debug", label: "Debug", icon: "🐛", prompt: "請找出並修復程式中的 bug" },
-  { id: "feature", label: "新功能", icon: "✨", prompt: "我要新增一個功能，請先了解現有架構再開始" },
-  { id: "review", label: "Review", icon: "👀", prompt: "請 review 目前開啟的程式碼" },
-  { id: "test", label: "寫測試", icon: "🧪", prompt: "請為目前的程式碼寫單元測試" },
-  { id: "docs", label: "寫文件", icon: "📝", prompt: "請為這個檔案寫文件和註解" },
-  { id: "explain", label: "解釋", icon: "💡", prompt: "請解釋這段程式碼在做什麼" },
-  { id: "optimize", label: "優化", icon: "⚡", prompt: "請優化這段程式碼的效能" },
-];
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 const METHOD_COLORS: Record<string, string> = {
@@ -211,7 +180,6 @@ export default function VibeCodingIDE() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [showGitPanel, setShowGitPanel] = useState(false);
   const [showApiTester, setShowApiTester] = useState(false);
-  const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester">("editor");
   const resizingRef = useRef<{ type: "sidebar" | "ai" | "terminal"; startX: number; startY: number; startSize: number } | null>(null);
 
@@ -230,10 +198,6 @@ export default function VibeCodingIDE() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
 
-  // ── Terminal / Session State ──
-  const [sessions, setSessions] = useState<AgentSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const termRef = useRef<any>(null);
 
   // ── AI Chat State ──
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -274,31 +238,15 @@ export default function VibeCodingIDE() {
   const codingLogRef = useRef<CodingEvent[]>([]);
   const distillTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── New Session Form ──
-  const [formEngine, setFormCli] = useState("paaw-agent");
-  const [formModel, setFormModel] = useState("");
-  const [formCwd, setFormCwd] = useState("");
   const [showDirExplorer, setShowDirExplorer] = useState(false);
-  const [formApproval, setFormApproval] = useState("yolo");
-  const [formName, setFormName] = useState("");
 
   const activeTab = useMemo(() => openTabs.find(ot => ot.id === activeTabId), [openTabs, activeTabId]);
-  const activeSession = useMemo(() => sessions.find(s => s.id === activeSessionId), [sessions, activeSessionId]);
 
   // ═══════════════════════════════════════════════
   // Init: load from server APIs (with localStorage fallback)
   // ═══════════════════════════════════════════════
   useEffect(() => {
     (async () => {
-      // Load sessions from server
-      try {
-        const res = await fetch(`${API_BASE}/api/vibe-sessions`);
-        const data = await res.json();
-        if (data.sessions?.length) { setSessions(data.sessions); setActiveSessionId(data.sessions[0].id); }
-      } catch {
-        // Fallback to localStorage
-        try { const saved = localStorage.getItem("paaw.vibeide.sessions"); if (saved) { const p = JSON.parse(saved); setSessions(p); if (p.length > 0) setActiveSessionId(p[0].id); } } catch {}
-      }
       // Load root path
       const root = localStorage.getItem("paaw.vibeide.rootPath");
       if (root) { setRootPath(root); expandDir(root); }
@@ -318,14 +266,6 @@ export default function VibeCodingIDE() {
       } catch {}
     })();
   }, []);
-
-  // Persist sessions to server + localStorage
-  useEffect(() => {
-    try { localStorage.setItem("paaw.vibeide.sessions", JSON.stringify(sessions)); } catch {}
-    if (sessions.length >= 0) {
-      fetch(`${API_BASE}/api/vibe-sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessions }) }).catch(() => {});
-    }
-  }, [sessions]);
 
   useEffect(() => { try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {} }, [rootPath]);
   useEffect(() => {
@@ -351,7 +291,7 @@ export default function VibeCodingIDE() {
       } catch {}
     }, 30_000);
     return () => { if (distillTimerRef.current) clearInterval(distillTimerRef.current); };
-  }, [rootPath, openTabs, activeSession]);
+  }, [rootPath, openTabs]);
 
   // ═══════════════════════════════════════════════
   // File Explorer
@@ -691,21 +631,6 @@ const sendChat = useCallback(async () => {
   }, []);
 
   // ═══════════════════════════════════════════════
-  // Session Management
-  // ═══════════════════════════════════════════════
-  const createSession = useCallback(() => {
-    const id = `vibe-${Date.now()}`;
-    const name = formName || `PAAW Agent`;
-    const s: AgentSession = { id, name, engine: "paaw-agent", model: formModel, cwd: formCwd || rootPath, systemPrompt: "", createdAt: new Date().toISOString() };
-    setSessions(prev => [s, ...prev]);
-    setActiveSessionId(id);
-    setShowSessionPanel(false);
-    setFormName("");
-    if (!rootPath && s.cwd) { setRootPath(s.cwd); expandDir(s.cwd); }
-  }, [formEngine, formModel, formCwd, formApproval, formName, rootPath, expandDir, logEvent]);
-
-  const sendPrompt = useCallback((prompt: string) => { if (termRef.current) termRef.current.sendPrompt(prompt); }, []);
-
   // ═══════════════════════════════════════════════
   // Resize Handlers
   // ═══════════════════════════════════════════════
@@ -788,8 +713,8 @@ const sendChat = useCallback(async () => {
     {/* Directory Explorer Modal */}
     {showDirExplorer && (
       <DirectoryExplorer
-        initialPath={rootPath || formCwd || undefined}
-        onSelect={(path) => { setRootPath(path); setFormCwd(path); setShowDirExplorer(false); expandDir(path); setExpandedDirs(new Set()); }}
+        initialPath={rootPath || undefined}
+        onSelect={(path) => { setRootPath(path); setShowDirExplorer(false); expandDir(path); setExpandedDirs(new Set()); }}
         onClose={() => setShowDirExplorer(false)}
         title="📂 選擇專案目錄"
       />
@@ -813,11 +738,6 @@ const sendChat = useCallback(async () => {
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showAiPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
           {t("vibe.ai")}
-        </button>
-        <button onClick={() => setShowSessionPanel(!showSessionPanel)}
-          className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
-            showSessionPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          {activeSession ? `${activeSession.name}` : t("vibe.newSession")}
         </button>
         <button onClick={() => setShowTerminal(!showTerminal)}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors",
@@ -1329,61 +1249,6 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* Session panel — inline in code area */}
-            {showSessionPanel && (
-              <div className="absolute left-0 right-0 top-0 bottom-0 z-40 bg-white/95 backdrop-blur-sm flex flex-col">
-                <div className="flex items-center px-3 py-2 border-b font-bold text-xs text-stone-700 shrink-0" style={{ borderColor: "#f0f0f0" }}>
-                  ⚡ Sessions <span className="flex-1" />
-                  <button onClick={() => setShowSessionPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
-                </div>
-                <div className="max-h-40 overflow-y-auto " style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                  {sessions.map(s => {
-                    const cliOpt = ENGINE_OPTIONS.find(c => c.id === s.engine);
-                    return (
-                      <div key={s.id}
-                        className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-stone-50 text-xs", activeSessionId === s.id && "bg-blue-50")}
-                        style={{ borderColor: tk.borderLight }}
-                        onClick={() => { setActiveSessionId(s.id); setShowSessionPanel(false); }}>
-                        <span>{cliOpt?.icon || "⚪"}</span>
-                        <span className="font-semibold text-stone-700 flex-1 truncate">{s.name}</span>
-                        <button onClick={e => { e.stopPropagation(); setSessions(prev => prev.filter(x => x.id !== s.id)); if (activeSessionId === s.id) setActiveSessionId(null); }}
-                          className="text-stone-300 hover:text-red-500">✕</button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5" style={{ backgroundColor: "#fafaf9" }}>
-                  <input value={formName} onChange={e => setFormName(e.target.value)} placeholder={t("vibe.sessionName")}
-                    className="w-full text-sm px-2 py-1.5 border rounded outline-none" style={{ borderColor: "#ddd" }} />
-                  <div className="flex gap-0.5">
-                    {ENGINE_OPTIONS.map(cli => (
-                      <button key={cli.id} onClick={() => setFormCli(cli.id)}
-                        className={cn("flex-1 py-1 rounded text-xs font-semibold border transition-colors", formEngine === cli.id ? "text-white" : "border-stone-200 text-stone-500")}
-                        style={formEngine === cli.id ? { backgroundColor: cli.color, borderColor: cli.color } : {}}>{cli.icon}</button>
-                    ))}
-                  </div>
-                  <input value={formModel} onChange={e => setFormModel(e.target.value)} placeholder={t("vibe.sessionModel")}
-                    className="w-full text-xs px-2 py-1 border rounded font-mono outline-none" style={{ borderColor: "#ddd" }} />
-                  <div className="flex items-center gap-0.5">
-                    <input value={formCwd || rootPath} onChange={e => setFormCwd(e.target.value)} placeholder={t("vibe.sessionWorkDir")}
-                      className="flex-1 text-xs px-2 py-1 border rounded font-mono outline-none" style={{ borderColor: "#ddd" }} />
-                    <button onClick={() => setShowDirExplorer(true)}
-                      className="shrink-0 px-1.5 py-1 rounded border text-xs transition-colors"
-                      style={{ borderColor: tk.accentBorder, color: tk.accent }}
-                      title="瀏覽選擇目錄">📂</button>
-                  </div>
-                  <div className="flex gap-0.5">
-                    {APPROVAL_MODES.map(m => (
-                      <button key={m.id} onClick={() => setFormApproval(m.id)}
-                        className={cn("flex-1 py-1 rounded text-xs font-semibold border", formApproval === m.id ? "border-stone-400 bg-white text-stone-700" : "border-stone-200 text-stone-400")}>{m.icon} {m.label}</button>
-                    ))}
-                  </div>
-                  <button onClick={createSession}
-                    className="w-full py-1.5 rounded text-sm font-bold text-white active:scale-95 transition-transform"
-                    style={{ backgroundColor: tk.accent }}>{t("vibe.sessionStart")}</button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Terminal resize handle */}
@@ -1395,25 +1260,14 @@ const sendChat = useCallback(async () => {
             <div className="shrink-0 flex flex-col" style={{ height: terminalHeight }}>
               <div className="flex items-center px-2 py-0.5 shrink-0 select-none" style={{ backgroundColor: "#1e1717", borderBottom: "1px solid #2d2424" }}>
                 <span className="text-xs text-stone-400 font-semibold">
-                  {activeSession ? `${activeSession.name} (${"PAAW Agent"})` : t("vibe.terminal")}
+                  Terminal
                 </span>
                 <span className="flex-1" />
-                {activeSession && QUICK_ACTIONS.slice(0, 5).map(a => (
-                  <button key={a.id} onClick={() => sendPrompt(a.prompt)} title={a.label}
-                    className="text-xs px-1 py-0.5 rounded text-stone-400 hover:text-white hover:bg-stone-700">{a.icon}</button>
-                ))}
+                <span className="text-[10px] text-stone-500">{rootPath ? rootPath.split("/").pop() : "~"}</span>
                 <button onClick={() => setShowTerminal(false)} className="text-stone-500 hover:text-white text-xs ml-2">✕</button>
               </div>
               <div className="flex-1 min-h-0">
-                {activeSession ? (
-                  <AgentConsole key={activeSession.id} ref={termRef}
-                    model={activeSession.model || undefined}
-                    cwd={activeSession.cwd} />
-                ) : (
-                  <div className="flex items-center justify-center h-full" style={{ backgroundColor: "#1e1e2e" }}>
-                    <p className="text-xs text-stone-500">{t("vibe.noSession")}</p>
-                  </div>
-                )}
+                <ShellTerminal cwd={rootPath || undefined} />
               </div>
             </div>
           )}
