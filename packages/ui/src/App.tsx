@@ -160,6 +160,7 @@ function AppInner() {
   const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
   const [paawRoot, setPaawRoot] = useState("");
   const [skillApps, setSkillApps] = useState<{id: string; name: string}[]>([]);
+  const [dataApps, setDataApps] = useState<{id: string; name: string}[]>([]);
 
   const loadFactories = useCallback(async () => {
     try {
@@ -204,7 +205,17 @@ function AppInner() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); loadSkillApps(); loadUiState(); }, [loadFactories, loadCrew, loadFactoryFiles, loadSkillApps, loadUiState]);
+  const loadDataApps = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/apps`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setDataApps(data.filter((a: any) => a.status === "published").map((a: any) => ({ id: a.id, name: a.name })));
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); loadSkillApps(); loadDataApps(); loadUiState(); }, [loadFactories, loadCrew, loadFactoryFiles, loadSkillApps, loadDataApps, loadUiState]);
 
   useEffect(() => {
     if (!selectedFactoryId) return;
@@ -575,7 +586,10 @@ function AppInner() {
 
     // ── Chat (home) ──
     if (fullId === "_chat") {
-      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle} onDeepLink={(path, params) => {
+      return <ChatView profile={profile!} embedded onTitleChange={setChatTitle}
+        apps={[...skillAppNav.map(a => ({ id: a.skillId, name: a.label.replace(/^📊\s*/, "") })), ...dataApps.filter(da => !skillAppNav.some(sa => sa.skillId === da.id)).map(da => ({ id: da.id, name: da.name }))]}
+        onOpenApp={openSkillAppById}
+        onDeepLink={(path, params) => {
         if (path === "notes" && params.note) {
           const tabId = `${currentScope}:notes`;
           setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);

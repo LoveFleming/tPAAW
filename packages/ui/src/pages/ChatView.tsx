@@ -41,6 +41,11 @@ interface ProviderInfo {
   models: { id: string; name: string }[];
 }
 
+interface AppLink {
+  id: string;
+  name: string;
+}
+
 interface Props {
   profile: UserProfile;
   embedded?: boolean;
@@ -48,9 +53,11 @@ interface Props {
   onDeepLink?: (path: string, params: Record<string, string>) => void;
   seedMessage?: string | null;
   onSeedConsumed?: () => void;
+  apps?: AppLink[];
+  onOpenApp?: (appId: string) => void;
 }
 
-export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed }: Props) {
+export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp }: Props) {
   const { info: themeInfo } = useTheme();
   const assistantName = profile.assistantName || "林語晴";
 
@@ -62,6 +69,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [isLoading, setIsLoading] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
+  const [showAppLauncher, setShowAppLauncher] = useState(false);
   const [activeTools, setActiveTools] = useState<{ name: string; status: 'running' | 'done' | 'error' }[]>([]);
 
   // Provider / model
@@ -462,6 +470,34 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
             <button onClick={() => setShowChatList(!showChatList)} className="text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
               💬
             </button>
+            {/* App Launcher */}
+            {onOpenApp && apps.length > 0 && (
+              <div className="relative">
+                <button onClick={() => setShowAppLauncher(!showAppLauncher)} className="text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 flex items-center gap-1" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
+                  📱 <span className="hidden sm:inline">Apps</span>
+                </button>
+                {showAppLauncher && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowAppLauncher(false)} />
+                    <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50">
+                      <div className="px-3 py-1.5 bg-stone-50 border-b border-stone-100">
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">我的 App</span>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {apps.map(app => (
+                          <button key={app.id} onClick={() => { onOpenApp(app.id); setShowAppLauncher(false); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-stone-50 transition-colors text-stone-700">
+                            <span className="text-base">📊</span>
+                            <span className="flex-1 truncate">{app.name}</span>
+                            <span className="text-[10px] text-stone-300 font-mono">{app.id}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             <div className="relative">
               <button onClick={() => setShowModelPicker(!showModelPicker)} className="text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 flex items-center gap-1" style={{ borderColor: themeInfo.accentBorder, color: themeInfo.accentHover }}>
                 🤖 {activeModelName}
