@@ -1429,53 +1429,53 @@ const sendChat = useCallback(async () => {
               onMouseDown={e => startResize("ai", e)} style={{ backgroundColor: tk.border }} />
             <div className="flex flex-col shrink-0 select-none" style={{ width: aiPanelWidth, backgroundColor: "#fff" }}>
               <div className="flex items-center px-3 py-2 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                <span className="text-xs font-bold text-stone-700">{t("vibe.aiChat")}</span>
-                {activeTab && <span className="text-xs text-stone-400 ml-2 truncate">({activeTab.name})</span>}
+                <span className="text-sm font-bold text-stone-700">{t("vibe.aiChat")}</span>
+                {activeTab && <span className="text-sm text-stone-400 ml-2 truncate">({activeTab.name})</span>}
                 <span className="flex-1" />
                 {/* Mode toggle: Agent vs Chat */}
                 <div className="flex items-center gap-1 mr-2">
                   <button onClick={() => setChatMode("agent")}
-                    className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-colors",
+                    className={cn("text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors",
                       chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
                     🤖 Agent
                   </button>
                   <button onClick={() => setChatMode("chat")}
-                    className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-colors",
+                    className={cn("text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors",
                       chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
                     💬 Chat
                   </button>
                 </div>
-                {agentRunning && <span className="text-[10px] text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
+                {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
                 <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
               </div>
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ fontSize: 13 }}>
                 {chatMessages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-2">
-                    <span className="text-2xl">🤖</span>
-                    <p className="text-stone-400 text-xs">{t("vibe.aiAskFile")}<br />{t("vibe.aiAutoContextDesc")}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <span className="text-3xl">🤖</span>
+                    <p className="text-stone-400 text-sm">{t("vibe.aiAskFile")}<br />{t("vibe.aiAutoContextDesc")}</p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
                       {[t("vibe.aiQuickExplain"), t("vibe.aiQuickProblem"), t("vibe.aiQuickComment"), t("vibe.aiQuickPerf")].map(q => (
                         <button key={q} onClick={() => setChatInput(q)}
-                          className="text-xs px-2 py-1 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">{q}</button>
+                          className="text-sm px-2.5 py-1.5 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">{q}</button>
                       ))}
                     </div>
                   </div>
                 )}
                 {chatMessages.map((msg, i) => (
-                  <div key={i} className={cn("rounded-lg px-3 py-2 text-xs leading-relaxed", msg.role === "user" ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-stone-700")}>
+                  <div key={i} className={cn("rounded-lg px-3 py-2.5 text-sm leading-relaxed", msg.role === "user" ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-stone-700")}>
                     <div className="text-xs font-bold text-stone-400 mb-1">{msg.role === "user" ? t("vibe.aiYou") : "🤖 AI"}</div>
-                    <pre className="whitespace-pre-wrap font-sans break-words" style={{ fontFamily: "inherit" }}>{msg.content}</pre>
+                    <pre className="whitespace-pre-wrap font-sans break-words text-sm" style={{ fontFamily: "inherit" }}>{msg.content}</pre>
                   </div>
                 ))}
-                {chatLoading && <div className="text-xs text-stone-400 animate-pulse px-3">🤖 {t("vibe.aiThinking")}</div>}
+                {chatLoading && <div className="text-sm text-stone-400 animate-pulse px-3 flex items-center gap-1.5"><span className="w-3 h-3 border-[1.5px] border-stone-400 border-t-transparent rounded-full animate-spin" />{t("vibe.aiThinking")}</div>}
                 <div ref={chatEndRef} />
               </div>
               {/* Agent Tool Log */}
               {agentToolLog.length > 0 && (
                 <div className="px-3 py-2 shrink-0" style={{ borderTop: `1px solid ${tk.borderLight}`, maxHeight: 150, overflowY: "auto" }}>
-                  <div className="text-[10px] font-bold text-purple-500 mb-1">⚡ Agent Tools ({agentToolLog.length})</div>
+                  <div className="text-xs font-bold text-purple-500 mb-1">⚡ Agent Tools ({agentToolLog.length})</div>
                   {agentToolLog.map((t, i) => (
-                    <div key={i} className="text-[10px] text-stone-500 py-0.5 border-b" style={{ borderColor: "#f5f5f5" }}>
+                    <div key={i} className="text-xs text-stone-500 py-0.5 border-b" style={{ borderColor: "#f5f5f5" }}>
                       <span className="font-semibold text-purple-600">{t.name}</span>
                       <span className="text-stone-400 ml-1">{t.args?.slice(0, 60)}</span>
                       {t.result && <span className="text-emerald-500 ml-1">✓ {t.result.slice(0, 50)}</span>}
@@ -1488,10 +1488,10 @@ const sendChat = useCallback(async () => {
                   <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); setChatInput(""); sendChat(); } }}
                     placeholder={t("vibe.aiPlaceholder")}
-                    className="flex-1 text-xs px-2.5 py-1.5 border rounded-lg resize-none outline-none focus:border-blue-400"
-                    style={{ borderColor: "#ddd", minHeight: 36, maxHeight: 100 }} rows={1} />
+                    className="flex-1 text-sm px-3 py-2 border rounded-lg resize-none outline-none focus:border-blue-400"
+                    style={{ borderColor: "#ddd", minHeight: 38, maxHeight: 120 }} rows={1} />
                   <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-40 transition-all active:scale-95 shrink-0"
+                    className="px-3 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40 transition-all active:scale-95 shrink-0"
                     style={{ backgroundColor: tk.accent }}>Send</button>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
