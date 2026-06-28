@@ -293,5 +293,105 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
     return true;
   }
 
+  // ── GET /api/vibe-fs/search?q=...&path=... ──
+  // Global content search using ripgrep
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-fs/search")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const query = params.get("q") || "";
+    const searchPath = params.get("path") || "";
+    const caseSensitive = params.get("case") === "true";
+    const wholeWord = params.get("wholeword") === "true";
+    const useRegex = params.get("regex") === "true";
+    const includeGlob = params.get("include") || "";
+    const excludeGlob = params.get("exclude") || "";
+    const maxResults = parseInt(params.get("limit") || "200");
+
+    if (!query.trim()) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ results: [], truncated: false }));
+      return true;
+    }
+
+    const cwd = searchPath || PAAW_ROOT;
+    const args = ["--json", "--max-count", "50", "--max-filesize", "1M"];
+    if (!caseSensitive) args.push("-i");
+    if (wholeWord) args.push("-w");
+    if (!useRegex) args.push("--fixed-strings");
+    // Common ignore patterns
+    args.push("-g", "!.git", "-g", "!node_modules", "-g", "!dist", "-g", "!build", "-g", "!.next", "-g", "!__pycache__");
+    if (includeGlob) {
+      for (const g of includeGlob.split(",").map(s => s.trim()).filter(Boolean)) {
+        args.push("-g", g);
+      }
+    }
+    if (excludeGlob) {
+      for (const g of excludeGlob.split(",").map(s => s.trim()).filter(Boolean)) {
+        args.push("-g", `!${g}`);
+      }
+    }
+    args.push(query, cwd);
+
+    try {
+      const child = spawn("rg", args, { cwd, timeout: 15000 });
+      let stdout = "", stderr = "", resultCount = 0;
+      const results = [];
+      const fileMap = new Map(); // path → { filename, matches: [] }
+
+      child.stdout.on("data", (d) => {
+        stdout += d;
+        // Process complete lines
+        const lines = stdout.split("\n");
+        stdout = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const evt = JSON.parse(line);
+            if (evt.type === "match") {
+              const filePath = evt.data.path.text;
+              const fileName = filePath.split("/").pop();
+              if (!fileMap.has(filePath)) {
+                fileMap.set(filePath, { path: filePath, filename: fileName, matches: [] });
+              }
+              fileMap.get(filePath).matches.push({
+                line: evt.data.line_number,
+                content: evt.data.lines.text.trimEnd(),
+                before: evt.data.submatches?.[0]?.start || 0,
+                after: evt.data.submatches?.[0]?.end || 0,
+              });
+              resultCount++;
+            }
+          } catch {}
+        }
+      });
+
+      child.stderr.on("data", (d) => { stderr += d; });
+
+      child.on("close", () => {
+        const allResults = Array.from(fileMap.values()).sort((a, b) => b.matches.length - a.matches.length);
+        const truncated = allResults.reduce((sum, f) => sum + f.matches.length, 0) > maxResults;
+        // Limit matches per file
+        for (const f of allResults) {
+          if (f.matches.length > 20) f.matches = f.matches.slice(0, 20);
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          results: allResults.slice(0, maxResults),
+          total: resultCount,
+          truncated,
+        }));
+      });
+
+      child.on("error", () => {
+        // rg not found — fallback to grep
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ results: [], error: "ripgrep not found", total: 0, truncated: false }));
+      });
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   return false;
 }

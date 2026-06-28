@@ -183,6 +183,25 @@ export default function VibeCodingIDE() {
   const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester">("editor");
   const resizingRef = useRef<{ type: "sidebar" | "ai" | "terminal"; startX: number; startY: number; startSize: number } | null>(null);
 
+  // ── Quick Open State (Cmd+P) ──
+  const [showQuickOpen, setShowQuickOpen] = useState(false);
+  const [quickOpenQuery, setQuickOpenQuery] = useState("");
+  const [quickOpenResults, setQuickOpenResults] = useState<{ path: string; name: string; score: number }[]>([]);
+  const [quickOpenIndex, setQuickOpenIndex] = useState(0);
+  const quickOpenRef = useRef<HTMLInputElement>(null);
+
+  // ── Global Search State (Cmd+Shift+F) ──
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ path: string; filename: string; matches: { line: number; content: string; start: number; end: number }[] }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
+  const [searchWholeWord, setSearchWholeWord] = useState(false);
+  const [searchUseRegex, setSearchUseRegex] = useState(false);
+  const [searchInclude, setSearchInclude] = useState("");
+  const [searchExpanded, setSearchExpanded] = useState<Set<string>>(new Set());
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // ── File Explorer State ──
   const [rootPath, setRootPath] = useState("");
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
@@ -365,10 +384,127 @@ export default function VibeCodingIDE() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); if (activeTab?.modified) saveFile(activeTab); }
+      // Cmd+P — Quick Open
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "p") {
+        e.preventDefault();
+        setShowQuickOpen(true);
+        setQuickOpenQuery("");
+        setQuickOpenResults([]);
+        setQuickOpenIndex(0);
+      }
+      // Cmd+Shift+F — Global Search
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setShowSearch(true);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+      // Escape — close modals
+      if (e.key === "Escape") {
+        setShowQuickOpen(false);
+        if (!searchQuery) setShowSearch(false);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeTab, saveFile]);
+  }, [activeTab, saveFile, searchQuery]);
+
+  // ── Fuzzy match scorer (subsequence + scoring) ──
+  const fuzzyMatch = useCallback((query: string, target: string): number => {
+    if (!query) return 1;
+    const q = query.toLowerCase();
+    const t = target.toLowerCase();
+    let qi = 0, score = 0, streak = 0, lastMatch = -1;
+    for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+      if (t[ti] === q[qi]) {
+        score += 1 + streak * 2; // consecutive bonus
+        streak++;
+        // Word boundary bonus
+        if (ti === 0 || t[ti - 1] === "/" || t[ti - 1] === "." || t[ti - 1] === "_" || t[ti - 1] === "-") score += 5;
+        lastMatch = ti;
+        qi++;
+      } else {
+        streak = 0;
+      }
+    }
+    return qi === q.length ? score : -1;
+  }, []);
+
+  // ── Quick Open: collect all files from dirContents ──
+  const allFiles = useMemo(() => {
+    const files: { path: string; name: string }[] = [];
+    for (const items of Object.values(dirContents)) {
+      for (const item of items) {
+        if (!item.isDirectory) {
+          files.push({ path: item.path, name: item.name });
+        }
+      }
+    }
+    return files;
+  }, [dirContents]);
+
+  // ── Quick Open: filter files when query changes ──
+  useEffect(() => {
+    if (!showQuickOpen) return;
+    if (!quickOpenQuery.trim()) {
+      // Show recently opened tabs first
+      const recent = openTabs.map(ot => ({ path: ot.path, name: ot.name, score: 100 }));
+      setQuickOpenResults(recent);
+      return;
+    }
+    const scored = allFiles
+      .map(f => ({ ...f, score: fuzzyMatch(quickOpenQuery, f.path) }))
+      .filter(f => f.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 30);
+    setQuickOpenResults(scored);
+    setQuickOpenIndex(0);
+  }, [quickOpenQuery, showQuickOpen, allFiles, fuzzyMatch, openTabs]);
+
+  // ── Quick Open: open file ──
+  const quickOpenSelect = useCallback((path: string) => {
+    setShowQuickOpen(false);
+    setQuickOpenQuery("");
+    if (rootPath) openFile(path);
+  }, [rootPath]);
+
+  // ── Quick Open: focus input when shown ──
+  useEffect(() => {
+    if (showQuickOpen) setTimeout(() => quickOpenRef.current?.focus(), 50);
+  }, [showQuickOpen]);
+
+  // ── Global Search: run search ──
+  const runSearch = useCallback(async () => {
+    if (!searchQuery.trim() || !rootPath) return;
+    setSearching(true);
+    setSearchExpanded(new Set());
+    try {
+      const params = new URLSearchParams({
+        q: searchQuery,
+        path: rootPath,
+        case: String(searchCaseSensitive),
+        wholeword: String(searchWholeWord),
+        regex: String(searchUseRegex),
+      });
+      if (searchInclude) params.set("include", searchInclude);
+      const res = await fetch(`${API_BASE}/api/vibe-fs/search?${params}`);
+      const data = await res.json();
+      setSearchResults(data.results || []);
+      // Auto-expand first 5 files
+      const top5 = (data.results || []).slice(0, 5).map((r: any) => r.path);
+      setSearchExpanded(new Set(top5));
+    } catch (err) {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [searchQuery, rootPath, searchCaseSensitive, searchWholeWord, searchUseRegex, searchInclude]);
+
+  // ── Global Search: debounced trigger ──
+  useEffect(() => {
+    if (!showSearch || !searchQuery.trim()) return;
+    const t = setTimeout(() => runSearch(), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, searchCaseSensitive, searchWholeWord, searchUseRegex, searchInclude, showSearch, runSearch]);
 
   // ═══════════════════════════════════════════════
   // AI Chat Sidebar
@@ -723,6 +859,19 @@ const sendChat = useCallback(async () => {
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: tk.bg, borderColor: tk.border }}>
         <span className="text-sm font-bold text-stone-700">{t("vibe.title")}</span>
+
+        {/* Search shortcut buttons */}
+        <button onClick={() => { setShowQuickOpen(true); setQuickOpenQuery(""); setQuickOpenResults([]); setQuickOpenIndex(0); }}
+          className="ml-2 text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors flex items-center gap-1"
+          title="Quick Open (Cmd+P)">
+          🔍 <span className="text-[10px]">⌘P</span>
+        </button>
+        <button onClick={() => { setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+          className="ml-1 text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors flex items-center gap-1"
+          title="Search (Cmd+Shift+F)">
+          📋 <span className="text-[10px]">⇧⌘F</span>
+        </button>
+
         <div className="flex-1" />
         <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
@@ -1355,8 +1504,152 @@ const sendChat = useCallback(async () => {
         )}
       </div>
 
+      {/* ── Quick Open Modal (Cmd+P) ── */}
+      {showQuickOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" onClick={() => setShowQuickOpen(false)}>
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
+          <div className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center px-4 py-3 border-b border-stone-100">
+              <span className="text-stone-400 mr-2">🔍</span>
+              <input
+                ref={quickOpenRef}
+                value={quickOpenQuery}
+                onChange={e => setQuickOpenQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "ArrowDown") { e.preventDefault(); setQuickOpenIndex(i => Math.min(i + 1, quickOpenResults.length - 1)); }
+                  if (e.key === "ArrowUp") { e.preventDefault(); setQuickOpenIndex(i => Math.max(i - 1, 0)); }
+                  if (e.key === "Enter") { e.preventDefault(); if (quickOpenResults[quickOpenIndex]) quickOpenSelect(quickOpenResults[quickOpenIndex].path); }
+                }}
+                placeholder="搜尋檔案... (依路徑或檔名)"
+                className="flex-1 text-sm outline-none bg-transparent"
+              />
+              <span className="text-[10px] text-stone-300 ml-2 shrink-0">⌘P</span>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {quickOpenResults.length === 0 && quickOpenQuery && (
+                <div className="px-4 py-8 text-center text-sm text-stone-400">沒有匹配的檔案</div>
+              )}
+              {quickOpenResults.length === 0 && !quickOpenQuery && (
+                <div className="px-4 py-8 text-center text-sm text-stone-400">開始輸入以搜尋檔案...</div>
+              )}
+              {quickOpenResults.map((file, i) => (
+                <div
+                  key={file.path}
+                  className={cn("flex items-center gap-2 px-4 py-2 cursor-pointer text-sm", i === quickOpenIndex ? "bg-blue-50" : "hover:bg-stone-50")}
+                  onClick={() => quickOpenSelect(file.path)}
+                  onMouseEnter={() => setQuickOpenIndex(i)}
+                >
+                  <span className="text-stone-400">📄</span>
+                  <span className="font-medium text-stone-700 truncate">{file.name}</span>
+                  <span className="text-[11px] text-stone-400 truncate flex-1 ml-2">{file.path.replace(rootPath, "").replace(/^\//, "")}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-1.5 border-t border-stone-100 flex items-center gap-3 text-[10px] text-stone-400">
+              <span>↑↓ 導覽</span>
+              <span>Enter 開啟</span>
+              <span>Esc 關閉</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Global Search Panel (Cmd+Shift+F) ── */}
+      {showSearch && (
+        <div className="absolute top-9 left-0 right-0 z-30 bg-white border-b shadow-lg" style={{ borderColor: tk.border, maxHeight: "50vh" }}>
+          {/* Search header */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-stone-100">
+            <span className="text-stone-400">📋</span>
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") runSearch(); }}
+              placeholder="搜尋檔案內容..."
+              className="flex-1 text-sm px-2 py-1 border rounded outline-none focus:border-blue-400"
+              style={{ borderColor: tk.borderInput }}
+            />
+            {/* Toggle buttons */}
+            <button onClick={() => { setSearchCaseSensitive(!searchCaseSensitive); }} title="區分大小寫"
+              className={cn("text-xs px-1.5 py-1 rounded font-bold border transition-colors", searchCaseSensitive ? "bg-stone-700 text-white border-stone-700" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>Aa</button>
+            <button onClick={() => { setSearchWholeWord(!searchWholeWord); }} title="全字匹配"
+              className={cn("text-xs px-1.5 py-1 rounded font-bold border transition-colors", searchWholeWord ? "bg-stone-700 text-white border-stone-700" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>W</button>
+            <button onClick={() => { setSearchUseRegex(!searchUseRegex); }} title="正則表達式"
+              className={cn("text-xs px-1.5 py-1 rounded font-bold border transition-colors", searchUseRegex ? "bg-stone-700 text-white border-stone-700" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>.*</button>
+            <input
+              value={searchInclude}
+              onChange={e => setSearchInclude(e.target.value)}
+              placeholder="include: *.ts,*.mjs"
+              className="text-xs px-2 py-1 border rounded outline-none focus:border-blue-400 w-36"
+              style={{ borderColor: tk.borderInput }}
+            />
+            {searching && <span className="w-4 h-4 border-[1.5px] border-stone-400 border-t-transparent rounded-full animate-spin" />}
+            <button onClick={() => { setShowSearch(false); setSearchQuery(""); setSearchResults([]); }} className="text-stone-400 hover:text-stone-700 text-xs ml-1">✕</button>
+          </div>
+
+          {/* Search results */}
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(50vh - 50px)" }}>
+            {searchResults.length === 0 && !searching && searchQuery && (
+              <div className="px-4 py-6 text-center text-sm text-stone-400">沒有找到結果</div>
+            )}
+            {searchResults.length === 0 && !searchQuery && (
+              <div className="px-4 py-6 text-center text-sm text-stone-400">輸入關鍵字開始搜尋檔案內容</div>
+            )}
+            {searchResults.map(file => {
+              const isExpanded = searchExpanded.has(file.path);
+              return (
+                <div key={file.path} className="border-b border-stone-50">
+                  {/* File header */}
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer hover:bg-stone-50"
+                    onClick={() => {
+                      const next = new Set(searchExpanded);
+                      if (next.has(file.path)) next.delete(file.path); else next.add(file.path);
+                      setSearchExpanded(next);
+                    }}
+                  >
+                    <span className="text-[10px] text-stone-400 w-3">{isExpanded ? "▼" : "▶"}</span>
+                    <span className="text-stone-400">📄</span>
+                    <span className="text-xs font-medium text-stone-700 truncate flex-1">{file.filename}</span>
+                    <span className="text-[10px] text-stone-400 truncate max-w-[40%]">{file.path.replace(rootPath, "").replace(/^\//, "")}</span>
+                    <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 rounded-full shrink-0">{file.matches.length}</span>
+                  </div>
+                  {/* Matches */}
+                  {isExpanded && file.matches.map((match, mi) => (
+                    <div
+                      key={mi}
+                      className="flex items-start gap-2 px-3 py-0.5 pl-8 cursor-pointer hover:bg-blue-50 text-xs"
+                      onClick={() => { openFile(file.path); }}
+                    >
+                      <span className="text-stone-400 shrink-0 w-8 text-right">{match.line}</span>
+                      <span className="text-stone-600 truncate">{highlightMatch(match.content, searchQuery, searchCaseSensitive)}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
     </div>
     </>
   );
+}
+
+// ── Highlight match in search result ──
+function highlightMatch(text: string, query: string, caseSensitive: boolean): React.ReactNode {
+  if (!query) return text;
+  try {
+    const flags = caseSensitive ? "g" : "gi";
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = text.split(new RegExp(`(${escaped})`, flags));
+    return parts.map((part, i) =>
+      part.toLowerCase() === query.toLowerCase()
+        ? <mark key={i} className="bg-yellow-200 text-stone-900 rounded px-0.5">{part}</mark>
+        : part
+    );
+  } catch {
+    return text;
+  }
 }
