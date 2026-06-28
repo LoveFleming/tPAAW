@@ -50,15 +50,12 @@ const SYSTEM_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/notes/system-pro
 
 // ── AI 筆記助手 ──
 
-let _cachedSystemPrompt = null;
 function getSystemPrompt() {
-  if (_cachedSystemPrompt) return _cachedSystemPrompt;
   try {
-    _cachedSystemPrompt = readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
+    return readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
   } catch {
-    _cachedSystemPrompt = "你是一個專業的筆記整理助手。將使用者提供的內容整理成結構化筆記。第一行用「標題：XXX」建議標題，最後一行用「標籤：tag1, tag2, tag3」建議標籤。使用 HTML 格式輸出。";
+    return "你是一個專業的筆記整理助手。將使用者提供的內容整理成結構化筆記。第一行用「標題：XXX」建議標題，最後一行用「標籤：tag1, tag2, tag3」建議標籤。使用 HTML 格式輸出。";
   }
-  return _cachedSystemPrompt;
 }
 
 function loadProviderConfig() {

@@ -26,16 +26,11 @@ const SYSTEM_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/mindmap/system-p
 
 // ── 載入系統提示詞 ──
 
-let _cachedPrompt = null;
-
 function getSystemPrompt() {
-  if (_cachedPrompt) return _cachedPrompt;
   try {
-    _cachedPrompt = readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
-    return _cachedPrompt;
+    return readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
   } catch {
-    // Fallback 內建提示詞
-    _cachedPrompt = `你是心智圖產生器。請將收到的內容整理成 Markdown 格式的心智圖。
+    return `你是心智圖產生器。請將收到的內容整理成 Markdown 格式的心智圖。
 
 直接輸出 Markdown：
 - # 根主題（只有一個）
@@ -43,7 +38,6 @@ function getSystemPrompt() {
 - - 子節點（可多層縮排）
 
 只輸出 Markdown，不要加說明文字。`;
-    return _cachedPrompt;
   }
 }
 
