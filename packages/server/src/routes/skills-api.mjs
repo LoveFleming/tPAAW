@@ -209,6 +209,131 @@ export default async function skillsApiRoute(req, res) {
     return true;
   }
 
+  // ── GET /api/skills/:id/export — export single skill as bundle ──
+  const exportMatch = req.method === "GET" && req.url?.match(/^\/api\/skills\/([\w.-]+)\/export(?:\?.*)?$/);
+  if (exportMatch) {
+    const skillId = exportMatch[1];
+    const bundle = {
+      manifest: "paaw-skill-v1",
+      exportedAt: new Date().toISOString(),
+      skill: null,
+      inputs: null,
+      appHtml: null,
+      extraFiles: {},
+    };
+    try {
+      // Search all three roots for the skill
+      const roots = [
+        { root: INPUT_PROMPT_ROOT, kind: "input-prompt" },
+        { root: PHYSICAL_SKILL_ROOT, kind: "physical-skill" },
+        { root: SKILL_POOL_ROOT, kind: "skill-pool" },
+      ];
+      let found = false;
+      for (const { root, kind } of roots) {
+        const skillDir = join(root, skillId);
+        try {
+          const entries = await readdir(skillDir);
+          for (const entry of entries) {
+            const filePath = join(skillDir, entry);
+            const s = await stat(filePath);
+            if (s.isFile()) {
+              const content = await readFile(filePath, "utf-8");
+              if (entry === "SKILL.md") {
+                bundle.skill = content;
+                bundle.kind = kind;
+              } else if (entry === "inputs.json") {
+                bundle.inputs = JSON.parse(content);
+              } else if (entry === "app.html") {
+                bundle.appHtml = content;
+              } else {
+                bundle.extraFiles[entry] = content;
+              }
+            }
+          }
+          found = true;
+          break; // found in this root
+        } catch {}
+      }
+      if (!bundle.skill && !bundle.inputs) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Skill not found: ${skillId}` }));
+        return true;
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Content-Disposition": `attachment; filename="${skillId}-skill.json"`,
+      });
+      res.end(JSON.stringify(bundle, null, 2));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── POST /api/skills/import — import skill bundle ──
+  if (req.method === "POST" && req.url?.match(/^\/api\/skills\/import(?:\?.*)?$/)) {
+    try {
+      const bundle = JSON.parse(await readBody(req));
+      if (bundle.manifest !== "paaw-skill-v1") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid bundle format. Expected manifest: paaw-skill-v1" }));
+        return true;
+      }
+      if (!bundle.skill && !bundle.inputs) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Bundle missing skill data (SKILL.md or inputs.json)" }));
+        return true;
+      }
+      // Determine target root from bundle.kind or default to skill-pool
+      const kind = bundle.kind || "skill-pool";
+      const targetRoot = kind === "physical-skill" ? PHYSICAL_SKILL_ROOT
+        : kind === "input-prompt" ? INPUT_PROMPT_ROOT
+        : SKILL_POOL_ROOT;
+
+      // Extract skill id from SKILL.md frontmatter or use a provided id
+      let skillId = bundle.skillId;
+      if (!skillId && bundle.skill) {
+        const fmMatch = bundle.skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (fmMatch) {
+          const idMatch = fmMatch[1].match(/^id:\s*(.+)$/m);
+          if (idMatch) skillId = idMatch[1].trim();
+        }
+      }
+      if (!skillId && bundle.inputs?.skillId) skillId = bundle.inputs.skillId;
+      if (!skillId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Cannot determine skill id from bundle" }));
+        return true;
+      }
+
+      const skillDir = join(targetRoot, skillId);
+      await mkdir(skillDir, { recursive: true });
+
+      if (bundle.skill) {
+        await writeFile(join(skillDir, "SKILL.md"), bundle.skill, "utf-8");
+      }
+      if (bundle.inputs) {
+        await writeFile(join(skillDir, "inputs.json"), JSON.stringify(bundle.inputs, null, 2), "utf-8");
+      }
+      if (bundle.appHtml) {
+        await writeFile(join(skillDir, "app.html"), bundle.appHtml, "utf-8");
+      }
+      if (bundle.extraFiles) {
+        for (const [filename, content] of Object.entries(bundle.extraFiles)) {
+          await writeFile(join(skillDir, filename), content, "utf-8");
+        }
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: `Skill「${skillId}」imported successfully`, skillId, kind }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // ── GET /api/skill-lab/build-files ──
   if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/build-files")) {
     try {

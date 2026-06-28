@@ -724,14 +724,49 @@ export default function AppLab() {
                                                 className="text-stone-300 group-hover:text-red-400 transition-colors text-xs ml-1"
                                                 title="下架">🗑️</button>
                                         )}
+                                        {/* Export App */}
+                                        <button onClick={async (e) => {
+                                            e.stopPropagation();
+                                            try {
+                                                const resp = await fetch(`${API}/api/paaw/apps/${app.id}/export`);
+                                                if (!resp.ok) { alert("匯出失敗"); return; }
+                                                const blob = await resp.blob();
+                                                const url = URL.createObjectURL(blob);
+                                                const a = document.createElement("a");
+                                                a.href = url; a.download = `${app.id}-bundle.json`; a.click();
+                                                URL.revokeObjectURL(url);
+                                            } catch (err: any) { alert(`匯出失敗: ${err.message}`); }
+                                        }}
+                                            className="text-stone-300 group-hover:text-blue-400 transition-colors text-xs ml-1"
+                                            title="匯出 App">📦</button>
                                     </div>
                                     {app.description && <div className="text-xs text-stone-500 mt-1 line-clamp-1">{app.description}</div>}
                                 </div>
                             ))}
                         </div>
-                        <div className="px-5 py-3 border-t text-sm text-stone-400 flex justify-between" style={{ borderColor: "#e7e5e4" }}>
-                            <span>共 {existingApps.length} 個 App</span>
-                            <button onClick={() => setShowAppPicker(false)} className="text-stone-500 hover:text-stone-700">取消</button>
+                        <div className="px-5 py-3 border-t flex items-center gap-2" style={{ borderColor: "#e7e5e4" }}>
+                            <span className="text-sm text-stone-400">共 {existingApps.length} 個 App</span>
+                            <div className="ml-auto flex items-center gap-2">
+                                {/* Import App */}
+                                <label className="text-xs px-2.5 py-1 rounded-lg border cursor-pointer hover:bg-stone-50 transition-colors flex items-center gap-1" style={{ borderColor: "#d6d3d1", color: "#444" }}>
+                                    📥 匯入
+                                    <input type="file" accept=".json" className="hidden" onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        try {
+                                            const text = await file.text();
+                                            const bundle = JSON.parse(text);
+                                            const resp = await fetch(`${API}/api/paaw/apps/import`, {
+                                                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bundle),
+                                            });
+                                            const data = await resp.json();
+                                            if (data.ok) { alert(`✅ ${data.message}`); loadExistingApps(); } else { alert(`❌ ${data.error}`); }
+                                        } catch (err: any) { alert(`❌ 匯入失敗: ${err.message}`); }
+                                        e.target.value = "";
+                                    }} />
+                                </label>
+                                <button onClick={() => setShowAppPicker(false)} className="text-stone-500 hover:text-stone-700 text-sm">關閉</button>
+                            </div>
                         </div>
                     </div>
                 </div>

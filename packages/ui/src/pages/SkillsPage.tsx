@@ -131,6 +131,34 @@ export default function SkillsPage() {
         showToast("🗑 已刪除");
     };
 
+    // ── Export skill ──
+    const handleExportSkill = async (sk: SkillDefinition, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        try {
+            const resp = await fetch(`${API}/api/skills/${sk.id}/export`);
+            if (!resp.ok) { const d = await resp.json(); alert(`匯出失敗: ${d.error}`); return; }
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = `${sk.id}-skill.json`; a.click();
+            URL.revokeObjectURL(url);
+            showToast(`📦 ${sk.id} 已匯出`);
+        } catch (err: any) { alert(`匯出失敗: ${err.message}`); }
+    };
+
+    // ── Import skill ──
+    const handleImportSkill = async (file: File) => {
+        try {
+            const text = await file.text();
+            const bundle = JSON.parse(text);
+            const resp = await fetch(`${API}/api/skills/import`, {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bundle),
+            });
+            const data = await resp.json();
+            if (data.ok) { showToast(`✅ ${data.message}`); loadSkills(); } else { alert(`❌ ${data.error}`); }
+        } catch (err: any) { alert(`❌ 匯入失敗: ${err.message}`); }
+    };
+
     const hasRightPanel = selectedSkill || isCreating;
     const inputCls = "w-full mt-1 px-3 py-2 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-1";
 
@@ -163,9 +191,21 @@ export default function SkillsPage() {
             {/* Center: Skill Cards */}
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-2.5 border-b border-stone-200 bg-white shrink-0">
-                    <h2 className="font-semibold text-sm text-stone-700">Skills</h2>
+                    <h2 className="font-semibold text-sm text-stone-700">⚡ Skills</h2>
                     <span className="text-xs text-stone-400">{skills.length} skills</span>
                     <span className="text-[10px] text-stone-300">input-prompt + physical-skill</span>
+                    <div className="ml-auto flex items-center gap-2">
+                        {/* Import Skill */}
+                        <label className="text-xs px-2.5 py-1 rounded-lg border cursor-pointer hover:bg-stone-50 transition-colors flex items-center gap-1 text-stone-600" style={{ borderColor: "#d6d3d1" }}>
+                            📥 匯入
+                            <input type="file" accept=".json" className="hidden" onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                await handleImportSkill(file);
+                                e.target.value = "";
+                            }} />
+                        </label>
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
                     {!loading && skills.length === 0 && (
@@ -178,7 +218,7 @@ export default function SkillsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {skills.map(sk => (
                             <div key={sk.id} onClick={() => startEdit(sk)}
-                                className="rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer" style={{ borderColor: t.accentBorder }}>
+                                className="rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer relative group" style={{ borderColor: t.accentBorder }}>
                                 <div className="p-3">
                                     <div className="flex items-start justify-between mb-1.5">
                                         <div>
@@ -194,6 +234,10 @@ export default function SkillsPage() {
                                         <span className="ml-auto">{sk.version || "1.0.0"}</span>
                                     </div>
                                 </div>
+                                {/* Export button — appears on hover */}
+                                <button onClick={(e) => handleExportSkill(sk, e)}
+                                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-blue-500 text-xs"
+                                    title="匯出 Skill">📦</button>
                             </div>
                         ))}
                     </div>
@@ -294,10 +338,16 @@ export default function SkillsPage() {
                             {saving ? "💾 Saving..." : isCreating ? "✨ Create Skill" : "💾 Save Changes"}
                         </button>
                         {!isCreating && selectedSkill && (
-                            <button onClick={() => handleDelete(selectedSkill)}
-                                className="w-full py-1.5 text-xs rounded-lg text-red-600 hover:bg-red-50 border border-red-200 transition-colors">
-                                🗑 刪除
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleExportSkill(selectedSkill)}
+                                    className="flex-1 py-1.5 text-xs rounded-lg text-blue-600 hover:bg-blue-50 border border-blue-200 transition-colors">
+                                    📦 匯出
+                                </button>
+                                <button onClick={() => handleDelete(selectedSkill)}
+                                    className="flex-1 py-1.5 text-xs rounded-lg text-red-600 hover:bg-red-50 border border-red-200 transition-colors">
+                                    🗑 刪除
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
