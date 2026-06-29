@@ -14,7 +14,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const PAAW_ROOT = process.env.PAAW_ROOT || resolve(__dirname, "../../../");
+const PAAW_ROOT = process.env.PAAW_ROOT || resolve(__dirname, "../../../../");
 const REGISTRY_DIR = resolve(PAAW_ROOT, "data/api-registry");
 const TOOLS_DIR = resolve(PAAW_ROOT, "data/skills/tools");
 

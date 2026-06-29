@@ -52,7 +52,7 @@ export class OpenAICompatibleAdapter {
 
     // ★ 寫 payload 到 temp
     const __dirname = dirname(fileURLToPath(import.meta.url))
-    const PAAW_ROOT = pathResolve(__dirname, '../../../')
+    const PAAW_ROOT = pathResolve(__dirname, '../../../../../')
     const fs = await import('fs')
     const nodePath = await import('path')
     const tempDir = nodePath.join(PAAW_ROOT, 'temp')

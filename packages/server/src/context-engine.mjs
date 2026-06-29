@@ -21,7 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // ── Paths ──
-const PAAW_ROOT = resolve(__dirname, "../../../");
+const PAAW_ROOT = resolve(__dirname, "../../../../");
 const DATA_DIR = resolve(PAAW_ROOT, "data");
 const CONFIG_DIR = resolve(DATA_DIR, "config");
 const APPS_DIR = resolve(DATA_DIR, "apps");
