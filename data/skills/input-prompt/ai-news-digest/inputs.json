@@ -1,0 +1,21 @@
+{
+  "skillId": "ai-news-digest",
+  "userInputs": [
+    {
+      "id": "output_path",
+      "label": "輸出路徑",
+      "description": "Skill 執行結果的儲存路徑，留空則僅顯示",
+      "placeholder": "例: output/ai-digest.md",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "id": "topic",
+      "label": "主題篩選",
+      "description": "指定關鍵字篩選（如 LLM、agent、robotics），留空 = 綜合 AI 新聞",
+      "placeholder": "例: LLM",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}
