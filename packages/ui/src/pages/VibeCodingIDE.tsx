@@ -29,6 +29,7 @@ import "highlight.js/styles/github.css";
 
 import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
+import SidebarFileTree from "../components/SidebarFileTree";
 
 // ── Types ──
 interface FsItem {
@@ -807,88 +808,6 @@ const sendChat = useCallback(async () => {
   const lineNumWidth = Math.max(3, String(lineCount).length) * 10 + 16;
   const modifiedCount = useMemo(() => openTabs.filter(ot => ot.modified).length, [openTabs]);
 
-  // ── File Explorer Tree Render ──
-  // VS Code style: compact indent + guide lines, handles 10+ levels without widening
-  // Align with Workspaces tree view (same BASE_INDENT + folder emoji for dirs)
-  const BASE_INDENT = 28;
-  const DEPTH_STEP = 10;
-  const GUIDE_COLOR = "#e5e5e5";
-
-  const renderTree = (parentPath: string, depth: number) => {
-    const items = dirContents[parentPath];
-    if (!items) return null;
-    const indentPx = BASE_INDENT + depth * DEPTH_STEP;
-    return items.map(item => {
-      // Build indent guide lines for each ancestor level (VS Code style)
-      const guides = Array.from({ length: depth }, (_, i) => (
-        <span key={i} className="shrink-0" style={{
-          width: `${DEPTH_STEP}px`,
-          borderLeft: `1px solid ${GUIDE_COLOR}`,
-          alignSelf: "stretch",
-        }} />
-      ));
-
-      if (item.isDirectory) {
-        const isExpanded = expandedDirs.has(item.path);
-        return (
-          <div key={item.path}>
-            <button
-              onClick={() => toggleDir(item.path)}
-              className="flex w-full items-center pr-2 py-[3px] text-left text-[13px] leading-tight transition-colors"
-              style={{
-                paddingLeft: `${BASE_INDENT}px`,
-                color: "#78716c",
-                height: "22px",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = tk.bgMuted; e.currentTarget.style.color = "#374151"; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; }}
-            >
-              {guides}
-              <span className="flex items-center shrink-0 gap-1" style={{ minWidth: `${DEPTH_STEP}px` }}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                  className={cn("w-3 h-3 transition-transform duration-150 shrink-0", isExpanded ? "" : "-rotate-90")}
-                  style={{ color: "#9ca3af" }}
-                >
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                </svg>
-                <span className="text-xs shrink-0">📁</span>
-              </span>
-              <span className="truncate ml-0.5">{item.name}</span>
-            </button>
-            {isExpanded && renderTree(item.path, depth + 1)}
-          </div>
-        );
-      }
-      const isActive = activeTabId === item.path;
-      const isOpen = openTabs.some(ot => ot.id === item.path);
-      const ext = item.name.includes(".") ? item.name.split(".").pop()! : "";
-      const modified = openTabs.find(ot => ot.id === item.path)?.modified;
-      return (
-        <button
-          key={item.path}
-          onClick={() => openFile(item.path)}
-          className="flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors"
-          style={{
-            height: "22px",
-            paddingLeft: `${BASE_INDENT}px`,
-            borderLeft: isActive ? "2px solid #3b82f6" : "2px solid transparent",
-            backgroundColor: isActive ? "#eff6ff" : undefined,
-            color: isActive ? "#1e40af" : isOpen ? "#3b82f6aa" : "#78716c",
-            fontWeight: isActive ? 600 : 400,
-          }}
-          onMouseEnter={e => { if (!isActive) { e.currentTarget.style.backgroundColor = "#fafafa"; e.currentTarget.style.color = "#374151"; } }}
-          onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = isOpen ? "#3b82f6aa" : "#78716c"; } }}
-        >
-          {guides}
-          <span className="flex items-center shrink-0 ml-3.5" style={{ width: `${DEPTH_STEP}px` }}>
-            <span className="text-xs shrink-0">{fileEmoji(ext)}</span>
-          </span>
-          <span className="truncate ml-0.5">{item.name}</span>
-          {modified && <span className="text-[9px] text-amber-500 ml-auto shrink-0 pr-1">●</span>}
-        </button>
-      );
-    });
-  };
 
   // ═══════════════════════════════════════════════
   // RENDER
@@ -971,8 +890,22 @@ const sendChat = useCallback(async () => {
               </div>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto py-0.5" style={{ fontSize: 14 }}>
-            {rootPath ? renderTree(rootPath, 0) : (
+          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+            {rootPath ? (
+              <SidebarFileTree
+                projectRoot={rootPath}
+                activeFilePath={activeTabId}
+                openFilePaths={new Set(openTabs.map(ot => ot.id))}
+                onSelectFile={(path) => openFile(path)}
+                onEditFile={(path) => openFile(path)}
+                onOpenInBriefingPlayer={() => {}}
+                onAiSummary={(path, name, isDir) => {
+                  setChatMessages(prev => [...prev, {
+                    role: "user", content: isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`, ts: new Date().toISOString()
+                  }]);
+                }}
+              />
+            ) : (
               <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
                 <span className="text-3xl">📂</span>
                 <p className="text-xs text-stone-400">{t("vibe.noProject")}</p>
