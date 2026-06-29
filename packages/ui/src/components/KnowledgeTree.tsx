@@ -113,7 +113,8 @@ function CtxMenu({ menu, onAction, onClose }: {
 }
 
 // ── Shared tree constants (VS Code style) ──
-const BASE_INDENT = 8;
+// BASE_INDENT matches NavItem paddingLeft (28px) so tree items align with sidebar nav items
+const BASE_INDENT = 28;
 const DEPTH_STEP = 10;
 const GUIDE_COLOR = "#e5e5e5";
 

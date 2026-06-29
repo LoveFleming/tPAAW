@@ -811,8 +811,9 @@ const sendChat = useCallback(async () => {
 
   // ── File Explorer Tree Render ──
   // VS Code style: compact indent + guide lines, handles 10+ levels without widening
-  const BASE_INDENT = 8;   // root padding
-  const DEPTH_STEP = 10;   // per-level step (compact)
+  // BASE_INDENT matches NavItem paddingLeft (28px) so tree items align with sidebar nav items
+  const BASE_INDENT = 28;
+  const DEPTH_STEP = 10;
   const GUIDE_COLOR = "#e5e5e5";
 
   const renderTree = (parentPath: string, depth: number) => {
