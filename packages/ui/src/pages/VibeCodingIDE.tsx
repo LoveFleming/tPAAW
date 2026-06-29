@@ -208,6 +208,10 @@ export default function VibeCodingIDE() {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [dirContents, setDirContents] = useState<Record<string, FsItem[]>>({});
   const [loadingDirs, setLoadingDirs] = useState<Set<string>>(new Set());
+  // Refs to avoid stale closures in expandDir/toggleDir
+  const dirContentsRef = useRef(dirContents);
+  const loadingDirsRef = useRef(loadingDirs);
+  const expandedDirsRef = useRef(expandedDirs);
 
   // ── Editor State ──
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
@@ -317,20 +321,29 @@ export default function VibeCodingIDE() {
   // File Explorer
   // ═══════════════════════════════════════════════
   const expandDir = useCallback(async (path: string) => {
-    if (dirContents[path] || loadingDirs.has(path)) return;
-    setLoadingDirs(prev => new Set(prev).add(path));
+    // Guard with refs — no stale closure, no dependency array changes
+    if (dirContentsRef.current[path] || loadingDirsRef.current.has(path)) return;
+    setLoadingDirs(prev => { const n = new Set(prev); n.add(path); loadingDirsRef.current = n; return n; });
     try {
       const res = await fetch(`${API_BASE}/api/vibe-fs/list?path=${encodeURIComponent(path)}`);
       const data = await res.json();
-      if (data.items) { setDirContents(prev => ({ ...prev, [path]: data.items })); setExpandedDirs(prev => new Set(prev).add(path)); }
+      if (data.items) {
+        setDirContents(prev => { const next = { ...prev, [path]: data.items }; dirContentsRef.current = next; return next; });
+        setExpandedDirs(prev => { const n = new Set(prev); n.add(path); expandedDirsRef.current = n; return n; });
+      }
     } catch {}
-    setLoadingDirs(prev => { const n = new Set(prev); n.delete(path); return n; });
-  }, [dirContents, loadingDirs]);
+    setLoadingDirs(prev => { const n = new Set(prev); n.delete(path); loadingDirsRef.current = n; return n; });
+  }, []);
 
   const toggleDir = useCallback((path: string) => {
-    if (expandedDirs.has(path)) setExpandedDirs(prev => { const n = new Set(prev); n.delete(path); return n; });
-    else expandDir(path);
-  }, [expandedDirs, expandDir]);
+    if (expandedDirsRef.current.has(path)) {
+      // Collapse — use functional update, no async side effects
+      setExpandedDirs(prev => { const n = new Set(prev); n.delete(path); expandedDirsRef.current = n; return n; });
+    } else {
+      // Expand — call expandDir outside setState
+      expandDir(path);
+    }
+  }, [expandDir]);
 
   // ═══════════════════════════════════════════════
   // File Operations
@@ -900,7 +913,7 @@ const sendChat = useCallback(async () => {
     {showDirExplorer && (
       <DirectoryExplorer
         initialPath={rootPath || undefined}
-        onSelect={(path) => { setRootPath(path); setShowDirExplorer(false); expandDir(path); setExpandedDirs(new Set()); }}
+        onSelect={(path) => { setRootPath(path); setShowDirExplorer(false); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; loadingDirsRef.current = new Set(); expandDir(path); }}
         onClose={() => setShowDirExplorer(false)}
         title="📂 選擇專案目錄"
       />
@@ -954,7 +967,7 @@ const sendChat = useCallback(async () => {
           <div className="px-2 py-1.5 " style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             <div className="flex items-center gap-1.5">
               <input value={rootPath} onChange={e => setRootPath(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && rootPath) { expandDir(rootPath); setExpandedDirs(new Set()); } }}
+                onKeyDown={e => { if (e.key === "Enter" && rootPath) { setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rootPath); } }}
                 placeholder={t("vibe.projectPath")}
                 className="flex-1 text-sm font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
               <button onClick={() => setShowDirExplorer(true)}
