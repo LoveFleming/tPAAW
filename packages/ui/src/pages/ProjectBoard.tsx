@@ -4,9 +4,11 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "../theme";
 import API_BASE from "../api";
 import GanttChart from "./GanttChart";
+import ProjectAiPanel from "../components/ProjectAiPanel";
 
 // ── Types ──
 interface Task {
@@ -71,7 +73,7 @@ function Modal({ title, onClose, children, tk }: { title: string; onClose: () =>
 // ════════════════════════════════════════
 // Main Component
 // ════════════════════════════════════════
-export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: string) => void }) {
+export default function ProjectBoard() {
   const { info: th } = useTheme();
   const tk = {
     bg: "#fff", bgMuted: "#fafafa", bgHover: th.accentLight || "#f5f5f4",
@@ -85,6 +87,7 @@ export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: stri
   const [view, setView] = useState<"dashboard" | "detail">("dashboard");
   const [detailTab, setDetailTab] = useState<"board" | "gantt">("board");
   const [modal, setModal] = useState<null | { type: string; data?: any }>(null);
+  const [aiPanel, setAiPanel] = useState<{ open: boolean; context: string; prompt?: string }>({ open: false, context: "" });
 
   // API helpers
   const api = {
@@ -202,25 +205,22 @@ export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: stri
     const overallPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
     return (
+      <>
       <div className="h-full overflow-auto" style={{ background: tk.bg }}>
         <div className="max-w-5xl mx-auto p-6">
           <div className="flex items-center justify-between mb-1">
             <h1 className="text-2xl font-bold" style={{ color: tk.textPrimary }}>📋 Project Board</h1>
             <div className="flex items-center gap-2">
-              {onAiRequest && (
-                <>
-                  <button onClick={() => onAiRequest("幫我建一個新專案，我來告訴你專案名稱和目標。")}
-                    className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
-                    style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>
-                    🤖 AI 建專案
-                  </button>
-                  <button onClick={() => onAiRequest("分析我所有專案的狀態，給我一份專案健康度報告。")}
-                    className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
-                    style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
-                    🤖 AI 分析
-                  </button>
-                </>
-              )}
+              <button onClick={() => setAiPanel({ open: true, context: "專案管理看板：建專案、分析狀態、找風險、建議改善", prompt: "幫我建一個新專案，我來告訴你專案名稱和目標。" })}
+                className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+                style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>
+                🤖 AI 建專案
+              </button>
+              <button onClick={() => setAiPanel({ open: true, context: "專案管理看板：分析所有專案的健康度、進度、風險", prompt: "分析我所有專案的狀態，給我一份專案健康度報告。" })}
+                className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+                style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
+                🤖 AI 分析
+              </button>
               <button onClick={() => setModal({ type: "project-new" })}
                 className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
                 style={{ background: tk.accentBg, color: tk.accentText, border: `1px solid ${tk.accent}` }}>
@@ -279,6 +279,22 @@ export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: stri
           <ProjectFormModal tk={tk} onClose={() => setModal(null)} onSave={saveProject} />
         )}
       </div>
+
+      {/* AI Side Panel */}
+      {aiPanel.open && createPortal(
+        <div className="fixed inset-0 z-[100] flex justify-end" onClick={() => setAiPanel({ open: false, context: "" })}>
+          <div className="w-[460px] h-full bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <ProjectAiPanel
+              context={aiPanel.context}
+              initialPrompt={aiPanel.prompt}
+              tk={tk}
+              onClose={() => setAiPanel({ open: false, context: "" })}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+      </>
     );
   }
 
@@ -294,6 +310,7 @@ export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: stri
   const pctN = totalN > 0 ? Math.round((doneN / totalN) * 100) : 0;
 
   return (
+    <>
     <div className="h-full overflow-auto" style={{ background: tk.bg }}>
       <div className="max-w-5xl mx-auto p-6">
         {/* Top bar */}
@@ -301,13 +318,11 @@ export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: stri
           <button onClick={() => { setView("dashboard"); setActive(null); }}
             className="text-sm hover:underline" style={{ color: tk.accent }}>← Dashboard</button>
           <div className="flex items-center gap-2">
-            {onAiRequest && active && (
-              <button onClick={() => onAiRequest(`分析專案「${active.name}」的狀態，給我一份進度報告和建議。專案 ID: ${active.id}`)}
-                className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors"
-                style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
-                🤖 AI 分析
-              </button>
-            )}
+            <button onClick={() => setAiPanel({ open: true, context: `正在分析專案「${active.name}」(ID: ${active.id})，狀態: ${active.status}，完成率: ${pctN}%`, prompt: `分析專案「${active.name}」的狀態，給我一份進度報告和建議。專案 ID: ${active.id}` })}
+              className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+              style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
+              🤖 AI 分析
+            </button>
             <button onClick={() => setDetailTab("board")}
               className="text-xs px-3 py-1.5 rounded-lg font-medium"
               style={{ background: detailTab === "board" ? tk.accentBg : "transparent", color: detailTab === "board" ? tk.accentText : tk.textSecondary, border: `1px solid ${detailTab === "board" ? tk.accent : tk.border}` }}>
@@ -493,7 +508,23 @@ export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: stri
         <MilestoneFormModal tk={tk} milestone={modal.data} onClose={() => setModal(null)}
           onSave={(n, d) => updateMilestone(modal.data.id, { name: n, date: d })} />
       )}
+
+      {/* AI Side Panel */}
+      {aiPanel.open && createPortal(
+        <div className="fixed inset-0 z-[100] flex justify-end" onClick={() => setAiPanel({ open: false, context: "" })}>
+          <div className="w-[460px] h-full bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <ProjectAiPanel
+              context={aiPanel.context}
+              initialPrompt={aiPanel.prompt}
+              tk={tk}
+              onClose={() => setAiPanel({ open: false, context: "" })}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
+    </>
   );
 }
 
