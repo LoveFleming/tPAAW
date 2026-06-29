@@ -362,6 +362,17 @@ function AppInner() {
     setShowDirExplorer(false);
   }, [handleSelectProject]);
 
+  // ── VibeCoding project directory ──
+  const [vibeDir, setVibeDir] = useState<string>(() => {
+    try { return localStorage.getItem("paaw.vibeide.rootPath") || ""; } catch { return ""; }
+  });
+  const [showVibeDirExplorer, setShowVibeDirExplorer] = useState(false);
+  const setVibeProjectDir = useCallback((dir: string) => {
+    setVibeDir(dir);
+    try { localStorage.setItem("paaw.vibeide.rootPath", dir); } catch {}
+    setShowVibeDirExplorer(false);
+  }, []);
+
   const factoryNav = useMemo(() => {
     const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: t("sidebar.aiCrew") };
     return [crewItem];
@@ -805,7 +816,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":notes")} label="Notes" onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":projects")} label="Projects" onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":vibe-coding")} label={t("sidebar.vibeCoding")} onClick={openVibeCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                {/* <NavItem active={activePage.endsWith(":vibe-coding")} label={t("sidebar.vibeCoding")} onClick={openVibeCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} /> */}
                 {/* <NavItem active={activePage.endsWith(":wf-exec")} label="Workflows" onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} /> */}
               </div>
             </SidebarSection>
@@ -824,6 +835,52 @@ function AppInner() {
                   accentBg={themeInfo.accentBg}
                 />
 
+              </div>
+            </SidebarSection>
+
+            {/* ⚡ VibeCoding */}
+            <SidebarSection
+              title={t("sidebar.vibeCoding")}
+              right={
+                <span
+                  onClick={(e) => { e.stopPropagation(); setShowVibeDirExplorer(true); }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); setShowVibeDirExplorer(true); } }}
+                  className="text-stone-400 hover:text-stone-600 transition-colors text-sm leading-none cursor-pointer select-none"
+                  title="選擇專案目錄"
+                >＋</span>
+              }
+            >
+              <div>
+                {vibeDir ? (
+                  <div className="group relative">
+                    <SidebarFileTree
+                      projectRoot={vibeDir}
+                      activeFilePath={activeFilePath}
+                      openFilePaths={openFilePaths}
+                      onSelectFile={(path) => { openVibeCoding(); handleSelectFile(path); }}
+                      onRemoveWorkspace={() => { setVibeDir(""); try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {} }}
+                      onEditFile={handleEditFile}
+                      onOpenInBriefingPlayer={(dir: string) => openBriefingPlayer(dir)}
+                      onAiSummary={(path, name, isDir) => { const msg = isDir ? `請幫我摘要這個資料夾的內容：${path}` : `請幫我摘要這個檔案的內容：${path}`; setActivePage("_chat"); sendSeedToChat(msg); }}
+                    />
+                    <button
+                      onClick={() => { setVibeDir(""); try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {} }}
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-stone-400 hover:text-rose-500 hover:bg-rose-50 text-xs"
+                      title="移除目錄"
+                    >✕</button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 px-3 text-center">
+                    <span className="text-2xl mb-2 opacity-50">📂</span>
+                    <p className="text-xs text-stone-400">選擇 VibeCoding 專案目錄</p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowVibeDirExplorer(true); }}
+                      className="mt-2 text-[10px] px-3 py-1 rounded-md border border-dashed text-stone-400 hover:text-stone-600 hover:border-stone-400 transition-colors"
+                    >＋ 選擇目錄</button>
+                  </div>
+                )}
               </div>
             </SidebarSection>
 
@@ -877,13 +934,13 @@ function AppInner() {
           </div>
 
           {/* Settings */}
-          <div className="px-3 py-2 border-t shrink-0 space-y-1" style={{ borderColor: themeInfo.accentBorder + "60" }}>
+          <div className="px-2 py-2 border-t shrink-0 space-y-1" style={{ borderColor: themeInfo.accentBorder + "60" }}>
             <button
               onClick={() => {
                 if (!openTabs.includes("_settings")) setOpenTabs(prev => [...prev, "_settings"]);
                 setActivePage("_settings");
               }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"
+              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-lg transition-colors"
               style={{ color: themeInfo.accentHover + "99" }}
               onMouseEnter={e => { e.currentTarget.style.color = themeInfo.accent; e.currentTarget.style.backgroundColor = themeInfo.accentBg; }}
               onMouseLeave={e => { e.currentTarget.style.color = themeInfo.accentHover + "99"; e.currentTarget.style.backgroundColor = ""; }}
@@ -956,6 +1013,15 @@ function AppInner() {
           onSelect={addWorkspace}
           onClose={() => setShowDirExplorer(false)}
           title="📂 加入目錄到 Workspaces"
+        />
+      )}
+
+      {showVibeDirExplorer && (
+        <DirectoryExplorer
+          initialPath={vibeDir || undefined}
+          onSelect={setVibeProjectDir}
+          onClose={() => setShowVibeDirExplorer(false)}
+          title="⚡ 選擇 VibeCoding 專案目錄"
         />
       )}
 

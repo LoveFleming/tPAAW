@@ -809,8 +809,8 @@ const sendChat = useCallback(async () => {
 
   // ── File Explorer Tree Render ──
   // VS Code style: compact indent + guide lines, handles 10+ levels without widening
-  // BASE_INDENT matches NavItem paddingLeft (28px) so tree items align with sidebar nav items
-  const BASE_INDENT = 28;
+  // BASE_INDENT matches NavItem paddingLeft (14px) so tree items align with sidebar nav items
+  const BASE_INDENT = 14;
   const DEPTH_STEP = 10;
   const GUIDE_COLOR = "#e5e5e5";
 
@@ -844,13 +844,14 @@ const sendChat = useCallback(async () => {
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; }}
             >
               {guides}
-              <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
+              <span className="flex items-center shrink-0 gap-1" style={{ minWidth: `${DEPTH_STEP}px` }}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                  className={cn("w-3 h-3 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
+                  className={cn("w-3 h-3 transition-transform duration-150 shrink-0", isExpanded ? "" : "-rotate-90")}
                   style={{ color: "#9ca3af" }}
                 >
                   <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
+                <span className="text-xs shrink-0">📁</span>
               </span>
               <span className="truncate ml-0.5">{item.name}</span>
             </button>
@@ -879,7 +880,7 @@ const sendChat = useCallback(async () => {
           onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = isOpen ? "#3b82f6aa" : "#78716c"; } }}
         >
           {guides}
-          <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
+          <span className="flex items-center shrink-0 ml-3.5" style={{ width: `${DEPTH_STEP}px` }}>
             <span className="text-xs shrink-0">{fileEmoji(ext)}</span>
           </span>
           <span className="truncate ml-0.5">{item.name}</span>

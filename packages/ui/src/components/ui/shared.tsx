@@ -85,7 +85,7 @@ export function SidebarSection({ title, children, right }: { title: string; chil
         <div className="mt-1">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex w-full items-center px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-stone-500 hover:text-stone-700 transition-colors"
+                className="flex w-full items-center px-2 py-2 text-[11px] font-bold uppercase tracking-wider text-stone-500 hover:text-stone-700 transition-colors"
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -124,10 +124,10 @@ export function NavItem({
         <button
             onClick={onClick}
             className={cn(
-                "flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors",
+                "flex w-full items-center justify-between pr-2 py-1.5 text-left text-sm transition-colors",
             )}
             style={{
-                paddingLeft: active ? "26px" : "28px",
+                paddingLeft: active ? "12px" : "14px",
                 borderLeft: active ? `3px solid ${accentColor}` : "3px solid transparent",
                 backgroundColor: active ? accentBg : undefined,
                 color: active ? accentColor : "#78716c",
