@@ -810,37 +810,50 @@ const sendChat = useCallback(async () => {
   const modifiedCount = useMemo(() => openTabs.filter(ot => ot.modified).length, [openTabs]);
 
   // ── File Explorer Tree Render ──
-  // Matches SidebarFileTree (Workspaces) styling exactly
-  const BASE_INDENT = 28;
-  const DEPTH_STEP = 12;
+  // VS Code style: compact indent + guide lines, handles 10+ levels without widening
+  const BASE_INDENT = 8;   // root padding
+  const DEPTH_STEP = 10;   // per-level step (compact)
+  const GUIDE_COLOR = "#e5e5e5";
+
   const renderTree = (parentPath: string, depth: number) => {
     const items = dirContents[parentPath];
     if (!items) return null;
     const indentPx = BASE_INDENT + depth * DEPTH_STEP;
     return items.map(item => {
+      // Build indent guide lines for each ancestor level (VS Code style)
+      const guides = Array.from({ length: depth }, (_, i) => (
+        <span key={i} className="shrink-0" style={{
+          width: `${DEPTH_STEP}px`,
+          borderLeft: `1px solid ${GUIDE_COLOR}`,
+          alignSelf: "stretch",
+          marginLeft: i === 0 ? `${BASE_INDENT}px` : 0,
+        }} />
+      ));
+
       if (item.isDirectory) {
         const isExpanded = expandedDirs.has(item.path);
         return (
           <div key={item.path}>
             <button
               onClick={() => toggleDir(item.path)}
-              className="flex w-full items-center pr-4 py-1.5 text-left text-sm transition-colors"
+              className="flex w-full items-center pr-2 py-[3px] text-left text-[13px] leading-tight transition-colors"
               style={{
-                paddingLeft: `${indentPx}px`,
                 color: "#78716c",
+                height: "22px",
               }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = tk.bgMuted; e.currentTarget.style.color = "#374151"; }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; }}
             >
-              <div className="flex items-center gap-1.5 min-w-0">
+              {guides}
+              <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                  className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
+                  className={cn("w-3 h-3 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
                   style={{ color: "#9ca3af" }}
                 >
                   <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
-                <span className="truncate">{item.name}</span>
-              </div>
+              </span>
+              <span className="truncate ml-0.5">{item.name}</span>
             </button>
             {isExpanded && renderTree(item.path, depth + 1)}
           </div>
@@ -849,14 +862,15 @@ const sendChat = useCallback(async () => {
       const isActive = activeTabId === item.path;
       const isOpen = openTabs.some(ot => ot.id === item.path);
       const ext = item.name.includes(".") ? item.name.split(".").pop()! : "";
+      const modified = openTabs.find(ot => ot.id === item.path)?.modified;
       return (
         <button
           key={item.path}
           onClick={() => openFile(item.path)}
-          className="flex w-full items-center pr-4 py-1.5 text-left text-sm transition-colors"
+          className="flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors"
           style={{
-            paddingLeft: `${indentPx}px`,
-            borderLeft: isActive ? "3px solid #3b82f6" : "3px solid transparent",
+            height: "22px",
+            borderLeft: isActive ? "2px solid #3b82f6" : "2px solid transparent",
             backgroundColor: isActive ? "#eff6ff" : undefined,
             color: isActive ? "#1e40af" : isOpen ? "#3b82f6aa" : "#78716c",
             fontWeight: isActive ? 600 : 400,
@@ -864,11 +878,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (!isActive) { e.currentTarget.style.backgroundColor = "#fafafa"; e.currentTarget.style.color = "#374151"; } }}
           onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = isOpen ? "#3b82f6aa" : "#78716c"; } }}
         >
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="shrink-0"><FileIcon ext={ext} size={14} /></span>
-            <span className="truncate">{item.name}</span>
-            {openTabs.find(ot => ot.id === item.path)?.modified && <span className="text-[10px] text-amber-500 ml-auto shrink-0">●</span>}
-          </div>
+          {guides}
+          <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
+            <FileIcon ext={ext} size={13} />
+          </span>
+          <span className="truncate ml-0.5">{item.name}</span>
+          {modified && <span className="text-[9px] text-amber-500 ml-auto shrink-0 pr-1">●</span>}
         </button>
       );
     });
