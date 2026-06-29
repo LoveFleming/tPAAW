@@ -168,16 +168,19 @@ const NodeView = React.memo(function NodeView({
         }}
       >
         {guides}
-        <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
+        <span className="flex items-center shrink-0 gap-1" style={{ minWidth: `${DEPTH_STEP}px` }}>
           {isDir ? (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-              className={cn("w-3 h-3 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
-              style={{ color: "#9ca3af" }}
-            >
-              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-            </svg>
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                className={cn("w-3 h-3 transition-transform duration-150 shrink-0", isExpanded ? "" : "-rotate-90")}
+                style={{ color: "#9ca3af" }}
+              >
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+              <span className="text-xs shrink-0">📁</span>
+            </>
           ) : (
-            <span className="text-xs shrink-0">{fileEmoji(ext)}</span>
+            <span className="text-xs shrink-0 ml-3.5">{fileEmoji(ext)}</span>
           )}
         </span>
         {isRenaming ? (
