@@ -176,7 +176,7 @@ export default function VibeCodingIDE() {
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [aiPanelWidth, setAiPanelWidth] = useState(360);
   const [terminalHeight, setTerminalHeight] = useState(200);
-  const [showTerminal, setShowTerminal] = useState(true);
+  const [showTerminal, setShowTerminal] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [showGitPanel, setShowGitPanel] = useState(false);
   const [showApiTester, setShowApiTester] = useState(false);
@@ -855,9 +855,9 @@ const sendChat = useCallback(async () => {
         title="📂 選擇專案目錄"
       />
     )}
-    <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: tk.bgHover }}>
+    <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
-      <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: tk.bg, borderColor: tk.border }}>
+      <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
         <span className="text-sm font-bold text-stone-700">{t("vibe.title")}</span>
 
         {/* Search shortcut buttons */}
@@ -889,8 +889,10 @@ const sendChat = useCallback(async () => {
           {t("vibe.ai")}
         </button>
         <button onClick={() => setShowTerminal(!showTerminal)}
+          disabled={!rootPath}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors",
-            showTerminal ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+            showTerminal ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50",
+            !rootPath && "opacity-30 cursor-not-allowed")}>
           {t("vibe.term")}
         </button>
       </div>
@@ -940,14 +942,14 @@ const sendChat = useCallback(async () => {
         {/* ── Center: Editor + Git/API Panels + Terminal ── */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Tab Bar */}
-          <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgHover, borderBottom: `1px solid ${tk.borderLight}` }}>
+          <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
             {activeSubPanel === "editor" && openTabs.map(tab => {
               const fi = getFileIcon(tab.name);
               return (
                 <div key={tab.id}
                   className={cn("group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors",
                     activeTabId === tab.id ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
-                  style={activeTabId === tab.id ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
+                  style={activeTabId === tab.id ? { borderTop: "2px solid #3b82f6" } : { borderTop: "2px solid transparent" }}
                   onClick={() => { setActiveTabId(tab.id); setIsEditing(false); setActiveSubPanel("editor"); }}>
                   <span className="text-xs font-bold shrink-0" style={{ color: fi.color }}>{fi.icon}</span>
                   <span className="truncate max-w-[120px]">{tab.name}</span>
@@ -957,9 +959,9 @@ const sendChat = useCallback(async () => {
                 </div>
               );
             })}
-            {activeSubPanel === "diff" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: `2px solid ${themeInfo.accent}` }}>🔀 Diff {gitDiffFile && <span className="text-stone-400 font-normal">— {gitDiffFile}</span>}</div>}
-            {activeSubPanel === "blame" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: `2px solid ${themeInfo.accent}` }}>🔍 Blame — {blameFile}</div>}
-            {activeSubPanel === "api-tester" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: `2px solid ${themeInfo.accent}` }}>🌐 API Tester</div>}
+            {activeSubPanel === "diff" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔀 Diff {gitDiffFile && <span className="text-stone-400 font-normal">— {gitDiffFile}</span>}</div>}
+            {activeSubPanel === "blame" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔍 Blame — {blameFile}</div>}
+            {activeSubPanel === "api-tester" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🌐 API Tester</div>}
             {activeSubPanel === "editor" && openTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">{t("vibe.noFilesOpen")}</div>}
           </div>
 
