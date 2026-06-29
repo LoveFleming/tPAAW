@@ -140,7 +140,6 @@ const NodeView = React.memo(function NodeView({
       width: `${DEPTH_STEP}px`,
       borderLeft: `1px solid ${GUIDE_COLOR}`,
       alignSelf: "stretch",
-      marginLeft: i === 0 ? `${BASE_INDENT}px` : 0,
     }} />
   ));
 
