@@ -157,7 +157,6 @@ function AppInner() {
   const [factories, setFactories] = useState<{id: string; name: string; icon: string; description: string}[]>([]);
   const [crew, setCrew] = useState<Crew[]>([]);
   const crewByFactoryRef = useRef<Record<string, Crew[]>>({});
-  const [factoryFiles, setFactoryFiles] = useState<string[]>([]);
   const [paawRoot, setPaawRoot] = useState("");
   const [skillApps, setSkillApps] = useState<{id: string; name: string}[]>([]);
   const [dataApps, setDataApps] = useState<{id: string; name: string}[]>([]);
@@ -180,20 +179,13 @@ function AppInner() {
     } catch {}
   }, [selectedFactoryId]);
 
-  const loadFactoryFiles = useCallback(async () => {
-    try {
-      const resp = await fetch(`${API_BASE}/api/factory-content?factory=${selectedFactoryId}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setFactoryFiles(data.map((f: any) => f.filename));
-      }
-    } catch {}
+  const loadPaawRoot = useCallback(async () => {
     try {
       const r = await fetch(`${API_BASE}/api/models`);
       const d = await r.json();
       if (d.paawRoot) setPaawRoot(d.paawRoot);
     } catch {}
-  }, [selectedFactoryId]);
+  }, []);
 
   const loadSkillApps = useCallback(async () => {
     try {
@@ -215,14 +207,7 @@ function AppInner() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadFactories(); loadCrew(); loadFactoryFiles(); loadSkillApps(); loadDataApps(); loadUiState(); }, [loadFactories, loadCrew, loadFactoryFiles, loadSkillApps, loadDataApps, loadUiState]);
-
-  useEffect(() => {
-    if (!selectedFactoryId) return;
-    loadFactoryFiles();
-    const interval = setInterval(loadFactoryFiles, 3000);
-    return () => clearInterval(interval);
-  }, [selectedFactoryId, loadFactoryFiles]);
+  useEffect(() => { loadFactories(); loadCrew(); loadPaawRoot(); loadSkillApps(); loadDataApps(); loadUiState(); }, [loadFactories, loadCrew, loadPaawRoot, loadSkillApps, loadDataApps, loadUiState]);
 
   // ── Navigation helpers ──
   const handleSelectProject = useCallback((path: string) => {
@@ -379,16 +364,8 @@ function AppInner() {
 
   const factoryNav = useMemo(() => {
     const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: t("sidebar.aiCrew") };
-    const fileItems = factoryFiles.map(f => {
-      const stripped = f.replace(/^\d{2}-/, "");
-      return {
-        sortKey: `02-${f}`,
-        id: `${currentScope}:file.${f}`,
-        label: `📄 ${stripped.replace(/\.(md|json|yaml|yml|txt)$/i, "").split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}`
-      };
-    });
-    return [crewItem, ...fileItems].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-  }, [factoryFiles, currentScope, t]);
+    return [crewItem];
+  }, [currentScope, t]);
 
   const skillBuilderCounterRef = useRef(0);
   const openSystemPrompts = useCallback(() => {
@@ -530,10 +507,6 @@ function AppInner() {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
     }
-    if (pageType.startsWith("file.")) {
-      const fileName = pageType.slice(5);
-      return factoryNav.find(n => n.id === fullId)?.label ?? fileName;
-    }
     if (pageType.startsWith("employee.")) {
       const empId = pageType.split("#")[0].slice(9);
       const factoryCrew = crewByFactoryRef.current[factoryId] ?? crew;
@@ -670,13 +643,6 @@ function AppInner() {
           />
         </div>
       );
-    }
-    if (pageType.startsWith("file.")) {
-      const fileName = pageType.slice(5);
-      if (!paawRoot || !factoryId) return <div className="p-8 text-stone-400">Loading...</div>;
-      const filePath = `${paawRoot}/factories/${factoryId}/docs/${fileName}`;
-      const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot ?? projectRoot;
-      return <FileViewer filePath={filePath} projectRoot={tabProjectRoot} active={active} />;
     }
     if (pageType.startsWith("wfile://")) {
       const filePath = pageType.slice(8);

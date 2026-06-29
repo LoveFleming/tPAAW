@@ -161,9 +161,9 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     }
   }, [activeChatId, chats, onTitleChange]);
 
-  // Poll for updates every 5s
+  // Poll for updates every 30s (was 5s — too aggressive)
   useEffect(() => {
-    const interval = setInterval(loadChats, 5000);
+    const interval = setInterval(loadChats, 30000);
     return () => clearInterval(interval);
   }, [loadChats]);
 

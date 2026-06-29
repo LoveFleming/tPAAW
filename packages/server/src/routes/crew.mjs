@@ -946,11 +946,10 @@ export default async function crewRoute(req, res) {
   }
 
   // ── Crew Photo endpoint ──
-
-  // GET /api/factory/:factoryId/crews-pic/:filename
-  const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/factory\/([\w.-]+)\/crews-pic\/(.+)$/);
+  // Direct crew photo access (no factory wrapper)
+  const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/crew-pic\/(.+)$/);
   if (crewPicMatch) {
-    const [, , picName] = crewPicMatch;
+    const picName = crewPicMatch[1];
     const picPath = join(CREWS_ROOT, "pic", picName);
     try {
       const s = await stat(picPath);
@@ -964,39 +963,6 @@ export default async function crewRoute(req, res) {
       const transparentPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRUEFTkSuQmCC", "base64");
       res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-cache" });
       res.end(transparentPng);
-    }
-    return true;
-  }
-
-  // ── Factory Content endpoints ──
-
-  // GET /api/factory-content/:name
-  const singleFileMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content\/([\w.-]+)(?:\?.*)?$/);
-  if (singleFileMatch) {
-    const name = singleFileMatch[1];
-    const filePath = join(DOCS_ROOT, name);
-    try {
-      const content = await readFile(filePath, "utf-8");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ filename: name, content }));
-    } catch {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "File not found" }));
-    }
-    return true;
-  }
-
-  // GET /api/factory-content
-  const factoryContentListMatch = req.method === "GET" && req.url?.match(/^\/api\/factory-content(?:\?.*)?$/);
-  if (factoryContentListMatch) {
-    try {
-      const files = await readdir(DOCS_ROOT);
-      const result = files.sort().map(f => ({ filename: f }));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(result));
-    } catch {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify([]));
     }
     return true;
   }

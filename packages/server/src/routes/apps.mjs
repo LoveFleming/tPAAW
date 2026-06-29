@@ -642,12 +642,5 @@ ${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
     return true;
   }
 
-  // ── /api/factories (stub) ──
-  if (req.url?.startsWith("/api/factories")) {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, note: "PAAW uses flat crew structure" }));
-    return true;
-  }
-
   return false;
 }
