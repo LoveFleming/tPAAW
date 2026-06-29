@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 
@@ -246,7 +247,7 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
 
   // Resolve knowledge root: always PAAW_ROOT/data/knowledge
   useEffect(() => {
-    fetch(`${API_BASE}/api/paaw-root`)
+    fetch(`${API_BASE}/api/models`)
       .then(r => r.json())
       .then(d => { if (d.paawRoot) setRootPath(`${d.paawRoot}/data/knowledge`); })
       .catch(() => {});
@@ -563,9 +564,10 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
         )}
       </div>
 
-      {/* Context menu */}
-      {ctxMenu && (
-        <CtxMenu menu={ctxMenu} onAction={handleAction} onClose={() => setCtxMenu(null)} />
+      {/* Context menu — portaled outside overflow container */}
+      {ctxMenu && createPortal(
+        <CtxMenu menu={ctxMenu} onAction={handleAction} onClose={() => setCtxMenu(null)} />,
+        document.body
       )}
     </div>
   );
