@@ -56,11 +56,13 @@ function NewItemInput({ parentPath, depth, type, onConfirm, onCancel }: {
     onConfirm(`${parentPath}/${fullName}`);
   };
 
-  const indent = 28 + depth * 12;
+  const indent = BASE_INDENT + depth * DEPTH_STEP;
 
   return (
-    <div className="flex items-center gap-1 py-1" style={{ paddingLeft: `${indent}px` }}>
-      <span className="text-xs">{type === "folder" ? "📁" : "📄"}</span>
+    <div className="flex items-center gap-1 py-[2px]" style={{ paddingLeft: `${indent}px` }}>
+      <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
+        {type === "folder" ? <FileIcon ext="" size={13} /> : <FileIcon ext="md" size={13} />}
+      </span>
       <input
         ref={ref}
         value={value}
@@ -248,10 +250,11 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
   return null;
 }
 
-// VSCode-style indent: compact steps, capped at max depth
-const BASE_INDENT = 28;
-const DEPTH_STEP = 12;
-const MAX_INDENT_DEPTH = 15;
+// VS Code style indent: compact steps + indent guide lines
+const BASE_INDENT = 8;
+const DEPTH_STEP = 10;
+const GUIDE_COLOR = "#e5e5e5";
+const MAX_INDENT_DEPTH = 30;
 
 const TreeNodeView = React.memo(function TreeNodeView({
   node, depth, activeFilePath, openFilePaths, onSelectFile, onToggleDir, expandedPaths, projectRoot,
@@ -273,7 +276,16 @@ const TreeNodeView = React.memo(function TreeNodeView({
   const isRenaming = renamingNode === node.path;
 
   const effectiveDepth = Math.min(depth, MAX_INDENT_DEPTH);
-  const indentPx = BASE_INDENT + effectiveDepth * DEPTH_STEP;
+
+  // Indent guide lines (VS Code style)
+  const guides = Array.from({ length: effectiveDepth }, (_, i) => (
+    <span key={i} className="shrink-0" style={{
+      width: `${DEPTH_STEP}px`,
+      borderLeft: `1px solid ${GUIDE_COLOR}`,
+      alignSelf: "stretch",
+      marginLeft: i === 0 ? `${BASE_INDENT}px` : 0,
+    }} />
+  ));
 
   const handleCtx = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -293,10 +305,10 @@ const TreeNodeView = React.memo(function TreeNodeView({
       <button
         onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
         onContextMenu={handleCtx}
-        className={cn("flex w-full items-center justify-between pr-4 py-1.5 text-left text-sm transition-colors")}
+        className={cn("flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors")}
         style={{
-          paddingLeft: `${indentPx}px`,
-          borderLeft: isActive ? `3px solid ${t.accent}` : "3px solid transparent",
+          height: "22px",
+          borderLeft: isActive ? `2px solid ${t.accent}` : "2px solid transparent",
           backgroundColor: isActive ? t.accentBg : undefined,
           color: isActive ? t.accent : isOpen ? t.accent + "aa" : "#78716c",
           fontWeight: isActive ? 600 : 400,
@@ -304,30 +316,31 @@ const TreeNodeView = React.memo(function TreeNodeView({
         onMouseEnter={e => { if (!isActive) { e.currentTarget.style.backgroundColor = t.accentBg; e.currentTarget.style.color = t.accent; } }}
         onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = isOpen ? t.accent + "aa" : "#78716c"; } }}
       >
-        <div className="flex items-center gap-1.5 min-w-0">
+        {guides}
+        <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
           {isDir ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-              className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
+              className={cn("w-3 h-3 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
               style={{ color: t.accent }}
             >
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
           ) : (
-            <span className="shrink-0">{fileIconElement(node.name)}</span>
+            fileIconElement(node.name)
           )}
-          {showDepthHint && (
-            <span style={{ color: t.accent + "40", fontSize: 10, letterSpacing: -1 }}>··</span>
-          )}
-          {isRenaming ? (
-            <RenameInput
-              defaultValue={node.name}
-              onConfirm={(newName) => onRename(node.path, newName)}
-              onCancel={() => onRename(node.path, node.name)}
-            />
-          ) : (
-            <span className="truncate">{node.name}</span>
-          )}
-        </div>
+        </span>
+        {showDepthHint && (
+          <span style={{ color: t.accent + "40", fontSize: 10, letterSpacing: -1 }}>··</span>
+        )}
+        {isRenaming ? (
+          <RenameInput
+            defaultValue={node.name}
+            onConfirm={(newName) => onRename(node.path, newName)}
+            onCancel={() => onRename(node.path, node.name)}
+          />
+        ) : (
+          <span className="truncate ml-0.5">{node.name}</span>
+        )}
       </button>
       {isDir && isExpanded && node.children && node.children.length > 0 && (
         <div>

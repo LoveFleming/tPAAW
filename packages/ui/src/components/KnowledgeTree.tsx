@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
+import { FileIcon } from "./Icon";
 
 import API_BASE from "../api";
 import FileImportPicker from "./FileImportPicker";
@@ -111,18 +112,10 @@ function CtxMenu({ menu, onAction, onClose }: {
   );
 }
 
-// ── File icon helper ──
-function FileIcon({ name }: { name: string }) {
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const iconMap: Record<string, string> = {
-    md: "📝", txt: "📄", json: "🔧", yaml: "🔧", yml: "🔧",
-    ts: "💠", tsx: "💠", js: "💠", jsx: "💠",
-    css: "🎨", html: "🌐", py: "🐍",
-    png: "🖼️", jpg: "🖼️", jpeg: "🖼️", gif: "🖼️", svg: "🖼️", webp: "🖼️",
-    pdf: "📕", doc: "📘", docx: "📘",
-  };
-  return <span className="text-xs">{iconMap[ext] || "📄"}</span>;
-}
+// ── Shared tree constants (VS Code style) ──
+const BASE_INDENT = 8;
+const DEPTH_STEP = 10;
+const GUIDE_COLOR = "#e5e5e5";
 
 // ── Tree Node View ──
 const NodeView = React.memo(function NodeView({
@@ -139,11 +132,22 @@ const NodeView = React.memo(function NodeView({
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedPath === node.path;
   const isRenaming = renamingNode === node.path;
-  const indent = 22 + depth * 14;
+
+  // Indent guide lines (VS Code style)
+  const guides = Array.from({ length: depth }, (_, i) => (
+    <span key={i} className="shrink-0" style={{
+      width: `${DEPTH_STEP}px`,
+      borderLeft: `1px solid ${GUIDE_COLOR}`,
+      alignSelf: "stretch",
+      marginLeft: i === 0 ? `${BASE_INDENT}px` : 0,
+    }} />
+  ));
 
   const handleRename = (newName: string) => {
     onRename(node.path, newName);
   };
+
+  const ext = node.name.includes(".") ? node.name.split(".").pop()! : "";
 
   return (
     <div>
@@ -153,28 +157,36 @@ const NodeView = React.memo(function NodeView({
           else { onSelect(node.path); onOpenFile(node.path); }
         }}
         onContextMenu={e => onCtx(e, node)}
-        className={cn("flex w-full items-center gap-1.5 pr-2 py-1.5 text-sm text-left transition-colors",
-          isSelected ? "bg-stone-100 text-stone-800 font-medium" : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
-        )}
-        style={{ paddingLeft: indent }}
+        className={cn("flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors",
+          isSelected ? "font-semibold" : "")}
+        style={{
+          height: "22px",
+          borderLeft: isSelected ? "2px solid #3b82f6" : "2px solid transparent",
+          backgroundColor: isSelected ? "#eff6ff" : undefined,
+          color: isSelected ? "#1e40af" : "#78716c",
+        }}
       >
-        {isDir ? (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-            className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
-          >
-            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-          </svg>
-        ) : (
-          <FileIcon name={node.name} />
-        )}
+        {guides}
+        <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
+          {isDir ? (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+              className={cn("w-3 h-3 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
+              style={{ color: "#9ca3af" }}
+            >
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <FileIcon ext={ext} size={13} />
+          )}
+        </span>
         {isRenaming ? (
           <RenameInput
             defaultValue={node.name}
             onConfirm={handleRename}
-            onCancel={() => onRename(node.path, node.name)} // cancel = no-op
+            onCancel={() => onRename(node.path, node.name)}
           />
         ) : (
-          <span className="truncate">{node.name}</span>
+          <span className="truncate ml-0.5">{node.name}</span>
         )}
       </button>
       {isDir && isExpanded && node.children && node.children.map(child => (
@@ -208,8 +220,10 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
   };
 
   return (
-    <div className="flex items-center gap-1 px-2 py-1" style={{ paddingLeft: 22 }}>
-      <span className="text-xs">{type === "folder" ? "📁" : "📄"}</span>
+    <div className="flex items-center gap-1 py-[2px]" style={{ paddingLeft: `${BASE_INDENT}px` }}>
+      <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
+        {type === "folder" ? <FileIcon ext="" size={13} /> : <FileIcon ext="md" size={13} />}
+      </span>
       <input
         ref={ref}
         value={value}
