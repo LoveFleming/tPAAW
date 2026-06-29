@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useTheme } from "../theme";
 import API_BASE from "../api";
 import GanttChart from "./GanttChart";
@@ -205,8 +204,9 @@ export default function ProjectBoard() {
     const overallPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
     return (
-      <>
-      <div className="h-full overflow-auto" style={{ background: tk.bg }}>
+      <div className="flex h-full" style={{ background: tk.bg }}>
+      {/* Main content */}
+      <div className="flex-1 overflow-auto min-w-0">
         <div className="max-w-5xl mx-auto p-6">
           <div className="flex items-center justify-between mb-1">
             <h1 className="text-2xl font-bold" style={{ color: tk.textPrimary }}>📋 Project Board</h1>
@@ -280,21 +280,18 @@ export default function ProjectBoard() {
         )}
       </div>
 
-      {/* AI Side Panel */}
-      {aiPanel.open && createPortal(
-        <div className="fixed inset-0 z-[100] flex justify-end" onClick={() => setAiPanel({ open: false, context: "" })}>
-          <div className="w-[460px] h-full bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-            <ProjectAiPanel
-              context={aiPanel.context}
-              initialPrompt={aiPanel.prompt}
-              tk={tk}
-              onClose={() => setAiPanel({ open: false, context: "" })}
-            />
-          </div>
-        </div>,
-        document.body
+      {/* AI Side Panel — inside Project App */}
+      {aiPanel.open && (
+        <div className="w-[420px] shrink-0 border-l" style={{ borderColor: tk.borderLight }}>
+          <ProjectAiPanel
+            context={aiPanel.context}
+            initialPrompt={aiPanel.prompt}
+            tk={tk}
+            onClose={() => setAiPanel({ open: false, context: "" })}
+          />
+        </div>
       )}
-      </>
+    </div>
     );
   }
 
@@ -310,8 +307,9 @@ export default function ProjectBoard() {
   const pctN = totalN > 0 ? Math.round((doneN / totalN) * 100) : 0;
 
   return (
-    <>
-    <div className="h-full overflow-auto" style={{ background: tk.bg }}>
+    <div className="flex h-full" style={{ background: tk.bg }}>
+    {/* Main content */}
+    <div className="flex-1 overflow-auto min-w-0">
       <div className="max-w-5xl mx-auto p-6">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4">
@@ -480,6 +478,7 @@ export default function ProjectBoard() {
           <GanttChart project={active} tk={tk} />
         )}
       </div>
+      {/* end max-w-5xl */}
 
       {/* ── Modals ── */}
       {modal?.type === "project-edit" && (
@@ -508,24 +507,21 @@ export default function ProjectBoard() {
         <MilestoneFormModal tk={tk} milestone={modal.data} onClose={() => setModal(null)}
           onSave={(n, d) => updateMilestone(modal.data.id, { name: n, date: d })} />
       )}
+    </div> {/* end flex-1 */}
 
-      {/* AI Side Panel */}
-      {aiPanel.open && createPortal(
-        <div className="fixed inset-0 z-[100] flex justify-end" onClick={() => setAiPanel({ open: false, context: "" })}>
-          <div className="w-[460px] h-full bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-            <ProjectAiPanel
-              context={aiPanel.context}
-              initialPrompt={aiPanel.prompt}
-              tk={tk}
-              onClose={() => setAiPanel({ open: false, context: "" })}
-            />
-          </div>
-        </div>,
-        document.body
-      )}
+    {/* AI Side Panel — inside Project App */}
+    {aiPanel.open && (
+      <div className="w-[420px] shrink-0 border-l" style={{ borderColor: tk.borderLight }}>
+        <ProjectAiPanel
+          context={aiPanel.context}
+          initialPrompt={aiPanel.prompt}
+          tk={tk}
+          onClose={() => setAiPanel({ open: false, context: "" })}
+        />
+      </div>
+    )}
     </div>
-    </>
-  );
+    );
 }
 
 // ════════════════════════════════════════
