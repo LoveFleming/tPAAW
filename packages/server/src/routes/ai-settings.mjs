@@ -33,6 +33,7 @@ const CATEGORIES = [
   { id: "app-builder",   label: "App Builder",   icon: "📦", desc: "App 建構器的 AI 設定 — App 產出規則" },
   { id: "notes",         label: "Notes",         icon: "📝", desc: "AI 筆記助手的 AI 設定 — 筆記整理規則、格式規範" },
   { id: "mindmap",       label: "Mind Map",      icon: "🧠", desc: "AI 心智圖產生器的 AI 設定 — 分支策略、節點規則" },
+  { id: "project",       label: "Project",      icon: "📋", desc: "專案管理的 AI 設定 — 建專案、分析專案狀態、建議任務" },
 ];
 
 // Default icon for unknown file types

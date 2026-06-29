@@ -71,7 +71,7 @@ function Modal({ title, onClose, children, tk }: { title: string; onClose: () =>
 // ════════════════════════════════════════
 // Main Component
 // ════════════════════════════════════════
-export default function ProjectBoard() {
+export default function ProjectBoard({ onAiRequest }: { onAiRequest?: (msg: string) => void }) {
   const { info: th } = useTheme();
   const tk = {
     bg: "#fff", bgMuted: "#fafafa", bgHover: th.accentLight || "#f5f5f4",
@@ -206,11 +206,27 @@ export default function ProjectBoard() {
         <div className="max-w-5xl mx-auto p-6">
           <div className="flex items-center justify-between mb-1">
             <h1 className="text-2xl font-bold" style={{ color: tk.textPrimary }}>📋 Project Board</h1>
-            <button onClick={() => setModal({ type: "project-new" })}
-              className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
-              style={{ background: tk.accentBg, color: tk.accentText, border: `1px solid ${tk.accent}` }}>
-              ＋ 新專案
-            </button>
+            <div className="flex items-center gap-2">
+              {onAiRequest && (
+                <>
+                  <button onClick={() => onAiRequest("幫我建一個新專案，我來告訴你專案名稱和目標。")}
+                    className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+                    style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>
+                    🤖 AI 建專案
+                  </button>
+                  <button onClick={() => onAiRequest("分析我所有專案的狀態，給我一份專案健康度報告。")}
+                    className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+                    style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
+                    🤖 AI 分析
+                  </button>
+                </>
+              )}
+              <button onClick={() => setModal({ type: "project-new" })}
+                className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+                style={{ background: tk.accentBg, color: tk.accentText, border: `1px solid ${tk.accent}` }}>
+                ＋ 新專案
+              </button>
+            </div>
           </div>
           <p className="text-sm mb-6" style={{ color: tk.textSecondary }}>專案管理看板</p>
 
@@ -285,6 +301,13 @@ export default function ProjectBoard() {
           <button onClick={() => { setView("dashboard"); setActive(null); }}
             className="text-sm hover:underline" style={{ color: tk.accent }}>← Dashboard</button>
           <div className="flex items-center gap-2">
+            {onAiRequest && active && (
+              <button onClick={() => onAiRequest(`分析專案「${active.name}」的狀態，給我一份進度報告和建議。專案 ID: ${active.id}`)}
+                className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+                style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
+                🤖 AI 分析
+              </button>
+            )}
             <button onClick={() => setDetailTab("board")}
               className="text-xs px-3 py-1.5 rounded-lg font-medium"
               style={{ background: detailTab === "board" ? tk.accentBg : "transparent", color: detailTab === "board" ? tk.accentText : tk.textSecondary, border: `1px solid ${detailTab === "board" ? tk.accent : tk.border}` }}>

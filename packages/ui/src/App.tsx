@@ -641,7 +641,7 @@ function AppInner() {
       return <Notes deepLinkNote={deepLinkNote} onDeepLinkConsumed={() => setDeepLinkNote(null)} />;
     }
     if (pageType === "projects") {
-      return <ProjectBoard />;
+      return <ProjectBoard onAiRequest={(msg) => { setActivePage("_chat"); sendSeedToChat(msg); }} />;
     }
     if (pageType === "wf-editor") {
       return <WorkflowEditor />;

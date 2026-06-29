@@ -373,6 +373,16 @@ export const contextEngine = {
     // 4. Apps
     if (apps) parts.push(`=== 可用的 App ===\n${apps}\n\n📌 **App 連結規則：** 當回覆提到某個 App 時，加上可點擊的連結讓使用者直接開啟。\n格式：\`[顯示文字](#/app:app-id)\`\n範例：\`[📖 書籤管理](#/app:bookmarks)\`、\`[🎒 Pocket](#/app:pocket)\`\n只在相關時才加，不要每個回覆都塞連結。`);
 
+    // 4.1 Project 系統提示詞
+    const projectIdentity = safeRead(resolve(AI_SETTINGS_DIR, "project/identity.md"));
+    const projectRules = safeRead(resolve(AI_SETTINGS_DIR, "project/rules.md"));
+    if (projectIdentity || projectRules) {
+      const projectParts = ["=== 專案管理助理規則 ==="];
+      if (projectIdentity) projectParts.push(resolvePaths(projectIdentity));
+      if (projectRules) projectParts.push(resolvePaths(projectRules));
+      parts.push(projectParts.join("\n\n"));
+    }
+
     // 4.5 Tool 使用規則（從檔案讀取，方便透過 API 編輯）
     const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
     if (toolRules) {
