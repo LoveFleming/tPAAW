@@ -23,6 +23,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import ShellTerminal from "../components/ShellTerminal";
+import { FileIcon } from "../components/Icon";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 
@@ -809,34 +810,66 @@ const sendChat = useCallback(async () => {
   const modifiedCount = useMemo(() => openTabs.filter(ot => ot.modified).length, [openTabs]);
 
   // ── File Explorer Tree Render ──
-  // Matches PAAW workspace NavItem styling: text-sm, py-1.5, gap-2.5
+  // Matches SidebarFileTree (Workspaces) styling exactly
+  const BASE_INDENT = 28;
+  const DEPTH_STEP = 12;
   const renderTree = (parentPath: string, depth: number) => {
     const items = dirContents[parentPath];
     if (!items) return null;
+    const indentPx = BASE_INDENT + depth * DEPTH_STEP;
     return items.map(item => {
-      const fi = getFileIcon(item.name);
       if (item.isDirectory) {
         const isExpanded = expandedDirs.has(item.path);
         return (
           <div key={item.path}>
-            <div className={cn("flex items-center gap-2.5 pr-4 py-1.5 cursor-pointer hover:bg-stone-100 text-sm select-none transition-colors")}
-              style={{ paddingLeft: depth * 16 + 28 }} onClick={() => toggleDir(item.path)}>
-              <span className="text-sm text-stone-400 w-3.5 shrink-0">{isExpanded ? "▾" : "▸"}</span>
-              <span className="text-sm shrink-0">📁</span>
-              <span className="truncate text-stone-700" style={{ fontWeight: 500 }}>{item.name}</span>
-            </div>
+            <button
+              onClick={() => toggleDir(item.path)}
+              className="flex w-full items-center pr-4 py-1.5 text-left text-sm transition-colors"
+              style={{
+                paddingLeft: `${indentPx}px`,
+                color: "#78716c",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = tk.bgMuted; e.currentTarget.style.color = "#374151"; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; }}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                  className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-150", isExpanded ? "" : "-rotate-90")}
+                  style={{ color: "#9ca3af" }}
+                >
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+                <span className="truncate">{item.name}</span>
+              </div>
+            </button>
             {isExpanded && renderTree(item.path, depth + 1)}
           </div>
         );
       }
+      const isActive = activeTabId === item.path;
+      const isOpen = openTabs.some(ot => ot.id === item.path);
+      const ext = item.name.includes(".") ? item.name.split(".").pop()! : "";
       return (
-        <div key={item.path}
-          className={cn("flex items-center gap-2.5 pr-4 py-1.5 cursor-pointer hover:bg-stone-100 text-sm select-none transition-colors", activeTabId === item.path && "bg-blue-50 text-blue-700")}
-          style={{ paddingLeft: depth * 16 + 40 }} onClick={() => openFile(item.path)}>
-          <span className="text-sm shrink-0 w-4 text-center" style={{ color: fi.color }}>{fi.icon}</span>
-          <span className="truncate">{item.name}</span>
-          {openTabs.find(ot => ot.id === item.path)?.modified && <span className="text-[10px] text-amber-500 ml-auto shrink-0">●</span>}
-        </div>
+        <button
+          key={item.path}
+          onClick={() => openFile(item.path)}
+          className="flex w-full items-center pr-4 py-1.5 text-left text-sm transition-colors"
+          style={{
+            paddingLeft: `${indentPx}px`,
+            borderLeft: isActive ? "3px solid #3b82f6" : "3px solid transparent",
+            backgroundColor: isActive ? "#eff6ff" : undefined,
+            color: isActive ? "#1e40af" : isOpen ? "#3b82f6aa" : "#78716c",
+            fontWeight: isActive ? 600 : 400,
+          }}
+          onMouseEnter={e => { if (!isActive) { e.currentTarget.style.backgroundColor = "#fafafa"; e.currentTarget.style.color = "#374151"; } }}
+          onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = isOpen ? "#3b82f6aa" : "#78716c"; } }}
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0"><FileIcon ext={ext} size={14} /></span>
+            <span className="truncate">{item.name}</span>
+            {openTabs.find(ot => ot.id === item.path)?.modified && <span className="text-[10px] text-amber-500 ml-auto shrink-0">●</span>}
+          </div>
+        </button>
       );
     });
   };
