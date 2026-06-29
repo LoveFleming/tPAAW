@@ -162,6 +162,7 @@ const NodeView = React.memo(function NodeView({
           isSelected ? "font-semibold" : "")}
         style={{
           height: "22px",
+          paddingLeft: `${BASE_INDENT}px`,
           borderLeft: isSelected ? "2px solid #3b82f6" : "2px solid transparent",
           backgroundColor: isSelected ? "#eff6ff" : undefined,
           color: isSelected ? "#1e40af" : "#78716c",

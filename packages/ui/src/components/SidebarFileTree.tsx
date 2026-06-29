@@ -309,6 +309,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
         className={cn("flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors")}
         style={{
           height: "22px",
+          paddingLeft: `${BASE_INDENT}px`,
           borderLeft: isActive ? `2px solid ${t.accent}` : "2px solid transparent",
           backgroundColor: isActive ? t.accentBg : undefined,
           color: isActive ? t.accent : isOpen ? t.accent + "aa" : "#78716c",

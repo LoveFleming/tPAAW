@@ -839,6 +839,7 @@ const sendChat = useCallback(async () => {
               onClick={() => toggleDir(item.path)}
               className="flex w-full items-center pr-2 py-[3px] text-left text-[13px] leading-tight transition-colors"
               style={{
+                paddingLeft: `${BASE_INDENT}px`,
                 color: "#78716c",
                 height: "22px",
               }}
@@ -871,6 +872,7 @@ const sendChat = useCallback(async () => {
           className="flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors"
           style={{
             height: "22px",
+            paddingLeft: `${BASE_INDENT}px`,
             borderLeft: isActive ? "2px solid #3b82f6" : "2px solid transparent",
             backgroundColor: isActive ? "#eff6ff" : undefined,
             color: isActive ? "#1e40af" : isOpen ? "#3b82f6aa" : "#78716c",
