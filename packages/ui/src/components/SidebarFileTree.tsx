@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
 import { useTheme } from "../theme";
-import { FileIcon } from "./Icon";
+import { fileEmoji } from "./FileEmoji";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import FileImportPicker from "./FileImportPicker";
@@ -61,7 +61,7 @@ function NewItemInput({ parentPath, depth, type, onConfirm, onCancel }: {
   return (
     <div className="flex items-center gap-1 py-[2px]" style={{ paddingLeft: `${indent}px` }}>
       <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
-        {type === "folder" ? <FileIcon ext="" size={13} /> : <FileIcon ext="md" size={13} />}
+        {type === "folder" ? <span className="text-xs">📁</span> : <span className="text-xs">📄</span>}
       </span>
       <input
         ref={ref}
@@ -238,7 +238,7 @@ function relativePath(p: string, prefix: string): string {
 
 function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return <FileIcon ext={ext} size={14} />;
+  return <span className="text-xs shrink-0">{fileEmoji(ext)}</span>;
 }
 
 function findNode(root: TreeNode, path: string): TreeNode | null {

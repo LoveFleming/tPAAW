@@ -49,33 +49,33 @@ export function CodeBlock({ text }: { text: string }) {
 }
 
 // ── Nav Icon helper ──
-const NAV_ICONS: Record<string, string> = {
-    "Constitution":    "nav-scroll",
-    "Standards":       "nav-ruler",
-    "AI Crew":         "nav-crew",
-    "Skills":          "sparkle",
-    "Skill Pool":      "sparkle",
-    "Skill Builder":   "brain",
-    "App Builder":     "rocket",
-    "Workflow Builder": "plan",
-    "Apps":            "chart-bar",
-    "App Pool":        "chart-bar",
-    "Report Apps":     "chart-bar",
-    "Report Lab":      "flask",
-    "Workflows":       "expand",
-    "Workflow Exec":   "expand",
-    "Schedules":       "clock",
-    "Cron Jobs":       "clock",
-    "Skill Lab":       "flask",
-    "Vibe Coding":     "lightning",
-    "Prompts":         "terminal",
-    "Backup":          "shield",
-    "Work Sync":       "expand",
-    "AI Settings":     "gear",
-    "Briefing Player": "presentation",
-    "Mind Map":       "share-nodes",
-    "Notes":          "notebook",
-    "Projects":       "clipboard",
+const NAV_EMOJI: Record<string, string> = {
+    "Constitution":    "📜",
+    "Standards":       "📏",
+    "AI Crew":         "👥",
+    "Skills":          "✨",
+    "Skill Pool":      "✨",
+    "Skill Builder":   "🧠",
+    "App Builder":     "🚀",
+    "Workflow Builder": "📋",
+    "Apps":            "📊",
+    "App Pool":        "📊",
+    "Report Apps":     "📊",
+    "Report Lab":      "🧪",
+    "Workflows":       "🔄",
+    "Workflow Exec":   "🔄",
+    "Schedules":       "⏰",
+    "Cron Jobs":       "⏰",
+    "Skill Lab":       "🧪",
+    "Vibe Coding":     "⚡",
+    "Prompts":         "💻",
+    "Backup":          "🛡️",
+    "Work Sync":       "🔄",
+    "AI Settings":     "⚙️",
+    "Briefing Player": "🎤",
+    "Mind Map":       "🗺️",
+    "Notes":          "📓",
+    "Projects":       "📋",
 };
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
@@ -118,7 +118,7 @@ export function NavItem({
     accentColor?: string;
     accentBg?: string;
 }) {
-    const iconName = NAV_ICONS[label];
+    const emoji = NAV_EMOJI[label];
 
     return (
         <button
@@ -137,13 +137,7 @@ export function NavItem({
             onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
-                {iconName && iconName !== "none" ? (
-                    <Icon name={iconName} size={14} style={{ color: active ? accentColor : undefined }} />
-                ) : iconName === "none" ? (
-                    <span style={{ width: 14, flexShrink: 0 }} />
-                ) : (
-                    <Icon name="file-default" size={14} style={{ color: active ? accentColor : undefined }} />
-                )}
+                <span className="text-sm shrink-0" style={{ width: 16, textAlign: "center" }}>{emoji || "📄"}</span>
                 <span className="truncate">{label}</span>
             </div>
             {right}

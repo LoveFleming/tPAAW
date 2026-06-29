@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
-import { FileIcon } from "./Icon";
+import { fileEmoji } from "./FileEmoji";
 
 import API_BASE from "../api";
 import FileImportPicker from "./FileImportPicker";
@@ -177,7 +177,7 @@ const NodeView = React.memo(function NodeView({
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
           ) : (
-            <FileIcon ext={ext} size={13} />
+            <span className="text-xs shrink-0">{fileEmoji(ext)}</span>
           )}
         </span>
         {isRenaming ? (
@@ -223,7 +223,7 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
   return (
     <div className="flex items-center gap-1 py-[2px]" style={{ paddingLeft: `${BASE_INDENT}px` }}>
       <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
-        {type === "folder" ? <FileIcon ext="" size={13} /> : <FileIcon ext="md" size={13} />}
+        {type === "folder" ? <span className="text-xs">📁</span> : <span className="text-xs">📄</span>}
       </span>
       <input
         ref={ref}

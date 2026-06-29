@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import JsonViewer from "../components/JsonViewer";
 import { useTheme } from "../theme";
-import { FileIcon } from "../components/Icon";
+import { fileEmoji } from "../components/FileEmoji";
 import { pathBasename } from "../utils";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css"; // Light theme matching the white background
@@ -10,7 +10,7 @@ import API_BASE from "../api";
 
 function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return <FileIcon ext={ext} size={12} />;
+  return <span className="text-xs shrink-0">{fileEmoji(ext)}</span>;
 }
 
 // Map file extension to highlight.js language

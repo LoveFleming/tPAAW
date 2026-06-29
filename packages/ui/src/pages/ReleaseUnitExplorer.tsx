@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { cn } from "../utils";
-import { FileIcon } from "../components/Icon";
+import { fileEmoji } from "../components/FileEmoji";
 import { pathBasename, pathRelative } from "../utils";
 
 // ── Types ──
@@ -36,7 +36,7 @@ async function fetchFile(path: string): Promise<{ path: string; content: string;
 // ── File icon helper ──
 function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return <FileIcon ext={ext} size={12} />;
+  return <span className="text-xs shrink-0">{fileEmoji(ext)}</span>;
 }
 
 // ── Language detection for syntax highlighting hint ──

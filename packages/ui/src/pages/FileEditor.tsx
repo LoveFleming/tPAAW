@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../theme";
-import { FileIcon } from "../components/Icon";
+import { fileEmoji } from "../components/FileEmoji";
 import { pathBasename } from "../utils";
 import API_BASE from "../api";
 
@@ -129,7 +129,7 @@ export default function FileEditor({ filePath, active }: Props) {
         style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs"><FileIcon ext={ext} size={12} /></span>
+          <span className="text-xs">{fileEmoji(ext)}</span>
           <span className="text-sm font-semibold truncate" style={{ color: t.accentText }}>
             ✏️ {fileName}
           </span>

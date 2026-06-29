@@ -23,7 +23,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { cn } from "../utils";
 import ShellTerminal from "../components/ShellTerminal";
-import { FileIcon } from "../components/Icon";
+import { fileEmoji } from "../components/FileEmoji";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 
@@ -73,19 +73,6 @@ interface ApiResponse { status: number; statusText: string; headers: Record<stri
 interface ApiHistoryItem { id: string; ts: string; method: string; url: string; status: number; elapsed: number; headers?: ApiHeader[]; body?: string; streamMode?: boolean; response?: ApiResponse; streamResponse?: string; }
 
 // ── Constants ──
-const FILE_ICONS: Record<string, { icon: string; color: string }> = {
-  ts: { icon: "TS", color: "#3178C6" }, tsx: { icon: "TX", color: "#3178C6" },
-  js: { icon: "JS", color: "#F7DF1E" }, jsx: { icon: "JX", color: "#F7DF1E" },
-  mjs: { icon: "MJ", color: "#F7DF1E" }, json: { icon: "{}", color: "#F9A825" },
-  md: { icon: "MD", color: "#083FA1" }, css: { icon: "#", color: "#563D7C" },
-  html: { icon: "</>", color: "#E34C26" }, py: { icon: "PY", color: "#3572A5" },
-  go: { icon: "GO", color: "#00ADD8" }, rs: { icon: "RS", color: "#DEA584" },
-  sh: { icon: "SH", color: "#89E051" }, yaml: { icon: "YL", color: "#CB171E" },
-  yml: { icon: "YL", color: "#CB171E" }, sql: { icon: "DB", color: "#E38C00" },
-  env: { icon: "EV", color: "#ECD53F" }, lock: { icon: "🔒", color: "#6B7280" },
-  toml: { icon: "TM", color: "#9C4221" }, graphql: { icon: "GQ", color: "#E535AB" },
-};
-
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 const METHOD_COLORS: Record<string, string> = {
   GET: "#10B981", POST: "#3B82F6", PUT: "#F59E0B", PATCH: "#8B5CF6",
@@ -93,14 +80,12 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 // ── Helpers ──
-function getFileIcon(name: string) {
-  if (name === "package.json") return { icon: "📦", color: "#43853D" };
-  if (name === "tsconfig.json") return { icon: "TS", color: "#3178C6" };
-  if (name === "Dockerfile") return { icon: "🐳", color: "#2496ED" };
-  if (name === "Makefile") return { icon: "MK", color: "#427819" };
-  if (name === "README.md") return { icon: "📖", color: "#083FA1" };
+function getFileIcon(name: string): string {
+  if (name === "package.json") return "📦";
+  if (name === "Dockerfile") return "🐳";
+  if (name === "README.md") return "📖";
   const ext = name.includes(".") ? name.split(".").pop()! : "";
-  return FILE_ICONS[ext] || { icon: "📄", color: "#6B7280" };
+  return fileEmoji(ext);
 }
 
 function getLanguage(name: string): string {
@@ -895,7 +880,7 @@ const sendChat = useCallback(async () => {
         >
           {guides}
           <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
-            <FileIcon ext={ext} size={13} />
+            <span className="text-xs shrink-0">{fileEmoji(ext)}</span>
           </span>
           <span className="truncate ml-0.5">{item.name}</span>
           {modified && <span className="text-[9px] text-amber-500 ml-auto shrink-0 pr-1">●</span>}
@@ -1007,14 +992,13 @@ const sendChat = useCallback(async () => {
           {/* Tab Bar */}
           <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
             {activeSubPanel === "editor" && openTabs.map(tab => {
-              const fi = getFileIcon(tab.name);
               return (
                 <div key={tab.id}
                   className={cn("group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors",
                     activeTabId === tab.id ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
                   style={activeTabId === tab.id ? { borderTop: "2px solid #3b82f6" } : { borderTop: "2px solid transparent" }}
                   onClick={() => { setActiveTabId(tab.id); setIsEditing(false); setActiveSubPanel("editor"); }}>
-                  <span className="text-xs font-bold shrink-0" style={{ color: fi.color }}>{fi.icon}</span>
+                  <span className="text-xs shrink-0">{getFileIcon(tab.name)}</span>
                   <span className="truncate max-w-[120px]">{tab.name}</span>
                   {tab.modified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
                   <button onClick={e => { e.stopPropagation(); closeTab(tab.id); }}
