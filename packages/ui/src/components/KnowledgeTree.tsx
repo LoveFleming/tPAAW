@@ -87,7 +87,7 @@ function CtxMenu({ menu, onAction, onClose }: {
 
   const itemStyle: React.CSSProperties = {
     padding: "6px 16px",
-    fontSize: 13,
+    fontSize: 14,
     cursor: "pointer",
     color: "#374151",
     whiteSpace: "nowrap",
@@ -190,7 +190,7 @@ const NodeView = React.memo(function NodeView({
           else { onSelect(node.path); onOpenFile(node.path); }
         }}
         onContextMenu={e => onCtx(e, node)}
-        className={cn("flex w-full items-center pr-2 text-left text-[11px] leading-tight transition-colors",
+        className={cn("flex w-full items-center pr-2 text-left text-[12px] leading-tight transition-colors",
           isSelected ? "font-semibold" : "")}
         style={{
           height: "22px",

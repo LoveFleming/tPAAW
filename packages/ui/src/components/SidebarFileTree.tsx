@@ -130,7 +130,7 @@ function ContextMenu({ menu, onAction, onClose }: {
 
   const itemStyle: React.CSSProperties = {
     padding: "6px 16px",
-    fontSize: 13,
+    fontSize: 14,
     cursor: "pointer",
     color: "#374151",
     whiteSpace: "nowrap",
@@ -305,7 +305,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
       <button
         onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
         onContextMenu={handleCtx}
-        className={cn("flex w-full items-center pr-2 text-left text-[11px] leading-tight transition-colors")}
+        className={cn("flex w-full items-center pr-2 text-left text-[12px] leading-tight transition-colors")}
         style={{
           height: "22px",
           paddingLeft: `${BASE_INDENT}px`,

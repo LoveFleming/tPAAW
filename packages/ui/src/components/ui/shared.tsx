@@ -85,7 +85,7 @@ export function SidebarSection({ title, children, right }: { title: string; chil
         <div className="mt-1">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex w-full items-center px-4 py-2 text-xs font-bold uppercase tracking-wider text-stone-500 hover:text-stone-700 transition-colors"
+                className="flex w-full items-center px-4 py-2 text-[13px] font-bold uppercase tracking-wider text-stone-500 hover:text-stone-700 transition-colors"
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -124,7 +124,7 @@ export function NavItem({
         <button
             onClick={onClick}
             className={cn(
-                "flex w-full items-center justify-between pr-4 py-1.5 text-left text-[11px] transition-colors",
+                "flex w-full items-center justify-between pr-4 py-1.5 text-left text-[12px] transition-colors",
             )}
             style={{
                 paddingLeft: active ? "26px" : "28px",
@@ -137,7 +137,7 @@ export function NavItem({
             onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-[11px] shrink-0" style={{ width: 16, textAlign: "center" }}>{emoji || "📄"}</span>
+                <span className="text-[12px] shrink-0" style={{ width: 16, textAlign: "center" }}>{emoji || "📄"}</span>
                 <span className="truncate">{label}</span>
             </div>
             {right}
