@@ -82,7 +82,6 @@
 | **完整系統 Context** | ✅ 完整系統 context + skill-builder 專用 + output 格式規則 |
 | **功能專用設定檔** | `skill-builder/skill-format.md` |
 | **後端路由** | `POST /api/skills/generate` → `callLLMWithRetry()` |
-| **⚠️ 待修** | 需改用 `buildFullSystemContext()` 或 `GET /api/context/skill-builder` |
 
 ---
 
@@ -113,7 +112,6 @@
 | **完整系統 Context** | ✅ 完整系統 context + app SYSTEM.md + skill rules |
 | **功能專用設定檔** | app `SYSTEM.md` |
 | **後端路由** | `workflow.mjs` `POST /api/paaw/skill-exec` → `runAgentLoop()` |
-| **⚠️ 待修** | 應改用 `context-engine._buildSkillExec()` 取代硬編碼 systemPrompt |
 
 ---
 
@@ -129,7 +127,6 @@
 | **完整系統 Context** | ✅ 若自訂為空則自動用完整 context |
 | **功能專用設定檔** | 無 |
 | **後端路由** | `cron-jobs.mjs` → `runAgentLoop({ systemPrompt })` |
-| **⚠️ 待修** | 若 systemPrompt 為空，應自動 fetch `buildFullSystemContext()` |
 
 ---
 
@@ -144,8 +141,7 @@
 | **systemPrompt 來源** | `contextEngine.build({ target: "skill-exec" })` 完整 context |
 | **完整系統 Context** | ✅ 完整系統 context + SKILL.md + skill rules |
 | **功能專用設定檔** | SKILL.md 本身 |
-| **後端路由** | `cron-jobs.mjs` → `runAgentLoop({ prompt, skillMd })` |
-| **⚠️ 待修** | 應改用 `context-engine._buildSkillExec()` 取得完整 context |
+| **後端路由** | `cron-jobs.mjs` → `runAgentLoop({ prompt, skillMd, systemPrompt })` |
 
 ---
 
@@ -188,12 +184,11 @@
 | **前端頁面** | `VibeCodingIDE.tsx` |
 | **UI 元件** | SSE (Server-Sent Events) 串流 |
 | **Streaming** | ✅ SSE 串流 |
-| **Model 切換** | ❌ 硬編碼 `gpt-4o-mini` |
+| **Model 切換** | ❌ 用預設 provider（model 由 `POST /api/agent-run/stream` 的 model 參數決定） |
 | **systemPrompt 來源** | `GET /api/context/vibe-coding` → `buildFullSystemContext()` |
 | **完整系統 Context** | ✅ 完整系統 context |
 | **功能專用設定檔** | 無 |
 | **後端路由** | `cron-jobs.mjs` `POST /api/agent-run/stream` → `runAgentLoopStream()` |
-| **⚠️ 待修** | 需加 systemPrompt + ModelSelector |
 
 ---
 
@@ -225,7 +220,6 @@
 | **完整系統 Context** | ✅ 完整系統 context + 心智圖專用規則 |
 | **功能專用設定檔** | `mindmap/system-prompt.md` |
 | **後端路由** | `mindmap.mjs` → `callLLMWithRetry()` |
-| **⚠️ 待修** | 需加 `buildFullSystemContext()` 前綴 |
 
 ---
 
@@ -241,7 +235,6 @@
 | **完整系統 Context** | ✅ 完整系統 context + 筆記專用規則 |
 | **功能專用設定檔** | `notes/system-prompt.md` |
 | **後端路由** | `notes.mjs` → `callLLMWithRetry()` |
-| **⚠️ 待修** | 需加 `buildFullSystemContext()` 前綴 |
 
 ---
 
@@ -255,9 +248,8 @@
 | **Model 切換** | ❌ 用預設 provider |
 | **systemPrompt 來源** | `distill/system-prompt.md` + inline `distillPrompt`（per source） |
 | **完整系統 Context** | ✅ distill 專用 system prompt + source distillPrompt |
-| **功能專用設定檔** | 無（全部 inline 在 `distill.mjs`） |
+| **功能專用設定檔** | `distill/system-prompt.md`（新增） |
 | **後端路由** | `distill.mjs` → `callLLMWithRetry()` |
-| **⚠️ 待修** | distillPrompt 應抽出成 `data/ai-settings/distill/` 下的設定檔 |
 
 ---
 
@@ -269,11 +261,11 @@
 |------|------|------|---------------|
 | `_base/` | `core-rules.md` | PAAW 核心規則 | 所有功能（base context） |
 | `_base/` | `paaw-context.md` | PAAW 路徑與環境變數 | 所有功能（base context） |
-| `chat/` | `identity.md` | AI 人設（名字、風格、語氣） | Chat, SkillBuilder, SkillExec, Crew, VibeCoding, AppLab |
-| `chat/` | `tool-rules.md` | Tool 使用規則 | 同上 |
-| `chat/` | `guardrails.md` | 安全與執行限制 | 同上 |
-| `chat/` | `system-prompt.md` | 系統行為規範 | 同上 |
-| `chat/` | `reply-rules.md` | 回覆格式、App 連結規則 | 同上 |
+| `chat/` | `identity.md` | AI 人設（名字、風格、語氣） | 所有功能（via buildFullSystemContext） |
+| `chat/` | `tool-rules.md` | Tool 使用規則 | 所有功能 |
+| `chat/` | `guardrails.md` | 安全與執行限制 | 所有功能 |
+| `chat/` | `system-prompt.md` | 系統行為規範 | 所有功能 |
+| `chat/` | `reply-rules.md` | 回覆格式、App 連結規則 | 所有功能 |
 | `skill-builder/` | `builder-rules.md` | SKILL.md 建構規則 | Skill Builder |
 | `skill-builder/` | `test-rules.md` | Skill 測試規則 | Skill Builder |
 | `skill-builder/` | `skill-format.md` | SKILL.md 格式規範 | Skill Builder, ✨AI 生成 |
@@ -283,6 +275,7 @@
 | `notes/` | `system-prompt.md` | 筆記整理規則（萃取、結構化...） | Notes |
 | `project/` | `identity.md` | 專案管理 AI 人設 | Chat（project context） |
 | `project/` | `rules.md` | 專案管理規則 | Chat（project context） |
+| `distill/` | `system-prompt.md` | 蒸餾器規則 | Distill |
 
 ---
 
@@ -349,7 +342,7 @@
 |------|------|---------|
 | `GET /api/context/:target` | 取得任意 target 的完整系統 context | Employee, VibeCoding, AppLab |
 | `POST /api/ai-settings/skill-builder/build` | Skill Builder 專用（含 skillDef） | SkillBuilder |
-| `WebSocket /ws` | Chat 即時串流（systemPrompt 由前端傳入） | Chat, SkillBuilder, Crew, SkillLab |
+| `WebSocket /ws` | Chat 即時串流（systemPrompt 由前端傳入） | Chat, SkillBuilder, Crew |
 
 target 對照：`chat`, `skill-exec`, `workflow`, `crew`, `skill-builder`, `crew-chat`→crew, `vibe-coding`→chat, `app-builder`→chat, `employee`→crew, `mindmap`→chat, `notes`→chat
 
