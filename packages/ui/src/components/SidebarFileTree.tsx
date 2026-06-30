@@ -305,7 +305,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
       <button
         onClick={() => isDir ? onToggleDir(node.path) : onSelectFile(node.path)}
         onContextMenu={handleCtx}
-        className={cn("flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors")}
+        className={cn("flex w-full items-center pr-2 text-left text-[11px] leading-tight transition-colors")}
         style={{
           height: "22px",
           paddingLeft: `${BASE_INDENT}px`,
