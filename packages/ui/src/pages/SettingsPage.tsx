@@ -203,12 +203,17 @@ export default function SettingsPage() {
   const avatarSrc = avatarPreview || (profile?.assistantAvatar ? `${API_BASE}${profile.assistantAvatar}` : null);
 
   return (
-    <div className="h-full w-full overflow-y-auto p-6" style={{ backgroundColor: themeInfo.accentBg }}>
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-xl font-bold text-stone-800 mb-6">⚙️ 設定</h1>
+    <div className="h-full w-full flex-1 min-h-0 overflow-y-auto" style={{ backgroundColor: themeInfo.accentBg }}>
+      <div className="px-6 py-5 pb-24">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: "#1c1917" }}>⚙️ 設定</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#a8a29e" }}>系統設定與偏好管理。修改後即時生效。</p>
+          </div>
+        </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-stone-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 mb-6 bg-stone-100 p-1 rounded-xl w-fit flex-wrap">
           <button onClick={() => setTab("profile")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "profile" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             👤 個人資料
           </button>
