@@ -321,31 +321,30 @@ export const contextEngine = {
     return { systemPrompt: parts.join("\n\n"), provider };
   },
 
-  // ── Crew / Employee：base + dynamic + crew/ rules + rolePrompt ──
+  // ── Crew / Employee：base + dynamic + chat/ rules (behavior) + crew/ rules + tools + rolePrompt ──
   _buildCrew(params) {
     const { crewId } = params;
     const provider = loadProviderConfig();
+    const user = loadUserProfile();
+    const assistantName = user.assistantName || "林語晴";
+    const nickname = assistantName === "林語晴" ? "Sunny" : assistantName;
+
     const parts = [
       buildBaseContext(),
       buildDynamicContext(),
-      ...readCategoryFiles("crew"),
     ];
 
-    // crew/ 如果沒有 chat/ 的 identity 和 tool-rules，就附加（向後相容）
-    const crewHasIdentity = existsSync(resolve(AI_SETTINGS_DIR, "crew/identity.md"));
-    if (!crewHasIdentity) {
-      const identity = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
-      const user = loadUserProfile();
-      const assistantName = user.assistantName || "林語晴";
-      const nickname = assistantName === "林語晴" ? "Sunny" : assistantName;
-      if (identity) parts.push(identity.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
-      // Also bring tool-rules if crew doesn't have its own
-      const crewHasToolRules = existsSync(resolve(AI_SETTINGS_DIR, "crew/tool-rules.md"));
-      if (!crewHasToolRules) {
-        const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
-        if (toolRules) parts.push(resolvePaths(toolRules));
-      }
-    }
+    // Inherit ALL chat/ rules as base behavior (identity, tool-rules, guardrails, system-prompt, reply-rules, core-rules, paaw-context)
+    // Then layer crew/ rules on top. If crew/ has its own version of a file, it overrides chat/'s version.
+    const chatFiles = readCategoryFiles("chat");
+    const crewFiles = readCategoryFiles("crew");
+
+    // Replace {{assistantName}} and {{nickname}} in identity
+    const processedChat = chatFiles.map(f =>
+      f.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname)
+    );
+
+    parts.push(...processedChat, ...crewFiles);
 
     const tools = buildRuntimeTools();
     if (tools) parts.push(tools);
@@ -357,7 +356,7 @@ export const contextEngine = {
     return { systemPrompt: parts.join("\n\n"), provider, meta: { crew: crewData } };
   },
 
-  // ── Skill Exec：base + crew/ rules + app SYSTEM.md + skill prompt ──
+  // ── Skill Exec：base + chat/ rules + crew/ rules + app SYSTEM.md + skill prompt ──
   async _buildSkillExec(params) {
     const { appId, skillId, skillPath, input } = params;
     const provider = loadProviderConfig();
@@ -382,9 +381,10 @@ export const contextEngine = {
       }
     }
 
-    // System prompt: base + crew rules + app SYSTEM.md
+    // System prompt: base + chat rules (behavior) + crew rules (skill execution)
     const parts = [
       buildBaseContext(),
+      ...readCategoryFiles("chat"),
       ...readCategoryFiles("crew"),
     ];
     const appSystem = appId ? safeRead(resolve(APPS_DIR, appId, "SYSTEM.md")) : "";
@@ -393,7 +393,7 @@ export const contextEngine = {
     return { systemPrompt: parts.join("\n\n"), prompt, provider, meta: { skillMeta: meta } };
   },
 
-  // ── Workflow：base + crew/ rules + skill prompt（不重複呼叫） ──
+  // ── Workflow：base + chat/ rules + crew/ rules + skill prompt（不重複呼叫） ──
   async _buildWorkflow(params) {
     const { appId, skillId, skillPath, input } = params;
     const provider = loadProviderConfig();
@@ -422,6 +422,7 @@ export const contextEngine = {
 
     const parts = [
       buildBaseContext(),
+      ...readCategoryFiles("chat"),
       ...readCategoryFiles("crew"),
       "你是 PAAW Workflow 執行引擎。按照 Skill 定義逐步處理，確保每個步驟的輸出正確。",
     ];
