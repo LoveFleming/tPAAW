@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "id": "work-1782825008882",
+      "skillIds": [
+        "translate"
+      ],
+      "inputSummary": "/Users/steward/App/ai-factory-portal/myenglish.md, 解凍資金",
+      "cli": "paaw-agent",
+      "inputData": {
+        "output_path": "/Users/steward/App/ai-factory-portal/myenglish.md",
+        "_": "解凍資金",
+        "task": ""
+      },
+      "timestamp": "2026-06-30T13:10:08.882Z"
+    },
+    {
       "id": "work-1782824493131",
       "skillIds": [
         "translate"

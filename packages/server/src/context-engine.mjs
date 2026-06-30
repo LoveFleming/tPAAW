@@ -513,17 +513,17 @@ export const contextEngine = {
   // ── Crew: 角色版 context ───────────────────────────────
   async _buildCrew(params) {
     const { crewId } = params;
-    if (!crewId) return { systemPrompt: "" };
 
-    const crewData = safeReadJSON(resolve(DATA_DIR, "crews", `${crewId}.json`), null);
-    if (!crewData) return { systemPrompt: "" };
-
+    // Always include full system context, even if crew data is missing
     const { systemContext } = buildFullSystemContext();
     const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
 
     const parts = [systemContext];
     if (skillRules) parts.push(resolvePaths(skillRules));
-    if (crewData.rolePrompt) parts.push(crewData.rolePrompt);
+
+    // Append crew-specific rolePrompt if crew data exists
+    const crewData = crewId ? safeReadJSON(resolve(DATA_DIR, "crews", `${crewId}.json`), null) : null;
+    if (crewData && crewData.rolePrompt) parts.push(crewData.rolePrompt);
 
     return { systemPrompt: parts.join("\n\n"), meta: { crew: crewData } };
   },
