@@ -17,6 +17,7 @@ interface SkillForm {
   runner: "prompt" | "data" | "api" | "script";
   inputs: InputField[];
   purpose: string; steps: string; outputFormat: string;
+  errorHandling: string;
   guardrails: string; validation: string; systemPrompt: string;
   examples: string; notes: string;
   tags: string; visibility: "private" | "team" | "public";
@@ -30,7 +31,7 @@ import API_BASE from "../api";
 
 const EMPTY_FIELD: InputField = { id: "", label: "", description: "", placeholder: "", required: false, multiline: false };
 const DEFAULT_OUTPUT_FIELD: InputField = { id: "output_path", label: "輸出路徑", description: "Skill 執行結果的儲存路徑", placeholder: "例：output/report.html", required: true, multiline: false };
-const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [DEFAULT_OUTPUT_FIELD], purpose: "", steps: "", outputFormat: "", guardrails: "", validation: "", systemPrompt: "", examples: "", notes: "", tags: "", visibility: "private" };
+const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [DEFAULT_OUTPUT_FIELD], purpose: "", steps: "", outputFormat: "", errorHandling: "", guardrails: "", validation: "", systemPrompt: "", examples: "", notes: "", tags: "", visibility: "private" };
 
 // ── Helpers ──
 function buildPromptFromFields(form: SkillForm): string {
@@ -42,6 +43,7 @@ function buildPromptFromFields(form: SkillForm): string {
   }
   parts.push(`@@@steps@@@\n${form.steps || ""}`);
   parts.push(`@@@output@@@\n${form.outputFormat || ""}`);
+  parts.push(`@@@error_handling@@@\n${form.errorHandling || ""}`);
   parts.push(`@@@guardrails@@@\n${form.guardrails || ""}`);
   parts.push(`@@@examples@@@\n${form.examples || ""}`);
   parts.push(`@@@validation@@@\n${form.validation || ""}`);
@@ -90,6 +92,7 @@ function parseSkillMd(content: string): SkillForm {
     "@@@inputs@@@": "Inputs",
     "@@@steps@@@": "Steps",
     "@@@output@@@": "Output",
+    "@@@error_handling@@@": "Error_Handling",
     "@@@examples@@@": "Examples",
     "@@@guardrails@@@": "Guardrails",
     "@@@validation@@@": "Validation",
@@ -118,7 +121,7 @@ function parseSkillMd(content: string): SkillForm {
 
   // Also try legacy ## format for backward compatibility
   if (sections.size === 0) {
-    const KNOWN_SECTIONS = ["Purpose", "Inputs", "Steps", "Output", "Examples", "Guardrails", "Validation", "Notes"];
+    const KNOWN_SECTIONS = ["Purpose", "Inputs", "Steps", "Output", "Error_Handling", "Examples", "Guardrails", "Validation", "Notes"];
     const SECTION_SET = new Set(KNOWN_SECTIONS);
     let legacySection: string | null = null;
     let legacyBuffer: string[] = [];
@@ -143,6 +146,7 @@ function parseSkillMd(content: string): SkillForm {
   form.outputFormat = sections.get("Output") || "";
   form.examples = sections.get("Examples") || "";
   form.guardrails = sections.get("Guardrails") || "";
+  form.errorHandling = sections.get("Error_Handling") || "";
   form.validation = sections.get("Validation") || "";
   form.notes = sections.get("Notes") || "";
   return form;
@@ -311,6 +315,9 @@ export default function SkillBuilder() {
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "dirty">("saved");
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [newFileName, setNewFileName] = useState("");
+  const [showAIGen, setShowAIGen] = useState(false);
+  const [aiGenInput, setAiGenInput] = useState("");
+  const [aiGenLoading, setAiGenLoading] = useState(false);
   const [workingDir, setWorkingDir] = useState("");
 
   // Builder mode: visual (step cards) vs advanced (raw prompt)
@@ -449,6 +456,31 @@ export default function SkillBuilder() {
     newForm.inputs.forEach(inp => { initInputs[inp.id] = inp.id === "output_path" ? "" : ""; });
     setTestInputs(initInputs);
     setSaveStatus("saved"); setTab("builder");
+  };
+
+  // ── AI Generate: input requirement → fill form ──
+  const handleAIGenerate = async () => {
+    const req = aiGenInput.trim(); if (!req) return;
+    setAiGenLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/skills/ai-generate`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirement: req, model: model || undefined }),
+      });
+      const data = await res.json();
+      if (data.error) { alert("AI 生成失敗：" + data.error); return; }
+      const parsed = parseSkillMd(data.content || "");
+      setForm(parsed);
+      const inputs: Record<string, string> = {};
+      parsed.inputs.forEach(inp => { inputs[inp.id] = ""; });
+      setTestInputs(inputs);
+      triggerSave();
+      setShowAIGen(false); setAiGenInput("");
+    } catch (err: any) {
+      alert("AI 生成失敗：" + err.message);
+    } finally {
+      setAiGenLoading(false);
+    }
   };
 
   // ── Build: interactive Agent ──
@@ -619,6 +651,7 @@ ${userInputLines.join("\n")}
             })}
           </select>
           <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ background: accent }}>＋ New</button>
+          <button onClick={() => { setShowAIGen(true); setAiGenInput(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1" style={{ background: "transparent", color: accent, border: `1px solid ${accent}40` }}>✨ AI Generate</button>
           {saveStatus === "saving" && <span className="text-xs text-amber-500">💾</span>}
           {saveStatus === "saved" && selectedPath && <span className="text-xs text-green-500">✓</span>}
           {saveStatus === "dirty" && <span className="text-xs text-rose-500">●</span>}
@@ -651,6 +684,35 @@ ${userInputLines.join("\n")}
         </div>
       )}
 
+      {/* ── AI Generate Dialog ── */}
+      {showAIGen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => !aiGenLoading && setShowAIGen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-[480px] p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-stone-800 mb-1">✨ AI 產生 Skill</h3>
+            <p className="text-xs text-stone-500 mb-4">描述你的需求，AI 會照 PAAW Skill 格式自動產出完整的 SKILL.md</p>
+            <textarea
+              value={aiGenInput}
+              onChange={e => setAiGenInput(e.target.value)}
+              placeholder={"例：幫我每天搜集 AI 新聞，整理成中文摘要，並萃取 5 個英文單字\n例：分析 log 檔案，找出 error pattern，產生報告"}
+              rows={4}
+              className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none mb-3"
+              style={{ lineHeight: 1.6, "--tw-ring-color": accent + "40" } as React.CSSProperties}
+              autoFocus
+              disabled={aiGenLoading}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => { if (!aiGenLoading) { setShowAIGen(false); setAiGenInput(""); } }} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50" disabled={aiGenLoading}>{t("common.cancel")}</button>
+              <button onClick={handleAIGenerate} disabled={!aiGenInput.trim() || aiGenLoading}
+                className={cn("px-5 py-2 text-sm font-bold rounded-xl text-white flex items-center gap-2", aiGenInput.trim() && !aiGenLoading ? "hover:opacity-90" : "bg-stone-200 text-stone-400")}
+                style={aiGenInput.trim() && !aiGenLoading ? { background: accent } : {}}>
+                {aiGenLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {aiGenLoading ? "產生中..." : "✨ 產生 Skill"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Body ── */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
 
@@ -675,7 +737,7 @@ ${userInputLines.join("\n")}
               !selectedPath ? (
                 <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                   <span className="text-5xl">🔨</span>
-                  <div className="text-center"><p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p><p className="text-stone-400 text-sm mt-1">點 <strong style={{ color: accent }}>＋ New</strong> 或選擇已有的 build script</p></div>
+                  <div className="text-center"><p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p><p className="text-stone-400 text-sm mt-1">點 <strong style={{ color: accent }}>＋ New</strong> 或 <strong style={{ color: accent }}>✨ AI Generate</strong> 讓 AI 幫你產生</p></div>
                 </div>
               ) : (
                 <div className="p-5 space-y-4 pb-24">
@@ -759,16 +821,19 @@ ${userInputLines.join("\n")}
                   <StepCard number={4} icon="📋" title="Output" hint="輸出長什麼樣子？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder="描述你期望的輸出格式" rows={6} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={5} icon="📖" title="Examples" hint="使用範例" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={5} icon="⚠️" title="Error Handling" hint="出錯時怎麼辦？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.errorHandling} onChange={e => update("errorHandling", e.target.value)} placeholder={"列出可能發生的錯誤情境和處理方式：\n1. 輸入為空 → 回覆『請提供輸入內容』\n2. API 失敗 → 回覆『服務暫時無法使用』\n3. ..."} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  </StepCard>
+                  <StepCard number={6} icon="📖" title="Examples" hint="使用範例" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.examples} onChange={e => update("examples", e.target.value)} placeholder="列出這個 Skill 的使用情境或範例\n例：使用者說「幫我分析這個錯誤」→ AI 讀取錯誤訊息、產出根因報告" rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={6} icon="🛡️" title="Guardrails" hint="安全限制" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={7} icon="🛡️" title="Guardrails" hint="安全限制" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder="什麼不能做？什麼要特別小心？" rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={7} icon="✅" title="Validation" hint="怎麼確認結果正確？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={8} icon="✅" title="Validation" hint="怎麼確認結果正確？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder="怎麼驗證 AI 的輸出品質？" rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={8} icon="📝" title="Notes" hint="備註" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={9} icon="📝" title="Notes" hint="備註" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder="開發者備註或額外說明" rows={4} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   </>

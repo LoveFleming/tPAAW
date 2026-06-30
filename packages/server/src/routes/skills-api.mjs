@@ -361,5 +361,68 @@ export default async function skillsApiRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/skills/ai-generate — AI generates SKILL.md from requirement ──
+  if (req.method === "POST" && req.url?.match(/^\/api\/skills\/ai-generate(?:\?.*)?$/)) {
+    try {
+      const { requirement = "", model } = JSON.parse(await readBody(req));
+      if (!requirement.trim()) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "requirement is required" }));
+        return true;
+      }
+
+      const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
+
+      // Load skill format rules for consistent output
+      let skillFormat = "";
+      try {
+        const { readFile: rf } = await import("fs/promises");
+        const fmtPath = join(PAAW_ROOT, "data/ai-settings/skill-builder/skill-format.md");
+        skillFormat = await rf(fmtPath, "utf-8");
+      } catch {}
+
+      const systemPrompt = `你是 PAAW Skill 建構專家。根據使用者的一句話需求描述，產出完整的 SKILL.md 內容。
+
+${skillFormat ? `### Skill Format Rules\n${skillFormat}` : ""}
+
+### Output Rules
+- 輸出必須是完整的 SKILL.md 檔案內容，包含 YAML frontmatter 和 markdown body
+- frontmatter 必須包含: id, name, version, description, userInputs
+- body 必須包含以下 section（用 @@@section@@@ 分隔）：
+  @@@purpose@@@ — 這個 Skill 做什麼
+  @@@inputs@@@ — 需要什麼輸入（可省略，已在 frontmatter 定義）
+  @@@steps@@@ — 執行步驟
+  @@@output@@@ — 輸出格式
+  @@@error_handling@@@ — 錯誤處理
+  @@@guardrails@@@ — 安全限制
+  @@@validation@@@ — 驗證規則
+- 每個 section 都要寫實際內容，不要留空
+- 語言：繁體中文
+- id 用英文 kebab-case
+- 只輸出 SKILL.md 內容，不加任何解釋或 markdown code fence`;
+
+      const result = await runAgentLoop({
+        prompt: `請根據以下需求，產出完整的 SKILL.md：\n\n${requirement}`,
+        systemPrompt,
+        cwd: PAAW_ROOT,
+        maxTurns: 1,
+        timeout: 60,
+        model: model || undefined,
+        rootDir: PAAW_ROOT,
+      });
+
+      let content = (result.content || "").trim();
+      // Strip markdown code fences if AI wrapped output
+      content = content.replace(/^```(?:markdown|md)?\n?/m, "").replace(/\n?```$/m, "").trim();
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ content }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   return false;
 }
