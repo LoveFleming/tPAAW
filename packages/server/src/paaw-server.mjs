@@ -10,7 +10,11 @@
  */
 
 import { createServer } from "http";
-import { PORT, PAAW_ROOT, mkdir } from "./routes/shared.mjs";
+import {
+  PORT, PAAW_ROOT,
+  readdir, readFile, writeFile, mkdir,
+  resolve, dirname,
+} from "./routes/shared.mjs";
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
 
 // ── Lazy-loaded route modules (existing) ──
