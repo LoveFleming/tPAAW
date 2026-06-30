@@ -146,8 +146,39 @@ export default async function toolRegistryRoutes(req, res) {
     return true;
   }
 
+  // GET /api/tool-registry/skills — list generated skills (MUST be before :id)
+  if (req.method === "GET" && path === "/api/tool-registry/skills") {
+    const generated = await listGeneratedSkills();
+    const skills = [];
+    for (const id of generated) {
+      try {
+        const metaRaw = await readFile(resolve(TOOLS_DIR, id, "meta.json"), "utf-8");
+        skills.push(JSON.parse(metaRaw));
+      } catch {
+        skills.push({ routeId: id, name: id });
+      }
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ skills }));
+    return true;
+  }
+
+  // DELETE /api/tool-registry/skills/:id — remove generated skill (MUST be before :id)
+  if (req.method === "DELETE" && path.startsWith("/api/tool-registry/skills/")) {
+    const routeId = path.split("/").pop();
+    const skillDir = resolve(TOOLS_DIR, routeId);
+    try {
+      await unlink(resolve(skillDir, "SKILL.md"));
+      await unlink(resolve(skillDir, "meta.json"));
+      try { await unlink(skillDir); } catch {}
+    } catch {}
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return true;
+  }
+
   // GET /api/tool-registry/:id — single contract
-  if (req.method === "GET" && path.startsWith("/api/tool-registry/") && !path.endsWith("/generate") && !path.endsWith("/skills")) {
+  if (req.method === "GET" && path.startsWith("/api/tool-registry/")) {
     const routeId = path.split("/").pop();
     const contract = await loadContract(routeId);
     if (!contract) { res.writeHead(404); res.end(JSON.stringify({ error: "Not found" })); return true; }
@@ -210,38 +241,6 @@ export default async function toolRegistryRoutes(req, res) {
     
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, skillPath: meta.skillPath, skillMd }));
-    return true;
-  }
-
-  // GET /api/tool-registry/skills — list generated skills
-  if (req.method === "GET" && path === "/api/tool-registry/skills") {
-    const generated = await listGeneratedSkills();
-    const skills = [];
-    for (const id of generated) {
-      try {
-        const metaRaw = await readFile(resolve(TOOLS_DIR, id, "meta.json"), "utf-8");
-        skills.push(JSON.parse(metaRaw));
-      } catch {
-        skills.push({ routeId: id, name: id });
-      }
-    }
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ skills }));
-    return true;
-  }
-
-  // DELETE /api/tool-registry/skills/:id — remove generated skill
-  if (req.method === "DELETE" && path.startsWith("/api/tool-registry/skills/")) {
-    const routeId = path.split("/").pop();
-    const skillDir = resolve(TOOLS_DIR, routeId);
-    try {
-      await unlink(resolve(skillDir, "SKILL.md"));
-      await unlink(resolve(skillDir, "meta.json"));
-      // Try to remove dir (may fail if not empty)
-      try { await unlink(skillDir); } catch {}
-    } catch {}
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true }));
     return true;
   }
 

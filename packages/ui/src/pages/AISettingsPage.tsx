@@ -407,6 +407,26 @@ export default function AISettingsPage() {
                   </div>
                 </div>
                 <div className="px-4 py-3 space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium mb-1" style={{ color: "#57534e" }}>Provider ID</label>
+                      <input type="text" value={pid} onChange={e => {
+                        const newPid = e.target.value;
+                        if (newPid === pid) return;
+                        const { [pid]: removed, ...rest } = providerConfig.providers;
+                        const newCfg = { ...providerConfig, providers: { ...rest, [newPid]: { ...p } } };
+                        if (providerConfig.active === pid) newCfg.active = newPid;
+                        setProviderConfig(newCfg);
+                      }} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "#fafaf9", border: `1px solid ${cardBorder}`, fontFamily: mono }} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium mb-1" style={{ color: "#57534e" }}>Name</label>
+                      <input type="text" value={p.name} onChange={e => {
+                        const newCfg = { ...providerConfig, providers: { ...providerConfig.providers, [pid]: { ...p, name: e.target.value } } };
+                        setProviderConfig(newCfg);
+                      }} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "#fafaf9", border: `1px solid ${cardBorder}` }} />
+                    </div>
+                  </div>
                   <div>
                     <label className="block text-xs font-medium mb-1" style={{ color: "#57534e" }}>Base URL</label>
                     <input type="text" value={p.baseURL} onChange={e => {
