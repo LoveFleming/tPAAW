@@ -287,7 +287,15 @@ export default function AppLab() {
 
     // ── Advanced settings (collapsed by default) ──
     const [showAdvanced, setShowAdvanced] = useState(false);
-    const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
+    const [systemPrompt, setSystemPrompt] = useState("");
+
+    // Load full system context from API on mount
+    useEffect(() => {
+        fetch(`${API}/api/context/app-builder`)
+            .then(r => r.ok ? r.json() : null)
+            .then(ctx => { if (ctx?.systemPrompt) setSystemPrompt(ctx.systemPrompt); else setSystemPrompt(DEFAULT_PROMPT); })
+            .catch(() => setSystemPrompt(DEFAULT_PROMPT));
+    }, []);
 
     // ── Chat / Terminal state ──
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);

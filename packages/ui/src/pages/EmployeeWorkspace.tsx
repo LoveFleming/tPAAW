@@ -329,8 +329,38 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         }
         if (taskInput.trim()) labeledData["task"] = taskInput.trim();
         const allData = { ...dialogData, task: taskInput.trim() };
-        const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
-        setSystemPrompt(prompt);
+
+        // Fetch full system context from API, then append employee-specific parts
+        try {
+            const res = await fetch(`${API_BASE}/api/context/employee?crewId=${employee.id}`);
+            if (res.ok) {
+                const ctx = await res.json();
+                const baseSystem = ctx.systemPrompt || "";
+                // Append employee-specific parts on top of full system context
+                const employeeParts = [employee.rolePrompt || ""];
+                for (const skillId of selectedSkillIds) {
+                    const skillDef = skillDefinitions.get(skillId);
+                    if (skillDef) {
+                        employeeParts.push(`請使用 ${skillDef.name}\nskill path : ${paawRoot}/data/skills/physical-skill/${skillId}/SKILL.md`);
+                    }
+                }
+                if (Object.keys(labeledData).length > 0) {
+                    employeeParts.push("## 操作員提供的規格資料");
+                    for (const [key, value] of Object.entries(labeledData)) {
+                        if (value.trim()) employeeParts.push(`### ${key}\n${value}`);
+                    }
+                }
+                setSystemPrompt(baseSystem + "\n\n" + employeeParts.join("\n\n"));
+            } else {
+                // Fallback: use frontend buildSystemPrompt
+                const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
+                setSystemPrompt(prompt);
+            }
+        } catch {
+            const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
+            setSystemPrompt(prompt);
+        }
+
         setFormData(allData);
         setConsoleKey(prev => prev + 1);
         setChatStarted(true);

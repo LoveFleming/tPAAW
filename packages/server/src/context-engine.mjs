@@ -46,6 +46,115 @@ function safeReadJSON(filePath, fallback) {
 }
 
 // ══════════════════════════════════════════════════════════
+// Shared: Full System Context — 所有 AI 功能共用的系統 context
+// ══════════════════════════════════════════════════════════
+
+/** 組裝完整系統 context（identity, user, memory, apps, tools, guardrails 等）
+ *  跟 _buildChat 一樣的內容，讓所有 AI 功能共享 */
+function buildFullSystemContext() {
+  const user = loadUserProfile();
+  const memory = loadMemory();
+  const systemBase = loadSystemPrompt();
+  const guardrails = loadGuardrails();
+  const apps = loadAppInstructions();
+  const workspaces = loadWorkspaces();
+  const appRules = loadAppBuilderRules();
+  const providerConfig = loadProviderConfig();
+  const assistantName = user.assistantName || "林語晴";
+
+  const workspaceInfo = workspaces.length > 0
+    ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
+    : "";
+
+  const knowledgeInfo = `\n\n📚 Knowledge 目錄：${PAAW_ROOT}/data/knowledge\n使用 file_list({ path: "${PAAW_ROOT}/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "${PAAW_ROOT}/data/knowledge/檔名" }) 讀取檔案。`;
+
+  const parts = [];
+
+  // 0. Base context — PAAW runtime info + core rules (always first)
+  const baseCtx = loadBaseContext();
+  if (baseCtx) parts.push(baseCtx);
+
+  // 1. Identity
+  const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
+  const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
+  if (identityTpl) {
+    parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
+  }
+
+  // 2. User profile
+  parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}${workspaceInfo}${knowledgeInfo}`);
+
+  // 3. Memory
+  parts.push(`=== 你的長期記憶 (MEMORY.md) ===\n每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。\n${memory || "(記憶是空白的)"}`);
+
+  // 4. Apps
+  if (apps) parts.push(`=== 可用的 App ===\n${apps}\n\n📌 **App 連結規則：** 當回覆提到某個 App 時，加上可點擊的連結讓使用者直接開啟。\n格式：\`[顯示文字](#/app:app-id)\`\n範例：\`[📖 書籤管理](#/app:bookmarks)\`、\`[🎒 Pocket](#/app:pocket)\`\n只在相關時才加，不要每個回覆都塞連結。`);
+
+  // 4.1 Project 系統提示詞
+  const projectIdentity = safeRead(resolve(AI_SETTINGS_DIR, "project/identity.md"));
+  const projectRules = safeRead(resolve(AI_SETTINGS_DIR, "project/rules.md"));
+  if (projectIdentity || projectRules) {
+    const projectParts = ["=== 專案管理助理規則 ==="];
+    if (projectIdentity) projectParts.push(resolvePaths(projectIdentity));
+    if (projectRules) projectParts.push(resolvePaths(projectRules));
+    parts.push(projectParts.join("\n\n"));
+  }
+
+  // 4.5 Tool rules
+  const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
+  if (toolRules) {
+    parts.push(resolvePaths(toolRules));
+  } else {
+    parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具\n- Knowledge 目錄是固定的：file_read({ path: "檔名", workspace: "knowledge" })\n- Workspace 是外掛目錄：file_read({ path: "相對路徑", workspace: "目錄名" })`);
+  }
+
+  // 4.6 Skill 執行規則
+  const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
+  if (skillRules) parts.push(resolvePaths(skillRules));
+
+  // 5. App builder rules
+  if (appRules) parts.push(resolvePaths(`=== App 建構規則 ===\n當使用者想建新 App 或修改 App 時，遵循以下規則：\n${appRules}`));
+
+  // 6. System base + guardrails
+  if (systemBase) parts.push(resolvePaths(systemBase));
+  if (guardrails) parts.push(resolvePaths(guardrails));
+
+  // 7. Reply rules
+  const replyRules = loadReplyRules();
+  if (replyRules) parts.push(resolvePaths(replyRules));
+
+  // 7.5 API Tools
+  const apiTools = loadApiTools();
+  const generatedSkills = loadGeneratedSkills();
+  if (apiTools.length > 0 || generatedSkills.length > 0) {
+    const toolLines = [];
+    if (apiTools.length > 0) {
+      toolLines.push("=== 可用的系統工具 (System Tools) ===");
+      toolLines.push("你可以使用以下工具來完成任務。每個工具對應一個 API endpoint：");
+      toolLines.push("");
+      for (const t of apiTools) {
+        toolLines.push(`[${t.routeId}] ${t.route} — ${t.description || t.name}`);
+      }
+    }
+    if (generatedSkills.length > 0) {
+      toolLines.push("");
+      toolLines.push("=== 已產生的 Skill Tools ===");
+      for (const s of generatedSkills) {
+        toolLines.push(`[${s.routeId}] ${s.name} — ${s.route || ""}`);
+      }
+    }
+    toolLines.push("");
+    toolLines.push("使用規則：");
+    toolLines.push("- 當使用者要求操作檔案、Git、API 測試、Cron 等工作時，優先使用對應的系統工具");
+    toolLines.push("- 呼叫工具時，組裝正確的 API 請求並執行");
+    toolLines.push("- 如果沒有對應工具，告訴使用者可以透過 Settings > Tools 產生新工具");
+    parts.push(toolLines.join("\n"));
+  }
+
+  return { systemContext: parts.join("\n\n"), provider: providerConfig };
+}
+
+// ══════════════════════════════════════════════════════════
 // Context Sources — 每個來源獨立函數，方便維護
 // ══════════════════════════════════════════════════════════
 
@@ -330,117 +439,14 @@ export const contextEngine = {
   // ── Chat: 完整 context ────────────────────────────────
   // Profile + Memory + Apps + Guardrails + Recent Chats
   _buildChat(params) {
-    const user = loadUserProfile();
-    const memory = loadMemory();
-    const systemBase = loadSystemPrompt();
-    const guardrails = loadGuardrails();
-    const apps = loadAppInstructions();
-    const workspaces = loadWorkspaces();
+    const { systemContext, provider } = buildFullSystemContext();
     const recentChats = loadRecentChatSummary(3);
-    const appRules = loadAppBuilderRules();
-    const providerConfig = loadProviderConfig();
-    const assistantName = user.assistantName || "林語晴";
-
-    const workspaceInfo = workspaces.length > 0
-      ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
-      : "";
-
-    // Tell AI where config files are — it reads them itself to discover directories
-    // PAAW_ROOT is already injected into paaw-context.md via {{PAAW_ROOT}} placeholder
-    const knowledgeInfo = `\n\n📚 Knowledge 目錄：${PAAW_ROOT}/data/knowledge\n使用 file_list({ path: "${PAAW_ROOT}/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "${PAAW_ROOT}/data/knowledge/檔名" }) 讀取檔案。`;
-
-    const parts = [];
-
-    // 0. Base context — PAAW runtime info + core rules (always first)
-    const baseCtx = loadBaseContext();
-    if (baseCtx) parts.push(baseCtx);
-
-    // 1. Identity（從檔案讀取，支援模板變數）
-    const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
-    const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
-    if (identityTpl) {
-      parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
-    } else {
-      parts.push(`你是${assistantName}，一個友善、聰明的個人 AI 助理。大家都叫你 Sunny。你不只能聊天，還能幫使用者做事。你有工具可以操作各種 App。當使用者提出需要操作的請求時，使用對應的工具來完成。\n\n回答時使用繁體中文，技術術語保留英文。語氣親切專業，像一位值得信賴的同事。`);
-    }
-
-    // 2. User profile
-    parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}${workspaceInfo}${knowledgeInfo}`);
-
-    // 3. Memory
-    parts.push(`=== 你的長期記憶 (MEMORY.md) ===\n每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。\n${memory || "(記憶是空白的)"}`);
-
-    // 4. Apps
-    if (apps) parts.push(`=== 可用的 App ===\n${apps}\n\n📌 **App 連結規則：** 當回覆提到某個 App 時，加上可點擊的連結讓使用者直接開啟。\n格式：\`[顯示文字](#/app:app-id)\`\n範例：\`[📖 書籤管理](#/app:bookmarks)\`、\`[🎒 Pocket](#/app:pocket)\`\n只在相關時才加，不要每個回覆都塞連結。`);
-
-    // 4.1 Project 系統提示詞
-    const projectIdentity = safeRead(resolve(AI_SETTINGS_DIR, "project/identity.md"));
-    const projectRules = safeRead(resolve(AI_SETTINGS_DIR, "project/rules.md"));
-    if (projectIdentity || projectRules) {
-      const projectParts = ["=== 專案管理助理規則 ==="];
-      if (projectIdentity) projectParts.push(resolvePaths(projectIdentity));
-      if (projectRules) projectParts.push(resolvePaths(projectRules));
-      parts.push(projectParts.join("\n\n"));
-    }
-
-    // 4.5 Tool 使用規則（從檔案讀取，方便透過 API 編輯）
-    const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
-    if (toolRules) {
-      parts.push(resolvePaths(toolRules));
-    } else {
-      parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具（例如 fs_tree、fs_browse）\n- Knowledge 目錄是固定的：file_read({ path: "檔名", workspace: "knowledge" })\n- Workspace 是外掛目錄：file_read({ path: "相對路徑", workspace: "目錄名" })\n- 列出檔案：file_list({ workspace: "knowledge" }) 或 file_list({ workspace: "目錄名" })`);
-    }
-
-    // 4.6 Skill 執行規則（從 crew 分類讀取）
-    const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
-    if (skillRules) parts.push(resolvePaths(skillRules));
-
-    // 5. App builder rules
-    if (appRules) parts.push(resolvePaths(`=== App 建構規則 ===\n當使用者想建新 App 或修改 App 時，遵循以下規則：\n${appRules}`));
-
-    // 6. System base + guardrails
-    if (systemBase) parts.push(resolvePaths(systemBase));
-    if (guardrails) parts.push(resolvePaths(guardrails));
-
-    // 7. Reply rules
-    const replyRules = loadReplyRules();
-    if (replyRules) parts.push(resolvePaths(replyRules));
-
-    // 7.5 API Tools — 系統工具列表
-    const apiTools = loadApiTools();
-    const generatedSkills = loadGeneratedSkills();
-    if (apiTools.length > 0 || generatedSkills.length > 0) {
-      const toolLines = [];
-      if (apiTools.length > 0) {
-        toolLines.push("=== 可用的系統工具 (System Tools) ===");
-        toolLines.push("你可以使用以下工具來完成任務。每個工具對應一個 API endpoint：");
-        toolLines.push("");
-        for (const t of apiTools) {
-          toolLines.push(`[${t.routeId}] ${t.route} — ${t.description || t.name}`);
-        }
-      }
-      if (generatedSkills.length > 0) {
-        toolLines.push("");
-        toolLines.push("=== 已產生的 Skill Tools ===");
-        for (const s of generatedSkills) {
-          toolLines.push(`[${s.routeId}] ${s.name} — ${s.route || ""}`);
-        }
-      }
-      toolLines.push("");
-      toolLines.push("使用規則：");
-      toolLines.push("- 當使用者要求操作檔案、Git、API 測試、Cron 等工作時，優先使用對應的系統工具");
-      toolLines.push("- 呼叫工具時，組裝正確的 API 請求並執行");
-      toolLines.push("- 如果沒有對應工具，告訴使用者可以透過 Settings > Tools 產生新工具");
-      parts.push(toolLines.join("\n"));
-    }
-
-    // 8. Recent chats
-    if (recentChats) parts.push(`=== 最近對話摘要 ===\n${recentChats}`);
-
-    return {
-      systemPrompt: parts.join("\n\n"),
-      provider: providerConfig,
-    };
+    const extraParts = [];
+    if (recentChats) extraParts.push(`=== 最近對話摘要 ===\n${recentChats}`);
+    const systemPrompt = extraParts.length > 0
+      ? `${systemContext}\n\n${extraParts.join("\n\n")}`
+      : systemContext;
+    return { systemPrompt, provider };
   },
 
   // ── Skill Exec: 最小 context ──────────────────────────
@@ -473,30 +479,32 @@ export const contextEngine = {
       }
     }
 
-    // Load base context + app SYSTEM.md
-    const baseCtx = loadBaseContext();
+    // Full system context + app SYSTEM.md + skill-specific rules
+    const { systemContext, provider } = buildFullSystemContext();
     const appSystem = appId ? safeRead(resolve(APPS_DIR, appId, "SYSTEM.md")) : "";
+    const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
 
-    const baseParts = [];
-    if (baseCtx) baseParts.push(baseCtx);
-    if (appSystem) baseParts.push(appSystem);
-    baseParts.push("你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。");
-    const systemPrompt = appId
-      ? `${baseParts.join("\n\n")}（App: ${appId}）`
-      : baseParts.join("\n\n");
+    const parts = [systemContext];
+    if (appSystem) parts.push(resolvePaths(appSystem));
+    if (skillRules) parts.push(resolvePaths(skillRules));
+    parts.push("你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。");
+    if (appId) parts.push(`（App: ${appId}）`);
 
-    return { systemPrompt, prompt, meta: { skillMeta: meta } };
+    const systemPrompt = parts.join("\n\n");
+    return { systemPrompt, prompt, provider, meta: { skillMeta: meta } };
   },
 
   // ── Workflow: 中度 context ─────────────────────────────
   async _buildWorkflow(params) {
     const skillCtx = await this._buildSkillExec(params);
+    const { systemContext } = buildFullSystemContext();
+
     const workflowPrompt = skillCtx.prompt
-      ? `${skillCtx.systemPrompt}\n\n---\n\n${skillCtx.prompt}`
-      : skillCtx.systemPrompt;
+      ? `${skillCtx.prompt}`
+      : "";
 
     return {
-      systemPrompt: "你是 PAAW Workflow 執行引擎。按照 Skill 定義逐步處理，確保每個步驟的輸出正確。",
+      systemPrompt: `${systemContext}\n\n你是 PAAW Workflow 執行引擎。按照 Skill 定義逐步處理，確保每個步驟的輸出正確。\n\n${skillCtx.systemPrompt}`,
       prompt: workflowPrompt,
       meta: skillCtx.meta,
     };
@@ -510,101 +518,43 @@ export const contextEngine = {
     const crewData = safeReadJSON(resolve(DATA_DIR, "crews", `${crewId}.json`), null);
     if (!crewData) return { systemPrompt: "" };
 
-    // Crew 簡潔模式：只帶 base context + rolePrompt
-    // 執行 skill 時由 _buildSkillExec 處理，只帶 SKILL.md + user inputs
-    const parts = [];
+    const { systemContext } = buildFullSystemContext();
+    const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
 
-    const baseCtx = loadBaseContext();
-    if (baseCtx) parts.push(baseCtx);
-
+    const parts = [systemContext];
+    if (skillRules) parts.push(resolvePaths(skillRules));
     if (crewData.rolePrompt) parts.push(crewData.rolePrompt);
 
-    return { systemPrompt: parts.join("\n"), meta: { crew: crewData } };
+    return { systemPrompt: parts.join("\n\n"), meta: { crew: crewData } };
   },
 
   // ── Skill Builder: AI 設定 context ──────────────────────
   // 供 SkillBuilder CLI 用：格式規範 + 產出規則
   _buildSkillBuilder(params) {
     const { skillDef = "" } = params;
-    const parts = [];
 
-    // ── Chat base context (same as chat: identity, memory, tools, rules...) ──
-    const user = loadUserProfile();
-    const memory = loadMemory();
-    const systemBase = loadSystemPrompt();
-    const guardrails = loadGuardrails();
-    const apps = loadAppInstructions();
-    const appRules = loadAppBuilderRules();
-    const providerConfig = loadProviderConfig();
-    const assistantName = user.assistantName || "林語晴";
+    // Full system context (identity, memory, apps, tools, guardrails...)
+    const { systemContext, provider } = buildFullSystemContext();
 
-    // 0. Base context — PAAW runtime info + core rules (always first)
-    const baseCtx = loadBaseContext();
-    if (baseCtx) parts.push(baseCtx);
+    // ── Skill-builder specific context (from AI settings files) ──
+    const skillParts = [];
 
-    // 1. Identity
-    const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
-    const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
-    if (identityTpl) {
-      parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
-    }
-
-    // 2. User profile
-    parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}`);
-
-    // 3. Memory
-    parts.push(`=== 你的長期記憶 (MEMORY.md) ===\n${memory || "(記憶是空白的)"}`);
-
-    // 4. Apps (skill builder can call apps too)
-    if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
-
-    // 5. Tool rules
-    const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
-    if (toolRules) {
-      parts.push(resolvePaths(toolRules));
-    }
-
-    // 6. API Tools — 系統工具列表
-    const apiTools = loadApiTools();
-    const generatedSkills = loadGeneratedSkills();
-    if (apiTools.length > 0 || generatedSkills.length > 0) {
-      const toolLines = [];
-      if (apiTools.length > 0) {
-        toolLines.push("=== 可用的系統工具 (System Tools) ===");
-        toolLines.push("你可以使用以下工具來完成建構任務：");
-        for (const t of apiTools) {
-          toolLines.push(`[${t.routeId}] ${t.route} — ${t.description || t.name}`);
-        }
-      }
-      if (generatedSkills.length > 0) {
-        toolLines.push("");
-        toolLines.push("=== 已產生的 Skill Tools ===");
-        for (const s of generatedSkills) {
-          toolLines.push(`[${s.routeId}] ${s.name} — ${s.route || ""}`);
-        }
-      }
-      parts.push(toolLines.join("\n"));
-    }
-
-    // 7. App builder rules (skill builder can build apps too)
-    if (appRules) parts.push(resolvePaths(`=== App 建構規則 ===\n${appRules}`));
-
-    // 8. System base + guardrails
-    if (systemBase) parts.push(resolvePaths(systemBase));
-    if (guardrails) parts.push(resolvePaths(guardrails));
-
-    // ── Skill-builder specific context ──
     const skillFormat = loadSkillFormat();
-    if (skillFormat) parts.push(`### Skill Format\n${resolvePaths(skillFormat)}`);
+    if (skillFormat) skillParts.push(`### Skill Format\n${resolvePaths(skillFormat)}`);
 
     const builderRules = loadSkillBuilderRules();
-    if (builderRules) parts.push(`### Builder Rules\n${resolvePaths(builderRules)}`);
+    if (builderRules) skillParts.push(`### Builder Rules\n${resolvePaths(builderRules)}`);
+
+    const testRules = safeRead(resolve(AI_SETTINGS_DIR, "skill-builder/test-rules.md"));
+    if (testRules) skillParts.push(`### Test Rules\n${resolvePaths(testRules)}`);
 
     // ── Assemble ──
-    const systemPrompt = parts.join("\n\n");
+    const systemPrompt = skillParts.length > 0
+      ? `${systemContext}\n\n${skillParts.join("\n\n")}`
+      : systemContext;
     const prompt = `你是 PAAW Skill 建構專家。根據系統規則和使用者提供的 Skill 定義，產出完整的 SKILL.md。\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}`;
 
-    return { systemPrompt, prompt, provider: providerConfig };
+    return { systemPrompt, prompt, provider };
   },
 };
 

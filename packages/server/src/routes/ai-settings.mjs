@@ -113,6 +113,36 @@ export default async function aiSettingsRoutes(req, res) {
     return true;
   }
 
+  // GET /api/context/:target — get full system context for any AI target
+  // Targets: chat, skill-exec, workflow, crew, skill-builder, crew-chat, vibe-coding, app-builder
+  const ctxTargetMatch = req.method === "GET" && path.match(/^\/api\/context\/([\w-]+)$/);
+  if (ctxTargetMatch) {
+    try {
+      const target = ctxTargetMatch[1];
+      const { contextEngine } = await import("../context-engine.mjs");
+      // Map frontend target names to context-engine targets
+      const targetMap = {
+        "chat": "chat",
+        "skill-exec": "skill-exec",
+        "workflow": "workflow",
+        "crew": "crew",
+        "skill-builder": "skill-builder",
+        "crew-chat": "crew",
+        "vibe-coding": "chat",  // vibe-coding uses chat context
+        "app-builder": "chat",  // app-builder uses chat context
+        "employee": "crew",     // employee uses crew context
+        "mindmap": "chat",
+        "notes": "chat",
+      };
+      const engineTarget = targetMap[target] || "chat";
+      const ctx = await contextEngine.build({ target: engineTarget });
+      json(res, { systemPrompt: ctx.systemPrompt || "", prompt: ctx.prompt || "", provider: ctx.provider });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
   // GET /api/user/preferences — read user preferences (model overrides per feature)
   if (req.method === "GET" && path === "/api/user/preferences") {
     try {

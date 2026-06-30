@@ -159,12 +159,20 @@ export default function VibeCoding() {
     useEffect(() => { if (leftTab === "history") loadHistory(); }, [leftTab, loadHistory]);
 
     // ── Handlers ──
-    const createSession = useCallback(() => {
+    const createSession = useCallback(async () => {
         const id = `vibe-${Date.now()}`;
         const name = formName || `Session ${sessions.length + 1}`;
+        // If no custom systemPrompt, fetch from API
+        let sysPrompt = formSystemPrompt;
+        if (!sysPrompt.trim()) {
+            try {
+                const res = await fetch(`${API_BASE}/api/context/vibe-coding`);
+                if (res.ok) { const ctx = await res.json(); sysPrompt = ctx.systemPrompt || ""; }
+            } catch {}
+        }
         const session: AgentSession = {
             id, name, model: formModel, cwd: formCwd,
-            systemPrompt: formSystemPrompt,
+            systemPrompt: sysPrompt,
             createdAt: new Date().toISOString(),
             lastActive: new Date().toISOString(),
         };
