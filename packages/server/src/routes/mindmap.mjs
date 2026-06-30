@@ -126,10 +126,16 @@ function loadProviderConfig() {
 function resolveLLM(modelOverride) {
   const config = loadProviderConfig();
   if (!config) throw new Error("No provider config found");
-  const providerId = config.active;
+  let providerId = config.active;
+  let modelId = modelOverride || config.defaultModel || "glm-5.1";
+  if (modelOverride && modelOverride.includes("/")) {
+    const [pid, mid] = modelOverride.split("/", 2);
+    providerId = pid;
+    modelId = mid;
+  }
   const provider = config.providers?.[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
-  const model = modelOverride || config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
+  const model = modelId;
   const baseURL = provider.baseURL.replace(/\/+$/, "");
   const apiUrl = `${baseURL}/chat/completions`;
   const headers = {

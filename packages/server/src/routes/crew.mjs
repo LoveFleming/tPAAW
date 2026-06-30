@@ -203,14 +203,18 @@ export default async function crewRoute(req, res) {
     try {
       const { readFileSync: _rsf } = await import("fs");
       const providerConfig = JSON.parse(_rsf(resolve(PAAW_ROOT, "data/config/providers.json"), "utf-8"));
-      const providerId = providerConfig.active;
-      const provider = providerConfig.providers[providerId];
-      const models = (provider?.models || []).map(m => ({ id: m.id || m, name: m.name || m.id || m, current: m.id === providerConfig.defaultModel }));
+      const activeProviderId = providerConfig.active;
+      // Return ALL providers with their models (for ModelSelector dropdown)
+      const providers = Object.entries(providerConfig.providers || {}).map(([pid, p]) => ({
+        id: pid,
+        name: p.name || pid,
+        models: (p.models || []).map(m => ({ id: typeof m === "string" ? m : m.id, name: typeof m === "string" ? m : (m.name || m.id) })),
+      }));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ models, current: providerConfig.defaultModel, paawRoot: PAAW_ROOT }));
+      res.end(JSON.stringify({ providers, activeProviderId, current: providerConfig.defaultModel, defaultModel: providerConfig.defaultModel, paawRoot: PAAW_ROOT }));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ models: [], current: "", paawRoot: PAAW_ROOT }));
+      res.end(JSON.stringify({ providers: [], activeProviderId: "", current: "", defaultModel: "", paawRoot: PAAW_ROOT }));
     }
     return true;
   }

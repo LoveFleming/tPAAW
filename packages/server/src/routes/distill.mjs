@@ -154,14 +154,20 @@ import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride) {
   try {
     const providerConfig = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8"));
-    const providerId = providerConfig.active;
+    let providerId = providerConfig.active;
+    let model = modelOverride || providerConfig.defaultModel || "glm-5.1";
+    // Parse "providerId/modelId" format
+    if (modelOverride && modelOverride.includes("/")) {
+      const [pid, mid] = modelOverride.split("/", 2);
+      providerId = pid;
+      model = mid;
+    }
     const provider = providerConfig.providers[providerId];
     if (!provider?.apiKey || provider.apiKey === "na") {
       console.error("[distill] No API key configured");
       return null;
     }
 
-    const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
     const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
 
     const headers = {

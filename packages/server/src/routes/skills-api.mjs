@@ -382,11 +382,18 @@ export default async function skillsApiRoute(req, res) {
       let llm;
       try {
         const pCfg = JSON.parse(readSync(providerConfigPath, "utf-8"));
-        const provider = pCfg.providers[pCfg.active];
-        const llmModel = model || pCfg.defaultModel || provider?.models?.[0]?.id || "glm-5.1";
+        let providerId = pCfg.active;
+        let llmModel = model || pCfg.defaultModel || "glm-5.1";
+        // Parse "providerId/modelId" format
+        if (model && model.includes("/")) {
+          const [pid, mid] = model.split("/", 2);
+          providerId = pid;
+          llmModel = mid;
+        }
+        const provider = pCfg.providers[providerId];
         const baseURL = provider.baseURL.replace(/\/+$/, "");
         const headers = { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` };
-        if (pCfg.active === "openrouter") { headers["HTTP-Referer"] = "https://paaw.ai"; headers["X-Title"] = "PAAW"; }
+        if (providerId === "openrouter") { headers["HTTP-Referer"] = "https://paaw.ai"; headers["X-Title"] = "PAAW"; }
         llm = { apiUrl: `${baseURL}/chat/completions`, headers, model: llmModel };
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });

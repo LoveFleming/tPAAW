@@ -65,11 +65,18 @@ function resolveLLMConfig(rootDir, modelOverride) {
   const config = loadProviderConfig(rootDir);
   if (!config) throw new Error("No provider config found");
 
-  const providerId = config.active;
+  // Parse "providerId/modelId" format (from ModelSelector)
+  let providerId = config.active;
+  let model = modelOverride || config.defaultModel || "glm-5.1";
+  if (modelOverride && modelOverride.includes("/")) {
+    const [pid, mid] = modelOverride.split("/", 2);
+    providerId = pid;
+    model = mid;
+  }
+
   const provider = config.providers[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
 
-  const model = modelOverride || config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
   const baseURL = provider.baseURL.replace(/\/+$/, "");
   const apiUrl = `${baseURL}/chat/completions`;
 
