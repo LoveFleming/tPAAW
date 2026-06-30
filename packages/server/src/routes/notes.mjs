@@ -95,7 +95,7 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
   let systemPrompt = getSystemPrompt();
   try {
     const { contextEngine } = await import("../context-engine.mjs");
-    const ctx = await contextEngine.build({ target: "chat" });
+    const ctx = await contextEngine.build({ target: "notes" });
     systemPrompt = (ctx.systemPrompt || "") + "\n\n" + systemPrompt;
   } catch {}
 

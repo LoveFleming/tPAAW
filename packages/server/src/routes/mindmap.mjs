@@ -159,8 +159,8 @@ async function generateMindMap(userPrompt, content, modelOverride) {
   let systemPrompt = getSystemPrompt();
   try {
     const { contextEngine } = await import("../context-engine.mjs");
-    const ctx = await contextEngine.build({ target: "chat" });
-    systemPrompt = (ctx.systemPrompt || "") + "\n\n" + systemPrompt;
+    const ctx = await contextEngine.build({ target: "mindmap" });
+    systemPrompt = ctx.systemPrompt || systemPrompt;
   } catch {}
 
   const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {

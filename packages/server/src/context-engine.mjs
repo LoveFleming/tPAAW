@@ -1,19 +1,22 @@
 /**
  * PAAW Context Engine — 統一的 context 組裝器
  *
- * 所有介面（chat、skill-exec、workflow、crew）都透過這裡拿 context。
- * 一處定義，到處使用。
+ * 架構：
+ *   [Hardcoded Base]  只有 Knowledge + Workspace 路徑（不可編輯）
+ *   [Category Rules]  各 AI 功能從自己的 category 目錄讀 .md 檔
+ *   [Dynamic Data]    User Profile + MEMORY.md + Apps（runtime 載入）
+ *   [Runtime Tools]   API Tools + Generated Skills（有才加）
  *
  * 用法：
  *   const ctx = await contextEngine.build({ target: "chat" });
- *   const ctx = await contextEngine.build({ target: "skill-exec", appId, skillId, input });
  *   const ctx = await contextEngine.build({ target: "crew", crewId });
+ *   const ctx = await contextEngine.build({ target: "skill-exec", skillPath, input });
  *
  * 回傳：{ systemPrompt, prompt?, provider?, meta? }
  */
 
 import { readFileSync, readdirSync, existsSync } from "fs";
-import { resolve, join } from "path";
+import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
@@ -28,228 +31,172 @@ const APPS_DIR = resolve(DATA_DIR, "apps");
 const CHAT_DIR = resolve(DATA_DIR, "chats");
 const SKILL_POOL_DIR = resolve(DATA_DIR, "skills/physical-skill");
 const AI_SETTINGS_DIR = resolve(DATA_DIR, "ai-settings");
-const BASE_SETTINGS_DIR = resolve(AI_SETTINGS_DIR, "_base");
 
-// ── Helpers ──
+// ══════════════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════════════
+
 function safeRead(filePath) {
   try { return readFileSync(filePath, "utf-8"); } catch { return ""; }
-}
-
-/** Replace {{PAAW_ROOT}} placeholder with absolute path */
-function resolvePaths(text) {
-  if (!text) return text;
-  return text.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT);
 }
 
 function safeReadJSON(filePath, fallback) {
   try { return JSON.parse(readFileSync(filePath, "utf-8")); } catch { return fallback; }
 }
 
-// ══════════════════════════════════════════════════════════
-// Shared: Full System Context — 所有 AI 功能共用的系統 context
-// ══════════════════════════════════════════════════════════
-
-/** 組裝完整系統 context（identity, user, memory, apps, tools, guardrails 等）
- *  跟 _buildChat 一樣的內容，讓所有 AI 功能共享 */
-function buildFullSystemContext() {
-  const user = loadUserProfile();
-  const memory = loadMemory();
-  const systemBase = loadSystemPrompt();
-  const guardrails = loadGuardrails();
-  const apps = loadAppInstructions();
-  const workspaces = loadWorkspaces();
-  const appRules = loadAppBuilderRules();
-  const providerConfig = loadProviderConfig();
-  const assistantName = user.assistantName || "林語晴";
-
-  const workspaceInfo = workspaces.length > 0
-    ? `\n\n使用者的 Workspace 目錄：\n${workspaces.map(d => `- ${d}`).join("\n")}`
-    : "";
-
-  const knowledgeInfo = `\n\n📚 Knowledge 目錄：${PAAW_ROOT}/data/knowledge\n使用 file_list({ path: "${PAAW_ROOT}/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "${PAAW_ROOT}/data/knowledge/檔名" }) 讀取檔案。`;
-
-  const parts = [];
-
-  // 0. Base context — PAAW runtime info + core rules (always first)
-  const baseCtx = loadBaseContext();
-  if (baseCtx) parts.push(baseCtx);
-
-  // 1. Identity
-  const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
-  const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
-  if (identityTpl) {
-    parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
-  }
-
-  // 2. User profile
-  parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}${workspaceInfo}${knowledgeInfo}`);
-
-  // 3. Memory
-  parts.push(`=== 你的長期記憶 (MEMORY.md) ===\n每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。\n${memory || "(記憶是空白的)"}`);
-
-  // 4. Apps
-  if (apps) parts.push(`=== 可用的 App ===\n${apps}\n\n📌 **App 連結規則：** 當回覆提到某個 App 時，加上可點擊的連結讓使用者直接開啟。\n格式：\`[顯示文字](#/app:app-id)\`\n範例：\`[📖 書籤管理](#/app:bookmarks)\`、\`[🎒 Pocket](#/app:pocket)\`\n只在相關時才加，不要每個回覆都塞連結。`);
-
-  // 4.1 Project 系統提示詞
-  const projectIdentity = safeRead(resolve(AI_SETTINGS_DIR, "project/identity.md"));
-  const projectRules = safeRead(resolve(AI_SETTINGS_DIR, "project/rules.md"));
-  if (projectIdentity || projectRules) {
-    const projectParts = ["=== 專案管理助理規則 ==="];
-    if (projectIdentity) projectParts.push(resolvePaths(projectIdentity));
-    if (projectRules) projectParts.push(resolvePaths(projectRules));
-    parts.push(projectParts.join("\n\n"));
-  }
-
-  // 4.5 Tool rules
-  const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
-  if (toolRules) {
-    parts.push(resolvePaths(toolRules));
-  } else {
-    parts.push(`=== Tool 使用規則 ===\n- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果\n- 工具回傳的資料就是真實資料，不要自己創造\n- 只能使用已定義的工具，不要嘗試不存在的工具\n- Knowledge 目錄是固定的：file_read({ path: "檔名", workspace: "knowledge" })\n- Workspace 是外掛目錄：file_read({ path: "相對路徑", workspace: "目錄名" })`);
-  }
-
-  // 4.6 Skill 執行規則
-  const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
-  if (skillRules) parts.push(resolvePaths(skillRules));
-
-  // 5. App builder rules
-  if (appRules) parts.push(resolvePaths(`=== App 建構規則 ===\n當使用者想建新 App 或修改 App 時，遵循以下規則：\n${appRules}`));
-
-  // 6. System base + guardrails
-  if (systemBase) parts.push(resolvePaths(systemBase));
-  if (guardrails) parts.push(resolvePaths(guardrails));
-
-  // 7. Reply rules
-  const replyRules = loadReplyRules();
-  if (replyRules) parts.push(resolvePaths(replyRules));
-
-  // 7.5 API Tools
-  const apiTools = loadApiTools();
-  const generatedSkills = loadGeneratedSkills();
-  if (apiTools.length > 0 || generatedSkills.length > 0) {
-    const toolLines = [];
-    if (apiTools.length > 0) {
-      toolLines.push("=== 可用的系統工具 (System Tools) ===");
-      toolLines.push("你可以使用以下工具來完成任務。每個工具對應一個 API endpoint：");
-      toolLines.push("");
-      for (const t of apiTools) {
-        toolLines.push(`[${t.routeId}] ${t.route} — ${t.description || t.name}`);
-      }
-    }
-    if (generatedSkills.length > 0) {
-      toolLines.push("");
-      toolLines.push("=== 已產生的 Skill Tools ===");
-      for (const s of generatedSkills) {
-        toolLines.push(`[${s.routeId}] ${s.name} — ${s.route || ""}`);
-      }
-    }
-    toolLines.push("");
-    toolLines.push("使用規則：");
-    toolLines.push("- 當使用者要求操作檔案、Git、API 測試、Cron 等工作時，優先使用對應的系統工具");
-    toolLines.push("- 呼叫工具時，組裝正確的 API 請求並執行");
-    toolLines.push("- 如果沒有對應工具，告訴使用者可以透過 Settings > Tools 產生新工具");
-    parts.push(toolLines.join("\n"));
-  }
-
-  return { systemContext: parts.join("\n\n"), provider: providerConfig };
+function resolvePaths(text) {
+  if (!text) return text;
+  return text.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT);
 }
 
 // ══════════════════════════════════════════════════════════
-// Context Sources — 每個來源獨立函數，方便維護
+// Layer 0: Hardcoded Base — 不可編輯，只有路徑
 // ══════════════════════════════════════════════════════════
 
-/** 使用者 profile */
+function buildBaseContext() {
+  const workspaces = loadWorkspaces();
+  const knowledgePath = `${PAAW_ROOT}/data/knowledge`;
+
+  const lines = [
+    `=== 系統路徑（不可修改） ===`,
+    `📚 Knowledge 目錄：${knowledgePath}`,
+    `使用 file_list({ path: "${knowledgePath}", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "${knowledgePath}/檔名" }) 讀取檔案。`,
+  ];
+
+  if (workspaces.length > 0) {
+    lines.push("", "使用者的 Workspace 目錄：");
+    for (const d of workspaces) lines.push(`- ${d}`);
+  }
+
+  return lines.join("\n");
+}
+
+// ══════════════════════════════════════════════════════════
+// Layer 1: Category Rules — 讀取 category 目錄下所有 .md 檔
+// ══════════════════════════════════════════════════════════
+
+/** 讀取指定 category 目錄下所有 .md 檔，按檔名排序，回傳字串陣列 */
+function readCategoryFiles(categoryName) {
+  const dir = resolve(AI_SETTINGS_DIR, categoryName);
+  if (!existsSync(dir)) return [];
+  try {
+    const files = readdirSync(dir)
+      .filter(f => f.endsWith(".md"))
+      .sort();
+    return files
+      .map(f => {
+        const content = safeRead(resolve(dir, f));
+        return content ? resolvePaths(content) : null;
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// Layer 2: Dynamic Data — runtime 載入，不是 rule
+// ══════════════════════════════════════════════════════════
+
 function loadUserProfile() {
   return safeReadJSON(resolve(CONFIG_DIR, "user.json"), {
-    name: "使用者",
-    intro: "",
-    style: "casual",
-    assistantName: "林語晴",
+    name: "使用者", intro: "", style: "casual", assistantName: "林語晴",
   });
 }
 
-/** MEMORY.md 長期記憶 */
 function loadMemory() {
   return safeRead(resolve(CONFIG_DIR, "MEMORY.md")) || safeRead(resolve(DATA_DIR, "MEMORY.md"));
 }
 
-/** System prompt（通用） */
-function loadSystemPrompt() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "chat/system-prompt.md"));
-}
-
-/** Base context — 每個 AI request 都帶 */
-function loadBaseContext() {
-  const parts = [];
-  const paawCtx = safeRead(resolve(BASE_SETTINGS_DIR, "paaw-context.md"));
-  if (paawCtx) parts.push(resolvePaths(paawCtx));
-  const coreRules = safeRead(resolve(BASE_SETTINGS_DIR, "core-rules.md"));
-  if (coreRules) parts.push(resolvePaths(coreRules));
-  return parts.join("\n\n");
-}
-
-/** Guardrails */
-function loadGuardrails() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "chat/guardrails.md"));
-}
-
-/** App 建構規則 */
-function loadAppBuilderRules() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "app-builder/app-builder-rules.md"));
-}
-
-/** Skill Builder 格式定義 */
-function loadSkillFormat() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "skill-builder/skill-format.md"));
-}
-
-/** Skill Builder 產出規則 */
-function loadSkillBuilderRules() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "skill-builder/builder-rules.md"));
-}
-
-/** Reply Rules */
-function loadReplyRules() {
-  return safeRead(resolve(AI_SETTINGS_DIR, "chat/reply-rules.md"));
-}
-
-/** Workspaces */
 function loadWorkspaces() {
   const ws = safeReadJSON(resolve(DATA_DIR, "workspaces.json"), { directories: [] });
   return ws.directories || [];
 }
 
-/** Knowledge directory (fixed path) */
-function loadKnowledgeDirs() {
-  return [resolve(DATA_DIR, "knowledge")];
+function loadProviderConfig() {
+  const config = safeReadJSON(resolve(CONFIG_DIR, "providers.json"), { active: "zai", providers: {} });
+  const providers = config.providers || {};
+  const activeId = config.active || Object.keys(providers)[0] || "";
+  const provider = providers[activeId] || {};
+  const model = config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
+  return { providerId: activeId, provider, model };
 }
 
-/** Knowledge files listing */
-function loadKnowledgeFiles() {
-  const files = [];
-  const knowledgeDirs = loadKnowledgeDirs();
-  for (const knowledgeDir of knowledgeDirs) {
-    const label = knowledgeDirs.length > 1 ? `[${knowledgeDir.split("/").pop()}] ` : "";
-    try {
-      const entries = readdirSync(knowledgeDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".txt") || entry.name.endsWith(".json"))) {
-          files.push(`${label}${entry.name}`);
-        } else if (entry.isDirectory()) {
-          try {
-            const sub = readdirSync(resolve(knowledgeDir, entry.name), { withFileTypes: true });
-            for (const s of sub) {
-              if (s.isFile()) files.push(`${label}${entry.name}/${s.name}`);
-            }
-          } catch {}
+/** 動態資料：使用者資訊 + 記憶 + Apps */
+function buildDynamicContext() {
+  const user = loadUserProfile();
+  const memory = loadMemory();
+  const apps = loadAppInstructions();
+  const assistantName = user.assistantName || "林語晴";
+
+  const parts = [];
+
+  // 使用者資訊
+  parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}`);
+
+  // 記憶
+  parts.push(`=== 長期記憶 (MEMORY.md) ===\n${memory || "(記憶是空白的)"}`);
+
+  // Apps
+  if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
+
+  return parts.join("\n\n");
+}
+
+// ══════════════════════════════════════════════════════════
+// Layer 3: Runtime Tools — API Tools + Generated Skills
+// ══════════════════════════════════════════════════════════
+
+function loadApiTools() {
+  const registryDir = resolve(DATA_DIR, "api-registry");
+  try {
+    const files = readdirSync(registryDir).filter(f => f.endsWith(".json") && !f.startsWith("_"));
+    const tools = [];
+    for (const f of files) {
+      try {
+        const contract = JSON.parse(readFileSync(resolve(registryDir, f), "utf-8"));
+        if (contract.enabled && contract.autoTool) {
+          tools.push({ routeId: contract.routeId, name: contract.name, route: contract.route, description: contract.description });
         }
-      }
-    } catch {}
-  }
-  return files;
+      } catch {}
+    }
+    return tools;
+  } catch { return []; }
 }
 
-/** Check if a field is required in the app schema */
+function loadGeneratedSkills() {
+  const toolsDir = resolve(DATA_DIR, "skills/tools");
+  try {
+    return readdirSync(toolsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => {
+        try { return JSON.parse(readFileSync(resolve(toolsDir, d.name, "meta.json"), "utf-8")); }
+        catch { return { routeId: d.name, name: d.name }; }
+      });
+  } catch { return []; }
+}
+
+function buildRuntimeTools() {
+  const apiTools = loadApiTools();
+  const generatedSkills = loadGeneratedSkills();
+  if (apiTools.length === 0 && generatedSkills.length === 0) return "";
+
+  const lines = [];
+  if (apiTools.length > 0) {
+    lines.push("=== 可用的系統工具 (System Tools) ===");
+    for (const t of apiTools) lines.push(`[${t.routeId}] ${t.route} — ${t.description || t.name}`);
+  }
+  if (generatedSkills.length > 0) {
+    lines.push("", "=== 已產生的 Skill Tools ===");
+    for (const s of generatedSkills) lines.push(`[${s.routeId}] ${s.name} — ${s.route || ""}`);
+  }
+  return lines.join("\n");
+}
+
+// ══════════════════════════════════════════════════════════
+// Shared Loaders — Apps, Recent Chats, Skill parsing
+// ══════════════════════════════════════════════════════════
+
 function checkFieldRequired(schema, fieldName) {
   if (!schema) return false;
   if (Array.isArray(schema.required) && schema.required.includes(fieldName)) return true;
@@ -261,7 +208,6 @@ function checkFieldRequired(schema, fieldName) {
   return false;
 }
 
-/** App 清單 + instructions */
 function loadAppInstructions() {
   if (!existsSync(APPS_DIR)) return "";
   const apps = [];
@@ -274,89 +220,57 @@ function loadAppInstructions() {
         const appId = meta.id || entry.name;
         const desc = meta.description ? ` — ${meta.description}` : "";
         const triggers = meta.triggers?.length ? ` [觸發：${meta.triggers.join(", ")}]` : "";
-        const hint = meta.aiPrompt ? `
-  > ${meta.aiPrompt}` : "";
         let tools = "";
-        // Build field descriptions for data tools
         let fieldInfo = "";
         if (meta.schema) {
           const allProps = { ...(meta.schema.properties || {}) };
           if (Array.isArray(meta.schema.oneOf)) {
             for (const v of meta.schema.oneOf) {
-              if (v.properties) {
-                for (const [k, val] of Object.entries(v.properties)) {
-                  if (!(k in (meta.schema.properties || {}))) allProps[k] = val;
-                }
-              }
+              if (v.properties) for (const [k, val] of Object.entries(v.properties)) if (!(k in (meta.schema.properties || {}))) allProps[k] = val;
             }
           }
-          const entries = Object.entries(allProps);
-          if (entries.length > 0) {
+          const fieldEntries = Object.entries(allProps);
+          if (fieldEntries.length > 0) {
             const parts = [];
-            for (const [name, def] of entries) {
+            for (const [name, def] of fieldEntries) {
               const label = def.label || name;
               const req = checkFieldRequired(meta.schema, name) ? " (必填)" : "";
-              const typeLabel = def.type || (def.const ? "fixed" : "string");
               const opts = def.enum ? ` [${def.enum.join("|")}]` : def.const ? ` [=${def.const}]` : "";
-              parts.push(`${label}${req}${opts ? opts : ""}`);
+              parts.push(`${label}${req}${opts}`);
             }
             fieldInfo = ` \n    可用欄位：${parts.join(", ")}`;
           }
         }
-        if (meta.type === "skill-based") {
-          tools = `\n  - 工具：${appId}_exec（執行 Skill + CLI）`;
-        } else if (meta.dataShape === "object") {
-          tools = `\n  - 工具：${appId}_get（讀取）, ${appId}_set（寫入）${fieldInfo}`;
-        } else {
-          tools = `\n  - 工具：${appId}_add（新增）, ${appId}_list（列表/搜尋）, ${appId}_get（單筆）, ${appId}_update（更新）, ${appId}_delete（刪除）${fieldInfo}`;
-        }
-        apps.push(`- **${meta.name || appId}** (${appId})${desc}${triggers}${hint}${tools}`);
+        if (meta.type === "skill-based") tools = `\n  - 工具：${appId}_exec（執行 Skill + CLI）`;
+        else if (meta.dataShape === "object") tools = `\n  - 工具：${appId}_get（讀取）, ${appId}_set（寫入）${fieldInfo}`;
+        else tools = `\n  - 工具：${appId}_add（新增）, ${appId}_list（列表/搜尋）, ${appId}_get（單筆）, ${appId}_update（更新）, ${appId}_delete（刪除）${fieldInfo}`;
+        apps.push(`- **${meta.name || appId}** (${appId})${desc}${triggers}${tools}`);
       }
     }
     apps.unshift("- **App List** (app_list) — 列出所有可用的 App");
-    apps.unshift("📦 **App 系統**：使用 app_list 工具查詢所有 App。新增 App 用 app_create。編輯用 app_edit。");
   } catch {}
   return apps.length > 0 ? `以下是已安裝的 App：\n${apps.join("\n")}` : "";
 }
 
-/** 最近對話摘要 */
 function loadRecentChatSummary(maxChats) {
   if (!existsSync(CHAT_DIR)) return "";
   const summaries = [];
   try {
-    const files = readdirSync(CHAT_DIR)
-      .filter(f => f.endsWith(".json"))
-      .sort()
-      .reverse()
-      .slice(0, maxChats || 3);
+    const files = readdirSync(CHAT_DIR).filter(f => f.endsWith(".json")).sort().reverse().slice(0, maxChats || 3);
     for (const f of files) {
       try {
         const chat = JSON.parse(readFileSync(resolve(CHAT_DIR, f), "utf-8"));
         if (chat.messages?.length > 0) {
           const lastMsgs = chat.messages.slice(-4);
-          const summary = lastMsgs
-            .map(m => `${m.role === "user" ? "👤" : "🤖"} ${String(m.content).slice(0, 100)}`)
-            .join("\n");
+          const summary = lastMsgs.map(m => `${m.role === "user" ? "👤" : "🤖"} ${String(m.content).slice(0, 100)}`).join("\n");
           summaries.push(`### ${chat.title || "對話"}\n${summary}`);
         }
       } catch {}
     }
   } catch {}
-  if (summaries.length === 0) return "";
-  return `以下是你和使用者最近的對話，幫助你延續記憶。不要重複提及，除非使用者問起。\n\n${summaries.join("\n\n")}`;
+  return summaries.length > 0 ? `以下是你和使用者最近的對話：\n\n${summaries.join("\n\n")}` : "";
 }
 
-/** Provider config */
-function loadProviderConfig() {
-  const config = safeReadJSON(resolve(CONFIG_DIR, "providers.json"), { active: "zai", providers: {} });
-  const providers = config.providers || {};
-  const activeId = config.active || Object.keys(providers)[0] || "";
-  const provider = providers[activeId] || {};
-  const model = config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
-  return { providerId: activeId, provider, model };
-}
-
-/** Skill frontmatter parsing */
 function parseSkillFrontmatter(content) {
   const meta = {};
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
@@ -369,62 +283,11 @@ function parseSkillFrontmatter(content) {
   return { meta, body };
 }
 
-/** API Tool Registry — 已啟用的系統工具 */
-function loadApiTools() {
-  const registryDir = resolve(DATA_DIR, "api-registry");
-  try {
-    const files = readdirSync(registryDir).filter(f => f.endsWith(".json") && !f.startsWith("_"));
-    const tools = [];
-    for (const f of files) {
-      try {
-        const contract = JSON.parse(readFileSync(resolve(registryDir, f), "utf-8"));
-        if (contract.enabled && contract.autoTool) {
-          tools.push({
-            routeId: contract.routeId,
-            name: contract.name,
-            route: contract.route,
-            description: contract.description,
-            category: contract.category,
-          });
-        }
-      } catch {}
-    }
-    return tools;
-  } catch {
-    return [];
-  }
-}
-
-/** 已產生的 Skill Tools */
-function loadGeneratedSkills() {
-  const toolsDir = resolve(DATA_DIR, "skills/tools");
-  try {
-    const dirs = readdirSync(toolsDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name);
-    const skills = [];
-    for (const id of dirs) {
-      try {
-        const meta = JSON.parse(readFileSync(resolve(toolsDir, id, "meta.json"), "utf-8"));
-        skills.push(meta);
-      } catch {
-        skills.push({ routeId: id, name: id });
-      }
-    }
-    return skills;
-  } catch {
-    return [];
-  }
-}
-
 // ══════════════════════════════════════════════════════════
 // Context Engine API
 // ══════════════════════════════════════════════════════════
 
 export const contextEngine = {
-  /**
-   * Main entry point — 根據 target 組裝 context
-   */
   async build(params) {
     switch (params.target) {
       case "chat":          return this._buildChat(params);
@@ -432,27 +295,72 @@ export const contextEngine = {
       case "workflow":      return this._buildWorkflow(params);
       case "crew":          return this._buildCrew(params);
       case "skill-builder": return this._buildSkillBuilder(params);
+      case "mindmap":       return this._buildMindmap(params);
+      case "notes":         return this._buildNotes(params);
+      case "distill":       return this._buildDistill(params);
+      case "app-builder":   return this._buildAppBuilder(params);
+      case "coding":        return this._buildCoding(params);
       default:              return { systemPrompt: "" };
     }
   },
 
-  // ── Chat: 完整 context ────────────────────────────────
-  // Profile + Memory + Apps + Guardrails + Recent Chats
-  _buildChat(params) {
-    const { systemContext, provider } = buildFullSystemContext();
-    const recentChats = loadRecentChatSummary(3);
-    const extraParts = [];
-    if (recentChats) extraParts.push(`=== 最近對話摘要 ===\n${recentChats}`);
-    const systemPrompt = extraParts.length > 0
-      ? `${systemContext}\n\n${extraParts.join("\n\n")}`
-      : systemContext;
-    return { systemPrompt, provider };
+  // ── Chat：base + dynamic + chat/ rules + runtime tools + recent chats ──
+  _buildChat() {
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      buildDynamicContext(),
+      ...readCategoryFiles("chat"),
+    ];
+    const tools = buildRuntimeTools();
+    if (tools) parts.push(tools);
+
+    const recent = loadRecentChatSummary(3);
+    if (recent) parts.push(recent);
+
+    return { systemPrompt: parts.join("\n\n"), provider };
   },
 
-  // ── Skill Exec: 最小 context ──────────────────────────
-  // Skill 定義 + 輸入 → CLI 執行
+  // ── Crew / Employee：base + dynamic + crew/ rules + rolePrompt ──
+  _buildCrew(params) {
+    const { crewId } = params;
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      buildDynamicContext(),
+      ...readCategoryFiles("crew"),
+    ];
+
+    // crew/ 如果沒有 chat/ 的 identity 和 tool-rules，就附加（向後相容）
+    const crewHasIdentity = existsSync(resolve(AI_SETTINGS_DIR, "crew/identity.md"));
+    if (!crewHasIdentity) {
+      const identity = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
+      const user = loadUserProfile();
+      const assistantName = user.assistantName || "林語晴";
+      const nickname = assistantName === "林語晴" ? "Sunny" : assistantName;
+      if (identity) parts.push(identity.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
+      // Also bring tool-rules if crew doesn't have its own
+      const crewHasToolRules = existsSync(resolve(AI_SETTINGS_DIR, "crew/tool-rules.md"));
+      if (!crewHasToolRules) {
+        const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
+        if (toolRules) parts.push(resolvePaths(toolRules));
+      }
+    }
+
+    const tools = buildRuntimeTools();
+    if (tools) parts.push(tools);
+
+    // crew-specific rolePrompt
+    const crewData = crewId ? safeReadJSON(resolve(DATA_DIR, "crews", `${crewId}.json`), null) : null;
+    if (crewData?.rolePrompt) parts.push(crewData.rolePrompt);
+
+    return { systemPrompt: parts.join("\n\n"), provider, meta: { crew: crewData } };
+  },
+
+  // ── Skill Exec：base + crew/ rules + app SYSTEM.md + skill prompt ──
   async _buildSkillExec(params) {
     const { appId, skillId, skillPath, input } = params;
+    const provider = loadProviderConfig();
 
     // Load SKILL.md
     let raw = "";
@@ -461,17 +369,12 @@ export const contextEngine = {
       appId ? resolve(APPS_DIR, appId, "skills", skillId || "", "SKILL.md") : null,
       skillId ? resolve(SKILL_POOL_DIR, skillId, "SKILL.md") : null,
     ].filter(Boolean);
-
-    for (const p of tryPaths) {
-      raw = safeRead(p);
-      if (raw) break;
-    }
-
+    for (const p of tryPaths) { raw = safeRead(p); if (raw) break; }
     if (!raw) return { systemPrompt: "", meta: { error: "Skill not found" } };
 
     const { meta, body } = parseSkillFrontmatter(raw);
 
-    // Replace {{PAAW_ROOT}} with absolute path, then replace {{key}} with input values
+    // Replace placeholders in SKILL.md body
     let prompt = resolvePaths(body || "");
     if (input && typeof input === "object") {
       for (const [k, v] of Object.entries(input)) {
@@ -479,82 +382,113 @@ export const contextEngine = {
       }
     }
 
-    // Full system context + app SYSTEM.md + skill-specific rules
-    const { systemContext, provider } = buildFullSystemContext();
+    // System prompt: base + crew rules + app SYSTEM.md
+    const parts = [
+      buildBaseContext(),
+      ...readCategoryFiles("crew"),
+    ];
     const appSystem = appId ? safeRead(resolve(APPS_DIR, appId, "SYSTEM.md")) : "";
-    const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
-
-    const parts = [systemContext];
     if (appSystem) parts.push(resolvePaths(appSystem));
-    if (skillRules) parts.push(resolvePaths(skillRules));
-    parts.push("你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。");
-    if (appId) parts.push(`（App: ${appId}）`);
 
-    const systemPrompt = parts.join("\n\n");
-    return { systemPrompt, prompt, provider, meta: { skillMeta: meta } };
+    return { systemPrompt: parts.join("\n\n"), prompt, provider, meta: { skillMeta: meta } };
   },
 
-  // ── Workflow: 中度 context ─────────────────────────────
+  // ── Workflow：base + crew/ rules + skill prompt（不重複呼叫） ──
   async _buildWorkflow(params) {
-    const skillCtx = await this._buildSkillExec(params);
-    const { systemContext } = buildFullSystemContext();
+    const { appId, skillId, skillPath, input } = params;
+    const provider = loadProviderConfig();
 
-    const workflowPrompt = skillCtx.prompt
-      ? `${skillCtx.prompt}`
-      : "";
+    // Load SKILL.md
+    let raw = "";
+    const tryPaths = [
+      skillPath,
+      appId ? resolve(APPS_DIR, appId, "skills", skillId || "", "SKILL.md") : null,
+      skillId ? resolve(SKILL_POOL_DIR, skillId, "SKILL.md") : null,
+    ].filter(Boolean);
+    for (const p of tryPaths) { raw = safeRead(p); if (raw) break; }
 
-    return {
-      systemPrompt: `${systemContext}\n\n你是 PAAW Workflow 執行引擎。按照 Skill 定義逐步處理，確保每個步驟的輸出正確。\n\n${skillCtx.systemPrompt}`,
-      prompt: workflowPrompt,
-      meta: skillCtx.meta,
-    };
+    let prompt = "";
+    let skillMeta = {};
+    if (raw) {
+      const parsed = parseSkillFrontmatter(raw);
+      skillMeta = parsed.meta;
+      prompt = resolvePaths(parsed.body || "");
+      if (input && typeof input === "object") {
+        for (const [k, v] of Object.entries(input)) {
+          prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));
+        }
+      }
+    }
+
+    const parts = [
+      buildBaseContext(),
+      ...readCategoryFiles("crew"),
+      "你是 PAAW Workflow 執行引擎。按照 Skill 定義逐步處理，確保每個步驟的輸出正確。",
+    ];
+
+    return { systemPrompt: parts.join("\n\n"), prompt, provider, meta: { skillMeta } };
   },
 
-  // ── Crew: 角色版 context ───────────────────────────────
-  async _buildCrew(params) {
-    const { crewId } = params;
-
-    // Always include full system context, even if crew data is missing
-    const { systemContext } = buildFullSystemContext();
-    const skillRules = safeRead(resolve(AI_SETTINGS_DIR, "crew/skill-rules.md"));
-
-    const parts = [systemContext];
-    if (skillRules) parts.push(resolvePaths(skillRules));
-
-    // Append crew-specific rolePrompt if crew data exists
-    const crewData = crewId ? safeReadJSON(resolve(DATA_DIR, "crews", `${crewId}.json`), null) : null;
-    if (crewData && crewData.rolePrompt) parts.push(crewData.rolePrompt);
-
-    return { systemPrompt: parts.join("\n\n"), meta: { crew: crewData } };
-  },
-
-  // ── Skill Builder: AI 設定 context ──────────────────────
-  // 供 SkillBuilder CLI 用：格式規範 + 產出規則
+  // ── Skill Builder：base + dynamic + skill-builder/ rules ──
   _buildSkillBuilder(params) {
     const { skillDef = "" } = params;
-
-    // Full system context (identity, memory, apps, tools, guardrails...)
-    const { systemContext, provider } = buildFullSystemContext();
-
-    // ── Skill-builder specific context (from AI settings files) ──
-    const skillParts = [];
-
-    const skillFormat = loadSkillFormat();
-    if (skillFormat) skillParts.push(`### Skill Format\n${resolvePaths(skillFormat)}`);
-
-    const builderRules = loadSkillBuilderRules();
-    if (builderRules) skillParts.push(`### Builder Rules\n${resolvePaths(builderRules)}`);
-
-    const testRules = safeRead(resolve(AI_SETTINGS_DIR, "skill-builder/test-rules.md"));
-    if (testRules) skillParts.push(`### Test Rules\n${resolvePaths(testRules)}`);
-
-    // ── Assemble ──
-    const systemPrompt = skillParts.length > 0
-      ? `${systemContext}\n\n${skillParts.join("\n\n")}`
-      : systemContext;
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      buildDynamicContext(),
+      ...readCategoryFiles("skill-builder"),
+    ];
     const prompt = `你是 PAAW Skill 建構專家。根據系統規則和使用者提供的 Skill 定義，產出完整的 SKILL.md。\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}`;
+    return { systemPrompt: parts.join("\n\n"), prompt, provider };
+  },
 
-    return { systemPrompt, prompt, provider };
+  // ── App Builder：base + dynamic + app-builder/ rules + chat identity ──
+  _buildAppBuilder() {
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      buildDynamicContext(),
+      ...readCategoryFiles("app-builder"),
+    ];
+    const tools = buildRuntimeTools();
+    if (tools) parts.push(tools);
+    return { systemPrompt: parts.join("\n\n"), provider };
+  },
+
+  // ── Coding IDE：base + dynamic + chat/ rules + runtime tools ──
+  _buildCoding() {
+    // Coding IDE 跟 Chat 用一樣的 context（需要 identity, tool-rules 等）
+    return this._buildChat();
+  },
+
+  // ── Mindmap：base + mindmap/ rules ──
+  _buildMindmap() {
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      ...readCategoryFiles("mindmap"),
+    ];
+    return { systemPrompt: parts.join("\n\n"), provider };
+  },
+
+  // ── Notes：base + notes/ rules ──
+  _buildNotes() {
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      ...readCategoryFiles("notes"),
+    ];
+    return { systemPrompt: parts.join("\n\n"), provider };
+  },
+
+  // ── Distill：base + distill/ rules ──
+  _buildDistill() {
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      ...readCategoryFiles("distill"),
+    ];
+    return { systemPrompt: parts.join("\n\n"), provider };
   },
 };
 
