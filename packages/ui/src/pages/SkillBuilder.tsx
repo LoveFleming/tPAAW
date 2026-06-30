@@ -428,8 +428,8 @@ export default function SkillBuilder() {
       if (!currentPath || loadingRef.current) return;
       const content = buildSkillMd(currentForm);
       setSaveStatus("saving");
-      fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(currentPath)}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }),
+      fetch(`${API_BASE}/api/paaw/file-write`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: currentPath, content }),
       }).then(r => { if (r.ok) setSaveStatus("saved"); else setSaveStatus("dirty"); }).catch(() => setSaveStatus("dirty"));
     }, 600);
   }, []);
@@ -448,10 +448,10 @@ export default function SkillBuilder() {
     const fullPath = `${basePath}/skill-source.md`;
     const newForm: SkillForm = { ...EMPTY_SKILL, id: slug, name: raw.replace(/\.md$/, "") };
     // Create skill-source.md (original source, read-only after build)
-    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm) }) });
+    await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: fullPath, content: buildSkillMd(newForm) }) });
     // Create package/ directory with initial SKILL.md
     const pkgPath = `${basePath}/package/SKILL.md`;
-    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(pkgPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(newForm) }) });
+    await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content: buildSkillMd(newForm) }) });
     setShowNewDialog(false); setNewFileName(""); loadFiles(); setSelectedPath(fullPath); setForm(newForm);
     const initInputs: Record<string, string> = {};
     newForm.inputs.forEach(inp => { initInputs[inp.id] = inp.id === "output_path" ? "" : ""; });
@@ -474,8 +474,8 @@ export default function SkillBuilder() {
 
     // Create empty placeholder files
     const emptyForm: SkillForm = { ...EMPTY_SKILL, id: slug, name };
-    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(emptyForm) }) });
-    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(pkgPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(emptyForm) }) });
+    await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: fullPath, content: buildSkillMd(emptyForm) }) });
+    await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content: buildSkillMd(emptyForm) }) });
 
     // Select the new file
     loadFiles();
@@ -508,8 +508,8 @@ export default function SkillBuilder() {
 
       // 4. Save AI-generated content to file
       const content = buildSkillMd(parsed);
-      await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
-      await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(pkgPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+      await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: fullPath, content }) });
+      await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content }) });
       setSaveStatus("saved");
 
       setShowAIGen(false); setAiGenName(""); setAiGenDesc("");
