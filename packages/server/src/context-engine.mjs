@@ -55,16 +55,14 @@ function resolvePaths(text) {
 
 function buildBaseContext() {
   const workspaces = loadWorkspaces();
-  const knowledgePath = `${PAAW_ROOT}/data/knowledge`;
 
   const lines = [
     `=== 檔案路徑 ===`,
-    `📚 Knowledge 目錄：${knowledgePath}`,
-    `使用 file_list({ path: "${knowledgePath}", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "${knowledgePath}/檔名" }) 讀取檔案。`,
+    `📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。`,
   ];
 
   if (workspaces.length > 0) {
-    lines.push("", "使用者的 Workspace 目錄：");
+    lines.push("", "使用者的 Workspace 目錄（可讀寫）：");
     for (const d of workspaces) lines.push(`- ${d}`);
   }
 
