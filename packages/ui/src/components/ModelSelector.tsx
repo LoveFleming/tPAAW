@@ -142,7 +142,7 @@ export default function ModelSelector({ feature, value, onChange, className, sty
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={className || "text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 flex items-center gap-1"}
+        className={className ? `${className} flex items-center gap-1` : "text-[11px] px-2 py-1 rounded-lg border transition-colors hover:bg-stone-50 flex items-center gap-1"}
         style={!className ? { borderColor: "#d6d3d1", color: "#78716c" } : undefined}
       >
         🤖 {displayName}
