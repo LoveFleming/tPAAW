@@ -230,8 +230,8 @@ export function setupWebSocket() {
               cwd: agentState.cwd,
               systemPrompt: agentState.systemPrompt || undefined,
               model: agentState.model || undefined,
-              maxTurns: 25,
-              timeout: 180,
+              maxTurns: 35,
+              timeout: 300,
               rootDir: PAAW_ROOT,
               onEvent: (evt) => {
                 if (evt.type === "tool_start") {

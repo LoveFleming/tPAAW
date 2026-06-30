@@ -49,7 +49,7 @@ export default async function crewRoute(req, res) {
   // ── POST /api/skill-test/run — PAAW Agent Loop test ──
   if (req.method === "POST" && req.url === "/api/skill-test/run") {
     const body = JSON.parse(await readBody(req));
-    const { skillId, prompt, cwd, timeout = 120, maxToolCalls = 10 } = body;
+    const { skillId, prompt, cwd, timeout = 300, maxToolCalls = 20 } = body;
     const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
     const testDir = resolve(PAAW_ROOT, relTestDir);
     try { await rm(testDir, { recursive: true, force: true }); } catch {}
