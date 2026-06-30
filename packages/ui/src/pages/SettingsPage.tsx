@@ -15,7 +15,7 @@ interface ProviderData {
 export default function SettingsPage() {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTab] = useState<"profile" | "providers" | "skill" | "distill" | "tools" | "language" | "backup">("profile");
+  const [tab, setTab] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup">("profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -23,6 +23,18 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  // Provider CRUD state
+  const [newProviderName, setNewProviderName] = useState("");
+  const [newProviderId, setNewProviderId] = useState("");
+  const [showNewProvider, setShowNewProvider] = useState(false);
+
+  // Agent Config state
+  const [agentConfig, setAgentConfig] = useState({ maxTurns: 100, timeoutSeconds: 1800, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 });
+
+  // User Preferences state
+  const [userPrefs, setUserPrefs] = useState<Record<string, string>>({});
+
   const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
   const [distillConfig, setDistillConfig] = useState<any>(null);
   const [distillRunning, setDistillRunning] = useState(false);
@@ -35,6 +47,27 @@ export default function SettingsPage() {
         if (data.active) setActiveId(data.active);
         if (data.defaultModel) setSelectedModel(data.defaultModel);
       })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/ai-settings/agent-config`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && !data.error) setAgentConfig({
+          maxTurns: data.maxTurns ?? 100,
+          timeoutSeconds: data.timeoutSeconds ?? 1800,
+          bashTimeoutSeconds: data.bashTimeoutSeconds ?? 300,
+          shellTimeoutMs: data.shellTimeoutMs ?? 600000,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/user/preferences`)
+      .then(r => r.json())
+      .then(data => { if (data && !data.error) setUserPrefs(data); })
       .catch(() => {});
   }, []);
 
@@ -64,6 +97,53 @@ export default function SettingsPage() {
 
   const handleBaseURLChange = (pid: string, url: string) => {
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], baseURL: url } }));
+    setSaved(false);
+  };
+
+  const handleProviderField = (pid: string, field: string, value: any) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], [field]: value } }));
+    setSaved(false);
+  };
+
+  const addProvider = () => {
+    if (!newProviderId.trim()) return;
+    setProviders(prev => ({ ...prev, [newProviderId]: { name: newProviderName || newProviderId, baseURL: "", apiKey: "", models: [] } }));
+    setNewProviderId("");
+    setNewProviderName("");
+    setShowNewProvider(false);
+    setSaved(false);
+  };
+
+  const removeProvider = (pid: string) => {
+    const { [pid]: removed, ...rest } = providers;
+    setProviders(rest);
+    if (activeId === pid) {
+      const remaining = Object.keys(rest);
+      setActiveId(remaining.length > 0 ? remaining[0] : "");
+    }
+    setSaved(false);
+  };
+
+  const renameProvider = (oldPid: string, newPid: string) => {
+    if (newPid === oldPid || !newPid.trim()) return;
+    const p = providers[oldPid];
+    const { [oldPid]: removed, ...rest } = providers;
+    setProviders({ ...rest, [newPid]: { ...p } });
+    if (activeId === oldPid) setActiveId(newPid);
+    setSaved(false);
+  };
+
+  const addModelToProvider = (pid: string) => {
+    const id = prompt("輸入 Model ID（例如 glm-5.1）:");
+    if (!id) return;
+    const name = prompt("輸入 Model 名稱（例如 GLM 5.1）:") || id;
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } }));
+    setSaved(false);
+  };
+
+  const removeModelFromProvider = (pid: string, mid: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: prev[pid].models.filter(m => m.id !== mid) } }));
+    if (selectedModel === mid) setSelectedModel("");
     setSaved(false);
   };
 
@@ -134,6 +214,12 @@ export default function SettingsPage() {
           </button>
           <button onClick={() => setTab("providers")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "providers" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🤖 Provider
+          </button>
+          <button onClick={() => setTab("agentConfig")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "agentConfig" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            ⚡ Agent 設定
+          </button>
+          <button onClick={() => setTab("preferences")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "preferences" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            📌 Model 偏好
           </button>
           <button onClick={() => setTab("skill")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "skill" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🔨 Skill Builder
@@ -216,42 +302,181 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Provider tab */}
+        {/* Provider tab — full CRUD */}
         {tab === "providers" && (
           <div className="space-y-4">
+            {/* Active provider selector */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">啟用 Provider</label>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(providers).map(pid => (
+                  <button key={pid} onClick={() => { setActiveId(pid); if (providers[pid].models.length > 0) setSelectedModel(providers[pid].models[0].id); setSaved(false); }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium border transition-all flex items-center gap-2"
+                    style={activeId === pid ? { borderColor: themeInfo.accent, background: `${themeInfo.accent}08` } : { borderColor: "#e7e5e4" }}>
+                    {activeId === pid && <span className="w-2 h-2 rounded-full" style={{ background: themeInfo.accent }} />}
+                    {providers[pid]?.name || pid}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Provider cards */}
             {Object.entries(providers).map(([pid, p]) => (
-              <div key={pid} className="bg-white rounded-xl border-2 p-5 transition-all" style={{ borderColor: activeId === pid ? themeInfo.accent : "#e7e5e4" }}>
-                <div className="flex items-center justify-between mb-3">
-                  <button onClick={() => { setActiveId(pid); if (p.models.length > 0) setSelectedModel(p.models[0].id); setSaved(false); }} className="flex items-center gap-2">
+              <div key={pid} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                <div className="px-5 py-3 flex items-center justify-between border-b border-stone-100" style={activeId === pid ? { background: `${themeInfo.accent}08` } : {}}>
+                  <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: activeId === pid ? themeInfo.accent : "#d6d3d1" }}>
                       {activeId === pid && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: themeInfo.accent }} />}
                     </div>
-                    <span className="font-semibold text-stone-700">{p.name}</span>
-                    {activeId === pid && <span className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">啟用中</span>}
-                  </button>
-                  {p.models.length > 0 && activeId === pid && (
-                    <select value={selectedModel} onChange={(e) => { setSelectedModel(e.target.value); setSaved(false); }} className="text-xs px-2 py-1 rounded-md border border-stone-200 text-stone-600 focus:outline-none">
-                      {p.models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                  )}
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={p.name} onChange={e => handleProviderField(pid, "name", e.target.value)} className="text-sm font-semibold text-stone-700 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none w-[160px]" />
+                        {activeId === pid && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600">啟用中</span>}
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[10px] font-mono text-stone-400">ID:</span>
+                        <input type="text" value={pid} onChange={e => renameProvider(pid, e.target.value)} className="text-[10px] font-mono text-stone-400 bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-400 focus:outline-none w-[120px]" />
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => { if (confirm(`刪除 provider「${p.name}」？`)) removeProvider(pid); }}
+                    className="text-xs px-2 py-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all">刪除</button>
                 </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">Base URL</label>
-                    <input type="text" value={p.baseURL} onChange={(e) => handleBaseURLChange(pid, e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono text-stone-500 focus:outline-none focus:border-stone-400" />
+                <div className="px-5 py-3 space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">Base URL</label>
+                      <input type="text" value={p.baseURL} onChange={e => handleProviderField(pid, "baseURL", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono text-stone-500 focus:outline-none focus:border-stone-400" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">API Key</label>
+                      <input type="password" value={p.apiKey} onChange={e => handleProviderField(pid, "apiKey", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono focus:outline-none focus:border-stone-400" placeholder="輸入 API Key..." />
+                    </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">API Key</label>
-                    <input type="password" value={p.apiKey} onChange={(e) => handleApiKeyChange(pid, e.target.value)} placeholder="輸入 API Key..." className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-stone-400" />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Models</label>
+                      <button onClick={() => addModelToProvider(pid)} className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100">+ 新增 Model</button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {p.models.map(m => (
+                        <span key={m.id} className="group inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-stone-50 border border-stone-100 text-stone-600">
+                          {selectedModel === m.id && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                          {m.name}
+                          {activeId === pid && (
+                            <button onClick={() => setSelectedModel(m.id)}
+                              className={`text-[9px] ml-0.5 px-1 rounded ${selectedModel === m.id ? "text-amber-600 bg-amber-50" : "text-stone-300 hover:text-stone-500"}`}
+                              title="設為預設">{selectedModel === m.id ? "✓" : "📌"}</button>
+                          )}
+                          <button onClick={() => removeModelFromProvider(pid, m.id)}
+                            className="text-stone-300 hover:text-rose-400 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="刪除 model">✕</button>
+                        </span>
+                      ))}
+                      {p.models.length === 0 && <span className="text-xs text-stone-300">尚未新增 Model</span>}
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
+
+            {/* Add new provider */}
+            {showNewProvider ? (
+              <div className="bg-white rounded-xl border-2 border-amber-200 p-5">
+                <div className="flex gap-3 mb-3">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">Provider ID</label>
+                    <input type="text" value={newProviderId} onChange={e => setNewProviderId(e.target.value)} placeholder="例如: openrouter" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-amber-400" autoFocus onKeyDown={e => { if (e.key === "Enter") addProvider(); if (e.key === "Escape") { setShowNewProvider(false); setNewProviderId(""); }}} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">顯示名稱</label>
+                    <input type="text" value={newProviderName} onChange={e => setNewProviderName(e.target.value)} placeholder="例如: OpenRouter" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addProvider(); }} />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => { setShowNewProvider(false); setNewProviderId(""); setNewProviderName(""); }} className="text-xs px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">取消</button>
+                  <button onClick={addProvider} disabled={!newProviderId.trim()} className="text-xs px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>新增</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowNewProvider(true)} className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-all" style={{ borderColor: "#d6d3d1", color: "#a8a29e" }}>
+                + 新增 Provider
+              </button>
+            )}
+
+            {/* Default model selector */}
+            {activeId && providers[activeId]?.models.length > 0 && (
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-2">預設 Model</label>
+                <select value={selectedModel} onChange={e => { setSelectedModel(e.target.value); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
+                  {providers[activeId].models.map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
+                  ))}
+                </select>
+                <p className="text-xs text-stone-400 mt-1">所有 AI 功能的起始 model，各功能可在「Model 偏好」中自訂</p>
+              </div>
+            )}
+
             <button onClick={handleSaveProviders} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
               {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 Provider 設定"}
             </button>
           </div>
         )}
+
+        {/* Agent Config tab */}
+        {tab === "agentConfig" && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-stone-200 p-5">
+              <h3 className="text-base font-bold text-stone-700">Agent 執行設定</h3>
+              <p className="text-sm text-stone-400 mb-4">控制所有 AI Agent 的執行行為上限</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Max Turns（最大工具呼叫次數）</label>
+                  <input type="number" value={agentConfig.maxTurns} onChange={e=>{setAgentConfig(p=>({...p,maxTurns:Math.max(1,parseInt(e.target.value)||20)}));setSaved(false);}} min={1} max={500} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">AI 在單次任務中最多能呼叫工具幾次（預設 100）</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Timeout（秒）</label>
+                  <input type="number" value={agentConfig.timeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,timeoutSeconds:Math.max(10,parseInt(e.target.value)||120)}));setSaved(false);}} min={10} step={10} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">任務總超時（預設 1800 = 30 分鐘）</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Bash Timeout（秒）</label>
+                  <input type="number" value={agentConfig.bashTimeoutSeconds} onChange={e=>{setAgentConfig(p=>({...p,bashTimeoutSeconds:Math.max(5,parseInt(e.target.value)||60)}));setSaved(false);}} min={5} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">每個 Shell 指令的超時（預設 300）</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">Shell Timeout（ms）</label>
+                  <input type="number" value={agentConfig.shellTimeoutMs} onChange={e=>{setAgentConfig(p=>({...p,shellTimeoutMs:Math.max(10000,parseInt(e.target.value)||600000)}));setSaved(false);}} min={10000} step={50000} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
+                  <p className="text-xs text-stone-400 mt-1">Shell session 總超時（毫秒，預設 600000 = 10 分鐘）</p>
+                </div>
+              </div>
+            </div>
+            <button onClick={async()=>{setSaving(true);try{await fetch(`${API_BASE}/api/ai-settings/agent-config`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(agentConfig)});setSaved(true);setTimeout(()=>setSaved(false),2000);}catch{}setSaving(false);}} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{background:`linear-gradient(135deg,${themeInfo.accent},${themeInfo.accentHover})`}}>{saving?"儲存中...":saved?"✅ 已儲存":"儲存 Agent 設定"}</button>
+          </div>
+        )}
+
+        {/* Model Preferences tab */}
+        {tab === "preferences" && (
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <h3 className="text-base font-bold text-stone-700">Model 偏好設定</h3>
+            <p className="text-sm text-stone-400 mb-4">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
+            <div className="space-y-4">
+              {[{key:"skillBuilder",label:"Skill Builder",desc:"生成和建構 skill 使用的 model"},{key:"vibeCoding",label:"Vibe Coding",desc:"Vibe Coding 助手使用的 model"},{key:"crewChat",label:"Crew 聊天",desc:"Crew 聊天時使用的 model"},{key:"appLab",label:"App Lab",desc:"App Lab 執行時使用的 model"}].map(feat=>(
+                <div key={feat.key} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
+                  <div><span className="text-sm font-medium text-stone-700">{feat.label}</span><p className="text-xs text-stone-400">{feat.desc}</p></div>
+                  <div className="w-[50%]">
+                    <select value={userPrefs[feat.key]||""} onChange={async(e)=>{const n={...userPrefs,[feat.key]:e.target.value};setUserPrefs(n);await fetch(`${API_BASE}/api/user/preferences`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({[feat.key]:e.target.value})});}} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none">
+                      <option value="">（使用預設）</option>
+                      {activeId&&providers[activeId]?.models?.map((m:any)=><option key={m.id} value={m.id}>{m.name} ({m.id})</option>)}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Skill Builder tab */}
         {tab === "skill" && (
           <div className="space-y-4">
