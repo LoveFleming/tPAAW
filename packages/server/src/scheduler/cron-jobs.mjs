@@ -180,7 +180,7 @@ async function runCronJob(job) {
 
     const result = await runAgentLoop({
       prompt, cwd: skillDir, skillMd,
-      maxTurns: 20, timeout: 120, params: job.params || {},
+      maxTurns: 100, timeout: 1800, params: job.params || {},
       rootDir: PAAW_ROOT,
     });
 
@@ -439,7 +439,7 @@ async function agentLoopHandler(req, res) {
     try {
       const result = await runAgentLoop({
         prompt, cwd: workDir, skillMd, systemPrompt, model,
-        maxTurns: maxTurns || 20, timeout: timeout || 120, params, rootDir: PAAW_ROOT,
+        maxTurns: maxTurns || 100, timeout: timeout || 1800, params, rootDir: PAAW_ROOT,
       });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
@@ -470,7 +470,7 @@ async function agentLoopHandler(req, res) {
     try {
       await runAgentLoopStream({
         prompt, cwd: workDir, skillMd, systemPrompt, model,
-        maxTurns: maxTurns || 20, timeout: timeout || 120, params, rootDir: PAAW_ROOT,
+        maxTurns: maxTurns || 100, timeout: timeout || 1800, params, rootDir: PAAW_ROOT,
       }, res);
     } catch (err) {
       try { res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`); } catch {}

@@ -179,7 +179,7 @@ export default async function workflowRoutes(req, res) {
       const appDir = resolve(PATHS.APPS_ROOT, appId);
 
       const agentResult = await runAgentLoop({
-        prompt, cwd: appDir, maxTurns: 15, timeout: 90, rootDir: PATHS.PAAW_ROOT,
+        prompt, cwd: appDir, maxTurns: 100, timeout: 1800, rootDir: PATHS.PAAW_ROOT,
       });
       const fullOutput = agentResult.content || "";
 

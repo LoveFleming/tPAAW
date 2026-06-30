@@ -23,12 +23,12 @@ export default async function crewRoute(req, res) {
     try {
       const filePath = resolve(PAAW_ROOT, "data/data", "skill-config.json");
       const data = await readFile(filePath, "utf-8").catch(() => null);
-      const config = data ? JSON.parse(data) : { testTimeout: 600, maxToolCalls: 50 };
+      const config = data ? JSON.parse(data) : { testTimeout: 1800, maxToolCalls: 100 };
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(config));
     } catch (err) {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ testTimeout: 600, maxToolCalls: 50 }));
+      res.end(JSON.stringify({ testTimeout: 1800, maxToolCalls: 100 }));
     }
     return true;
   }
@@ -49,7 +49,7 @@ export default async function crewRoute(req, res) {
   // ── POST /api/skill-test/run — PAAW Agent Loop test ──
   if (req.method === "POST" && req.url === "/api/skill-test/run") {
     const body = JSON.parse(await readBody(req));
-    const { skillId, prompt, cwd, timeout = 300, maxToolCalls = 20 } = body;
+    const { skillId, prompt, cwd, timeout = 1800, maxToolCalls = 100 } = body;
     const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
     const testDir = resolve(PAAW_ROOT, relTestDir);
     try { await rm(testDir, { recursive: true, force: true }); } catch {}

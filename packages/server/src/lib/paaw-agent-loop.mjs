@@ -250,7 +250,7 @@ function runShell(command, cwd, timeoutMs = 30_000) {
     const shellOpt = IS_WIN ? "powershell.exe" : true;
     const child = execCb(command, {
       cwd,
-      timeout: Math.min(timeoutMs, 120_000),
+      timeout: Math.min(timeoutMs, 600_000),
       maxBuffer: 5 * 1024 * 1024,
       shell: shellOpt,
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
@@ -479,7 +479,7 @@ async function executeTool(call, cwd, rootDir, onEvent) {
       // ══════════════════════════════════════════
 
       case "bash": {
-        const timeoutSec = Math.min(args.timeout || 30, 120);
+        const timeoutSec = Math.min(args.timeout || 30, 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
         // Truncate large output
