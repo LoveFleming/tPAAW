@@ -35,6 +35,40 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
   const abortRef = useRef<AbortController | null>(null);
   const hasSentInitial = useRef(false);
 
+  // ── Model selector state ──
+  const [providers, setProviders] = useState<Record<string, any>>({});
+  const [activeProviderId, setActiveProviderId] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/providers`)
+      .then(r => r.json())
+      .then(data => {
+        setProviders(data.providers || {});
+        setActiveProviderId(data.active || "");
+        setSelectedModel(data.defaultModel || "");
+      })
+      .catch(() => {});
+  }, []);
+
+  const allModels = useCallback(() => {
+    const result: { providerId: string; providerName: string; modelId: string; modelName: string }[] = [];
+    for (const [pid, p] of Object.entries(providers)) {
+      for (const m of (p.models || [])) {
+        result.push({ providerId: pid, providerName: p.name, modelId: m.id, modelName: m.name });
+      }
+    }
+    return result;
+  }, [providers]);
+
+  const activeModelName = allModels().find(m => `${m.providerId}/${m.modelId}` === selectedModel || m.modelId === selectedModel)?.modelName || selectedModel || "預設";
+  const fullModelForApi = useCallback(() => {
+    if (!selectedModel) return undefined;
+    if (selectedModel.includes("/")) return selectedModel;
+    return `${activeProviderId}/${selectedModel}`;
+  }, [selectedModel, activeProviderId]);
+
   // Scroll to bottom
   const scrollToBottom = useCallback((smooth = true) => {
     setTimeout(() => {
@@ -76,7 +110,7 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
       const resp = await fetch(`${API_BASE}/api/paaw/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ messages: apiMessages, model: fullModelForApi() }),
         signal: ctrl.signal,
       });
 
@@ -169,6 +203,32 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
           <span className="text-sm">🤖</span>
           <span className="text-sm font-semibold" style={{ color: tk.textPrimary }}>AI 專案助理</span>
           {isLoading && <span className="text-xs animate-pulse" style={{ color: tk.accent }}>思考中…</span>}
+          {/* Model selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowModelDropdown(!showModelDropdown)}
+              className="text-xs px-2 py-1 rounded flex items-center gap-1"
+              style={{ background: showModelDropdown ? tk.bgHover : "transparent", color: tk.textMuted, border: `1px solid ${showModelDropdown ? tk.border : "transparent"}` }}
+              title="AI Model 偏好"
+            >🤖 {activeModelName} ▾</button>
+            {showModelDropdown && (
+              <div className="absolute top-full left-0 mt-1 rounded-lg shadow-lg border py-1 z-50" style={{ background: tk.bg, borderColor: tk.borderLight, minWidth: 180, maxHeight: 280, overflow: "auto" }}>
+                {allModels().map(m => {
+                  const fullId = `${m.providerId}/${m.modelId}`;
+                  const isActive = fullId === selectedModel || m.modelId === selectedModel;
+                  return (
+                    <div key={fullId} onClick={() => { setSelectedModel(fullId); setShowModelDropdown(false); }}
+                      className="flex items-center gap-2 px-3 py-2 cursor-pointer text-xs" style={{ background: isActive ? tk.bgHover : "transparent", color: tk.textPrimary }}
+                      onMouseEnter={e => e.currentTarget.style.background = tk.bgHover}
+                      onMouseLeave={e => e.currentTarget.style.background = isActive ? tk.bgHover : "transparent"}>
+                      {isActive && <span style={{ color: tk.accent }}>✓</span>}
+                      <div><div style={{ fontWeight: 500 }}>{m.modelName}</div><div style={{ color: tk.textMuted }}>{m.providerName}</div></div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-1">
           {isLoading && (
