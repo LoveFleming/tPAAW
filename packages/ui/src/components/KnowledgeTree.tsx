@@ -190,7 +190,7 @@ const NodeView = React.memo(function NodeView({
           else { onSelect(node.path); onOpenFile(node.path); }
         }}
         onContextMenu={e => onCtx(e, node)}
-        className={cn("flex w-full items-center pr-2 text-left text-[12px] leading-tight transition-colors",
+        className={cn("flex w-full items-center pr-2 text-left text-[13px] leading-tight transition-colors",
           isSelected ? "font-semibold" : "")}
         style={{
           height: "22px",
