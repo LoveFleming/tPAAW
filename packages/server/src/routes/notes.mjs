@@ -85,10 +85,18 @@ async function aiWriteNote(userPrompt, content) {
     ? `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`
     : `請幫我整理以下內容成結構化筆記：\n\n${content}`;
 
+  // Build full system context + notes-specific prompt
+  let systemPrompt = getSystemPrompt();
+  try {
+    const { contextEngine } = await import("../context-engine.mjs");
+    const ctx = await contextEngine.build({ target: "chat" });
+    systemPrompt = (ctx.systemPrompt || "") + "\n\n" + systemPrompt;
+  } catch {}
+
   const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
     model: llm.model,
     messages: [
-      { role: "system", content: getSystemPrompt() },
+      { role: "system", content: systemPrompt },
       { role: "user", content: fullPrompt },
     ],
     max_tokens: 4096,

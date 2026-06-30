@@ -149,10 +149,18 @@ async function generateMindMap(userPrompt, content) {
   const llm = resolveLLM();
   const fullPrompt = `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`;
 
+  // Build full system context + mindmap-specific prompt
+  let systemPrompt = getSystemPrompt();
+  try {
+    const { contextEngine } = await import("../context-engine.mjs");
+    const ctx = await contextEngine.build({ target: "chat" });
+    systemPrompt = (ctx.systemPrompt || "") + "\n\n" + systemPrompt;
+  } catch {}
+
   const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
     model: llm.model,
     messages: [
-      { role: "system", content: getSystemPrompt() },
+      { role: "system", content: systemPrompt },
       { role: "user", content: fullPrompt },
     ],
     max_tokens: 4096,

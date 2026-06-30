@@ -36,6 +36,12 @@ const CONFIG_FILE     = resolve(DISTILL_DIR, "config.json");
 const PROVIDERS_FILE  = resolve(PAAW_ROOT, "data/config/providers.json");
 const CHAT_DIR        = PATHS.CHAT_DIR;
 const VIBE_DIR        = resolve(PAAW_ROOT, "logs/vibe-sessions");
+const DISTILL_SETTINGS_DIR = resolve(PAAW_ROOT, "data/ai-settings/distill");
+
+// ── Read distill system prompt from AI settings ──
+function safeReadDistillPrompt() {
+  try { return readFileSync(resolve(DISTILL_SETTINGS_DIR, "system-prompt.md"), "utf-8"); } catch { return ""; }
+}
 
 // ── Default Config ──
 const DEFAULT_CONFIG = {
@@ -289,9 +295,15 @@ async function distillSourceDate(source, dateStr, config) {
     content = content.slice(0, config.maxLogSizeForLLM || 50000) + "\n\n... (截斷)";
   }
 
-  // Call LLM
+  // Call LLM — build full system context + distill prompt
+  let distillSystemPrompt = sourceConfig.distillPrompt || DEFAULT_CONFIG.sources[source]?.distillPrompt || "摘要以下內容：";
+  try {
+    const distillBase = safeReadDistillPrompt();
+    if (distillBase) distillSystemPrompt = distillBase + "\n\n" + distillSystemPrompt;
+  } catch {}
+
   const distilled = await callLLM(
-    sourceConfig.distillPrompt || DEFAULT_CONFIG.sources[source]?.distillPrompt || "摘要以下內容：",
+    distillSystemPrompt,
     `以下是一天的紀錄，請蒸餾成知識：\n\n${content}`,
   );
 

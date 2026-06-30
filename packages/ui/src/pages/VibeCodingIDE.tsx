@@ -527,11 +527,19 @@ const sendChat = useCallback(async () => {
       setAgentToolLog([]);
       try {
         const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
+        // Fetch system context from API for VibeCodingIDE
+        let vibeSystemPrompt = "";
+        try {
+          const ctxRes = await fetch(`${API_BASE}/api/context/vibe-coding`);
+          if (ctxRes.ok) { const ctx = await ctxRes.json(); vibeSystemPrompt = ctx.systemPrompt || ""; }
+        } catch {}
+
         const res = await fetch(`${API_BASE}/api/agent-run/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: userMsg.content + context,
+            systemPrompt: vibeSystemPrompt,
             cwd: rootPath || undefined,
             maxTurns: 15,
             timeout: 90,

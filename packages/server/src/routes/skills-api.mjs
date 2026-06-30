@@ -393,39 +393,17 @@ export default async function skillsApiRoute(req, res) {
         return true;
       }
 
-      // Load skill format rules for consistent output
-      let skillFormat = "";
-      try {
-        const { readFile: rf } = await import("fs/promises");
-        const fmtPath = join(PAAW_ROOT, "data/ai-settings/skill-builder/skill-format.md");
-        skillFormat = await rf(fmtPath, "utf-8");
-      } catch {}
-
-      const systemPrompt = `你是 PAAW Skill 建構專家。根據使用者的需求描述，產出完整的 SKILL.md 內容。
-
-${skillFormat ? `### Skill Format Rules\n${skillFormat}` : ""}
-
-### Output Rules
-- 輸出必須是完整的 SKILL.md 檔案內容，包含 YAML frontmatter 和 markdown body
-- frontmatter 必須包含: id, name, version, description, userInputs
-- body 必須包含以下 section（用 @@@section@@@ 分隔）：
-  @@@purpose@@@ — 這個 Skill 做什麼
-  @@@inputs@@@ — 需要什麼輸入（可省略，已在 frontmatter 定義）
-  @@@steps@@@ — 執行步驟
-  @@@output@@@ — 輸出格式
-  @@@error_handling@@@ — 錯誤處理
-  @@@guardrails@@@ — 安全限制
-  @@@validation@@@ — 驗證規則
-- 每個 section 都要寫實際內容，不要留空
-- 語言：繁體中文
-- id 用英文 kebab-case
-- 只輸出 SKILL.md 內容，不加任何解釋或 markdown code fence
-- 不要使用任何工具，直接輸出文字`;
+      // Build full system context via context-engine (same as Skill Builder)
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "skill-builder" });
+      const systemPrompt = ctx.systemPrompt || "";
+      // Append output format rules on top of full context
+      const outputRules = `\n\n### Output Rules\n- 輸出必須是完整的 SKILL.md 檔案內容，包含 YAML frontmatter 和 markdown body\n- frontmatter 必須包含: id, name, version, description, userInputs\n- body 必須包含以下 section（用 @@@section@@@ 分隔）：\n  @@@purpose@@@ — 這個 Skill 做什麼\n  @@@inputs@@@ — 需要什麼輸入（可省略，已在 frontmatter 定義）\n  @@@steps@@@ — 執行步驟\n  @@@output@@@ — 輸出格式\n  @@@error_handling@@@ — 錯誤處理\n  @@@guardrails@@@ — 安全限制\n  @@@validation@@@ — 驗證規則\n- 每個 section 都要寫實際內容，不要留空\n- 語言：繁體中文\n- id 用英文 kebab-case\n- 只輸出 SKILL.md 內容，不加任何解釋或 markdown code fence\n- 不要使用任何工具，直接輸出文字`;
 
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
         model: llm.model,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: systemPrompt + outputRules },
           { role: "user", content: `請根據以下需求，產出完整的 SKILL.md：\n\n${requirement}` },
         ],
         max_tokens: 8192,

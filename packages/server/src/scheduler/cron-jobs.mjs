@@ -181,8 +181,16 @@ async function runCronJob(job) {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     const agentCfg = await loadAgentConfig();
 
+    // Build full system context via context-engine
+    let cronSystemPrompt = "";
+    try {
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "skill-exec", skillId, skillPath: join(skillDir, "SKILL.md") });
+      cronSystemPrompt = ctx.systemPrompt || "";
+    } catch {}
+
     const result = await runAgentLoop({
-      prompt, cwd: skillDir, skillMd,
+      prompt, cwd: skillDir, skillMd, systemPrompt: cronSystemPrompt,
       maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, params: job.params || {},
       rootDir: PAAW_ROOT,
     });
@@ -437,14 +445,25 @@ async function agentLoopHandler(req, res) {
 
     const workDir = cwd || PAAW_ROOT;
     let skillMd = "";
+    let autoSystemPrompt = systemPrompt;
     if (skillId) {
       const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
       try { skillMd = await readFile(skillPath, "utf-8"); skillMd = skillMd.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT); } catch {}
     }
 
+    // If no systemPrompt provided, build full system context via context-engine
+    if (!autoSystemPrompt) {
+      try {
+        const { contextEngine } = await import("../context-engine.mjs");
+        const target = skillId ? "skill-exec" : "chat";
+        const ctx = await contextEngine.build({ target, skillId, skillPath: skillMd });
+        autoSystemPrompt = ctx.systemPrompt || "";
+      } catch {}
+    }
+
     try {
       const result = await runAgentLoop({
-        prompt, cwd: workDir, skillMd, systemPrompt, model,
+        prompt, cwd: workDir, skillMd, systemPrompt: autoSystemPrompt, model,
         maxTurns: maxTurns || agentCfg.maxTurns, timeout: timeout || agentCfg.timeoutSeconds, params, rootDir: PAAW_ROOT,
       });
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -469,16 +488,27 @@ async function agentLoopHandler(req, res) {
 
     const workDir = cwd || PAAW_ROOT;
     let skillMd = "";
+    let autoSystemPrompt = systemPrompt;
     if (skillId) {
       const skillPath = resolve(PAAW_ROOT, "data/skills/physical-skill", skillId, "SKILL.md");
       try { skillMd = await readFile(skillPath, "utf-8"); skillMd = skillMd.replace(/\{\{PAAW_ROOT\}\}/g, PAAW_ROOT); } catch {}
+    }
+
+    // If no systemPrompt provided, build full system context
+    if (!autoSystemPrompt) {
+      try {
+        const { contextEngine } = await import("../context-engine.mjs");
+        const target = skillId ? "skill-exec" : "chat";
+        const ctx = await contextEngine.build({ target, skillId, skillPath: skillMd });
+        autoSystemPrompt = ctx.systemPrompt || "";
+      } catch {}
     }
 
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
 
     try {
       await runAgentLoopStream({
-        prompt, cwd: workDir, skillMd, systemPrompt, model,
+        prompt, cwd: workDir, skillMd, systemPrompt: autoSystemPrompt, model,
         maxTurns: maxTurns || agentCfg.maxTurns, timeout: timeout || agentCfg.timeoutSeconds, params, rootDir: PAAW_ROOT,
       }, res);
     } catch (err) {

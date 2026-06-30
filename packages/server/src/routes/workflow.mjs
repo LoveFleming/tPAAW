@@ -171,10 +171,11 @@ export default async function workflowRoutes(req, res) {
         }
       }
 
-      // Build full system prompt
-      let fullSystem = "";
-      if (appSystemPrompt) fullSystem += appSystemPrompt + "\n\n";
-      fullSystem += `你是「${appId}」App 的 Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。`; 
+      // Build full system prompt via context-engine
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "skill-exec", appId, skillId, skillPath, input });
+      const fullSystem = ctx.systemPrompt || "";
+      prompt = ctx.prompt || prompt;
 
       const { loadAgentConfig } = await import("./context.mjs");
       const agentCfg = await loadAgentConfig();
@@ -182,7 +183,7 @@ export default async function workflowRoutes(req, res) {
       const appDir = resolve(PATHS.APPS_ROOT, appId);
 
       const agentResult = await runAgentLoop({
-        prompt, cwd: appDir, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
+        prompt, cwd: appDir, systemPrompt: fullSystem, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
       });
       const fullOutput = agentResult.content || "";
 
