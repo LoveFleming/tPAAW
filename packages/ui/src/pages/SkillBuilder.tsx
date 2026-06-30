@@ -331,6 +331,7 @@ export default function SkillBuilder() {
   const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
   const [consoleKey, setConsoleKey] = useState(0);
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
+  const [buildSystemPrompt, setBuildSystemPrompt] = useState<string | undefined>();
   const [chatStarted, setChatStarted] = useState(false);
   const terminalRef = useRef<AgentConsoleHandle>(null);
   const loadingRef = useRef(false);
@@ -535,7 +536,11 @@ export default function SkillBuilder() {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ skillDef }),
         });
-        if (res.ok) { const ctx = await res.json(); prompt = ctx.prompt || skillDef; }
+        if (res.ok) {
+          const ctx = await res.json();
+          prompt = ctx.prompt || skillDef;
+          if (ctx.systemPrompt) setBuildSystemPrompt(ctx.systemPrompt);
+        }
       } catch { /* context-engine unavailable, use raw skillDef */ }
     }
     if (!chatStarted) { setInitialPrompt(prompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
@@ -1007,7 +1012,7 @@ ${userInputLines.join("\n")}
                 </div>
               </div>
             ) : (
-              <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} />
+              <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} systemPrompt={buildSystemPrompt} />
             )}
           </div>
 
