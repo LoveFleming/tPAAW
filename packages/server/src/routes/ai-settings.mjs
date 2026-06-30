@@ -130,12 +130,13 @@ export default async function aiSettingsRoutes(req, res) {
         "crew": "crew",
         "skill-builder": "skill-builder",
         "crew-chat": "crew",
-        "vibe-coding": "chat",
-        "app-builder": "chat",
+        "vibe-coding": "coding",
+        "app-builder": "app-builder",
         "employee": "crew",
-        "mindmap": "chat",
-        "notes": "chat",
-        "coding": "chat",
+        "mindmap": "mindmap",
+        "notes": "notes",
+        "coding": "coding",
+        "distill": "distill",
       };
       const engineTarget = targetMap[target] || "chat";
       const buildParams = { target: engineTarget };
