@@ -288,12 +288,23 @@ async function executeTool(call, cwd, rootDir, onEvent) {
     return p.startsWith("/") ? p : resolve(cwd, p);
   };
 
+  // Load allowed directories: cwd + rootDir + workspaces + knowledge
+  const allowedDirs = [cwd, rootDir];
+  try {
+    const wsPath = resolve(rootDir, "data/workspaces.json");
+    if (existsSync(wsPath)) {
+      const ws = JSON.parse(readSync(wsPath, "utf-8"));
+      if (Array.isArray(ws.directories)) allowedDirs.push(...ws.directories);
+    }
+  } catch {}
+  allowedDirs.push(resolve(rootDir, "data/knowledge"));
+
   // Security: check path is within allowed dirs
+  // Read: cwd + rootDir + workspaces + knowledge
+  // Write: cwd + workspaces + knowledge (NOT rootDir itself, only explicit dirs)
   const isPathAllowed = (p, write = false) => {
     const abs = resolvePath(p);
-    if (write && !abs.startsWith(cwd)) return false;
-    if (!abs.startsWith(cwd) && !abs.startsWith(rootDir)) return false;
-    return true;
+    return allowedDirs.some((d) => abs.startsWith(d));
   };
 
   // Emit tool event for SSE

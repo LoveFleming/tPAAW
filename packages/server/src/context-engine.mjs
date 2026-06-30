@@ -58,7 +58,7 @@ function buildBaseContext() {
   const knowledgePath = `${PAAW_ROOT}/data/knowledge`;
 
   const lines = [
-    `=== 系統路徑（不可修改） ===`,
+    `=== 檔案路徑 ===`,
     `📚 Knowledge 目錄：${knowledgePath}`,
     `使用 file_list({ path: "${knowledgePath}", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "${knowledgePath}/檔名" }) 讀取檔案。`,
   ];
