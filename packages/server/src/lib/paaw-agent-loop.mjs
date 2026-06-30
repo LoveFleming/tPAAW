@@ -620,7 +620,7 @@ export async function runAgentLoop(config) {
   } = config;
 
   // Load agent config for defaults (with fallback)
-  let agentCfg: any = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+  let agentCfg = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
   try {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     agentCfg = await loadAgentConfig();
@@ -752,7 +752,7 @@ export async function runAgentLoopStream(config, res) {
     rootDir = cwd,
   } = config;
 
-  let agentCfg: any = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+  let agentCfg = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
   try {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     agentCfg = await loadAgentConfig();

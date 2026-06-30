@@ -122,7 +122,7 @@ const DEFAULT_AGENT_CONFIG = {
   shellTimeoutMs: 600000,
 };
 
-let _agentConfigCache: any = null;
+let _agentConfigCache = null;
 let _agentConfigTs = 0;
 
 export async function loadAgentConfig() {
