@@ -9,6 +9,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Transformer } from "markmap-lib";
 import { Markmap } from "markmap-view";
 import { useTheme } from "../theme";
+import API_BASE from "../api";
 
 const transformer = new Transformer();
 
@@ -91,6 +92,40 @@ export default function MindMapViewer() {
   const [saveName, setSaveName] = useState("");
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
+  // ── Model selector state ──
+  const [providers, setProviders] = useState<Record<string, any>>({});
+  const [activeProviderId, setActiveProviderId] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/providers`)
+      .then(r => r.json())
+      .then(data => {
+        setProviders(data.providers || {});
+        setActiveProviderId(data.active || "");
+        setSelectedModel(data.defaultModel || "");
+      })
+      .catch(() => {});
+  }, []);
+
+  const allModels = useCallback(() => {
+    const result: { providerId: string; providerName: string; modelId: string; modelName: string }[] = [];
+    for (const [pid, p] of Object.entries(providers)) {
+      for (const m of (p.models || [])) {
+        result.push({ providerId: pid, providerName: p.name, modelId: m.id, modelName: m.name });
+      }
+    }
+    return result;
+  }, [providers]);
+
+  const activeModelName = allModels().find(m => `${m.providerId}/${m.modelId}` === selectedModel || m.modelId === selectedModel)?.modelName || selectedModel || "預設";
+  const fullModelForApi = useCallback(() => {
+    if (!selectedModel) return undefined;
+    if (selectedModel.includes("/")) return selectedModel;
+    return `${activeProviderId}/${selectedModel}`;
+  }, [selectedModel, activeProviderId]);
+
   // markmap
   const svgRef = useRef<SVGSVGElement>(null);
   const mmRef = useRef<Markmap | null>(null);
@@ -164,6 +199,8 @@ export default function MindMapViewer() {
     setError(null);
     try {
       const body: any = { prompt };
+      const model = fullModelForApi();
+      if (model) body.model = model;
       if (selectedDir) body.dir = selectedDir;
       else if (selectedFiles.length > 0) body.files = selectedFiles;
       else {
@@ -198,7 +235,7 @@ export default function MindMapViewer() {
       const resp = await fetch("/api/mindmap/from-text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: inputText, prompt }),
+        body: JSON.stringify({ text: inputText, prompt, model: fullModelForApi() }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "產生失敗");
@@ -348,6 +385,49 @@ export default function MindMapViewer() {
         {markdown && <button onClick={exportSVG} style={btnStyle}>⬇ SVG</button>}
         {markdown && <button onClick={() => setShowSaveDialog(true)} style={btnStyle}>💾 儲存</button>}
         <button onClick={() => { loadSavedList(); setShowSaved(true); }} style={btnStyle}>📂 載入</button>
+        {/* Model selector */}
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => setShowModelDropdown(!showModelDropdown)}
+            style={{ ...btnStyle, minWidth: 120, justifyContent: "space-between" }}
+            title="AI Model 偏好"
+          >
+            🤖 {activeModelName} ▾
+          </button>
+          {showModelDropdown && (
+            <div style={{
+              position: "absolute", top: "100%", right: 0, marginTop: 4,
+              background: tk.bg, border: `1px solid ${tk.border}`, borderRadius: 8,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.1)", zIndex: 50,
+              maxHeight: 300, overflow: "auto", minWidth: 200,
+            }}>
+              {allModels().map(m => {
+                const fullId = `${m.providerId}/${m.modelId}`;
+                const isActive = fullId === selectedModel || m.modelId === selectedModel;
+                return (
+                  <div
+                    key={fullId}
+                    onClick={() => { setSelectedModel(fullId); setShowModelDropdown(false); }}
+                    style={{
+                      padding: "8px 14px", cursor: "pointer", fontSize: 13,
+                      display: "flex", alignItems: "center", gap: 6,
+                      color: tk.textPrimary,
+                      background: isActive ? tk.accentBg : "transparent",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = tk.bgHover}
+                    onMouseLeave={e => e.currentTarget.style.background = isActive ? tk.accentBg : "transparent"}
+                  >
+                    {isActive && <span style={{ color: tk.accent }}>✓</span>}
+                    <div>
+                      <div style={{ fontWeight: 500 }}>{m.modelName}</div>
+                      <div style={{ fontSize: 11, color: tk.textMuted }}>{m.providerName}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div style={{ flex: 1 }} />
         {error && <span style={{ color: "#ef4444", fontSize: 13 }}>{error}</span>}
       </div>

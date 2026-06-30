@@ -10,6 +10,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTheme } from "../theme";
+import API_BASE from "../api";
 
 // ── Types ──
 
@@ -65,6 +66,40 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
+
+  // ── Model selector state ──
+  const [providers, setProviders] = useState<Record<string, any>>({});
+  const [activeProviderId, setActiveProviderId] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/providers`)
+      .then(r => r.json())
+      .then(data => {
+        setProviders(data.providers || {});
+        setActiveProviderId(data.active || "");
+        setSelectedModel(data.defaultModel || "");
+      })
+      .catch(() => {});
+  }, []);
+
+  const allModels = useCallback(() => {
+    const result: { providerId: string; providerName: string; modelId: string; modelName: string }[] = [];
+    for (const [pid, p] of Object.entries(providers)) {
+      for (const m of (p.models || [])) {
+        result.push({ providerId: pid, providerName: p.name, modelId: m.id, modelName: m.name });
+      }
+    }
+    return result;
+  }, [providers]);
+
+  const activeModelName = allModels().find(m => `${m.providerId}/${m.modelId}` === selectedModel || m.modelId === selectedModel)?.modelName || selectedModel || "預設";
+  const fullModelForApi = useCallback(() => {
+    if (!selectedModel) return undefined;
+    if (selectedModel.includes("/")) return selectedModel;
+    return `${activeProviderId}/${selectedModel}`;
+  }, [selectedModel, activeProviderId]);
 
   // ── Refs ──
   const editorRef = useRef<HTMLDivElement>(null);
@@ -222,7 +257,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
       const resp = await fetch("/api/notes/ai-write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, prompt: aiPrompt.trim() || undefined }),
+        body: JSON.stringify({ content, prompt: aiPrompt.trim() || undefined, model: fullModelForApi() }),
       });
       const data = await resp.json();
       if (!data.ok) { alert(data.error || "AI 寫筆記失敗"); return; }
@@ -517,6 +552,33 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
             border: `1px solid ${aiPanelOpen ? tk.accent : tk.accentBg}`,
           }}
         >✨ AI 寫筆記</button>
+
+        {/* Model selector */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setShowModelDropdown(!showModelDropdown)}
+            className="px-2.5 py-1.5 rounded-lg text-sm flex items-center gap-1"
+            style={{ background: showModelDropdown ? tk.accentBg : "transparent", color: showModelDropdown ? tk.accentText : tk.textMuted, border: `1px solid ${showModelDropdown ? tk.accent : tk.borderInput}` }}
+            title="AI Model 偏好"
+          >🤖 {activeModelName} ▾</button>
+          {showModelDropdown && (
+            <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg border py-1 z-50" style={{ background: tk.bg, borderColor: tk.borderLight, minWidth: 200, maxHeight: 300, overflow: "auto" }}>
+              {allModels().map(m => {
+                const fullId = `${m.providerId}/${m.modelId}`;
+                const isActive = fullId === selectedModel || m.modelId === selectedModel;
+                return (
+                  <div key={fullId} onClick={() => { setSelectedModel(fullId); setShowModelDropdown(false); }}
+                    className="flex items-center gap-2 px-3 py-2 cursor-pointer text-sm" style={{ background: isActive ? tk.accentBg : "transparent", color: tk.textPrimary }}
+                    onMouseEnter={e => e.currentTarget.style.background = tk.bgHover}
+                    onMouseLeave={e => e.currentTarget.style.background = isActive ? tk.accentBg : "transparent"}>
+                    {isActive && <span style={{ color: tk.accent }}>✓</span>}
+                    <div><div style={{ fontWeight: 500 }}>{m.modelName}</div><div className="text-xs" style={{ color: tk.textMuted }}>{m.providerName}</div></div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Search toggle */}
         <button
