@@ -374,9 +374,9 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openSkillLab = useCallback(() => {
+  const openSkillBuilder = useCallback(() => {
     const count = skillBuilderCounterRef.current++;
-    const tabId = `${currentScope}:skilllab#${count}`;
+    const tabId = `${currentScope}:skillbuilder#${count}`;
     setOpenTabs((prev) => [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -491,7 +491,7 @@ function AppInner() {
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return t("sidebar.aiCrew");
     if (pageType === "skills") return t("sidebar.skillPool");
-    if (pageType.startsWith("skilllab")) return t("sidebar.skillBuilder");
+    if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
     if (pageType === "reportapplab") return t("sidebar.appLab");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
@@ -589,7 +589,7 @@ function AppInner() {
     if (pageType === "skills") {
       return <SkillsPage />;
     }
-    if (pageType.startsWith("skilllab")) {
+    if (pageType.startsWith("skillbuilder")) {
       return <SkillBuilder />;
     }
     if (pageType === "reportapplab") {
@@ -787,7 +787,7 @@ function AppInner() {
             {/* 🏗 Build */}
             <SidebarSection title={t("sidebar.build")}>
               <div>
-                <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":reportapplab")} label={t("sidebar.appLab")} onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":wf-editor")} label="Workflow Builder" onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>

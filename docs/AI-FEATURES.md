@@ -31,10 +31,9 @@
 | 9 | **VibeCoding** | AgentConsole (WebSocket) | ✅ 即時串流 | ✅ ModelSelector | ✅ | API `GET /api/context/vibe-coding` |
 | 10 | **VibeCodingIDE** | SSE (EventSource) | ✅ SSE 串流 | ❌ 硬編碼 `gpt-4o-mini` | ❌ | 無 systemPrompt |
 | 11 | **App Lab** | AgentConsole (WebSocket) | ✅ 即時串流 | ✅ ModelSelector | ✅ | API `GET /api/context/app-builder` |
-| 12 | **Skill Lab** | AgentConsole (WebSocket) | ✅ 即時串流 | ❌ 無 ModelSelector | ❌ | 完全沒傳 systemPrompt |
-| 13 | **Mindmap** | MindMapViewer (一次性 API) | ❌ 一次性回傳 | ❌ 用預設 provider | ❌ | `mindmap/system-prompt.md` |
-| 14 | **Notes** | Notes (一次性 API) | ❌ 一次性回傳 | ❌ 用預設 provider | ❌ | `notes/system-prompt.md` |
-| 15 | **Distill（蒸餾）** | SettingsPage 按鈕觸發 | ❌ 一次性回傳 | ❌ 用預設 provider | ❌ | inline `distillPrompt` |
+| 12 | **Mindmap** | MindMapViewer (一次性 API) | ❌ 一次性回傳 | ❌ 用預設 provider | ❌ | `mindmap/system-prompt.md` |
+| 13 | **Notes** | Notes (一次性 API) | ❌ 一次性回傳 | ❌ 用預設 provider | ❌ | `notes/system-prompt.md` |
+| 14 | **Distill（蒸餾）** | SettingsPage 按鈕觸發 | ❌ 一次性回傳 | ❌ 用預設 provider | ❌ | inline `distillPrompt` |
 
 ---
 
@@ -214,23 +213,7 @@
 
 ---
 
-### 12. Skill Lab
-
-| 項目 | 說明 |
-|------|------|
-| **前端頁面** | `SkillLab.tsx` |
-| **UI 元件** | `AgentConsole` — WebSocket 雙向即時串流 |
-| **Streaming** | ✅ 即時串流 |
-| **Model 切換** | ❌ 無 ModelSelector |
-| **systemPrompt 來源** | 完全沒傳 systemPrompt |
-| **完整系統 Context** | ❌ 完全沒有 |
-| **功能專用設定檔** | 無 |
-| **後端路由** | `ws-handler.mjs` → `runAgentLoop()` |
-| **⚠️ 待修** | 需加 `GET /api/context/skill-exec` + ModelSelector |
-
----
-
-### 13. Mindmap
+### 12. Mindmap
 
 | 項目 | 說明 |
 |------|------|
@@ -246,7 +229,7 @@
 
 ---
 
-### 14. Notes
+### 13. Notes
 
 | 項目 | 說明 |
 |------|------|
@@ -262,7 +245,7 @@
 
 ---
 
-### 15. Distill（蒸餾）
+### 14. Distill（蒸餾）
 
 | 項目 | 說明 |
 |------|------|
@@ -382,7 +365,7 @@ target 對照：`chat`, `skill-exec`, `workflow`, `crew`, `skill-builder`, `crew
 | 2 | **Workflow** | 只有 `SYSTEM.md + "你是..."` | `workflow.mjs` 改用 `context-engine._buildSkillExec()` |
 | 3 | **Cron Skill** | 只有 skillMd | `cron-jobs.mjs` 改用 `context-engine._buildSkillExec()` |
 | 4 | **Cron Workflow** | systemPrompt 不固定 | 空時自動 fetch `buildFullSystemContext()` |
-| 5 | **Skill Lab** | 完全沒傳 systemPrompt，沒 ModelSelector | 加 `GET /api/context/skill-exec` + ModelSelector |
+| 5 | **Skill Lab** | ~~已刪除~~ SkillLab.tsx 已移除，功能由 SkillBuilder 取代 | — |
 | 6 | **VibeCodingIDE** | 無 systemPrompt，硬編碼 gpt-4o-mini | 加 systemPrompt + ModelSelector |
 | 7 | **Mindmap** | 只有功能專用 prompt | `mindmap.mjs` 加 `buildFullSystemContext()` 前綴 |
 | 8 | **Notes** | 只有功能專用 prompt | `notes.mjs` 加 `buildFullSystemContext()` 前綴 |
