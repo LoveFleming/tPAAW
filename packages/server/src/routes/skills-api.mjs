@@ -373,9 +373,25 @@ export default async function skillsApiRoute(req, res) {
 
       // Use direct LLM call (not agent loop) — we just want text output
       const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
-      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
 
-      const llm = resolveLLMConfig(PAAW_ROOT, model);
+      // Resolve LLM config inline (resolveLLMConfig not exported from agent loop)
+      const { readFileSync: readSync } = await import("fs");
+      const { resolve: resolvePath } = await import("path");
+      const providerConfigPath = resolvePath(PAAW_ROOT, "data/config/providers.json");
+      let llm;
+      try {
+        const pCfg = JSON.parse(readSync(providerConfigPath, "utf-8"));
+        const provider = pCfg.providers[pCfg.active];
+        const llmModel = model || pCfg.defaultModel || provider?.models?.[0]?.id || "glm-5.1";
+        const baseURL = provider.baseURL.replace(/\/+$/, "");
+        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` };
+        if (pCfg.active === "openrouter") { headers["HTTP-Referer"] = "https://paaw.ai"; headers["X-Title"] = "PAAW"; }
+        llm = { apiUrl: `${baseURL}/chat/completions`, headers, model: llmModel };
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Failed to load provider config: ${err.message}` }));
+        return true;
+      }
 
       // Load skill format rules for consistent output
       let skillFormat = "";
