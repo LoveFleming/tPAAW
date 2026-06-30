@@ -62,6 +62,12 @@ function CtxMenu({ menu, onAction, onClose }: {
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   // Measure menu height after render and flip up if it would overflow viewport
   useEffect(() => {
     if (!ref.current) return;
@@ -79,34 +85,61 @@ function CtxMenu({ menu, onAction, onClose }: {
 
   const isDir = menu.node.type === "dir";
 
+  const itemStyle: React.CSSProperties = {
+    padding: "6px 16px",
+    fontSize: 13,
+    cursor: "pointer",
+    color: "#374151",
+    whiteSpace: "nowrap",
+    transition: "background 0.1s",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  };
+
   const items: { label: string; icon: string; action: string; danger?: boolean }[] = [];
   items.push({ label: t("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
   items.push({ label: t("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
   items.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
   items.push({ label: "移動到...", icon: "📦", action: "move" });
   if (isDir) {
-    items.push({ label: "在 Briefing Player 開啟", icon: "🎤", action: "briefingPlayer" });
+    items.push({ label: "開啟簡報", icon: "🎤", action: "briefingPlayer" });
   }
   items.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
   items.push({ label: t("knowledge.rename", "重新命名"), icon: "✏️", action: "rename" });
   items.push({ label: t("knowledge.copy", "複製"), icon: "📋", action: "duplicate" });
-  items.push({ label: "Copy Path", icon: "📎", action: "copyPath" });
+  items.push({ label: "複製路徑", icon: "📎", action: "copyPath" });
   items.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
   items.push({ label: t("knowledge.delete", "刪除"), icon: "🗑️", action: "delete", danger: true });
 
   return (
-    <div ref={ref} className="fixed z-[9999] bg-white border border-stone-200 rounded-xl shadow-2xl py-1 min-w-[180px]"
-      style={{ left: pos.x, top: pos.y }}>
+    <div
+      ref={ref}
+      style={{
+        position: "fixed",
+        left: pos.x,
+        top: pos.y,
+        zIndex: 9999,
+        background: "#ffffff",
+        border: `1px solid #e5e7eb`,
+        borderRadius: 8,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+        padding: "4px 0",
+        minWidth: 180,
+        overflow: "hidden",
+      }}
+    >
       {items.map(item => (
-        <button key={item.action}
+        <div
+          key={item.action}
+          style={item.danger ? { ...itemStyle, color: "#ef4444" } : itemStyle}
+          onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#fef2f2" : "#f3f4f6")}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           onClick={() => { onAction(item.action, menu); onClose(); }}
-          className={cn("w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors",
-            item.danger ? "text-rose-600 hover:bg-rose-50" : "text-stone-700 hover:bg-stone-50"
-          )}
         >
           <span>{item.icon}</span>
           <span>{item.label}</span>
-        </button>
+        </div>
       ))}
     </div>
   );
