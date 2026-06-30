@@ -6,7 +6,7 @@ import ChatView, { sendSeedToChat } from "./pages/ChatView";
 import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
 import SkillBuilder from "./pages/SkillBuilder";
-import AppLab from "./pages/AppLab";
+import AppBuilder from "./pages/AppBuilder";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import VibeCoding from "./pages/VibeCoding";
@@ -381,8 +381,8 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openAppLab = useCallback(() => {
-    const tabId = `${currentScope}:reportapplab`;
+  const openAppBuilder = useCallback(() => {
+    const tabId = `${currentScope}:appbuilder`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -492,7 +492,7 @@ function AppInner() {
     if (pageType === "crew") return t("sidebar.aiCrew");
     if (pageType === "skills") return t("sidebar.skillPool");
     if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
-    if (pageType === "reportapplab") return t("sidebar.appLab");
+    if (pageType === "appbuilder") return t("sidebar.appBuilder");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
     if (pageType === "ai-settings") return "AI Settings";
@@ -592,8 +592,8 @@ function AppInner() {
     if (pageType.startsWith("skillbuilder")) {
       return <SkillBuilder />;
     }
-    if (pageType === "reportapplab") {
-      return <AppLab />;
+    if (pageType === "appbuilder") {
+      return <AppBuilder />;
     }
     if (pageType === "reportapps") {
       return <AppPool onOpenApp={openSkillAppById} />;
@@ -788,7 +788,7 @@ function AppInner() {
             <SidebarSection title={t("sidebar.build")}>
               <div>
                 <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":reportapplab")} label={t("sidebar.appLab")} onClick={openAppLab} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":appbuilder")} label={t("sidebar.appBuilder")} onClick={openAppBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":wf-editor")} label="Workflow Builder" onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>

@@ -272,7 +272,7 @@ function SkillPickerDialog({
 }
 
 // ── Main Component ──
-export default function AppLab() {
+export default function AppBuilder() {
     const { info: t } = useTheme();
 
     // ── Flow state ──
@@ -817,7 +817,7 @@ export default function AppLab() {
                             📜 歷史 <span className="text-xs bg-stone-100 px-1 rounded">{history.length}</span>
                         </button>
                     </div>
-                    <ModelSelector feature="appLab" value={model} onChange={setModel} />
+                    <ModelSelector feature="appBuilder" value={model} onChange={setModel} />
                 </div>
             </div>
 

@@ -462,7 +462,7 @@ export default function SettingsPage() {
             <h3 className="text-base font-bold text-stone-700">Model 偏好設定</h3>
             <p className="text-sm text-stone-400 mb-4">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
             <div className="space-y-4">
-              {[{key:"skillBuilder",label:"Skill Builder",desc:"生成和建構 skill 使用的 model"},{key:"vibeCoding",label:"Vibe Coding",desc:"Vibe Coding 助手使用的 model"},{key:"crewChat",label:"Crew 聊天",desc:"Crew 聊天時使用的 model"},{key:"appLab",label:"App Lab",desc:"App Lab 執行時使用的 model"}].map(feat=>(
+              {[{key:"skillBuilder",label:"Skill Builder",desc:"生成和建構 skill 使用的 model"},{key:"vibeCoding",label:"Vibe Coding",desc:"Vibe Coding 助手使用的 model"},{key:"crewChat",label:"Crew 聊天",desc:"Crew 聊天時使用的 model"},{key:"appBuilder",label:"App Builder",desc:"App Builder 執行時使用的 model"}].map(feat=>(
                 <div key={feat.key} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
                   <div><span className="text-sm font-medium text-stone-700">{feat.label}</span><p className="text-xs text-stone-400">{feat.desc}</p></div>
                   <div className="w-[50%]">
