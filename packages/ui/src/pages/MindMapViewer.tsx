@@ -56,7 +56,7 @@ function withAlpha(hex: string, alpha: number): string {
 export default function MindMapViewer() {
   const { info: themeInfo, theme: themeId } = useTheme();
 
-  // 跟 VibeCodingIDE 一樣的 token 系統：白色外圍 + 主題色點綴
+  // 跟 CodingIDE 一樣的 token 系統：白色外圍 + 主題色點綴
   const tk = {
     bg:           "#fff",
     bgMuted:      "#fafafa",

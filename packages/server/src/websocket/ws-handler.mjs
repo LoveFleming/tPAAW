@@ -112,7 +112,7 @@ export function setupWebSocket() {
           });
           ptySessions.set(ws, { pty, id: sessionId, cliType, serverPort: opts.serverPort });
 
-          // ── Session logging for Vibe Coding ──
+          // ── Session logging for Coding ──
           const vibeLogDir = resolve(PAAW_ROOT, "logs/vibe-sessions");
           mkdirSync(vibeLogDir, { recursive: true });
           const vibeLogFile = resolve(vibeLogDir, `${sessionId}.log`);
@@ -125,7 +125,7 @@ export function setupWebSocket() {
             systemPrompt: opts.systemPrompt || null,
             createdAt: new Date().toISOString(), lastActive: new Date().toISOString(),
           }, null, 2));
-          appendFileSync(vibeLogFile, `# Vibe Coding Session: ${sessionId}\n`);
+          appendFileSync(vibeLogFile, `# Coding Session: ${sessionId}\n`);
           appendFileSync(vibeLogFile, `# CLI: ${cliType} | CWD: ${opts.cwd || PAAW_ROOT} | Mode: ${opts.approvalMode || 'default'}\n`);
           appendFileSync(vibeLogFile, `# Started: ${new Date().toISOString()}\n\n`);
 

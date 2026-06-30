@@ -1,5 +1,5 @@
 /**
- * VibeCodingIDE — All-in-one AI coding environment
+ * CodingIDE — All-in-one AI coding environment
  *
  * Layout:
  *  ┌──────┬──────────────────────────┬─────────┐
@@ -137,7 +137,7 @@ function tryFormatJson(str: string): string {
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
-export default function VibeCodingIDE() {
+export default function CodingIDE() {
   const { info: themeInfo } = useTheme();
   const { t } = useI18n();
 
@@ -513,7 +513,7 @@ export default function VibeCodingIDE() {
   const [chatMode, setChatMode] = useState<"chat" | "agent">("agent");
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentToolLog, setAgentToolLog] = useState<Array<{name: string; args: string; result: string}>>([]);
-  const [vibeModel, setVibeModel] = useState<string>("");
+  const [codingModel, setVibeModel] = useState<string>("");
 
 const sendChat = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
@@ -529,7 +529,7 @@ const sendChat = useCallback(async () => {
       setAgentToolLog([]);
       try {
         const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
-        // Fetch system context from API for VibeCodingIDE
+        // Fetch system context from API for CodingIDE
         let vibeSystemPrompt = "";
         try {
           const ctxRes = await fetch(`${API_BASE}/api/context/vibe-coding`);
@@ -542,7 +542,7 @@ const sendChat = useCallback(async () => {
           body: JSON.stringify({
             prompt: userMsg.content + context,
             systemPrompt: vibeSystemPrompt,
-            model: vibeModel || undefined,
+            model: codingModel || undefined,
             cwd: rootPath || undefined,
             maxTurns: 15,
             timeout: 90,
@@ -1382,7 +1382,7 @@ const sendChat = useCallback(async () => {
             {activeSubPanel === "editor" && !activeTab && (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
                 <div className="text-5xl">⚡</div>
-                <h2 className="text-lg font-bold text-stone-600">Vibe Coding IDE</h2>
+                <h2 className="text-lg font-bold text-stone-600">Coding IDE</h2>
                 <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
                   {t("vibe.welcomeLine1")}<br />
                   {t("vibe.welcomeLine2")}<br />
@@ -1439,7 +1439,7 @@ const sendChat = useCallback(async () => {
                     💬 Chat
                   </button>
                 </div>
-                <ModelSelector feature="vibeCodingIDE" value={vibeModel} onChange={setVibeModel} />
+                <ModelSelector feature="coding" value={codingModel} onChange={setVibeModel} />
                 {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
                 <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
               </div>

@@ -462,7 +462,7 @@ export default function SettingsPage() {
             <h3 className="text-base font-bold text-stone-700">Model 偏好設定</h3>
             <p className="text-sm text-stone-400 mb-4">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
             <div className="space-y-4">
-              {[{key:"skillBuilder",label:"Skill Builder",desc:"生成和建構 skill 使用的 model"},{key:"vibeCoding",label:"Vibe Coding",desc:"Vibe Coding 助手使用的 model"},{key:"crewChat",label:"Crew 聊天",desc:"Crew 聊天時使用的 model"},{key:"appBuilder",label:"App Builder",desc:"App Builder 執行時使用的 model"}].map(feat=>(
+              {[{key:"skillBuilder",label:"Skill Builder",desc:"生成和建構 skill 使用的 model"},{key:"coding",label:"Coding",desc:"Coding IDE 助手使用的 model"},{key:"crewChat",label:"Crew 聊天",desc:"Crew 聊天時使用的 model"},{key:"appBuilder",label:"App Builder",desc:"App Builder 執行時使用的 model"}].map(feat=>(
                 <div key={feat.key} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
                   <div><span className="text-sm font-medium text-stone-700">{feat.label}</span><p className="text-xs text-stone-400">{feat.desc}</p></div>
                   <div className="w-[50%]">
@@ -538,7 +538,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-semibold text-stone-700">🔬 AI 互動紀錄</label>
-                  <p className="text-xs text-stone-400 mt-0.5">記錄所有跟 AI 的互動，包括聊天和 Vibe Coding</p>
+                  <p className="text-xs text-stone-400 mt-0.5">記錄所有跟 AI 的互動，包括聊天和 Coding IDE</p>
                 </div>
                 <button onClick={() => { setDistillConfig({ ...distillConfig, enabled: !distillConfig.enabled }); setSaved(false); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.enabled ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-400"}`}>

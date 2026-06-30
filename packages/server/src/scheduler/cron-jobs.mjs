@@ -663,14 +663,14 @@ async function vibeSessionsApiHandler(req, res) {
       }
 
       if (!distilled || distilled.length < 50) {
-        distilled = `# Vibe Coding Session 摘要\n\n**Session:** ${meta.id}\n**CLI:** ${meta.cli}\n**工作目錄:** ${meta.cwd}\n**時間:** ${meta.createdAt}\n\n> ⚠️ 自動蒸餾失敗，原始 log 已保存。你可以手動貼到 AI 做摘要。\n\n---\n\n${logContent.slice(0, 5000)}${logContent.length > 5000 ? "\n\n... (截斷)" : ""}`;
+        distilled = `# Coding Session 摘要\n\n**Session:** ${meta.id}\n**CLI:** ${meta.cli}\n**工作目錄:** ${meta.cwd}\n**時間:** ${meta.createdAt}\n\n> ⚠️ 自動蒸餾失敗，原始 log 已保存。你可以手動貼到 AI 做摘要。\n\n---\n\n${logContent.slice(0, 5000)}${logContent.length > 5000 ? "\n\n... (截斷)" : ""}`;
       }
 
       const knowledgeDir = resolve(PAAW_ROOT, "knowledge/vibe-sessions");
       mkdirSync(knowledgeDir, { recursive: true });
       const dateStr = meta.createdAt.replace(/[:.]/g, "-").slice(0, 19);
       const distillFile = resolve(knowledgeDir, `${dateStr}-${meta.cli}-session.md`);
-      const md = `# Vibe Coding Session 摘要\n\n**Session ID:** ${meta.id}\n**CLI:** ${meta.cli} ${meta.model ? "(" + meta.model + ")" : ""}\n**工作目錄:** ${meta.cwd}\n**執行模式:** ${meta.approvalMode}\n**時間:** ${meta.createdAt}\n\n---\n\n${distilled}\n\n---\n*蒸餾時間: ${new Date().toISOString()}*`;
+      const md = `# Coding Session 摘要\n\n**Session ID:** ${meta.id}\n**CLI:** ${meta.cli} ${meta.model ? "(" + meta.model + ")" : ""}\n**工作目錄:** ${meta.cwd}\n**執行模式:** ${meta.approvalMode}\n**時間:** ${meta.createdAt}\n\n---\n\n${distilled}\n\n---\n*蒸餾時間: ${new Date().toISOString()}*`;
       writeFileSync(distillFile, md);
 
       meta.distilled = true;

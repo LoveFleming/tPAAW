@@ -56,7 +56,7 @@ function loadDistillPrompt(source) {
     chat: `你是程式開發知識蒸餾器。請分析以下 AI 對話紀錄，精煉出：\n\n1. **任務摘要**：做了什麼、為什麼做\n2. **關鍵決策**：選擇了什麼方案、為什麼\n3. **技術要點**：用到的技術、工具、技巧\n4. **遇到的問題與解法**：bug、error、如何解決\n5. **產出的成果**：建立了哪些檔案、功能\n6. **可復用的模式**：值得記住的模式、最佳實踐\n\n用 Markdown 格式輸出，簡潔有價值。`,
     vibe: `你是程式開發知識蒸餾器。請分析以下 AI CLI coding session 的 log，精煉出：\n\n1. **任務摘要**：做了什麼\n2. **關鍵決策**：選擇了什麼方案\n3. **技術要點**：用到的技術和工具\n4. **遇到的問題與解法**\n5. **產出的成果**\n6. **可復用的模式**\n\n用 Markdown 格式輸出。`,
     cron: `請分析以下排程任務執行紀錄，摘要出：\n1. 執行了哪些任務\n2. 結果如何（成功/失敗）\n3. 有什麼值得注意的異常\n用 Markdown 格式輸出。`,
-    "vibe-coding": `你是程式開發知識蒸餾器。請分析以下 Vibe Coding IDE 的操作紀錄，精煉出：\n\n1. **工作模式**：開發者花了最多時間在哪些檔案\n2. **編輯模式**：主要的編輯類型（新增/修改/重構）\n3. **AI 互動**：問了 AI 什麼、AI 回答了什麼\n4. **技術要點**：用到的技術和工具\n5. **開發洞見**：可以改善的工作流程\n\n用 Markdown 格式輸出。`,
+    "vibe-coding": `你是程式開發知識蒸餾器。請分析以下 Coding IDE 的操作紀錄，精煉出：\n\n1. **工作模式**：開發者花了最多時間在哪些檔案\n2. **編輯模式**：主要的編輯類型（新增/修改/重構）\n3. **AI 互動**：問了 AI 什麼、AI 回答了什麼\n4. **技術要點**：用到的技術和工具\n5. **開發洞見**：可以改善的工作流程\n\n用 Markdown 格式輸出。`,
   };
   return defaults[source] || "摘要以下內容：";
 }
@@ -69,9 +69,9 @@ const DEFAULT_CONFIG = {
   maxLogSizeForLLM: 50000,
   sources: {
     chat:       { enabled: true, label: "💬 Chat 對話", description: "記錄所有跟 Chat AI 的對話", color: "#3B82F6", maxEntriesPerDistill: 100 },
-    vibe:       { enabled: true, label: "⚡ Vibe Coding", description: "記錄 AI CLI 終端機的輸出", color: "#8B5CF6", maxEntriesPerDistill: 50 },
+    vibe:       { enabled: true, label: "⚡ Coding CLI", description: "記錄 AI CLI 終端機的輸出", color: "#8B5CF6", maxEntriesPerDistill: 50 },
     cron:       { enabled: true, label: "⏰ Cron 執行紀錄", description: "記錄排程任務的執行結果", color: "#F59E0B", maxEntriesPerDistill: 200 },
-    "vibe-coding": { enabled: true, label: "💻 Vibe Coding 行為", description: "記錄 IDE 中的 coding 行為", color: "#8B5CF6", maxEntriesPerDistill: 300 },
+    "vibe-coding": { enabled: true, label: "💻 Coding IDE", description: "記錄 IDE 中的 coding 行為", color: "#8B5CF6", maxEntriesPerDistill: 300 },
   },
 };
 
@@ -211,7 +211,7 @@ function buildContentFromEntries(source, entries) {
         content += "\n";
         break;
       case "vibe":
-        content += `## ⚡ Vibe Coding (${e.ts})\n`;
+        content += `## ⚡ Coding CLI (${e.ts})\n`;
         content += `CLI: ${e.cli} | CWD: ${e.cwd}\n\n`;
         content += `\`\`\`\n${e.output}\n\`\`\`\n\n`;
         break;

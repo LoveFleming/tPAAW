@@ -9,8 +9,7 @@ import SkillBuilder from "./pages/SkillBuilder";
 import AppBuilder from "./pages/AppBuilder";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
-import VibeCoding from "./pages/VibeCoding";
-import VibeCodingIDE from "./pages/VibeCodingIDE";
+import CodingIDE from "./pages/CodingIDE";
 import BriefingPlayer from "./pages/BriefingPlayer";
 import MindMapViewer from "./pages/MindMapViewer";
 import Notes from "./pages/Notes";
@@ -399,8 +398,8 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openVibeCoding = useCallback(() => {
-    const tabId = `${currentScope}:vibe-coding`;
+  const openCoding = useCallback(() => {
+    const tabId = `${currentScope}:coding`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
     setActivePage(tabId);
   }, [currentScope]);
@@ -496,7 +495,7 @@ function AppInner() {
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
     if (pageType === "ai-settings") return "AI Settings";
-    if (pageType === "vibe-coding") return t("sidebar.vibeCoding");
+    if (pageType === "coding") return t("sidebar.coding");
     if (pageType === "briefing-player") return t("sidebar.briefingPlayer", "Briefing Player");
     if (pageType === "mind-map") return "Mind Map";
     if (pageType === "notes") return "Notes";
@@ -601,8 +600,8 @@ function AppInner() {
     if (pageType === "cronjobs") {
       return <CronJobsPage />;
     }
-    if (pageType === "vibe-coding") {
-      return <VibeCodingIDE />;
+    if (pageType === "coding") {
+      return <CodingIDE />;
     }
     if (pageType === "briefing-player") {
       return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;
@@ -805,7 +804,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":notes")} label="Notes" onClick={openNotes} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":projects")} label="Projects" onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":vibe-coding")} label={t("sidebar.vibeCoding")} onClick={openVibeCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 {/* <NavItem active={activePage.endsWith(":wf-exec")} label="Workflows" onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} /> */}
               </div>
             </SidebarSection>

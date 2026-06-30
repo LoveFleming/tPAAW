@@ -67,7 +67,7 @@ const NAV_EMOJI: Record<string, string> = {
     "Schedules":       "⏰",
     "Cron Jobs":       "⏰",
     "Skill Lab":       "🧪",
-    "Vibe Coding":     "⚡",
+    "Coding":     "⚡",
     "Prompts":         "💻",
     "Backup":          "🛡️",
     "Work Sync":       "🔄",

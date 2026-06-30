@@ -205,7 +205,7 @@
       "id": "builtin-apps",
       "name": "內建應用",
       "icon": "📦",
-      "description": "Notes、Mind Map、Briefing Player、Vibe Coding IDE",
+      "description": "Notes、Mind Map、Briefing Player、Coding IDE",
       "tasks": [
         {
           "id": "t_mqweppzl14rs",
@@ -233,7 +233,7 @@
         },
         {
           "id": "t_mqweppzleomn",
-          "name": "Vibe Coding IDE",
+          "name": "Coding IDE",
           "status": "done",
           "priority": "high",
           "start": "2026-05-25",
@@ -329,7 +329,7 @@
         },
         {
           "id": "t_mqweppzlh79p",
-          "name": "VibeCodingIDE 邊框優化",
+          "name": "CodingIDE 邊框優化",
           "status": "done",
           "priority": "low",
           "start": "2026-06-26",
@@ -405,7 +405,7 @@
       "id": "m_mqweppzl1a5u",
       "name": "PAAW v0.8 — 內建應用套件",
       "status": "done",
-      "note": "Notes + Mind Map + Vibe Coding IDE",
+      "note": "Notes + Mind Map + Coding IDE",
       "date": "2026-06"
     },
     {

@@ -191,12 +191,12 @@ async function ensureDefaultProject() {
         id: "builtin-apps",
         name: "內建應用",
         icon: "📦",
-        description: "Notes、Mind Map、Briefing Player、Vibe Coding IDE",
+        description: "Notes、Mind Map、Briefing Player、Coding IDE",
         tasks: [
           { id: genId("t"), name: "Notes 筆記系統 (OneNote 式)", status: "done", priority: "high", start: "2026-06-20", end: "2026-06-27" },
           { id: genId("t"), name: "Mind Map Viewer (markmap)", status: "done", priority: "medium", start: "2026-06-15", end: "2026-06-22" },
           { id: genId("t"), name: "Briefing Player", status: "done", priority: "low", start: "2026-05-20", end: "2026-05-30" },
-          { id: genId("t"), name: "Vibe Coding IDE", status: "done", priority: "high", start: "2026-05-25", end: "2026-06-20" },
+          { id: genId("t"), name: "Coding IDE", status: "done", priority: "high", start: "2026-05-25", end: "2026-06-20" },
           { id: genId("t"), name: "Project Board (專案看板)", status: "progress", priority: "high", start: "2026-06-27", end: "2026-06-30" },
           { id: genId("t"), name: "Gantt Chart 甘特圖", status: "progress", priority: "medium", start: "2026-06-28", end: "2026-07-05" },
         ],
@@ -217,12 +217,12 @@ async function ensureDefaultProject() {
         id: "ui-ux",
         name: "UI/UX",
         icon: "🎨",
-        description: "主題系統、響應式設計、VibeCodingIDE 風格",
+        description: "主題系統、響應式設計、CodingIDE 風格",
         tasks: [
           { id: genId("t"), name: "7 種主題色系統", status: "done", priority: "medium", start: "2026-04-01", end: "2026-04-15" },
           { id: genId("t"), name: "tk token 系統", status: "done", priority: "medium", start: "2026-06-20", end: "2026-06-25" },
           { id: genId("t"), name: "i18n 多語系", status: "done", priority: "low", start: "2026-05-10", end: "2026-05-20" },
-          { id: genId("t"), name: "VibeCodingIDE 邊框優化", status: "done", priority: "low", start: "2026-06-26", end: "2026-06-27" },
+          { id: genId("t"), name: "CodingIDE 邊框優化", status: "done", priority: "low", start: "2026-06-26", end: "2026-06-27" },
         ],
       },
       {
@@ -242,7 +242,7 @@ async function ensureDefaultProject() {
     milestones: [
       { id: genId("m"), name: "PAAW v0.1 — 核心框架", status: "done", note: "Skill + App + Chat 基礎架構", date: "2026-03" },
       { id: genId("m"), name: "PAAW v0.5 — 雙入口 + 工具生態", status: "done", note: "聊天視窗 + App 視窗都能用", date: "2026-05" },
-      { id: genId("m"), name: "PAAW v0.8 — 內建應用套件", status: "done", note: "Notes + Mind Map + Vibe Coding IDE", date: "2026-06" },
+      { id: genId("m"), name: "PAAW v0.8 — 內建應用套件", status: "done", note: "Notes + Mind Map + Coding IDE", date: "2026-06" },
       { id: genId("m"), name: "PAAW v1.0 — 正式發布", status: "progress", note: "Project Board + Gantt + 安裝包", date: "2026-09" },
       { id: genId("m"), name: "PAAW v1.5 — Plugin Marketplace", status: "todo", note: "第三方技能/App 市集", date: "2026-12" },
       { id: genId("m"), name: "PAAW v2.0 — Multi-user", status: "todo", note: "多人協作 + 權限管理", date: "2027-Q1" },
