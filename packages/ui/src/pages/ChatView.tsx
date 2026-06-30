@@ -55,9 +55,11 @@ interface Props {
   onSeedConsumed?: () => void;
   apps?: AppLink[];
   onOpenApp?: (appId: string) => void;
+  providerReady?: boolean | null;
+  onProviderNotReady?: () => void;
 }
 
-export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp }: Props) {
+export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp, providerReady, onProviderNotReady }: Props) {
   const { info: themeInfo } = useTheme();
   const assistantName = profile.assistantName || "林語晴";
 
@@ -301,6 +303,18 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     const text = (overrideText ?? input).trim();
     if (!text || !activeChatId || isLoading) return;
 
+    // Provider not ready — show message and prompt user to settings
+    if (providerReady === false) {
+      const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };
+      const assistantMsg: Message = { role: "assistant", content: "⚠️ 尚未設定 AI Provider，無法發送訊息。\n\n請先到 **設定 → AI Provider** 設定你的 API Key。", timestamp: new Date().toISOString() };
+      const newMessages = [...messages, userMsg, assistantMsg];
+      setMessages(newMessages);
+      setInput("");
+      saveMessages(activeChatId, newMessages);
+      onProviderNotReady?.();
+      return;
+    }
+
     const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
@@ -331,6 +345,14 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
       if (!resp.ok) {
         const err = await resp.text();
+        // Check for provider/model errors that need settings redirect
+        if (err.includes("No API key") || err.includes("Unknown provider") || resp.status === 400 && err.includes("provider")) {
+          assistantMsg.content = "⚠️ AI Provider 尚未正確設定。\n\n請到 **設定 → AI Provider** 配置你的 API Key 和模型。";
+          setMessages([...newMessages, assistantMsg]);
+          await saveMessages(activeChatId, [...newMessages, assistantMsg]);
+          onProviderNotReady?.();
+          return;
+        }
         assistantMsg.content = `❌ API 錯誤: ${resp.status} — ${err.slice(0, 200)}`;
         setMessages([...newMessages, assistantMsg]);
         await saveMessages(activeChatId, [...newMessages, assistantMsg]);

@@ -83,6 +83,21 @@ function AppInner() {
   // ── User Profile & Onboarding ──
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  // ── Provider readiness ──
+  const [providerReady, setProviderReady] = useState<boolean | null>(null);
+  const [settingsTab, setSettingsTab] = useState<string>("profile");
+
+  const checkProviderReady = useCallback(() => {
+    fetch(`${API_BASE}/api/paaw/providers`)
+      .then(r => r.json())
+      .then(data => {
+        const active = data.active;
+        const p = data.providers?.[active];
+        const ready = !!(p && p.apiKey && p.apiKey !== "na");
+        setProviderReady(ready);
+      })
+      .catch(() => setProviderReady(null));
+  }, []);
 
   useEffect(() => {
     // Check user profile
@@ -92,8 +107,8 @@ function AppInner() {
         if (data && data.onboarded) setProfile(data);
       })
       .catch(() => {});
-    // Check provider config (info only, no blocking)
-    fetch(`${API_BASE}/api/paaw/providers`).catch(() => {});
+    // Check provider config
+    checkProviderReady();
     setLoading(false);
   }, []);
 
@@ -140,6 +155,13 @@ function AppInner() {
   const [activePage, setActivePage] = useState<string>("_chat");
   const [openTabs, setOpenTabs] = useState<string[]>(["_chat"]);
   const [chatTitle, setChatTitle] = useState<string>("新對話");
+
+  // Jump to settings → providers tab (for provider-not-ready redirect)
+  const goToProviderSettings = useCallback(() => {
+    setSettingsTab("providers");
+    setOpenTabs(prev => prev.includes("_settings") ? prev : [...prev, "_settings"]);
+    setActivePage("_settings");
+  }, []);
 
 
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
@@ -560,6 +582,8 @@ function AppInner() {
     if (fullId === "_chat") {
       return <ChatView profile={profile!} embedded onTitleChange={setChatTitle}
         apps={[...skillAppNav.map(a => ({ id: a.skillId, name: a.label.replace(/^📊\s*/, "") })), ...dataApps.filter(da => !skillAppNav.some(sa => sa.skillId === da.id)).map(da => ({ id: da.id, name: da.name }))]}
+        providerReady={providerReady}
+        onProviderNotReady={goToProviderSettings}
         onOpenApp={openSkillAppById}
         onDeepLink={(path, params) => {
         if (path === "notes" && params.note) {
@@ -573,7 +597,7 @@ function AppInner() {
 
     // ── Settings ──
     if (fullId === "_settings") {
-      return <SettingsPage />;
+      return <SettingsPage initialTab={settingsTab} onTabChange={setSettingsTab} onProvidersSaved={checkProviderReady} />;
     }
     if (pageType === "ai-settings") {
       return <AISettingsPage />;

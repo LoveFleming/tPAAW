@@ -12,10 +12,16 @@ interface ProviderData {
   models: { id: string; name: string }[];
 }
 
-export default function SettingsPage() {
+interface SettingsPageProps {
+  initialTab?: string;
+  onTabChange?: (tab: string) => void;
+  onProvidersSaved?: () => void;
+}
+
+export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTab] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup">("profile");
+  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup">((initialTab as any) || "profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -38,6 +44,9 @@ export default function SettingsPage() {
   const [skillConfig, setSkillConfig] = useState({ testTimeout: 600, maxToolCalls: 50 });
   const [distillConfig, setDistillConfig] = useState<any>(null);
   const [distillRunning, setDistillRunning] = useState(false);
+
+  // Tab setter that syncs with parent
+  const setTab = (newTab: typeof tab) => { setTabState(newTab); onTabChange?.(newTab); };
 
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw/providers`)
@@ -155,7 +164,7 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers }),
       });
-      if (resp.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
+      if (resp.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); onProvidersSaved?.(); }
     } catch {}
     setSaving(false);
   };

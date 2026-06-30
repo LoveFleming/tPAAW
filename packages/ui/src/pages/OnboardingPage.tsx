@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTheme } from "../theme";
 
 import API_BASE from "../api";
@@ -11,6 +11,16 @@ interface UserProfile {
   name: string;
   intro: string;
   style: "concise" | "detailed" | "casual" | "formal";
+  assistantName?: string;
+  onboarded?: boolean;
+  onboardedAt?: string;
+}
+
+interface ProviderData {
+  name: string;
+  baseURL: string;
+  apiKey: string;
+  models: { id: string; name: string }[];
 }
 
 const STYLES = [
@@ -22,13 +32,55 @@ const STYLES = [
 
 export default function OnboardingPage({ onComplete }: Props) {
   const { info: themeInfo } = useTheme();
-  const [step, setStep] = useState(0); // 0: welcome, 1: name, 2: intro, 3: style
+  const [step, setStep] = useState(0); // 0: welcome, 1: name, 2: intro, 3: style, 4: provider
   const [name, setName] = useState("");
   const [intro, setIntro] = useState("");
   const [style, setStyle] = useState<UserProfile["style"]>("casual");
   const [composing, setComposing] = useState(false);
 
+  // Provider state
+  const [providers, setProviders] = useState<Record<string, ProviderData>>({});
+  const [activeId, setActiveId] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [providerSkipped, setProviderSkipped] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/paaw/providers`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.providers) setProviders(data.providers);
+        if (data.active) setActiveId(data.active);
+        if (data.defaultModel) setSelectedModel(data.defaultModel);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleApiKeyChange = (pid: string, key: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], apiKey: key } }));
+  };
+
+  const handleBaseURLChange = (pid: string, url: string) => {
+    setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], baseURL: url } }));
+  };
+
+  const saveProviders = async () => {
+    await fetch(`${API_BASE}/api/paaw/providers`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: activeId, defaultModel: selectedModel, providers }),
+    });
+  };
+
+  // Check if provider is configured (has API key)
+  const activeProvider = providers[activeId];
+  const hasValidProvider = activeProvider && activeProvider.apiKey && activeProvider.apiKey !== "na";
+
   const handleFinish = async () => {
+    // Save provider config if not skipped
+    if (!providerSkipped) {
+      try { await saveProviders(); } catch (err) { console.error("Failed to save providers:", err); }
+    }
+
     const profile: UserProfile = { name, intro, style, assistantName: "林語晴", onboarded: true, onboardedAt: new Date().toISOString() };
     try {
       await fetch(`${API_BASE}/api/paaw/user`, {
@@ -145,12 +197,94 @@ export default function OnboardingPage({ onComplete }: Props) {
         ))}
       </div>
       <button
-        onClick={handleFinish}
+        onClick={() => setStep(4)}
         className="px-10 py-3 rounded-xl text-white font-medium shadow-lg hover:shadow-xl transition-all text-base"
         style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}
       >
-        完成！開始聊天 🎉
+        下一步 →
       </button>
+    </div>,
+
+    // Step 4: Provider setup
+    <div key="provider" className="flex flex-col items-center text-center max-w-lg w-full">
+      <div className="text-4xl mb-6">🤖</div>
+      <h2 className="text-2xl font-bold text-stone-800 mb-2">設定 AI Provider</h2>
+      <p className="text-stone-400 text-sm mb-6">至少設定一個 Provider 才能開始聊天，也可以稍後在設定頁配置</p>
+
+      {/* Provider cards */}
+      <div className="space-y-3 mb-6 w-full">
+        {Object.entries(providers).map(([pid, p]) => (
+          <div
+            key={pid}
+            className="bg-white rounded-xl border-2 p-4 transition-all text-left"
+            style={{ borderColor: activeId === pid ? themeInfo.accent : "#e7e5e4" }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={() => { setActiveId(pid); if (p.models?.length > 0) setSelectedModel(p.models[0].id); }}
+                className="flex items-center gap-2"
+              >
+                <div
+                  className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                  style={{ borderColor: activeId === pid ? themeInfo.accent : "#d6d3d1" }}
+                >
+                  {activeId === pid && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: themeInfo.accent }} />}
+                </div>
+                <span className="font-semibold text-stone-700">{p.name}</span>
+              </button>
+              {p.models?.length > 0 && activeId === pid && (
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="text-xs px-2 py-1 rounded-md border border-stone-200 text-stone-600 focus:outline-none"
+                >
+                  {p.models.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <input
+              type="text"
+              value={p.baseURL}
+              onChange={(e) => handleBaseURLChange(pid, e.target.value)}
+              placeholder="API Base URL"
+              className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm mb-2 focus:outline-none focus:border-stone-400 font-mono text-stone-500"
+            />
+            <input
+              type="password"
+              value={p.apiKey}
+              onChange={(e) => handleApiKeyChange(pid, e.target.value)}
+              placeholder="API Key"
+              className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400 font-mono"
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Status hint */}
+      {hasValidProvider ? (
+        <p className="text-green-600 text-sm mb-4">✅ {providers[activeId]?.name} 已設定完成</p>
+      ) : (
+        <p className="text-amber-500 text-sm mb-4">⚠️ 尚未設定 API Key，你可以稍後再配置</p>
+      )}
+
+      <div className="flex flex-col gap-3 w-full">
+        <button
+          onClick={() => { setProviderSkipped(false); handleFinish(); }}
+          disabled={!hasValidProvider}
+          className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}
+        >
+          ✅ 儲存並開始使用
+        </button>
+        <button
+          onClick={() => { setProviderSkipped(true); handleFinish(); }}
+          className="w-full py-2.5 rounded-xl text-stone-400 font-medium text-sm hover:text-stone-600 hover:bg-stone-100 transition-all"
+        >
+          稍後再設定 →
+        </button>
+      </div>
     </div>,
   ];
 
@@ -159,7 +293,7 @@ export default function OnboardingPage({ onComplete }: Props) {
       <div className="w-full max-w-xl mx-4 px-6 py-12">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-10">
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <div
               key={i}
               className="w-2 h-2 rounded-full transition-all"
