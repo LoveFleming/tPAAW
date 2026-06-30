@@ -818,9 +818,21 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                             <ModelSelector
                                 feature={`employee_${employeeId}`}
                                 value={effectiveModel}
-                                onChange={setSelectedModel}
+                                onChange={(v) => {
+                                    setSelectedModel(v);
+                                    // Auto-apply: no need for manual Apply button
+                                    if (chatStarted) {
+                                        setRunningModel(v);
+                                        const updated = { ...employee, chatConfig: { ...employee.chatConfig, model: v, approvalMode: permissionMode } };
+                                        fetch(`${API_BASE}/api/paaw/crews/${employee.id}`, {
+                                            method: "PUT",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify(updated),
+                                        }).catch(() => {});
+                                    }
+                                }}
                                 className={cn(
-                                    "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer max-w-[140px]",
+                                    "px-2 py-1 rounded-lg border text-[11px] cursor-pointer min-w-[180px]",
                                     fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
                                     chatStarted && (effectiveModel || "") !== runningModel && !fullscreen && "border-amber-400"
                                 )}
