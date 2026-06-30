@@ -43,10 +43,17 @@ async function ensurePrefsLoaded() {
       fetch(`${API_BASE}/api/models`).then(r => r.ok ? r.json() : {}),
     ]);
     Object.assign(prefCache, prefRes);
-    const data = modelsRes as ModelsApiResponse;
-    providersCache = data.providers || [];
-    activeProviderCache = data.activeProviderId || "";
-    defaultModelCache = data.defaultModel || "";
+    const data = modelsRes as any;
+    if (data.providers) {
+      // New format: { providers: [...], activeProviderId, defaultModel }
+      providersCache = data.providers;
+      activeProviderCache = data.activeProviderId || "";
+      defaultModelCache = data.defaultModel || "";
+    } else if (data.models) {
+      // Old format: { models: [...], current } — wrap into single provider
+      providersCache = [{ id: activeProviderCache || "active", name: "Default", models: data.models }];
+      defaultModelCache = data.current || "";
+    }
   } catch {}
 }
 
