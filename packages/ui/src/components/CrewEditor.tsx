@@ -1,3 +1,4 @@
+import ModelSelector from "./ModelSelector";
 import API_BASE from "../api";
 import React, { useState, useEffect } from "react";
 import { Crew, Risk, SkillDefinition } from "../types";
@@ -33,29 +34,11 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const [model, setModel] = useState(crew?.chatConfig?.model || "");
     const [approvalMode, setApprovalMode] = useState(crew?.chatConfig?.approvalMode || "yolo");
     const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(crew?.skillIds || []);
-    const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
 
-    // Load models when engine changes
+    // Load saved model preference when crew changes
     useEffect(() => {
-        setModel("");
-        setAvailableModels([]);
-        fetch(`${API_BASE}/api/models`)
-            .then(r => r.ok ? r.json() : [])
-            .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
-                const list = data.models || [];
-                setAvailableModels(list);
-                // Auto-select current model, or keep crew's existing model if it matches
-                const existing = crew?.chatConfig?.model;
-                if (existing && list.find(m => m.id === existing)) {
-                    setModel(existing);
-                } else {
-                    const cur = list.find(m => m.current);
-                    if (cur) setModel(cur.id);
-                    else if (list.length > 0) setModel(list[0].id);
-                }
-            })
-            .catch(() => {});
-    }, []);
+        if (crew?.chatConfig?.model) setModel(crew.chatConfig.model);
+    }, [crew]);
 
     // Fetch all skill definitions from shared pool
     const [allSkills, setAllSkills] = useState<SkillDefinition[]>([]);
@@ -265,13 +248,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-sm font-semibold text-stone-500">Model</label>
-                                <select value={model} onChange={e => setModel(e.target.value)}
-                                    className={inputCls} style={inputStyle}>
-                                    <option value="">（使用預設）</option>
-                                    {availableModels.map(m => (
-                                        <option key={m.id} value={m.id}>{m.name}{m.current ? " ✓" : ""}</option>
-                                    ))}
-                                </select>
+                                <ModelSelector feature="crewChat" value={model} onChange={setModel} className={inputCls} style={inputStyle} />
                             </div>
                             <div>
                                 <label className="text-sm font-semibold text-stone-500">Approval Mode</label>

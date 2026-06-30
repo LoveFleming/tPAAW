@@ -113,6 +113,35 @@ export default async function aiSettingsRoutes(req, res) {
     return true;
   }
 
+  // GET /api/user/preferences — read user preferences (model overrides per feature)
+  if (req.method === "GET" && path === "/api/user/preferences") {
+    try {
+      const { resolve } = await import("path");
+      const { readFile: rf } = await import("fs/promises");
+      const userPath = resolve(AI_SETTINGS_ROOT, "../config/user.json");
+      const raw = await rf(userPath, "utf-8");
+      const user = JSON.parse(raw);
+      json(res, user.preferences || {});
+    } catch { json(res, {}); }
+    return true;
+  }
+
+  // PUT /api/user/preferences — update user preferences
+  if (req.method === "PUT" && path === "/api/user/preferences") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const { resolve } = await import("path");
+      const { readFile: rf, writeFile: wf } = await import("fs/promises");
+      const userPath = resolve(AI_SETTINGS_ROOT, "../config/user.json");
+      let user = {};
+      try { user = JSON.parse(await rf(userPath, "utf-8")); } catch {}
+      user.preferences = { ...(user.preferences || {}), ...body };
+      await wf(userPath, JSON.stringify(user, null, 2), "utf-8");
+      json(res, { ok: true, preferences: user.preferences });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
   // GET /api/ai-settings — list categories with live file list
   if (req.method === "GET" && path === "/api/ai-settings") {
     const cats = [];

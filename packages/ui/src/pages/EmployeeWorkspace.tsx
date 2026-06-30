@@ -1,4 +1,5 @@
 import API_BASE from "../api";
+import ModelSelector from "../components/ModelSelector";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, cn } from "../components/ui/shared";
 import { Crew, SkillDefinition, UserInput, buildSystemPrompt, migrateCrew } from "../types";
@@ -784,27 +785,17 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                 <option value="plan">Plan</option>
                             </select>
                             {/* Model */}
-                            {models.length > 0 && (
-                                <select
-                                    value={effectiveModel}
-                                    onChange={e => {
-                                        setSelectedModel(e.target.value);
-                                    }}
-                                    className={cn(
-                                        "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer max-w-[140px]",
-                                        fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
-                                        chatStarted && (effectiveModel || "") !== runningModel && !fullscreen && "border-amber-400"
-                                    )}
-                                    style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
-                                    title="Model"
-                                >
-                                    {models.map(m => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.name.length > 20 ? m.name.slice(0, 20) + '...' : m.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            )}
+                            <ModelSelector
+                                feature={`employee_${employeeId}`}
+                                value={effectiveModel}
+                                onChange={setSelectedModel}
+                                className={cn(
+                                    "px-1.5 py-1 rounded-lg border text-[11px] cursor-pointer max-w-[140px]",
+                                    fullscreen ? "bg-gray-800 border-gray-600 text-gray-200" : "bg-white",
+                                    chatStarted && (effectiveModel || "") !== runningModel && !fullscreen && "border-amber-400"
+                                )}
+                                style={!fullscreen ? { borderColor: t.accentBorder, color: t.accentText } : undefined}
+                            />
                             {/* Apply & Restart — only visible when config changed */}
                             {configDirty && (
                                 <button

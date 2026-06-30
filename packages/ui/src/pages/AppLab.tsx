@@ -5,6 +5,7 @@ import { SkillDefinition } from "../types";
 import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 
 import API from "../api";
+import ModelSelector from "../components/ModelSelector";
 
 const TEMPLATE_ICONS: Record<string, string> = {
     custom: "✨",
@@ -280,23 +281,9 @@ export default function AppLab() {
     const [reportName, setReportName] = useState("");
     const [description, setDescription] = useState("");
     const [model, setModel] = useState("");
-    const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
     const [selectedSkill, setSelectedSkill] = useState<SkillDefinition | null>(null);
 
-    // Load models from provider config
-    useEffect(() => {
-        setAvailableModels([]);
-        fetch(`${API}/api/models`)
-            .then(r => r.ok ? r.json() : [])
-            .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
-                const list = data.models || [];
-                setAvailableModels(list);
-                const cur = list.find(m => m.current);
-                if (cur) setModel(cur.id);
-                else if (list.length > 0) setModel(list[0].id);
-            })
-            .catch(() => {});
-    }, []);
+    // Model loaded via ModelSelector with user preference
 
     // ── Advanced settings (collapsed by default) ──
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -822,13 +809,7 @@ export default function AppLab() {
                             📜 歷史 <span className="text-xs bg-stone-100 px-1 rounded">{history.length}</span>
                         </button>
                     </div>
-                    <select value={model} onChange={e => setModel(e.target.value)}
-                        className="text-xs px-2 py-1 border border-stone-200 rounded-lg bg-white min-w-[140px]">
-                        <option value="">預設 Model</option>
-                        {availableModels.map(m => (
-                            <option key={m.id} value={m.id}>{m.name}{m.current ? " ✓" : ""}</option>
-                        ))}
-                    </select>
+                    <ModelSelector feature="appLab" value={model} onChange={setModel} />
                 </div>
             </div>
 

@@ -27,6 +27,7 @@ interface TrainingFile { name: string; path: string; }
 interface OutputFile { name: string; path: string; size: number; type: string; ext: string; }
 
 // ── Constants ──
+import ModelSelector from "../components/ModelSelector";
 import API_BASE from "../api";
 
 const EMPTY_FIELD: InputField = { id: "", label: "", description: "", placeholder: "", required: false, multiline: false };
@@ -328,7 +329,6 @@ export default function SkillBuilder() {
 
   // Builder Agent (interactive)
   const [model, setModel] = useState("");
-  const [availableModels, setAvailableModels] = useState<{ id: string; name: string; current: boolean }[]>([]);
   const [consoleKey, setConsoleKey] = useState(0);
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
   const [buildSystemPrompt, setBuildSystemPrompt] = useState<string | undefined>();
@@ -337,21 +337,6 @@ export default function SkillBuilder() {
   const loadingRef = useRef(false);
 
   // Load models from provider config
-  useEffect(() => {
-    setAvailableModels([]);
-    fetch(`${API_BASE}/api/models`)
-      .then(r => r.ok ? r.json() : [])
-      .then((data: { models?: { id: string; name: string; current: boolean }[] }) => {
-        const list = data.models || [];
-        setAvailableModels(list);
-        // Auto-select current model
-        const current = list.find(m => m.current);
-        if (current) setModel(current.id);
-        else if (list.length > 0) setModel(list[0].id);
-      })
-      .catch(() => {});
-  }, []);
-
   // Skill creator
   const [skillCreatorContent, setSkillCreatorContent] = useState("");
   const [skillConfig, setSkillConfig] = useState({ testTimeout: 0, maxToolCalls: 0 });
@@ -701,12 +686,7 @@ ${userInputLines.join("\n")}
           {saveStatus === "dirty" && <span className="text-xs text-rose-500">●</span>}
         </div>
         <div className="flex items-center gap-2 ml-2">
-          <select value={model} onChange={e => setModel(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white min-w-[140px]">
-            <option value="">預設 Model</option>
-            {availableModels.map(m => (
-              <option key={m.id} value={m.id}>{m.name}{m.current ? " ✓" : ""}</option>
-            ))}
-          </select>
+          <ModelSelector feature="skillBuilder" value={model} onChange={setModel} />
       </div>
       </div>
 

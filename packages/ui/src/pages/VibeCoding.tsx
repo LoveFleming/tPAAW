@@ -3,6 +3,7 @@ import { useTheme } from "../theme";
 import { cn } from "../utils";
 
 import API_BASE from "../api";
+import ModelSelector from "../components/ModelSelector";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 
 // ── Types ──
@@ -274,8 +275,10 @@ export default function VibeCoding() {
                                 <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Session 名稱（可選）"
                                     className="w-full px-3 py-2 border rounded-lg text-sm" style={{ borderColor: "#d6d3d1" }} />
 
-                                <input value={formModel} onChange={e => setFormModel(e.target.value)} placeholder="Model（留空用預設）"
-                                    className="w-full px-3 py-2 border rounded-lg text-xs font-mono" style={{ borderColor: "#d6d3d1" }} />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-stone-500">Model</span>
+                                    <ModelSelector feature="vibeCoding" value={formModel} onChange={setFormModel} className="text-xs px-2 py-1.5 border rounded-lg min-w-[160px]" style={{ borderColor: "#d6d3d1" }} />
+                                </div>
 
                                 <div>
                                     <div className="text-[11px] text-stone-500 font-bold mb-1.5 uppercase tracking-wider">工作目錄</div>
