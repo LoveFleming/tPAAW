@@ -82,6 +82,47 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  // ── Static frontend (production) — serve UI dist from PAAW server ──
+  if (!res.headersSent && req.method === "GET") {
+    const UI_DIST = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\//, "")), "../../ui/dist");
+    const { existsSync: _exists } = await import("fs");
+    if (_exists(UI_DIST)) {
+      let reqPath = req.url?.split("?")[0] || "/";
+      // Don't serve static for /api/ routes
+      if (!reqPath.startsWith("/api/")) {
+        let filePath = resolve(UI_DIST, reqPath.slice(1));
+        // Security: prevent path traversal
+        if (!filePath.startsWith(UI_DIST)) filePath = resolve(UI_DIST, "index.html");
+        if (!_exists(filePath) || reqPath === "/") filePath = resolve(UI_DIST, "index.html");
+        try {
+          const { extname } = await import("path");
+          const ext = extname(filePath);
+          const mimeTypes = {
+            ".html": "text/html; charset=utf-8",
+            ".js": "text/javascript",
+            ".css": "text/css",
+            ".json": "application/json",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".webp": "image/webp",
+            ".woff": "font/woff",
+            ".woff2": "font/woff2",
+            ".ttf": "font/ttf",
+            ".map": "application/json",
+          };
+          const content = await readFile(filePath);
+          res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream" });
+          res.end(content);
+          return;
+        } catch {}
+      }
+    }
+  }
+
   // 404
   if (!res.headersSent) {
     res.writeHead(404, { "Content-Type": "application/json" });
