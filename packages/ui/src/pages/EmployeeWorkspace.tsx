@@ -337,7 +337,8 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 const ctx = await res.json();
                 const baseSystem = ctx.systemPrompt || "";
                 // Append employee-specific parts on top of full system context
-                const employeeParts = [employee.rolePrompt || ""];
+                // Note: rolePrompt is already included by _buildCrew via API, so skip it here
+                const employeeParts: string[] = [];
                 for (const skillId of selectedSkillIds) {
                     const skillDef = skillDefinitions.get(skillId);
                     if (skillDef) {
@@ -352,11 +353,12 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 }
                 setSystemPrompt(baseSystem + "\n\n" + employeeParts.join("\n\n"));
             } else {
-                // Fallback: use frontend buildSystemPrompt
+                // Fallback: use frontend buildSystemPrompt (includes rolePrompt)
                 const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
                 setSystemPrompt(prompt);
             }
         } catch {
+            // Fallback: use frontend buildSystemPrompt (includes rolePrompt)
             const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
             setSystemPrompt(prompt);
         }

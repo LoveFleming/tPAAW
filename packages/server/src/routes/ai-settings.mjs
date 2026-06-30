@@ -114,13 +114,15 @@ export default async function aiSettingsRoutes(req, res) {
   }
 
   // GET /api/context/:target — get full system context for any AI target
-  // Targets: chat, skill-exec, workflow, crew, skill-builder, crew-chat, vibe-coding, app-builder
-  const ctxTargetMatch = req.method === "GET" && path.match(/^\/api\/context\/([\w-]+)$/);
-  if (ctxTargetMatch) {
+  // Targets: chat, skill-exec, workflow, crew, skill-builder, crew-chat, vibe-coding, app-builder, coding, employee
+  // Query: ?crewId=xxx (for crew/employee target)
+  const ctxMatch = req.method === "GET" && req.url?.match(/^\/api\/context\/([\w-]+)(?:\?(.*))?$/);
+  if (ctxMatch) {
     try {
-      const target = ctxTargetMatch[1];
+      const target = ctxMatch[1];
+      const qs = new URLSearchParams(ctxMatch[2] || "");
+      const crewId = qs.get("crewId") || "";
       const { contextEngine } = await import("../context-engine.mjs");
-      // Map frontend target names to context-engine targets
       const targetMap = {
         "chat": "chat",
         "skill-exec": "skill-exec",
@@ -128,14 +130,17 @@ export default async function aiSettingsRoutes(req, res) {
         "crew": "crew",
         "skill-builder": "skill-builder",
         "crew-chat": "crew",
-        "vibe-coding": "chat",  // vibe-coding uses chat context
-        "app-builder": "chat",  // app-builder uses chat context
-        "employee": "crew",     // employee uses crew context
+        "vibe-coding": "chat",
+        "app-builder": "chat",
+        "employee": "crew",
         "mindmap": "chat",
         "notes": "chat",
+        "coding": "chat",
       };
       const engineTarget = targetMap[target] || "chat";
-      const ctx = await contextEngine.build({ target: engineTarget });
+      const buildParams = { target: engineTarget };
+      if (crewId) buildParams.crewId = crewId;
+      const ctx = await contextEngine.build(buildParams);
       json(res, { systemPrompt: ctx.systemPrompt || "", prompt: ctx.prompt || "", provider: ctx.provider });
     } catch (err) {
       json(res, { error: err.message }, 500);
