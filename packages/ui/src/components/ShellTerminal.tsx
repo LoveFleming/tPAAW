@@ -10,7 +10,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 
-const WS_PORT = 4098;
+const WS_PORT = import.meta.env.VITE_PAAW_WS_PORT || 4098;
 
 interface ShellTerminalProps {
   cwd?: string;

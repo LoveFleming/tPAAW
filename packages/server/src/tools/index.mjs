@@ -1288,7 +1288,7 @@ function buildHandlers(apps) {
   handlers.project_status = async ({ projectId } = {}) => {
     try {
       if (projectId) {
-        const resp = await fetch(`http://127.0.0.1:4097/api/projects/${encodeURIComponent(projectId)}`);
+        const resp = await fetch(`${API}/api/projects/${encodeURIComponent(projectId)}`);
         const data = await resp.json();
         if (!data.project) return { error: "專案不存在" };
         const p = data.project;
@@ -1317,7 +1317,7 @@ function buildHandlers(apps) {
         }
         return { text, project: { id: p.id, name: p.name, pct } };
       } else {
-        const resp = await fetch("http://127.0.0.1:4097/api/projects");
+        const resp = await fetch(`${API}/api/projects`);
         const data = await resp.json();
         const projects = data.projects || [];
         if (projects.length === 0) return { text: "尚無專案" };
@@ -1336,7 +1336,7 @@ function buildHandlers(apps) {
 
   handlers.project_update_task = async ({ projectId, taskId, status }) => {
     try {
-      const resp = await fetch(`http://127.0.0.1:4097/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
+      const resp = await fetch(`${API}/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),

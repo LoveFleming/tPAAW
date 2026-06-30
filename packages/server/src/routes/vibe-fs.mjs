@@ -7,7 +7,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { spawn } from "child_process";
-import { normalizePath, PAAW_ROOT, DATA_ROOT } from "./shared.mjs";
+import { normalizePath, PAAW_ROOT, DATA_ROOT, PORT } from "./shared.mjs";
 
 // ── Helper: run git command ──
 async function runGit(args, cwd) {
@@ -193,7 +193,7 @@ ${context ? "\n## Context\n" + context : ""}
 5. **嚴重程度**：🔴 Critical / 🟡 Warning / 🟢 Good`;
 
     try {
-      const chatRes = await fetch("http://127.0.0.1:4097/api/chat", {
+      const chatRes = await fetch(`http://127.0.0.1:${PORT}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

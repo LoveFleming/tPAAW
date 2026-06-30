@@ -15,6 +15,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = process.env.PAAW_ROOT || resolve(__dirname, "../../../../");
+const PAAW_PORT = process.env.PAAW_PORT || "4097";
 const REGISTRY_DIR = resolve(PAAW_ROOT, "data/api-registry");
 const TOOLS_DIR = resolve(PAAW_ROOT, "data/skills/tools");
 
@@ -96,7 +97,7 @@ ${inputSchema}
 
 ### Execution Steps
 1. 根據 input 組裝 API 請求
-2. 呼叫 \`${method} http://127.0.0.1:4097${path}${queryTemplate ? queryTemplate.replace(/\{input\./g, "{${input.").replace(/\}/g, "}}") : ""}\`
+2. 呼叫 \`${method} http://127.0.0.1:${PAAW_PORT}${path}${queryTemplate ? queryTemplate.replace(/\{input\./g, "{${input.").replace(/\}/g, "}}") : ""}\`
 3. 回傳 API 回應的 JSON 內容
 
 ### Business Rules

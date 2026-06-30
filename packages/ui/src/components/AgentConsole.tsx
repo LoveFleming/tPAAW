@@ -34,7 +34,7 @@ interface AgentEvent {
   content?: string;
 }
 
-const WS_PORT = 4098;
+const WS_PORT = import.meta.env.VITE_PAAW_WS_PORT || 4098;
 
 // ── Component ──
 

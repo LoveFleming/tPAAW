@@ -9,7 +9,7 @@ import { readFileSync, existsSync, readdirSync, mkdirSync, writeFileSync, statSy
 import { join, resolve, dirname } from "path";
 import {
   PAAW_ROOT, CRON_JOBS_FILE, CRON_LOGS_DIR, CRON_RESULTS_DIR, CRON_CHAT_DIR,
-  VIBE_SESSIONS_DIR, readBody,
+  VIBE_SESSIONS_DIR, readBody, PORT,
 } from "../routes/shared.mjs";
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
@@ -82,7 +82,7 @@ async function runCronJob(job) {
   // ── System Backup type ──
   if (job._systemBackup) {
     try {
-      const resp = await fetch("http://127.0.0.1:4097/api/backup/run", { method: "POST" });
+      const resp = await fetch(`http://127.0.0.1:${PORT}/api/backup/run`, { method: "POST" });
       const data = await resp.json();
       if (data.ok) {
         console.log(`[cron] System backup done: ${data.backup?.filename} (${(data.backup?.size / 1024 / 1024).toFixed(1)} MB)`);
