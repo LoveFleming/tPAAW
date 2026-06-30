@@ -371,7 +371,11 @@ export default async function skillsApiRoute(req, res) {
         return true;
       }
 
-      const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
+      // Use direct LLM call (not agent loop) — we just want text output
+      const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
+      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
+
+      const llm = resolveLLMConfig(PAAW_ROOT, model);
 
       // Load skill format rules for consistent output
       let skillFormat = "";
@@ -381,7 +385,7 @@ export default async function skillsApiRoute(req, res) {
         skillFormat = await rf(fmtPath, "utf-8");
       } catch {}
 
-      const systemPrompt = `你是 PAAW Skill 建構專家。根據使用者的一句話需求描述，產出完整的 SKILL.md 內容。
+      const systemPrompt = `你是 PAAW Skill 建構專家。根據使用者的需求描述，產出完整的 SKILL.md 內容。
 
 ${skillFormat ? `### Skill Format Rules\n${skillFormat}` : ""}
 
@@ -399,16 +403,21 @@ ${skillFormat ? `### Skill Format Rules\n${skillFormat}` : ""}
 - 每個 section 都要寫實際內容，不要留空
 - 語言：繁體中文
 - id 用英文 kebab-case
-- 只輸出 SKILL.md 內容，不加任何解釋或 markdown code fence`;
+- 只輸出 SKILL.md 內容，不加任何解釋或 markdown code fence
+- 不要使用任何工具，直接輸出文字`;
 
-      const result = await runAgentLoop({
-        prompt: `請根據以下需求，產出完整的 SKILL.md：\n\n${requirement}`,
-        systemPrompt,
-        cwd: PAAW_ROOT,
-        maxTurns: 1,
-        timeout: 60,
-        model: model || undefined,
-        rootDir: PAAW_ROOT,
+      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
+        model: llm.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `請根據以下需求，產出完整的 SKILL.md：\n\n${requirement}` },
+        ],
+        max_tokens: 8192,
+        temperature: 0.7,
+      }, {
+        maxRetries: 3,
+        timeoutMs: 90_000,
+        validateContent: true,
       });
 
       let content = (result.content || "").trim();
