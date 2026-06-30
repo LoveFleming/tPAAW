@@ -45,6 +45,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   const [distillConfig, setDistillConfig] = useState<any>(null);
   const [distillRunning, setDistillRunning] = useState(false);
 
+  // Sync tab when parent changes initialTab (e.g. redirect to providers)
+  useEffect(() => {
+    if (initialTab && initialTab !== tab) setTabState(initialTab as typeof tab);
+  }, [initialTab]);
+
   // Tab setter that syncs with parent
   const setTab = (newTab: typeof tab) => { setTabState(newTab); onTabChange?.(newTab); };
 
