@@ -366,7 +366,7 @@ export default function SkillBuilder() {
 
   // ── Data loading ──
   const loadFiles = useCallback(() => {
-    fetch(`${API_BASE}/api/skill-lab/build-files`).then(r => r.ok ? r.json() : []).then((f: TrainingFile[]) => setFiles(f)).catch(() => {});
+    fetch(`${API_BASE}/api/skill-builder/build-files`).then(r => r.ok ? r.json() : []).then((f: TrainingFile[]) => setFiles(f)).catch(() => {});
   }, []);
   useEffect(() => { loadFiles(); }, [loadFiles]);
 

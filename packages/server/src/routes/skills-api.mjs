@@ -1,6 +1,6 @@
 /**
  * Skills CRUD API
- * Routes: /api/skills, /api/skills/:id, /api/skill-app/:id, /api/skill-lab/build-files
+ * Routes: /api/skills, /api/skills/:id, /api/skill-app/:id, /api/skill-builder/build-files
  */
 
 import { readdir, readFile, writeFile, mkdir, rm, stat } from "fs/promises";
@@ -334,8 +334,9 @@ export default async function skillsApiRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/skill-lab/build-files ──
-  if (req.method === "GET" && req.url?.startsWith("/api/skill-lab/build-files")) {
+  // ── GET /api/skill-builder/build-files ──
+  // Also accept legacy /api/skill-lab/build-files for backward compat
+  if (req.method === "GET" && (req.url?.startsWith("/api/skill-builder/build-files") || req.url?.startsWith("/api/skill-lab/build-files"))) {
     try {
       const skillsDir = join(PAAW_ROOT, "data/skills");
       const results = [];

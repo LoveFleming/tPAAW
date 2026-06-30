@@ -30,6 +30,7 @@ import "highlight.js/styles/github.css";
 import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
+import ModelSelector from "../components/ModelSelector";
 
 // ── Types ──
 interface FsItem {
@@ -512,6 +513,7 @@ export default function VibeCodingIDE() {
   const [chatMode, setChatMode] = useState<"chat" | "agent">("agent");
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentToolLog, setAgentToolLog] = useState<Array<{name: string; args: string; result: string}>>([]);
+  const [vibeModel, setVibeModel] = useState<string>("");
 
 const sendChat = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
@@ -540,6 +542,7 @@ const sendChat = useCallback(async () => {
           body: JSON.stringify({
             prompt: userMsg.content + context,
             systemPrompt: vibeSystemPrompt,
+            model: vibeModel || undefined,
             cwd: rootPath || undefined,
             maxTurns: 15,
             timeout: 90,
@@ -1436,6 +1439,7 @@ const sendChat = useCallback(async () => {
                     💬 Chat
                   </button>
                 </div>
+                <ModelSelector feature="vibeCodingIDE" value={vibeModel} onChange={setVibeModel} />
                 {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
                 <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
               </div>

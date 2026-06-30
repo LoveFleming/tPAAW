@@ -44,6 +44,23 @@ function safeReadDistillPrompt() {
 }
 
 // ── Default Config ──
+// Per-source distill prompts are loaded from data/ai-settings/distill/{source}.md
+// Fallback to inline defaults if file doesn't exist
+const DISTILL_PROMPTS_DIR = resolve(PAAW_ROOT, "data/ai-settings/distill");
+
+function loadDistillPrompt(source) {
+  // Try file first
+  try { return readFileSync(resolve(DISTILL_PROMPTS_DIR, `${source}.md`), "utf-8").trim(); } catch {}
+  // Fallback to inline defaults
+  const defaults = {
+    chat: `你是程式開發知識蒸餾器。請分析以下 AI 對話紀錄，精煉出：\n\n1. **任務摘要**：做了什麼、為什麼做\n2. **關鍵決策**：選擇了什麼方案、為什麼\n3. **技術要點**：用到的技術、工具、技巧\n4. **遇到的問題與解法**：bug、error、如何解決\n5. **產出的成果**：建立了哪些檔案、功能\n6. **可復用的模式**：值得記住的模式、最佳實踐\n\n用 Markdown 格式輸出，簡潔有價值。`,
+    vibe: `你是程式開發知識蒸餾器。請分析以下 AI CLI coding session 的 log，精煉出：\n\n1. **任務摘要**：做了什麼\n2. **關鍵決策**：選擇了什麼方案\n3. **技術要點**：用到的技術和工具\n4. **遇到的問題與解法**\n5. **產出的成果**\n6. **可復用的模式**\n\n用 Markdown 格式輸出。`,
+    cron: `請分析以下排程任務執行紀錄，摘要出：\n1. 執行了哪些任務\n2. 結果如何（成功/失敗）\n3. 有什麼值得注意的異常\n用 Markdown 格式輸出。`,
+    "vibe-coding": `你是程式開發知識蒸餾器。請分析以下 Vibe Coding IDE 的操作紀錄，精煉出：\n\n1. **工作模式**：開發者花了最多時間在哪些檔案\n2. **編輯模式**：主要的編輯類型（新增/修改/重構）\n3. **AI 互動**：問了 AI 什麼、AI 回答了什麼\n4. **技術要點**：用到的技術和工具\n5. **開發洞見**：可以改善的工作流程\n\n用 Markdown 格式輸出。`,
+  };
+  return defaults[source] || "摘要以下內容：";
+}
+
 const DEFAULT_CONFIG = {
   enabled: true,
   autoDistill: true,
@@ -51,68 +68,10 @@ const DEFAULT_CONFIG = {
   keepRawDays: 30,
   maxLogSizeForLLM: 50000,
   sources: {
-    chat: {
-      enabled: true,
-      label: "💬 Chat 對話",
-      description: "記錄所有跟 Chat AI 的對話",
-      color: "#3B82F6",
-      maxEntriesPerDistill: 100,
-      distillPrompt: `你是程式開發知識蒸餾器。請分析以下 AI 對話紀錄，精煉出：
-
-1. **任務摘要**：做了什麼、為什麼做
-2. **關鍵決策**：選擇了什麼方案、為什麼
-3. **技術要點**：用到的技術、工具、技巧
-4. **遇到的問題與解法**：bug、error、如何解決
-5. **產出的成果**：建立了哪些檔案、功能
-6. **可復用的模式**：值得記住的模式、最佳實踐
-
-用 Markdown 格式輸出，簡潔有價值。`,
-    },
-    vibe: {
-      enabled: true,
-      label: "⚡ Vibe Coding",
-      description: "記錄 AI CLI 終端機的輸出",
-      color: "#8B5CF6",
-      maxEntriesPerDistill: 50,
-      distillPrompt: `你是程式開發知識蒸餾器。請分析以下 AI CLI coding session 的 log，精煉出：
-
-1. **任務摘要**：做了什麼
-2. **關鍵決策**：選擇了什麼方案
-3. **技術要點**：用到的技術和工具
-4. **遇到的問題與解法**
-5. **產出的成果**
-6. **可復用的模式**
-
-用 Markdown 格式輸出。`,
-    },
-    cron: {
-      enabled: true,
-      label: "⏰ Cron 執行紀錄",
-      description: "記錄排程任務的執行結果",
-      color: "#F59E0B",
-      maxEntriesPerDistill: 200,
-      distillPrompt: `請分析以下排程任務執行紀錄，摘要出：
-1. 執行了哪些任務
-2. 結果如何（成功/失敗）
-3. 有什麼值得注意的異常
-用 Markdown 格式輸出。`,
-    },
-    "vibe-coding": {
-      enabled: true,
-      label: "💻 Vibe Coding 行為",
-      description: "記錄 IDE 中的 coding 行為（開檔、編輯、存檔、AI 對話）",
-      color: "#8B5CF6",
-      maxEntriesPerDistill: 300,
-      distillPrompt: `你是程式開發知識蒸餾器。請分析以下 Vibe Coding IDE 的操作紀錄，精煉出：
-
-1. **工作模式**：開發者花了最多時間在哪些檔案
-2. **編輯模式**：主要的編輯類型（新增/修改/重構）
-3. **AI 互動**：問了 AI 什麼、AI 回答了什麼
-4. **技術要點**：用到的技術和工具
-5. **開發洞見**：可以改善的工作流程
-
-用 Markdown 格式輸出。`,
-    },
+    chat:       { enabled: true, label: "💬 Chat 對話", description: "記錄所有跟 Chat AI 的對話", color: "#3B82F6", maxEntriesPerDistill: 100 },
+    vibe:       { enabled: true, label: "⚡ Vibe Coding", description: "記錄 AI CLI 終端機的輸出", color: "#8B5CF6", maxEntriesPerDistill: 50 },
+    cron:       { enabled: true, label: "⏰ Cron 執行紀錄", description: "記錄排程任務的執行結果", color: "#F59E0B", maxEntriesPerDistill: 200 },
+    "vibe-coding": { enabled: true, label: "💻 Vibe Coding 行為", description: "記錄 IDE 中的 coding 行為", color: "#8B5CF6", maxEntriesPerDistill: 300 },
   },
 };
 
@@ -192,7 +151,7 @@ export function recordCronExecution({ jobName, success, result, duration }) {
 // ── LLM Call Helper (with retry + sanitize) ──
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 
-async function callLLM(systemPrompt, userPrompt, maxTokens = 4096) {
+async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride) {
   try {
     const providerConfig = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8"));
     const providerId = providerConfig.active;
@@ -202,7 +161,7 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096) {
       return null;
     }
 
-    const model = providerConfig.defaultModel || "glm-5.1";
+    const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
     const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
 
     const headers = {
@@ -270,7 +229,7 @@ function buildContentFromEntries(source, entries) {
 }
 
 // ── Distill: Process raw logs for a source on a date ──
-async function distillSourceDate(source, dateStr, config) {
+async function distillSourceDate(source, dateStr, config, modelOverride) {
   const sourceConfig = config.sources[source];
   if (!sourceConfig) return null;
 
@@ -296,7 +255,7 @@ async function distillSourceDate(source, dateStr, config) {
   }
 
   // Call LLM — build full system context + distill prompt
-  let distillSystemPrompt = sourceConfig.distillPrompt || DEFAULT_CONFIG.sources[source]?.distillPrompt || "摘要以下內容：";
+  let distillSystemPrompt = loadDistillPrompt(source);
   try {
     const distillBase = safeReadDistillPrompt();
     if (distillBase) distillSystemPrompt = distillBase + "\n\n" + distillSystemPrompt;
@@ -305,6 +264,8 @@ async function distillSourceDate(source, dateStr, config) {
   const distilled = await callLLM(
     distillSystemPrompt,
     `以下是一天的紀錄，請蒸餾成知識：\n\n${content}`,
+    4096,
+    modelOverride,
   );
 
   // Build result markdown
@@ -325,7 +286,7 @@ async function distillSourceDate(source, dateStr, config) {
 }
 
 // ── Distill All: Process all unprocessed logs ──
-export async function distillAll(sourceFilter) {
+export async function distillAll(sourceFilter, modelOverride) {
   const config = loadConfig();
   if (!config.enabled) return { error: "Distillation is disabled" };
 
@@ -348,7 +309,7 @@ export async function distillAll(sourceFilter) {
       const outFile = resolve(KNOWLEDGE_DIR, source, `${dateStr}.md`);
       if (existsSync(outFile)) continue;
 
-      const result = await distillSourceDate(source, dateStr, config);
+      const result = await distillSourceDate(source, dateStr, config, modelOverride);
       if (result) results.push(result);
     }
   }
@@ -419,14 +380,18 @@ export default async function distillRouter(req, res) {
 
   // POST /api/distill/run — distill all
   if (method === "POST" && path === "/api/distill/run") {
-    const results = await distillAll();
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const results = await distillAll(null, body.model);
     return json(res, { ok: true, results });
   }
 
   // POST /api/distill/run/:source — distill specific source
   const runSourceMatch = path.match(/^\/api\/distill\/run\/([\w-]+)$/);
   if (method === "POST" && runSourceMatch) {
-    const results = await distillAll(runSourceMatch[1]);
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const results = await distillAll(runSourceMatch[1], body.model);
     return json(res, { ok: true, results });
   }
 

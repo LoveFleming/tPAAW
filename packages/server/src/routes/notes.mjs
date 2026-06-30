@@ -65,13 +65,13 @@ function loadProviderConfig() {
   } catch { return null; }
 }
 
-function resolveLLM() {
+function resolveLLM(modelOverride) {
   const config = loadProviderConfig();
   if (!config) throw new Error("No provider config found");
   const providerId = config.active;
   const provider = config.providers?.[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
-  const model = config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
+  const model = modelOverride || config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
   const baseURL = provider.baseURL.replace(/\/+$/, "");
   const apiUrl = `${baseURL}/chat/completions`;
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` };
@@ -79,8 +79,8 @@ function resolveLLM() {
   return { apiUrl, headers, model };
 }
 
-async function aiWriteNote(userPrompt, content) {
-  const llm = resolveLLM();
+async function aiWriteNote(userPrompt, content, modelOverride) {
+  const llm = resolveLLM(modelOverride);
   const fullPrompt = userPrompt
     ? `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`
     : `請幫我整理以下內容成結構化筆記：\n\n${content}`;
@@ -509,12 +509,12 @@ async function handleNotesRoutes(req, res) {
 
   if (path === "/api/notes/ai-write" && method === "POST") {
     const body = JSON.parse(await readBody(req));
-    const { content, prompt } = body;
+    const { content, prompt, model } = body;
     if (!content || content.trim().length < 5) {
       res.writeHead(400); res.end(JSON.stringify({ error: "內容太短" })); return true;
     }
     try {
-      const result = await aiWriteNote(prompt || "", content);
+      const result = await aiWriteNote(prompt || "", content, model);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, ...result }));
     } catch (err) {

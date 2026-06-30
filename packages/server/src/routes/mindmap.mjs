@@ -123,13 +123,13 @@ function loadProviderConfig() {
   }
 }
 
-function resolveLLM() {
+function resolveLLM(modelOverride) {
   const config = loadProviderConfig();
   if (!config) throw new Error("No provider config found");
   const providerId = config.active;
   const provider = config.providers?.[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
-  const model = config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
+  const model = modelOverride || config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
   const baseURL = provider.baseURL.replace(/\/+$/, "");
   const apiUrl = `${baseURL}/chat/completions`;
   const headers = {
@@ -145,8 +145,8 @@ function resolveLLM() {
 
 // ── 呼叫 LLM 產生心智圖 ──
 
-async function generateMindMap(userPrompt, content) {
-  const llm = resolveLLM();
+async function generateMindMap(userPrompt, content, modelOverride) {
+  const llm = resolveLLM(modelOverride);
   const fullPrompt = `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`;
 
   // Build full system context + mindmap-specific prompt
@@ -192,7 +192,7 @@ async function handleMindMapRoutes(req, res) {
       return true;
     }
 
-    const { files = [], dir, prompt = "請整理這份內容的知識結構，做成心智圖" } = body;
+    const { files = [], dir, prompt = "請整理這份內容的知識結構，做成心智圖", model } = body;
 
     try {
       let content;
@@ -212,7 +212,7 @@ async function handleMindMapRoutes(req, res) {
         return true;
       }
 
-      const markdown = await generateMindMap(prompt, content);
+      const markdown = await generateMindMap(prompt, content, model);
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, markdown }));
@@ -243,7 +243,7 @@ async function handleMindMapRoutes(req, res) {
     }
 
     try {
-      const markdown = await generateMindMap(prompt, text.slice(0, MAX_TOTAL_SIZE));
+      const markdown = await generateMindMap(prompt, text.slice(0, MAX_TOTAL_SIZE), body.model);
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, markdown }));

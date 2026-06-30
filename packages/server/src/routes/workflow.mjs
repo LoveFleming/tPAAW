@@ -145,7 +145,7 @@ export default async function workflowRoutes(req, res) {
   // POST /api/paaw/skill-exec — execute a single skill via CLI
   if (req.method === "POST" && path === "/api/paaw/skill-exec") {
     try {
-      const { appId, skillId, input } = JSON.parse(await readBody(req));
+      const { appId, skillId, input, model } = JSON.parse(await readBody(req));
 
       // Load skill SKILL.md
       let skillPath = join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md");
@@ -183,7 +183,7 @@ export default async function workflowRoutes(req, res) {
       const appDir = resolve(PATHS.APPS_ROOT, appId);
 
       const agentResult = await runAgentLoop({
-        prompt, cwd: appDir, systemPrompt: fullSystem, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
+        prompt, cwd: appDir, systemPrompt: fullSystem, model: model || undefined, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
       });
       const fullOutput = agentResult.content || "";
 
