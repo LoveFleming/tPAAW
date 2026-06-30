@@ -135,6 +135,7 @@ export default async function aiSettingsRoutes(req, res) {
         "employee": "crew",
         "mindmap": "mindmap",
         "notes": "notes",
+        "project": "project",
         "coding": "coding",
         "distill": "distill",
       };

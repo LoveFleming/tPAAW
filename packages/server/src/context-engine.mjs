@@ -295,6 +295,7 @@ export const contextEngine = {
       case "skill-builder": return this._buildSkillBuilder(params);
       case "mindmap":       return this._buildMindmap(params);
       case "notes":         return this._buildNotes(params);
+      case "project":       return this._buildProject(params);
       case "distill":       return this._buildDistill(params);
       case "app-builder":   return this._buildAppBuilder(params);
       case "coding":        return this._buildCoding(params);
@@ -463,22 +464,35 @@ ${skillDef}`;
     return this._buildChat();
   },
 
-  // ── Mindmap：base + mindmap/ rules ──
+  // ── Mindmap：base + dynamic + mindmap/ rules ──
   _buildMindmap() {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
+      buildDynamicContext(),
       ...readCategoryFiles("mindmap"),
     ];
     return { systemPrompt: parts.join("\n\n"), provider };
   },
 
-  // ── Notes：base + notes/ rules ──
+  // ── Notes：base + dynamic + notes/ rules ──
   _buildNotes() {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
+      buildDynamicContext(),
       ...readCategoryFiles("notes"),
+    ];
+    return { systemPrompt: parts.join("\n\n"), provider };
+  },
+
+  // ── Project：base + project/ rules ──
+  _buildProject() {
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      buildDynamicContext(),
+      ...readCategoryFiles("project"),
     ];
     return { systemPrompt: parts.join("\n\n"), provider };
   },

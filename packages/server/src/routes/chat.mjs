@@ -105,7 +105,7 @@ export default async function chatRoutes(req, res) {
     let heartbeatTimer = null;
     try {
       const body = JSON.parse(await readBody(req));
-      const { messages, model: requestedModel, provider: requestedProvider } = body;
+      const { messages, model: requestedModel, provider: requestedProvider, contextTarget, systemPrompt: clientSystemPrompt } = body;
 
       // ── Resolve provider ──
       const providerConfig = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
@@ -122,9 +122,11 @@ export default async function chatRoutes(req, res) {
 
       const model = requestedModel || providerConfig.defaultModel || "glm-5.1";
 
-      // ── Context Engine: unified context assembly ──
+      // ── Context Engine: use client-specified target or default to chat ──
       const { contextEngine } = await import("../context-engine.mjs");
-      const ctx = await contextEngine.build({ target: "chat" });
+      const ctx = await contextEngine.build({ target: contextTarget || "chat" });
+      // Allow client to override system prompt entirely
+      if (clientSystemPrompt) ctx.systemPrompt = clientSystemPrompt;
 
       // ── SSE headers ──
       const chatReqId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;

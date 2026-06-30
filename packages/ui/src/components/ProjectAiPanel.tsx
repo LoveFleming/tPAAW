@@ -41,7 +41,11 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
   const [selectedModel, setSelectedModel] = useState("");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
 
+  // ── System prompt loaded from ai-settings/project/ via context-engine ──
+  // Server-side: /api/paaw/chat with contextTarget="project" loads it automatically
+
   useEffect(() => {
+    // Load model config
     fetch(`${API_BASE}/api/paaw/providers`)
       .then(r => r.json())
       .then(data => {
@@ -104,13 +108,13 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
-      // Build the messages array with context as system-like prefix in the first user message
+      // Build the messages array — server will load project prompts from ai-settings
       const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
 
       const resp = await fetch(`${API_BASE}/api/paaw/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, model: fullModelForApi() }),
+        body: JSON.stringify({ messages: apiMessages, model: fullModelForApi(), contextTarget: "project" }),
         signal: ctrl.signal,
       });
 
