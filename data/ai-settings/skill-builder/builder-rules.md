@@ -7,24 +7,43 @@
 
 ```
 building/{skill-id}/
-├── skill-source.md    ← 原始程式（AI 產出，不可修改）
+├── skill-source.md    ← UI 編輯格式（用 @@@section@@@ 分隔）
 └── package/           ← 所有輸出（build + test 產出）
-    ├── SKILL.md       ← 最終執行用 skill 定義
+    ├── SKILL.md       ← 最終執行用 skill 定義（標準 markdown section）
     ├── rules/         ← 規則檔案（如有）
     ├── examples/      ← 範例檔案（如有）
     └── scripts/       ← 腳本檔案（如有）
 ```
 
+## 格式說明（重要！）
+
+### skill-source.md = UI 編輯格式
+- 使用 `@@@section@@@` 分隔每個 section
+- 這是給 Skill Builder UI 表單來回編輯用的
+- 例：`@@@purpose@@@`、`@@@steps@@@`、`@@@output@@@`
+
+### package/SKILL.md = 執行格式
+- 使用標準 markdown section 標題
+- 這是給 AI runtime 讀取執行的最終版本
+- 例：`## Purpose`、`## Deterministic Script`、`## Output Contract`
+- 必須參考 `data/skills/physical-skill/skill-creator/SKILL.md` 的 Output Format 作為模板
+
+### Build 的工作
+- 輸入：skill-source.md（`@@@` 格式）
+- 輸出：package/SKILL.md（標準 markdown）
+- **你要把 `@@@` 格式轉成正式 markdown SKILL.md**
+
 ## 產出規則
 
-1. **只輸出 skill-source.md 內容**，不要加多餘的解釋或說明
+1. **產出完整的 package/SKILL.md**（標準 markdown section 格式），不要加多餘的解釋
 2. **id 從使用者的 Skill ID 帶入**，不要自己改
 3. **保留使用者定義的 userInputs**，不要增刪欄位
-4. **根據 Purpose 和 Inputs 推斷合理的 Steps、Guardrails、Output Contract**
-5. **Steps 要具體可執行**，像 SOP 一樣，不要抽象描述
+4. **根據 Purpose 和 Inputs 推斷合理的 Deterministic Script、Guardrails、Output Contract**
+5. **Execution Steps 要具體可執行**，像 SOP 一樣，有編號、有子步驟，不要抽象描述
 6. **繁體中文撰寫**，技術術語保留英文
-7. **Output Contract 用 JSON schema 格式**
+7. **Output Contract 用 JSON schema 格式**，必須包含「輸出模式：file | display | both」
 8. **Error Handling 至少考慮 2 種失敗情境**
+9. **格式必須符合 skill-creator/SKILL.md 定義的標準結構**
 
 ## 輸入輸出路徑規則
 
@@ -48,13 +67,26 @@ building/{skill-id}/
 - 若 output_path 為 optional，Execution Steps 要分「有值」和「為空」兩種處理方式
 - userInputs 裡 output_path 的 `required` 要跟 output mode 一致
 
-## 必須使用的工具
+## 必須遵循的模板
 
-**建立 Skill 時，必須參考 `{{PAAW_ROOT}}/data/skills/physical-skill/skill-creator/SKILL.md` 裡的 Skill Creator 定義。** 這是 PAAW 的官方 Skill 建構器，確保產出的 skill 符合格式和品質標準。
+**產出 SKILL.md 時，必須符合 `data/skills/physical-skill/skill-creator/SKILL.md` 裡定義的標準格式。** 這是 PAAW 的官方 Skill 建構器，確保產出的 skill 結構一致。
 
-- 先讀取 Skill Creator 的 SKILL.md 了解標準格式
-- 按照 Skill Creator 的 Execution Steps 和 Business Rules 產出
-- Output Format 必須符合 Skill Creator 定義的結構
+必須包含的 section（標準 markdown 標題）：
+```
+## Purpose
+## Inputs
+## Deterministic Script
+  ### Tool Access
+  ### Execution Steps
+  ### Business Rules
+  ### Error Handling
+## Guardrails
+## Output Contract
+## Validation
+```
+
+- Output Contract 必須包含 JSON schema 範例
+- 每個 userInput 在 frontmatter 必須有完整的 id, label, description, placeholder, required, type
 
 ## Publish 規則
 

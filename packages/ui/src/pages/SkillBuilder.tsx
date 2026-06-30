@@ -122,8 +122,19 @@ function parseSkillMd(content: string): SkillForm {
 
   // Also try legacy ## format for backward compatibility
   if (sections.size === 0) {
-    const KNOWN_SECTIONS = ["Purpose", "Inputs", "Steps", "Output", "Error_Handling", "Examples", "Guardrails", "Validation", "Notes"];
-    const SECTION_SET = new Set(KNOWN_SECTIONS);
+    // Map standard markdown headings to form field names
+    const MARKDOWN_SECTION_MAP: Record<string, string> = {
+      "Purpose": "Purpose",
+      "Inputs": "Inputs",
+      "Deterministic Script": "Steps",
+      "Output Contract": "Output",
+      "Output": "Output",
+      "Error Handling": "Error_Handling",
+      "Guardrails": "Guardrails",
+      "Validation": "Validation",
+      "Examples": "Examples",
+      "Notes": "Notes",
+    };
     let legacySection: string | null = null;
     let legacyBuffer: string[] = [];
     const flushLegacy = () => {
@@ -131,11 +142,18 @@ function parseSkillMd(content: string): SkillForm {
       legacyBuffer = [];
     };
     for (const line of bodyLines) {
-      const h = line.match(/^## (.+)$/);
-      if (h && SECTION_SET.has(h[1].trim())) {
-        flushLegacy();
-        legacySection = h[1].trim();
-      } else if (legacySection) {
+      const h = line.match(/^##+ (.+)$/);
+      if (h) {
+        const heading = h[1].trim();
+        // Match heading (including sub-sections like "### Execution Steps")
+        const mapped = MARKDOWN_SECTION_MAP[heading];
+        if (mapped) {
+          flushLegacy();
+          legacySection = mapped;
+          continue;
+        }
+      }
+      if (legacySection) {
         legacyBuffer.push(line);
       }
     }
@@ -484,7 +502,7 @@ export default function SkillBuilder() {
       const data = await res.json();
       if (data.error) { alert("AI 生成失敗：" + data.error); return; }
 
-      // 3. Parse AI output and fill form
+      // 3. Parse AI output and fill form (parseSkillMd handles both @@@ and ## format)
       const parsed = parseSkillMd(data.content || "");
       // Ensure id/name match user input
       if (!parsed.id || parsed.id === "untitled") parsed.id = slug;
@@ -494,10 +512,11 @@ export default function SkillBuilder() {
       parsed.inputs.forEach(inp => { inputs[inp.id] = ""; });
       setTestInputs(inputs);
 
-      // 4. Save AI-generated content to file
-      const content = buildSkillMd(parsed);
-      await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: fullPath, content }) });
-      await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content }) });
+      // 4. Save files — skill-source.md uses @@@ format (for UI), package/SKILL.md uses raw AI markdown (for execution)
+      const sourceContent = buildSkillMd(parsed);  // @@@ format for UI editing
+      const pkgContent = (data.content || "").trim();   // raw AI markdown output = executable SKILL.md
+      await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: fullPath, content: sourceContent }) });
+      await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content: pkgContent }) });
       setSaveStatus("saved");
 
       setShowAIGen(false); setAiGenName(""); setAiGenDesc("");
