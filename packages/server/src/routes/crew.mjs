@@ -12,6 +12,7 @@ import {
   PAAW_ROOT, CONVERSATIONS_ROOT, CREWS_ROOT, DOCS_ROOT,
   projectPathHash, getConvDir, readBody, factoryDir, getFactoryId, buildTree, startWatcher,
 } from "./shared.mjs";
+import { json } from "./context.mjs";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
 
 export default async function crewRoute(req, res) {
