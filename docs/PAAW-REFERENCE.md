@@ -104,7 +104,7 @@ contextEngine.build({ target }) → { systemPrompt, prompt?, provider? }
 
 | target | 用在哪 | 額外帶的 context |
 |--------|--------|-----------------|
-| `chat` | Chat, VibeCoding, AppBuilder, Mindmap, Notes | 最近對話摘要 |
+| `chat` | Chat, Coding IDE, AppBuilder, Mindmap, Notes | 最近對話摘要 |
 | `skill-exec` | Skill Exec, Workflow, Cron Skill | app SYSTEM.md + skill-rules |
 | `skill-builder` | Skill Builder, ✨ AI 生成 | skill-format + builder-rules + test-rules |
 | `crew` | Crew/Employee | crew rolePrompt |
@@ -179,8 +179,8 @@ contextEngine.build({ target }) → { systemPrompt, prompt?, provider? }
     "chat": "glm-5.1",
     "skillBuilder": "glm-5.1",
     "appBuilder": "glm-5.1",
-    "vibeCoding": "glm-5.1",
-    "vibeCodingIDE": "glm-5.1",
+    "coding": "glm-5.1",
+    "codingIDE": "glm-5.1",
     "employee_crew-id": "glm-5.1"
   }
 }
@@ -235,9 +235,9 @@ ai-settings/
 ├── distill/
 │   ├── system-prompt.md       # 蒸餾器基礎規則
 │   ├── chat.md                # Chat 對話蒸餾 prompt
-│   ├── vibe.md                # Vibe Coding CLI 蒸餾 prompt
+│   ├── vibe.md                # Coding CLI 蒸餾 prompt
 │   ├── cron.md                # Cron 排程蒸餾 prompt
-│   └── vibe-coding.md         # Vibe Coding IDE 蒸餾 prompt
+│   └── vibe-coding.md         # Coding IDE 蒸餾 prompt
 │
 └── agent-config.json          # Agent 迴圈設定
 ```
@@ -264,8 +264,8 @@ ai-settings/
 | Workflow | `WorkflowExec.tsx` | `workflow.mjs` | `skill-exec` | `runAgentLoop()` |
 | Cron | `CronJobsPage.tsx` | `cron-jobs.mjs` | `chat` / `skill-exec` | `runAgentLoop()` |
 | Crew/Employee | `EmployeeWorkspace.tsx` | `ai-settings.mjs` | `crew` | `runAgentLoop()` |
-| VibeCoding | `VibeCoding.tsx` | `ws-handler.mjs` (WS) | `chat` | `runAgentLoop()` |
-| VibeCodingIDE | `VibeCodingIDE.tsx` | `cron-jobs.mjs` (SSE) | `chat` | `runAgentLoopStream()` |
+| Coding IDE | `Coding IDE.tsx` | `ws-handler.mjs` (WS) | `chat` | `runAgentLoop()` |
+| Coding IDEIDE | `Coding IDEIDE.tsx` | `cron-jobs.mjs` (SSE) | `chat` | `runAgentLoopStream()` |
 | App Builder | `AppBuilder.tsx` | `ws-handler.mjs` (WS) | `chat` | `runAgentLoop()` |
 | Mindmap | `MindMapViewer.tsx` | `mindmap.mjs` | `chat` | `callLLMWithRetry()` |
 | Notes | `Notes.tsx` | `notes.mjs` | `chat` | `callLLMWithRetry()` |
@@ -314,7 +314,7 @@ ai-settings/
 | Method | Path | 說明 |
 |--------|------|------|
 | WS | `/ws` | Chat / AgentConsole WebSocket |
-| POST | `/api/agent-run/stream` | SSE 串流（VibeCodingIDE） |
+| POST | `/api/agent-run/stream` | SSE 串流（Coding IDEIDE） |
 | POST | `/api/paaw/skill-exec` | Skill / Workflow 執行 |
 | POST | `/api/skills/generate` | ✨ AI 生成 SKILL.md |
 | POST | `/api/ai-settings/skill-builder/build` | Skill Builder build |
@@ -359,7 +359,7 @@ ai-settings/
 | `chat` | ChatView |
 | `skillbuilder` | SkillBuilder |
 | `appbuilder` | AppBuilder |
-| `vibecoding` | VibeCoding |
+| `vibecoding` | Coding IDE |
 | `crew` | EmployeeWorkspace |
 | `workflow` | WorkflowExec |
 | `mindmap` | MindMapViewer |
@@ -377,7 +377,7 @@ ai-settings/
 2. 把 `systemPrompt` + `model` 傳給後端
 3. 顯示 streaming 回覆 + tool call 事件
 
-**使用 AgentConsole 的頁面**：ChatView, SkillBuilder, EmployeeWorkspace, VibeCoding, AppBuilder
+**使用 AgentConsole 的頁面**：ChatView, SkillBuilder, EmployeeWorkspace, Coding IDE, AppBuilder
 
 ### ModelSelector
 
@@ -387,7 +387,7 @@ ai-settings/
 <ModelSelector feature="chat" value={model} onChange={setModel} />
 ```
 
-- `feature` — preference key（chat, skillBuilder, appBuilder, vibeCoding, vibeCodingIDE, employee_{id}）
+- `feature` — preference key（chat, skillBuilder, appBuilder, coding, codingIDE, employee_{id}）
 - 啟動時 `GET /api/user/preferences` 讀取初始值
 - `onChange` 時自動 `PUT /api/user/preferences` 儲存
 - 列出 `providers.json` 中所有 provider 的所有 model
