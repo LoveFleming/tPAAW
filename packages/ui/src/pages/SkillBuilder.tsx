@@ -316,7 +316,8 @@ export default function SkillBuilder() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [showAIGen, setShowAIGen] = useState(false);
-  const [aiGenInput, setAiGenInput] = useState("");
+  const [aiGenName, setAiGenName] = useState("");
+  const [aiGenDesc, setAiGenDesc] = useState("");
   const [aiGenLoading, setAiGenLoading] = useState(false);
   const [workingDir, setWorkingDir] = useState("");
 
@@ -458,24 +459,60 @@ export default function SkillBuilder() {
     setSaveStatus("saved"); setTab("builder");
   };
 
-  // ── AI Generate: input requirement → fill form ──
+  // ── AI Generate: input name + description → create file → AI fills content ──
   const handleAIGenerate = async () => {
-    const req = aiGenInput.trim(); if (!req) return;
+    const name = aiGenName.trim();
+    const desc = aiGenDesc.trim();
+    if (!name || !desc) return;
     setAiGenLoading(true);
+
+    // 1. Create skill file first (same as handleCreate)
+    const slug = name.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "");
+    const basePath = `${workingDir || "."}/data/skills/building/${slug}`;
+    const fullPath = `${basePath}/skill-source.md`;
+    const pkgPath = `${basePath}/package/SKILL.md`;
+
+    // Create empty placeholder files
+    const emptyForm: SkillForm = { ...EMPTY_SKILL, id: slug, name };
+    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(emptyForm) }) });
+    await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(pkgPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buildSkillMd(emptyForm) }) });
+
+    // Select the new file
+    loadFiles();
+    setSelectedPath(fullPath);
+    setForm(emptyForm);
+    const initInputs: Record<string, string> = {};
+    emptyForm.inputs.forEach(inp => { initInputs[inp.id] = ""; });
+    setTestInputs(initInputs);
+    setSaveStatus("saved");
+    setTab("builder");
+
+    // 2. Call AI to generate full SKILL.md content
     try {
       const res = await fetch(`${API_BASE}/api/skills/ai-generate`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requirement: req, model: model || undefined }),
+        body: JSON.stringify({ requirement: `Skill 名稱：${name}\n功能描述：${desc}`, model: model || undefined }),
       });
       const data = await res.json();
       if (data.error) { alert("AI 生成失敗：" + data.error); return; }
+
+      // 3. Parse AI output and fill form
       const parsed = parseSkillMd(data.content || "");
+      // Ensure id/name match user input
+      if (!parsed.id || parsed.id === "untitled") parsed.id = slug;
+      if (!parsed.name || parsed.name === "Untitled") parsed.name = name;
       setForm(parsed);
       const inputs: Record<string, string> = {};
       parsed.inputs.forEach(inp => { inputs[inp.id] = ""; });
       setTestInputs(inputs);
-      triggerSave();
-      setShowAIGen(false); setAiGenInput("");
+
+      // 4. Save AI-generated content to file
+      const content = buildSkillMd(parsed);
+      await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(fullPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+      await fetch(`${API_BASE}/api/fs/file?path=${encodeURIComponent(pkgPath)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+      setSaveStatus("saved");
+
+      setShowAIGen(false); setAiGenName(""); setAiGenDesc("");
     } catch (err: any) {
       alert("AI 生成失敗：" + err.message);
     } finally {
@@ -651,7 +688,7 @@ ${userInputLines.join("\n")}
             })}
           </select>
           <button onClick={() => { setShowNewDialog(true); setNewFileName(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ background: accent }}>＋ New</button>
-          <button onClick={() => { setShowAIGen(true); setAiGenInput(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1" style={{ background: "transparent", color: accent, border: `1px solid ${accent}40` }}>✨ AI Generate</button>
+          <button onClick={() => { setShowAIGen(true); setAiGenName(""); setAiGenDesc(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1" style={{ background: "transparent", color: accent, border: `1px solid ${accent}40` }}>✨ AI Generate</button>
           {saveStatus === "saving" && <span className="text-xs text-amber-500">💾</span>}
           {saveStatus === "saved" && selectedPath && <span className="text-xs text-green-500">✓</span>}
           {saveStatus === "dirty" && <span className="text-xs text-rose-500">●</span>}
@@ -689,22 +726,40 @@ ${userInputLines.join("\n")}
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => !aiGenLoading && setShowAIGen(false)}>
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-[480px] p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-bold text-stone-800 mb-1">✨ AI 產生 Skill</h3>
-            <p className="text-xs text-stone-500 mb-4">描述你的需求，AI 會照 PAAW Skill 格式自動產出完整的 SKILL.md</p>
-            <textarea
-              value={aiGenInput}
-              onChange={e => setAiGenInput(e.target.value)}
-              placeholder={"例：幫我每天搜集 AI 新聞，整理成中文摘要，並萃取 5 個英文單字\n例：分析 log 檔案，找出 error pattern，產生報告"}
-              rows={4}
-              className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none mb-3"
-              style={{ lineHeight: 1.6, "--tw-ring-color": accent + "40" } as React.CSSProperties}
-              autoFocus
-              disabled={aiGenLoading}
-            />
+            <p className="text-xs text-stone-500 mb-4">輸入 Skill 名稱和功能描述，AI 會照格式產出完整的 SKILL.md，產生後你可以直接修改</p>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">Skill 名稱 *</label>
+                <input
+                  type="text"
+                  value={aiGenName}
+                  onChange={e => setAiGenName(e.target.value)}
+                  placeholder="例：ai-news-digest、log-analyzer"
+                  className="w-full px-4 py-2.5 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2"
+                  style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties}
+                  autoFocus
+                  disabled={aiGenLoading}
+                />
+                {aiGenName.trim() && <p className="text-sm text-stone-400 mt-1">→ {aiGenName.trim().replace(/\s+/g, "-").toLowerCase()}/skill-source.md</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">功能描述 *</label>
+                <textarea
+                  value={aiGenDesc}
+                  onChange={e => setAiGenDesc(e.target.value)}
+                  placeholder={"描述這個 Skill 要做什麼：\n例：搜集當日 AI 新聞，整理成中文摘要，萃取 5 個英文單字和句型"}
+                  rows={4}
+                  className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none"
+                  style={{ lineHeight: 1.6, "--tw-ring-color": accent + "40" } as React.CSSProperties}
+                  disabled={aiGenLoading}
+                />
+              </div>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => { if (!aiGenLoading) { setShowAIGen(false); setAiGenInput(""); } }} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50" disabled={aiGenLoading}>{t("common.cancel")}</button>
-              <button onClick={handleAIGenerate} disabled={!aiGenInput.trim() || aiGenLoading}
-                className={cn("px-5 py-2 text-sm font-bold rounded-xl text-white flex items-center gap-2", aiGenInput.trim() && !aiGenLoading ? "hover:opacity-90" : "bg-stone-200 text-stone-400")}
-                style={aiGenInput.trim() && !aiGenLoading ? { background: accent } : {}}>
+              <button onClick={() => { if (!aiGenLoading) { setShowAIGen(false); setAiGenName(""); setAiGenDesc(""); } }} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50" disabled={aiGenLoading}>{t("common.cancel")}</button>
+              <button onClick={handleAIGenerate} disabled={!aiGenName.trim() || !aiGenDesc.trim() || aiGenLoading}
+                className={cn("px-5 py-2 text-sm font-bold rounded-xl text-white flex items-center gap-2", aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? "hover:opacity-90" : "bg-stone-200 text-stone-400")}
+                style={aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? { background: accent } : {}}>
                 {aiGenLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 {aiGenLoading ? "產生中..." : "✨ 產生 Skill"}
               </button>
