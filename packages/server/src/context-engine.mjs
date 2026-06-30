@@ -528,23 +528,83 @@ export const contextEngine = {
     const { skillDef = "" } = params;
     const parts = [];
 
+    // ── Chat base context (same as chat: identity, memory, tools, rules...) ──
+    const user = loadUserProfile();
+    const memory = loadMemory();
+    const systemBase = loadSystemPrompt();
+    const guardrails = loadGuardrails();
+    const apps = loadAppInstructions();
+    const appRules = loadAppBuilderRules();
+    const providerConfig = loadProviderConfig();
+    const assistantName = user.assistantName || "林語晴";
+
     // 0. Base context — PAAW runtime info + core rules (always first)
     const baseCtx = loadBaseContext();
     if (baseCtx) parts.push(baseCtx);
 
+    // 1. Identity
+    const identityTpl = safeRead(resolve(AI_SETTINGS_DIR, "chat/identity.md"));
+    const nickname = assistantName === '林語晴' ? 'Sunny' : assistantName;
+    if (identityTpl) {
+      parts.push(identityTpl.replace(/\{\{assistantName\}\}/g, assistantName).replace(/\{\{nickname\}\}/g, nickname));
+    }
+
+    // 2. User profile
+    parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}`);
+
+    // 3. Memory
+    parts.push(`=== 你的長期記憶 (MEMORY.md) ===\n${memory || "(記憶是空白的)"}`);
+
+    // 4. Apps (skill builder can call apps too)
+    if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
+
+    // 5. Tool rules
+    const toolRules = safeRead(resolve(AI_SETTINGS_DIR, "chat/tool-rules.md"));
+    if (toolRules) {
+      parts.push(resolvePaths(toolRules));
+    }
+
+    // 6. API Tools — 系統工具列表
+    const apiTools = loadApiTools();
+    const generatedSkills = loadGeneratedSkills();
+    if (apiTools.length > 0 || generatedSkills.length > 0) {
+      const toolLines = [];
+      if (apiTools.length > 0) {
+        toolLines.push("=== 可用的系統工具 (System Tools) ===");
+        toolLines.push("你可以使用以下工具來完成建構任務：");
+        for (const t of apiTools) {
+          toolLines.push(`[${t.routeId}] ${t.route} — ${t.description || t.name}`);
+        }
+      }
+      if (generatedSkills.length > 0) {
+        toolLines.push("");
+        toolLines.push("=== 已產生的 Skill Tools ===");
+        for (const s of generatedSkills) {
+          toolLines.push(`[${s.routeId}] ${s.name} — ${s.route || ""}`);
+        }
+      }
+      parts.push(toolLines.join("\n"));
+    }
+
+    // 7. App builder rules (skill builder can build apps too)
+    if (appRules) parts.push(resolvePaths(`=== App 建構規則 ===\n${appRules}`));
+
+    // 8. System base + guardrails
+    if (systemBase) parts.push(resolvePaths(systemBase));
+    if (guardrails) parts.push(resolvePaths(guardrails));
+
+    // ── Skill-builder specific context ──
     const skillFormat = loadSkillFormat();
     if (skillFormat) parts.push(`### Skill Format\n${resolvePaths(skillFormat)}`);
 
     const builderRules = loadSkillBuilderRules();
     if (builderRules) parts.push(`### Builder Rules\n${resolvePaths(builderRules)}`);
 
-    const contextSection = parts.join("\n\n");
-    const systemPrompt = "你是 PAAW Skill 建構專家。根據使用者提供的資訊和規則，產出完整的 SKILL.md。";
-    const prompt = contextSection
-      ? `${contextSection}\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}`
-      : skillDef;
+    // ── Assemble ──
+    const systemPrompt = parts.join("\n\n");
+    const prompt = `你是 PAAW Skill 建構專家。根據系統規則和使用者提供的 Skill 定義，產出完整的 SKILL.md。\n\n---\n\n請根據以上規則建立以下 Skill 的完整 SKILL.md：\n\n${skillDef}`;
 
-    return { systemPrompt, prompt };
+    return { systemPrompt, prompt, provider: providerConfig };
   },
 };
 
