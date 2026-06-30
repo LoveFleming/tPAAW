@@ -40,7 +40,6 @@ export default async function crewRoute(req, res) {
       await wf(cfgPath, JSON.stringify(current, null, 2), "utf-8");
       json(res, { ok: true });
     } catch (err) { json(res, { error: err.message }, 500); }
-    }
     return true;
   }
 
