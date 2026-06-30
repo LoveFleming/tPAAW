@@ -88,6 +88,31 @@ export default async function aiSettingsRoutes(req, res) {
     return true;
   }
 
+  // GET /api/ai-settings/providers — read provider config
+  if (req.method === "GET" && path === "/api/ai-settings/providers") {
+    try {
+      const { resolve } = await import("path");
+      const { readFile: rf } = await import("fs/promises");
+      const configPath = resolve(AI_SETTINGS_ROOT, "../config/providers.json");
+      const raw = await rf(configPath, "utf-8");
+      json(res, JSON.parse(raw));
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
+  // PUT /api/ai-settings/providers — update provider config
+  if (req.method === "PUT" && path === "/api/ai-settings/providers") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const { resolve } = await import("path");
+      const { writeFile: wf } = await import("fs/promises");
+      const configPath = resolve(AI_SETTINGS_ROOT, "../config/providers.json");
+      await wf(configPath, JSON.stringify(body, null, 2), "utf-8");
+      json(res, { ok: true });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
   // GET /api/ai-settings — list categories with live file list
   if (req.method === "GET" && path === "/api/ai-settings") {
     const cats = [];
