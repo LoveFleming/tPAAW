@@ -68,6 +68,26 @@ async function scanCategoryFiles(categoryId) {
 export default async function aiSettingsRoutes(req, res) {
   const path = urlPath(req);
 
+  // GET /api/ai-settings/agent-config — single source of truth for agent runtime
+  if (req.method === "GET" && path === "/api/ai-settings/agent-config") {
+    const { loadAgentConfig } = await import("./context.mjs");
+    json(res, await loadAgentConfig());
+    return true;
+  }
+
+  // PUT /api/ai-settings/agent-config — update agent config
+  if (req.method === "PUT" && path === "/api/ai-settings/agent-config") {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const { resolve, dirname } = await import("path");
+      const { mkdir, writeFile } = await import("fs/promises");
+      const configPath = resolve(AI_SETTINGS_ROOT, "agent-config.json");
+      await writeFile(configPath, JSON.stringify(body, null, 2), "utf-8");
+      json(res, { ok: true });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+
   // GET /api/ai-settings — list categories with live file list
   if (req.method === "GET" && path === "/api/ai-settings") {
     const cats = [];

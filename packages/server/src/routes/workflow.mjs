@@ -176,10 +176,13 @@ export default async function workflowRoutes(req, res) {
       if (appSystemPrompt) fullSystem += appSystemPrompt + "\n\n";
       fullSystem += `你是「${appId}」App 的 Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。`; 
 
+      const { loadAgentConfig } = await import("./context.mjs");
+      const agentCfg = await loadAgentConfig();
+
       const appDir = resolve(PATHS.APPS_ROOT, appId);
 
       const agentResult = await runAgentLoop({
-        prompt, cwd: appDir, maxTurns: 100, timeout: 1800, rootDir: PATHS.PAAW_ROOT,
+        prompt, cwd: appDir, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
       });
       const fullOutput = agentResult.content || "";
 

@@ -354,7 +354,7 @@ export default function SkillBuilder() {
 
   // Skill creator
   const [skillCreatorContent, setSkillCreatorContent] = useState("");
-  const [skillConfig, setSkillConfig] = useState({ testTimeout: 1800, maxToolCalls: 100 });
+  const [skillConfig, setSkillConfig] = useState({ testTimeout: 0, maxToolCalls: 0 });
 
   // ── Publish state ──
   const [publishStatus, setPublishStatus] = useState<"" | "publishing" | "done" | "error">("");
@@ -386,7 +386,9 @@ export default function SkillBuilder() {
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/paaw/skill-config`).then(r => r.json()).then(data => { if (data) setSkillConfig({ testTimeout: data.testTimeout || 1800, maxToolCalls: data.maxToolCalls || 100 }); }).catch(() => {});
+    fetch(`${API_BASE}/api/ai-settings/agent-config`).then(r => r.json()).then(data => {
+      setSkillConfig({ testTimeout: data.timeoutSeconds, maxToolCalls: data.maxTurns });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {

@@ -113,3 +113,28 @@ export async function readSystemPrompt(type, id, fallback = "") {
   }
   return parts.length > 0 ? parts.join("\n\n") : fallback;
 }
+
+// ── Agent Config — single source of truth ──
+const DEFAULT_AGENT_CONFIG = {
+  maxTurns: 100,
+  timeoutSeconds: 1800,
+  bashTimeoutSeconds: 300,
+  shellTimeoutMs: 600000,
+};
+
+let _agentConfigCache: any = null;
+let _agentConfigTs = 0;
+
+export async function loadAgentConfig() {
+  const configPath = join(PATHS.PAAW_ROOT, "data/ai-settings/agent-config.json");
+  try {
+    const stat = await import("fs").then(fs => fs.statSync(configPath));
+    if (_agentConfigCache && stat.mtimeMs === _agentConfigTs) return _agentConfigCache;
+    const raw = await readFile(configPath, "utf-8");
+    _agentConfigCache = { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(raw) };
+    _agentConfigTs = stat.mtimeMs;
+    return _agentConfigCache;
+  } catch {
+    return DEFAULT_AGENT_CONFIG;
+  }
+}

@@ -225,13 +225,15 @@ export function setupWebSocket() {
           console.log(`[Agent] Running for session ${agentState.id}, prompt length: ${userText.length}`);
 
           try {
+            const { loadAgentConfig } = await import("../routes/context.mjs");
+            const agentCfg = await loadAgentConfig();
             const agentResult = await runAgentLoop({
               prompt: userText,
               cwd: agentState.cwd,
               systemPrompt: agentState.systemPrompt || undefined,
               model: agentState.model || undefined,
-              maxTurns: 100,
-              timeout: 1800,
+              maxTurns: agentCfg.maxTurns,
+              timeout: agentCfg.timeoutSeconds,
               rootDir: PAAW_ROOT,
               onEvent: (evt) => {
                 if (evt.type === "tool_start") {

@@ -250,7 +250,7 @@ function runShell(command, cwd, timeoutMs = 30_000) {
     const shellOpt = IS_WIN ? "powershell.exe" : true;
     const child = execCb(command, {
       cwd,
-      timeout: Math.min(timeoutMs, 600_000),
+      timeout: Math.min(timeoutMs, agentCfg.shellTimeoutMs || 600_000),
       maxBuffer: 5 * 1024 * 1024,
       shell: shellOpt,
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
@@ -479,7 +479,7 @@ async function executeTool(call, cwd, rootDir, onEvent) {
       // ══════════════════════════════════════════
 
       case "bash": {
-        const timeoutSec = Math.min(args.timeout || 30, 300);
+        const timeoutSec = Math.min(args.timeout || 30, agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
         // Truncate large output
@@ -612,21 +612,31 @@ export async function runAgentLoop(config) {
     skillMd = "",
     systemPrompt: customPrompt = "",
     model: modelOverride,
-    maxTurns = 20,
-    timeout = 120,
+    maxTurns,
+    timeout,
     params = {},
     onEvent = null,
     rootDir = cwd,
   } = config;
 
+  // Load agent config for defaults (with fallback)
+  let agentCfg: any = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+  try {
+    const { loadAgentConfig } = await import("../routes/context.mjs");
+    agentCfg = await loadAgentConfig();
+  } catch {}
+
+  const effectiveMaxTurns = maxTurns ?? agentCfg.maxTurns;
+  const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
+
   const startTime = Date.now();
-  const timeoutMs = timeout * 1000;
+  const timeoutMs = effectiveTimeout * 1000;
   const toolCallLog = [];
 
   // Resolve LLM config
   const llm = resolveLLMConfig(rootDir, modelOverride);
 
-  if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns });
+  if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns: effectiveMaxTurns });
 
   // Build system prompt
   const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params });
@@ -736,11 +746,20 @@ export async function runAgentLoopStream(config, res) {
     skillMd = "",
     systemPrompt: customPrompt = "",
     model: modelOverride,
-    maxTurns = 20,
-    timeout = 120,
+    maxTurns,
+    timeout,
     params = {},
     rootDir = cwd,
   } = config;
+
+  let agentCfg: any = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+  try {
+    const { loadAgentConfig } = await import("../routes/context.mjs");
+    agentCfg = await loadAgentConfig();
+  } catch {}
+
+  const effectiveMaxTurns = maxTurns ?? agentCfg.maxTurns;
+  const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
 
   const startTime = Date.now();
   const timeoutMs = timeout * 1000;

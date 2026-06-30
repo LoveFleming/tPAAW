@@ -178,9 +178,12 @@ async function runCronJob(job) {
 
     console.log(`[cron] Skill ${skillId}: running via PAAW Agent Loop`);
 
+    const { loadAgentConfig } = await import("../routes/context.mjs");
+    const agentCfg = await loadAgentConfig();
+
     const result = await runAgentLoop({
       prompt, cwd: skillDir, skillMd,
-      maxTurns: 100, timeout: 1800, params: job.params || {},
+      maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, params: job.params || {},
       rootDir: PAAW_ROOT,
     });
 
@@ -429,6 +432,9 @@ async function agentLoopHandler(req, res) {
     const { prompt, cwd, skillId, systemPrompt, model, maxTurns, timeout, params } = body;
     if (!prompt) { res.writeHead(400); res.end(JSON.stringify({ error: "prompt is required" })); return true; }
 
+    const { loadAgentConfig } = await import("../routes/context.mjs");
+    const agentCfg = await loadAgentConfig();
+
     const workDir = cwd || PAAW_ROOT;
     let skillMd = "";
     if (skillId) {
@@ -439,7 +445,7 @@ async function agentLoopHandler(req, res) {
     try {
       const result = await runAgentLoop({
         prompt, cwd: workDir, skillMd, systemPrompt, model,
-        maxTurns: maxTurns || 100, timeout: timeout || 1800, params, rootDir: PAAW_ROOT,
+        maxTurns: maxTurns || agentCfg.maxTurns, timeout: timeout || agentCfg.timeoutSeconds, params, rootDir: PAAW_ROOT,
       });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
@@ -458,6 +464,9 @@ async function agentLoopHandler(req, res) {
     const { prompt, cwd, skillId, systemPrompt, model, maxTurns, timeout, params } = body;
     if (!prompt) { res.writeHead(400); res.end("prompt is required"); return true; }
 
+    const { loadAgentConfig } = await import("../routes/context.mjs");
+    const agentCfg = await loadAgentConfig();
+
     const workDir = cwd || PAAW_ROOT;
     let skillMd = "";
     if (skillId) {
@@ -470,7 +479,7 @@ async function agentLoopHandler(req, res) {
     try {
       await runAgentLoopStream({
         prompt, cwd: workDir, skillMd, systemPrompt, model,
-        maxTurns: maxTurns || 100, timeout: timeout || 1800, params, rootDir: PAAW_ROOT,
+        maxTurns: maxTurns || agentCfg.maxTurns, timeout: timeout || agentCfg.timeoutSeconds, params, rootDir: PAAW_ROOT,
       }, res);
     } catch (err) {
       try { res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`); } catch {}

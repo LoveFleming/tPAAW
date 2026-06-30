@@ -18,30 +18,28 @@ export default async function crewRoute(req, res) {
   const url = new URL(req.url, "http://localhost");
   const path = url.pathname;
 
-  // ── GET /api/paaw/skill-config ──
+  // ── GET /api/paaw/skill-config ── (deprecated — redirects to agent-config)
   if (req.method === "GET" && path === "/api/paaw/skill-config") {
-    try {
-      const filePath = resolve(PAAW_ROOT, "data/data", "skill-config.json");
-      const data = await readFile(filePath, "utf-8").catch(() => null);
-      const config = data ? JSON.parse(data) : { testTimeout: 1800, maxToolCalls: 100 };
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(config));
-    } catch (err) {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ testTimeout: 1800, maxToolCalls: 100 }));
-    }
+    const { loadAgentConfig } = await import("./context.mjs");
+    const cfg = await loadAgentConfig();
+    json(res, { testTimeout: cfg.timeoutSeconds, maxToolCalls: cfg.maxTurns });
     return true;
   }
 
-  // ── POST /api/paaw/skill-config ──
+  // ── POST /api/paaw/skill-config ── (deprecated — redirects to agent-config)
   if (req.method === "POST" && path === "/api/paaw/skill-config") {
     try {
       const body = JSON.parse(await readBody(req));
-      await writeFile(resolve(PAAW_ROOT, "data/data", "skill-config.json"), JSON.stringify(body, null, 2), "utf-8");
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
-    } catch (err) {
-      res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+      // Merge into agent-config
+      const { loadAgentConfig } = await import("./context.mjs");
+      const { writeFile: wf, mkdir } = await import("fs/promises");
+      const cfgPath = resolve(PAAW_ROOT, "data/ai-settings/agent-config.json");
+      const current = await loadAgentConfig();
+      if (body.testTimeout) current.timeoutSeconds = body.testTimeout;
+      if (body.maxToolCalls) current.maxTurns = body.maxToolCalls;
+      await wf(cfgPath, JSON.stringify(current, null, 2), "utf-8");
+      json(res, { ok: true });
+    } catch (err) { json(res, { error: err.message }, 500); }
     }
     return true;
   }
@@ -49,7 +47,11 @@ export default async function crewRoute(req, res) {
   // ── POST /api/skill-test/run — PAAW Agent Loop test ──
   if (req.method === "POST" && req.url === "/api/skill-test/run") {
     const body = JSON.parse(await readBody(req));
-    const { skillId, prompt, cwd, timeout = 1800, maxToolCalls = 100 } = body;
+    const { loadAgentConfig } = await import("./context.mjs");
+    const agentCfg = await loadAgentConfig();
+    const { skillId, prompt, cwd, timeout, maxToolCalls } = body;
+    const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
+    const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
     const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
     const testDir = resolve(PAAW_ROOT, relTestDir);
     try { await rm(testDir, { recursive: true, force: true }); } catch {}
@@ -71,8 +73,8 @@ export default async function crewRoute(req, res) {
       const agentResult = await runAgentLoop({
         prompt: fullPrompt,
         cwd: cwd || PAAW_ROOT,
-        maxTurns: maxToolCalls,
-        timeout,
+        maxTurns: effectiveMaxTurns,
+        timeout: effectiveTimeout,
         rootDir: PAAW_ROOT,
         onEvent: (evt) => {
           if (evt.type === "tool_start") sendEvent({ type: "stdout", data: `🔧 ${evt.name}...\n` });
@@ -150,9 +152,13 @@ export default async function crewRoute(req, res) {
     let bodyStr = "";
     for await (const chunk of req) bodyStr += chunk;
     try {
-      const { prompt, cwd: runCwd, maxToolCalls = 10, timeout = 120, stream: wantStream = false } = JSON.parse(bodyStr);
+      const { prompt, cwd: runCwd, maxToolCalls, timeout, stream: wantStream = false } = JSON.parse(bodyStr);
       if (!prompt) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing prompt" })); return true; }
 
+      const { loadAgentConfig } = await import("./context.mjs");
+      const agentCfg = await loadAgentConfig();
+      const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
+      const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
       const workCwd = runCwd || PAAW_ROOT;
 
       if (wantStream) {
@@ -160,7 +166,7 @@ export default async function crewRoute(req, res) {
         const sendSSE = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
         try {
           const agentResult = await runAgentLoop({
-            prompt, cwd: workCwd, maxTurns: maxToolCalls, timeout,
+            prompt, cwd: workCwd, maxTurns: effectiveMaxTurns, timeout: effectiveTimeout,
             rootDir: PAAW_ROOT,
             onEvent: (evt) => {
               if (evt.type === "tool_start") sendSSE({ type: "stdout", data: `🔧 ${evt.name}...\n` });
@@ -176,7 +182,7 @@ export default async function crewRoute(req, res) {
         }
       } else {
         const agentResult = await runAgentLoop({
-          prompt, cwd: workCwd, maxTurns: maxToolCalls, timeout,
+          prompt, cwd: workCwd, maxTurns: effectiveMaxTurns, timeout: effectiveTimeout,
           rootDir: PAAW_ROOT,
         });
         res.writeHead(200, { "Content-Type": "application/json" });
