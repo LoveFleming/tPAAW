@@ -9,6 +9,12 @@ import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
 export default async function workflowRoutes(req, res) {
   const path = urlPath(req);
 
+  // GET /api/paaw-root — return PAAW_ROOT absolute path
+  if (req.method === "GET" && path === "/api/paaw-root") {
+    json(res, { paawRoot: PATHS.PAAW_ROOT });
+    return true;
+  }
+
   // GET /api/paaw/workflows — list all
   if (req.method === "GET" && path === "/api/paaw/workflows") {
     try {
@@ -127,9 +133,11 @@ export default async function workflowRoutes(req, res) {
       const { path: filePath, content } = JSON.parse(await readBody(req));
       const { mkdir: mk } = await import("fs/promises");
       const { dirname } = await import("path");
-      await mk(dirname(filePath), { recursive: true });
-      await writeFile(filePath, typeof content === "string" ? content : JSON.stringify(content, null, 2), "utf-8");
-      json(res, { ok: true });
+      // Resolve relative paths against PAAW_ROOT
+      const absPath = filePath.startsWith("/") ? filePath : resolve(PATHS.PAAW_ROOT, filePath);
+      await mk(dirname(absPath), { recursive: true });
+      await writeFile(absPath, typeof content === "string" ? content : JSON.stringify(content, null, 2), "utf-8");
+      json(res, { ok: true, path: absPath });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
