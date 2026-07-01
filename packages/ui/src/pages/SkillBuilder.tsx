@@ -1051,7 +1051,7 @@ ${userInputLines.join("\n")}
         <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1e1e2e" }}>
 
           {/* Builder: interactive Agent — always mounted, hidden via display */}
-          <div style={{ display: tab === "builder" && !promptPreview ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
+          <div style={{ display: tab === "builder" ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
             {!chatStarted ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                 <span className="text-5xl opacity-30">🔨</span>
@@ -1063,28 +1063,6 @@ ${userInputLines.join("\n")}
             ) : (
               <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} systemPrompt={buildSystemPrompt} />
             )}
-          </div>
-
-          {/* ── Prompt Preview Panel ── */}
-          <div style={{ display: tab === "builder" && promptPreview ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
-            <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: border + "30", backgroundColor: "#1e1e2e" }}>
-              <span className="text-sm font-bold text-white">📋 Prompt 預覽</span>
-              <button onClick={() => setPromptPreview(false)} className="text-xs text-stone-400 hover:text-white">✕ 關閉</button>
-            </div>
-            <div className="flex-1 overflow-auto p-4 space-y-4" style={{ backgroundColor: "#1e1e2e" }}>
-              {promptPreviewContent ? (<>
-                <div>
-                  <h3 onClick={() => setShowSystemPrompt(v => !v)} className="text-xs font-bold text-emerald-400 mb-2 cursor-pointer select-none hover:text-emerald-300">═ System Prompt ({promptPreviewContent.system.length} chars) ═ {showSystemPrompt ? "▼" : "▶"}</h3>
-                  {showSystemPrompt && <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.system}</pre>}
-                </div>
-                <div>
-                  <h3 onClick={() => setShowUserPrompt(v => !v)} className="text-xs font-bold text-amber-400 mb-2 cursor-pointer select-none hover:text-amber-300">═ User Prompt ({promptPreviewContent.prompt.length} chars) ═ {showUserPrompt ? "▼" : "▶"}</h3>
-                  {showUserPrompt && <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.prompt}</pre>}
-                </div>
-              </>) : (
-                <p className="text-stone-500 text-sm">載入中...</p>
-              )}
-            </div>
           </div>
 
           {/* Test: spinner → file list + content viewer — always mounted, hidden via display */}
@@ -1153,6 +1131,38 @@ ${userInputLines.join("\n")}
           </div>
         </div>
       </div>
+
+      {/* Prompt Preview Modal */}
+      {promptPreview && promptPreviewContent && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setPromptPreview(false)}>
+          <div style={{ background: "#1e1e2e", borderRadius: 12, width: 640, maxWidth: "90vw", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #333" }}>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>📋 Prompt 預覽</span>
+              <button onClick={() => setPromptPreview(false)} style={{ color: "#888", background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <h3 onClick={() => setShowSystemPrompt(v => !v)} style={{ color: "#34d399", fontSize: 14, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
+                  ═ System Prompt ({promptPreviewContent.system.length} chars) ═ {showSystemPrompt ? "▼" : "▶"}
+                </h3>
+                {showSystemPrompt && (
+                  <pre style={{ color: "#d1d5db", fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, maxHeight: "35vh", overflow: "auto", margin: 0, lineHeight: 1.6 }}>{promptPreviewContent.system}</pre>
+                )}
+              </div>
+              <div>
+                <h3 onClick={() => setShowUserPrompt(v => !v)} style={{ color: "#fbbf24", fontSize: 14, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
+                  ═ User Prompt ({promptPreviewContent.prompt.length} chars) ═ {showUserPrompt ? "▼" : "▶"}
+                </h3>
+                {showUserPrompt && (
+                  <pre style={{ color: "#d1d5db", fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, maxHeight: "35vh", overflow: "auto", margin: 0, lineHeight: 1.6 }}>{promptPreviewContent.prompt}</pre>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

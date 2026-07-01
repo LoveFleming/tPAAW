@@ -724,30 +724,30 @@ export default function MindMapViewer() {
       {promptPreview && promptPreviewContent && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setPromptPreview(false)}>
-          <div style={{ background: "#1e1e2e", borderRadius: 12, width: "80vw", maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+          <div style={{ background: "#1e1e2e", borderRadius: 12, width: 640, maxWidth: "90vw", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #333" }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>📋 Prompt 預覽</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #333" }}>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>📋 Prompt 預覽</span>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ color: "#888", fontSize: 11 }}>{promptPreviewContent.model}</span>
-                <button onClick={() => setPromptPreview(false)} style={{ color: "#888", background: "none", border: "none", cursor: "pointer", fontSize: 16 }}>✕</button>
+                <span style={{ color: "#888", fontSize: 12 }}>{promptPreviewContent.model}</span>
+                <button onClick={() => setPromptPreview(false)} style={{ color: "#888", background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
             </div>
-            <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ flex: 1, overflow: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <h3 onClick={() => setShowSystemPrompt(v => !v)} style={{ color: "#34d399", fontSize: 12, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
+                <h3 onClick={() => setShowSystemPrompt(v => !v)} style={{ color: "#34d399", fontSize: 14, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
                   ═ System Prompt ({promptPreviewContent.system.length} chars) ═ {showSystemPrompt ? "▼" : "▶"}
                 </h3>
                 {showSystemPrompt && (
-                  <pre style={{ color: "#d1d5db", fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 12, maxHeight: "35vh", overflow: "auto", margin: 0 }}>{promptPreviewContent.system}</pre>
+                  <pre style={{ color: "#d1d5db", fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, maxHeight: "35vh", overflow: "auto", margin: 0, lineHeight: 1.6 }}>{promptPreviewContent.system}</pre>
                 )}
               </div>
               <div>
-                <h3 onClick={() => setShowUserPrompt(v => !v)} style={{ color: "#fbbf24", fontSize: 12, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
+                <h3 onClick={() => setShowUserPrompt(v => !v)} style={{ color: "#fbbf24", fontSize: 14, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
                   ═ User Prompt ({promptPreviewContent.user.length} chars) ═ {showUserPrompt ? "▼" : "▶"}
                 </h3>
                 {showUserPrompt && (
-                  <pre style={{ color: "#d1d5db", fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 12, maxHeight: "35vh", overflow: "auto", margin: 0 }}>{promptPreviewContent.user}</pre>
+                  <pre style={{ color: "#d1d5db", fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, maxHeight: "35vh", overflow: "auto", margin: 0, lineHeight: 1.6 }}>{promptPreviewContent.user}</pre>
                 )}
               </div>
             </div>
