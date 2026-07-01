@@ -326,6 +326,8 @@ export default function ProjectBoard() {
             <span className="w-px h-5 mx-1" style={{ background: tk.borderLight }} />
             <button onClick={() => setModal({ type: "project-edit" })}
               className="text-xs px-2 py-1.5 rounded-lg" style={{ color: tk.textSecondary, border: `1px solid ${tk.border}` }}>✏️ 編輯</button>
+            <button onClick={() => setAiPanel({ open: true, context: `專案「${active.name}」(ID: ${active.id})，狀態: ${active.status}，完成率: ${pctN}%`, prompt: `幫我管理專案「${active.name}」` })}
+              className="text-xs px-2.5 py-1.5 rounded-lg font-medium" style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>🤖 專案助理</button>
             {active.id !== "paaw" && (
               <button onClick={() => deleteProject(active.id)}
                 className="text-xs px-2 py-1.5 rounded-lg" style={{ color: "#ef4444", border: "1px solid #fecaca" }}>🗑️ 刪除</button>
