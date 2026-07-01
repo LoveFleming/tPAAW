@@ -20,6 +20,55 @@ const DEFAULT_BASE_DELAY_MS = 2000;     // 1s → 2s (first retry wait longer)
 const DEFAULT_MAX_DELAY_MS = 30000;     // 15s → 30s (zai 429 can need 20s+)
 const DEFAULT_TIMEOUT_MS = 60_000;    // API call timeout 60s
 
+// ── AI Call Logging ──
+import { mkdirSync, writeFileSync, existsSync } from "fs";
+import { resolve, join } from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const AI_LOG_DIR = resolve(__dirname, "../../../../data/logs/ai-calls");
+let logDirEnsured = false;
+function ensureLogDir() {
+  if (!logDirEnsured) {
+    try { mkdirSync(AI_LOG_DIR, { recursive: true }); } catch {}
+    logDirEnsured = true;
+  }
+}
+function writeAILog(type, payload, response, meta = {}) {
+  ensureLogDir();
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `${ts}_${type}_${meta.model || "unknown"}.json`;
+  const entry = {
+    timestamp: new Date().toISOString(),
+    type,
+    model: meta.model || "unknown",
+    provider: meta.provider || "unknown",
+    attempt: meta.attempt || 0,
+    durationMs: meta.durationMs || 0,
+    status: meta.status || "unknown",
+    error: meta.error || null,
+    request: {
+      url: meta.url || "unknown",
+      model: payload?.model || meta.model,
+      messages: payload?.messages?.length || 0,
+      messagesPreview: payload?.messages?.map(m => ({ role: m.role, contentLength: typeof m.content === "string" ? m.content.length : JSON.stringify(m.content).length, contentPreview: typeof m.content === "string" ? m.content.slice(0, 200) : JSON.stringify(m.content).slice(0, 200) })),
+      tools: payload?.tools?.length || 0,
+      max_tokens: payload?.max_tokens,
+      temperature: payload?.temperature,
+      stream: payload?.stream || false,
+    },
+    response: response ? {
+      contentLength: typeof response === "string" ? response.length : JSON.stringify(response).length,
+      contentPreview: typeof response === "string" ? response.slice(0, 500) : JSON.stringify(response).slice(0, 500),
+      ...(typeof response === "object" ? { usage: response.usage, model: response.model } : {}),
+    } : null,
+  };
+  try {
+    writeFileSync(resolve(AI_LOG_DIR, filename), JSON.stringify(entry, null, 2), "utf-8");
+  } catch {}
+}
+
 // 判定為 retryable 的 HTTP status
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
@@ -159,6 +208,9 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     onRetry = null,
   } = opts;
+  const _startTime = Date.now();
+  let _body = null;
+  try { _body = JSON.parse(options.body || '{}'); } catch {}
 
   let lastError = null;
 
@@ -197,6 +249,8 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
         continue;
       }
 
+      // Log result before returning
+      writeAILog("fetch-ok", _body, { status: resp.status }, { model: _body?.model, url, attempt: attempt + 1, durationMs: Date.now() - _startTime, status: resp.status });
       return resp;
 
     } catch (err) {
@@ -227,11 +281,15 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
         continue;
       }
 
+      // Log error before throwing
+      writeAILog("fetch-error", _body, null, { model: _body?.model, url, attempt: attempt + 1, durationMs: Date.now() - _startTime, error: lastError.message });
+
       throw lastError;
     }
   }
 
   // 不應該到這裡，但以防萬一
+  writeAILog("fetch-exhausted", _body, null, { model: _body?.model, url, error: lastError?.message });
   throw lastError || new Error('fetchWithRetry: unknown failure');
 }
 
@@ -257,6 +315,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     validateContent = true,
     sanitize = true,
   } = opts;
+  const _startTime = Date.now();
 
   let lastError = null;
 
@@ -311,6 +370,9 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         console.warn('[LLM-Utils] All retries exhausted on empty content');
       }
 
+      // Log successful call
+      writeAILog("call-ok", body, data, { model: body?.model, url: apiUrl, attempt: attempt + 1, durationMs: Date.now() - _startTime, status: resp.status });
+
       return {
         content,
         raw: data,
@@ -322,6 +384,9 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
 
     } catch (err) {
       lastError = err;
+
+      // Log error
+      writeAILog("call-error", body, null, { model: body?.model, url: apiUrl, attempt: attempt + 1, error: err.message, durationMs: 0 });
 
       // 如果是 retryable 且還有 retry 次數
       if (attempt < maxRetries) {
@@ -361,6 +426,9 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     onRetry = null,
   } = opts;
+  const _startTime = Date.now();
+  let _body = null;
+  try { _body = JSON.parse(options.body || '{}'); } catch {}
 
   let lastError = null;
 
@@ -394,6 +462,12 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
       }
 
       // 非 retryable status 或最後一次 → 回傳
+      // Log stream request (success or final non-retryable error)
+      if (resp.ok) {
+        writeAILog("stream-ok", _body, { status: resp.status, model: _body?.model }, { model: _body?.model, url, attempt: attempt + 1, durationMs: Date.now() - _startTime, status: resp.status });
+      } else {
+        writeAILog("stream-error", _body, { status: resp.status }, { model: _body?.model, url, attempt: attempt + 1, durationMs: Date.now() - _startTime, status: resp.status, error: `HTTP ${resp.status}` });
+      }
       return resp;
 
     } catch (err) {
@@ -411,9 +485,13 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
         continue;
       }
 
+      // Log timeout/connection error
+      writeAILog("stream-error", _body, null, { model: _body?.model, url, attempt: attempt + 1, durationMs: Date.now() - _startTime, error: lastError.message });
+
       throw lastError;
     }
   }
 
+  writeAILog("stream-exhausted", _body, null, { model: _body?.model, url, error: lastError?.message });
   throw lastError || new Error('fetchStreamWithRetry: exhausted all retries');
 }

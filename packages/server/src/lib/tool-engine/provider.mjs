@@ -29,6 +29,9 @@ export class OpenAICompatibleAdapter {
     // 如果 baseURL 已包含 /chat/completions 就不再拼
     const url = baseURL.endsWith('/chat/completions') ? baseURL : `${baseURL}/chat/completions`
     const modelName = model || this.config.defaultModel
+    const providerId = this.config.id || 'unknown'
+    const streamStartTime = Date.now()
+    let requestBody = null // will be set after body is built
 
     const headers = {
       'Content-Type': 'application/json',
@@ -51,6 +54,7 @@ export class OpenAICompatibleAdapter {
     console.log(`[Provider] → POST ${url} model=${modelName} msgs=${messages.length} tools=${tools.length}`)
 
     // ★ 寫 payload 到 temp
+    requestBody = body
     const __dirname = dirname(fileURLToPath(import.meta.url))
     const PAAW_ROOT = pathResolve(__dirname, '../../../../../')
     const fs = await import('fs')
@@ -223,6 +227,11 @@ export class OpenAICompatibleAdapter {
     } finally {
       // 寫 stream log 到 temp file
       try { fs.writeFileSync(streamLogPath, streamLog); console.log(`[Provider] Stream log: ${streamLogPath}`) } catch {}
+      // 也寫結構化 AI log
+      try {
+        const { writeAILog } = await import('../llm-utils.mjs');
+        writeAILog('stream-done', requestBody, { streamLogLength: streamLog.length }, { model: modelName, url, durationMs: Date.now() - streamStartTime, status: response.status, provider: providerId });
+      } catch {}
       reader.releaseLock()
     }
   }
