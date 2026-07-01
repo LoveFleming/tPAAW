@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import API_BASE from "../api";
 
@@ -23,6 +24,7 @@ interface BackupEntry {
 }
 
 export default function BackupSettings() {
+  const { t: tt } = useI18n();
   const { info: th } = useTheme();
   const tk = {
     bg: "#fff", bgMuted: "#fafafa", bgHover: th.accentLight || "#f5f5f4",

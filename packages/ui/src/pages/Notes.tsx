@@ -10,6 +10,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import API_BASE from "../api";
 
 // ── Types ──
@@ -30,6 +31,7 @@ interface NotesProps {
 }
 
 export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) {
+  const { t: tt } = useI18n();
   const { info: th } = useTheme();
 
   const tk = {
@@ -94,7 +96,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     return result;
   }, [providers]);
 
-  const activeModelName = allModels().find(m => `${m.providerId}/${m.modelId}` === selectedModel || m.modelId === selectedModel)?.modelName || selectedModel || "預設";
+  const activeModelName = allModels().find(m => `${m.providerId}/${m.modelId}` === selectedModel || m.modelId === selectedModel)?.modelName || selectedModel || tt("common.defaultModel");
   const fullModelForApi = useCallback(() => {
     if (!selectedModel) return undefined;
     if (selectedModel.includes("/")) return selectedModel;
@@ -169,7 +171,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
 
   // ── CRUD ──
   const createNote = useCallback(async () => {
-    const data = await api.post("/api/notes/create", { notebookId: activeNotebook, sectionId: activeSection, title: "新筆記", content: "" });
+    const data = await api.post("/api/notes/create", { notebookId: activeNotebook, sectionId: activeSection, title: tt("notes.newNote"), content: "" });
     if (data.ok) {
       await loadNotes(activeNotebook, activeSection);
       await loadNote(data.note.id, activeNotebook);
@@ -180,7 +182,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
 
   const deleteNote = useCallback(async (id: string, nbId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("確定刪除？")) return;
+    if (!confirm(tt("notes.confirmDelete"))) return;
     await api.del(`/api/notes/delete?id=${id}&notebook=${encodeURIComponent(nbId)}`);
     if (activeNote?.id === id) setActiveNote(null);
     await loadNotes(activeNotebook, activeSection);
@@ -451,7 +453,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
             style={{ background: tk.bg, border: `1px solid ${tk.borderInput}`, color: tk.textPrimary }}
           >
             <span>{activeNb?.icon || "📓"}</span>
-            <span>{activeNb?.name || "選擇筆記本"}</span>
+            <span>{activeNb?.name || tt("notes.selectNotebook")}</span>
             <span style={{ color: tk.textMuted, fontSize: 10 }}>▼</span>
           </button>
 
@@ -478,7 +480,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                     value={newNbName}
                     onChange={e => setNewNbName(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") createNotebook(); if (e.key === "Escape") { setShowNewNbInput(false); setNewNbName(""); } }}
-                    placeholder="筆記本名稱..."
+                    placeholder={tt("notes.notebookNamePlaceholder")}
                     className="w-full text-sm px-2 py-1 rounded border outline-none"
                     style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary }}
                     autoFocus
@@ -516,7 +518,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
               onMouseLeave={e => { if (activeSection !== sec.id) e.currentTarget.style.background = "transparent"; }}
             >
               <span>{sec.id === "default" ? "📋" : (sec.icon || "📁")}</span>
-              <span>{sec.id === "default" ? "預設" : sec.name}</span>
+              <span>{sec.id === "default" ? tt("notes.defaultSection") : sec.name}</span>
             </button>
           ))}
 
@@ -527,7 +529,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
               onChange={e => setNewSecName(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") createSection(); if (e.key === "Escape") { setShowNewSecInput(false); setNewSecName(""); } }}
               onBlur={() => { if (!newSecName.trim()) setShowNewSecInput(false); }}
-              placeholder="分類名稱..."
+              placeholder={tt("notes.sectionNamePlaceholder")}
               className="text-sm px-2 py-1 rounded border outline-none ml-1"
               style={{ background: tk.bg, borderColor: tk.borderInput, color: tk.textPrimary, width: 100 }}
               autoFocus
@@ -537,7 +539,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
               onClick={() => setShowNewSecInput(true)}
               className="px-2 py-1.5 text-sm rounded-t-md shrink-0"
               style={{ color: tk.textMuted }}
-              title="新增分類"
+              title={tt("notes.addSection")}
             >＋</button>
           )}
         </div>
@@ -608,7 +610,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
             <div className="flex-1 overflow-auto">
               {displayNotes.length === 0 ? (
                 <div className="text-center py-12 text-sm" style={{ color: tk.textMuted }}>
-                  {searchQuery || activeTag ? "沒有符合的筆記" : "點「＋ 新增」建立筆記"}
+                  {searchQuery || activeTag ? tt("notes.noMatch") : tt("notes.emptyCreate")}
                 </div>
               ) : (
                 displayNotes.map(note => (
@@ -637,7 +639,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                         </div>
                       </div>
                       <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={e => togglePin(note.id, note.notebookId, e)} className="text-xs hover:bg-black/10 rounded p-0.5" style={{ color: tk.textMuted }} title="釘選">
+                        <button onClick={e => togglePin(note.id, note.notebookId, e)} className="text-xs hover:bg-black/10 rounded p-0.5" style={{ color: tk.textMuted }} title={tt("notes.pin")}>
                           {note.pinned ? "📌" : "📍"}
                         </button>
                         <button onClick={e => deleteNote(note.id, note.notebookId, e)} className="text-xs hover:bg-red-50 rounded p-0.5" style={{ color: "#ef4444" }} title="刪除">🗑</button>
@@ -699,7 +701,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                     <span className="text-xs" style={{ color: tk.textMuted }}>標籤：</span>
                     <input value={tagsInput} onChange={e => setTagsInput(e.target.value)} onBlur={updateTags}
                       onKeyDown={e => { if (e.key === "Enter") { updateTags(); setShowTagEditor(false); } }}
-                      placeholder="逗號分隔：工作, 重要, Idea"
+                      placeholder={tt("notes.tagsPlaceholder")}
                       className="flex-1 text-xs px-2 py-1 rounded border outline-none"
                       style={{ background: tk.bg, borderColor: tk.borderInput, color: tk.textPrimary }} />
                   </div>
@@ -708,7 +710,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                 <div className="px-8 pt-5 pb-1 shrink-0">
                   <input ref={titleRef} defaultValue={activeNote.title} onChange={scheduleSave}
                     className="w-full text-2xl font-bold outline-none border-none bg-transparent"
-                    style={{ color: tk.textPrimary }} placeholder="標題..." />
+                    style={{ color: tk.textPrimary }} placeholder={tt("notes.titlePlaceholder")} />
                 </div>
 
                 <div className="px-8 pb-2 flex items-center gap-3 text-xs shrink-0" style={{ color: tk.textMuted }}>
@@ -725,7 +727,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                   <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={scheduleSave} onPaste={handlePaste}
                     className="outline-none min-h-full"
                     style={{ color: tk.textPrimary, fontSize: 15, lineHeight: 1.8, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
-                    data-placeholder="開始輸入... 可直接貼上圖片（Ctrl+V）" />
+                    data-placeholder={tt("notes.contentPlaceholder")} />
                 </div>
               </>
             )}
@@ -746,7 +748,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                 <textarea
                   value={aiInput}
                   onChange={e => setAiInput(e.target.value)}
-                  placeholder="貼上會議記錄、文章、想法、對話內容...\nAI 會幫你整理成結構化筆記"
+                  placeholder={tt("notes.aiPlaceholder")}
                   className="flex-1 w-full px-3 py-2 rounded-lg border outline-none text-sm"
                   style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary, resize: "none", minHeight: 160, lineHeight: 1.6 }}
                 />
@@ -757,7 +759,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                 <textarea
                   value={aiPrompt}
                   onChange={e => setAiPrompt(e.target.value)}
-                  placeholder={"例如：\n整理成會議記錄，列出決策和行動項\n翻譯成英文並加上重點說明\n用表格整理比較"}
+                  placeholder={tt("notes.aiExamplePlaceholder")}
                   rows={3}
                   className="w-full px-3 py-2 rounded-lg border outline-none text-sm"
                   style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary, resize: "none", lineHeight: 1.6 }}
@@ -780,7 +782,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                     <span className="ai-spinner" style={{ fontSize: 18 }}>⏳</span>
                     AI 整理中...
                   </>
-                ) : "✨ 幫我寫筆記"}
+                ) : tt("notes.aiButton")}
               </button>
 
               <div className="text-xs text-center" style={{ color: tk.textMuted }}>
@@ -797,7 +799,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
               <input
                 value={searchQuery}
                 onChange={e => doSearch(e.target.value)}
-                placeholder="搜尋所有筆記..."
+                placeholder={tt("notes.searchPlaceholder")}
                 className="flex-1 text-sm px-3 py-1.5 rounded-lg border outline-none"
                 style={{ background: tk.bgMuted, borderColor: tk.borderInput, color: tk.textPrimary }}
                 autoFocus
@@ -808,7 +810,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
 
             <div className="flex-1 overflow-auto">
               {searchQuery && (!searchResults || searchResults.length === 0) ? (
-                <div className="text-center py-12 text-sm" style={{ color: tk.textMuted }}>沒有符合的筆記</div>
+                <div className="text-center py-12 text-sm" style={{ color: tk.textMuted }}>{tt("notes.noMatch")}</div>
               ) : searchResults ? (
                 searchResults.map(note => (
                   <div key={note.id} onClick={() => loadNote(note.id, note.notebookId)}

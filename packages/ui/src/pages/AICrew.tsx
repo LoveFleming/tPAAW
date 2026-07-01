@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Card, RiskBadge, cn } from "../components/ui/shared";
 import { Crew, SkillDefinition } from "../types";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import CrewEditor from "../components/CrewEditor";
 import Icon from "../components/Icon";
 
@@ -13,6 +14,7 @@ interface AICrewProps {
 }
 
 export default function AICrew({ openEmployee, onCrewChanged, factoryId = "default" }: AICrewProps) {
+  const { t: tt } = useI18n();
     const { info: t } = useTheme();
     const [crew, setCrew] = useState<Crew[]>([]);
     const [skillDefs, setSkillDefs] = useState<Map<string, SkillDefinition>>(new Map());

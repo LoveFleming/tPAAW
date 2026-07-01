@@ -4,6 +4,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { useI18n } from "../i18n";
 
 interface GanttTask {
   id: string;
@@ -70,6 +71,7 @@ interface Props {
 }
 
 export default function GanttChart({ project, tk }: Props) {
+  const { t: tt } = useI18n();
   const [zoom, setZoom] = useState<"day" | "week" | "month">("week");
 
   // 收集所有有日期的任務 + 里程碑

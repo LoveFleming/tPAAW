@@ -9,6 +9,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Transformer } from "markmap-lib";
 import { Markmap } from "markmap-view";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import API_BASE from "../api";
 
 const transformer = new Transformer();
@@ -55,6 +56,7 @@ function withAlpha(hex: string, alpha: number): string {
 // ── Main Component ──
 
 export default function MindMapViewer() {
+  const { t: tt } = useI18n();
   const { info: themeInfo, theme: themeId } = useTheme();
 
   // 跟 CodingIDE 一樣的 token 系統：白色外圍 + 主題色點綴

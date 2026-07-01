@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Card, cn } from "../components/ui/shared";
 import { Crew, SkillDefinition, UserInput, buildSystemPrompt, migrateCrew } from "../types";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import Icon from "../components/Icon";
 import AgentConsole from "../components/AgentConsole";
 
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewProp, factoryId = "default" }: Props & { factoryId?: string }) {
+  const { t: tt } = useI18n();
     // Use crew from props (API-fetched) to avoid HMR reset when crew JSON files change
     const [apiEmployee, setApiEmployee] = useState<Crew | null>(null);
     const propEmployee = crewProp?.find((s) => s.id === employeeId) || null;

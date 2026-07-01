@@ -139,7 +139,7 @@ function tryFormatJson(str: string): string {
 // ═══════════════════════════════════════════════
 export default function CodingIDE() {
   const { info: themeInfo } = useTheme();
-  const { t } = useI18n();
+  const { t: tt } = useI18n();
 
   // Theme tokens for consistent UI
   const tk = useMemo(() => ({
@@ -837,7 +837,7 @@ const sendChat = useCallback(async () => {
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
-        <span className="text-sm font-bold text-stone-700">{t("vibe.title")}</span>
+        <span className="text-sm font-bold text-stone-700">{tt("vibe.title")}</span>
 
         {/* Search shortcut buttons */}
         <button onClick={() => { setShowQuickOpen(true); setQuickOpenQuery(""); setQuickOpenResults([]); setQuickOpenIndex(0); }}
@@ -855,24 +855,24 @@ const sendChat = useCallback(async () => {
         <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showGitPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          {t("vibe.git")}
+          {tt("vibe.git")}
         </button>
         <button onClick={() => { setShowApiTester(!showApiTester); if (!showApiTester) { setActiveSubPanel("api-tester"); } }}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showApiTester ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          {t("vibe.api")}
+          {tt("vibe.api")}
         </button>
         <button onClick={() => setShowAiPanel(!showAiPanel)}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showAiPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          {t("vibe.ai")}
+          {tt("vibe.ai")}
         </button>
         <button onClick={() => setShowTerminal(!showTerminal)}
           disabled={!rootPath}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors",
             showTerminal ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50",
             !rootPath && "opacity-30 cursor-not-allowed")}>
-          {t("vibe.term")}
+          {tt("vibe.term")}
         </button>
       </div>
 
@@ -884,7 +884,7 @@ const sendChat = useCallback(async () => {
             <div className="flex items-center gap-1.5">
               <input value={rootPath} onChange={e => setRootPath(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && rootPath) { setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rootPath); } }}
-                placeholder={t("vibe.projectPath")}
+                placeholder={tt("vibe.projectPath")}
                 className="flex-1 text-sm font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
               <button onClick={() => setShowDirExplorer(true)}
                 className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600" title="瀏覽選擇目錄">📂</button>
@@ -919,7 +919,7 @@ const sendChat = useCallback(async () => {
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
                 <span className="text-3xl">📂</span>
-                <p className="text-xs text-stone-400">{t("vibe.noProject")}</p>
+                <p className="text-xs text-stone-400">{tt("vibe.noProject")}</p>
               </div>
             )}
           </div>
@@ -954,7 +954,7 @@ const sendChat = useCallback(async () => {
             {activeSubPanel === "diff" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔀 Diff {gitDiffFile && <span className="text-stone-400 font-normal">— {gitDiffFile}</span>}</div>}
             {activeSubPanel === "blame" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔍 Blame — {blameFile}</div>}
             {activeSubPanel === "api-tester" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🌐 API Tester</div>}
-            {activeSubPanel === "editor" && openTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">{t("vibe.noFilesOpen")}</div>}
+            {activeSubPanel === "editor" && openTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">{tt("vibe.noFilesOpen")}</div>}
           </div>
 
           {/* ── Content Area: Editor / Diff / Blame / API Tester ── */}
@@ -983,7 +983,7 @@ const sendChat = useCallback(async () => {
                       <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
                     </pre>
                     <div className="absolute bottom-3 right-3 text-xs text-stone-300 bg-white/80 px-2 py-1 rounded border" style={{ borderColor: tk.borderInput }}>
-                      {t("vibe.clickToEdit")} · Cmd+S {t("vibe.save")} · {t("vibe.autoSave")}
+                      {tt("vibe.clickToEdit")} · Cmd+S {tt("vibe.save")} · {tt("vibe.autoSave")}
                     </div>
                   </div>
                 )}
@@ -999,7 +999,7 @@ const sendChat = useCallback(async () => {
                     <button key={gitT} onClick={() => { setGitTab(gitT); if (gitT === "diff") setActiveSubPanel("diff"); if (gitT === "blame" && blameData) setActiveSubPanel("blame"); }}
                       className={cn("px-2.5 py-1 rounded text-xs font-semibold transition-colors",
                         gitTab === gitT ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
-                      {gitT === "status" ? t("vibe.gitStatus") : gitT === "diff" ? t("vibe.gitDiff") : gitT === "blame" ? t("vibe.gitBlame") : t("vibe.gitReview")}
+                      {gitT === "status" ? tt("vibe.gitStatus") : gitT === "diff" ? tt("vibe.gitDiff") : gitT === "blame" ? tt("vibe.gitBlame") : tt("vibe.gitReview")}
                     </button>
                   ))}
                   <span className="flex-1" />
@@ -1014,7 +1014,7 @@ const sendChat = useCallback(async () => {
                     </div>
                     {gitStatus.staged.length > 0 && (
                       <div>
-                        <div className="text-xs font-bold text-emerald-500 mb-1">{t('vibe.gitStaged')} ({gitStatus.staged.length})</div>
+                        <div className="text-xs font-bold text-emerald-500 mb-1">{tt('vibe.gitStaged')} ({gitStatus.staged.length})</div>
                         {gitStatus.staged.map((f, i) => (
                           <div key={i} className="flex items-center gap-2 py-0.5 text-xs hover:bg-stone-50 px-1 rounded cursor-pointer"
                             onClick={() => { loadGitDiff(f.path, true); setGitTab("diff"); setActiveSubPanel("diff"); }}>
@@ -1026,7 +1026,7 @@ const sendChat = useCallback(async () => {
                     )}
                     {gitStatus.unstaged.length > 0 && (
                       <div>
-                        <div className="text-xs font-bold text-amber-500 mb-1">{t('vibe.gitUnstaged')} ({gitStatus.unstaged.length})</div>
+                        <div className="text-xs font-bold text-amber-500 mb-1">{tt('vibe.gitUnstaged')} ({gitStatus.unstaged.length})</div>
                         {gitStatus.unstaged.map((f, i) => (
                           <div key={i} className="flex items-center gap-2 py-0.5 text-xs hover:bg-stone-50 px-1 rounded cursor-pointer"
                             onClick={() => { loadGitDiff(f.path, false); setGitTab("diff"); setActiveSubPanel("diff"); }}>
@@ -1038,7 +1038,7 @@ const sendChat = useCallback(async () => {
                     )}
                     {gitStatus.untracked.length > 0 && (
                       <div>
-                        <div className="text-xs font-bold text-stone-400 mb-1">{t('vibe.gitUntracked')} ({gitStatus.untracked.length})</div>
+                        <div className="text-xs font-bold text-stone-400 mb-1">{tt('vibe.gitUntracked')} ({gitStatus.untracked.length})</div>
                         {gitStatus.untracked.map((f, i) => (
                           <div key={i} className="flex items-center gap-2 py-0.5 text-xs px-1">
                             <span className="text-xs font-bold text-stone-400 w-4">?</span>
@@ -1050,7 +1050,7 @@ const sendChat = useCallback(async () => {
                     {/* Recent commits */}
                     {gitLog.length > 0 && (
                       <div>
-                        <div className="text-xs font-bold text-stone-500 mb-1">{t('vibe.gitRecent')}</div>
+                        <div className="text-xs font-bold text-stone-500 mb-1">{tt('vibe.gitRecent')}</div>
                         {gitLog.slice(0, 8).map((c, i) => (
                           <div key={i} className="flex items-center gap-2 py-0.5 text-xs">
                             <span className="text-xs font-mono text-blue-500 shrink-0">{c.short}</span>
@@ -1067,13 +1067,13 @@ const sendChat = useCallback(async () => {
                 {gitTab === "diff" && (
                   <div className="flex-1 overflow-auto">
                     <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                      <span className="text-xs font-bold text-stone-500">{gitDiffFile || t("vibe.allChanges")}</span>
+                      <span className="text-xs font-bold text-stone-500">{gitDiffFile || tt("vibe.allChanges")}</span>
                       <label className="flex items-center gap-1 text-xs text-stone-400 cursor-pointer">
                         <input type="checkbox" checked={gitDiffCached} onChange={e => { setGitDiffCached(e.target.checked); loadGitDiff(gitDiffFile || undefined, e.target.checked); }} className="w-3 h-3" />
                         Staged only
                       </label>
                       <span className="flex-1" />
-                      {activeTab && <button onClick={() => loadBlame(activeTab.path)} className="text-xs px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">{t('vibe.gitBlameFile')}</button>}
+                      {activeTab && <button onClick={() => loadBlame(activeTab.path)} className="text-xs px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">{tt('vibe.gitBlameFile')}</button>}
                       <button onClick={generateAiComment} disabled={!gitDiff} className="text-xs px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>🤖 AI Review</button>
                     </div>
                     {gitDiff ? (
@@ -1081,7 +1081,7 @@ const sendChat = useCallback(async () => {
                         <code dangerouslySetInnerHTML={{ __html: highlightedDiff }} />
                       </pre>
                     ) : (
-                      <div className="flex items-center justify-center h-full text-xs text-stone-400">{t('vibe.gitNoChanges')}</div>
+                      <div className="flex items-center justify-center h-full text-xs text-stone-400">{tt('vibe.gitNoChanges')}</div>
                     )}
                   </div>
                 )}
@@ -1121,23 +1121,23 @@ const sendChat = useCallback(async () => {
                 {gitTab === "review" && (
                   <div className="flex-1 overflow-auto p-3">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-bold text-stone-700">🤖 {t("vibe.gitReview")}</span>
+                      <span className="text-xs font-bold text-stone-700">🤖 {tt("vibe.gitReview")}</span>
                       <span className="flex-1" />
                       <button onClick={generateAiComment} disabled={aiCommentLoading || !gitDiff}
                         className="text-xs px-3 py-1 rounded text-white disabled:opacity-40 active:scale-95"
                         style={{ backgroundColor: tk.accent }}>
-                        {aiCommentLoading ? `⏳ ${t("vibe.gitReviewing")}` : t("vibe.gitNewReview")}
+                        {aiCommentLoading ? `⏳ ${tt("vibe.gitReviewing")}` : tt("vibe.gitNewReview")}
                       </button>
                     </div>
                     {aiCommentLoading ? (
-                      <div className="flex items-center justify-center h-32 text-stone-400 text-sm animate-pulse">🤖 {t("vibe.gitReviewing")}</div>
+                      <div className="flex items-center justify-center h-32 text-stone-400 text-sm animate-pulse">🤖 {tt("vibe.gitReviewing")}</div>
                     ) : aiComment ? (
                       <div className="prose prose-sm max-w-none text-xs leading-relaxed whitespace-pre-wrap">{aiComment}</div>
                     ) : null}
                     {/* Review History */}
                     {gitReviews.length > 0 && (
                       <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-                        <div className="text-xs font-bold text-stone-500 mb-2">📜 {t("vibe.gitReviewHistory")} ({gitReviews.length})</div>
+                        <div className="text-xs font-bold text-stone-500 mb-2">📜 {tt("vibe.gitReviewHistory")} ({gitReviews.length})</div>
                         {gitReviews.filter(r => r.comment !== aiComment).slice(0, 10).map((r, i) => (
                           <details key={r.id || i} className="mb-2">
                             <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-700">
@@ -1155,8 +1155,8 @@ const sendChat = useCallback(async () => {
                     {!aiComment && gitReviews.length === 0 && (
                       <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
                         <span className="text-2xl">🤖</span>
-                        <p>{t("vibe.gitReviewHint")}</p>
-                        <p>{t("vibe.gitReviewHint2")}</p>
+                        <p>{tt("vibe.gitReviewHint")}</p>
+                        <p>{tt("vibe.gitReviewHint2")}</p>
                       </div>
                     )}
                   </div>
@@ -1274,8 +1274,8 @@ const sendChat = useCallback(async () => {
                   {/* Headers (collapsible) */}
                   <details open>
                     <summary className="flex items-center gap-2 cursor-pointer select-none">
-                      <span className="text-xs font-bold text-stone-500">{t('vibe.apiHeaders')}</span>
-                      <button onClick={e => { e.stopPropagation(); addHeader(); }} className="text-xs text-blue-500 hover:text-blue-600">{t("vibe.apiAddHeader")}</button>
+                      <span className="text-xs font-bold text-stone-500">{tt('vibe.apiHeaders')}</span>
+                      <button onClick={e => { e.stopPropagation(); addHeader(); }} className="text-xs text-blue-500 hover:text-blue-600">{tt("vibe.apiAddHeader")}</button>
                       <span className="text-xs text-stone-400">{apiHeaders.filter(h => h.enabled).length}/{apiHeaders.length}</span>
                     </summary>
                     {apiHeaders.map((h, i) => (
@@ -1293,9 +1293,9 @@ const sendChat = useCallback(async () => {
                   {apiMethod !== "GET" && apiMethod !== "HEAD" && (
                     <div className="flex flex-col flex-1 min-h-0">
                       <div className="flex items-center gap-2 mb-1 shrink-0">
-                        <span className="text-xs font-bold text-stone-500 shrink-0">{t('vibe.apiBody')}</span>
+                        <span className="text-xs font-bold text-stone-500 shrink-0">{tt('vibe.apiBody')}</span>
                         <button onClick={() => setApiBody(tryFormatJson(apiBody))}
-                          className="text-xs text-stone-400 hover:text-stone-600">📐 {t("vibe.format")}</button>
+                          className="text-xs text-stone-400 hover:text-stone-600">📐 {tt("vibe.format")}</button>
                       </div>
                       <textarea value={apiBody} onChange={e => setApiBody(e.target.value)}
                         placeholder='{"key": "value"}'
@@ -1356,7 +1356,7 @@ const sendChat = useCallback(async () => {
                       </div>
                       {Object.keys(apiResponse.headers).length > 0 && (
                         <details className="shrink-0">
-                          <summary className="text-xs font-bold text-stone-400 cursor-pointer hover:text-stone-600">{t('vibe.apiRespHeaders')}</summary>
+                          <summary className="text-xs font-bold text-stone-400 cursor-pointer hover:text-stone-600">{tt('vibe.apiRespHeaders')}</summary>
                           <div className="text-xs font-mono bg-stone-50 rounded-lg p-2 space-y-0.5 mt-1">
                             {Object.entries(apiResponse.headers).map(([k, v]) => (
                               <div key={k}><span className="text-blue-600">{k}</span>: <span className="text-stone-600">{v}</span></div>
@@ -1371,7 +1371,7 @@ const sendChat = useCallback(async () => {
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 text-xs">
                       <span className="text-2xl">📥</span>
-                      <p>{t("vibe.apiNoResponse")}</p>
+                      <p>{tt("vibe.apiNoResponse")}</p>
                     </div>
                   )}
                 </div>
@@ -1384,9 +1384,9 @@ const sendChat = useCallback(async () => {
                 <div className="text-5xl">⚡</div>
                 <h2 className="text-lg font-bold text-stone-600">Coding IDE</h2>
                 <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
-                  {t("vibe.welcomeLine1")}<br />
-                  {t("vibe.welcomeLine2")}<br />
-                  {t("vibe.welcomeLine3")}<br />
+                  {tt("vibe.welcomeLine1")}<br />
+                  {tt("vibe.welcomeLine2")}<br />
+                  {tt("vibe.welcomeLine3")}<br />
                   🤖 AI Chat — 對著檔案問問題
                 </p>
               </div>
@@ -1423,7 +1423,7 @@ const sendChat = useCallback(async () => {
               onMouseDown={e => startResize("ai", e)} style={{ backgroundColor: tk.border }} />
             <div className="flex flex-col shrink-0 select-none" style={{ width: aiPanelWidth, backgroundColor: "#fff" }}>
               <div className="flex items-center px-3 py-2 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                <span className="text-sm font-bold text-stone-700">{t("vibe.aiChat")}</span>
+                <span className="text-sm font-bold text-stone-700">{tt("vibe.aiChat")}</span>
                 {activeTab && <span className="text-sm text-stone-400 ml-2 truncate">({activeTab.name})</span>}
                 <span className="flex-1" />
                 {/* Mode toggle: Agent vs Chat */}
@@ -1447,9 +1447,9 @@ const sendChat = useCallback(async () => {
                 {chatMessages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-2">
                     <span className="text-3xl">🤖</span>
-                    <p className="text-stone-400 text-sm">{t("vibe.aiAskFile")}<br />{t("vibe.aiAutoContextDesc")}</p>
+                    <p className="text-stone-400 text-sm">{tt("vibe.aiAskFile")}<br />{tt("vibe.aiAutoContextDesc")}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {[t("vibe.aiQuickExplain"), t("vibe.aiQuickProblem"), t("vibe.aiQuickComment"), t("vibe.aiQuickPerf")].map(q => (
+                      {[tt("vibe.aiQuickExplain"), tt("vibe.aiQuickProblem"), tt("vibe.aiQuickComment"), tt("vibe.aiQuickPerf")].map(q => (
                         <button key={q} onClick={() => setChatInput(q)}
                           className="text-sm px-2.5 py-1.5 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">{q}</button>
                       ))}
@@ -1458,11 +1458,11 @@ const sendChat = useCallback(async () => {
                 )}
                 {chatMessages.map((msg, i) => (
                   <div key={i} className={cn("rounded-lg px-3 py-2.5 text-sm leading-relaxed", msg.role === "user" ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-stone-700")}>
-                    <div className="text-xs font-bold text-stone-400 mb-1">{msg.role === "user" ? t("vibe.aiYou") : "🤖 AI"}</div>
+                    <div className="text-xs font-bold text-stone-400 mb-1">{msg.role === "user" ? tt("vibe.aiYou") : "🤖 AI"}</div>
                     <pre className="whitespace-pre-wrap font-sans break-words text-sm" style={{ fontFamily: "inherit" }}>{msg.content}</pre>
                   </div>
                 ))}
-                {chatLoading && <div className="text-sm text-stone-400 animate-pulse px-3 flex items-center gap-1.5"><span className="w-3 h-3 border-[1.5px] border-stone-400 border-t-transparent rounded-full animate-spin" />{t("vibe.aiThinking")}</div>}
+                {chatLoading && <div className="text-sm text-stone-400 animate-pulse px-3 flex items-center gap-1.5"><span className="w-3 h-3 border-[1.5px] border-stone-400 border-t-transparent rounded-full animate-spin" />{tt("vibe.aiThinking")}</div>}
                 <div ref={chatEndRef} />
               </div>
               {/* Agent Tool Log */}
@@ -1482,7 +1482,7 @@ const sendChat = useCallback(async () => {
                 <div className="flex items-end gap-1.5">
                   <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); setChatInput(""); sendChat(); } }}
-                    placeholder={t("vibe.aiPlaceholder")}
+                    placeholder={tt("vibe.aiPlaceholder")}
                     className="flex-1 text-sm px-3 py-2 border rounded-lg resize-none outline-none focus:border-blue-400"
                     style={{ borderColor: "#ddd", minHeight: 38, maxHeight: 120 }} rows={1} />
                   <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}

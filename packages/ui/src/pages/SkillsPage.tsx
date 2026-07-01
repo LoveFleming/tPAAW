@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { SkillDefinition, UserInput } from "../types";
 import Icon from "../components/Icon";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 
 import API from "../api";
 
@@ -49,6 +50,7 @@ function buildSkillMd(fields: {
 }
 
 export default function SkillsPage() {
+  const { t: tt } = useI18n();
     const { info: t } = useTheme();
     const [skills, setSkills] = useState<SkillDefinition[]>([]);
     const [loading, setLoading] = useState(true);

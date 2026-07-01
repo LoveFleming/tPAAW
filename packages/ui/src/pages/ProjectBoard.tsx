@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import GanttChart from "./GanttChart";
 import ProjectAiPanel from "../components/ProjectAiPanel";
@@ -73,6 +74,7 @@ function Modal({ title, onClose, children, tk }: { title: string; onClose: () =>
 // Main Component
 // ════════════════════════════════════════
 export default function ProjectBoard() {
+  const { t: tt } = useI18n();
   const { info: th } = useTheme();
   const tk = {
     bg: "#fff", bgMuted: "#fafafa", bgHover: th.accentLight || "#f5f5f4",
@@ -131,7 +133,7 @@ export default function ProjectBoard() {
   };
 
   const deleteProject = async (id: string) => {
-    if (!confirm("確定刪除此專案？")) return;
+    if (!confirm(tt("project.confirmDeleteProject"))) return;
     await api.del(`/api/projects/${id}`);
     setView("dashboard");
     setActive(null);
@@ -150,7 +152,7 @@ export default function ProjectBoard() {
   };
 
   const deleteCategory = async (catId: string) => {
-    if (!confirm("刪除整個分類？所有任務會一起消失。")) return;
+    if (!confirm(tt("project.confirmDeleteCategory"))) return;
     await api.del(`/api/projects/${active!.id}/categories/${catId}`);
     await refresh();
   };
@@ -167,7 +169,7 @@ export default function ProjectBoard() {
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!confirm("刪除此任務？")) return;
+    if (!confirm(tt("project.confirmDeleteTask"))) return;
     await api.del(`/api/projects/${active!.id}/tasks/${taskId}`);
     await refresh();
   };
@@ -190,7 +192,7 @@ export default function ProjectBoard() {
   };
 
   const deleteMilestone = async (msId: string) => {
-    if (!confirm("刪除此里程碑？")) return;
+    if (!confirm(tt("project.confirmDeleteMilestone"))) return;
     await api.del(`/api/projects/${active!.id}/milestones/${msId}`);
     await refresh();
   };
@@ -211,12 +213,12 @@ export default function ProjectBoard() {
           <div className="flex items-center justify-between mb-1">
             <h1 className="text-2xl font-bold" style={{ color: tk.textPrimary }}>📋 Project Board</h1>
             <div className="flex items-center gap-2">
-              <button onClick={() => setAiPanel({ open: true, context: "專案管理看板：建專案、分析狀態、找風險、建議改善", prompt: "幫我建一個新專案，我來告訴你專案名稱和目標。" })}
+              <button onClick={() => setAiPanel({ open: true, context: tt("project.aiContextManage"), prompt: tt("project.aiPromptNewProject") })}
                 className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
                 style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>
                 🤖 AI 建專案
               </button>
-              <button onClick={() => setAiPanel({ open: true, context: "專案管理看板：分析所有專案的健康度、進度、風險", prompt: "分析我所有專案的狀態，給我一份專案健康度報告。" })}
+              <button onClick={() => setAiPanel({ open: true, context: tt("project.aiContextAnalyze"), prompt: tt("project.aiPromptAnalyze") })}
                 className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
                 style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
                 🤖 AI 分析
@@ -233,10 +235,10 @@ export default function ProjectBoard() {
           {/* Overall stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
-              { label: "專案數", value: summaries.length, sub: "進行中" },
-              { label: "總任務", value: totalTasks, sub: `${doneTasks} 完成` },
-              { label: "完成率", value: `${overallPct}%`, sub: "整體進度" },
-              { label: "里程碑", value: `${summaries.reduce((s, p) => s + p.milestonesDone, 0)}/${summaries.reduce((s, p) => s + p.milestonesTotal, 0)}`, sub: "已完成" },
+              { label: tt("project.statProjects"), value: summaries.length, sub: tt("project.statusProgress") },
+              { label: tt("project.statTotalTasks"), value: totalTasks, sub: `${doneTasks} ${tt("project.statCompleted")}` },
+              { label: tt("project.statCompletionRate"), value: `${overallPct}%`, sub: tt("project.statOverallProgress") },
+              { label: tt("project.statMilestones"), value: `${summaries.reduce((s, p) => s + p.milestonesDone, 0)}/${summaries.reduce((s, p) => s + p.milestonesTotal, 0)}`, sub: tt("project.statusDone") },
             ].map((s, i) => (
               <div key={i} className="rounded-xl border p-4" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
                 <div className="text-xs uppercase tracking-wider" style={{ color: tk.textMuted }}>{s.label}</div>
@@ -276,7 +278,7 @@ export default function ProjectBoard() {
 
         {/* New project modal */}
         {modal?.type === "project-new" && (
-          <ProjectFormModal tk={tk} onClose={() => setModal(null)} onSave={saveProject} />
+          <ProjectFormModal tk={tk} tt={tt} onClose={() => setModal(null)} onSave={saveProject} />
         )}
       </div>
 
@@ -357,10 +359,10 @@ export default function ProjectBoard() {
         {/* Stats bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
-            { label: "完成率", value: `${pctN}%`, color: pctColor(pctN) },
-            { label: "已完成", value: doneN, color: "#22c55e" },
-            { label: "進行中", value: progN, color: "#3b82f6" },
-            { label: "未開始", value: totalN - doneN - progN, color: "#9ca3af" },
+            { label: tt("project.statCompletionRate"), value: `${pctN}%`, color: pctColor(pctN) },
+            { label: tt("project.statusDone"), value: doneN, color: "#22c55e" },
+            { label: tt("project.statusProgress"), value: progN, color: "#3b82f6" },
+            { label: tt("project.statusTodo"), value: totalN - doneN - progN, color: "#9ca3af" },
           ].map((s, i) => (
             <div key={i} className="rounded-xl border p-4" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
               <div className="text-xs uppercase tracking-wider" style={{ color: tk.textMuted }}>{s.label}</div>
@@ -411,7 +413,7 @@ export default function ProjectBoard() {
                         const p = pb(task.priority);
                         return (
                           <div key={task.id} className="group flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-white/60 transition-colors">
-                            <button onClick={() => cycleTaskStatus(task)} className="text-sm shrink-0" title="點擊切換狀態">
+                            <button onClick={() => cycleTaskStatus(task)} className="text-sm shrink-0" title={tt("project.clickSwitchStatus")}>
                               {task.status === "done" ? "✅" : task.status === "progress" ? "🔧" : "⬜"}
                             </button>
                             <span className="flex-1 text-sm" style={{
@@ -436,7 +438,7 @@ export default function ProjectBoard() {
                         );
                       })}
                       {/* Quick add task */}
-                      <QuickAddTask onAdd={(name, priority, start, end) => addTask(cat.id, name, priority, start, end)} tk={tk} />
+                      <QuickAddTask tt={tt} onAdd={(name, priority, start, end) => addTask(cat.id, name, priority, start, end)} tk={tk} />
                     </div>
                   </div>
                 );
@@ -482,29 +484,29 @@ export default function ProjectBoard() {
 
       {/* ── Modals ── */}
       {modal?.type === "project-edit" && (
-        <ProjectFormModal tk={tk} project={active} onClose={() => setModal(null)} onSave={saveProject} />
+        <ProjectFormModal tk={tk} tt={tt} project={active} onClose={() => setModal(null)} onSave={saveProject} />
       )}
       {modal?.type === "category-new" && (
-        <CategoryFormModal tk={tk} onClose={() => setModal(null)} onSave={(n, i, d) => { addCategory(n, i, d); setModal(null); }} />
+        <CategoryFormModal tk={tk} tt={tt} onClose={() => setModal(null)} onSave={(n, i, d) => { addCategory(n, i, d); setModal(null); }} />
       )}
       {modal?.type === "category-edit" && (
-        <CategoryFormModal tk={tk} category={modal.data} onClose={() => setModal(null)}
+        <CategoryFormModal tk={tk} tt={tt} category={modal.data} onClose={() => setModal(null)}
           onSave={(n, i, d) => updateCategory(modal.data.id, { name: n, icon: i, description: d })} />
       )}
       {modal?.type === "task-new" && (
-        <TaskFormModal tk={tk} onClose={() => setModal(null)}
+        <TaskFormModal tk={tk} tt={tt} onClose={() => setModal(null)}
           onSave={(n, p, s, e) => { addTask(modal.data.catId, n, p, s, e); setModal(null); }} />
       )}
       {modal?.type === "task-edit" && (
-        <TaskFormModal tk={tk} task={modal.data.task} onClose={() => setModal(null)}
+        <TaskFormModal tk={tk} tt={tt} task={modal.data.task} onClose={() => setModal(null)}
           onSave={(n, p, s, e, st) => updateTask(modal.data.task.id, { name: n, priority: p, start: s, end: e, status: st })} />
       )}
       {modal?.type === "milestone-new" && (
-        <MilestoneFormModal tk={tk} onClose={() => setModal(null)}
+        <MilestoneFormModal tk={tk} tt={tt} onClose={() => setModal(null)}
           onSave={(n, d) => { addMilestone(n, d); setModal(null); }} />
       )}
       {modal?.type === "milestone-edit" && (
-        <MilestoneFormModal tk={tk} milestone={modal.data} onClose={() => setModal(null)}
+        <MilestoneFormModal tk={tk} tt={tt} milestone={modal.data} onClose={() => setModal(null)}
           onSave={(n, d) => updateMilestone(modal.data.id, { name: n, date: d })} />
       )}
     </div> {/* end flex-1 */}
@@ -527,7 +529,7 @@ export default function ProjectBoard() {
 // ════════════════════════════════════════
 // Quick Add Task (inline)
 // ════════════════════════════════════════
-function QuickAddTask({ onAdd, tk }: { onAdd: (name: string, priority: string, start: string, end: string) => void; tk: any }) {
+function QuickAddTask({ onAdd, tk, tt }: { onAdd: (name: string, priority: string, start: string, end: string) => void; tk: any; tt: (k: string, f?: string) => string }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   if (!editing) {
@@ -541,7 +543,7 @@ function QuickAddTask({ onAdd, tk }: { onAdd: (name: string, priority: string, s
     <div className="flex items-center gap-1 py-1 px-2 rounded-lg" style={{ background: "#fff", border: `1px solid ${tk.border}` }}>
       <input autoFocus value={name} onChange={e => setName(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter" && name.trim()) { onAdd(name.trim(), "medium", "", ""); setName(""); setEditing(false); } if (e.key === "Escape") setEditing(false); }}
-        placeholder="任務名稱…"
+        placeholder={tt("project.taskNamePlaceholder")}
         className="flex-1 text-sm outline-none bg-transparent" style={{ color: tk.textPrimary }} />
       <button onClick={() => { if (name.trim()) { onAdd(name.trim(), "medium", "", ""); setName(""); setEditing(false); } }}
         className="text-xs px-2 py-0.5 rounded" style={{ background: tk.accentBg, color: tk.accentText }}>確認</button>
@@ -554,7 +556,7 @@ function QuickAddTask({ onAdd, tk }: { onAdd: (name: string, priority: string, s
 // ════════════════════════════════════════
 // Form Modals
 // ════════════════════════════════════════
-function ProjectFormModal({ tk, project, onClose, onSave }: { tk: any; project?: any; onClose: () => void; onSave: (d: any) => void }) {
+function ProjectFormModal({ tk, tt, project, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; project?: any; onClose: () => void; onSave: (d: any) => void }) {
   const [name, setName] = useState(project?.name || "");
   const [icon, setIcon] = useState(project?.icon || "📋");
   const [desc, setDesc] = useState(project?.description || "");
@@ -562,13 +564,13 @@ function ProjectFormModal({ tk, project, onClose, onSave }: { tk: any; project?:
   const [startDate, setStartDate] = useState(project?.startDate || new Date().toISOString().slice(0, 10));
   const [targetDate, setTargetDate] = useState(project?.targetDate || "");
   return (
-    <Modal title={project ? "編輯專案" : "新專案"} onClose={onClose} tk={tk}>
+    <Modal title={project ? tt("project.editProject") : tt("project.newProject")} onClose={onClose} tk={tk}>
       <div className="space-y-3">
         <div className="flex gap-2">
           <input className={inputCls} style={{ width: 48, textAlign: "center", borderColor: tk.border, color: tk.textPrimary }} value={icon} onChange={e => setIcon(e.target.value)} />
-          <input className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder="專案名稱" value={name} onChange={e => setName(e.target.value)} />
+          <input className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder={tt("project.namePlaceholder")} value={name} onChange={e => setName(e.target.value)} />
         </div>
-        <textarea className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary, resize: "none" }} rows={2} placeholder="描述" value={desc} onChange={e => setDesc(e.target.value)} />
+        <textarea className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary, resize: "none" }} rows={2} placeholder={tt("common.description")} value={desc} onChange={e => setDesc(e.target.value)} />
         <div className="flex gap-2">
           <select className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={status} onChange={e => setStatus(e.target.value)}>
             <option value="todo">未開始</option>
@@ -589,18 +591,18 @@ function ProjectFormModal({ tk, project, onClose, onSave }: { tk: any; project?:
   );
 }
 
-function CategoryFormModal({ tk, category, onClose, onSave }: { tk: any; category?: any; onClose: () => void; onSave: (n: string, i: string, d: string) => void }) {
+function CategoryFormModal({ tk, tt, category, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; category?: any; onClose: () => void; onSave: (n: string, i: string, d: string) => void }) {
   const [name, setName] = useState(category?.name || "");
   const [icon, setIcon] = useState(category?.icon || "📁");
   const [desc, setDesc] = useState(category?.description || "");
   return (
-    <Modal title={category ? "編輯分類" : "新分類"} onClose={onClose} tk={tk}>
+    <Modal title={category ? tt("project.editCategory") : tt("project.newCategory")} onClose={onClose} tk={tk}>
       <div className="space-y-3">
         <div className="flex gap-2">
           <input className={inputCls} style={{ width: 48, textAlign: "center", borderColor: tk.border, color: tk.textPrimary }} value={icon} onChange={e => setIcon(e.target.value)} />
-          <input className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder="分類名稱" value={name} onChange={e => setName(e.target.value)} />
+          <input className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder={tt("project.categoryNamePlaceholder")} value={name} onChange={e => setName(e.target.value)} />
         </div>
-        <input className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder="描述" value={desc} onChange={e => setDesc(e.target.value)} />
+        <input className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder={tt("common.description")} value={desc} onChange={e => setDesc(e.target.value)} />
         <button onClick={() => name.trim() && onSave(name.trim(), icon, desc)}
           disabled={!name.trim()}
           className="w-full text-sm font-medium rounded-lg py-2 disabled:opacity-40"
@@ -612,16 +614,16 @@ function CategoryFormModal({ tk, category, onClose, onSave }: { tk: any; categor
   );
 }
 
-function TaskFormModal({ tk, task, onClose, onSave }: { tk: any; task?: any; onClose: () => void; onSave: (n: string, p: string, s: string, e: string, st: string) => void }) {
+function TaskFormModal({ tk, tt, task, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; task?: any; onClose: () => void; onSave: (n: string, p: string, s: string, e: string, st: string) => void }) {
   const [name, setName] = useState(task?.name || "");
   const [priority, setPriority] = useState(task?.priority || "medium");
   const [status, setStatus] = useState(task?.status || "todo");
   const [start, setStart] = useState(task?.start || "");
   const [end, setEnd] = useState(task?.end || "");
   return (
-    <Modal title={task ? "編輯任務" : "新任務"} onClose={onClose} tk={tk}>
+    <Modal title={task ? tt("project.editTask") : tt("project.newTask")} onClose={onClose} tk={tk}>
       <div className="space-y-3">
-        <input autoFocus className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder="任務名稱" value={name} onChange={e => setName(e.target.value)} />
+        <input autoFocus className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder={tt("project.taskNamePlaceholder")} value={name} onChange={e => setName(e.target.value)} />
         <div className="flex gap-2">
           <select className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={priority} onChange={e => setPriority(e.target.value)}>
             <option value="high">高優先</option>
@@ -657,13 +659,13 @@ function TaskFormModal({ tk, task, onClose, onSave }: { tk: any; task?: any; onC
   );
 }
 
-function MilestoneFormModal({ tk, milestone, onClose, onSave }: { tk: any; milestone?: any; onClose: () => void; onSave: (n: string, d: string) => void }) {
+function MilestoneFormModal({ tk, tt, milestone, onClose, onSave }: { tk: any; tt: (k: string, f?: string) => string; milestone?: any; onClose: () => void; onSave: (n: string, d: string) => void }) {
   const [name, setName] = useState(milestone?.name || "");
   const [date, setDate] = useState(milestone?.date || "");
   return (
-    <Modal title={milestone ? "編輯里程碑" : "新里程碑"} onClose={onClose} tk={tk}>
+    <Modal title={milestone ? tt("project.editMilestone") : tt("project.newMilestone")} onClose={onClose} tk={tk}>
       <div className="space-y-3">
-        <input autoFocus className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder="里程碑名稱" value={name} onChange={e => setName(e.target.value)} />
+        <input autoFocus className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} placeholder={tt("project.milestoneNamePlaceholder")} value={name} onChange={e => setName(e.target.value)} />
         <div>
           <label className="text-xs block mb-1" style={{ color: tk.textMuted }}>日期（或月份）</label>
           <input type="date" className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={date} onChange={e => setDate(e.target.value)} />

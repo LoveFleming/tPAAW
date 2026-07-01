@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import yaml from "js-yaml";
 import API from "../api";
 
@@ -54,6 +55,7 @@ const PRESETS = [
 type RightTab = "logs" | "results" | "result-view";
 
 export default function CronJobsPage() {
+  const { t: tt } = useI18n();
     const { info: t } = useTheme();
     const [jobs, setJobs] = useState<CronJob[]>([]);
     const [skills, setSkills] = useState<SkillItem[]>([]);

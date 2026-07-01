@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useI18n } from "../i18n";
 
 type WFNodeType = "start" | "end" | "skill";
 type EndOutputTarget = "chat" | "file";
@@ -74,6 +75,7 @@ function formatTime(ts: string) {
 
 // ── Main ──
 export default function WorkflowExec() {
+  const { t: tt } = useI18n();
   const [workflows, setWorkflows] = useState<WorkflowDef[]>([]);
   const [currentWf, setCurrentWf] = useState<WorkflowDef | null>(null);
   const [execLog, setExecLog] = useState<ExecLogEntry[]>([]);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 
 import API_BASE from "../api";
 
@@ -15,6 +16,7 @@ interface ProviderData {
 }
 
 export default function ProviderSetupPage({ onComplete }: Props) {
+  const { t: tt } = useI18n();
   const { info: themeInfo } = useTheme();
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");

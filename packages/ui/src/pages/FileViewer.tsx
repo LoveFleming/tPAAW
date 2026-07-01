@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import JsonViewer from "../components/JsonViewer";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import { fileEmoji } from "../components/FileEmoji";
 import { pathBasename } from "../utils";
 import hljs from "highlight.js";
@@ -199,6 +200,7 @@ interface Props {
 }
 
 export default function FileViewer({ filePath, projectRoot, active }: Props) {
+  const { t: tt } = useI18n();
   const { info: t } = useTheme();
   const [content, setContent] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ size: number } | null>(null);

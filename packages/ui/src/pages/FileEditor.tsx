@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import { fileEmoji } from "../components/FileEmoji";
 import { pathBasename } from "../utils";
 import API_BASE from "../api";
@@ -12,6 +13,7 @@ interface Props {
 type SaveState = "clean" | "saving" | "saved" | "error";
 
 export default function FileEditor({ filePath, active }: Props) {
+  const { t: tt } = useI18n();
   const { info: t } = useTheme();
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");

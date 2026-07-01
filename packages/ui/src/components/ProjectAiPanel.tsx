@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useI18n } from "../i18n";
 import API_BASE from "../api";
 
 // ── Types ──
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: Props) {
+  const { t } = useI18n();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);

@@ -715,7 +715,7 @@ ${userInputLines.join("\n")}
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-96 p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-bold text-stone-800 mb-1">📄 建立新的 Skill</h3>
             <p className="text-xs text-stone-500 mb-4">給 Skill 一個名字</p>
-            <input type="text" value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} placeholder="例：translate、log-analyzer" className="w-full px-4 py-2.5 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 mb-2" style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties} autoFocus />
+            <input type="text" value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} placeholder={t("skillBuilder.fileNamePlaceholder")} className="w-full px-4 py-2.5 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 mb-2" style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties} autoFocus />
             {newFileName.trim() && <p className="text-sm text-stone-400 mb-4">→ {newFileName.trim().replace(/\s+/g, "-").toLowerCase()}/skill-source.md</p>}
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowNewDialog(false)} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50">{t("common.cancel")}</button>
@@ -740,7 +740,7 @@ ${userInputLines.join("\n")}
                   type="text"
                   value={aiGenName}
                   onChange={e => setAiGenName(e.target.value)}
-                  placeholder="例：ai-news-digest、log-analyzer"
+                  placeholder={t("skillBuilder.skillIdPlaceholder")}
                   className="w-full px-4 py-2.5 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2"
                   style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties}
                   autoFocus
@@ -753,7 +753,7 @@ ${userInputLines.join("\n")}
                 <textarea
                   value={aiGenDesc}
                   onChange={e => setAiGenDesc(e.target.value)}
-                  placeholder={"描述這個 Skill 要做什麼：\n例：搜集當日 AI 新聞，整理成中文摘要，萃取 5 個英文單字和句型"}
+                  placeholder={t("skillBuilder.descPlaceholder")}
                   rows={4}
                   className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none"
                   style={{ lineHeight: 1.6, "--tw-ring-color": accent + "40" } as React.CSSProperties}
@@ -767,7 +767,7 @@ ${userInputLines.join("\n")}
                 className={cn("px-5 py-2 text-sm font-bold rounded-xl text-white flex items-center gap-2", aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? "hover:opacity-90" : "bg-stone-200 text-stone-400")}
                 style={aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? { background: accent } : {}}>
                 {aiGenLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                {aiGenLoading ? "產生中..." : "✨ 產生 Skill"}
+                {aiGenLoading ? t("skillBuilder.generating") : t("skillBuilder.generateButton")}
               </button>
             </div>
           </div>
@@ -806,11 +806,11 @@ ${userInputLines.join("\n")}
                   <div className="flex gap-3 mb-4">
                     <div className="flex-1">
                       <label className="text-sm font-bold text-stone-500 mb-1.5 block">Skill ID</label>
-                      <input type="text" value={form.id} onChange={e => update("id", e.target.value)} placeholder="例：error-analyzer" className="w-full px-3 py-2 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                      <input type="text" value={form.id} onChange={e => update("id", e.target.value)} placeholder={t("skillBuilder.idPlaceholder")} className="w-full px-3 py-2 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     </div>
                     <div className="flex-1">
                       <label className="text-sm font-bold text-stone-500 mb-1.5 block">Skill Name</label>
-                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)} placeholder="例：錯誤分析器" className="w-full px-3 py-2 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)} placeholder={t("skillBuilder.namePlaceholder")} className="w-full px-3 py-2 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     </div>
                   </div>
 
@@ -858,7 +858,7 @@ ${userInputLines.join("\n")}
                       <textarea
                         value={rawBuildPrompt}
                         onChange={e => setRawBuildPrompt(e.target.value)}
-                        placeholder={"直接貼上完整的 build skill prompt...\n\n例如：\n---\nid: my-skill\nname: My Skill\n---\n@@@purpose@@@\n...\n@@@steps@@@\n..."}
+                        placeholder={t("skillBuilder.rawPromptPlaceholder")}
                         rows={24}
                         className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-y font-mono"
                         style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30", minHeight: "400px" } as React.CSSProperties}
@@ -867,11 +867,11 @@ ${userInputLines.join("\n")}
                     </div>
                   ) : (
                   <>
-                  <StepCard number={1} icon="🎯" title="Purpose" hint="這個 Skill 做什麼？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder="例：根據錯誤訊息和 log，分析問題的根因並產生報告" rows={3} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  <StepCard number={1} icon="🎯" title="Purpose" hint={t("skillBuilder.hintPurpose")} required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder={t("skillBuilder.purposePlaceholder")} rows={3} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     <p className="text-sm text-stone-400">💡 想像你在跟一個新同事解釋這個任務</p>
                   </StepCard>
-                  <StepCard number={2} icon="📝" title="Inputs" hint="需要使用者提供什麼？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={2} icon="📝" title="Inputs" hint={t("skillBuilder.hintInputs")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     {form.inputs.length === 0 && (<div className="text-center py-4"><p className="text-sm text-stone-400 mb-3">這個 Skill 需要使用者輸入什麼資訊？</p><button onClick={addInput} className="px-4 py-2 text-sm font-medium border rounded-xl hover:opacity-80" style={{ color: accent, borderColor: accent + "40" }}>＋ 新增輸入欄位</button></div>)}
                     <div className="space-y-3">{form.inputs.map((inp, idx) => <InputFieldCard key={idx} field={inp} index={idx} onUpdate={updateInput} onRemove={removeInput} />)}</div>
                     {form.inputs.length > 0 && <button onClick={addInput} className="w-full py-2.5 text-sm font-medium border border-dashed rounded-xl hover:opacity-80" style={{ color: accent, borderColor: accent + "40" }}>＋ 新增欄位</button>}
@@ -879,23 +879,23 @@ ${userInputLines.join("\n")}
                   <StepCard number={3} icon="🧠" title="Steps" hint="AI 應該怎麼做？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.steps} onChange={e => update("steps", e.target.value)} placeholder={"寫下 AI 應該遵循的步驟：\n1. ...\n2. ..."} rows={8} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={4} icon="📋" title="Output" hint="輸出長什麼樣子？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder="描述你期望的輸出格式" rows={6} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  <StepCard number={4} icon="📋" title="Output" hint={t("skillBuilder.hintOutput")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder={t("skillBuilder.outputPlaceholder")} rows={6} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={5} icon="⚠️" title="Error Handling" hint="出錯時怎麼辦？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={5} icon="⚠️" title="Error Handling" hint={t("skillBuilder.hintErrorHandling")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.errorHandling} onChange={e => update("errorHandling", e.target.value)} placeholder={"列出可能發生的錯誤情境和處理方式：\n1. 輸入為空 → 回覆『請提供輸入內容』\n2. API 失敗 → 回覆『服務暫時無法使用』\n3. ..."} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={6} icon="📖" title="Examples" hint="使用範例" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={6} icon="📖" title="Examples" hint={t("skillBuilder.hintExamples")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.examples} onChange={e => update("examples", e.target.value)} placeholder="列出這個 Skill 的使用情境或範例\n例：使用者說「幫我分析這個錯誤」→ AI 讀取錯誤訊息、產出根因報告" rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={7} icon="🛡️" title="Guardrails" hint="安全限制" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder="什麼不能做？什麼要特別小心？" rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  <StepCard number={7} icon="🛡️" title="Guardrails" hint={t("skillBuilder.hintGuardrails")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder={t("skillBuilder.guardrailsPlaceholder")} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={8} icon="✅" title="Validation" hint="怎麼確認結果正確？" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder="怎麼驗證 AI 的輸出品質？" rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  <StepCard number={8} icon="✅" title="Validation" hint={t("skillBuilder.hintValidation")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder={t("skillBuilder.validationPlaceholder")} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={9} icon="📝" title="Notes" hint="備註" accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder="開發者備註或額外說明" rows={4} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  <StepCard number={9} icon="📝" title="Notes" hint={t("skillBuilder.hintNotes")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder={t("skillBuilder.notesPlaceholder")} rows={4} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   </>
                   )}
@@ -974,7 +974,7 @@ ${userInputLines.join("\n")}
                     className="px-6 py-2.5 text-base font-bold rounded-xl text-white transition-all shadow-sm flex items-center gap-2"
                     style={!canTest || testRunning ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     {testRunning && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    {testRunning ? `執行中... ${testElapsed}s` : "▶️ 執行測試"}
+                    {testRunning ? `${t("skillBuilder.testRunning")} ${testElapsed}s` : t("skillBuilder.runTest")}
                   </button>
                   <button onClick={() => setShowPromptPreview(!showPromptPreview)}
                     className="px-4 py-2.5 text-base font-medium rounded-xl border border-stone-200 hover:bg-stone-50 transition-all flex items-center gap-1.5 text-stone-600">
@@ -987,9 +987,9 @@ ${userInputLines.join("\n")}
                       : publishStatus === "done" ? { background: "#16a34a", color: "#fff" }
                       : publishStatus === "error" ? { background: "#dc2626", color: "#fff" }
                       : { background: "#fff", color: accent, border: `1.5px solid ${accent}` }}>
-                    {publishStatus === "publishing" ? "⏳ 發佈中..."
-                      : publishStatus === "done" ? "✅ 已發佈"
-                      : publishStatus === "error" ? "❌ 失敗"
+                    {publishStatus === "publishing" ? t("skillBuilder.publishing")
+                      : publishStatus === "done" ? t("skillBuilder.published")
+                      : publishStatus === "error" ? t("skillBuilder.publishFailed")
                       : "🚀 發佈"}
                   </button>
                   {hasEmptyRequired && !testRunning && <span className="text-[11px] text-rose-400">⚠️ 請填寫所有必填欄位</span>}

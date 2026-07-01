@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 
 import API from "../api";
 
@@ -15,6 +16,7 @@ interface AppItem {
 }
 
 export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => void }) {
+  const { t: tt } = useI18n();
     const { info: t } = useTheme();
     const [apps, setApps] = useState<AppItem[]>([]);
     const [loading, setLoading] = useState(true);

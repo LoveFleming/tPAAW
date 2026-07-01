@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useI18n } from "../i18n";
 import {
   ReactFlow, Controls, Background, useNodesState, useEdgesState, addEdge,
   Handle, Position, type NodeProps, type Node, type Edge,
@@ -233,6 +234,7 @@ function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
 
 // ── Main: Workflow Builder ──
 export default function WorkflowEditor() {
+  const { t: tt } = useI18n();
   const [workflows, setWorkflows] = useState<WorkflowDef[]>([]);
   const [currentWf, setCurrentWf] = useState<WorkflowDef | null>(null);
   const [rfNodes, setRfNodes, onRfNodesChange] = useNodesState<Node>([]);

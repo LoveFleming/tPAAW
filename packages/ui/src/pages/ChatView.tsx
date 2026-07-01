@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 
 // ── Module-level pending seed message ──
 let _pendingSeed: string | null = null;
@@ -60,6 +61,7 @@ interface Props {
 }
 
 export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp, providerReady, onProviderNotReady }: Props) {
+  const { t: tt } = useI18n();
   const { info: themeInfo } = useTheme();
   const assistantName = profile.assistantName || "林語晴";
 

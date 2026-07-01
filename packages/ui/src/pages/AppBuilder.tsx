@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 import { SkillDefinition } from "../types";
 import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
 
@@ -273,6 +274,7 @@ function SkillPickerDialog({
 
 // ── Main Component ──
 export default function AppBuilder() {
+  const { t: tt } = useI18n();
     const { info: t } = useTheme();
 
     // ── Flow state ──

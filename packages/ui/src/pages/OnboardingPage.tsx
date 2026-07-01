@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 
 import API_BASE from "../api";
 
@@ -31,6 +32,7 @@ const STYLES = [
 ];
 
 export default function OnboardingPage({ onComplete }: Props) {
+  const { t: tt } = useI18n();
   const { info: themeInfo } = useTheme();
   const [step, setStep] = useState(0); // 0: welcome, 1: name, 2: intro, 3: style, 4: provider
   const [name, setName] = useState("");

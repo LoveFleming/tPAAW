@@ -8,6 +8,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useTheme } from "../theme";
+import { useI18n } from "../i18n";
 
 import API_BASE from "../api";
 
@@ -28,6 +29,7 @@ interface Category {
 }
 
 export default function AISettingsPage() {
+  const { t: tt } = useI18n();
   const { info: t } = useTheme();
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");

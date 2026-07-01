@@ -709,7 +709,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
 
 // ── Tools Tab Component ──
 function ToolsTab() {
-  const { t } = useI18n();
+  const { t: tt } = useI18n();
   const [tools, setTools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
