@@ -577,15 +577,20 @@ async function callLLM(apiUrl, headers, model, messages, tools, stream = false) 
 function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
   const parts = [];
 
-  // Load agent loop system prompt from ai-settings
-  const AGENT_LOOP_PROMPT_PATH = resolve(__dirname, "../../../data/ai-settings/agent-loop/system-prompt.md");
-  let agentBase = "";
-  try { agentBase = readSync(AGENT_LOOP_PROMPT_PATH, "utf-8").trim(); } catch {}
-  if (agentBase) {
-    parts.push(agentBase);
+  // If customPrompt is provided, it replaces the default agent prompt entirely
+  // (customPrompt comes from contextEngine — e.g. skill-builder rules)
+  if (customPrompt) {
+    parts.push(customPrompt);
   } else {
-    // Fallback
-    parts.push(`You are PAAW Agent, an AI coding assistant. You help users write, edit, and debug code.\n\nAlways use ABSOLUTE paths. The working directory is: ${cwd}`);
+    // Load agent loop system prompt from ai-settings
+    const AGENT_LOOP_PROMPT_PATH = resolve(__dirname, "../../../data/ai-settings/agent-loop/system-prompt.md");
+    let agentBase = "";
+    try { agentBase = readSync(AGENT_LOOP_PROMPT_PATH, "utf-8").trim(); } catch {}
+    if (agentBase) {
+      parts.push(agentBase);
+    } else {
+      parts.push(`You are PAAW Agent, an AI coding assistant. Always use ABSOLUTE paths. Working directory: ${cwd}`);
+    }
   }
 
   // Inject base context: knowledge + workspace paths (required for every AI request)
@@ -597,8 +602,11 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
     }
   } catch {}
 
-  // Inject cwd dynamically (cannot be in static file)
+  // Inject cwd dynamically
   parts.push(`\nWorking directory: ${cwd}`);
+
+  // Always include tool definitions
+  parts.push(`\n## Your Tools\n- **read_file** — Read file contents\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
@@ -606,10 +614,6 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
 
   if (params && Object.keys(params).length > 0) {
     parts.push(`\n## User Parameters\n\n${JSON.stringify(params, null, 2)}`);
-  }
-
-  if (customPrompt) {
-    parts.push(`\n## Additional Instructions\n\n${customPrompt}`);
   }
 
   return parts.join("\n");
