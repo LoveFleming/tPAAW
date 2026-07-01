@@ -224,9 +224,9 @@ function StepCard({ number, icon, title, hint, children, required, accent, accen
     <div className="border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: accentBorder + "40" }}>
       <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-5 py-3 bg-white hover:bg-stone-50/80 transition-colors text-left">
         <span className="flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-bold" style={{ background: accent }}>{number}</span>
-        <span className="text-base">{icon}</span>
+        <span className="text-sm">{icon}</span>
         <div className="flex-1">
-          <span className="text-base font-bold text-stone-800">{title}</span>
+          <span className="text-sm font-bold text-stone-800">{title}</span>
           {hint && <span className="ml-2 text-sm text-stone-400">{hint}</span>}
         </div>
         {required && <span className="text-xs text-rose-400 font-medium">必填</span>}
@@ -250,16 +250,16 @@ function InputFieldCard({ field, index, onUpdate, onRemove }: {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-stone-600 mb-1">{t("skillBuilder.fieldLabelLabel", "欄位名稱")} *</label>
-          <input type="text" value={field.label} onChange={e => { const label = e.target.value; onUpdate(index, { label, id: label.replace(/\s+/g, "_").toLowerCase().replace(/[^a-z0-9_]/g, "") || field.id }); }} placeholder={t("skillBuilder.fieldLabelPlaceholder")} className="w-full px-3 py-2 text-base border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <input type="text" value={field.label} onChange={e => { const label = e.target.value; onUpdate(index, { label, id: label.replace(/\s+/g, "_").toLowerCase().replace(/[^a-z0-9_]/g, "") || field.id }); }} placeholder={t("skillBuilder.fieldLabelPlaceholder")} className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
         </div>
         <div>
           <label className="block text-sm font-medium text-stone-600 mb-1">{t("skillBuilder.fieldValueLabel", "輸入提示")}</label>
-          <input type="text" value={field.placeholder} onChange={e => onUpdate(index, { placeholder: e.target.value })} placeholder={t("skillBuilder.fieldValuePlaceholder")} className="w-full px-3 py-2 text-base border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <input type="text" value={field.placeholder} onChange={e => onUpdate(index, { placeholder: e.target.value })} placeholder={t("skillBuilder.fieldValuePlaceholder")} className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
         </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-stone-600 mb-1">{t("skillBuilder.fieldDescLabel", "說明")}</label>
-        <input type="text" value={field.description} onChange={e => onUpdate(index, { description: e.target.value })} placeholder={t("skillBuilder.fieldDescPlaceholder")} className="w-full px-3 py-2 text-base border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
+        <input type="text" value={field.description} onChange={e => onUpdate(index, { description: e.target.value })} placeholder={t("skillBuilder.fieldDescPlaceholder")} className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100" />
       </div>
       <div className="flex gap-4">
         <label className="flex items-center gap-1.5 text-sm text-stone-600 cursor-pointer"><input type="checkbox" checked={field.required} onChange={e => onUpdate(index, { required: e.target.checked })} className="rounded border-stone-300" /> {t("skillBuilder.requiredLabel", "必填")}</label>
@@ -701,8 +701,8 @@ ${userInputLines.join("\n")}
 
       {/* ── Header ── */}
       <div className="shrink-0 px-5 py-2.5 border-b flex items-center gap-3 bg-white" style={{ borderColor: border + "30" }}>
-        <span className="text-lg">🔨</span>
-        <h2 className="text-base font-bold text-stone-800">Skill Builder</h2>
+        <span className="text-sm">🔨</span>
+        <h2 className="text-sm font-bold text-stone-800">Skill Builder</h2>
         <div className="flex items-center gap-1.5">
           <select value={selectedPath} onChange={e => handleSelectFile(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1" style={{ minWidth: 200, "--tw-ring-color": accent } as React.CSSProperties}>
             <option value="">-- {t("common.select", t("common.select"))} Skill --</option>
@@ -726,9 +726,9 @@ ${userInputLines.join("\n")}
       {showNewDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowNewDialog(false)}>
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-96 p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-stone-800 mb-1">📄 建立新的 Skill</h3>
+            <h3 className="text-sm font-bold text-stone-800 mb-1">📄 建立新的 Skill</h3>
             <p className="text-xs text-stone-500 mb-4">給 Skill 一個名字</p>
-            <input type="text" value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} placeholder={t("skillBuilder.fileNamePlaceholder")} className="w-full px-4 py-2.5 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 mb-2" style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties} autoFocus />
+            <input type="text" value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} placeholder={t("skillBuilder.fileNamePlaceholder")} className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 mb-2" style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties} autoFocus />
             {newFileName.trim() && <p className="text-sm text-stone-400 mb-4">→ {newFileName.trim().replace(/\s+/g, "-").toLowerCase()}/skill-source.md</p>}
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowNewDialog(false)} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50">{t("common.cancel")}</button>
@@ -744,7 +744,7 @@ ${userInputLines.join("\n")}
       {showAIGen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => !aiGenLoading && setShowAIGen(false)}>
           <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-[480px] p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-stone-800 mb-1">✨ AI 產生 Skill</h3>
+            <h3 className="text-sm font-bold text-stone-800 mb-1">✨ AI 產生 Skill</h3>
             <p className="text-xs text-stone-500 mb-4">輸入 Skill 名稱和功能描述，AI 會照格式產出完整的 SKILL.md，產生後你可以直接修改</p>
             <div className="space-y-3 mb-4">
               <div>
@@ -754,7 +754,7 @@ ${userInputLines.join("\n")}
                   value={aiGenName}
                   onChange={e => setAiGenName(e.target.value)}
                   placeholder={t("skillBuilder.skillIdPlaceholder")}
-                  className="w-full px-4 py-2.5 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2"
+                  className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2"
                   style={{ "--tw-ring-color": accent + "40" } as React.CSSProperties}
                   autoFocus
                   disabled={aiGenLoading}
@@ -768,7 +768,7 @@ ${userInputLines.join("\n")}
                   onChange={e => setAiGenDesc(e.target.value)}
                   placeholder={t("skillBuilder.descPlaceholder")}
                   rows={4}
-                  className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none"
+                  className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none"
                   style={{ lineHeight: 1.6, "--tw-ring-color": accent + "40" } as React.CSSProperties}
                   disabled={aiGenLoading}
                 />
@@ -811,7 +811,7 @@ ${userInputLines.join("\n")}
               !selectedPath ? (
                 <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                   <span className="text-5xl">🔨</span>
-                  <div className="text-center"><p className="text-stone-600 text-base font-medium">建立一個新的 AI Skill</p><p className="text-stone-400 text-sm mt-1">點 <strong style={{ color: accent }}>＋ New</strong> 或 <strong style={{ color: accent }}>✨ AI Generate</strong> 讓 AI 幫你產生</p></div>
+                  <div className="text-center"><p className="text-stone-600 text-sm font-medium">建立一個新的 AI Skill</p><p className="text-stone-400 text-sm mt-1">點 <strong style={{ color: accent }}>＋ New</strong> 或 <strong style={{ color: accent }}>✨ AI Generate</strong> 讓 AI 幫你產生</p></div>
                 </div>
               ) : (
                 <div className="p-5 space-y-4 pb-24">
@@ -819,11 +819,11 @@ ${userInputLines.join("\n")}
                   <div className="flex gap-3 mb-4">
                     <div className="flex-1">
                       <label className="text-sm font-bold text-stone-500 mb-1.5 block">Skill ID</label>
-                      <input type="text" value={form.id} onChange={e => update("id", e.target.value)} placeholder={t("skillBuilder.idPlaceholder")} className="w-full px-3 py-2 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                      <input type="text" value={form.id} onChange={e => update("id", e.target.value)} placeholder={t("skillBuilder.idPlaceholder")} className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     </div>
                     <div className="flex-1">
                       <label className="text-sm font-bold text-stone-500 mb-1.5 block">Skill Name</label>
-                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)} placeholder={t("skillBuilder.namePlaceholder")} className="w-full px-3 py-2 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)} placeholder={t("skillBuilder.namePlaceholder")} className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     </div>
                   </div>
 
@@ -873,7 +873,7 @@ ${userInputLines.join("\n")}
                         onChange={e => setRawBuildPrompt(e.target.value)}
                         placeholder={t("skillBuilder.rawPromptPlaceholder")}
                         rows={24}
-                        className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-y font-mono"
+                        className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-y font-mono"
                         style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30", minHeight: "400px" } as React.CSSProperties}
                       />
                       <p className="text-sm text-stone-400">💡 與 Visual 模式同步 — 切回 Visual 會將內容解析回表單</p>
@@ -881,7 +881,7 @@ ${userInputLines.join("\n")}
                   ) : (
                   <>
                   <StepCard number={1} icon="🎯" title="Purpose" hint={t("skillBuilder.hintPurpose")} required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder={t("skillBuilder.purposePlaceholder")} rows={3} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.purpose} onChange={e => update("purpose", e.target.value)} placeholder={t("skillBuilder.purposePlaceholder")} rows={3} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                     <p className="text-sm text-stone-400">💡 想像你在跟一個新同事解釋這個任務</p>
                   </StepCard>
                   <StepCard number={2} icon="📝" title="Inputs" hint={t("skillBuilder.hintInputs")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
@@ -890,25 +890,25 @@ ${userInputLines.join("\n")}
                     {form.inputs.length > 0 && <button onClick={addInput} className="w-full py-2.5 text-sm font-medium border border-dashed rounded-xl hover:opacity-80" style={{ color: accent, borderColor: accent + "40" }}>＋ 新增欄位</button>}
                   </StepCard>
                   <StepCard number={3} icon="🧠" title="Steps" hint="AI 應該怎麼做？" required accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.steps} onChange={e => update("steps", e.target.value)} placeholder={t("skillBuilder.stepsPlaceholder")} rows={8} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.steps} onChange={e => update("steps", e.target.value)} placeholder={t("skillBuilder.stepsPlaceholder")} rows={8} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   <StepCard number={4} icon="📋" title="Output" hint={t("skillBuilder.hintOutput")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder={t("skillBuilder.outputPlaceholder")} rows={6} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder={t("skillBuilder.outputPlaceholder")} rows={6} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   <StepCard number={5} icon="⚠️" title="Error Handling" hint={t("skillBuilder.hintErrorHandling")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.errorHandling} onChange={e => update("errorHandling", e.target.value)} placeholder={t("skillBuilder.errorHandlingPlaceholder")} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.errorHandling} onChange={e => update("errorHandling", e.target.value)} placeholder={t("skillBuilder.errorHandlingPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   <StepCard number={6} icon="📖" title="Examples" hint={t("skillBuilder.hintExamples")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.examples} onChange={e => update("examples", e.target.value)} placeholder={t("skillBuilder.examplesPlaceholder")} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.examples} onChange={e => update("examples", e.target.value)} placeholder={t("skillBuilder.examplesPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   <StepCard number={7} icon="🛡️" title="Guardrails" hint={t("skillBuilder.hintGuardrails")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder={t("skillBuilder.guardrailsPlaceholder")} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder={t("skillBuilder.guardrailsPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   <StepCard number={8} icon="✅" title="Validation" hint={t("skillBuilder.hintValidation")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder={t("skillBuilder.validationPlaceholder")} rows={5} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder={t("skillBuilder.validationPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   <StepCard number={9} icon="📝" title="Notes" hint={t("skillBuilder.hintNotes")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder={t("skillBuilder.notesPlaceholder")} rows={4} className="w-full px-4 py-3 text-base border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                    <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder={t("skillBuilder.notesPlaceholder")} rows={4} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   </>
                   )}
@@ -936,9 +936,9 @@ ${userInputLines.join("\n")}
                           <div key={inp.id}>
                             <label className="block text-sm font-medium text-stone-600 mb-1">{inp.label} {inp.required && <span className="text-rose-400">*</span>}{isOutputPath && <span className="ml-1 text-stone-400 font-normal">（測試固定：{fixedTestPath}）</span>}</label>
                             {inp.multiline && !isOutputPath ? (
-                              <textarea value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} rows={3} className="w-full px-3 py-2 text-base border border-stone-200 rounded-lg focus:outline-none focus:ring-2 resize-none" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                              <textarea value={testInputs[inp.id] || ""} onChange={e => setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value }))} placeholder={inp.placeholder || `輸入 ${inp.label}...`} rows={3} className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 resize-none" style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             ) : (
-                              <input type="text" value={isOutputPath ? fixedTestPath : (testInputs[inp.id] || "")} onChange={e => { if (!isOutputPath) setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value })); }} readOnly={isOutputPath} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className={"w-full px-3 py-2 text-base border border-stone-200 rounded-lg focus:outline-none focus:ring-2" + (isOutputPath ? " bg-stone-50 text-stone-500" : "")} style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                              <input type="text" value={isOutputPath ? fixedTestPath : (testInputs[inp.id] || "")} onChange={e => { if (!isOutputPath) setTestInputs(prev => ({ ...prev, [inp.id]: e.target.value })); }} readOnly={isOutputPath} placeholder={inp.placeholder || `輸入 ${inp.label}...`} className={"w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2" + (isOutputPath ? " bg-stone-50 text-stone-500" : "")} style={{ "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                             )}
                           </div>
                           );
@@ -974,7 +974,7 @@ ${userInputLines.join("\n")}
               {tab === "builder" && (
                 <>
                   <button onClick={handleBuild} disabled={!canBuild}
-                    className="px-6 py-2.5 text-base font-bold rounded-xl text-white transition-all shadow-sm"
+                    className="px-4 py-2 text-sm font-bold rounded-xl text-white transition-all shadow-sm"
                     style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     🔨 Build
                   </button>
@@ -984,13 +984,13 @@ ${userInputLines.join("\n")}
               {tab === "test" && (
                 <div className="flex items-center gap-3">
                   <button onClick={handleTest} disabled={!canTest || testRunning}
-                    className="px-6 py-2.5 text-base font-bold rounded-xl text-white transition-all shadow-sm flex items-center gap-2"
+                    className="px-4 py-2 text-sm font-bold rounded-xl text-white transition-all shadow-sm flex items-center gap-2"
                     style={!canTest || testRunning ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     {testRunning && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                     {testRunning ? `${t("skillBuilder.testRunning")} ${testElapsed}s` : t("skillBuilder.runTest")}
                   </button>
                   <button onClick={() => setShowPromptPreview(!showPromptPreview)}
-                    className="px-4 py-2.5 text-base font-medium rounded-xl border border-stone-200 hover:bg-stone-50 transition-all flex items-center gap-1.5 text-stone-600">
+                    className="px-3 py-2 text-sm font-medium rounded-xl border border-stone-200 hover:bg-stone-50 transition-all flex items-center gap-1.5 text-stone-600">
                     📋 預覽提示詞
                   </button>
                   <button onClick={handlePublish} disabled={!canPublish || publishStatus === "publishing"}
@@ -1037,7 +1037,7 @@ ${userInputLines.join("\n")}
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                 <div className="relative">
                   <div className="w-16 h-16 border-4 rounded-full animate-spin" style={{ borderColor: accent + "30", borderTopColor: accent }} />
-                  <span className="absolute inset-0 flex items-center justify-center text-lg font-bold" style={{ color: accent }}>{testElapsed}</span>
+                  <span className="absolute inset-0 flex items-center justify-center text-base font-bold" style={{ color: accent }}>{testElapsed}</span>
                 </div>
                 <div className="text-center">
                   <p className="text-stone-300 text-sm font-medium">AI 正在執行 Skill 測試</p>
