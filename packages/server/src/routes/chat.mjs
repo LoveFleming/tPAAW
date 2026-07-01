@@ -111,7 +111,7 @@ export default async function chatRoutes(req, res) {
       const providerConfig = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
 
       // Parse model ID — may be "providerId/modelId" or "providerId/nested/model"
-      let resolvedProviderId = providerId;
+      let resolvedProviderId = requestedProvider || providerConfig.active;
       let model = requestedModel || providerConfig.defaultModel || "glm-5.1";
       if (model.includes("/")) {
         const idx = model.indexOf("/");
