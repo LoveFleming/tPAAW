@@ -541,6 +541,7 @@ async function executeTool(call, cwd, rootDir, onEvent) {
 // ── LLM API Call ──
 
 async function callLLM(apiUrl, headers, model, messages, tools, stream = false) {
+  console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}`);
   const body = {
     model,
     messages,
