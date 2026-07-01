@@ -389,6 +389,8 @@ export default async function skillsApiRoute(req, res) {
           const idx = model.indexOf("/");
           providerId = model.slice(0, idx);
           llmModel = model.slice(idx + 1);
+        } else if (!modelOverride && llmModel.includes("/")) {
+          llmModel = llmModel.split("/").pop();
         }
         const provider = pCfg.providers[providerId];
         const baseURL = provider.baseURL.replace(/\/+$/, "");

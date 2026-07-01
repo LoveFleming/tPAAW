@@ -155,6 +155,8 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride
       const idx = modelOverride.indexOf("/");
       providerId = modelOverride.slice(0, idx);
       model = modelOverride.slice(idx + 1);
+    } else if (!modelOverride && model.includes("/")) {
+      model = model.split("/").pop();
     }
     const provider = providerConfig.providers[providerId];
     if (!provider?.apiKey || provider.apiKey === "na") {

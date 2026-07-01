@@ -74,6 +74,8 @@ function resolveLLM(modelOverride) {
     const idx = modelOverride.indexOf("/");
     providerId = modelOverride.slice(0, idx);
     modelId = modelOverride.slice(idx + 1);
+  } else if (!modelOverride && modelId.includes("/")) {
+    modelId = modelId.split("/").pop();
   }
   const provider = config.providers?.[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
