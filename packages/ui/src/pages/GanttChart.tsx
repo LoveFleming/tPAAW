@@ -353,19 +353,19 @@ export default function GanttChart({ project, tk }: Props) {
       <div className="border-t px-4 py-2 flex items-center gap-4" style={{ borderColor: tk.borderLight, background: tk.bg }}>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded" style={{ background: "#22c55e" }} />
-          <span className="text-xs" style={{ color: tk.textMuted }}>已完成</span>
+          <span className="text-xs" style={{ color: tk.textMuted }}>{tt("project.statusDone")}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded" style={{ background: "#3b82f6" }} />
-          <span className="text-xs" style={{ color: tk.textMuted }}>進行中</span>
+          <span className="text-xs" style={{ color: tk.textMuted }}>{tt("project.statusProgress")}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded" style={{ background: "#d1d5db" }} />
-          <span className="text-xs" style={{ color: tk.textMuted }}>未開始</span>
+          <span className="text-xs" style={{ color: tk.textMuted }}>{tt("project.statusTodo")}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rotate-45" style={{ background: "#f59e0b" }} />
-          <span className="text-xs" style={{ color: tk.textMuted }}>里程碑</span>
+          <span className="text-xs" style={{ color: tk.textMuted }}>{tt("project.statMilestones")}</span>
         </div>
         <div className="flex items-center gap-1.5 ml-auto">
           <div className="w-0.5 h-3" style={{ background: "#ef4444" }} />

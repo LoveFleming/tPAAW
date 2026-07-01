@@ -319,7 +319,7 @@ export default function AISettingsPage() {
                           style={{ borderColor: cardBorder, color: muted }}
                           onMouseEnter={e => { e.currentTarget.style.borderColor = dangerColor; e.currentTarget.style.color = dangerColor; }}
                           onMouseLeave={e => { e.currentTarget.style.borderColor = cardBorder; e.currentTarget.style.color = muted; }}
-                          title="刪除"
+                          title={tt("common.delete")}
                         >
                           {deleting === file ? "..." : "🗑"}
                         </button>

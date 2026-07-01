@@ -94,9 +94,9 @@ export default function BackupSettings() {
     if (data.ok) {
       setConfig(data.config);
       setEditing(false);
-      msg("ok", "✅ 設定已儲存");
+      msg("ok", tt("backup.settingsSaved"));
     } else {
-      msg("err", "❌ 儲存失敗");
+      msg("err", tt("backup.saveFailed"));
     }
   };
 
@@ -124,7 +124,7 @@ export default function BackupSettings() {
     if (!confirm(`確定刪除 ${filename}？`)) return;
     const data = await api.del(`${API_BASE}/api/backup/delete?filename=${encodeURIComponent(filename)}`);
     if (data.ok) {
-      msg("ok", "✅ 已刪除");
+      msg("ok", tt("backup.deleted"));
       await loadBackups();
     } else {
       msg("err", `❌ 刪除失敗：${data.error}`);
@@ -142,7 +142,7 @@ export default function BackupSettings() {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   }
 
-  if (!config) return <div className="p-8" style={{ color: tk.textMuted }}>載入中...</div>;
+  if (!config) return <div className="p-8" style={{ color: tk.textMuted }}>{tt("common.loading")}</div>;
 
   return (
     <div className="space-y-4">
@@ -168,7 +168,7 @@ export default function BackupSettings() {
             <h2 className="text-lg font-semibold" style={{ color: tk.textPrimary }}>⚙️ 備份設定</h2>
             <button onClick={() => setEditing(!editing)} className="text-sm px-3 py-1 rounded-lg"
               style={{ background: tk.bg, border: `1px solid ${tk.borderInput}`, color: tk.textSecondary }}>
-              {editing ? "取消" : "編輯"}
+              {editing ? tt("common.cancel") : tt("common.edit")}
             </button>
           </div>
 
@@ -203,7 +203,7 @@ export default function BackupSettings() {
             <div className="flex items-center gap-3">
               <span className="text-sm w-28 shrink-0" style={{ color: tk.textSecondary }}>上次備份</span>
               <span className="text-sm" style={{ color: tk.textPrimary }}>
-                {config.lastBackupAt ? new Date(config.lastBackupAt).toLocaleString("zh-TW") : "尚無備份"}
+                {config.lastBackupAt ? new Date(config.lastBackupAt).toLocaleString("zh-TW") : tt("backup.noBackup")}
               </span>
             </div>
           </div>
@@ -236,7 +236,7 @@ export default function BackupSettings() {
           <h2 className="text-lg font-semibold mb-4" style={{ color: tk.textPrimary }}>📂 備份列表</h2>
 
           {backups.length === 0 ? (
-            <div className="text-center py-8 text-sm" style={{ color: tk.textMuted }}>尚無備份</div>
+            <div className="text-center py-8 text-sm" style={{ color: tk.textMuted }}>{tt("backup.noBackup")}</div>
           ) : (
             <div className="space-y-3">
               {backups.map(b => (
@@ -254,7 +254,7 @@ export default function BackupSettings() {
                     <button onClick={() => doRestore(b.filename)} disabled={restoring === b.filename}
                       className="text-xs px-3 py-1.5 rounded-lg font-medium"
                       style={{ background: tk.accentBg, color: tk.accentText, border: `1px solid ${tk.borderInput}` }}>
-                      {restoring === b.filename ? "⟳ 還原中..." : "↩️ 還原"}
+                      {restoring === b.filename ? tt("backup.restoring") : tt("backup.restore")}
                     </button>
                     <button onClick={() => deleteBackup(b.filename)}
                       className="text-xs px-2 py-1.5 rounded-lg"

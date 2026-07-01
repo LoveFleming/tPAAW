@@ -703,12 +703,12 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
       <div className="flex flex-col h-full" style={{ backgroundColor: t.accentBg }}>
         <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder }}>
           <span className="text-lg">🎤</span>
-          <span className="text-sm font-bold" style={{ color: t.accentText }}>{tt("briefing.title", "Briefing Player")}</span>
+          <span className="text-sm font-bold" style={{ color: t.accentText }}>{tt("briefing.title", tt("sidebar.briefingPlayer"))}</span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8">
           <div className="text-center mb-6">
             <div className="text-5xl mb-3">🎤</div>
-            <h2 className="text-lg font-bold text-stone-700 mb-1">{tt("briefing.title", "Briefing Player")}</h2>
+            <h2 className="text-lg font-bold text-stone-700 mb-1">{tt("briefing.title", tt("sidebar.briefingPlayer"))}</h2>
             <p className="text-sm text-stone-400">選擇一個簡報目錄開始播放</p>
           </div>
           {briefingDirs.length > 0 && (
@@ -777,7 +777,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
                 <div className="flex items-center justify-between px-5 py-3 border-t rounded-b-2xl" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg + "40" }}>
                   <span className="text-xs text-stone-400">雙擊目錄確認</span>
                   <div className="flex gap-2">
-                    <button onClick={() => setShowDirPicker(false)} className="px-3 py-1.5 text-sm rounded border" style={{ borderColor: t.accentBorder, color: t.accentText }}>取消</button>
+                    <button onClick={() => setShowDirPicker(false)} className="px-3 py-1.5 text-sm rounded border" style={{ borderColor: t.accentBorder, color: t.accentText }}>{tt("common.cancel")}</button>
                     <button onClick={() => { if (browsePath) { resetAllAnnotations(); setSelectedDir(browsePath); loadSlides(browsePath); setShowDirPicker(false); } }} className="px-4 py-1.5 text-sm font-bold text-white rounded" style={{ backgroundColor: t.accent }}>選擇此目錄</button>
                   </div>
                 </div>
@@ -932,7 +932,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
             }}
             onMouseDown={(e) => handleMarkerMouseDown(e, i)}
             onDoubleClick={(e) => { e.stopPropagation(); setMarkersBySlide(prev => ({ ...prev, [currentIdx]: (prev[currentIdx] || []).filter((_, idx) => idx !== i) })); }}
-            title="拖曳移動 · 雙擊刪除"
+            title={tt("briefing.dragMove")}
           >
             {m.icon}
             {m.icon === "🤖" && (
@@ -945,11 +945,11 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
         {/* Floating toolbar */}
         <div data-annotation-ui className="absolute z-40" style={{ bottom: 12, left: "50%", transform: "translateX(-50%)" }}>
           <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-white border shadow-lg" style={{ borderColor: t.accentBorder }}>
-            <button onClick={() => toggleMode("pen")} className="px-2.5 py-1.5 rounded-lg text-sm transition-all" style={{ background: drawMode === "pen" ? t.accentBg : "transparent" }} title="手繪筆 (D)">✏️</button>
+            <button onClick={() => toggleMode("pen")} className="px-2.5 py-1.5 rounded-lg text-sm transition-all" style={{ background: drawMode === "pen" ? t.accentBg : "transparent" }} title={tt("briefing.penTool")}>✏️</button>
             <span className="text-stone-200 text-xs mx-0.5">|</span>
             {[
               { icon: "💡", label: "重點" }, { icon: "⭐", label: "重要" }, { icon: "❗", label: "注意" },
-              { icon: "👈", label: "看這" }, { icon: "✅", label: "確認" }, { icon: "🤖", label: "AI" },
+              { icon: "👈", label: "看這" }, { icon: "✅", label: tt("common.confirm") }, { icon: "🤖", label: tt("appBuilder.ai") },
             ].map(({ icon, label }) => {
               const isActive = drawMode === "marker" && selectedIcon === icon;
               return (
@@ -957,7 +957,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
               );
             })}
             <span className="text-stone-200 text-xs mx-0.5">|</span>
-            <button onClick={clearAnnotations} className="px-2.5 py-1.5 rounded-lg text-sm text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="清除所有標註 (E)">🗑️</button>
+            <button onClick={clearAnnotations} className="px-2.5 py-1.5 rounded-lg text-sm text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title={tt("briefing.clearAnnotations")}>🗑️</button>
           </div>
         </div>
 
@@ -965,7 +965,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
         {drawMode !== "none" && (
           <div data-annotation-ui className="absolute z-40" style={{ top: 8, left: "50%", transform: "translateX(-50%)" }}>
             <div className="px-3 py-1 rounded-full text-xs" style={{ background: t.accentBg, border: `1px solid ${t.accentBorder}`, color: t.accentText }}>
-              {drawMode === "pen" ? "✏️ 手繪模式" : `📍 標記模式 (${selectedIcon})`}
+              {drawMode === "pen" ? tt("briefing.penMode") : `📍 標記模式 (${selectedIcon})`}
             </div>
           </div>
         )}
@@ -978,7 +978,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
                 onClick={() => setShowFileDropdown(v => !v)}
                 className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border shadow-lg transition-all hover:shadow-md"
                 style={{ borderColor: showFileDropdown ? t.accent : t.accentBorder }}
-                title="參考檔案"
+                title={tt("briefing.referenceFiles")}
               >
                 <span className="text-sm">📎</span>
                 <span className="text-xs font-medium" style={{ color: t.accentText }}>附件</span>
@@ -1021,10 +1021,10 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
 
         {/* Side click zones for prev/next — no icon, just hover highlight */}
         {currentIdx > 0 && (
-          <button onClick={() => setCurrentIdx(i => i - 1)} className="absolute left-0 top-0 bottom-0 z-20 w-16 hover:bg-black/5 transition-all cursor-pointer" title="上一頁 (←)" />
+          <button onClick={() => setCurrentIdx(i => i - 1)} className="absolute left-0 top-0 bottom-0 z-20 w-16 hover:bg-black/5 transition-all cursor-pointer" title={tt("briefing.prevPage")} />
         )}
         {currentIdx < slides.length - 1 && (
-          <button onClick={() => setCurrentIdx(i => i + 1)} className="absolute right-0 top-0 bottom-0 z-20 w-16 hover:bg-black/5 transition-all cursor-pointer" title="下一頁 (→)" />
+          <button onClick={() => setCurrentIdx(i => i + 1)} className="absolute right-0 top-0 bottom-0 z-20 w-16 hover:bg-black/5 transition-all cursor-pointer" title={tt("briefing.nextPage")} />
         )}
       </div>
 

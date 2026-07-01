@@ -174,7 +174,7 @@ export default function WorkflowExec() {
     } else {
       // Fallback: use text input
       const rawText = inputValues["_text"] || "";
-      if (!rawText) { showToast("⚠️ 請輸入資料"); return; }
+      if (!rawText) { showToast(tt("workflow.inputRequired")); return; }
       try { input = JSON.parse(rawText); } catch { input = { text: rawText }; }
     }
 
@@ -248,7 +248,7 @@ export default function WorkflowExec() {
     const runTotalMs = log.reduce((s, e) => s + (e.durationMs || 0), 0);
     if (lastId) setSelectedNodeId(lastId);
     const hasError = log.some(l => l.status === "error");
-    showToast(hasError ? "❌ 執行失敗" : `✅ 已輸出到${endCfg?.outputTarget === "file" ? "檔案" : "交談"}`);
+    showToast(hasError ? tt("workflow.execFailed") : `✅ 已輸出到${endCfg?.outputTarget === "file" ? "檔案" : "交談"}`);
     saveHistory(currentWf.id, JSON.stringify(input), log, runTotalMs);
   }, [currentWf, dynamicInputs, inputValues, saveHistory]);
 
@@ -369,7 +369,7 @@ export default function WorkflowExec() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-stone-400 shrink-0">🟢</span>
                   <input type="text" value={inputValues["_text"] || ""} onChange={e => setInputValues(v => ({ ...v, _text: e.target.value }))}
-                    placeholder="輸入文字" className="flex-1 px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                    placeholder={tt("workflow.inputPlaceholder")} className="flex-1 px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
                   <button onClick={runWorkflow} disabled={isRunning}
                     className={`px-4 py-1.5 text-xs rounded-lg font-medium transition-colors shrink-0 ${isRunning ? "bg-amber-100 text-amber-700 cursor-wait" : "bg-violet-600 hover:bg-violet-700 text-white"}`}>
                     {isRunning ? (
@@ -385,7 +385,7 @@ export default function WorkflowExec() {
           {viewingHistory && (
             <div className="flex items-center gap-2 px-4 pb-2">
               <span className="text-xs text-stone-400">📋 {formatTime(viewingHistory.timestamp)}</span>
-              {viewingHistory.success ? <span className="text-xs text-emerald-500 font-medium">✅ 成功</span> : <span className="text-xs text-red-500 font-medium">❌ 失敗</span>}
+              {viewingHistory.success ? <span className="text-xs text-emerald-500 font-medium">✅ 成功</span> : <span className="text-xs text-red-500 font-medium">{tt("skillBuilder.publishFailed")}</span>}
               <span className="text-xs text-stone-400">{viewingHistory.totalMs}ms</span>
             </div>
           )}
@@ -433,7 +433,7 @@ export default function WorkflowExec() {
           )}
           {isRunning && displayLog.length > 0 && (
             <div className="p-5 space-y-2">
-              <div className="text-xs font-semibold text-stone-500 mb-2">執行中...</div>
+              <div className="text-xs font-semibold text-stone-500 mb-2">{tt("skillBuilder.testRunning")}</div>
               {displayLog.map((entry, i) => (
                 <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border ${entry.status === "running" ? "border-amber-200 bg-amber-50" : entry.status === "success" ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
                   <span>{typeIcon(entry.type)}</span>

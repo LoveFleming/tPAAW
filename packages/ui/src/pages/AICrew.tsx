@@ -132,7 +132,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
                         <button
                             onClick={(e) => { e.stopPropagation(); handleEdit(s); }}
                             className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 rounded-lg text-[10px] font-bold bg-white/90 text-stone-600 border border-stone-300 shadow-sm hover:bg-stone-100"
-                            title="編輯員工"
+                            title={tt("crew.editEmployee")}
                         >
                             <Icon name="edit" size={12} /> 編輯
                         </button>

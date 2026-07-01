@@ -39,7 +39,7 @@ interface ProjectSummary {
 function sb(s: string) {
   if (s === "done") return { text: "已完成", bg: "#ecfdf5", color: "#065f46" };
   if (s === "progress" || s === "in-progress") return { text: "進行中", bg: "#eff6ff", color: "#1e40af" };
-  if (s === "todo") return { text: "未開始", bg: "#fefce8", color: "#854d0e" };
+  if (s === "todo") return { text: "待辦", bg: "#fefce8", color: "#854d0e" };
   return { text: s, bg: "#f5f5f4", color: "#57534e" };
 }
 function pb(p: string) {
@@ -235,10 +235,10 @@ export default function ProjectBoard() {
           {/* Overall stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
-              { label: tt("project.statProjects"), value: summaries.length, sub: tt("project.statusProgress") },
+              { label: tt("project.statProjects"), value: summaries.length, sub: "進行中" },
               { label: tt("project.statTotalTasks"), value: totalTasks, sub: `${doneTasks} ${tt("project.statCompleted")}` },
               { label: tt("project.statCompletionRate"), value: `${overallPct}%`, sub: tt("project.statOverallProgress") },
-              { label: tt("project.statMilestones"), value: `${summaries.reduce((s, p) => s + p.milestonesDone, 0)}/${summaries.reduce((s, p) => s + p.milestonesTotal, 0)}`, sub: tt("project.statusDone") },
+              { label: tt("project.statMilestones"), value: `${summaries.reduce((s, p) => s + p.milestonesDone, 0)}/${summaries.reduce((s, p) => s + p.milestonesTotal, 0)}`, sub: "已完成" },
             ].map((s, i) => (
               <div key={i} className="rounded-xl border p-4" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
                 <div className="text-xs uppercase tracking-wider" style={{ color: tk.textMuted }}>{s.label}</div>
@@ -360,9 +360,9 @@ export default function ProjectBoard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: tt("project.statCompletionRate"), value: `${pctN}%`, color: pctColor(pctN) },
-            { label: tt("project.statusDone"), value: doneN, color: "#22c55e" },
-            { label: tt("project.statusProgress"), value: progN, color: "#3b82f6" },
-            { label: tt("project.statusTodo"), value: totalN - doneN - progN, color: "#9ca3af" },
+            { label: "已完成", value: doneN, color: "#22c55e" },
+            { label: "進行中", value: progN, color: "#3b82f6" },
+            { label: "待辦", value: totalN - doneN - progN, color: "#9ca3af" },
           ].map((s, i) => (
             <div key={i} className="rounded-xl border p-4" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
               <div className="text-xs uppercase tracking-wider" style={{ color: tk.textMuted }}>{s.label}</div>
@@ -447,7 +447,7 @@ export default function ProjectBoard() {
 
             {/* Milestones */}
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold" style={{ color: tk.textPrimary }}>里程碑</h2>
+              <h2 className="text-lg font-semibold" style={{ color: tk.textPrimary }}>{tt("project.statMilestones")}</h2>
               <button onClick={() => setModal({ type: "milestone-new" })}
                 className="text-xs px-2 py-1 rounded-lg" style={{ color: tk.accent, border: `1px solid ${tk.border}` }}>＋ 里程碑</button>
             </div>
@@ -546,9 +546,9 @@ function QuickAddTask({ onAdd, tk, tt }: { onAdd: (name: string, priority: strin
         placeholder={tt("project.taskNamePlaceholder")}
         className="flex-1 text-sm outline-none bg-transparent" style={{ color: tk.textPrimary }} />
       <button onClick={() => { if (name.trim()) { onAdd(name.trim(), "medium", "", ""); setName(""); setEditing(false); } }}
-        className="text-xs px-2 py-0.5 rounded" style={{ background: tk.accentBg, color: tk.accentText }}>確認</button>
+        className="text-xs px-2 py-0.5 rounded" style={{ background: tk.accentBg, color: tk.accentText }}>{tt("common.confirm")}</button>
       <button onClick={() => setEditing(false)}
-        className="text-xs px-2 py-0.5 rounded" style={{ color: tk.textMuted }}>取消</button>
+        className="text-xs px-2 py-0.5 rounded" style={{ color: tk.textMuted }}>{tt("common.cancel")}</button>
     </div>
   );
 }
@@ -573,9 +573,9 @@ function ProjectFormModal({ tk, tt, project, onClose, onSave }: { tk: any; tt: (
         <textarea className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary, resize: "none" }} rows={2} placeholder={tt("common.description")} value={desc} onChange={e => setDesc(e.target.value)} />
         <div className="flex gap-2">
           <select className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="todo">未開始</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">已完成</option>
+            <option value="todo">{"待辦"}</option>
+            <option value="in-progress">{"進行中"}</option>
+            <option value="done">{"已完成"}</option>
           </select>
           <input type="date" className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={startDate} onChange={e => setStartDate(e.target.value)} />
           <input type="date" className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={targetDate} onChange={e => setTargetDate(e.target.value)} />
@@ -632,9 +632,9 @@ function TaskFormModal({ tk, tt, task, onClose, onSave }: { tk: any; tt: (k: str
           </select>
           {task && (
             <select className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={status} onChange={e => setStatus(e.target.value)}>
-              <option value="todo">未開始</option>
-              <option value="progress">進行中</option>
-              <option value="done">已完成</option>
+              <option value="todo">{"待辦"}</option>
+              <option value="progress">{"進行中"}</option>
+              <option value="done">{"已完成"}</option>
             </select>
           )}
         </div>

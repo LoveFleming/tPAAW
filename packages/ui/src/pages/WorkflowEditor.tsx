@@ -291,13 +291,13 @@ export default function WorkflowEditor() {
       if (patch.config?.outputTarget) d.outputTarget = patch.config.outputTarget;
       return { ...n, data: d };
     }));
-    autoSave(updated); showToast("✅ Saved!");
+    autoSave(updated); showToast(tt("skillsPage.saved"));
   }, [currentWf, selectedNodeId, autoSave, setRfNodes]);
 
   const handleNodeDelete = useCallback(() => {
     if (!currentWf || !selectedNodeId) return;
     const node = currentWf.nodes.find(n => n.id === selectedNodeId);
-    if (node?.type === "start" || node?.type === "end") { showToast("⚠️ 不能刪除 Start/End"); return; }
+    if (node?.type === "start" || node?.type === "end") { showToast(tt("workflow.cannotDeleteStartEnd")); return; }
     const updated = { ...currentWf, nodes: currentWf.nodes.filter(n => n.id !== selectedNodeId), edges: currentWf.edges.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId) };
     setCurrentWf(updated); setRfNodes(nds => nds.filter(n => n.id !== selectedNodeId)); setRfEdges(eds => eds.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId));
     setSelectedNodeId(null); autoSave(updated); showToast("🗑 已刪除");
@@ -306,7 +306,7 @@ export default function WorkflowEditor() {
   const addNode = useCallback(() => {
     if (!currentWf) return;
     const id = "node-" + Date.now();
-    const newNode: WFNode = { id, type: "skill", skillId: "", name: "新積木", position: { x: 300 + Math.random() * 200, y: 80 + Math.random() * 120 }, config: { inputMapping: {} } };
+    const newNode: WFNode = { id, type: "skill", skillId: "", name: tt("workflow.newNode"), position: { x: 300 + Math.random() * 200, y: 80 + Math.random() * 120 }, config: { inputMapping: {} } };
     const updated = { ...currentWf, nodes: [...currentWf.nodes, newNode] };
     setCurrentWf(updated);
     setRfNodes(nds => [...nds, toRFNode(newNode)]);
@@ -318,7 +318,7 @@ export default function WorkflowEditor() {
     const startNode: WFNode = { id: "start", type: "start", name: "Start", position: { x: 50, y: 120 }, config: { inputMapping: {} } };
     const endNode: WFNode = { id: "end", type: "end", name: "End", position: { x: 700, y: 120 }, config: { inputMapping: {}, outputTarget: "chat" } };
     const wf: WorkflowDef = {
-      id, name: "新 Workflow", description: "", icon: "🔗",
+      id, name: tt("workflow.newWorkflowName"), description: "", icon: "🔗",
       nodes: [startNode, endNode], edges: [],
       inputSchema: { properties: { text: { type: "string" } }, required: ["text"] },
     };

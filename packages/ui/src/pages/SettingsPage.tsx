@@ -221,7 +221,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
       <div className="px-6 py-5 pb-24">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold" style={{ color: "#1c1917" }}>⚙️ 設定</h2>
+            <h2 className="text-lg font-bold" style={{ color: "#1c1917" }}>{t("sidebar.settings")}</h2>
             <p className="text-xs mt-0.5" style={{ color: "#a8a29e" }}>系統設定與偏好管理。修改後即時生效。</p>
           </div>
         </div>
@@ -295,7 +295,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   <input type="text" value={profile.assistantName || "林語晴"} onChange={(e) => { setProfile({ ...profile, assistantName: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.yourName", "你的名字")}</label>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.yourName", t("onboarding.name"))}</label>
                   <input type="text" value={profile.name || ""} onChange={(e) => { setProfile({ ...profile, name: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                 </div>
                 <div>
@@ -359,7 +359,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                     </div>
                   </div>
                   <button onClick={() => { if (confirm(`刪除 provider「${p.name}」？`)) removeProvider(pid); }}
-                    className="text-xs px-2 py-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all">刪除</button>
+                    className="text-xs px-2 py-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-all">{t("common.delete")}</button>
                 </div>
                 <div className="px-5 py-3 space-y-3">
                   <div className="flex gap-3">
@@ -413,7 +413,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <button onClick={() => { setShowNewProvider(false); setNewProviderId(""); setNewProviderName(""); }} className="text-xs px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">取消</button>
+                  <button onClick={() => { setShowNewProvider(false); setNewProviderId(""); setNewProviderName(""); }} className="text-xs px-4 py-2 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">{t("common.cancel")}</button>
                   <button onClick={addProvider} disabled={!newProviderId.trim()} className="text-xs px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>新增</button>
                 </div>
               </div>
@@ -481,7 +481,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             <h3 className="text-base font-bold text-stone-700">Model 偏好設定</h3>
             <p className="text-sm text-stone-400 mb-4">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
             <div className="space-y-4">
-              {[{key:"skillBuilder",label:"Skill Builder",desc:t("settings.featureSkillBuilderDesc")},{key:"coding",label:"Coding",desc:t("settings.featureCodingDesc")},{key:"crewChat",label:t("settings.crewChatLabel", "Crew Chat"),desc:t("settings.featureCrewChatDesc")},{key:"appBuilder",label:"App Builder",desc:t("settings.featureAppBuilderDesc")}].map(feat=>(
+              {[{key:"skillBuilder",label:"Skill Builder",desc:t("settings.featureSkillBuilderDesc")},{key:"coding",label:t("sidebar.coding"),desc:t("settings.featureCodingDesc")},{key:"crewChat",label:t("settings.crewChatLabel", "Crew Chat"),desc:t("settings.featureCrewChatDesc")},{key:"appBuilder",label:t("sidebar.appBuilder"),desc:t("settings.featureAppBuilderDesc")}].map(feat=>(
                 <div key={feat.key} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
                   <div><span className="text-sm font-medium text-stone-700">{feat.label}</span><p className="text-xs text-stone-400">{feat.desc}</p></div>
                   <div className="w-[50%]">

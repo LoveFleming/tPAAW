@@ -122,7 +122,7 @@ export default function SkillsPage() {
             });
             if (!resp.ok) { const data = await resp.json(); throw new Error(data.error || "Save failed"); }
             setSelectedSkill(null); setIsCreating(false); loadSkills();
-            showToast("✅ Saved!");
+            showToast(tt("skillsPage.saved"));
         } catch (err: any) { setError(err.message); } finally { setSaving(false); }
     };
 
@@ -239,7 +239,7 @@ export default function SkillsPage() {
                                 {/* Export button — appears on hover */}
                                 <button onClick={(e) => handleExportSkill(sk, e)}
                                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-blue-500 text-xs"
-                                    title="匯出 Skill">📦</button>
+                                    title={tt("skillsPage.exportSkill")}>📦</button>
                             </div>
                         ))}
                     </div>
@@ -250,7 +250,7 @@ export default function SkillsPage() {
             {hasRightPanel && (
                 <div className="w-80 border-l border-stone-200 bg-white flex flex-col">
                     <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-stone-50">
-                        <span className="text-sm font-semibold text-stone-800">{isCreating ? "✨ 新增 Skill" : `🔧 ${selectedSkill?.name}`}</span>
+                        <span className="text-sm font-semibold text-stone-800">{isCreating ? tt("skillsPage.newSkill") : `🔧 ${selectedSkill?.name}`}</span>
                         <button onClick={cancelEdit} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -267,9 +267,9 @@ export default function SkillsPage() {
                                 className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" placeholder="My Skill" />
                         </div>
                         <div>
-                            <label className="text-xs font-semibold text-stone-500 block mb-1">描述</label>
+                            <label className="text-xs font-semibold text-stone-500 block mb-1">{tt("common.description")}</label>
                             <input value={fDesc} onChange={e => setFDesc(e.target.value)}
-                                className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" placeholder="一句話說明" />
+                                className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" placeholder={tt("skillsPage.oneLineDesc")} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <div>
@@ -298,7 +298,7 @@ export default function SkillsPage() {
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
                                 <label className="text-xs font-semibold text-stone-500">輸入欄位 ({fUserInputs.length})</label>
-                                <button onClick={addInput} className="text-xs text-violet-600 hover:text-violet-800 font-medium">+ 新增</button>
+                                <button onClick={addInput} className="text-xs text-violet-600 hover:text-violet-800 font-medium">{tt("vibe.apiAddHeader")}</button>
                             </div>
                             <div className="space-y-2">
                                 {fUserInputs.map((inp, idx) => (
@@ -337,7 +337,7 @@ export default function SkillsPage() {
                     <div className="px-4 py-3 border-t border-stone-200 space-y-2">
                         <button onClick={handleSave} disabled={saving}
                             className="w-full py-1.5 text-xs rounded-lg font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors disabled:opacity-50">
-                            {saving ? "💾 Saving..." : isCreating ? "✨ Create Skill" : "💾 Save Changes"}
+                            {saving ? tt("skillsPage.saving") : isCreating ? tt("skillsPage.createSkill") : tt("skillsPage.saveChanges")}
                         </button>
                         {!isCreating && selectedSkill && (
                             <div className="flex gap-2">

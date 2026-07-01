@@ -25,10 +25,10 @@ interface ProviderData {
 }
 
 const STYLES = [
-  { id: "concise" as const, label: "簡潔有力", desc: "快速回答，不廢話", emoji: "⚡" },
-  { id: "detailed" as const, label: "詳細完整", desc: "深入解釋，鉅細靡遺", emoji: "📚" },
-  { id: "casual" as const, label: "輕鬆友善", desc: "像朋友聊天一樣", emoji: "😊" },
-  { id: "formal" as const, label: "正式專業", desc: "商務風格，條理清晰", emoji: "💼" },
+  { id: "concise" as const, label: "簡潔精炼", desc: "重點到位，不廢話", emoji: "⚡" },
+  { id: "detailed" as const, label: "詳細周到", desc: "步驟清晰，解釋完整", emoji: "📚" },
+  { id: "casual" as const, label: "輕鬆日常", desc: "像朋友聊天一樣自然", emoji: "😊" },
+  { id: "formal" as const, label: "正式專業", desc: "商務風格，嚴謹用詞", emoji: "💼" },
 ];
 
 export default function OnboardingPage({ onComplete }: Props) {
@@ -83,7 +83,7 @@ export default function OnboardingPage({ onComplete }: Props) {
       try { await saveProviders(); } catch (err) { console.error("Failed to save providers:", err); }
     }
 
-    const profile: UserProfile = { name, intro, style, assistantName: "林語晴", onboarded: true, onboardedAt: new Date().toISOString() };
+    const profile: UserProfile = { name, intro, style, assistantName: tt("chat.assistantDefault"), onboarded: true, onboardedAt: new Date().toISOString() };
     try {
       await fetch(`${API_BASE}/api/paaw/user`, {
         method: "POST",
@@ -104,7 +104,7 @@ export default function OnboardingPage({ onComplete }: Props) {
           src={`/avatars/assistant-default.png`}
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.innerHTML = "<div class='w-full h-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-5xl'>🐾</div>"; }}
           className="w-full h-full object-cover"
-          alt="林語晴"
+          alt={tt("chat.assistantDefault")}
         />
       </div>
       <h1 className="text-3xl font-bold text-stone-800 mb-3" style={{ fontFamily: "'SF Pro Display', system-ui, sans-serif" }}>
@@ -137,7 +137,7 @@ export default function OnboardingPage({ onComplete }: Props) {
         onCompositionStart={() => setComposing(true)}
         onCompositionEnd={() => setComposing(false)}
         onKeyDown={(e) => { if (e.key === "Enter" && !composing && !e.nativeEvent?.isComposing) { e.preventDefault(); const val = e.currentTarget.value.trim(); if (val) { setName(val); setStep(2); } } }}
-        placeholder="輸入你的名字..."
+        placeholder={tt("onboarding.namePlaceholder")}
         className="w-full px-5 py-4 rounded-xl border-2 text-lg text-center focus:outline-none transition-colors"
         style={{ borderColor: name ? themeInfo.accent : "#e7e5e4", color: "#1c1917" }}
         autoFocus
@@ -160,7 +160,7 @@ export default function OnboardingPage({ onComplete }: Props) {
       <textarea
         value={intro}
         onChange={(e) => setIntro(e.target.value)}
-        placeholder="例如：我是軟體工程師，有個 13 歲的女兒..."
+        placeholder={tt("onboarding.introPlaceholder")}
         className="w-full px-5 py-4 rounded-xl border-2 text-base focus:outline-none transition-colors resize-none"
         style={{ borderColor: intro ? themeInfo.accent : "#e7e5e4", color: "#1c1917", minHeight: 100 }}
         rows={3}

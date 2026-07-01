@@ -660,7 +660,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                                       {tool.status === 'done' && <span>✅</span>}
                                       {tool.status === 'error' && <span>❌</span>}
                                       <span>{tool.name}</span>
-                                      {tool.status === 'running' && <span className="text-amber-400">執行中</span>}
+                                      {tool.status === 'running' && <span className="text-amber-400">{tt("common.running")}</span>}
                                     </div>
                                   ))}
                                 </div>
@@ -676,7 +676,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                                   {tool.status === 'done' && <span>✅</span>}
                                   {tool.status === 'error' && <span>❌</span>}
                                   <span>{tool.name}</span>
-                                  {tool.status === 'running' && <span className="text-amber-400">執行中</span>}
+                                  {tool.status === 'running' && <span className="text-amber-400">{tt("common.running")}</span>}
                                 </div>
                               ))}
                             </div>

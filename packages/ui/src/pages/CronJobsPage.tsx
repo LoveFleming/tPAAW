@@ -45,11 +45,11 @@ interface SkillItem {
 
 const PRESETS = [
     { label: "每小時", expr: "0 * * * *" },
-    { label: "每天 9:00", expr: "0 9 * * *" },
+    { label: "每天 09:00", expr: "0 9 * * *" },
     { label: "每天 18:00", expr: "0 18 * * *" },
     { label: "每 6 小時", expr: "0 */6 * * *" },
-    { label: "每天 0:00", expr: "0 0 * * *" },
-    { label: "每周一 9:00", expr: "0 9 * * 1" },
+    { label: "每天 00:00", expr: "0 0 * * *" },
+    { label: "每週一 09:00", expr: "0 9 * * 1" },
 ];
 
 type RightTab = "logs" | "results" | "result-view";
@@ -340,7 +340,7 @@ export default function CronJobsPage() {
             <div className="w-96 flex flex-col border-r" style={{ borderColor: "#e7e5e4", backgroundColor: "#fff" }}>
                 <div className="flex items-center gap-3 px-5 py-3 border-b shrink-0" style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                     <span className="text-xl">⏰</span>
-                    <h2 className="text-sm font-bold" style={{ color: t.accentText }}>Schedules</h2>
+                    <h2 className="text-sm font-bold" style={{ color: t.accentText }}>{tt("sidebar.cronJobs")}</h2>
                     <span className="text-xs text-stone-400 ml-1">{jobs.length}</span>
                     <button onClick={() => setShowCreate(!showCreate)}
                         className="ml-auto text-sm font-bold px-3 py-1 rounded-lg text-white"
@@ -492,7 +492,7 @@ export default function CronJobsPage() {
                             </div>
                             <div className="px-6 py-4 border-t flex gap-3 justify-end" style={{ borderColor: "#e7e5e4" }}>
                                 <button onClick={closeForm}
-                                    className="px-5 py-2.5 rounded-xl text-sm border text-stone-500 hover:bg-stone-50 transition-colors" style={{ borderColor: "#d6d3d1" }}>取消</button>
+                                    className="px-5 py-2.5 rounded-xl text-sm border text-stone-500 hover:bg-stone-50 transition-colors" style={{ borderColor: "#d6d3d1" }}>{tt("common.cancel")}</button>
                                 <button onClick={handleSave} disabled={!formName || (formType === "report" && !formSkillId)}
                                     className="px-6 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all hover:shadow-lg" style={{ backgroundColor: t.accent }}>
                                     {editingJobId ? tt("cron.saveChanges") : tt("cron.createSchedule")}

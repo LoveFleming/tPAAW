@@ -82,7 +82,7 @@ export default function MindMapViewer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"select" | "text">("select");
-  const [prompt, setPrompt] = useState("請整理這份內容的知識結構，做成心智圖");
+  const [prompt, setPrompt] = useState(tt("mindmap.defaultPrompt"));
   const [inputText, setInputText] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [selectedDir, setSelectedDir] = useState<string | null>(null);
@@ -206,7 +206,7 @@ export default function MindMapViewer() {
       if (selectedDir) body.dir = selectedDir;
       else if (selectedFiles.length > 0) body.files = selectedFiles;
       else {
-        setError("請選擇檔案或目錄");
+        setError(tt("mindmap.selectFile"));
         setLoading(false);
         return;
       }
@@ -228,7 +228,7 @@ export default function MindMapViewer() {
   // ── Generate from text ──
   const generateFromText = useCallback(async () => {
     if (inputText.trim().length < 10) {
-      setError("請輸入至少 10 個字的內容");
+      setError(tt("mindmap.needMoreText"));
       return;
     }
     setLoading(true);
@@ -385,7 +385,7 @@ export default function MindMapViewer() {
         {markdown && <button onClick={zoomOut} style={btnStyle}>🔍− 縮小</button>}
         {markdown && <button onClick={fitToScreen} style={btnStyle}>⛶ 符合視窗</button>}
         {markdown && <button onClick={exportSVG} style={btnStyle}>⬇ SVG</button>}
-        {markdown && <button onClick={() => setShowSaveDialog(true)} style={btnStyle}>💾 儲存</button>}
+        {markdown && <button onClick={() => setShowSaveDialog(true)} style={btnStyle}>{tt("appBuilder.saveButton")}</button>}
         <button onClick={() => { loadSavedList(); setShowSaved(true); }} style={btnStyle}>📂 載入</button>
         {/* Model selector */}
         <div style={{ position: "relative" }}>
@@ -545,7 +545,7 @@ export default function MindMapViewer() {
                   cursor: loading || (!selectedDir && selectedFiles.length === 0) ? "not-allowed" : "pointer",
                 }}
               >
-                {loading ? "⟳ AI 產生中..." : "🧠 產生心智圖"}
+                {loading ? tt("mindmap.generating") : tt("mindmap.generateButton")}
               </button>
             </div>
           ) : (
@@ -558,7 +558,7 @@ export default function MindMapViewer() {
                 <textarea
                   value={inputText}
                   onChange={e => setInputText(e.target.value)}
-                  placeholder="貼上你想整理成心智圖的文字內容..."
+                  placeholder={tt("mindmap.textPlaceholder")}
                   style={{
                     width: "100%", flex: 1, minHeight: 0, padding: 12,
                     background: tk.bg,
@@ -596,7 +596,7 @@ export default function MindMapViewer() {
                   cursor: loading || inputText.trim().length < 10 ? "not-allowed" : "pointer",
                 }}
               >
-                {loading ? "⟳ AI 產生中..." : "🧠 產生心智圖"}
+                {loading ? tt("mindmap.generating") : tt("mindmap.generateButton")}
               </button>
             </div>
           )}
@@ -625,7 +625,7 @@ export default function MindMapViewer() {
             <input
               value={saveName}
               onChange={e => setSaveName(e.target.value)}
-              placeholder="輸入名稱..."
+              placeholder={tt("mindmap.namePlaceholder")}
               style={{
                 width: "100%", padding: "8px 12px", background: tk.bgMuted,
                 border: `1px solid ${tk.borderInput}`, borderRadius: 6, color: tk.textPrimary, fontSize: 14,
@@ -633,12 +633,12 @@ export default function MindMapViewer() {
               autoFocus
             />
             <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-              <button onClick={() => setShowSaveDialog(false)} style={btnStyle}>取消</button>
+              <button onClick={() => setShowSaveDialog(false)} style={btnStyle}>{tt("common.cancel")}</button>
               <button
                 onClick={saveMindMap}
                 disabled={!saveName.trim()}
                 style={{ ...btnStyle, background: saveName.trim() ? tk.accent : tk.bgMuted, color: saveName.trim() ? "#fff" : tk.textMuted }}
-              >儲存</button>
+              >{tt("common.save")}</button>
             </div>
           </div>
         </div>

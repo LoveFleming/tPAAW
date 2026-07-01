@@ -96,8 +96,8 @@ export default function FileEditor({ filePath, active }: Props) {
   const indicator = {
     clean: { label: "", color: "" },
     saving: { label: "💾 儲存中...", color: "#f59e0b" },
-    saved: { label: "✅ 已儲存", color: "#10b981" },
-    error: { label: "❌ 儲存失敗", color: "#ef4444" },
+    saved: { label: tt("common.saved"), color: "#10b981" },
+    error: { label: tt("backup.saveFailed"), color: "#ef4444" },
   }[saveState];
 
   if (loading) {
@@ -198,7 +198,7 @@ export default function FileEditor({ filePath, active }: Props) {
             tabSize: 2,
             scrollbarWidth: "thin",
           }}
-          placeholder="開始輸入內容..."
+          placeholder={tt("fileEditor.placeholder")}
         />
       </div>
     </div>

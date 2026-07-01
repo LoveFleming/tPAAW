@@ -693,7 +693,7 @@ ${userInputLines.join("\n")}
         <h2 className="text-base font-bold text-stone-800">Skill Builder</h2>
         <div className="flex items-center gap-1.5">
           <select value={selectedPath} onChange={e => handleSelectFile(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1" style={{ minWidth: 200, "--tw-ring-color": accent } as React.CSSProperties}>
-            <option value="">-- {t("common.select", "選擇")} Skill --</option>
+            <option value="">-- {t("common.select", t("common.select"))} Skill --</option>
             {files.map(f => {
               const label = f.name.replace(/^building\//, "").replace(/\/skill-source\.md$/, "").replace(/^build-/, "").replace(/\.md$/, "");
               return <option key={f.path} value={f.path}>{label}</option>;
@@ -938,7 +938,7 @@ ${userInputLines.join("\n")}
                       <div className="border border-stone-200 rounded-xl overflow-hidden">
                         <div className="flex items-center justify-between px-4 py-2 bg-stone-50 border-b border-stone-200">
                           <span className="text-xs font-semibold text-stone-600">📋 送給 AI 的完整提示詞</span>
-                          <button onClick={() => { navigator.clipboard?.writeText(buildTestPrompt()); }} className="text-sm text-stone-400 hover:text-stone-600">複製</button>
+                          <button onClick={() => { navigator.clipboard?.writeText(buildTestPrompt()); }} className="text-sm text-stone-400 hover:text-stone-600">{t("knowledge.copy")}</button>
                         </div>
                         <pre className="p-4 text-xs text-stone-700 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">{buildTestPrompt()}</pre>
                       </div>
@@ -1075,7 +1075,7 @@ ${userInputLines.join("\n")}
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                 <span className="text-5xl opacity-30">▶️</span>
                 <div className="text-center">
-                  <p className="text-stone-400 text-sm">填入輸入，按 <strong className="text-white">▶️ 執行測試</strong></p>
+                  <p className="text-stone-400 text-sm">填入輸入，按 <strong className="text-white">{t("skillBuilder.runTest")}</strong></p>
                   <p className="text-stone-500 text-xs mt-2">AI 會把結果存到 test-output 目錄，完成後自動顯示</p>
                 </div>
               </div>

@@ -115,7 +115,7 @@ export default function AppPool({ onOpenApp }: { onOpenApp: (appId: string) => v
                                         <button
                                             onClick={e => { e.stopPropagation(); handleUnpublish(app.id); }}
                                             className="text-[10px] px-2 py-1 rounded-md font-semibold border border-stone-200 text-stone-400 hover:text-amber-600 hover:border-amber-300"
-                                            title="下架">
+                                            title={tt("common.unpublish")}>
                                             下架
                                         </button>
                                     )}

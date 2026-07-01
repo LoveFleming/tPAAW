@@ -642,7 +642,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                         <button onClick={e => togglePin(note.id, note.notebookId, e)} className="text-xs hover:bg-black/10 rounded p-0.5" style={{ color: tk.textMuted }} title={tt("notes.pin")}>
                           {note.pinned ? "📌" : "📍"}
                         </button>
-                        <button onClick={e => deleteNote(note.id, note.notebookId, e)} className="text-xs hover:bg-red-50 rounded p-0.5" style={{ color: "#ef4444" }} title="刪除">🗑</button>
+                        <button onClick={e => deleteNote(note.id, note.notebookId, e)} className="text-xs hover:bg-red-50 rounded p-0.5" style={{ color: "#ef4444" }} title={tt("common.delete")}>🗑</button>
                       </div>
                     </div>
                   </div>

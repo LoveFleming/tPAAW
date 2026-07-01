@@ -256,15 +256,15 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
             <div className="text-3xl mb-2">🤖</div>
             <div className="text-sm" style={{ color: tk.textMuted }}>問我任何關於專案的問題</div>
             <div className="flex flex-wrap gap-2 mt-4 justify-center">
-              <button onClick={() => handleSend("幫我建一個新專案")}
+              <button onClick={() => handleSend(t("projectAi.newProjectPrompt"))}
                 className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>
                 🏗️ 建專案
               </button>
-              <button onClick={() => handleSend("分析我所有專案的狀態，給我健康度報告")}
+              <button onClick={() => handleSend(t("projectAi.analyzePrompt"))}
                 className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
                 📊 分析專案
               </button>
-              <button onClick={() => handleSend("哪些專案進度落後？給我建議")}
+              <button onClick={() => handleSend(t("projectAi.delayPrompt"))}
                 className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "#fefce8", color: "#854d0e", border: "1px solid #fde68a" }}>
                 ⚠️ 找風險
               </button>
@@ -316,7 +316,7 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="輸入訊息…"
+            placeholder={t("projectAi.inputPlaceholder")}
             rows={1}
             className="flex-1 text-sm outline-none resize-none bg-transparent"
             style={{ color: tk.textPrimary, maxHeight: 120 }}

@@ -620,7 +620,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                     <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: t.accent }}>
                                         <Icon name="lightning" size={12} className="text-white" />
                                     </div>
-                                    <span className="text-sm font-bold text-stone-700">Skills</span>
+                                    <span className="text-sm font-bold text-stone-700">{tt("skill.pool.title")}</span>
                                     <span className="text-[10px] text-stone-400 ml-auto">{selectedSkillIds.length}/{allSkillDefs.length} 已選</span>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
@@ -853,7 +853,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                             : "text-white hover:opacity-90"
                                     )}
                                     style={!fullscreen ? { backgroundColor: t.accent } : undefined}
-                                    title="套用變更並重啟 Agent"
+                                    title={tt("employee.applyAndRestart")}
                                 >
                                     <Icon name="restart" size={12} /> 套用
                                 </button>
@@ -866,7 +866,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                     fullscreen ? "border-gray-600 text-gray-300 hover:text-white hover:border-gray-400" : ""
                                 )}
                                 style={!fullscreen ? { borderColor: t.accentBorder, color: t.accent } : undefined}
-                                title={fullscreen ? "退出全螢幕 (Esc)" : "全螢幕"}
+                                title={fullscreen ? "退出全螢幕 (Esc)" : tt("common.fullscreen")}
                             >
                                 <Icon name={fullscreen ? "contract" : "expand"} size={14} />
                                 {fullscreen && <span className="ml-1">ESC</span>}

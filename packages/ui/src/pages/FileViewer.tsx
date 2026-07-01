@@ -294,7 +294,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
           onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accent; e.currentTarget.style.color = "white"; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = t.accent; }}
         >
-          {fullscreen ? "✕ 退出全螢幕" : "⛶ 全螢幕"}
+          {fullscreen ? tt("fileViewer.exitFullscreen") : tt("fileViewer.fullscreen")}
         </button>
       </div>
 

@@ -763,7 +763,7 @@ export default function AppBuilder() {
                                         e.target.value = "";
                                     }} />
                                 </label>
-                                <button onClick={() => setShowAppPicker(false)} className="text-stone-500 hover:text-stone-700 text-sm">關閉</button>
+                                <button onClick={() => setShowAppPicker(false)} className="text-stone-500 hover:text-stone-700 text-sm">{tt("vibe.close")}</button>
                             </div>
                         </div>
                     </div>
@@ -774,7 +774,7 @@ export default function AppBuilder() {
             <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0"
                 style={{ borderColor: t.accentBorder, backgroundColor: t.accentBg }}>
                 <span className="text-lg">🎨</span>
-                <h2 className="text-sm font-bold" style={{ color: t.accentText }}>App Builder</h2>
+                <h2 className="text-sm font-bold" style={{ color: t.accentText }}>{tt("sidebar.appBuilder")}</h2>
 
                 {/* Mode toggle */}
                 <div className="flex items-center gap-1 ml-3 p-0.5 rounded-lg bg-white border" style={{ borderColor: t.accentBorder }}>
@@ -970,7 +970,7 @@ export default function AppBuilder() {
                                 <div className="ml-auto flex gap-2">
                                     {editingAppId && (
                                         <button onClick={() => setShowSettings(true)}
-                                            className="text-xs text-stone-400 hover:text-stone-600 font-semibold">⚙️ 設定</button>
+                                            className="text-xs text-stone-400 hover:text-stone-600 font-semibold">{tt("sidebar.settings")}</button>
                                     )}
                                     {previewReady && (
                                         <span className="text-xs text-green-500">✅ 已生成</span>
@@ -1106,7 +1106,7 @@ export default function AppBuilder() {
                                 <div className="flex items-center justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
                                     <h3 className="text-sm font-bold" style={{ color: t.accentText }}>⚙️ App 設定 — {editingAppId}</h3>
                                     <div className="flex items-center gap-2">
-                                        {settingsSaved && <span className="text-xs text-green-600 font-semibold">✅ 已儲存</span>}
+                                        {settingsSaved && <span className="text-xs text-green-600 font-semibold">{tt("common.saved")}</span>}
                                         <button onClick={() => setShowSettings(false)} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
                                     </div>
                                 </div>
@@ -1132,7 +1132,7 @@ export default function AppBuilder() {
                                     </div>
                                     {/* Description */}
                                     <div>
-                                        <label className="block text-sm font-semibold text-stone-500 mb-1">描述</label>
+                                        <label className="block text-sm font-semibold text-stone-500 mb-1">{tt("common.description")}</label>
                                         <textarea value={appSettings.description}
                                             onChange={e => setAppSettings(p => ({ ...p, description: e.target.value }))}
                                             rows={2}
@@ -1212,7 +1212,7 @@ export default function AppBuilder() {
                                 <div className="flex items-center justify-end gap-3 px-5 py-3 border-t shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
                                     <button onClick={() => setShowSettings(false)}
                                         className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
-                                        style={{ borderColor: "#d6d3d1", color: "#444" }}>取消</button>
+                                        style={{ borderColor: "#d6d3d1", color: "#444" }}>{tt("common.cancel")}</button>
                                     <button onClick={handleSaveSettings}
                                         disabled={settingsSaving}
                                         className="px-5 py-2 text-sm font-bold text-white rounded-lg transition-colors disabled:opacity-50"

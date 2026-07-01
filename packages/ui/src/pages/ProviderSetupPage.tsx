@@ -65,10 +65,10 @@ export default function ProviderSetupPage({ onComplete }: Props) {
       if (resp.ok) {
         onComplete();
       } else {
-        setError("儲存失敗，請重試");
+        setError(tt("provider.saveFailed"));
       }
     } catch {
-      setError("連線錯誤，請確認 server 是否運行中");
+      setError(tt("provider.connectionError"));
     } finally {
       setSaving(false);
     }
@@ -152,7 +152,7 @@ export default function ProviderSetupPage({ onComplete }: Props) {
             className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}
           >
-            {saving ? "儲存中..." : "✅ 儲存並開始使用"}
+            {saving ? tt("common.saving") : tt("provider.saveAndUse")}
           </button>
           <button
             onClick={onComplete}

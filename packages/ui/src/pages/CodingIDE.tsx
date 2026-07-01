@@ -887,7 +887,7 @@ const sendChat = useCallback(async () => {
                 placeholder={tt("vibe.projectPath")}
                 className="flex-1 text-sm font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
               <button onClick={() => setShowDirExplorer(true)}
-                className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600" title="瀏覽選擇目錄">📂</button>
+                className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600" title={tt("coding.browseDir")}>📂</button>
             </div>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
@@ -1382,7 +1382,7 @@ const sendChat = useCallback(async () => {
             {activeSubPanel === "editor" && !activeTab && (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
                 <div className="text-5xl">⚡</div>
-                <h2 className="text-lg font-bold text-stone-600">Coding IDE</h2>
+                <h2 className="text-lg font-bold text-stone-600">{tt("vibe.welcome")}</h2>
                 <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
                   {tt("vibe.welcomeLine1")}<br />
                   {tt("vibe.welcomeLine2")}<br />
@@ -1458,7 +1458,7 @@ const sendChat = useCallback(async () => {
                 )}
                 {chatMessages.map((msg, i) => (
                   <div key={i} className={cn("rounded-lg px-3 py-2.5 text-sm leading-relaxed", msg.role === "user" ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-stone-700")}>
-                    <div className="text-xs font-bold text-stone-400 mb-1">{msg.role === "user" ? tt("vibe.aiYou") : "🤖 AI"}</div>
+                    <div className="text-xs font-bold text-stone-400 mb-1">{msg.role === "user" ? tt("vibe.aiYou") : tt("vibe.ai")}</div>
                     <pre className="whitespace-pre-wrap font-sans break-words text-sm" style={{ fontFamily: "inherit" }}>{msg.content}</pre>
                   </div>
                 ))}
@@ -1515,7 +1515,7 @@ const sendChat = useCallback(async () => {
                   if (e.key === "ArrowUp") { e.preventDefault(); setQuickOpenIndex(i => Math.max(i - 1, 0)); }
                   if (e.key === "Enter") { e.preventDefault(); if (quickOpenResults[quickOpenIndex]) quickOpenSelect(quickOpenResults[quickOpenIndex].path); }
                 }}
-                placeholder="搜尋檔案... (依路徑或檔名)"
+                placeholder={tt("coding.searchFilePlaceholder")}
                 className="flex-1 text-sm outline-none bg-transparent"
               />
               <span className="text-[10px] text-stone-300 ml-2 shrink-0">⌘P</span>
@@ -1560,16 +1560,16 @@ const sendChat = useCallback(async () => {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") runSearch(); }}
-              placeholder="搜尋檔案內容..."
+              placeholder={tt("coding.searchContentPlaceholder")}
               className="flex-1 text-sm px-2 py-1 border rounded outline-none focus:border-blue-400"
               style={{ borderColor: tk.borderInput }}
             />
             {/* Toggle buttons */}
-            <button onClick={() => { setSearchCaseSensitive(!searchCaseSensitive); }} title="區分大小寫"
+            <button onClick={() => { setSearchCaseSensitive(!searchCaseSensitive); }} title={tt("coding.caseSensitive")}
               className={cn("text-xs px-1.5 py-1 rounded font-bold border transition-colors", searchCaseSensitive ? "bg-stone-700 text-white border-stone-700" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>Aa</button>
-            <button onClick={() => { setSearchWholeWord(!searchWholeWord); }} title="全字匹配"
+            <button onClick={() => { setSearchWholeWord(!searchWholeWord); }} title={tt("coding.wholeWord")}
               className={cn("text-xs px-1.5 py-1 rounded font-bold border transition-colors", searchWholeWord ? "bg-stone-700 text-white border-stone-700" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>W</button>
-            <button onClick={() => { setSearchUseRegex(!searchUseRegex); }} title="正則表達式"
+            <button onClick={() => { setSearchUseRegex(!searchUseRegex); }} title={tt("coding.useRegex")}
               className={cn("text-xs px-1.5 py-1 rounded font-bold border transition-colors", searchUseRegex ? "bg-stone-700 text-white border-stone-700" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>.*</button>
             <input
               value={searchInclude}
