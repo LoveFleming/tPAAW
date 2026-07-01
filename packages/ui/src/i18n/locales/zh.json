@@ -205,7 +205,7 @@
   "project.confirmDeleteTask": "刪除此任務？",
   "project.confirmDeleteMilestone": "刪除此里程碑？",
   "project.aiContextManage": "專案管理看板：建專案、分析狀態、找風險、建議改善",
-  "project.aiPromptNewProject": "幫我建一個新專案，我來告訴你專案名稱和目標。",
+  "project.aiPromptNewProject": "請描述你要建立的專案內容概述（專案名稱、目標、主要功能），我會幫你產出完整專案結構。",
   "project.aiContextAnalyze": "專案管理看板：分析所有專案的健康度、進度、風險",
   "project.aiPromptAnalyze": "分析我所有專案的狀態，給我一份專案健康度報告。",
   "project.statProjects": "專案數",

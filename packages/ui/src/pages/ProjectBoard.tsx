@@ -218,11 +218,6 @@ export default function ProjectBoard() {
                 style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>
                 🤖 AI 建專案
               </button>
-              <button onClick={() => setAiPanel({ open: true, context: tt("project.aiContextAnalyze"), prompt: tt("project.aiPromptAnalyze") })}
-                className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
-                style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
-                🤖 AI 分析
-              </button>
               <button onClick={() => setModal({ type: "project-new" })}
                 className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
                 style={{ background: tk.accentBg, color: tk.accentText, border: `1px solid ${tk.accent}` }}>
@@ -318,11 +313,6 @@ export default function ProjectBoard() {
           <button onClick={() => { setView("dashboard"); setActive(null); }}
             className="text-sm hover:underline" style={{ color: tk.accent }}>← Dashboard</button>
           <div className="flex items-center gap-2">
-            <button onClick={() => setAiPanel({ open: true, context: `正在分析專案「${active.name}」(ID: ${active.id})，狀態: ${active.status}，完成率: ${pctN}%`, prompt: `分析專案「${active.name}」的狀態，給我一份進度報告和建議。專案 ID: ${active.id}` })}
-              className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors"
-              style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
-              🤖 AI 分析
-            </button>
             <button onClick={() => setDetailTab("board")}
               className="text-xs px-3 py-1.5 rounded-lg font-medium"
               style={{ background: detailTab === "board" ? tk.accentBg : "transparent", color: detailTab === "board" ? tk.accentText : tk.textSecondary, border: `1px solid ${detailTab === "board" ? tk.accent : tk.border}` }}>

@@ -109,18 +109,24 @@ export default async function chatRoutes(req, res) {
 
       // ── Resolve provider ──
       const providerConfig = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
-      const providerId = requestedProvider || providerConfig.active;
-      const provider = providerConfig.providers[providerId];
-      if (!provider) {
-        json(res, { error: `Unknown provider: ${providerId}` }, 400);
-        return true;
-      }
-      if (!provider.apiKey || provider.apiKey === "na") {
-        json(res, { error: `No API key configured for provider: ${providerId}` }, 400);
-        return true;
-      }
 
-      const model = requestedModel || providerConfig.defaultModel || "glm-5.1";
+      // Parse model ID — may be "providerId/modelId" or "providerId/nested/model"
+      let resolvedProviderId = providerId;
+      let model = requestedModel || providerConfig.defaultModel || "glm-5.1";
+      if (model.includes("/")) {
+        const idx = model.indexOf("/");
+        resolvedProviderId = model.slice(0, idx);
+        model = model.slice(idx + 1);
+      }
+      const resolvedProvider = providerConfig.providers[resolvedProviderId];
+      if (!resolvedProvider) {
+        json(res, { error: `Unknown provider: ${resolvedProviderId}` }, 400);
+        return true;
+      }
+      if (!resolvedProvider.apiKey || resolvedProvider.apiKey === "na") {
+        json(res, { error: `No API key configured for provider: ${resolvedProviderId}` }, 400);
+        return true;
+      }
 
       // ── Context Engine: use client-specified target or default to chat ──
       const { contextEngine } = await import("../context-engine.mjs");
@@ -130,7 +136,7 @@ export default async function chatRoutes(req, res) {
 
       // ── SSE headers ──
       const chatReqId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      console.log(`[${chatReqId}] === Chat request start === provider=${providerId} model=${model} msgs=${messages?.length}`);
+      console.log(`[${chatReqId}] === Chat request start === provider=${resolvedProviderId} model=${model} msgs=${messages?.length}`);
 
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
@@ -174,11 +180,11 @@ export default async function chatRoutes(req, res) {
       const { ToolEngine } = await import("../lib/tool-engine/index.mjs")
       const engine = new ToolEngine({
         provider: {
-          id: providerId,
-          baseURL: provider.baseURL,
-          apiKey: provider.apiKey,
+          id: resolvedProviderId,
+          baseURL: resolvedProvider.baseURL,
+          apiKey: resolvedProvider.apiKey,
           defaultModel: model,
-          extraHeaders: providerId === 'openrouter'
+          extraHeaders: resolvedProviderId === 'openrouter'
             ? { 'HTTP-Referer': 'https://paaw.ai', 'X-Title': 'PAAW' }
             : undefined,
         },

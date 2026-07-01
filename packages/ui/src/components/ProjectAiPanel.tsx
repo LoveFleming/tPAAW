@@ -42,6 +42,10 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
   const [activeProviderId, setActiveProviderId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [promptPreview, setPromptPreview] = useState(false);
+  const [promptPreviewContent, setPromptPreviewContent] = useState<{system: string; user: string} | null>(null);
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showUserPrompt, setShowUserPrompt] = useState(false);
 
   // ── System prompt loaded from ai-settings/project/ via context-engine ──
   // Server-side: /api/paaw/chat with contextTarget="project" loads it automatically
@@ -81,6 +85,23 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
       messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
     }, 50);
   }, []);
+
+  // ── Prompt Preview ──
+  const handlePreviewPrompt = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/ai-settings/generic-preview`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "project", prompt: input || initialPrompt || "", model: fullModelForApi() }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setPromptPreviewContent({ system: data.systemPrompt, user: data.userPrompt });
+        setPromptPreview(true);
+        setShowSystemPrompt(false);
+        setShowUserPrompt(false);
+      }
+    } catch {}
+  }, [input, initialPrompt]);
 
   // Auto-send initial prompt once
   useEffect(() => {
@@ -240,6 +261,7 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
           {isLoading && (
             <button onClick={stopGeneration} className="text-xs px-2 py-1 rounded" style={{ color: "#ef4444", border: "1px solid #fecaca" }}>⏹ 停止</button>
           )}
+          <button onClick={handlePreviewPrompt} className="text-xs px-2 py-1 rounded" style={{ color: tk.textSecondary, border: `1px solid ${tk.border}` }}>📋 Prompt</button>
           <button onClick={onClose} className="text-lg leading-none px-1" style={{ color: tk.textMuted }}>✕</button>
         </div>
       </div>
@@ -332,6 +354,42 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
           </button>
         </div>
       </div>
+
+      {/* Prompt Preview Modal */}
+      {promptPreview && promptPreviewContent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setPromptPreview(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden" style={{ maxHeight: "80vh" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: tk.borderLight, backgroundColor: tk.accentBg }}>
+              <h2 className="text-lg font-bold" style={{ color: tk.accentText }}>📋 Prompt 預覽</h2>
+              <button onClick={() => setPromptPreview(false)} className="text-stone-400 hover:text-stone-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div className="overflow-auto p-6 space-y-5" style={{ maxHeight: "calc(80vh - 64px)" }}>
+              <fieldset className="space-y-2">
+                <legend onClick={() => setShowSystemPrompt(v => !v)} className="text-sm font-bold border-b pb-1 w-full cursor-pointer select-none flex items-center gap-2" style={{ color: tk.accentText, borderColor: tk.borderLight }}>
+                  <span>🟢 System Prompt</span>
+                  <span className="text-stone-400 font-normal">({promptPreviewContent.system.length} chars)</span>
+                  <span className="ml-auto text-stone-400">{showSystemPrompt ? "▼" : "▶"}</span>
+                </legend>
+                {showSystemPrompt && (
+                  <pre className="text-sm whitespace-pre-wrap break-words bg-stone-50 rounded-lg p-4 border border-stone-200 overflow-auto" style={{ maxHeight: "30vh", lineHeight: 1.7, fontFamily: "ui-monospace, monospace" }}>{promptPreviewContent.system}</pre>
+                )}
+              </fieldset>
+              <fieldset className="space-y-2">
+                <legend onClick={() => setShowUserPrompt(v => !v)} className="text-sm font-bold border-b pb-1 w-full cursor-pointer select-none flex items-center gap-2" style={{ color: tk.accentText, borderColor: tk.borderLight }}>
+                  <span>🟡 User Prompt</span>
+                  <span className="text-stone-400 font-normal">({promptPreviewContent.user.length} chars)</span>
+                  <span className="ml-auto text-stone-400">{showUserPrompt ? "▼" : "▶"}</span>
+                </legend>
+                {showUserPrompt && (
+                  <pre className="text-sm whitespace-pre-wrap break-words bg-stone-50 rounded-lg p-4 border border-stone-200 overflow-auto" style={{ maxHeight: "30vh", lineHeight: 1.7, fontFamily: "ui-monospace, monospace" }}>{promptPreviewContent.user}</pre>
+                )}
+              </fieldset>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

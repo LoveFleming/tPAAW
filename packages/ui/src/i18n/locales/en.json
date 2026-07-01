@@ -205,7 +205,7 @@
   "project.confirmDeleteTask": "Delete this task?",
   "project.confirmDeleteMilestone": "Delete this milestone?",
   "project.aiContextManage": "Project board: create projects, analyze status, find risks, suggest improvements",
-  "project.aiPromptNewProject": "Help me create a new project, I'll tell you the name and goals.",
+  "project.aiPromptNewProject": "Describe your project overview (name, goals, key features), and I will generate a complete project structure for you.",
   "project.aiContextAnalyze": "Project board: analyze all projects' health, progress, and risks",
   "project.aiPromptAnalyze": "Analyze all my projects and give me a health report.",
   "project.statProjects": "Projects",

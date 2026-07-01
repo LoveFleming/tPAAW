@@ -205,7 +205,7 @@
   "project.confirmDeleteTask": "このタスクを削除しますか？",
   "project.confirmDeleteMilestone": "このマイルストーンを削除しますか？",
   "project.aiContextManage": "プロジェクトボード：プロジェクト作成、状況分析、リスク特定、改善提案",
-  "project.aiPromptNewProject": "新しいプロジェクトを作成してください。名前と目標を伝えます。",
+  "project.aiPromptNewProject": "プロジェクトの概要（名前、目標、主要機能）を説明してください。完全なプロジェクト構造を生成します。",
   "project.aiContextAnalyze": "プロジェクトボード：全プロジェクトの健全性、進捗、リスクを分析",
   "project.aiPromptAnalyze": "全プロジェクトの状況を分析し、健全性レポートを作成してください。",
   "project.statProjects": "プロジェクト数",

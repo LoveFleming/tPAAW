@@ -414,6 +414,29 @@ export default async function aiSettingsRoutes(req, res) {
     return true;
   }
 
+  // POST /api/ai-settings/generic-preview — get final prompts for any target
+  const genericPreviewMatch = req.method === "POST" && path === "/api/ai-settings/generic-preview";
+  if (genericPreviewMatch) {
+    try {
+      const { target, prompt: userPrompt, model: modelOverride } = JSON.parse(await readBody(req));
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: target || "chat" });
+      // Resolve model info
+      let modelInfo = "default";
+      try {
+        const pCfg = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf-8"));
+        let pid = pCfg.active;
+        let mid = modelOverride || pCfg.defaultModel || "glm-5.1";
+        if (mid && mid.includes("/")) { const idx = mid.indexOf("/"); pid = mid.slice(0, idx); mid = mid.slice(idx + 1); }
+        modelInfo = `${pid}/${mid}`;
+      } catch {}
+      json(res, { systemPrompt: ctx.systemPrompt || "", userPrompt: userPrompt || ctx.prompt || "", model: modelInfo });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
   return false;
 }
 
