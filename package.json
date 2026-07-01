@@ -14,10 +14,17 @@
     "build": "npm run build -w @paaw/ui",
     "migrate": "npm run migrate -w @paaw/db",
     "clean": "find . -name node_modules -type d -prune -exec rm -rf {} \\;",
-    "postinstall": "node scripts/postinstall.cjs"
+    "postinstall": "node scripts/postinstall.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "concurrently": "^9.2.1",
-    "tsx": "^4.22.4"
+    "tsx": "^4.22.4",
+    "vitest": "^4.1.9"
   }
 }

@@ -64,3 +64,9 @@ packages/server/temp/
 packages/server/data/audit/
 data/distill/raw/
 myenglish.md
+
+# Test artifacts
+tests/e2e/screenshots/
+test-results/
+playwright-report/
+playwright/.cache/
