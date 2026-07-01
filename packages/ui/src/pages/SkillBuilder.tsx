@@ -560,8 +560,10 @@ export default function SkillBuilder() {
         }
       } catch { /* context-engine unavailable, use raw skillDef */ }
     }
-    if (!chatStarted) { setInitialPrompt(prompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
-    else { terminalRef.current?.sendPrompt(prompt, buildSystemPrompt); }
+    // Always rebuild AgentConsole to ensure latest systemPrompt is sent via WS spawn
+    setInitialPrompt(prompt);
+    setChatStarted(true);
+    setConsoleKey(prev => prev + 1);
   };
 
   // ── Test: just use the built SKILL.md + user input ──

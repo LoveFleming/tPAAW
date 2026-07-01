@@ -57,6 +57,14 @@ export default async function crewRoute(req, res) {
     try { await rm(testDir, { recursive: true, force: true }); } catch {}
     await mkdir(testDir, { recursive: true });
 
+    // Build full system context via contextEngine (skill-builder rules + knowledge + workspace)
+    let systemPrompt = "";
+    try {
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "skill-builder" });
+      systemPrompt = ctx.systemPrompt || "";
+    } catch {}
+
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" });
     const sendEvent = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
 
@@ -73,6 +81,7 @@ export default async function crewRoute(req, res) {
       const agentResult = await runAgentLoop({
         prompt: fullPrompt,
         cwd: cwd || PAAW_ROOT,
+        systemPrompt: systemPrompt || undefined,
         maxTurns: effectiveMaxTurns,
         timeout: effectiveTimeout,
         rootDir: PAAW_ROOT,
