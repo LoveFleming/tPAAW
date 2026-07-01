@@ -22,6 +22,10 @@ import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { exec as execCb } from "child_process";
 import { resolve, join, dirname, relative } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 
 // ── Types ──
