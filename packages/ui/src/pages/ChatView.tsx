@@ -63,7 +63,7 @@ interface Props {
 export default function ChatView({ profile, embedded = false, onTitleChange, onDeepLink, seedMessage, onSeedConsumed, apps = [], onOpenApp, providerReady, onProviderNotReady }: Props) {
   const { t: tt } = useI18n();
   const { info: themeInfo } = useTheme();
-  const assistantName = profile.assistantName || "林語晴";
+  const assistantName = profile.assistantName || tt("chat.assistantDefault");
 
   // ── State ──
   const [chats, setChats] = useState<Chat[]>([]);
@@ -159,9 +159,9 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   useEffect(() => {
     if (onTitleChange && activeChatId) {
       const chat = chats.find(c => c.id === activeChatId);
-      onTitleChange(chat?.title || "新對話");
+      onTitleChange(chat?.title || tt("chat.newChatTitle"));
     } else if (onTitleChange && !activeChatId) {
-      onTitleChange("新對話");
+      onTitleChange(tt("chat.newChatTitle"));
     }
   }, [activeChatId, chats, onTitleChange]);
 
@@ -222,7 +222,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
           content: `嗨${profile.name ? ` ${profile.name}` : ""}！我是${assistantName}，有什麼可以幫你的嗎？ 🌤️`,
           timestamp: new Date().toISOString(),
         };
-        const newChat = { id: newId, title: "新對話", messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        const newChat = { id: newId, title: tt("chat.newChatTitle"), messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
         try {
           await fetch(`${API_BASE}/api/paaw/chats`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChat) });
         } catch {}
@@ -259,7 +259,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       content: `嗨${profile.name ? ` ${profile.name}` : ""}！我是${assistantName}，有什麼可以幫你的嗎？ 🌤️`,
       timestamp: new Date().toISOString(),
     };
-    const newChat = { id: chatId, title: "新對話", messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const newChat = { id: chatId, title: tt("chat.newChatTitle"), messages: [greeting], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     try {
       await fetch(`${API_BASE}/api/paaw/chats`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChat),
@@ -290,7 +290,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
 
   const saveMessages = async (chatId: string, msgs: Message[]) => {
     const firstUserMsg = msgs.find(m => m.role === "user");
-    const title = firstUserMsg ? firstUserMsg.content.slice(0, 30) + (firstUserMsg.content.length > 30 ? "..." : "") : "新對話";
+    const title = firstUserMsg ? firstUserMsg.content.slice(0, 30) + (firstUserMsg.content.length > 30 ? "..." : "") : tt("chat.newChatTitle");
     try {
       await fetch(`${API_BASE}/api/paaw/chats/${chatId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
@@ -308,7 +308,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     // Provider not ready — show message and prompt user to settings
     if (providerReady === false) {
       const userMsg: Message = { role: "user", content: text, timestamp: new Date().toISOString() };
-      const assistantMsg: Message = { role: "assistant", content: "⚠️ 尚未設定 AI Provider，無法發送訊息。\n\n請先到 **設定 → AI Provider** 設定你的 API Key。", timestamp: new Date().toISOString() };
+      const assistantMsg: Message = { role: "assistant", content: tt("chat.noProviderInitial"), timestamp: new Date().toISOString() };
       const newMessages = [...messages, userMsg, assistantMsg];
       setMessages(newMessages);
       setInput("");
@@ -349,7 +349,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
         const err = await resp.text();
         // Check for provider/model errors that need settings redirect
         if (err.includes("No API key") || err.includes("Unknown provider") || resp.status === 400 && err.includes("provider")) {
-          assistantMsg.content = "⚠️ AI Provider 尚未正確設定。\n\n請到 **設定 → AI Provider** 配置你的 API Key 和模型。";
+          assistantMsg.content = tt("chat.noProviderSetup");
           setMessages([...newMessages, assistantMsg]);
           await saveMessages(activeChatId, [...newMessages, assistantMsg]);
           onProviderNotReady?.();
@@ -439,7 +439,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       await saveMessages(activeChatId, [...newMessages, assistantMsg]);
     } catch (err: any) {
       if (err.name !== "AbortError") {
-        assistantMsg.content = "抱歉，出了點問題。請稍後再試。";
+        assistantMsg.content = tt("chat.errorMessage");
         setMessages([...newMessages, assistantMsg]);
         await saveMessages(activeChatId, [...newMessages, assistantMsg]);
       }
@@ -584,9 +584,9 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
               <p className="text-stone-400 text-sm mb-6">你的個人 AI 助理</p>
               <div className="space-y-2 mb-8">
                 {[
-                  { icon: "📋", text: "幫我加一個待辦事項" },
-                  { icon: "📝", text: "記一下今天的重點" },
-                  { icon: "🧠", text: "記住我喜歡 dark mode" },
+                  { icon: "📋", text: tt("chat.suggestionTodo") },
+                  { icon: "📝", text: tt("chat.suggestionNote") },
+                  { icon: "🧠", text: tt("chat.suggestionPref") },
                 ].map((hint, i) => (
                   <button key={i} onClick={createNewChat} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-stone-200 text-sm text-stone-600 hover:border-stone-300 hover:shadow-sm transition-all text-left">
                     <span>{hint.icon}</span>
@@ -613,14 +613,14 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                       <AssistantAvatar size="w-8 h-8" />
                     ) : (
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-                        {"你"}
+                        {tt("common.you")}
                       </div>
                     )}
                   </div>
                   {/* Bubble */}
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-medium text-stone-600">{msg.role === "assistant" ? assistantName : profile.name || "你"}</span>
+                      <span className="text-xs font-medium text-stone-600">{msg.role === "assistant" ? assistantName : profile.name || tt("common.you")}</span>
                       <span className="text-[10px] text-stone-300">{formatTime(msg.timestamp)}</span>
                     </div>
                     <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${msg.role === "assistant" ? "bg-white shadow-sm border border-stone-100 text-stone-700" : "bg-stone-50 text-stone-700"}`}>

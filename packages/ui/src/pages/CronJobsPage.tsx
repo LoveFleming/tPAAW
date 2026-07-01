@@ -357,14 +357,14 @@ export default function CronJobsPage() {
                             <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">⏰</span>
-                                    <h2 className="text-lg font-bold" style={{ color: t.accentText }}>{editingJobId ? "編輯 Schedule" : "新增 Schedule"}</h2>
+                                    <h2 className="text-lg font-bold" style={{ color: t.accentText }}>{editingJobId ? tt("cron.editSchedule") : tt("cron.newSchedule")}</h2>
                                 </div>
                                 <button onClick={closeForm} className="text-stone-400 hover:text-stone-600 text-xl">✕</button>
                             </div>
                             <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
                                 <div>
                                     <label className="text-xs text-stone-500 font-semibold mb-1.5 block">名稱</label>
-                                    <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="例如：吃保健品提醒"
+                                    <input value={formName} onChange={e => setFormName(e.target.value)} placeholder={tt("cron.namePlaceholder")}
                                         className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
                                 </div>
                                 <div>
@@ -383,7 +383,7 @@ export default function CronJobsPage() {
                                 {formType === "reminder" ? (
                                     <div>
                                         <label className="text-xs text-stone-500 font-semibold mb-1.5 block">提醒內容</label>
-                                        <input value={formReminderText} onChange={e => setFormReminderText(e.target.value)} placeholder="例如：該吃保健品了！💊"
+                                        <input value={formReminderText} onChange={e => setFormReminderText(e.target.value)} placeholder={tt("cron.reminderPlaceholder")}
                                             className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" style={{ borderColor: "#d6d3d1" }} />
                                     </div>
                                 ) : (
@@ -398,7 +398,7 @@ export default function CronJobsPage() {
                                         </div>
                                         <div>
                                             <label className="text-xs text-stone-500 font-semibold mb-1.5 block">Prompt（可選）</label>
-                                            <textarea value={formPrompt} onChange={e => setFormPrompt(e.target.value)} placeholder="額外指示..."
+                                            <textarea value={formPrompt} onChange={e => setFormPrompt(e.target.value)} placeholder={tt("cron.promptPlaceholder")}
                                                 className="w-full px-4 py-2.5 border rounded-xl text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-200" rows={3} style={{ borderColor: "#d6d3d1" }} />
                                         </div>
                                     </div>
@@ -495,7 +495,7 @@ export default function CronJobsPage() {
                                     className="px-5 py-2.5 rounded-xl text-sm border text-stone-500 hover:bg-stone-50 transition-colors" style={{ borderColor: "#d6d3d1" }}>取消</button>
                                 <button onClick={handleSave} disabled={!formName || (formType === "report" && !formSkillId)}
                                     className="px-6 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all hover:shadow-lg" style={{ backgroundColor: t.accent }}>
-                                    {editingJobId ? "儲存修改" : "建立 Schedule"}
+                                    {editingJobId ? tt("cron.saveChanges") : tt("cron.createSchedule")}
                                 </button>
                             </div>
                         </div>
@@ -530,9 +530,9 @@ export default function CronJobsPage() {
                                             ? "bg-stone-200 text-stone-400"
                                             : "bg-amber-100 text-amber-700 hover:bg-amber-200"
                                     }`}
-                                    title="立即執行"
+                                    title={tt("cron.runNow")}
                                 >
-                                    {flashJobs.has(job.id) ? "✓" : "▶"} {runningJobs.has(job.id) ? <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />執行中</span> : "測試"}
+                                    {flashJobs.has(job.id) ? "✓" : "▶"} {runningJobs.has(job.id) ? <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />{tt("common.running")}</span> : tt("common.test")}
                                 </button>
                                 <button onClick={e => { e.stopPropagation(); handleToggle(job); }}
                                     className={`text-xs px-2 py-0.5 rounded-md font-semibold ${job.enabled ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400"}`}>
@@ -543,7 +543,7 @@ export default function CronJobsPage() {
                                 <span className="text-xs text-stone-400 font-mono">{job.schedule}</span>
                                 <span className="text-xs text-stone-300">→</span>
                                 <span className="text-xs text-stone-500 truncate">
-                                    {job.type === "reminder" ? (job.reminderText || "提醒") : (job.skillId || "報告")}
+                                    {job.type === "reminder" ? (job.reminderText || tt("cron.reminder")) : (job.skillId || tt("cron.report"))}
                                 </span>
                             </div>
                             {job.lastRun && (
@@ -573,7 +573,7 @@ export default function CronJobsPage() {
                                 <div className="text-xs text-stone-400 mt-0.5">
                                     <span className="font-mono">{selectedJobData?.schedule}</span>
                                     <span className="mx-1.5 text-stone-300">→</span>
-                                    <span className="text-stone-500">{selectedJobData?.type === "reminder" ? "⏰ 提醒" : (selectedJobData?.skillId || "📊 報告")}</span>
+                                    <span className="text-stone-500">{selectedJobData?.type === "reminder" ? `⏰ ${tt("cron.reminder")}` : (selectedJobData?.skillId || `📊 ${tt("cron.report")}`)}</span>
                                     {selectedJobData?.type === "reminder" && selectedJobData?.reminderText && (
                                         <span className="ml-2 text-amber-600">{selectedJobData.reminderText}</span>
                                     )}

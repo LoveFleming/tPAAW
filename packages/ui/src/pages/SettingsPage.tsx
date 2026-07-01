@@ -148,9 +148,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
   };
 
   const addModelToProvider = (pid: string) => {
-    const id = prompt("輸入 Model ID（例如 glm-5.1）:");
+    const id = prompt(t("settings.modelIdPrompt"));
     if (!id) return;
-    const name = prompt("輸入 Model 名稱（例如 GLM 5.1）:") || id;
+    const name = prompt(t("settings.modelNamePrompt")) || id;
     setProviders(prev => ({ ...prev, [pid]: { ...prev[pid], models: [...prev[pid].models, { id, name }] } }));
     setSaved(false);
   };
@@ -262,11 +262,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           <div className="space-y-4">
             {/* Assistant avatar */}
             <div className="bg-white rounded-xl border border-stone-200 p-5">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">助理頭像</label>
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3 block">{t("settings.assistantAvatar")}</label>
               <div className="flex items-center gap-4">
                 <div className="relative group">
                   {avatarSrc ? (
-                    <img src={avatarSrc} className="w-16 h-16 rounded-full object-cover shadow-md" alt="助理頭像" />
+                    <img src={avatarSrc} className="w-16 h-16 rounded-full object-cover shadow-md" alt={t("settings.assistantAvatar")} />
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-2xl shadow-md">🐾</div>
                   )}
@@ -279,9 +279,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                 </div>
                 <div>
-                  <p className="text-sm text-stone-600">點擊頭像更換圖片</p>
+                  <p className="text-sm text-stone-600">{t("settings.clickAvatar", "點擊頭像更換圖片")}</p>
                   {avatarSrc && (
-                    <button onClick={handleResetAvatar} className="text-xs text-rose-400 hover:text-rose-500 mt-1">恢復預設</button>
+                    <button onClick={handleResetAvatar} className="text-xs text-rose-400 hover:text-rose-500 mt-1">{t("settings.resetAvatar", "恢復預設")}</button>
                   )}
                 </div>
               </div>
@@ -291,23 +291,23 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             <div className="bg-white rounded-xl border border-stone-200 p-5">
               <div className="space-y-4">
                 <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">助理名字</label>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.assistantName", "助理名字")}</label>
                   <input type="text" value={profile.assistantName || "林語晴"} onChange={(e) => { setProfile({ ...profile, assistantName: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">你的名字</label>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.yourName", "你的名字")}</label>
                   <input type="text" value={profile.name || ""} onChange={(e) => { setProfile({ ...profile, name: e.target.value }); setSaved(false); }} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">自我介紹</label>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.selfIntro", "自我介紹")}</label>
                   <textarea value={profile.intro || ""} onChange={(e) => { setProfile({ ...profile, intro: e.target.value }); setSaved(false); }} rows={3} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">回覆風格</label>
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 block">{t("settings.replyStyle", "回覆風格")}</label>
                   <div className="flex gap-2">
                     {["concise", "detailed", "casual", "formal"].map(s => (
                       <button key={s} onClick={() => { setProfile({ ...profile, style: s }); setSaved(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${profile.style === s ? "border-stone-400 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-400 hover:border-stone-300"}`}>
-                        {{ concise: "⚡ 簡潔", detailed: "📚 詳細", casual: "😊 輕鬆", formal: "💼 正式" }[s]}
+                        {{ concise: t("settings.styleConcise"), detailed: t("settings.styleDetailed"), casual: t("settings.styleCasual"), formal: t("settings.styleFormal") }[s]}
                       </button>
                     ))}
                   </div>
@@ -316,7 +316,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             </div>
 
             <button onClick={handleSaveProfile} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存個人資料"}
+              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveProfile")}
             </button>
           </div>
         )}
@@ -369,7 +369,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                     </div>
                     <div className="flex-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">API Key</label>
-                      <input type="password" value={p.apiKey} onChange={e => handleProviderField(pid, "apiKey", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono focus:outline-none focus:border-stone-400" placeholder="輸入 API Key..." />
+                      <input type="password" value={p.apiKey} onChange={e => handleProviderField(pid, "apiKey", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono focus:outline-none focus:border-stone-400" placeholder={t("settings.apiKeyPlaceholder")} />
                     </div>
                   </div>
                   <div>
@@ -385,11 +385,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                           {activeId === pid && (
                             <button onClick={() => setSelectedModel(m.id)}
                               className={`text-[9px] ml-0.5 px-1 rounded ${selectedModel === m.id ? "text-amber-600 bg-amber-50" : "text-stone-300 hover:text-stone-500"}`}
-                              title="設為預設">{selectedModel === m.id ? "✓" : "📌"}</button>
+                              title={t("settings.setDefault")}>{selectedModel === m.id ? "✓" : "📌"}</button>
                           )}
                           <button onClick={() => removeModelFromProvider(pid, m.id)}
                             className="text-stone-300 hover:text-rose-400 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="刪除 model">✕</button>
+                            title={t("settings.deleteModel")}>✕</button>
                         </span>
                       ))}
                       {p.models.length === 0 && <span className="text-xs text-stone-300">尚未新增 Model</span>}
@@ -405,11 +405,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 <div className="flex gap-3 mb-3">
                   <div className="flex-1">
                     <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">Provider ID</label>
-                    <input type="text" value={newProviderId} onChange={e => setNewProviderId(e.target.value)} placeholder="例如: openrouter" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-amber-400" autoFocus onKeyDown={e => { if (e.key === "Enter") addProvider(); if (e.key === "Escape") { setShowNewProvider(false); setNewProviderId(""); }}} />
+                    <input type="text" value={newProviderId} onChange={e => setNewProviderId(e.target.value)} placeholder={t("settings.providerIdPlaceholder")} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono focus:outline-none focus:border-amber-400" autoFocus onKeyDown={e => { if (e.key === "Enter") addProvider(); if (e.key === "Escape") { setShowNewProvider(false); setNewProviderId(""); }}} />
                   </div>
                   <div className="flex-1">
                     <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">顯示名稱</label>
-                    <input type="text" value={newProviderName} onChange={e => setNewProviderName(e.target.value)} placeholder="例如: OpenRouter" className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addProvider(); }} />
+                    <input type="text" value={newProviderName} onChange={e => setNewProviderName(e.target.value)} placeholder={t("settings.providerNamePlaceholder")} className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-amber-400" onKeyDown={e => { if (e.key === "Enter") addProvider(); }} />
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
@@ -437,7 +437,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             )}
 
             <button onClick={handleSaveProviders} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 Provider 設定"}
+              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveProviders")}
             </button>
           </div>
         )}
@@ -471,7 +471,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 </div>
               </div>
             </div>
-            <button onClick={async()=>{setSaving(true);try{await fetch(`${API_BASE}/api/ai-settings/agent-config`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(agentConfig)});setSaved(true);setTimeout(()=>setSaved(false),2000);}catch{}setSaving(false);}} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{background:`linear-gradient(135deg,${themeInfo.accent},${themeInfo.accentHover})`}}>{saving?"儲存中...":saved?"✅ 已儲存":"儲存 Agent 設定"}</button>
+            <button onClick={async()=>{setSaving(true);try{await fetch(`${API_BASE}/api/ai-settings/agent-config`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(agentConfig)});setSaved(true);setTimeout(()=>setSaved(false),2000);}catch{}setSaving(false);}} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{background:`linear-gradient(135deg,${themeInfo.accent},${themeInfo.accentHover})`}}>{saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveAgent")}</button>
           </div>
         )}
 
@@ -481,7 +481,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             <h3 className="text-base font-bold text-stone-700">Model 偏好設定</h3>
             <p className="text-sm text-stone-400 mb-4">各 AI 功能使用的預設 Model，未設定則使用 Provider 的全域預設</p>
             <div className="space-y-4">
-              {[{key:"skillBuilder",label:"Skill Builder",desc:"生成和建構 skill 使用的 model"},{key:"coding",label:"Coding",desc:"Coding IDE 助手使用的 model"},{key:"crewChat",label:"Crew 聊天",desc:"Crew 聊天時使用的 model"},{key:"appBuilder",label:"App Builder",desc:"App Builder 執行時使用的 model"}].map(feat=>(
+              {[{key:"skillBuilder",label:"Skill Builder",desc:t("settings.featureSkillBuilderDesc")},{key:"coding",label:"Coding",desc:t("settings.featureCodingDesc")},{key:"crewChat",label:t("settings.crewChatLabel", "Crew Chat"),desc:t("settings.featureCrewChatDesc")},{key:"appBuilder",label:"App Builder",desc:t("settings.featureAppBuilderDesc")}].map(feat=>(
                 <div key={feat.key} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
                   <div><span className="text-sm font-medium text-stone-700">{feat.label}</span><p className="text-xs text-stone-400">{feat.desc}</p></div>
                   <div className="w-[50%]">
@@ -521,7 +521,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 setSaved(true); setTimeout(() => setSaved(false), 2000);
               } catch {} setSaving(false);
             }} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存 Skill Builder 設定"}
+              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveSkillBuilder")}
             </button>
           </div>
         )}
@@ -561,7 +561,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 </div>
                 <button onClick={() => { setDistillConfig({ ...distillConfig, enabled: !distillConfig.enabled }); setSaved(false); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.enabled ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-400"}`}>
-                  {distillConfig.enabled ? "✓ 啟用" : "停用"}
+                  {distillConfig.enabled ? "✓ " + t("common.enabled") : t("common.disabled")}
                 </button>
               </div>
             </div>
@@ -585,7 +585,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                       setDistillConfig(updated); setSaved(false);
                     }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold ${src.enabled ? "bg-blue-100 text-blue-700" : "bg-stone-100 text-stone-400"}`}>
-                      {src.enabled ? "✓ 開" : "關"}
+                      {src.enabled ? "✓ " + t("common.on") : t("common.off")}
                     </button>
                   </div>
                 ))}
@@ -601,7 +601,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                 </div>
                 <button onClick={() => { setDistillConfig({ ...distillConfig, autoDistill: !distillConfig.autoDistill }); setSaved(false); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold ${distillConfig.autoDistill ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}`}>
-                  {distillConfig.autoDistill ? "✓ 開" : "關"}
+                  {distillConfig.autoDistill ? "✓ " + t("common.on") : t("common.off")}
                 </button>
               </div>
               {distillConfig.autoDistill && (
@@ -609,10 +609,10 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
                   <label className="block text-sm font-medium text-stone-600 mb-1">排程時間（cron）</label>
                   <div className="flex gap-2 items-center">
                     <input type="text" value={distillConfig.autoDistillSchedule} onChange={e => { setDistillConfig({ ...distillConfig, autoDistillSchedule: e.target.value }); setSaved(false); }} className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm font-mono" />
-                    <span className="text-xs text-stone-400">{distillConfig.autoDistillSchedule === "0 2 * * *" ? "每天 02:00" : distillConfig.autoDistillSchedule === "0 3 * * *" ? "每天 03:00" : ""}</span>
+                    <span className="text-xs text-stone-400">{distillConfig.autoDistillSchedule === "0 2 * * *" ? t("settings.dailyAt") + " 02:00" : distillConfig.autoDistillSchedule === "0 3 * * *" ? t("settings.dailyAt") + " 03:00" : ""}</span>
                   </div>
                   <div className="flex gap-1.5 mt-2">
-                    {[{l:"02:00",v:"0 2 * * *"},{l:"03:00",v:"0 3 * * *"},{l:"06:00",v:"0 6 * * *"},{l:"每 6 小時",v:"0 */6 * * *"}].map(p => (
+                    {[{l:"02:00",v:"0 2 * * *"},{l:"03:00",v:"0 3 * * *"},{l:"06:00",v:"0 6 * * *"},{l:t("cron.templateEvery6h"),v:"0 */6 * * *"}].map(p => (
                       <button key={p.v} onClick={() => { setDistillConfig({ ...distillConfig, autoDistillSchedule: p.v }); setSaved(false); }}
                         className={`text-xs px-2 py-1 rounded-md border ${distillConfig.autoDistillSchedule === p.v ? "border-amber-400 bg-amber-50 text-amber-600" : "border-stone-200 text-stone-500"}`}>
                         {p.l}
@@ -647,7 +647,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
             }} disabled={distillRunning}
               className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50"
               style={{ background: `linear-gradient(135deg, #F59E0B, #D97706)` }}>
-              {distillRunning ? "⏳ 蒸餾中..." : "⚗️ 立即蒸餾"}
+              {distillRunning ? t("settings.distilling") : t("settings.distillNow")}
             </button>
 
             <button onClick={async () => {
@@ -662,7 +662,7 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
               } catch {} setSaving(false);
             }} disabled={saving} className="w-full py-3 rounded-xl text-white font-medium shadow-lg transition-all disabled:opacity-50"
               style={{ background: `linear-gradient(135deg, ${themeInfo.accent}, ${themeInfo.accentHover})` }}>
-              {saving ? "儲存中..." : saved ? "✅ 已儲存" : "儲存蒸餾設定"}
+              {saving ? t("common.saving") : saved ? t("common.saved") : t("settings.saveDistill")}
             </button>
           </div>
         )}
@@ -780,7 +780,7 @@ function ToolsTab() {
           type="text"
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          placeholder="搜尋工具名稱、路徑、分類..."
+          placeholder={tt("settings.searchToolsPlaceholder")}
           className="flex-1 px-3 py-2 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-stone-400"
         />
         <button

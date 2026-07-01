@@ -234,6 +234,7 @@ function SkillPickerDialog({
     onClose: () => void;
 }) {
     const { info: t } = useTheme();
+    const { t: tt } = useI18n();
     const [search, setSearch] = useState("");
     const filtered = skills.filter(sk =>
         sk.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -245,12 +246,12 @@ function SkillPickerDialog({
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border" style={{ borderColor: t.accentBorder }}
                 onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "#e7e5e4" }}>
-                    <h3 className="text-sm font-bold text-stone-700">📦 選擇基底 Skill</h3>
+                    <h3 className="text-sm font-bold text-stone-700">📦 {tt("appBuilder.selectBaseSkill", "選擇基底 Skill")}</h3>
                     <button onClick={onClose} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
                 </div>
                 <div className="px-5 pt-3">
                     <input value={search} onChange={e => setSearch(e.target.value)}
-                        placeholder="搜尋 skill..." autoFocus
+                        placeholder={tt("appBuilder.searchSkillPlaceholder")} autoFocus
                         className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
                         style={{ borderColor: "#d6d3d1" }} />
                 </div>
@@ -354,7 +355,7 @@ export default function AppBuilder() {
             const updated = [...prev];
             for (let i = updated.length - 1; i >= 0; i--) {
                 if (updated[i].role === "assistant" && updated[i].text.includes("處理中")) {
-                    updated[i] = { ...updated[i], text: "✅ 完成！" };
+                    updated[i] = { ...updated[i], text: tt("appBuilder.done") };
                     break;
                 }
             }
@@ -401,7 +402,7 @@ export default function AppBuilder() {
                 const updated = [...prev];
                 for (let i = updated.length - 1; i >= 0; i--) {
                     if (updated[i].role === "assistant") {
-                        updated[i] = { ...updated[i], text: "✅ 完成！" };
+                        updated[i] = { ...updated[i], text: tt("appBuilder.done") };
                         break;
                     }
                 }
@@ -666,9 +667,9 @@ export default function AppBuilder() {
 
     // ── Step indicators ──
     const steps = [
-        { n: 1, label: "選版型", icon: "🎨" },
-        { n: 2, label: "描述需求", icon: "✏️" },
-        { n: 3, label: "生成 & 預覽", icon: "🚀" },
+        { n: 1, label: tt("appBuilder.stepTemplate"), icon: "🎨" },
+        { n: 2, label: tt("appBuilder.stepDescribe"), icon: "✏️" },
+        { n: 3, label: tt("appBuilder.stepGenerate"), icon: "🚀" },
     ];
 
     // ──────────────────────────────────────────────
@@ -719,14 +720,14 @@ export default function AppBuilder() {
                                         {app.status === "published" && (
                                             <button onClick={() => handleUnpublish(app.id)}
                                                 className="text-stone-300 group-hover:text-red-400 transition-colors text-xs ml-1"
-                                                title="下架">🗑️</button>
+                                                title={tt("common.unpublish")}>🗑️</button>
                                         )}
                                         {/* Export App */}
                                         <button onClick={async (e) => {
                                             e.stopPropagation();
                                             try {
                                                 const resp = await fetch(`${API}/api/paaw/apps/${app.id}/export`);
-                                                if (!resp.ok) { alert("匯出失敗"); return; }
+                                                if (!resp.ok) { alert(tt("appBuilder.exportFailed")); return; }
                                                 const blob = await resp.blob();
                                                 const url = URL.createObjectURL(blob);
                                                 const a = document.createElement("a");
@@ -735,7 +736,7 @@ export default function AppBuilder() {
                                             } catch (err: any) { alert(`匯出失敗: ${err.message}`); }
                                         }}
                                             className="text-stone-300 group-hover:text-blue-400 transition-colors text-xs ml-1"
-                                            title="匯出 App">📦</button>
+                                            title={tt("common.export")}>📦</button>
                                     </div>
                                     {app.description && <div className="text-xs text-stone-500 mt-1 line-clamp-1">{app.description}</div>}
                                 </div>
@@ -886,7 +887,7 @@ export default function AppBuilder() {
                                 <label className="block text-sm font-bold text-stone-500 mb-1">App 名稱 *</label>
                                 <input value={reportName}
                                     onChange={e => setReportName(e.target.value)}
-                                    placeholder="例：project-board"
+                                    placeholder={tt("appBuilder.idPlaceholder")}
                                     className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
                                     style={{ borderColor: "#d6d3d1" }} />
                             </div>
@@ -896,7 +897,7 @@ export default function AppBuilder() {
                                 <label className="block text-sm font-bold text-stone-500 mb-1">描述你想要什麼 *</label>
                                 <textarea value={description}
                                     onChange={e => setDescription(e.target.value)}
-                                    placeholder="用自然語言描述，例：做一個專案進度看板，深色主題，顯示各階段任務卡片，可以展開看細節..."
+                                    placeholder={tt("appBuilder.descPlaceholder")}
                                     rows={4}
                                     className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
                                     style={{ borderColor: "#d6d3d1", lineHeight: 1.6 }} />
@@ -984,7 +985,7 @@ export default function AppBuilder() {
                                         className="text-xs text-stone-400 hover:text-stone-600">🔄</button>
                                     {previewReady && previewUrl && (
                                         <button onClick={() => setFullscreen(f => !f)}
-                                            className="text-xs text-stone-400 hover:text-stone-600" title={fullscreen ? "退出全螢幕" : "全螢幕預覽"}>{fullscreen ? "✕" : "⛶"}</button>
+                                            className="text-xs text-stone-400 hover:text-stone-600" title={fullscreen ? tt("common.exitFullscreen") : tt("appBuilder.fullscreenPreview")}>{fullscreen ? "✕" : "⛶"}</button>
                                     )}
                                 </div>
                             </div>
@@ -1003,7 +1004,7 @@ export default function AppBuilder() {
                                         ) : (
                                             <>
                                                 <span className="text-3xl">🖼️</span>
-                                                <p>{previewUrl ? "等待生成完成..." : "請先設定 App 名稱"}</p>
+                                                <p>{previewUrl ? tt("appBuilder.waitingGenerate") : tt("appBuilder.setAppName")}</p>
                                             </>
                                         )}
                                     </div>
@@ -1061,7 +1062,7 @@ export default function AppBuilder() {
                                                 "text-[9px] mb-1 font-semibold",
                                                 msg.role === "user" ? "text-blue-300" : "text-stone-500"
                                             )}>
-                                                {msg.role === "user" ? "你" : "AI"}
+                                                {msg.role === "user" ? tt("common.you") : tt("appBuilder.ai")}
                                             </div>
                                             <div style={{ lineHeight: 1.5 }}>{msg.text}</div>
                                         </div>
@@ -1075,7 +1076,7 @@ export default function AppBuilder() {
                                             value={chatInput}
                                             onChange={e => setChatInput(e.target.value)}
                                             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); handleChatSend(); } }}
-                                            placeholder="輸入微調指令... (Enter 送出，Shift+Enter 換行)"
+                                            placeholder={tt("appBuilder.refinePlaceholder")}
                                             rows={2}
                                             className="flex-1 px-3 py-2 bg-stone-800 border rounded-lg text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-600 resize-none"
                                             style={{ borderColor: "#444", lineHeight: 1.5 }}
@@ -1173,7 +1174,7 @@ export default function AppBuilder() {
                                         <label className="block text-sm font-semibold text-stone-500 mb-1">觸發關鍵字 (逗號分隔)</label>
                                         <input value={appSettings.triggers}
                                             onChange={e => setAppSettings(p => ({ ...p, triggers: e.target.value }))}
-                                            placeholder="翻譯, translate, 幫我翻譯"
+                                            placeholder={tt("appBuilder.skillHintPlaceholder")}
                                             className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300 font-mono text-xs"
                                             style={{ borderColor: "#d6d3d1" }} />
                                     </div>
@@ -1218,7 +1219,7 @@ export default function AppBuilder() {
                                         style={{ backgroundColor: t.accent }}
                                         onMouseEnter={e => { e.currentTarget.style.backgroundColor = t.accentHover; }}
                                         onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}>
-                                        {settingsSaving ? "儲存中..." : "💾 儲存"}
+                                        {settingsSaving ? tt("common.saving") : tt("appBuilder.saveButton")}
                                     </button>
                                 </div>
                             </div>
