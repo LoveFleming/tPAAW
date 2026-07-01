@@ -1134,31 +1134,37 @@ ${userInputLines.join("\n")}
 
       {/* Prompt Preview Modal */}
       {promptPreview && promptPreviewContent && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setPromptPreview(false)}>
-          <div style={{ background: "#1e1e2e", borderRadius: 12, width: 640, maxWidth: "90vw", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4" style={{ maxHeight: "80vh" }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #333" }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>📋 Prompt 預覽</span>
-              <button onClick={() => setPromptPreview(false)} style={{ color: "#888", background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>✕</button>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: theme.accentBorder, backgroundColor: theme.accentBg }}>
+              <h2 className="text-lg font-bold" style={{ color: theme.accentText }}>📋 Prompt 預覽</h2>
+              <button onClick={() => setPromptPreview(false)} className="text-stone-400 hover:text-stone-600 text-2xl leading-none">&times;</button>
             </div>
-            <div style={{ flex: 1, overflow: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
-                <h3 onClick={() => setShowSystemPrompt(v => !v)} style={{ color: "#34d399", fontSize: 14, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
-                  ═ System Prompt ({promptPreviewContent.system.length} chars) ═ {showSystemPrompt ? "▼" : "▶"}
-                </h3>
+            {/* Content */}
+            <div className="overflow-auto p-6 space-y-5" style={{ maxHeight: "calc(80vh - 64px)" }}>
+              <fieldset className="space-y-2">
+                <legend onClick={() => setShowSystemPrompt(v => !v)} className="text-sm font-bold border-b pb-1 w-full cursor-pointer select-none flex items-center gap-2" style={{ color: theme.accentText, borderColor: theme.accentBorder }}>
+                  <span>🟢 System Prompt</span>
+                  <span className="text-stone-400 font-normal">({promptPreviewContent.system.length} chars)</span>
+                  <span className="ml-auto text-stone-400">{showSystemPrompt ? "▼" : "▶"}</span>
+                </legend>
                 {showSystemPrompt && (
-                  <pre style={{ color: "#d1d5db", fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, maxHeight: "35vh", overflow: "auto", margin: 0, lineHeight: 1.6 }}>{promptPreviewContent.system}</pre>
+                  <pre className="text-sm whitespace-pre-wrap break-words bg-stone-50 rounded-lg p-4 border border-stone-200 overflow-auto" style={{ maxHeight: "30vh", lineHeight: 1.7, fontFamily: "ui-monospace, monospace" }}>{promptPreviewContent.system}</pre>
                 )}
-              </div>
-              <div>
-                <h3 onClick={() => setShowUserPrompt(v => !v)} style={{ color: "#fbbf24", fontSize: 14, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
-                  ═ User Prompt ({promptPreviewContent.prompt.length} chars) ═ {showUserPrompt ? "▼" : "▶"}
-                </h3>
+              </fieldset>
+              <fieldset className="space-y-2">
+                <legend onClick={() => setShowUserPrompt(v => !v)} className="text-sm font-bold border-b pb-1 w-full cursor-pointer select-none flex items-center gap-2" style={{ color: theme.accentText, borderColor: theme.accentBorder }}>
+                  <span>🟡 User Prompt</span>
+                  <span className="text-stone-400 font-normal">({promptPreviewContent.prompt.length} chars)</span>
+                  <span className="ml-auto text-stone-400">{showUserPrompt ? "▼" : "▶"}</span>
+                </legend>
                 {showUserPrompt && (
-                  <pre style={{ color: "#d1d5db", fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 14, maxHeight: "35vh", overflow: "auto", margin: 0, lineHeight: 1.6 }}>{promptPreviewContent.prompt}</pre>
+                  <pre className="text-sm whitespace-pre-wrap break-words bg-stone-50 rounded-lg p-4 border border-stone-200 overflow-auto" style={{ maxHeight: "30vh", lineHeight: 1.7, fontFamily: "ui-monospace, monospace" }}>{promptPreviewContent.prompt}</pre>
                 )}
-              </div>
+              </fieldset>
             </div>
           </div>
         </div>
