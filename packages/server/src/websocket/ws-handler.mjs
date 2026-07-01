@@ -55,7 +55,7 @@ export function setupWebSocket() {
         // PAAW Agent Mode — no CLI spawn, uses runAgentLoop
         // ════════════════════════════════════════════════════════════
         if (opts.engine === "paaw-agent" || opts.cli === "paaw-agent") {
-          console.log(`[PTY] Agent mode session: ${sessionId} (cwd: ${opts.cwd || PAAW_ROOT})`);
+          console.log(`[PTY] Agent mode session: ${sessionId} (cwd: ${opts.cwd || PAAW_ROOT}, systemPrompt: ${(opts.systemPrompt || "").length} chars)`);
           const agentCwd = opts.cwd || PAAW_ROOT;
           const agentState = {
             id: sessionId,
