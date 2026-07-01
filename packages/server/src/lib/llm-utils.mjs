@@ -15,9 +15,9 @@
 
 // ── 配置 ──
 
-const DEFAULT_MAX_RETRIES = 3;
-const DEFAULT_BASE_DELAY_MS = 1000;   // 首次 retry 等 1s
-const DEFAULT_MAX_DELAY_MS = 15000;   // 最多等 15s
+const DEFAULT_MAX_RETRIES = 5;           // 3 → 5 (zai GLM 429 needs more retries)
+const DEFAULT_BASE_DELAY_MS = 2000;     // 1s → 2s (first retry wait longer)
+const DEFAULT_MAX_DELAY_MS = 30000;     // 15s → 30s (zai 429 can need 20s+)
 const DEFAULT_TIMEOUT_MS = 60_000;    // API call timeout 60s
 
 // 判定為 retryable 的 HTTP status
@@ -174,16 +174,25 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
 
       // 如果是 retryable HTTP status，retry
       if (isRetryableError(null, resp.status) && attempt < maxRetries) {
-        const delay = calcBackoff(attempt, baseDelayMs, maxDelayMs);
+        const retryAfter = resp.headers.get('Retry-After');
+        let delay;
+        if (retryAfter) {
+          const parsed = Number(retryAfter);
+          delay = parsed > 0 ? parsed * 1000 : calcBackoff(attempt, baseDelayMs, maxDelayMs);
+          delay = Math.min(delay, 60_000);
+        } else {
+          delay = calcBackoff(attempt, baseDelayMs, maxDelayMs);
+        }
         const retryInfo = {
           attempt: attempt + 1,
           maxRetries,
           status: resp.status,
           delayMs: delay,
+          retryAfter: !!retryAfter,
           url,
         };
         if (onRetry) onRetry(retryInfo);
-        console.warn(`[LLM-Utils] Retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status})`);
+        console.warn(`[LLM-Utils] Retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status}${retryAfter ? ', Retry-After: ' + retryAfter : ''})`);
         await sleep(delay);
         continue;
       }
@@ -367,9 +376,19 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
 
       // retryable status → retry
       if (isRetryableError(null, resp.status) && attempt < maxRetries) {
-        const delay = calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
-        if (onRetry) onRetry({ attempt: attempt + 1, status: resp.status, delayMs: delay });
-        console.warn(`[LLM-Utils] Stream retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status})`);
+        // Respect Retry-After header if present
+        const retryAfter = resp.headers.get('Retry-After');
+        let delay;
+        if (retryAfter) {
+          const parsed = Number(retryAfter);
+          // Retry-After can be seconds or HTTP-date
+          delay = parsed > 0 ? parsed * 1000 : calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
+          delay = Math.min(delay, 60_000); // cap at 60s even with Retry-After
+        } else {
+          delay = calcBackoff(attempt, DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS);
+        }
+        if (onRetry) onRetry({ attempt: attempt + 1, status: resp.status, delayMs: delay, retryAfter: !!retryAfter });
+        console.warn(`[LLM-Utils] Stream retry ${attempt + 1}/${maxRetries} in ${delay}ms (HTTP ${resp.status}${retryAfter ? ', Retry-After: ' + retryAfter : ''})`);
         await sleep(delay);
         continue;
       }
