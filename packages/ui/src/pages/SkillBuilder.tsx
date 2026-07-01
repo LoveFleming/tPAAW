@@ -395,6 +395,16 @@ export default function SkillBuilder() {
     }).catch(() => {});
   }, []);
 
+  // Load skill-builder context on mount so AgentConsole always has the right system prompt
+  useEffect(() => {
+    fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skillDef: "" }),
+    }).then(r => r.ok ? r.json() : null).then((ctx: any) => {
+      if (ctx?.systemPrompt) setBuildSystemPrompt(ctx.systemPrompt);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetch(`${API_BASE}/api/paaw-root`).then(r => r.ok ? r.json() : {}).then((d: { paawRoot?: string }) => { if (d.paawRoot) setWorkingDir(d.paawRoot); }).catch(() => {});
   }, []);
@@ -551,7 +561,7 @@ export default function SkillBuilder() {
       } catch { /* context-engine unavailable, use raw skillDef */ }
     }
     if (!chatStarted) { setInitialPrompt(prompt); setChatStarted(true); setConsoleKey(prev => prev + 1); }
-    else { terminalRef.current?.sendPrompt(prompt); }
+    else { terminalRef.current?.sendPrompt(prompt, buildSystemPrompt); }
   };
 
   // ── Test: just use the built SKILL.md + user input ──

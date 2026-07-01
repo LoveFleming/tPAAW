@@ -307,6 +307,14 @@ export function setupWebSocket() {
           session.pty.write((msg.text || "").replace(/\n/g, "\r\n") + "\r");
         } catch {}
       }
+      else if (msg.type === "set_system_prompt") {
+        // Update systemPrompt for an active agent session (e.g. Skill Builder rebuild)
+        const agentState = agentSessions.get(ws);
+        if (agentState) {
+          agentState.systemPrompt = msg.systemPrompt || null;
+          console.log(`[Agent] Updated systemPrompt for session ${agentState.id} (${(msg.systemPrompt || "").length} chars)`);
+        }
+      }
       else if (msg.type === "resize") {
         const session = ptySessions.get(ws);
         if (session?.pty && msg.cols && msg.rows) {

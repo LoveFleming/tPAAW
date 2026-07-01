@@ -15,7 +15,7 @@ interface AgentConsoleProps {
 }
 
 export interface AgentConsoleHandle {
-  sendPrompt: (text: string) => void;
+  sendPrompt: (text: string, newSystemPrompt?: string) => void;
 }
 
 interface ChatMessage {
@@ -69,8 +69,12 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
 
   // Expose sendPrompt to parent
   React.useImperativeHandle(ref, () => ({
-    sendPrompt: (text: string) => {
+    sendPrompt: (text: string, newSystemPrompt?: string) => {
       if (!text.trim()) return;
+      // If systemPrompt changed, update it on the agent session
+      if (newSystemPrompt && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "set_system_prompt", systemPrompt: newSystemPrompt }));
+      }
       sendMessage(text.trim());
     },
   }), []);
