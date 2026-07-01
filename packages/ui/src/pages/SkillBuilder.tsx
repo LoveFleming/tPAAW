@@ -549,18 +549,19 @@ export default function SkillBuilder() {
     } else {
       const skillDef = buildSkillMd(form);
       userPrompt = skillDef;
-      try {
-        const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ skillDef }),
-        });
-        if (res.ok) {
-          const ctx = await res.json();
-          userPrompt = ctx.prompt || skillDef;
-          if (ctx.systemPrompt) systemPrompt = ctx.systemPrompt;
-        }
-      } catch {}
     }
+    // Fetch FINAL system prompt (exactly what AI will receive)
+    try {
+      const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/preview`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillDef: userPrompt, model }),
+      });
+      if (res.ok) {
+        const ctx = await res.json();
+        if (ctx.systemPrompt) systemPrompt = ctx.systemPrompt;
+        if (ctx.prompt) userPrompt = ctx.prompt;
+      }
+    } catch {}
     setPromptPreviewContent({ system: systemPrompt, prompt: userPrompt });
     setPromptPreview(true);
   };

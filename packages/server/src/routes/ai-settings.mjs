@@ -322,6 +322,39 @@ export default async function aiSettingsRoutes(req, res) {
     return true;
   }
 
+  // POST /api/ai-settings/skill-builder/preview — get FINAL system prompt (exactly what AI receives)
+  const previewMatch = req.method === "POST" && path === "/api/ai-settings/skill-builder/preview";
+  if (previewMatch) {
+    try {
+      const { skillDef = "", model } = JSON.parse(await readBody(req));
+      const { contextEngine } = await import("../context-engine.mjs");
+      const ctx = await contextEngine.build({ target: "skill-builder", skillDef });
+      // Simulate buildSystemPrompt from paaw-agent-loop
+      const { resolve, dirname } = await import("path");
+      const { readFileSync: readSync } = await import("fs");
+      const { fileURLToPath } = await import("url");
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const parts = [];
+      if (ctx.systemPrompt) parts.push(ctx.systemPrompt);
+      // workspace paths (from buildBaseContext, may already be in systemPrompt, but add cwd)
+      const PAAW_R = resolve(__dirname, "../../../../");
+      try {
+        const ws = JSON.parse(readSync(resolve(PAAW_R, "data/config/workspaces.json"), "utf-8"));
+        if (ws.directories?.length) {
+          parts.push(`\n=== 檔案路徑 ===\n📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。\n\n使用者的 Workspace 目錄（可讀寫）：\n${ws.directories.map(d => "- " + d).join("\n")}`);
+        }
+      } catch {}
+      parts.push(`\nWorking directory: ${PAAW_R}`);
+      parts.push(`\n## Your Tools\n- **read_file** — Read file contents\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n- **ask_user** — Ask for clarification`);
+      const finalSystemPrompt = parts.join("\n");
+      json(res, { systemPrompt: finalSystemPrompt, prompt: ctx.prompt || skillDef, model });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
   // ── Workspaces API ──
   // GET /api/workspaces — list workspace directories (AI can access/modify)
   if (req.method === "GET" && path === "/api/workspaces") {
