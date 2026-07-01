@@ -401,17 +401,16 @@ export default async function skillsApiRoute(req, res) {
         return true;
       }
 
-      // Build full system context via context-engine (same as Skill Builder)
+      // Build full system context via context-engine (reads data/ai-settings/skill-builder/*.md)
       const { contextEngine } = await import("../context-engine.mjs");
       const ctx = await contextEngine.build({ target: "skill-builder" });
       const systemPrompt = ctx.systemPrompt || "";
-      // Append output format rules on top of full context
-      const outputRules = `\n\n### Output Rules\n- 輸出必須是完整的 SKILL.md 檔案內容，包含 YAML frontmatter 和 markdown body\n- frontmatter 必須包含: id, name, version, description, category, tags, userInputs\n- 每個 userInput 必須有: id, label, description, placeholder, required, type, multiline\n- body 必須使用標準 markdown section 標題（不用 @@@ 格式）：\n  ## Purpose — 這個 Skill 做什麼\n  ## Inputs — 輸入欄位說明\n  ## Deterministic Script\n    ### Tool Access — 可用工具\n    ### Execution Steps — 執行步驟（要有編號、具體可執行）\n    ### Business Rules — 業務規則\n    ### Error Handling — 錯誤處理（至少 2 種情境）\n  ## Guardrails — 安全限制\n  ## Output Contract — 輸出格式（含 JSON schema 範例）\n  ## Validation — 驗證規則\n- 每個 section 都要寫實際內容，不要留空\n- 語言：繁體中文，技術術語保留英文\n- id 用英文 kebab-case\n- Output Contract 必須包含「輸出模式：file | display | both」\n- 只輸出 SKILL.md 內容，不加任何解釋或 markdown code fence\n- 不要使用任何工具，直接輸出文字\n\n### 參考模板\n請參考 data/skills/physical-skill/skill-creator/SKILL.md 的 Output Format section 作為格式標準。`;
+      // Output rules are now in data/ai-settings/skill-builder/output-rules.md
 
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
         model: llm.model,
         messages: [
-          { role: "system", content: systemPrompt + outputRules },
+          { role: "system", content: systemPrompt },
           { role: "user", content: `請根據以下需求，產出完整的 SKILL.md：\n\n${requirement}` },
         ],
         max_tokens: 8192,
