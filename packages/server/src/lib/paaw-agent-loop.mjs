@@ -70,12 +70,14 @@ function resolveLLMConfig(rootDir, modelOverride) {
   if (!config) throw new Error("No provider config found");
 
   // Parse "providerId/modelId" format (from ModelSelector)
+  // Model ID may contain "/" (e.g. "deepseek/deepseek-v4-flash")
   let providerId = config.active;
   let model = modelOverride || config.defaultModel || "glm-5.1";
   if (modelOverride && modelOverride.includes("/")) {
-    const [pid, mid] = modelOverride.split("/", 2);
-    providerId = pid;
-    model = mid;
+    // First segment = providerId, rest = modelId
+    const firstSlash = modelOverride.indexOf("/");
+    providerId = modelOverride.slice(0, firstSlash);
+    model = modelOverride.slice(firstSlash + 1);
   }
 
   const provider = config.providers[providerId];
