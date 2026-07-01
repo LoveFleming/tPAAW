@@ -1136,7 +1136,7 @@ ${userInputLines.join("\n")}
       {promptPreview && promptPreviewContent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setPromptPreview(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4" style={{ maxHeight: "80vh" }}
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden" style={{ maxHeight: "80vh" }}
             onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: theme.accentBorder, backgroundColor: theme.accentBg }}>
