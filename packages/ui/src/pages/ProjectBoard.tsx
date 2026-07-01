@@ -573,9 +573,9 @@ function ProjectFormModal({ tk, tt, project, onClose, onSave }: { tk: any; tt: (
         <textarea className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary, resize: "none" }} rows={2} placeholder={tt("common.description")} value={desc} onChange={e => setDesc(e.target.value)} />
         <div className="flex gap-2">
           <select className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="todo">{"待辦"}</option>
-            <option value="in-progress">{"進行中"}</option>
-            <option value="done">{"已完成"}</option>
+            <option value="todo">{tt("project.statusTodo")}</option>
+            <option value="in-progress">{tt("project.statusProgress")}</option>
+            <option value="done">{tt("project.statusDone")}</option>
           </select>
           <input type="date" className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={startDate} onChange={e => setStartDate(e.target.value)} />
           <input type="date" className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={targetDate} onChange={e => setTargetDate(e.target.value)} />
@@ -632,9 +632,9 @@ function TaskFormModal({ tk, tt, task, onClose, onSave }: { tk: any; tt: (k: str
           </select>
           {task && (
             <select className={inputCls} style={{ borderColor: tk.border, color: tk.textPrimary }} value={status} onChange={e => setStatus(e.target.value)}>
-              <option value="todo">{"待辦"}</option>
-              <option value="progress">{"進行中"}</option>
-              <option value="done">{"已完成"}</option>
+              <option value="todo">{tt("project.statusTodo")}</option>
+              <option value="progress">{tt("project.statusProgress")}</option>
+              <option value="done">{tt("project.statusDone")}</option>
             </select>
           )}
         </div>
