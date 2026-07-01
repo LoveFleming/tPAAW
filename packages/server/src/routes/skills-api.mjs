@@ -386,9 +386,9 @@ export default async function skillsApiRoute(req, res) {
         let llmModel = model || pCfg.defaultModel || "glm-5.1";
         // Parse "providerId/modelId" format
         if (model && model.includes("/")) {
-          const [pid, mid] = model.split("/", 2);
-          providerId = pid;
-          llmModel = mid;
+          const idx = model.indexOf("/");
+          providerId = model.slice(0, idx);
+          llmModel = model.slice(idx + 1);
         }
         const provider = pCfg.providers[providerId];
         const baseURL = provider.baseURL.replace(/\/+$/, "");

@@ -71,9 +71,9 @@ function resolveLLM(modelOverride) {
   let providerId = config.active;
   let modelId = modelOverride || config.defaultModel || "glm-5.1";
   if (modelOverride && modelOverride.includes("/")) {
-    const [pid, mid] = modelOverride.split("/", 2);
-    providerId = pid;
-    modelId = mid;
+    const idx = modelOverride.indexOf("/");
+    providerId = modelOverride.slice(0, idx);
+    modelId = modelOverride.slice(idx + 1);
   }
   const provider = config.providers?.[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);

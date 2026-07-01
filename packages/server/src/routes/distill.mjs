@@ -152,9 +152,9 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride
     let model = modelOverride || providerConfig.defaultModel || "glm-5.1";
     // Parse "providerId/modelId" format
     if (modelOverride && modelOverride.includes("/")) {
-      const [pid, mid] = modelOverride.split("/", 2);
-      providerId = pid;
-      model = mid;
+      const idx = modelOverride.indexOf("/");
+      providerId = modelOverride.slice(0, idx);
+      model = modelOverride.slice(idx + 1);
     }
     const provider = providerConfig.providers[providerId];
     if (!provider?.apiKey || provider.apiKey === "na") {
