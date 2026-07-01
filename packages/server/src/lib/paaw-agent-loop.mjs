@@ -577,32 +577,28 @@ async function callLLM(apiUrl, headers, model, messages, tools, stream = false) 
 function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
   const parts = [];
 
-  parts.push(`You are PAAW Agent, an AI coding assistant. You help users write, edit, and debug code.
+  // Load agent loop system prompt from ai-settings
+  const AGENT_LOOP_PROMPT_PATH = resolve(__dirname, "../../../data/ai-settings/agent-loop/system-prompt.md");
+  let agentBase = "";
+  try { agentBase = readSync(AGENT_LOOP_PROMPT_PATH, "utf-8").trim(); } catch {}
+  if (agentBase) {
+    parts.push(agentBase);
+  } else {
+    // Fallback
+    parts.push(`You are PAAW Agent, an AI coding assistant. You help users write, edit, and debug code.\n\nAlways use ABSOLUTE paths. The working directory is: ${cwd}`);
+  }
 
-## Your Tools (aligned with Claude Code)
-- **read_file** — Read file contents, with optional line offset/limit for large files
-- **write_file** — Write or create files (auto-creates parent dirs)
-- **edit_file** — Precise text replacement in existing files (old_text must be unique)
-- **glob** — Find files by name pattern (e.g. '**/*.tsx', '*.json')
-- **grep** — Search file contents with ripgrep (regex, line numbers, file filtering)
-- **diff** — Show differences: file-to-file or git diff against a branch/commit
-- **git** — Run git commands (status, log, add, commit, push, branch, checkout...)
-- **bash** — Run any shell command (build, test, npm, pip, curl...)
-- **ask_user** — Ask for clarification when needed
+  // Inject base context: knowledge + workspace paths (required for every AI request)
+  const PAAW_R = resolve(__dirname, "../../../");
+  try {
+    const ws = JSON.parse(readSync(resolve(PAAW_R, "data/config/workspaces.json"), "utf-8"));
+    if (ws.directories?.length) {
+      parts.push(`\n=== 檔案路徑 ===\n📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。\n\n使用者的 Workspace 目錄（可讀寫）：\n${ws.directories.map(d => "- " + d).join("\n")}`);
+    }
+  } catch {}
 
-## Rules
-1. Always use ABSOLUTE paths when reading or writing files. The working directory is: ${cwd}
-2. Before writing code, read existing files and use glob/grep to understand the project structure
-3. Use edit_file for small changes, write_file for new files or large rewrites
-4. Use grep to find relevant code before making changes
-5. Use diff to review your changes before committing
-6. Run tests/builds after making changes to verify correctness (bash)
-7. Be concise and focused — complete the task efficiently
-8. If something is unclear, use ask_user
-9. Never delete files unless explicitly asked
-10. Keep changes minimal — don't rewrite entire files for small edits
-11. Cross-platform: your tools work on both Windows and Linux/macOS. When using bash for shell commands, prefer cross-platform commands (git, npm, node) or use platform-appropriate syntax.
-12. When referencing data files in prompts or configs, always use absolute paths starting from the project root: ${cwd}`);
+  // Inject cwd dynamically (cannot be in static file)
+  parts.push(`\nWorking directory: ${cwd}`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

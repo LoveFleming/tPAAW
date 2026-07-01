@@ -13,6 +13,9 @@ import {
   DATA_ROOT, PAAW_ROOT, VIBE_SESSIONS_DIR,
   readBody,
 } from "./shared.mjs";
+
+// ── AI Settings paths ──
+const DISTILL_VIBE_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/distill/vibe.md");
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
 
 async function readBodyStr(req) {
@@ -180,16 +183,12 @@ export default async function vibeSessionsRoute(req, res) {
         let body = {};
         try { body = JSON.parse(await readBodyStr(req)); } catch {}
 
-        const distillPrompt = body.prompt || `你是程式開發知識蒸餾器。請分析以下 AI CLI coding session 的完整 log，精煉出：
-
-1. **任務摘要**：做了什麼、為什麼做
-2. **關鍵決策**：選擇了什麼方案、為什麼
-3. **技術要點**：用到的技術、工具、技巧
-4. **遇到的問題與解法**：bug、error、如何解決
-5. **產出的成果**：建立了哪些檔案、功能
-6. **可復用的模式**：值得記住的模式、最佳實踐
-
-請用 Markdown 格式輸出，簡潔但有價值。這個摘要會存入知識庫供未來參考。`;
+        // Load distill prompt from ai-settings
+        let distillPrompt = body.prompt;
+        if (!distillPrompt) {
+          try { distillPrompt = readFileSync(DISTILL_VIBE_PROMPT_PATH, "utf-8").trim(); } catch {}
+        }
+        if (!distillPrompt) distillPrompt = "請分析以下 session log，精煉出：\n1. 任務摘要\n2. 關鍵決策\n3. 技術要點\n4. 問題與解法\n5. 成果\n6. 可復用模式\n\n用 Markdown 格式輸出。";
 
         const fullPrompt = `${distillPrompt}\n\n---\nSession: ${meta.cli} | CWD: ${meta.cwd} | Mode: ${meta.approvalMode}\nDate: ${meta.createdAt}\n\n<log>\n${logContent}\n</log>`;
 
@@ -206,10 +205,17 @@ export default async function vibeSessionsRoute(req, res) {
               Authorization: `Bearer ${provider.apiKey}`,
               ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
             };
+            // Prepend base context (knowledge + workspace dirs)
+            let fullSystemPrompt = distillPrompt;
+            try {
+              const { contextEngine } = await import("../context-engine.mjs");
+              const ctx = await contextEngine.build({ target: "distill" });
+              if (ctx.systemPrompt) fullSystemPrompt = ctx.systemPrompt + "\n\n" + distillPrompt;
+            } catch {}
             const reqBody = {
               model,
               messages: [
-                { role: "system", content: distillPrompt },
+                { role: "system", content: fullSystemPrompt },
                 { role: "user", content: fullPrompt },
               ],
               max_tokens: 4096,

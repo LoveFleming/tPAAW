@@ -4,7 +4,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, rm, stat } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import {
   yaml,
@@ -405,13 +405,18 @@ export default async function skillsApiRoute(req, res) {
       const { contextEngine } = await import("../context-engine.mjs");
       const ctx = await contextEngine.build({ target: "skill-builder" });
       const systemPrompt = ctx.systemPrompt || "";
-      // Output rules are now in data/ai-settings/skill-builder/output-rules.md
+      // Output rules and generate prompt are now in data/ai-settings/skill-builder/*.md
+
+      // Load generate prompt template
+      let genPrompt = "";
+      try { genPrompt = readFileSync(resolve(PAAW_ROOT, "data/ai-settings/skill-builder/generate-prompt.md"), "utf-8").trim(); } catch {}
+      if (!genPrompt) genPrompt = "請根據以下需求，產出完整的 SKILL.md：";
 
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
         model: llm.model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `請根據以下需求，產出完整的 SKILL.md：\n\n${requirement}` },
+          { role: "user", content: `${genPrompt}\n\n${requirement}` },
         ],
         max_tokens: 8192,
         temperature: 0.7,

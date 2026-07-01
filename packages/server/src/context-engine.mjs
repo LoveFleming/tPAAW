@@ -291,12 +291,14 @@ export const contextEngine = {
       case "chat":          return this._buildChat(params);
       case "skill-exec":    return this._buildSkillExec(params);
       case "workflow":      return this._buildWorkflow(params);
+      case "workflow":     return this._buildWorkflow(params);
       case "crew":          return this._buildCrew(params);
       case "skill-builder": return this._buildSkillBuilder(params);
       case "mindmap":       return this._buildMindmap(params);
       case "notes":         return this._buildNotes(params);
       case "project":       return this._buildProject(params);
       case "distill":       return this._buildDistill(params);
+      case "app-exec":     return this._buildAppExec(params);
       case "app-builder":   return this._buildAppBuilder(params);
       case "coding":        return this._buildCoding(params);
       default:              return { systemPrompt: "" };
@@ -409,8 +411,9 @@ export const contextEngine = {
 
     const parts = [
       buildBaseContext(),
+      buildDynamicContext(),
       ...readCategoryFiles("crew"),
-      "你是 PAAW Workflow 執行引擎。按照 Skill 定義逐步處理。",
+      ...readCategoryFiles("workflow"),
     ];
 
     return { systemPrompt: parts.join("\n\n"), prompt, provider, meta: { skillMeta } };
@@ -441,6 +444,21 @@ export const contextEngine = {
     ];
     const tools = buildRuntimeTools();
     if (tools) parts.push(tools);
+    return { systemPrompt: parts.join("\n\n"), provider };
+  },
+
+  // ── App Exec：base + dynamic + app-exec/ rules + skill contents ──
+  _buildAppExec(params) {
+    const { appName = "", skillsSection = "", inputSection = "" } = params;
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      buildDynamicContext(),
+      ...readCategoryFiles("app-exec"),
+    ];
+    // Inject app-specific runtime data
+    const appContext = `## App: ${appName}\n\n${skillsSection}\n\n## === 輸入參數 ===\n${inputSection}`;
+    parts.push(appContext);
     return { systemPrompt: parts.join("\n\n"), provider };
   },
 

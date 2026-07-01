@@ -49,16 +49,10 @@ function safeReadDistillPrompt() {
 const DISTILL_PROMPTS_DIR = resolve(PAAW_ROOT, "data/ai-settings/distill");
 
 function loadDistillPrompt(source) {
-  // Try file first
+  // Load from data/ai-settings/distill/{source}.md
   try { return readFileSync(resolve(DISTILL_PROMPTS_DIR, `${source}.md`), "utf-8").trim(); } catch {}
-  // Fallback to inline defaults
-  const defaults = {
-    chat: `你是程式開發知識蒸餾器。請分析以下 AI 對話紀錄，精煉出：\n\n1. **任務摘要**：做了什麼、為什麼做\n2. **關鍵決策**：選擇了什麼方案、為什麼\n3. **技術要點**：用到的技術、工具、技巧\n4. **遇到的問題與解法**：bug、error、如何解決\n5. **產出的成果**：建立了哪些檔案、功能\n6. **可復用的模式**：值得記住的模式、最佳實踐\n\n用 Markdown 格式輸出，簡潔有價值。`,
-    vibe: `你是程式開發知識蒸餾器。請分析以下 AI CLI coding session 的 log，精煉出：\n\n1. **任務摘要**：做了什麼\n2. **關鍵決策**：選擇了什麼方案\n3. **技術要點**：用到的技術和工具\n4. **遇到的問題與解法**\n5. **產出的成果**\n6. **可復用的模式**\n\n用 Markdown 格式輸出。`,
-    cron: `請分析以下排程任務執行紀錄，摘要出：\n1. 執行了哪些任務\n2. 結果如何（成功/失敗）\n3. 有什麼值得注意的異常\n用 Markdown 格式輸出。`,
-    "vibe-coding": `你是程式開發知識蒸餾器。請分析以下 Coding IDE 的操作紀錄，精煉出：\n\n1. **工作模式**：開發者花了最多時間在哪些檔案\n2. **編輯模式**：主要的編輯類型（新增/修改/重構）\n3. **AI 互動**：問了 AI 什麼、AI 回答了什麼\n4. **技術要點**：用到的技術和工具\n5. **開發洞見**：可以改善的工作流程\n\n用 Markdown 格式輸出。`,
-  };
-  return defaults[source] || "摘要以下內容：";
+  // Fallback: generic distill prompt
+  return `請分析以下紀錄，精煉出：\n1. **任務摘要**\n2. **關鍵決策**\n3. **技術要點**\n4. **問題與解法**\n5. **成果**\n6. **可復用模式**\n\n用 Markdown 格式輸出。`;
 }
 
 const DEFAULT_CONFIG = {
@@ -260,11 +254,17 @@ async function distillSourceDate(source, dateStr, config, modelOverride) {
     content = content.slice(0, config.maxLogSizeForLLM || 50000) + "\n\n... (截斷)";
   }
 
-  // Call LLM — build full system context + distill prompt
+  // Call LLM — build full system context (knowledge + workspace + distill prompt)
   let distillSystemPrompt = loadDistillPrompt(source);
   try {
     const distillBase = safeReadDistillPrompt();
     if (distillBase) distillSystemPrompt = distillBase + "\n\n" + distillSystemPrompt;
+  } catch {}
+  // Prepend base context (knowledge paths + workspace dirs)
+  try {
+    const { contextEngine } = await import("../context-engine.mjs");
+    const ctx = await contextEngine.build({ target: "distill" });
+    if (ctx.systemPrompt) distillSystemPrompt = ctx.systemPrompt + "\n\n" + distillSystemPrompt;
   } catch {}
 
   const distilled = await callLLM(

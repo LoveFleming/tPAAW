@@ -265,7 +265,15 @@ export default async function appsRoute(req, res) {
 
         const skillsSection = skillContents.map(s => `## === Skill: ${s.name} ===\n${s.body}`).join("\n\n");
         const inputSection = Object.entries(args).filter(([, v]) => v !== undefined).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`).join("\n");
-        const systemPrompt = `你是「${appMeta.name || appId}」App 的執行引擎。你必須嚴格按照以下 Skill 定義（deterministic script）來處理。\n\n${skillsSection}\n\n## === 輸入參數 ===\n${inputSection}\n\n## === 輸出指示 ===\n只輸出結果。如果是結構化資料，輸出 JSON（不要加 markdown code block）。不要加解釋。`;
+
+        // Build context via contextEngine (includes knowledge + workspace paths)
+        let baseContext = "";
+        try {
+          const { contextEngine } = await import("../context-engine.mjs");
+          const ctx = await contextEngine.build({ target: "app-exec", appName: appMeta.name || appId, skillsSection, inputSection });
+          baseContext = ctx.systemPrompt || "";
+        } catch {}
+        const systemPrompt = baseContext || `你是「${appMeta.name || appId}」App 的執行引擎。你必須嚴格按照以下 Skill 定義（deterministic script）來處理。\n\n${skillsSection}\n\n## === 輸入參數 ===\n${inputSection}\n\n## === 輸出指示 ===\n只輸出結果。如果是結構化資料，輸出 JSON（不要加 markdown code block）。不要加解釋。`;
 
         if (wantStream) {
           res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
@@ -367,26 +375,19 @@ export default async function appsRoute(req, res) {
       const dataFile = join(outDir, "_skill_data.json");
       await writeFile(dataFile, JSON.stringify({ skills: skillData, apps: appData }, null, 2), "utf-8");
 
-      const systemPrompt = `你是 PAAW 的數據分析師。請讀取 ${dataFile} 中的即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。
+      // Build context via contextEngine (includes knowledge + workspace paths + data-analyst rules)
+      let baseSystem = "";
+      try {
+        const { contextEngine } = await import("../context-engine.mjs");
+        const ctx = await contextEngine.build({ target: "app-exec" });
+        baseSystem = ctx.systemPrompt || "";
+      } catch {}
 
-## 摘要
-- Total Skills: ${summary.totalSkills}
-- Input-Prompt Skills: ${summary.inputPromptSkills}
-- Physical Skills: ${summary.physicalSkills}
-- Apps: ${summary.totalApps}
-- Categories: ${JSON.stringify(summary.categories)}
+      const dynamicData = `## 摘要\n- Total Skills: ${summary.totalSkills}\n- Input-Prompt Skills: ${summary.inputPromptSkills}\n- Physical Skills: ${summary.physicalSkills}\n- Apps: ${summary.totalApps}\n- Categories: ${JSON.stringify(summary.categories)}\n\n先讀取 ${dataFile} 取得完整資料，再生成 HTML。\n使用 write_file 將完整 HTML 寫到 ${join(outDir, "app.html")}`;
 
-## 輸出要求
-- 生成完整的 HTML 頁面 (<!DOCTYPE html>...<\/html>)
-- 包含統計卡片：Total Skills, Input-Prompt Skills, Physical Skills, Apps
-- 包含圓餅圖 (skill kind 分佈) 和長條圖 (category 分佈)，使用 Chart.js
-- 包含完整 skill 清單表格，可搜尋、排序
-- 樣式：Stone 色系，圓角卡片，現代感 UI
-- 所有數字必須來自資料檔案，不可編造
-- 標題顯示「載入時間」為現在
-- 先讀取 ${dataFile} 取得完整資料，再生成 HTML
-- 使用 write_file 將完整 HTML 寫到 ${join(outDir, "app.html")}
-${userPrompt ? `\n額外指示: ${userPrompt}` : ""}`;
+      const systemPrompt = baseSystem
+        ? baseSystem + "\n\n" + dynamicData + (userPrompt ? `\n\n額外指示: ${userPrompt}` : "")
+        : `你是 PAAW 的數據分析師。請讀取 ${dataFile} 中的即時資料，生成一份完整的 Skill Counting Report (HTML 頁面)。\n\n${dynamicData}\n\n## 輸出要求\n- 生成完整的 HTML 頁面 (<!DOCTYPE html>...</html>)\n- 包含統計卡片：Total Skills, Input-Prompt Skills, Physical Skills, Apps\n- 包含圓餅圖 (skill kind 分佈) 和長條圖 (category 分佈)，使用 Chart.js\n- 包含完整 skill 清單表格，可搜尋、排序\n- 樣式：Stone 色系，圓角卡片，現代感 UI\n- 所有數字必須來自資料檔案，不可編造\n- 標題顯示「載入時間」為現在${userPrompt ? `\n\n額外指示: ${userPrompt}` : ""}`;
 
       res.writeHead(200, { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache" });
       res.write(JSON.stringify({ type: "status", data: { message: `Agent Loop 正在計算 ${appId}...` } }) + "\n");

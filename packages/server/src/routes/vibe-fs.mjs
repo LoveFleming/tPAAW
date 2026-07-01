@@ -9,6 +9,9 @@ import { join, resolve, dirname } from "path";
 import { spawn } from "child_process";
 import { normalizePath, PAAW_ROOT, DATA_ROOT, PORT } from "./shared.mjs";
 
+// ── AI Settings paths ──
+const CODE_REVIEW_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/coding/code-review.md");
+
 // ── Helper: run git command ──
 async function runGit(args, cwd) {
   return new Promise((resolve) => {
@@ -179,18 +182,12 @@ export default async function vibeFsRoute(req, res) {
     try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
     const { diff, commits, context } = body;
 
-    const prompt = `你是資深程式碼審查員。請 review 以下 git 變更並產生審查意見：
+    // Load code review prompt from ai-settings
+    let reviewPrompt = "";
+    try { reviewPrompt = readFileSync(CODE_REVIEW_PROMPT_PATH, "utf-8"); } catch {}
+    if (!reviewPrompt) reviewPrompt = "你是資深程式碼審查員。請 review 以下 git 變更並產生審查意見。";
 
-${diff ? "## Diff\n```diff\n" + diff.slice(0, 8000) + "\n```" : ""}
-${commits?.length ? "\n## Recent Commits\n" + commits.map(c => `- ${c.short} ${c.subject} (${c.author})`).join("\n") : ""}
-${context ? "\n## Context\n" + context : ""}
-
-請用以下格式輸出：
-1. **總覽**：這次變更的目的和範圍
-2. **問題**：發現的 bug、安全問題、效能問題（附行號）
-3. **建議**：改善建議（附具體程式碼）
-4. **亮點**：做得好的地方
-5. **嚴重程度**：🔴 Critical / 🟡 Warning / 🟢 Good`;
+    const prompt = `${reviewPrompt}\n\n${diff ? "## Diff\n```diff\n" + diff.slice(0, 8000) + "\n```" : ""}\n${commits?.length ? "\n## Recent Commits\n" + commits.map(c => `- ${c.short} ${c.subject} (${c.author})`).join("\n") : ""}\n${context ? "\n## Context\n" + context : ""}`;
 
     try {
       const chatRes = await fetch(`http://127.0.0.1:${PORT}/api/chat`, {

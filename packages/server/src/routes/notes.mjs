@@ -54,7 +54,7 @@ function getSystemPrompt() {
   try {
     return readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
   } catch {
-    return "你是一個專業的筆記整理助手。將使用者提供的內容整理成結構化筆記。第一行用「標題：XXX」建議標題，最後一行用「標籤：tag1, tag2, tag3」建議標籤。使用 HTML 格式輸出。";
+    return "你是專業的筆記整理助手。將使用者提供的內容整理成結構化筆記。使用 HTML 格式輸出。";
   }
 }
 
@@ -91,12 +91,12 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
     ? `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`
     : `請幫我整理以下內容成結構化筆記：\n\n${content}`;
 
-  // Build full system context + notes-specific prompt
+  // Build full system context (includes notes/ rules via readCategoryFiles)
   let systemPrompt = getSystemPrompt();
   try {
     const { contextEngine } = await import("../context-engine.mjs");
     const ctx = await contextEngine.build({ target: "notes" });
-    systemPrompt = (ctx.systemPrompt || "") + "\n\n" + systemPrompt;
+    systemPrompt = ctx.systemPrompt || systemPrompt;
   } catch {}
 
   const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
