@@ -1,6 +1,6 @@
 # PAAW 提示詞組裝全圖
 
-> 最後更新：2026-06-30
+> 最後更新：2026-07-01
 >
 > 這份文件列出**每一個 AI 功能的 system prompt 最終組裝結構**。
 > 組裝邏輯在 `packages/server/src/context-engine.mjs` 的 `buildFullSystemContext()` 和各 `_build*` 方法。
@@ -172,9 +172,8 @@ GET /api/context/app-builder → contextEngine.build({ target: "chat" })
 來源：mindmap.mjs generateMindMap()
 
 System Prompt =
-  contextEngine.build({ target: "chat" }) 的 systemPrompt
-  + mindmap/system-prompt.md（功能專用 prompt）
-  → 兩層疊加
+  contextEngine.build({ target: "mindmap" }) 的 systemPrompt
+  = buildFullSystemContext() + buildDynamicContext() + mindmap/system-prompt.md
 ```
 
 ### 12. Notes
@@ -183,12 +182,27 @@ System Prompt =
 來源：notes.mjs
 
 System Prompt =
-  buildFullSystemContext()（直接 import 呼叫）
-  + notes/system-prompt.md
-  → 兩層疊加
+  contextEngine.build({ target: "notes" }) 的 systemPrompt
+  = buildFullSystemContext() + buildDynamicContext() + notes/system-prompt.md
 ```
 
-### 13. Distill（蒸餾）
+### 13. Project AI 助理
+
+```
+來源：前端 ProjectAiPanel.tsx
+      → POST /api/paaw/chat { contextTarget: "project", model: ... }
+
+後端 chat.mjs:
+  const ctx = await contextEngine.build({ target: contextTarget || "chat" })
+  → target="project" → _buildProject()
+
+System Prompt =
+  buildFullSystemContext() + buildDynamicContext() + project/identity.md + project/rules.md
+
+訊息 = 使用者輸入的訊息（無最近對話摘要，因為不是 chat target）
+```
+
+### 14. Distill（蒸餾）
 
 ```
 來源：distill.mjs callLLM()
@@ -209,7 +223,7 @@ System Prompt =
 | 3 | Workflow 呼叫 `buildFullSystemContext()` 兩次 | Token 浪費 2x | `_buildWorkflow` 不要再呼叫 `_buildSkillExec` |
 | 4 | `crew/skill-rules.md` 加兩次 | 重复內容 | 從 `buildFullSystemContext` 移除，只在需要時加 |
 | 5 | `skill-builder/skill-format.md` 不存在 | `loadSkillFormat()` 回傳空字串 | 建檔或移除引用 |
-| 6 | Mindmap/Notes 用 `target: "chat"` + 功能 prompt | Chat 的最近對話摘要不該出現在 Mindmap | 用獨立 target |
+| 6 | Mindmap/Notes 用 `target: "chat"` + 功能 prompt | Chat 的最近對話摘要不該出現在 Mindmap | ✅ 已修：各自有獨立 target `mindmap` / `notes` |
 
 ---
 

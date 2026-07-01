@@ -3,7 +3,7 @@
 > 給 AI / 開發者看的技術參考。看完這份就知道 PAAW 的架構、每個功能在哪、怎麼改。
 >
 > Repo: `LoveFleming/tAgent` · Branch: `dev`
-> 最後更新：2026-06-30
+> 最後更新：2026-07-01
 
 ---
 
@@ -97,6 +97,9 @@ contextEngine.build({ target }) → { systemPrompt, prompt?, provider? }
 | `_buildChat()` | Chat 用 = full context + 最近對話摘要 |
 | `_buildSkillBuilder()` | Skill Builder 用 = full context + skill-format + builder-rules + test-rules |
 | `_buildSkillExec()` | Skill 執行用 = full context + app SYSTEM.md + skill-rules |
+| `_buildMindmap()` | Mindmap 用 = full context + dynamic context + mindmap rules |
+| `_buildNotes()` | Notes 用 = full context + dynamic context + notes rules |
+| `_buildProject()` | Project AI 用 = full context + dynamic context + project rules |
 | `_buildCrew()` | Crew 用 = full context + skill-rules + crew rolePrompt |
 | `_buildWorkflow()` | Workflow 用 = 呼叫 `_buildSkillExec()` |
 
@@ -104,10 +107,13 @@ contextEngine.build({ target }) → { systemPrompt, prompt?, provider? }
 
 | target | 用在哪 | 額外帶的 context |
 |--------|--------|-----------------|
-| `chat` | Chat, Coding IDE, AppBuilder, Mindmap, Notes | 最近對話摘要 |
+| `chat` | Chat, Coding IDE, AppBuilder | 最近對話摘要 |
 | `skill-exec` | Skill Exec, Workflow, Cron Skill | app SYSTEM.md + skill-rules |
 | `skill-builder` | Skill Builder, ✨ AI 生成 | skill-format + builder-rules + test-rules |
 | `crew` | Crew/Employee | crew rolePrompt |
+| `mindmap` | Mindmap | mindmap/system-prompt.md |
+| `notes` | Notes | notes/system-prompt.md |
+| `project` | Project AI 助理 | project/identity.md + project/rules.md |
 
 ### Agent Loop（AI 執行引擎）
 
@@ -253,7 +259,7 @@ ai-settings/
 
 ## 功能清單 + 檔案對照
 
-### AI 功能（14 個）
+### AI 功能（15 個）
 
 | 功能 | 前端 | 後端 route | Context target | 執行方式 |
 |------|------|-----------|---------------|---------|
@@ -264,11 +270,12 @@ ai-settings/
 | Workflow | `WorkflowExec.tsx` | `workflow.mjs` | `skill-exec` | `runAgentLoop()` |
 | Cron | `CronJobsPage.tsx` | `cron-jobs.mjs` | `chat` / `skill-exec` | `runAgentLoop()` |
 | Crew/Employee | `EmployeeWorkspace.tsx` | `ai-settings.mjs` | `crew` | `runAgentLoop()` |
-| Coding IDE | `Coding IDE.tsx` | `ws-handler.mjs` (WS) | `chat` | `runAgentLoop()` |
-| Coding IDEIDE | `Coding IDEIDE.tsx` | `cron-jobs.mjs` (SSE) | `chat` | `runAgentLoopStream()` |
+| Coding IDE | `CodingIDE.tsx` | `ws-handler.mjs` (WS) | `chat` | `runAgentLoop()` |
+| Coding IDEIDE | `CodingIDEIDE.tsx` | `cron-jobs.mjs` (SSE) | `chat` | `runAgentLoopStream()` |
 | App Builder | `AppBuilder.tsx` | `ws-handler.mjs` (WS) | `chat` | `runAgentLoop()` |
-| Mindmap | `MindMapViewer.tsx` | `mindmap.mjs` | `chat` | `callLLMWithRetry()` |
-| Notes | `Notes.tsx` | `notes.mjs` | `chat` | `callLLMWithRetry()` |
+| Mindmap | `MindMapViewer.tsx` | `mindmap.mjs` | `mindmap` | `callLLMWithRetry()` |
+| Notes | `Notes.tsx` | `notes.mjs` | `notes` | `callLLMWithRetry()` |
+| Project AI | `ProjectAiPanel.tsx` | `chat.mjs` | `project` | `callLLMWithRetry()` |
 | Distill | `SettingsPage.tsx` | `distill.mjs` | — | `callLLMWithRetry()` |
 | AI Settings | `AISettingsPage.tsx` | `ai-settings.mjs` | — | （管理用，不直接跑 AI） |
 
@@ -315,6 +322,7 @@ ai-settings/
 |--------|------|------|
 | WS | `/ws` | Chat / AgentConsole WebSocket |
 | POST | `/api/agent-run/stream` | SSE 串流（Coding IDEIDE） |
+| POST | `/api/paaw/chat` | 通用 AI 對話（支援 `contextTarget`, `model`） |
 | POST | `/api/paaw/skill-exec` | Skill / Workflow 執行 |
 | POST | `/api/skills/generate` | ✨ AI 生成 SKILL.md |
 | POST | `/api/ai-settings/skill-builder/build` | Skill Builder build |
@@ -439,7 +447,7 @@ ai-settings/
 2. **tools.mjs 路由順序** — 特定路由（`/skills`, `/skills/:id`）必須在 `/:id` 之前，否則雙重回應
 3. **改完碼要 commit + push** — 不 push 別人 pull 到舊碼
 4. **`resolveLLM()` 各檔有小版** — mindmap, notes, distill 各自實作，改 provider 邏輯要全部改
-5. **`buildFullSystemContext()` 是共用基底** — 改這個 = 影響所有 14 個 AI 功能
+5. **`buildFullSystemContext()` 是共用基底** — 改這個 = 影響所有 15 個 AI 功能
 6. **providers.json 有 API key** — 不要 commit 到 public repo
 7. **user.json 的 `preferences` key** — feature name 要跟 ModelSelector 的 `feature` prop 一致
 8. **App.tsx tab type** — 改名要同時改：sidebar NavItem, renderPage switch, getPageTitle switch

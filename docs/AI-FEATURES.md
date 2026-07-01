@@ -2,7 +2,7 @@
 
 > 本文件記錄 PAAW 中所有使用 AI 的功能，包含 context/prompt 來源、UI 類型、streaming 支援、model 切換能力等。
 >
-> 最後更新：2026-06-30
+> 最後更新：2026-07-01
 
 ---
 
@@ -21,8 +21,9 @@
 | 9 | **Coding IDE** | `CodingIDE.tsx` | SSE (EventSource) | ✅ | ✅ `coding` | ✅ | `GET /api/context/coding` |
 | 10 | **App Builder** | `AppBuilder.tsx` | AgentConsole (WS) | ✅ | ✅ `appBuilder` | ✅ | `GET /api/context/app-builder` |
 | 11 | **Mindmap** | `MindMapViewer.tsx` | 一次性 API | ❌ | ✅ body `model` | ✅ | `context-engine` + `mindmap/system-prompt.md` |
-| 12 | **Notes** | `Notes.tsx` | 一次性 API | ❌ | ✅ body `model` | ✅ | `context-engine` + `notes/system-prompt.md` |
-| 13 | **Distill（蒸餾）** | `SettingsPage.tsx` (按鈕) | 按鈕觸發 | ❌ | ✅ body `model` | ✅ | `distill/system-prompt.md` + per-source prompt |
+| 12 | **Notes** | `Notes.tsx` | 一次性 API | ❌ | ✅ inline dropdown | ✅ | `context-engine._buildNotes()` + `notes/system-prompt.md` |
+| 13 | **Project AI 助理** | `ProjectAiPanel.tsx` | `/api/paaw/chat` | ❌ | ✅ inline dropdown | ✅ | `context-engine._buildProject()` + `project/identity.md` + `project/rules.md` |
+| 14 | **Distill（蒸餾）** | `SettingsPage.tsx` (按鈕) | 按鈕觸發 | ❌ | ✅ body `model` | ✅ | `distill/system-prompt.md` + per-source prompt |
 
 > **註**：原本的 VibeCoding.tsx（舊版多 session）已刪除，VibeCodingIDE.tsx 已改名為 CodingIDE.tsx。App Lab 已改名為 App Builder。Skill Lab 已刪除（功能由 SkillBuilder 取代）。
 
@@ -155,8 +156,8 @@
 | **前端** | `MindMapViewer.tsx` |
 | **UI** | 一次性 API 回傳，前端渲染心智圖 |
 | **Streaming** | ❌ |
-| **Model 切換** | ✅ body `model` |
-| **Context** | `mindmap.mjs` → `buildFullSystemContext()` + `mindmap/system-prompt.md` |
+| **Model 切換** | ✅ inline dropdown（toolbar 🤖 按鈕） |
+| **Context** | `mindmap.mjs` → `contextEngine.build({ target: "mindmap" })` → `buildFullSystemContext()` + dynamic context + `mindmap/system-prompt.md` |
 | **設定檔** | `mindmap/system-prompt.md` |
 | **後端** | `mindmap.mjs` → `callLLMWithRetry()` |
 
@@ -167,12 +168,25 @@
 | **前端** | `Notes.tsx` |
 | **UI** | 一次性 API 回傳，前端渲染 HTML 筆記 |
 | **Streaming** | ❌ |
-| **Model 切換** | ✅ body `model` |
-| **Context** | `notes.mjs` → `buildFullSystemContext()` + `notes/system-prompt.md` |
+| **Model 切換** | ✅ inline dropdown（頂部 bar 🤖 按鈕） |
+| **Context** | `notes.mjs` → `contextEngine.build({ target: "notes" })` → `buildFullSystemContext()` + dynamic context + `notes/system-prompt.md` |
 | **設定檔** | `notes/system-prompt.md` |
 | **後端** | `notes.mjs` → `callLLMWithRetry()` |
 
-### 13. Distill（蒸餾）
+### 13. Project AI 助理
+
+| 項目 | 說明 |
+|------|------|
+| **前端** | `ProjectAiPanel.tsx`（內嵌在 `ProjectBoard.tsx`） |
+| **UI** | 透過 `/api/paaw/chat` API，非 WS |
+| **Streaming** | ❌ 一次性回傳 |
+| **Model 切換** | ✅ inline dropdown（panel header 🤖 按鈕） |
+| **Context** | `chat.mjs` → `contextEngine.build({ target: "project" })` → `buildFullSystemContext()` + dynamic context + `project/identity.md` + `project/rules.md` |
+| **設定檔** | `project/identity.md`, `project/rules.md` |
+| **後端** | `chat.mjs` `POST /api/paaw/chat`（帶 `contextTarget: "project"`） |
+| **功能** | AI 建專案、AI 分析專案 |
+
+### 14. Distill（蒸餾）
 
 | 項目 | 說明 |
 |------|------|
@@ -205,7 +219,7 @@
 | `app-builder/` | `app-builder-rules.md` | App 建構規則 | #1, #10 |
 | `mindmap/` | `system-prompt.md` | 心智圖規則 | #11 |
 | `notes/` | `system-prompt.md` | 筆記規則 | #12 |
-| `project/` | `identity.md`, `rules.md` | 專案管理規則 | 全部 13 功能 |
+| `project/` | `identity.md`, `rules.md` | 專案管理規則 | #1～#13 (base context) + #13 (Project AI 專用 target) |
 | `distill/` | `system-prompt.md` | 蒸餾器基礎規則 | #13 |
 | `distill/` | `chat.md` | Chat 對話蒸餾 prompt | #13 |
 | `distill/` | `vibe.md` | Coding CLI 蒸餾 prompt | #13 |
@@ -268,6 +282,7 @@
 |--------|------|------|
 | WS | `/ws` | Chat / AgentConsole WebSocket |
 | POST | `/api/agent-run/stream` | SSE 串流（Coding IDE） |
+| POST | `/api/paaw/chat` | 通用 AI 對話（支援 `contextTarget`, `model`） |
 | POST | `/api/paaw/skill-exec` | Skill / Workflow 執行 |
 | POST | `/api/skills/generate` | ✨ AI 生成 SKILL.md |
 | POST | `/api/mindmap/generate` | 心智圖產生 |
@@ -279,10 +294,13 @@
 
 | target | context-engine method | 用途 |
 |--------|----------------------|------|
-| `chat` | `_buildChat()` | Chat, Coding IDE, App Builder, Mindmap, Notes |
+| `chat` | `_buildChat()` | Chat, Coding IDE, App Builder |
 | `skill-exec` | `_buildSkillExec()` | Skill Exec, Workflow, Cron Skill |
 | `skill-builder` | `_buildSkillBuilder()` | Skill Builder, ✨ AI 生成 |
 | `crew` | `_buildCrew()` | Crew / Employee |
+| `mindmap` | `_buildMindmap()` | Mindmap |
+| `notes` | `_buildNotes()` | Notes |
+| `project` | `_buildProject()` | Project AI 助理 |
 
 ---
 
@@ -291,4 +309,5 @@
 | 類型 | 功能 | 切換方式 | 前端 UI |
 |------|------|---------|---------|
 | **ModelSelector** | Chat, SkillBuilder, Crew, Coding IDE, App Builder | dropdown 元件，偏好存 `user.json.preferences.{feature}` | ✅ |
-| **body model** | Workflow, Skill Exec, Cron, Mindmap, Notes, Distill | API body `model` 參數 | ❌ API only |
+| **inline dropdown** | Mindmap, Notes, Project AI | toolbar/header 🤖 按鈕，偏好存在 component state | ✅ |
+| **body model** | Workflow, Skill Exec, Cron, Distill | API body `model` 參數 | ❌ API only |
