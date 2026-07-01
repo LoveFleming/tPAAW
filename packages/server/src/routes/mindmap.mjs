@@ -33,8 +33,6 @@ function getSystemPrompt() {
     return "你是心智圖產生器。請將收到的內容整理成 Markdown 格式的心智圖。只輸出 Markdown。";
   }
 }
-  }
-}
 
 // ── 檔案讀取 ──
 
