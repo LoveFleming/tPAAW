@@ -538,6 +538,33 @@ export default function SkillBuilder() {
     }
   };
 
+  const [promptPreview, setPromptPreview] = useState(false);
+  const [promptPreviewContent, setPromptPreviewContent] = useState<{system: string; prompt: string} | null>(null);
+
+  const handlePreviewPrompt = async () => {
+    let systemPrompt = buildSystemPrompt || "";
+    let userPrompt = "";
+    if (builderMode === "advanced" && rawBuildPrompt.trim()) {
+      userPrompt = rawBuildPrompt.trim();
+    } else {
+      const skillDef = buildSkillMd(form);
+      userPrompt = skillDef;
+      try {
+        const res = await fetch(`${API_BASE}/api/ai-settings/skill-builder/build`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ skillDef }),
+        });
+        if (res.ok) {
+          const ctx = await res.json();
+          userPrompt = ctx.prompt || skillDef;
+          if (ctx.systemPrompt) systemPrompt = ctx.systemPrompt;
+        }
+      } catch {}
+    }
+    setPromptPreviewContent({ system: systemPrompt, prompt: userPrompt });
+    setPromptPreview(true);
+  };
+
   // ── Build: interactive Agent ──
   const handleBuild = async () => {
     let prompt: string;
@@ -978,6 +1005,11 @@ ${userInputLines.join("\n")}
                     style={!canBuild ? { background: "#e7e5e4", color: "#a8a29e" } : { background: `linear-gradient(135deg, ${accent}, ${accentHover})` }}>
                     🔨 Build
                   </button>
+                  <button onClick={handlePreviewPrompt}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
+                    title="查看完整提示詞">
+                    📋 Prompt
+                  </button>
                   {chatStarted && <button onClick={() => { setChatStarted(false); setInitialPrompt(undefined); setConsoleKey(p => p + 1); }} className="ml-auto px-3 py-1.5 text-[11px] rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50">✕ 重置</button>}
                 </>
               )}
@@ -1016,7 +1048,7 @@ ${userInputLines.join("\n")}
         <div className="flex flex-col flex-1 min-w-0" style={{ backgroundColor: "#1e1e2e" }}>
 
           {/* Builder: interactive Agent — always mounted, hidden via display */}
-          <div style={{ display: tab === "builder" ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
+          <div style={{ display: tab === "builder" && !promptPreview ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
             {!chatStarted ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
                 <span className="text-5xl opacity-30">🔨</span>
@@ -1028,6 +1060,28 @@ ${userInputLines.join("\n")}
             ) : (
               <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} systemPrompt={buildSystemPrompt} />
             )}
+          </div>
+
+          {/* ── Prompt Preview Panel ── */}
+          <div style={{ display: tab === "builder" && promptPreview ? "flex" : "none" }} className="flex-col flex-1 min-h-0">
+            <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: border + "30", backgroundColor: "#1e1e2e" }}>
+              <span className="text-sm font-bold text-white">📋 Prompt 預覽</span>
+              <button onClick={() => setPromptPreview(false)} className="text-xs text-stone-400 hover:text-white">✕ 關閉</button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 space-y-4" style={{ backgroundColor: "#1e1e2e" }}>
+              {promptPreviewContent ? (<>
+                <div>
+                  <h3 className="text-xs font-bold text-emerald-400 mb-2">═ System Prompt ({promptPreviewContent.system.length} chars) ═</h3>
+                  <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.system}</pre>
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-amber-400 mb-2">═ User Prompt ({promptPreviewContent.prompt.length} chars) ═</h3>
+                  <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.prompt}</pre>
+                </div>
+              </>) : (
+                <p className="text-stone-500 text-sm">載入中...</p>
+              )}
+            </div>
           </div>
 
           {/* Test: spinner → file list + content viewer — always mounted, hidden via display */}
