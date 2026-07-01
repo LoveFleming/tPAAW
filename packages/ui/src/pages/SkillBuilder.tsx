@@ -540,6 +540,8 @@ export default function SkillBuilder() {
 
   const [promptPreview, setPromptPreview] = useState(false);
   const [promptPreviewContent, setPromptPreviewContent] = useState<{system: string; prompt: string} | null>(null);
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showUserPrompt, setShowUserPrompt] = useState(false);
 
   const handlePreviewPrompt = async () => {
     let systemPrompt = buildSystemPrompt || "";
@@ -1072,12 +1074,12 @@ ${userInputLines.join("\n")}
             <div className="flex-1 overflow-auto p-4 space-y-4" style={{ backgroundColor: "#1e1e2e" }}>
               {promptPreviewContent ? (<>
                 <div>
-                  <h3 className="text-xs font-bold text-emerald-400 mb-2">═ System Prompt ({promptPreviewContent.system.length} chars) ═</h3>
-                  <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.system}</pre>
+                  <h3 onClick={() => setShowSystemPrompt(v => !v)} className="text-xs font-bold text-emerald-400 mb-2 cursor-pointer select-none hover:text-emerald-300">═ System Prompt ({promptPreviewContent.system.length} chars) ═ {showSystemPrompt ? "▼" : "▶"}</h3>
+                  {showSystemPrompt && <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.system}</pre>}
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-amber-400 mb-2">═ User Prompt ({promptPreviewContent.prompt.length} chars) ═</h3>
-                  <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.prompt}</pre>
+                  <h3 onClick={() => setShowUserPrompt(v => !v)} className="text-xs font-bold text-amber-400 mb-2 cursor-pointer select-none hover:text-amber-300">═ User Prompt ({promptPreviewContent.prompt.length} chars) ═ {showUserPrompt ? "▼" : "▶"}</h3>
+                  {showUserPrompt && <pre className="text-xs text-stone-300 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-3 max-h-[40vh] overflow-auto">{promptPreviewContent.prompt}</pre>}
                 </div>
               </>) : (
                 <p className="text-stone-500 text-sm">載入中...</p>
