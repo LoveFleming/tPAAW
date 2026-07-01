@@ -183,6 +183,35 @@ async function generateMindMap(userPrompt, content, modelOverride) {
 // ── Route Handler ──
 
 async function handleMindMapRoutes(req, res) {
+  // POST /api/mindmap/preview — show final prompts without calling LLM
+  if (req.method === "POST" && req.url?.startsWith("/api/mindmap/preview")) {
+    let body;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      return true;
+    }
+    const { text, prompt = "請整理這份內容的知識結構，做成心智圖", model } = body;
+    try {
+      const llm = resolveLLM(model);
+      const fullUserPrompt = `${prompt}\n\n---\n以下是要整理的內容：\n\n${(text || "(未提供內容)").slice(0, MAX_TOTAL_SIZE)}`;
+      let systemPrompt = getSystemPrompt();
+      try {
+        const { contextEngine } = await import("../context-engine.mjs");
+        const ctx = await contextEngine.build({ target: "mindmap" });
+        systemPrompt = ctx.systemPrompt || systemPrompt;
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, systemPrompt, userPrompt: fullUserPrompt, model: `${llm.apiUrl} → ${llm.model}` }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // POST /api/mindmap/generate
   if (req.method === "POST" && req.url?.startsWith("/api/mindmap/generate")) {
     let body;

@@ -92,6 +92,10 @@ export default function MindMapViewer() {
   const [savedMaps, setSavedMaps] = useState<SavedMindMap[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [saveName, setSaveName] = useState("");
+  const [promptPreview, setPromptPreview] = useState(false);
+  const [promptPreviewContent, setPromptPreviewContent] = useState<{system: string; user: string; model: string} | null>(null);
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showUserPrompt, setShowUserPrompt] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   // ── Model selector state ──
@@ -194,6 +198,31 @@ export default function MindMapViewer() {
   useEffect(() => {
     browsePath(browserPath || (window as any).__PAAW_ROOT__ || "/");
   }, []);
+
+  // ── Preview Prompts ──
+  const previewPrompts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const textContent = mode === "text" ? inputText : "(從檔案讀取)";
+      const body: any = { text: textContent, prompt, model: fullModelForApi() };
+      const resp = await fetch("/api/mindmap/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success) throw new Error(data.error || "預覽失敗");
+      setPromptPreviewContent({ system: data.systemPrompt, user: data.userPrompt, model: data.model });
+      setPromptPreview(true);
+      setShowSystemPrompt(false);
+      setShowUserPrompt(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [mode, inputText, prompt]);
 
   // ── Generate from files ──
   const generateFromFiles = useCallback(async () => {
@@ -534,19 +563,25 @@ export default function MindMapViewer() {
                 />
               </div>
 
-              <button
-                onClick={generateFromFiles}
-                disabled={loading || (!selectedDir && selectedFiles.length === 0)}
-                style={{
-                  ...btnStyle, marginTop: 10, flexShrink: 0,
-                  background: loading || (!selectedDir && selectedFiles.length === 0) ? tk.bgMuted : tk.accent,
-                  color: loading || (!selectedDir && selectedFiles.length === 0) ? tk.textMuted : "#fff",
-                  fontSize: 15, padding: "10px 24px",
-                  cursor: loading || (!selectedDir && selectedFiles.length === 0) ? "not-allowed" : "pointer",
-                }}
-              >
-                {loading ? tt("mindmap.generating") : tt("mindmap.generateButton")}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 10, flexShrink: 0 }}>
+                <button
+                  onClick={generateFromFiles}
+                  disabled={loading || (!selectedDir && selectedFiles.length === 0)}
+                  style={{
+                    ...btnStyle,
+                    background: loading || (!selectedDir && selectedFiles.length === 0) ? tk.bgMuted : tk.accent,
+                    color: loading || (!selectedDir && selectedFiles.length === 0) ? tk.textMuted : "#fff",
+                    fontSize: 15, padding: "10px 24px",
+                    cursor: loading || (!selectedDir && selectedFiles.length === 0) ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {loading ? tt("mindmap.generating") : tt("mindmap.generateButton")}
+                </button>
+                <button onClick={previewPrompts} disabled={loading}
+                  style={{ ...btnStyle, fontSize: 13, padding: "8px 14px", background: tk.bg, border: `1px solid ${tk.border}`, color: tk.textPrimary, cursor: loading ? "not-allowed" : "pointer" }}
+                  title="查看完整提示詞"
+                >📋 Prompt</button>
+              </div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -585,19 +620,25 @@ export default function MindMapViewer() {
                 />
               </div>
 
-              <button
-                onClick={generateFromText}
-                disabled={loading || inputText.trim().length < 10}
-                style={{
-                  ...btnStyle, marginTop: 10, flexShrink: 0,
-                  background: loading || inputText.trim().length < 10 ? tk.bgMuted : tk.accent,
-                  color: loading || inputText.trim().length < 10 ? tk.textMuted : "#fff",
-                  fontSize: 15, padding: "10px 24px",
-                  cursor: loading || inputText.trim().length < 10 ? "not-allowed" : "pointer",
-                }}
-              >
-                {loading ? tt("mindmap.generating") : tt("mindmap.generateButton")}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 10, flexShrink: 0 }}>
+                <button
+                  onClick={generateFromText}
+                  disabled={loading || inputText.trim().length < 10}
+                  style={{
+                    ...btnStyle,
+                    background: loading || inputText.trim().length < 10 ? tk.bgMuted : tk.accent,
+                    color: loading || inputText.trim().length < 10 ? tk.textMuted : "#fff",
+                    fontSize: 15, padding: "10px 24px",
+                    cursor: loading || inputText.trim().length < 10 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {loading ? tt("mindmap.generating") : tt("mindmap.generateButton")}
+                </button>
+                <button onClick={previewPrompts} disabled={loading}
+                  style={{ ...btnStyle, fontSize: 13, padding: "8px 14px", background: tk.bg, border: `1px solid ${tk.border}`, color: tk.textPrimary, cursor: loading ? "not-allowed" : "pointer" }}
+                  title="查看完整提示詞"
+                >📋 Prompt</button>
+              </div>
             </div>
           )}
 
@@ -676,6 +717,40 @@ export default function MindMapViewer() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Prompt Preview Modal */}
+      {promptPreview && promptPreviewContent && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setPromptPreview(false)}>
+          <div style={{ background: "#1e1e2e", borderRadius: 12, width: "80vw", maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #333" }}>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>📋 Prompt 預覽</span>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ color: "#888", fontSize: 11 }}>{promptPreviewContent.model}</span>
+                <button onClick={() => setPromptPreview(false)} style={{ color: "#888", background: "none", border: "none", cursor: "pointer", fontSize: 16 }}>✕</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <h3 onClick={() => setShowSystemPrompt(v => !v)} style={{ color: "#34d399", fontSize: 12, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
+                  ═ System Prompt ({promptPreviewContent.system.length} chars) ═ {showSystemPrompt ? "▼" : "▶"}
+                </h3>
+                {showSystemPrompt && (
+                  <pre style={{ color: "#d1d5db", fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 12, maxHeight: "35vh", overflow: "auto", margin: 0 }}>{promptPreviewContent.system}</pre>
+                )}
+              </div>
+              <div>
+                <h3 onClick={() => setShowUserPrompt(v => !v)} style={{ color: "#fbbf24", fontSize: 12, fontWeight: 700, cursor: "pointer", userSelect: "none", margin: 0, marginBottom: 8 }}>
+                  ═ User Prompt ({promptPreviewContent.user.length} chars) ═ {showUserPrompt ? "▼" : "▶"}
+                </h3>
+                {showUserPrompt && (
+                  <pre style={{ color: "#d1d5db", fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: 12, maxHeight: "35vh", overflow: "auto", margin: 0 }}>{promptPreviewContent.user}</pre>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
