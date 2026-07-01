@@ -426,7 +426,7 @@ export const contextEngine = {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
-      buildDynamicContext(),
+      // No buildDynamicContext() — skill-builder is a tool, not a chat assistant
       ...readCategoryFiles("skill-builder"),
     ];
     // prompt = rules from ai-settings + the actual skill-source.md input
@@ -439,7 +439,6 @@ export const contextEngine = {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
-      buildDynamicContext(),
       ...readCategoryFiles("app-builder"),
     ];
     const tools = buildRuntimeTools();
@@ -453,7 +452,6 @@ export const contextEngine = {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
-      buildDynamicContext(),
       ...readCategoryFiles("app-exec"),
     ];
     // Inject app-specific runtime data
@@ -473,18 +471,16 @@ export const contextEngine = {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
-      buildDynamicContext(),
       ...readCategoryFiles("mindmap"),
     ];
     return { systemPrompt: parts.join("\n\n"), provider };
   },
 
-  // ── Notes：base + dynamic + notes/ rules ──
+  // ── Notes：base + notes/ rules ──
   _buildNotes() {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
-      buildDynamicContext(),
       ...readCategoryFiles("notes"),
     ];
     return { systemPrompt: parts.join("\n\n"), provider };
@@ -495,7 +491,6 @@ export const contextEngine = {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
-      buildDynamicContext(),
       ...readCategoryFiles("project"),
     ];
     return { systemPrompt: parts.join("\n\n"), provider };
