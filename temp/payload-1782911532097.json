@@ -1,0 +1,1062 @@
+{
+  "model": "glm-5.1",
+  "messages": [
+    {
+      "role": "system",
+      "content": "=== 檔案路徑 ===\n📖 Knowledge：使用 file_list({ workspace: \"knowledge\" }) 和 file_read({ workspace: \"knowledge\", path: \"檔名\" }) 透過 API 存取。\n\n使用者的 Workspace 目錄（可讀寫）：\n- /Users/steward/App/aioc\n\n# Project Assistant — 專案管理 AI 設定\n\n你是專案管理助理。使用者可能會請你幫忙建立專案、分析專案狀態、或建議任務分解。\n\n## 建立專案\n\n當使用者說「幫我建一個專案」或描述一個新專案需求時：\n\n1. 確認專案名稱、描述、目標日期\n2. 建議分類（categories）— 根據專案性質拆分工作區域\n3. 建議里程碑（milestones）— 關鍵時間節點\n4. 建議任務（tasks）— 每個分類下的具體工作項目，含優先級\n\n使用 project API 建立專案後，告訴使用者可以在 [📋 Project Board](#/app:projects) 查看。\n\n## 分析專案狀態\n\n當使用者問「分析我的專案」或「專案狀態如何」時：\n\n1. 讀取所有專案資料\n2. 分析：\n   - 整體完成率、進度是否落後\n   - 哪些任務卡住了（進行中但沒有進展）\n   - 里程碑是否按時完成\n   - 高優先任務的完成狀況\n   - 風險提示（快要到期的未完成任務）\n3. 給出建議：下一步該做什麼\n\n## 專案健康度評估\n\n評估維度：\n- 🟢 **健康**：完成率 > 70%，無逾期任務\n- 🟡 **注意**：完成率 40-70%，或有少數逾期\n- 🔴 **危險**：完成率 < 40%，或多數任務逾期\n\n## 回覆格式\n\n分析報告使用以下格式：\n\n```\n## 📊 專案狀態報告\n\n### 整體進度\n- 完成率：XX%\n- 健康度：🟢/🟡/🔴\n\n### 亮點\n- ...\n\n### 風險\n- ...\n\n### 建議行動\n1. ...\n2. ...\n```\n\n## API 使用\n\n- 列出專案：`GET /api/projects`\n- 取得單一專案：`GET /api/projects/:id`\n- 建立專案：`POST /api/projects` — `{ name, icon, description, status }`\n- 更新專案：`PUT /api/projects/:id`\n- 新增分類：`POST /api/projects/:id/categories` — `{ name, icon, description }`\n- 新增任務：`POST /api/projects/:id/tasks` — `{ categoryId, name, priority, start, end }`\n- 新增里程碑：`POST /api/projects/:id/milestones` — `{ name, date }`\n\n\n# Project 分析規則\n\n## 何時觸發分析\n\n- 使用者問「專案狀態」「進度如何」「分析專案」\n- 使用者提到特定專案名稱並想知道進度\n- 定期回顧（使用者說「回顧一下」）\n\n## 分析步驟\n\n1. **取得資料**：`GET /api/projects` 取得所有專案摘要\n2. **深入分析**：對重點專案 `GET /api/projects/:id` 取得完整資料\n3. **計算指標**：\n   - 完成率 = 已完成任務數 / 總任務數\n   - 逾期率 = 逾期未完成任務數 / 總任務數\n   - 里程碑達成率 = 已完成里程碑 / 總里程碑\n4. **產出報告**：包含整體進度、風險、建議行動\n5. **加連結**：在報告裡加上 [📋 Project Board](#/app:projects) 連結\n\n## 建立專案的步驟\n\n1. 確認需求（名稱、描述、目標）\n2. `POST /api/projects` 建立專案\n3. 根據專案性質建議分類，`POST /api/projects/:id/categories` 建立分類\n4. 在各分類下建立任務，`POST /api/projects/:id/tasks`\n5. 建立里程碑，`POST /api/projects/:id/milestones`\n6. 回報建立結果 + [📋 Project Board](#/app:projects) 連結\n\n## 回覆原則\n\n- 數據驅動，不憑感覺\n- 有問題直接指出，不迴避\n- 給具體建議，不只是「加油」\n- 用繁體中文，技術術語保留英文\n"
+    },
+    {
+      "role": "user",
+      "content": "請描述你要建立的 project 內容概述（名稱、目標、主要功能），我會幫你產出完整 project 結構。"
+    }
+  ],
+  "stream": true,
+  "max_tokens": 4096,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "app_list",
+        "description": "列出所有可用的 App",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "app_create",
+        "description": "建立一個新的 App。支援 Data App 和 Skill-based App。Skill-based App 會自動產生聊天 Tool + 觸發關鍵字路由。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "App ID（英文、小寫、底線）"
+            },
+            "name": {
+              "type": "string",
+              "description": "App 名稱（中文）"
+            },
+            "icon": {
+              "type": "string",
+              "description": "App 圖示（emoji）"
+            },
+            "description": {
+              "type": "string",
+              "description": "App 描述"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "data",
+                "skill-based"
+              ],
+              "description": "App 類型：data（純資料）或 skill-based（AI 執行）"
+            },
+            "dataShape": {
+              "type": "string",
+              "enum": [
+                "array",
+                "object",
+                "none"
+              ],
+              "description": "資料形態"
+            },
+            "triggers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "觸發關鍵字（聊天中說這些詞會自動路由到此 App）"
+            },
+            "schema": {
+              "type": "object",
+              "description": "JSON Schema 定義資料結構"
+            },
+            "aiPrompt": {
+              "type": "string",
+              "description": "AI 操作此 App 的簡短提示（一句話）"
+            },
+            "skills": {
+              "type": "object",
+              "description": "Skill 定義（skill-based 時使用），key 是 skill 名稱，value 是 SKILL.md 內容",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "schema",
+            "aiPrompt"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "app_edit",
+        "description": "修改 App 的定義（名稱、schema、提示詞等）",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "App ID"
+            },
+            "changes": {
+              "type": "object",
+              "description": "要修改的欄位",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "icon": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "aiPrompt": {
+                  "type": "string"
+                },
+                "schema": {
+                  "type": "object"
+                },
+                "dataShape": {
+                  "type": "string",
+                  "enum": [
+                    "array",
+                    "object",
+                    "none"
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "data",
+                    "skill-based"
+                  ],
+                  "description": "App 類型"
+                },
+                "cli": {
+                  "type": "string",
+                  "enum": [
+                    "qwen",
+                    "claude",
+                    "opencode"
+                  ],
+                  "description": "CLI 引擎（skill-based 時使用）"
+                },
+                "triggers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "聊天觸發關鍵字"
+                },
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "綁定的 Skills，每個 { id, path, role }"
+                }
+              }
+            }
+          },
+          "required": [
+            "id",
+            "changes"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_add",
+        "description": "undefined：新增一筆資料。欄位：",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_list",
+        "description": "undefined：列出或查詢資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "_search": {
+              "type": "string",
+              "description": "關鍵字搜尋"
+            },
+            "_limit": {
+              "type": "number",
+              "description": "最多回傳幾筆（預設 20）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_get",
+        "description": "undefined：取得一筆資料的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_update",
+        "description": "undefined：更新一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_delete",
+        "description": "undefined：刪除一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_add",
+        "description": "書籤：新增一筆資料。欄位：title(string,必填), url(string,必填), description(string), tags(array)",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "url": {
+              "description": "網址",
+              "type": "string"
+            },
+            "description": {
+              "description": "備註",
+              "type": "string"
+            },
+            "tags": {
+              "description": "標籤",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "title",
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_list",
+        "description": "書籤：列出或查詢資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "篩選標題"
+            },
+            "url": {
+              "type": "string",
+              "description": "篩選網址"
+            },
+            "description": {
+              "type": "string",
+              "description": "篩選備註"
+            },
+            "_search": {
+              "type": "string",
+              "description": "關鍵字搜尋"
+            },
+            "_limit": {
+              "type": "number",
+              "description": "最多回傳幾筆（預設 20）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_get",
+        "description": "書籤：取得一筆資料的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_update",
+        "description": "書籤：更新一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            },
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "url": {
+              "description": "網址",
+              "type": "string"
+            },
+            "description": {
+              "description": "備註",
+              "type": "string"
+            },
+            "tags": {
+              "description": "標籤",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_delete",
+        "description": "書籤：刪除一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_add",
+        "description": "Pocket：新增一筆資料。欄位：type(string,必填), text(string,必填), done(boolean), title(string,必填), description(string), word(string,必填), definition(string,必填), example(string), translation(string,必填), event(string,必填), feeling(string,必填), thought(string), nextStep(string)",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "筆記類型",
+              "type": "string"
+            },
+            "text": {
+              "description": "原文",
+              "type": "string"
+            },
+            "done": {
+              "description": "已完成",
+              "type": "boolean"
+            },
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "description": {
+              "description": "描述",
+              "type": "string"
+            },
+            "word": {
+              "description": "單字",
+              "type": "string"
+            },
+            "definition": {
+              "description": "定義",
+              "type": "string"
+            },
+            "example": {
+              "description": "例句",
+              "type": "string"
+            },
+            "translation": {
+              "description": "翻譯",
+              "type": "string"
+            },
+            "event": {
+              "description": "事件",
+              "type": "string"
+            },
+            "feeling": {
+              "description": "感受",
+              "type": "string"
+            },
+            "thought": {
+              "description": "想法",
+              "type": "string"
+            },
+            "nextStep": {
+              "description": "下一步",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text",
+            "title",
+            "word",
+            "definition",
+            "translation",
+            "event",
+            "feeling"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_list",
+        "description": "Pocket：列出或查詢資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "篩選筆記類型"
+            },
+            "text": {
+              "type": "string",
+              "description": "篩選原文"
+            },
+            "done": {
+              "type": "boolean",
+              "description": "篩選已完成"
+            },
+            "title": {
+              "type": "string",
+              "description": "篩選標題"
+            },
+            "description": {
+              "type": "string",
+              "description": "篩選描述"
+            },
+            "word": {
+              "type": "string",
+              "description": "篩選單字"
+            },
+            "definition": {
+              "type": "string",
+              "description": "篩選定義"
+            },
+            "example": {
+              "type": "string",
+              "description": "篩選例句"
+            },
+            "translation": {
+              "type": "string",
+              "description": "篩選翻譯"
+            },
+            "event": {
+              "type": "string",
+              "description": "篩選事件"
+            },
+            "feeling": {
+              "type": "string",
+              "description": "篩選感受"
+            },
+            "thought": {
+              "type": "string",
+              "description": "篩選想法"
+            },
+            "nextStep": {
+              "type": "string",
+              "description": "篩選下一步"
+            },
+            "_search": {
+              "type": "string",
+              "description": "關鍵字搜尋"
+            },
+            "_limit": {
+              "type": "number",
+              "description": "最多回傳幾筆（預設 20）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_get",
+        "description": "Pocket：取得一筆資料的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_update",
+        "description": "Pocket：更新一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            },
+            "type": {
+              "description": "筆記類型",
+              "type": "string"
+            },
+            "text": {
+              "description": "原文",
+              "type": "string"
+            },
+            "done": {
+              "description": "已完成",
+              "type": "boolean"
+            },
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "description": {
+              "description": "描述",
+              "type": "string"
+            },
+            "word": {
+              "description": "單字",
+              "type": "string"
+            },
+            "definition": {
+              "description": "定義",
+              "type": "string"
+            },
+            "example": {
+              "description": "例句",
+              "type": "string"
+            },
+            "translation": {
+              "description": "翻譯",
+              "type": "string"
+            },
+            "event": {
+              "description": "事件",
+              "type": "string"
+            },
+            "feeling": {
+              "description": "感受",
+              "type": "string"
+            },
+            "thought": {
+              "description": "想法",
+              "type": "string"
+            },
+            "nextStep": {
+              "description": "下一步",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_delete",
+        "description": "Pocket：刪除一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "schedule_cronjob",
+        "description": "建立排程（Cron Job）。可以設定提醒或定期報告。當使用者說「每天提醒我」「每小時跑一次」「排程」時使用。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "排程名稱（中文），例如：吃保健品提醒"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "reminder",
+                "report"
+              ],
+              "description": "reminder=定時提醒，report=定期執行 Skill 報告"
+            },
+            "reminderText": {
+              "type": "string",
+              "description": "提醒文字（type=reminder 時必填），例如：該吃保健品了！💊"
+            },
+            "skillId": {
+              "type": "string",
+              "description": "Skill ID（type=report 時必填），例如：translate"
+            },
+            "schedule": {
+              "type": "string",
+              "description": "Cron 表達式（5 欄）：分 時 日 月 週。例如 '0 9 * * *'=每天9點、'0 * * * *'=每小時、'0 9 * * 1'=每週一9點、'*/30 * * * *'=每30分鐘"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "額外指示（type=report 時可選）"
+            },
+            "outputTarget": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "path"
+              ],
+              "description": "輸出目標：chat=聊天視窗，path=指定路徑。預設 chat"
+            },
+            "outputPath": {
+              "type": "string",
+              "description": "輸出路徑（outputTarget=path 時必填）"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "schedule"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_cronjobs",
+        "description": "列出所有排程（Cron Jobs）。顯示名稱、類型、排程、狀態。",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "update_cronjob",
+        "description": "更新排程設定。可以修改排程時間、提醒文字、啟用/停用等。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "排程 ID（名稱轉 kebab-case）"
+            },
+            "name": {
+              "type": "string",
+              "description": "新名稱（可選）"
+            },
+            "schedule": {
+              "type": "string",
+              "description": "新 cron 表達式（可選）"
+            },
+            "reminderText": {
+              "type": "string",
+              "description": "新提醒文字（可選）"
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "啟用/停用（可選）"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "新指示（可選）"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "delete_cronjob",
+        "description": "刪除排程。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "排程 ID 或名稱"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "run_cronjob",
+        "description": "立即執行排程（手動觸發）。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "排程 ID 或名稱"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "memory_add",
+        "description": "新增一筆記憶到 MEMORY.md。當使用者說「記住」「幫我記」或學到重要資訊時使用。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "section": {
+              "type": "string",
+              "description": "記憶分類，例如：使用者偏好、重要決策、近期待辦、專案脈絡、備忘"
+            },
+            "content": {
+              "type": "string",
+              "description": "要記住的內容"
+            }
+          },
+          "required": [
+            "section",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "memory_update",
+        "description": "更新 MEMORY.md 中某個分類的內容。如果分類不存在會新增。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "section": {
+              "type": "string",
+              "description": "要更新的分類名稱"
+            },
+            "content": {
+              "type": "string",
+              "description": "新的完整內容（會取代該分類下所有內容）"
+            }
+          },
+          "required": [
+            "section",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_list",
+        "description": "列出目錄的檔案。workspace 填工作區名稱或 'knowledge' 列出 Knowledge 目錄。path 填子目錄路徑（預設根目錄）。不指定 workspace 時列出所有工作區和 Knowledge 檔案。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "目錄相對路徑（預設根目錄）"
+            },
+            "workspace": {
+              "type": "string",
+              "description": "工作區名稱或路徑（可選，不填則列出所有工作區）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_read",
+        "description": "讀取檔案內容。path 支援絕對路徑或相對路徑，不指定 workspace 時會自動在所有工作區和 Knowledge 目錄中搜尋",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "檔案相對路徑"
+            },
+            "workspace": {
+              "type": "string",
+              "description": "工作區名稱或路徑（可選，不填則跨工作區搜尋）"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_search",
+        "description": "搜尋筆記。可以搜尋標題、內容、標籤。結果包含可點擊的連結，點擊可直接打開該筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "搜尋關鍵字"
+            }
+          },
+          "required": [
+            "q"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_get",
+        "description": "讀取一則筆記的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "筆記 ID"
+            },
+            "notebook": {
+              "type": "string",
+              "description": "筆記本 ID（預設 default）"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_recent",
+        "description": "列出最近編輯的筆記",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "number",
+              "description": "數量（預設 10）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_create",
+        "description": "AI 幫忙寫筆記。提供原始內容，AI 會整理成結構化筆記並儲存。也可以從聊天中直接把內容整理成筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string",
+              "description": "要整理的原始內容（會議記錄、文章、想法、對話等）"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "AI 提示詞（選填），例如「整理成會議記錄」「列出重點」「翻譯成英文」"
+            },
+            "notebook": {
+              "type": "string",
+              "description": "筆記本 ID（預設 default）"
+            },
+            "section": {
+              "type": "string",
+              "description": "分類 ID（預設 default）"
+            },
+            "title": {
+              "type": "string",
+              "description": "自訂標題（選填，AI 會建議）"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "自訂標籤（選填，AI 會建議）"
+            }
+          },
+          "required": [
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "project_status",
+        "description": "查看專案看板的整體狀態，包括所有專案的進度、完成率、里程碑。可指定單一專案查看詳情。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "description": "（可選）指定專案 ID 查看單一專案詳情，不指定則列出所有專案摘要"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "project_update_task",
+        "description": "更新專案任務狀態。點擊循環切換：todo → progress → done。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "description": "專案 ID"
+            },
+            "taskId": {
+              "type": "string",
+              "description": "任務 ID"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "todo",
+                "progress",
+                "done"
+              ],
+              "description": "新狀態"
+            }
+          },
+          "required": [
+            "projectId",
+            "taskId",
+            "status"
+          ]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

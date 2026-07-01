@@ -397,7 +397,7 @@
   "projectAi.newProjectPrompt": "Help me create a new project",
   "projectAi.analyzePrompt": "Analyze all my projects and give me a health report",
   "projectAi.delayPrompt": "Which projects are behind schedule? Give me suggestions",
-  "projectAi.inputPlaceholder": "Type a message...",
+  "projectAi.inputPlaceholder": "Describe your project... (Enter to send, Shift+Enter for new line)",
   "skillsPage.saved": "✅ Saved!",
   "skillsPage.newSkill": "✨ New Skill",
   "skillsPage.oneLineDesc": "One-line description",

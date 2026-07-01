@@ -15,7 +15,7 @@
  */
 import { readdir, readFile, writeFile, mkdir, rm } from "fs/promises";
 import { join, resolve, dirname } from "path";
-import { existsSync, statSync } from "fs";
+import { existsSync, statSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { readBody, json, urlPath } from "./context.mjs";
 

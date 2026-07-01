@@ -397,7 +397,7 @@
   "projectAi.newProjectPrompt": "幫我建一個新專案",
   "projectAi.analyzePrompt": "分析所有專案狀態，給我健康度報告",
   "projectAi.delayPrompt": "哪些專案進度落後？給我建議",
-  "projectAi.inputPlaceholder": "輸入訊息…",
+  "projectAi.inputPlaceholder": "描述你的 project 內容…（Enter 送出，Shift+Enter 換行）",
   "skillsPage.saved": "✅ Saved!",
   "skillsPage.newSkill": "✨ New Skill",
   "skillsPage.oneLineDesc": "One-line description",

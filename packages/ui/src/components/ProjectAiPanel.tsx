@@ -103,11 +103,11 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
     } catch {}
   }, [input, initialPrompt]);
 
-  // Auto-send initial prompt once
+  // Pre-fill initial prompt into input (don't auto-send — let user edit first)
   useEffect(() => {
     if (initialPrompt && !hasSentInitial.current) {
       hasSentInitial.current = true;
-      handleSend(initialPrompt);
+      setInput(initialPrompt);
     }
   }, [initialPrompt]);
 
@@ -339,10 +339,10 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t("projectAi.inputPlaceholder")}
-            rows={1}
-            className="flex-1 text-sm outline-none resize-none bg-transparent"
-            style={{ color: tk.textPrimary, maxHeight: 120 }}
-            onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }}
+            rows={3}
+            className="flex-1 text-sm outline-none resize-none bg-transparent leading-relaxed"
+            style={{ color: tk.textPrimary, maxHeight: 200 }}
+            onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
           />
           <button
             onClick={() => handleSend()}

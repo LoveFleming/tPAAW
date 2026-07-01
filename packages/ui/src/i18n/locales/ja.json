@@ -397,7 +397,7 @@
   "projectAi.newProjectPrompt": "新しいプロジェクトを作成して",
   "projectAi.analyzePrompt": "全プロジェクトの状況を分析して健全性レポートを",
   "projectAi.delayPrompt": "どのプロジェクトが遅れてる？アドバイスを",
-  "projectAi.inputPlaceholder": "メッセージを入力…",
+  "projectAi.inputPlaceholder": "プロジェクト内容を入力…（Enter送信、Shift+Enter改行）",
   "skillsPage.saved": "✅ 保存しました！",
   "skillsPage.newSkill": "✨ 新規スキル",
   "skillsPage.oneLineDesc": "一言説明",
