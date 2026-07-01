@@ -404,5 +404,6 @@
   "skillsPage.saving": "💾 Saving...",
   "skillsPage.createSkill": "✨ Create Skill",
   "skillsPage.saveChanges": "💾 Save Changes",
-  "skillsPage.exportSkill": "Export Skill"
+  "skillsPage.exportSkill": "Export Skill",
+  "sidebar.workflows": "Workflows"
 }

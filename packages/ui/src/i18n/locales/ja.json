@@ -404,5 +404,6 @@
   "skillsPage.saving": "💾 保存中...",
   "skillsPage.createSkill": "✨ スキル作成",
   "skillsPage.saveChanges": "💾 変更を保存",
-  "skillsPage.exportSkill": "スキルをエクスポート"
+  "skillsPage.exportSkill": "スキルをエクスポート",
+  "sidebar.workflows": "ワークフロー"
 }
