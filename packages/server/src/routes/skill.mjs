@@ -228,12 +228,26 @@ export default async function skillRoutes(req, res) {
     return true;
   }
 
-  // GET /api/contexts/skill-builder/:file — get AI settings for skill builder
-  const ctxMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  // GET /api/contexts/skill-builder/:phase/:file — get AI settings for skill builder (phase=build|test)
+  const ctxMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
   if (ctxMatch) {
-    const fileName = ctxMatch[1];
+    const [, phase, fileName] = ctxMatch;
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
     try {
-      const content = await readFile(join(CONTEXT_ROOT, fileName), "utf-8");
+      const content = await readFile(join(contextRoot, fileName), "utf-8");
+      json(res, { content });
+    } catch {
+      json(res, { content: "" }, 404);
+    }
+    return true;
+  }
+  // Legacy: GET /api/contexts/skill-builder/:file (no phase, defaults to build)
+  const ctxLegacyMatch = req.method === "GET" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  if (ctxLegacyMatch) {
+    const fileName = ctxLegacyMatch[1];
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
+    try {
+      const content = await readFile(join(contextRoot, fileName), "utf-8");
       json(res, { content });
     } catch {
       json(res, { content: "" }, 404);
@@ -241,15 +255,30 @@ export default async function skillRoutes(req, res) {
     return true;
   }
 
-  // PUT /api/contexts/skill-builder/:file — update AI settings
-  const ctxPutMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  // PUT /api/contexts/skill-builder/:phase/:file — update AI settings (phase=build|test)
+  const ctxPutMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)\/([\w.-]+)$/);
   if (ctxPutMatch) {
-    const fileName = ctxPutMatch[1];
+    const [, phase, fileName] = ctxPutMatch;
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", phase);
     try {
       const { content } = JSON.parse(await readBody(req));
       if (!content) { json(res, { error: "Missing content" }, 400); return true; }
-      await mkdir(CONTEXT_ROOT, { recursive: true });
-      await writeFile(join(CONTEXT_ROOT, fileName), content, "utf-8");
+      await mkdir(contextRoot, { recursive: true });
+      await writeFile(join(contextRoot, fileName), content, "utf-8");
+      json(res, { ok: true });
+    } catch (err) { json(res, { error: err.message }, 500); }
+    return true;
+  }
+  // Legacy: PUT /api/contexts/skill-builder/:file (no phase, defaults to build)
+  const ctxPutLegacyMatch = req.method === "PUT" && path.match(/^\/api\/contexts\/skill-builder\/([\w.-]+)$/);
+  if (ctxPutLegacyMatch) {
+    const fileName = ctxPutLegacyMatch[1];
+    const contextRoot = join(PATHS.PAAW_ROOT_DATA, "ai-settings", "skill-builder", "build");
+    try {
+      const { content } = JSON.parse(await readBody(req));
+      if (!content) { json(res, { error: "Missing content" }, 400); return true; }
+      await mkdir(contextRoot, { recursive: true });
+      await writeFile(join(contextRoot, fileName), content, "utf-8");
       json(res, { ok: true });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;

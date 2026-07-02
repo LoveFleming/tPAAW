@@ -1,0 +1,23 @@
+{
+  "id": "bk_mr29i3ac",
+  "filename": "backup-2026-07-01T16-00-25.tar.gz",
+  "path": "/Users/steward/App/tAgent/backups/backup-2026-07-01T16-00-25.tar.gz",
+  "size": 24391487,
+  "createdAt": "2026-07-01T16:00:26.148Z",
+  "dirs": [
+    "ai-settings",
+    "apps",
+    "app-data",
+    "chats",
+    "config",
+    "crews",
+    "cron",
+    "db",
+    "knowledge",
+    "mindmaps",
+    "notes",
+    "skills",
+    "workflows",
+    "api-registry"
+  ]
+}

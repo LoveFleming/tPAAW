@@ -28,7 +28,7 @@ const AI_SETTINGS_ROOT = resolve(__dirname, "../../../../data/ai-settings");
 const CATEGORIES = [
   { id: "chat",          label: "Chat",          icon: "💬", desc: "聊天助理 — 身份、系統提示、防護規則、核心規則、路徑資訊" },
   { id: "crew",           label: "Crew",           icon: "👤", desc: "AI Crew — Skill 執行規則、角色上下文" },
-  { id: "skill-builder", label: "Skill Builder", icon: "🔨", desc: "Skill 建構器 — 格式規範、產出規則" },
+  { id: "skill-builder", label: "Skill Builder", icon: "🔨", desc: "Skill 建構器 — 格式規範、產出規則", subcategories: ["build", "test"] },
   { id: "app-builder",   label: "App Builder",   icon: "📦", desc: "App 建構器 — App 產出規則" },
   { id: "notes",         label: "Notes",         icon: "📝", desc: "AI 筆記 — 整理規則、格式規範" },
   { id: "mindmap",       label: "Mind Map",      icon: "🧠", desc: "AI 心智圖 — 分支策略、節點規則" },
@@ -47,10 +47,37 @@ function isValidCategory(categoryId) {
   return CATEGORIES.some(c => c.id === categoryId);
 }
 
-/** Dynamically scan a category directory for .md files */
+/** Dynamically scan a category directory for .md files.
+ *  If the category has subcategories (e.g. skill-builder has build/ and test/),
+ *  scan those subdirectories and prefix file names with the subcategory.
+ */
 async function scanCategoryFiles(categoryId) {
+  const cat = CATEGORIES.find(c => c.id === categoryId);
   const dir = categoryDir(categoryId);
   try {
+    // If category has subcategories, scan each subdir
+    if (cat && cat.subcategories) {
+      const results = [];
+      for (const sub of cat.subcategories) {
+        const subDir = join(dir, sub);
+        try {
+          const entries = await readdir(subDir);
+          entries
+            .filter(f => f.endsWith(".md"))
+            .sort()
+            .forEach(f => {
+              results.push({
+                file: `${sub}/${f}`,
+                label: `[${sub}] ${f.replace(/\.md$/, "").replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())}`,
+                icon: sub === "build" ? "🔨" : sub === "test" ? "🧪" : DEFAULT_FILE_ICON,
+                subcategory: sub,
+              });
+            });
+        } catch { /* subcategory dir may not exist yet */ }
+      }
+      return results;
+    }
+    // Default: flat directory scan
     const entries = await readdir(dir);
     return entries
       .filter(f => f.endsWith(".md"))
@@ -214,8 +241,8 @@ export default async function aiSettingsRoutes(req, res) {
     return true;
   }
 
-  // GET /api/ai-settings/:category/:file — get file content
-  const fileGetMatch = req.method === "GET" && path.match(/^\/api\/ai-settings\/([\w-]+)\/([\w.-]+\.md)$/);
+  // GET /api/ai-settings/:category/:file — get file content (supports subcategory/file paths like build/rules.md)
+  const fileGetMatch = req.method === "GET" && path.match(/^\/api\/ai-settings\/([\w-]+)\/([\w.-]+\/[\w.-]+\.md|[\w.-]+\.md)$/);
   if (fileGetMatch) {
     const [, categoryId, fileName] = fileGetMatch;
     if (!isValidCategory(categoryId)) {
@@ -267,10 +294,24 @@ export default async function aiSettingsRoutes(req, res) {
         json(res, { error: "file must end with .md" }, 400);
         return true;
       }
-      // Prevent path traversal
-      if (file.includes("..") || file.includes("/")) {
+      // Prevent path traversal (allow subcategory paths like build/file.md but not ..)
+      if (file.includes("..")) {
         json(res, { error: "Invalid filename" }, 400);
         return true;
+      }
+      // Validate subcategory path if present
+      if (file.includes("/")) {
+        const cat = CATEGORIES.find(c => c.id === categoryId);
+        if (cat && cat.subcategories) {
+          const sub = file.split("/")[0];
+          if (!cat.subcategories.includes(sub)) {
+            json(res, { error: `Invalid subcategory: ${sub}` }, 400);
+            return true;
+          }
+        } else {
+          json(res, { error: "Subdirectory paths not allowed for this category" }, 400);
+          return true;
+        }
       }
       const dir = categoryDir(categoryId);
       const filePath = join(dir, file);
@@ -280,7 +321,7 @@ export default async function aiSettingsRoutes(req, res) {
         json(res, { error: `File already exists: ${file}` }, 409);
         return true;
       } catch { /* not exists, good */ }
-      await mkdir(dir, { recursive: true });
+      await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, content, "utf-8");
       json(res, { ok: true, category: categoryId, file });
     } catch (err) {
@@ -290,7 +331,7 @@ export default async function aiSettingsRoutes(req, res) {
   }
 
   // PUT /api/ai-settings/:category/:file — update file content
-  const filePutMatch = req.method === "PUT" && path.match(/^\/api\/ai-settings\/([\w-]+)\/([\w.-]+\.md)$/);
+  const filePutMatch = req.method === "PUT" && path.match(/^\/api\/ai-settings\/([\w-]+)\/([\w.-]+\/[\w.-]+\.md|[\w.-]+\.md)$/);
   if (filePutMatch) {
     const [, categoryId, fileName] = filePutMatch;
     if (!isValidCategory(categoryId)) {
@@ -304,8 +345,9 @@ export default async function aiSettingsRoutes(req, res) {
         return true;
       }
       const dir = categoryDir(categoryId);
-      await mkdir(dir, { recursive: true });
-      await writeFile(join(dir, fileName), content, "utf-8");
+      const filePath = join(dir, fileName);
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeFile(filePath, content, "utf-8");
       json(res, { ok: true, category: categoryId, file: fileName });
     } catch (err) {
       json(res, { error: err.message }, 500);
@@ -314,7 +356,7 @@ export default async function aiSettingsRoutes(req, res) {
   }
 
   // DELETE /api/ai-settings/:category/:file — delete file
-  const fileDeleteMatch = req.method === "DELETE" && path.match(/^\/api\/ai-settings\/([\w-]+)\/([\w.-]+\.md)$/);
+  const fileDeleteMatch = req.method === "DELETE" && path.match(/^\/api\/ai-settings\/([\w-]+)\/([\w.-]+\/[\w.-]+\.md|[\w.-]+\.md)$/);
   if (fileDeleteMatch) {
     const [, categoryId, fileName] = fileDeleteMatch;
     if (!isValidCategory(categoryId)) {
@@ -336,7 +378,7 @@ export default async function aiSettingsRoutes(req, res) {
     try {
       const { skillDef = "" } = JSON.parse(await readBody(req));
       const { contextEngine } = await import("../context-engine.mjs");
-      const ctx = await contextEngine.build({ target: "skill-builder", skillDef });
+      const ctx = await contextEngine.build({ target: "skill-builder", skillDef, phase: "build" });
       json(res, ctx);
     } catch (err) {
       json(res, { error: err.message }, 500);
@@ -350,7 +392,7 @@ export default async function aiSettingsRoutes(req, res) {
     try {
       const { skillDef = "", model } = JSON.parse(await readBody(req));
       const { contextEngine } = await import("../context-engine.mjs");
-      const ctx = await contextEngine.build({ target: "skill-builder", skillDef });
+      const ctx = await contextEngine.build({ target: "skill-builder", skillDef, phase: "build" });
       // Simulate buildSystemPrompt from paaw-agent-loop
       const { resolve, dirname } = await import("path");
       const { readFileSync: readSync } = await import("fs");

@@ -403,15 +403,15 @@ export default async function skillsApiRoute(req, res) {
         return true;
       }
 
-      // Build full system context via context-engine (reads data/ai-settings/skill-builder/*.md)
+      // Build full system context via context-engine (reads data/ai-settings/skill-builder/{phase}/*.md)
       const { contextEngine } = await import("../context-engine.mjs");
-      const ctx = await contextEngine.build({ target: "skill-builder" });
+      const ctx = await contextEngine.build({ target: "skill-builder", phase: "build" });
       const systemPrompt = ctx.systemPrompt || "";
-      // Output rules and generate prompt are now in data/ai-settings/skill-builder/*.md
+      // Output rules and generate prompt are now in data/ai-settings/skill-builder/build/*.md
 
       // Load generate prompt template
       let genPrompt = "";
-      try { genPrompt = readFileSync(resolve(PAAW_ROOT, "data/ai-settings/skill-builder/generate-prompt.md"), "utf-8").trim(); } catch {}
+      try { genPrompt = readFileSync(resolve(PAAW_ROOT, "data/ai-settings/skill-builder/build/generate-prompt.md"), "utf-8").trim(); } catch {}
       if (!genPrompt) genPrompt = "請根據以下需求，產出完整的 SKILL.md：";
 
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {

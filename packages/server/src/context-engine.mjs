@@ -419,15 +419,15 @@ export const contextEngine = {
     return { systemPrompt: parts.join("\n\n"), prompt, provider, meta: { skillMeta } };
   },
 
-  // ── Skill Builder：base + dynamic + skill-builder/ rules ──
-  // Prompts are fully driven by data/ai-settings/skill-builder/*.md
+  // ── Skill Builder：base + dynamic + skill-builder/{phase} rules ──
+  // Phase: "build" (default) or "test" — loads different prompt sets
   _buildSkillBuilder(params) {
-    const { skillDef = "" } = params;
+    const { skillDef = "", phase = "build" } = params;
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
       // No buildDynamicContext() — skill-builder is a tool, not a chat assistant
-      ...readCategoryFiles("skill-builder"),
+      ...readCategoryFiles(`skill-builder/${phase}`),
     ];
     // prompt = rules from ai-settings + the actual skill-source.md input
     const prompt = `${skillDef}`;
