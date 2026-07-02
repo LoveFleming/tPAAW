@@ -288,6 +288,37 @@ export default function AppBuilder() {
 
     // Model loaded via ModelSelector with user preference
 
+    // ── Prompt Preview ──
+    const [promptPreview, setPromptPreview] = useState(false);
+    const [promptPreviewContent, setPromptPreviewContent] = useState<{system: string; prompt: string} | null>(null);
+
+    const handlePreviewPrompt = async () => {
+        let sysPrompt = systemPrompt || "";
+        let userPrompt = "";
+        // Reconstruct the filled prompt (same as handleGenerate)
+        const skillId = selectedSkill?.id || "no-skill";
+        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 完成後輸出 DONE。`;
+        userPrompt = sysPrompt
+            .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
+            .replace(/\{\{REPORT_NAME\}\}/g, reportName)
+            .replace(/\{\{SKILL_ID\}\}/g, skillId)
+            .replace(/\{\{PARAMS\}\}/g, description) + outputInstruction;
+        // Fetch FINAL system prompt from context engine
+        try {
+            const res = await fetch(`${API}/api/ai-settings/generic-preview`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ target: "app-builder", prompt: userPrompt, model }),
+            });
+            if (res.ok) {
+                const ctx = await res.json();
+                if (ctx.systemPrompt) sysPrompt = ctx.systemPrompt;
+                if (ctx.userPrompt) userPrompt = ctx.userPrompt;
+            }
+        } catch {}
+        setPromptPreviewContent({ system: sysPrompt, prompt: userPrompt });
+        setPromptPreview(true);
+    };
+
     // ── Advanced settings (collapsed by default) ──
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [systemPrompt, setSystemPrompt] = useState("");
@@ -613,7 +644,8 @@ export default function AppBuilder() {
         setPollTrigger(t => t + 1);
 
         const skillId = selectedSkill?.id || "no-skill";
-        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 完成後輸出 DONE。`;
+        const workDir = workingDir ? `${workingDir}/apps/${reportId}` : `data/apps/${reportId}`;
+        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 完成後輸出 DONE。\n5. **Working Directory：${workDir}**`;
         const filledPrompt = systemPrompt
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
@@ -631,7 +663,7 @@ export default function AppBuilder() {
                 ts: Date.now(),
             }]);
         }, 1000);
-    }, [reportName, selectedTemplate, description, systemPrompt, selectedSkill, reportId, sendToTerminal]);
+    }, [reportName, selectedTemplate, description, systemPrompt, selectedSkill, reportId, sendToTerminal, workingDir]);
 
     // ── Chat send (iterative refinement) ──
     const handleChatSend = useCallback(() => {
@@ -647,7 +679,8 @@ export default function AppBuilder() {
         }]);
 
         // Send to terminal for processing
-        const refinement = `${msg}\n\n修改完成後請更新 data/apps/${reportId}/app.html。完成後輸出 DONE。`;
+        const workDir = workingDir ? `${workingDir}/apps/${reportId}` : `data/apps/${reportId}`;
+        const refinement = `${msg}\n\n修改完成後請更新 data/apps/${reportId}/app.html。完成後輸出 DONE。\n**Working Directory：${workDir}**`;
         sendToTerminal(refinement);
 
         // Start polling for preview update
@@ -983,6 +1016,8 @@ export default function AppBuilder() {
                                     )}
                                     <button onClick={() => { setPreviewReady(false); setPollTrigger(t => t + 1); setPreviewKey(Date.now()); }}
                                         className="text-xs text-stone-400 hover:text-stone-600">🔄</button>
+                                    <button onClick={handlePreviewPrompt}
+                                        className="text-xs text-stone-400 hover:text-stone-600" title="查看完整提示詞">📋 Prompt</button>
                                     {previewReady && previewUrl && (
                                         <button onClick={() => setFullscreen(f => !f)}
                                             className="text-xs text-stone-400 hover:text-stone-600" title={fullscreen ? tt("common.exitFullscreen") : tt("appBuilder.fullscreenPreview")}>{fullscreen ? "✕" : "⛶"}</button>
@@ -991,7 +1026,7 @@ export default function AppBuilder() {
                             </div>
                             <div className="h-full min-h-0">
                                 {previewReady && previewUrl ? (
-                                    <iframe key={previewKey} src={previewUrl}
+                                    <iframe key={previewKey} src={`${previewUrl}?_t=${previewKey}`}
                                         className="w-full h-full border-0 bg-white" title="Preview" />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-stone-400 text-sm gap-3">
@@ -1012,85 +1047,27 @@ export default function AppBuilder() {
                             </div>
                         </div>
 
-                        {/* Top-Right: Terminal */}
+                        {/* Bottom: Terminal — AgentConsole fills entire terminal area */}
                         {!fullscreen && (
-                        <div className="min-h-0 flex" style={{ backgroundColor: "#1e1e1e" }}>
-                            {/* Terminal (left half) */}
-                            <div className="flex flex-col border-r" style={{ width: "50%", borderColor: "#333" }}>
-                                <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
-                                    <span className="text-sm font-semibold text-stone-400">💻 Terminal</span>
-                                    <span className="text-[9px] text-stone-500">({model ? model.split("/").pop() : "default"})</span>
-                                </div>
-                                <div className="flex-1 min-h-0">
-                                    {chatStarted ? (
-                                        <AgentConsole
-                                            key={`applab-${consoleKey}-${model}`}
-                                            ref={terminalRef}
-                                            model={model || undefined}
-                                            initialPrompt={initialPrompt}
-                                        />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-stone-500 text-xs">
-                                            按「開始生成」後 terminal 會啟動
-                                        </div>
-                                    )}
-                                </div>
+                        <div className="min-h-0 flex flex-col" style={{ backgroundColor: "#1e1e1e" }}>
+                            <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
+                                <span className="text-sm font-semibold text-stone-400">💻 Terminal</span>
+                                <span className="text-[9px] text-stone-500">({model ? model.split("/").pop() : "default"})</span>
                             </div>
-
-                            {/* Chat Panel (right half) */}
-                            <div className="flex flex-col flex-1 min-h-0">
-
-                                {/* Messages */}
-                                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
-                                    {chatMessages.length === 0 && (
-                                        <div className="flex items-center justify-center h-full text-stone-500 text-xs text-center px-4">
-                                            <div>
-                                                <p className="mb-2">還沒有對話</p>
-                                                <p className="text-stone-600 text-xs">生成完成後可以在這裡輸入微調指令：</p>
-                                                <p className="text-stone-600 text-xs mt-1 italic">「改成藍色系」「加一個 filter」「表格太擠，改成卡片」</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {chatMessages.map(msg => (
-                                        <div key={msg.id} className={cn(
-                                            "rounded-lg px-3 py-2 text-xs max-w-[85%]",
-                                            msg.role === "user"
-                                                ? "bg-blue-900/50 text-blue-100 ml-auto"
-                                                : "bg-stone-800/50 text-stone-300 mr-auto"
-                                        )}>
-                                            <div className={cn(
-                                                "text-[9px] mb-1 font-semibold",
-                                                msg.role === "user" ? "text-blue-300" : "text-stone-500"
-                                            )}>
-                                                {msg.role === "user" ? tt("common.you") : tt("appBuilder.ai")}
-                                            </div>
-                                            <div style={{ lineHeight: 1.5 }}>{msg.text}</div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Input */}
-                                <div className="shrink-0 p-2 border-t" style={{ borderColor: "#333" }}>
-                                    <div className="flex gap-2">
-                                        <textarea
-                                            value={chatInput}
-                                            onChange={e => setChatInput(e.target.value)}
-                                            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); handleChatSend(); } }}
-                                            placeholder={tt("appBuilder.refinePlaceholder")}
-                                            rows={2}
-                                            className="flex-1 px-3 py-2 bg-stone-800 border rounded-lg text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-600 resize-none"
-                                            style={{ borderColor: "#444", lineHeight: 1.5 }}
-                                        />
-                                        <button onClick={handleChatSend}
-                                            disabled={!chatInput.trim()}
-                                            className={cn(
-                                                "px-3 py-2 rounded-lg text-xs font-bold transition-colors",
-                                                chatInput.trim() ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-stone-700 text-stone-500 cursor-not-allowed"
-                                            )}>
-                                            送出
-                                        </button>
+                            <div className="flex-1 min-h-0">
+                                {chatStarted ? (
+                                    <AgentConsole
+                                        key={`applab-${consoleKey}-${model}`}
+                                        ref={terminalRef}
+                                        cwd={workingDir ? `${workingDir}/apps/${reportId}` : undefined}
+                                        model={model || undefined}
+                                        initialPrompt={initialPrompt}
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-stone-500 text-xs">
+                                        按「開始生成」後 terminal 會啟動
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                         )}
@@ -1221,6 +1198,28 @@ export default function AppBuilder() {
                                         onMouseLeave={e => { e.currentTarget.style.backgroundColor = t.accent; }}>
                                         {settingsSaving ? tt("common.saving") : tt("appBuilder.saveButton")}
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ━━ Prompt Preview Modal ━━ */}
+                    {promptPreview && promptPreviewContent && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPromptPreview(false)}>
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl border overflow-hidden" style={{ maxHeight: "90vh" }} onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: "#e7e5e4" }}>
+                                    <h3 className="text-sm font-bold text-stone-700">📋 完整提示詞預覽</h3>
+                                    <button onClick={() => setPromptPreview(false)} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
+                                </div>
+                                <div className="overflow-y-auto p-5 space-y-4" style={{ maxHeight: "calc(90vh - 60px)" }}>
+                                    <div>
+                                        <div className="text-xs font-bold text-stone-500 mb-1">System Prompt</div>
+                                        <pre className="bg-stone-50 border rounded-lg p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-[40vh] overflow-y-auto" style={{ borderColor: "#e7e5e4", lineHeight: 1.6 }}>{promptPreviewContent.system}</pre>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs font-bold text-stone-500 mb-1">User Prompt</div>
+                                        <pre className="bg-stone-50 border rounded-lg p-3 text-xs font-mono whitespace-pre-wrap break-words max-h-[40vh] overflow-y-auto" style={{ borderColor: "#e7e5e4", lineHeight: 1.6 }}>{promptPreviewContent.prompt}</pre>
+                                    </div>
                                 </div>
                             </div>
                         </div>
