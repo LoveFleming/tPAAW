@@ -291,7 +291,6 @@ export const contextEngine = {
       case "chat":          return this._buildChat(params);
       case "skill-exec":    return this._buildSkillExec(params);
       case "workflow":      return this._buildWorkflow(params);
-      case "workflow":     return this._buildWorkflow(params);
       case "crew":          return this._buildCrew(params);
       case "skill-builder": return this._buildSkillBuilder(params);
       case "mindmap":       return this._buildMindmap(params);
@@ -334,6 +333,7 @@ export const contextEngine = {
     const parts = [
       buildBaseContext(),
       ...readCategoryFiles("crew"),
+      "你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。",
     ];
 
     // crew-specific rolePrompt
@@ -375,9 +375,11 @@ export const contextEngine = {
     const parts = [
       buildBaseContext(),
       ...readCategoryFiles("crew"),
+      "你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。",
     ];
     const appSystem = appId ? safeRead(resolve(APPS_DIR, appId, "SYSTEM.md")) : "";
     if (appSystem) parts.push(resolvePaths(appSystem));
+    if (appId) parts.push(`（App: ${appId}）`);
 
     return { systemPrompt: parts.join("\n\n"), prompt, provider, meta: { skillMeta: meta } };
   },
@@ -414,6 +416,7 @@ export const contextEngine = {
       buildDynamicContext(),
       ...readCategoryFiles("crew"),
       ...readCategoryFiles("workflow"),
+      "你是 PAAW Workflow 執行引擎。按照 Skill 定義逐步處理，確保每個步驟的輸出正確。",
     ];
 
     return { systemPrompt: parts.join("\n\n"), prompt, provider, meta: { skillMeta } };
