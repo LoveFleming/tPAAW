@@ -490,6 +490,7 @@ export default function AppBuilder() {
     const [editingAppId, setEditingAppId] = useState<string | null>(null);
     const [showAppPicker, setShowAppPicker] = useState(false);
     const [fullscreen, setFullscreen] = useState(false);
+    const [showRevisionLog, setShowRevisionLog] = useState(false);
 
     // ── App Settings panel (edit mode) ──
     const [showSettings, setShowSettings] = useState(false);
@@ -678,9 +679,17 @@ export default function AppBuilder() {
             ts: Date.now(),
         }]);
 
+        // Build modification history for context
+        const userMessages = chatMessages.filter(m => m.role === "user");
+        const isRefinement = chatMessages.length > 0; // first generate has assistant placeholder
+        let historyBlock = "";
+        if (isRefinement && userMessages.length > 0) {
+            historyBlock = "\n\n**修改記錄（之前的對話）：**\n" + userMessages.map((m, i) => `${i + 1}. ${m.text}`).join("\n") + "\n";
+        }
+
         // Send to terminal for processing
         const workDir = workingDir ? `${workingDir}/apps/${reportId}` : `data/apps/${reportId}`;
-        const refinement = `${msg}\n\n修改完成後請更新 data/apps/${reportId}/app.html。完成後輸出 DONE。\n**Working Directory：${workDir}**`;
+        const refinement = `${historyBlock}${msg}\n\n修改完成後請更新 data/apps/${reportId}/app.html。完成後輸出 DONE。\n**Working Directory：${workDir}**`;
         sendToTerminal(refinement);
 
         // Start polling for preview update
@@ -1047,12 +1056,19 @@ export default function AppBuilder() {
                             </div>
                         </div>
 
-                        {/* Bottom: Terminal — AgentConsole fills entire terminal area */}
+                        {/* Bottom: Terminal — AgentConsole fills entire terminal area + chat input */}
                         {!fullscreen && (
                         <div className="min-h-0 flex flex-col" style={{ backgroundColor: "#1e1e1e" }}>
                             <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
                                 <span className="text-sm font-semibold text-stone-400">💻 Terminal</span>
                                 <span className="text-[9px] text-stone-500">({model ? model.split("/").pop() : "default"})</span>
+                                {chatMessages.length > 0 && (
+                                    <button onClick={() => setShowRevisionLog(true)}
+                                        className="ml-auto text-xs text-stone-500 hover:text-stone-300 flex items-center gap-1"
+                                        title="查看修改記錄">
+                                        📝 修改記錄 <span className="text-[9px] bg-stone-700 px-1 rounded">{chatMessages.filter(m => m.role === "user").length}</span>
+                                    </button>
+                                )}
                             </div>
                             <div className="flex-1 min-h-0">
                                 {chatStarted ? (
@@ -1069,9 +1085,59 @@ export default function AppBuilder() {
                                     </div>
                                 )}
                             </div>
+                            {/* Chat input for refinement */}
+                            {chatStarted && (
+                            <div className="shrink-0 p-2 border-t" style={{ borderColor: "#333" }}>
+                                <div className="flex gap-2">
+                                    <textarea
+                                        value={chatInput}
+                                        onChange={e => setChatInput(e.target.value)}
+                                        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); handleChatSend(); } }}
+                                        placeholder={tt("appBuilder.refinePlaceholder")}
+                                        rows={2}
+                                        className="flex-1 px-3 py-2 bg-stone-800 border rounded-lg text-sm text-stone-200 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-600 resize-none"
+                                        style={{ borderColor: "#444", lineHeight: 1.5 }}
+                                    />
+                                    <button onClick={handleChatSend}
+                                        disabled={!chatInput.trim()}
+                                        className={cn(
+                                            "px-3 py-2 rounded-lg text-sm font-bold transition-colors",
+                                            chatInput.trim() ? "bg-blue-600 text-white hover:bg-blue-500" : "bg-stone-700 text-stone-500 cursor-not-allowed"
+                                        )}>
+                                        送出
+                                    </button>
+                                </div>
+                            </div>
+                            )}
                         </div>
                         )}
                     </div>
+
+                    {/* 📝 修改記錄 Modal */}
+                    {showRevisionLog && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowRevisionLog(false)}>
+                            <div className="bg-stone-900 rounded-xl shadow-2xl w-full max-w-lg border border-stone-700 overflow-hidden" style={{ maxHeight: "80vh" }} onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between px-5 py-3 border-b border-stone-700 shrink-0">
+                                    <h3 className="text-sm font-bold text-stone-200">📝 修改記錄</h3>
+                                    <button onClick={() => setShowRevisionLog(false)} className="text-stone-500 hover:text-red-400 text-lg leading-none">&times;</button>
+                                </div>
+                                <div className="overflow-y-auto p-4 space-y-2" style={{ maxHeight: "calc(80vh - 50px)" }}>
+                                    {chatMessages.length === 0 && (
+                                        <div className="text-center text-stone-500 text-sm py-8">還沒有修改記錄</div>
+                                    )}
+                                    {chatMessages.filter(m => m.role === "user").map((msg, idx) => (
+                                        <div key={msg.id} className="bg-stone-800 rounded-lg px-4 py-2.5">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-bold text-blue-400">#{idx + 1}</span>
+                                                <span className="text-[10px] text-stone-500">{new Date(msg.ts).toLocaleTimeString()}</span>
+                                            </div>
+                                            <div className="text-sm text-stone-300 whitespace-pre-wrap">{msg.text}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ⚙️ Settings Panel (edit mode only) */}
                     {editingAppId && showSettings && (
