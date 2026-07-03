@@ -90,7 +90,7 @@ const server = createServer(async (req, res) => {
     if (_exists(UI_DIST)) {
       let reqPath = req.url?.split("?")[0] || "/";
       // Don't serve static for /api/ routes
-      if (!reqPath.startsWith("/api/")) {
+      if (!reqPath.startsWith("/api/") && !reqPath.startsWith("/.well-known/")) {
         let filePath = resolve(UI_DIST, reqPath.slice(1));
         // Security: prevent path traversal
         if (!filePath.startsWith(UI_DIST)) filePath = resolve(UI_DIST, "index.html");
