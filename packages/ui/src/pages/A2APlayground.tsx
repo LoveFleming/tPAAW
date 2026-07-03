@@ -12,7 +12,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
 
-const API_BASE = ""; // same origin
+import API_BASE from "../api";
 
 interface AgentCard {
   protocolVersion: string;
