@@ -95,7 +95,10 @@ export default function A2APlayground() {
     } catch {}
   }, []);
 
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     loadCard();
     loadTasks();
   }, [loadCard, loadTasks]);
