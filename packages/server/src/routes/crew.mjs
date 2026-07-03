@@ -824,6 +824,34 @@ export default async function crewRoute(req, res) {
     return true;
   }
 
+  // PUT /api/fs/file?path=... — auto-save / write file
+  if (req.method === "PUT" && req.url?.startsWith("/api/fs/file")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const filePath = params.get("path");
+    if (!filePath) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'path' query param" }));
+      return true;
+    }
+    const absPath = resolve(PAAW_ROOT, filePath);
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    try {
+      const { content } = JSON.parse(body);
+      if (typeof content !== "string") throw new Error("Missing 'content' in body");
+      // Ensure parent dir exists
+      const dir = dirname(absPath);
+      await mkdir(dir, { recursive: true });
+      await writeFile(absPath, content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, path: absPath, size: content.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // GET /api/fs/tree-deep?root=...&subpath=...
   if (req.method === "GET" && req.url?.startsWith("/api/fs/tree-deep")) {
     const params = new URL(req.url, "http://localhost").searchParams;
