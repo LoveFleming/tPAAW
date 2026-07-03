@@ -38,6 +38,7 @@ const ROUTE_MODULES = [
   "./routes/notes.mjs",
   "./routes/backup.mjs",
   "./routes/projects.mjs",
+  "./routes/a2a.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)
