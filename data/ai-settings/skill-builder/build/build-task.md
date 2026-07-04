@@ -1,20 +1,22 @@
-# Skill Build 轉換任務
+# Skill Build 任務
 
 ## 你的任務
 
-你會收到一份 skill-source.md（使用 @@@section@@@ 分隔的 UI 編輯格式），你的任務是將它轉換為完整的、可執行的 package/SKILL.md（標準 markdown section 格式）。
+你會收到一份 skill-source.md（使用 @@@section@@@ 分隔的源碼格式），你的任務是將它**編譯**成完整的、可執行的 package/SKILL.md（Skill Artifact）。
 
-## 轉換規則
+這不是機械式的格式轉換 — 你要理解源碼的意圖，推斷合理的執行邏輯，補齊細節，產出可以讓 AI runtime 直接執行的 artifact。
 
-- @@@purpose@@@ → ## Purpose
-- @@@steps@@@ → ## Deterministic Script（含 ### Tool Access, ### Execution Steps, ### Business Rules）
-- @@@output@@@ → ## Output Contract（必須包含 JSON schema 和輸出模式）
-- @@@error_handling@@@ → 併入 ### Error Handling
-- @@@guardrails@@@ → ## Guardrails
-- @@@validation@@@ → ## Validation
+## 編譯規則
+
+- @@@purpose@@@ → `## Purpose`
+- @@@steps@@@ → `## Deterministic Script`（含 `### Tool Access`, `### Execution Steps`, `### Business Rules`）
+- @@@output@@@ → `## Output Contract`（必須包含 JSON schema 和輸出模式）
+- @@@error_handling@@@ → 併入 `### Error Handling`
+- @@@guardrails@@@ → `## Guardrails`
+- @@@validation@@@ → `## Validation`
 - frontmatter 保留不動
-- 必須符合 data/skills/physical-skill/skill-creator/SKILL.md 的標準格式
+- 必須符合 `data/skills/physical-skill/skill-creator/SKILL.md` 的標準格式
 
 ## 輸入
 
-下面的 skill-source.md（@@@ 格式）是你這次要轉換的內容。
+下面的 skill-source.md（源碼）是你這次要編譯的內容。

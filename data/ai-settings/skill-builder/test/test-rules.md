@@ -2,10 +2,20 @@
 
 ## 測試邏輯
 
-用剛 build 好的 SKILL.md + 使用者輸入，直接跑一次，看能不能正常產出。
+Build 產出的 artifact（package/SKILL.md）就像剛 compile 完的程式 — 需要實際跑一次才知道能不能用。
+
+用 artifact + 使用者輸入，直接跑一次，看輸出是否符合需求。
 
 能跑 → 可以發佈。
-不能跑 → 回報錯誤。
+不能跑 → 回報問題，使用者調整 skill-source.md 後重新 Build。
+
+## 迭代流程
+
+```
+Build → Test → 通過？ → Yes → Publish
+                 │
+                 No → 調整 skill-source.md → 重新 Build → 重新 Test
+```
 
 ## Prompt 組裝
 
@@ -18,4 +28,4 @@
 照 SKILL.md 的 Output Contract 輸出到指定目錄。如果正常產出，代表可以發佈。
 ```
 
-就這樣。不需要拆解 Purpose、Steps、Guardrails 等，直接讓 CLI 讀 SKILL.md 執行。
+就這樣。不需要拆解 Purpose、Steps、Guardrails 等，直接讓 AI runtime 讀 SKILL.md 執行。

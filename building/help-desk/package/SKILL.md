@@ -1,22 +1,53 @@
 ---
 id: help-desk
 name: PAAW Help Desk
+version: 1.0.0
 description: 回答有關 PAAW 的所有問題，涵蓋架構、Skill 系統、Workspace、API、CLI 等主題，透過消化 knowledge 與 source code 提供準確解答
+category: utility
+tags:
+  - help
+  - qa
+  - knowledge
+  - paaw
+  - documentation
 userInputs:
   - id: question
     label: 你的問題
     description: 你想了解的 PAAW 相關問題，例如架構、Skill 撰寫、Workspace 操作、API 用法等
+    placeholder: "例：Skill 是什麼？怎麼建立一個新的 Skill？"
     required: true
+    type: textarea
     multiline: true
+  - id: depth
+    label: 回答深度
+    description: 回答的詳細程度
+    placeholder: "summary | standard | deep-dive（預設 standard）"
+    required: false
+    type: text
+    multiline: false
+  - id: include_source
+    label: 顯示參考來源
+    description: 是否在回答末尾附上參考的檔案路徑
+    placeholder: "true | false（預設 true）"
+    required: false
+    type: text
+    multiline: false
 ---
 
-@@@purpose@@@
+# PAAW Help Desk
+
+## Purpose
+
 協助使用者解答任何與 PAAW 相關的問題。此 Skill 會主動搜尋 `knowledge` workspace 下 `about-paaw` 目錄中的所有文件，必要時深入 source code，以提供準確、有依據的回答。無論是概念理解、操作指引、架構解析或疑難排解，都能給出清晰且可執行的答案。
 
-@@@inputs@@@
-- **你的問題** (required): 你想了解的 PAAW 相關問題，例如架構、Skill 撰寫、Workspace 操作、API 用法等
+## Inputs
 
-@@@steps@@@
+- **你的問題** (`question`, 必填)：你想了解的 PAAW 相關問題，例如架構、Skill 撰寫、Workspace 操作、API 用法等
+- **回答深度** (`depth`, 選填)：回答的詳細程度，可選 `summary`、`standard`、`deep-dive`，預設為 `standard`
+- **顯示參考來源** (`include_source`, 選填)：是否在回答末尾附上參考的檔案路徑，預設為 `true`
+
+## Deterministic Script
+
 ### Tool Access
 
 - `file_list({ workspace: "knowledge" })` — 列出 knowledge workspace 的根目錄
@@ -72,6 +103,7 @@ userInputs:
      - 相關延伸主題
 2. 以繁體中文撰寫，技術術語保留英文
 3. 若 `include_source` 為 `true`，在回答末尾附上：
+
    ```
    📚 參考來源：
    - knowledge/about-paaw/<file-name>
@@ -121,7 +153,17 @@ userInputs:
   2. 針對最可能的解讀提供初步回答
   3. 邀請使用者進一步釐清問題
 
-@@@output@@@
+## Guardrails
+
+1. **只可讀取**：此 Skill 僅進行檔案讀取與回答，不得寫入、修改或刪除任何檔案
+2. **不執行程式碼**：不執行任何 source code，僅進行靜態閱讀與分析
+3. **不洩露敏感資訊**：若 source code 中包含 API keys、密碼或其他敏感資訊，回答中不得包含這些內容
+4. **回答長度上限**：`summary` 模式不超過 500 字；`standard` 模式不超過 2000 字；`deep-dive` 模式不超過 5000 字
+5. **不得編造**：所有回答中的具體數據、行為描述、API 定義都必須有文件或 source code 作為依據
+6. **單次回答範圍**：一次回答聚焦於一個主題；若使用者問題包含多個獨立子問題，逐一回答但提示可拆分提問以獲得更深入的回答
+
+## Output Contract
+
 **輸出模式：display**
 
 此 Skill 為即時問答用途，回答直接顯示給使用者，不需要存檔。
@@ -176,21 +218,8 @@ userInputs:
 }
 ```
 
-@@@error_handling@@@
+## Validation
 
-
-@@@guardrails@@@
-1. **只可讀取**：此 Skill 僅進行檔案讀取與回答，不得寫入、修改或刪除任何檔案
-2. **不執行程式碼**：不執行任何 source code，僅進行靜態閱讀與分析
-3. **不洩露敏感資訊**：若 source code 中包含 API keys、密碼或其他敏感資訊，回答中不得包含這些內容
-4. **回答長度上限**：`summary` 模式不超過 500 字；`standard` 模式不超過 2000 字；`deep-dive` 模式不超過 5000 字
-5. **不得編造**：所有回答中的具體數據、行為描述、API 定義都必須有文件或 source code 作為依據
-6. **單次回答範圍**：一次回答聚焦於一個主題；若使用者問題包含多個獨立子問題，逐一回答但提示可拆分提問以獲得更深入的回答
-
-@@@examples@@@
-
-
-@@@validation@@@
 1. **問題非空**：`question` 不得為空字串或純空白
 2. **depth 值合法**：若有提供 `depth`，必須是 `summary`、`standard` 或 `deep-dive` 之一；不合法值使用預設 `standard`
 3. **include_source 值合法**：若有提供，必須是 `true` 或 `false`；不合法值使用預設 `true`
@@ -198,5 +227,3 @@ userInputs:
 5. **confidence 校驗**：若 `confidence` 為 `low`，回答中必須包含免責聲明，說明此答案基於推測，建議查閱原始文件確認
 6. **sources 校驗**：若 `include_source` 為 `true`，`sources` 不得為空陣列（除非知識庫完全沒有相關內容，此時須在 answer 中說明）
 7. **回答長度校驗**：按 Guardrails 定義的長度上限檢查；若超出，自動精簡並在末尾附註「此為精簡版回答，可使用 deep-dive 模式獲取完整內容」
-
-@@@notes@@@

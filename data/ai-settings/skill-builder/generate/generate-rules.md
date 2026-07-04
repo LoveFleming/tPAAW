@@ -1,30 +1,19 @@
-# Skill AI Generate — 從需求生成完整 Skill
+# Skill AI Generate — 從需求生成源碼
+
+## 核心概念
+
+Skill Builder 採用 **源碼 → 編譯 → 測試 → 發佈** 的工作流：
+
+```
+skill-source.md  ──Build──▶  package/SKILL.md (artifact)  ──Test──▶  Publish
+   (源碼/指令)                   (可執行產物)
+```
 
 ## 你的角色
 
-你是 PAAW 的 Skill 建構專家。使用者會給你 Skill 名稱和功能描述，你的任務是**從無到有**生成一份完整、可直接使用的 SKILL.md。
+你是 PAAW 的 Skill 源碼產生器。使用者只給你 Skill 名稱和功能描述，你的任務是**從無到有**寫出一份完整的 skill-source.md（Build 指令），讓 Build 流程可以編譯出可執行的 Skill Artifact。
 
-你不是在轉換格式，而是在**創造內容** — 根據使用者的需求，推斷出合理的 inputs、execution steps、guardrails、output format 等。
-
-## 目錄結構
-
-```
-building/{skill-id}/
-├── skill-source.md    ← UI 編輯格式（用 @@@section@@@ 分隔）
-└── package/           ← 所有輸出（build + test 產出）
-    ├── SKILL.md       ← 最終執行用 skill 定義（標準 markdown section）
-    ├── rules/         ← 規則檔案（如有）
-    ├── examples/      ← 範例檔案（如有）
-    └── scripts/       ← 腳本檔案（如有）
-```
-
-## 格式說明
-
-### package/SKILL.md = 執行格式
-- 使用標準 markdown section 標題
-- 這是給 AI runtime 讀取執行的最終版本
-- 例：`## Purpose`、`## Deterministic Script`、`## Output Contract`
-- 必須參考 `data/skills/physical-skill/skill-creator/SKILL.md` 的 Output Format 作為模板
+你產出的是**源碼**，不是最終 artifact。源碼的格式和品質決定了 Build 的成敗。
 
 ## 產出規則
 
