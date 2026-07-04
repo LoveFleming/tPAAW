@@ -1,11 +1,11 @@
 /**
  * PAAW HelpDesk API — 讓其他 Agent 可以透過 API 提問
  *
- * POST /api/helpdesk/ask     — 外部 Agent 提交問題（同步：建工單 → 跑 HelpDesk skill → 回傳答案）
- * GET  /api/helpdesk/tickets — 列出所有票
- * GET  /api/helpdesk/ticket/:id — 查詢單一票
- * POST /api/helpdesk/ticket/:id/reply — Agent 補充問題
- * GET  /api/helpdesk/knowledge — 取得 PAAW 知識庫
+ * POST /api/helpdesk/ask          — 提交問題（新建或續問，同步回傳答案）
+ * GET  /api/helpdesk/tickets      — 列出所有票
+ * GET  /api/helpdesk/ticket/:id   — 查詢單一票
+ * POST /api/helpdesk/ticket/:id/reply — 補充問題
+ * GET  /api/helpdesk/knowledge    — 取得 PAAW 知識庫
  */
 
 import { readFile, writeFile, mkdir } from "fs/promises";
@@ -37,15 +37,16 @@ async function saveTickets(tickets) {
   await writeFile(HELPDESK_DATA, JSON.stringify(tickets, null, 2), "utf-8");
 }
 
+const NEED_INFO_REGEX = /\[NEED_INFO:\s*([\s\S]+?)\]/;
+
 /**
- * Run the help-desk skill via ToolEngine to generate an answer.
- * Returns { text, toolsUsed } or throws on error.
+ * Run the help-desk skill via ToolEngine.
+ * @param {Array<{role: string, content: string}>} conversation - Full conversation history
+ * @returns {Promise<{text: string, toolsUsed: string[], needsInfo: string|null}>}
  */
-async function runHelpDeskSkill(question) {
-  // Load SKILL.md
+async function runHelpDeskSkill(conversation) {
   const skillMd = await readFile(HELPDESK_SKILL, "utf-8");
 
-  // Load provider config
   const providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
   const providerId = providerConfig.active;
   const provider = providerConfig.providers[providerId];
@@ -57,7 +58,6 @@ async function runHelpDeskSkill(question) {
   const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
   const { getToolsAndHandlers } = await import("../tools/index.mjs");
 
-  // Load tools
   const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
   const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
     name,
@@ -77,20 +77,14 @@ async function runHelpDeskSkill(question) {
         : undefined,
     },
     executors,
-    maxToolRounds: 10,
-    security: {
-      approval: { mode: "auto" },
-      audit: { enabled: false },
-    },
+    maxToolRounds: 6,
+    security: { approval: { mode: "auto" }, audit: { enabled: false } },
     sessionKey: "helpdesk",
     agentId: "helpdesk-skill",
   });
 
-  // Build system prompt from SKILL.md + knowledge
   let knowledgeBase = "";
-  try {
-    knowledgeBase = await readFile(KNOWLEDGE_FILE, "utf-8");
-  } catch { /* no knowledge file */ }
+  try { knowledgeBase = await readFile(KNOWLEDGE_FILE, "utf-8"); } catch {}
 
   const systemPrompt = `${skillMd}
 
@@ -104,14 +98,30 @@ ${knowledgeBase}
 
 你是 PAAW HelpDesk。請根據上面的 Skill 定義和 Knowledge Base 回答問題。
 使用 file_read 和 file_list 工具搜尋 knowledge workspace 獲取更詳細的資訊。
-回答用繁體中文，技術術語保留英文。`;
+回答用繁體中文，技術術語保留英文。
 
-  const messages = [{ role: "user", content: question }];
+## 重要：工具使用紀律
+
+- 最多讀 3-4 個知識庫檔案，不要讀完所有檔案
+- 讀完檔案後**直接產出完整答案**，不要說「讓我再看看」
+- 如果知識庫已有足夠資訊，立即回答，不要繼續搜尋
+- 回答必須是完整的、結構化的內容，不要只給前言
+
+## 互動規則
+
+如果你需要更多資訊才能回答（例如問題太模糊、需要知道具體的使用情境等），
+請在回答的**最開頭**加上：
+
+[NEED_INFO: 你想問的釐清問題]
+
+然後系統會把你的問題轉給提問者，拿到補充資訊後再繼續。
+不要在 [NEED_INFO:] 之後加其他內容，只輸出釐清問題本身。
+一個 [NEED_INFO:] 只能問一個問題。`;
 
   let fullText = "";
   let toolsUsed = [];
 
-  for await (const chunk of engine.run(systemPrompt, messages, model)) {
+  for await (const chunk of engine.run(systemPrompt, conversation, model)) {
     switch (chunk.type) {
       case "text":
         fullText += chunk.delta;
@@ -122,32 +132,123 @@ ${knowledgeBase}
     }
   }
 
-  return { text: fullText, toolsUsed };
+  // Check if AI wants more info
+  const needMatch = fullText.match(NEED_INFO_REGEX);
+  const needsInfo = needMatch ? needMatch[1].trim() : null;
+  // Clean text: if NEED_INFO found, strip the marker from the stored text
+  const cleanText = needsInfo ? fullText.replace(NEED_INFO_REGEX, "").trim() : fullText;
+
+  return { text: cleanText || fullText, toolsUsed, needsInfo };
 }
 
 export default async function helpdeskRoute(req, res) {
   const url = req.url?.split("?")[0];
   const method = req.method;
 
-  // ── POST /api/helpdesk/ask — Agent submits a question (returns answer) ──
+  // ── POST /api/helpdesk/ask — Submit question (new or follow-up) ──
   if (method === "POST" && url === "/api/helpdesk/ask") {
     const body = JSON.parse(await readBody(req));
-    const { agentName, agentType, subject, message, priority, tags } = body;
+    const { agentName, agentType, subject, message, priority, tags, ticketId } = body;
 
     if (!agentName || !message) {
       json(res, 400, { error: "agentName and message are required" });
       return true;
     }
 
-    // 1. Create ticket
     const tickets = await loadTickets();
+
+    // ── Case A: Follow-up on existing ticket (multi-turn) ──
+    if (ticketId) {
+      const ticket = tickets.find(t => t.ticketId === ticketId);
+      if (!ticket) {
+        json(res, 404, { error: `Ticket ${ticketId} not found` });
+        return true;
+      }
+
+      // Add user follow-up message
+      ticket.messages.push({
+        id: `msg_${Date.now()}`,
+        role: "user",
+        text: message,
+        ts: Date.now(),
+      });
+      ticket.status = "working";
+      ticket.updatedAt = new Date().toISOString();
+
+      console.log(`[HelpDesk] Ticket ${ticketId} follow-up: "${message.slice(0, 80)}"`);
+
+      // Build conversation from ticket history
+      const conversation = ticket.messages
+        .filter(m => m.role === "user" || m.role === "agent")
+        .map(m => ({ role: m.role === "agent" ? "assistant" : "user", content: m.text }));
+
+      try {
+        const result = await runHelpDeskSkill(conversation);
+
+        if (result.needsInfo) {
+          // Still needs more info
+          ticket.status = "input-required";
+          ticket.messages.push({
+            id: `msg_${Date.now()}`,
+            role: "agent",
+            text: result.needsInfo,
+            ts: Date.now(),
+          });
+          await saveTickets(tickets);
+
+          console.log(`[HelpDesk] Ticket ${ticketId} needs info: "${result.needsInfo.slice(0, 80)}"`);
+
+          json(res, 200, {
+            ok: true,
+            ticketId: ticket.ticketId,
+            status: "input-required",
+            question: result.needsInfo,
+            answer: null,
+            round: ticket.messages.filter(m => m.role === "user").length,
+          });
+        } else {
+          // Final answer
+          ticket.status = "answered";
+          ticket.messages.push({
+            id: `msg_${Date.now()}`,
+            role: "agent",
+            text: result.text,
+            ts: Date.now(),
+          });
+          ticket.updatedAt = new Date().toISOString();
+          await saveTickets(tickets);
+
+          console.log(`[HelpDesk] Ticket ${ticketId} answered (round ${ticket.messages.filter(m => m.role === "user").length}, ${result.text.length} chars)`);
+
+          json(res, 200, {
+            ok: true,
+            ticketId: ticket.ticketId,
+            status: "answered",
+            answer: result.text,
+            toolsUsed: result.toolsUsed,
+            round: ticket.messages.filter(m => m.role === "user").length,
+          });
+        }
+      } catch (err) {
+        console.error(`[HelpDesk] Skill execution failed:`, err.message);
+        ticket.status = "open";
+        await saveTickets(tickets);
+        json(res, 200, {
+          ok: true, ticketId: ticket.ticketId, status: "open", answer: null,
+          error: `自動回答失敗：${err.message}`,
+        });
+      }
+      return true;
+    }
+
+    // ── Case B: New ticket ──
     const now = new Date().toISOString();
     const ticket = {
       ticketId: `TKT-${Date.now()}`,
       agentName,
       agentType: agentType || "custom",
       subject: subject || message.slice(0, 50),
-      status: "open",
+      status: "working",
       priority: priority || "medium",
       messages: [{
         id: `msg_${Date.now()}`,
@@ -165,34 +266,57 @@ export default async function helpdeskRoute(req, res) {
 
     console.log(`[HelpDesk] Ticket ${ticket.ticketId} created: "${message.slice(0, 80)}"`);
 
-    // 2. Run help-desk skill to generate answer
     try {
-      const result = await runHelpDeskSkill(message);
+      const conversation = [{ role: "user", content: message }];
+      const result = await runHelpDeskSkill(conversation);
 
-      // 3. Update ticket with answer
-      ticket.status = "answered";
-      ticket.messages.push({
-        id: `msg_${Date.now()}`,
-        role: "agent",
-        text: result.text,
-        ts: Date.now(),
-      });
-      ticket.updatedAt = new Date().toISOString();
-      await saveTickets(tickets);
+      if (result.needsInfo) {
+        // Need more info before answering
+        ticket.status = "input-required";
+        ticket.messages.push({
+          id: `msg_${Date.now()}`,
+          role: "agent",
+          text: result.needsInfo,
+          ts: Date.now(),
+        });
+        ticket.updatedAt = new Date().toISOString();
+        await saveTickets(tickets);
 
-      console.log(`[HelpDesk] Ticket ${ticket.ticketId} answered (${result.text.length} chars, tools: ${result.toolsUsed.join(",")})`);
+        console.log(`[HelpDesk] Ticket ${ticket.ticketId} needs info: "${result.needsInfo.slice(0, 80)}"`);
 
-      json(res, 200, {
-        ok: true,
-        ticketId: ticket.ticketId,
-        status: "answered",
-        answer: result.text,
-        toolsUsed: result.toolsUsed,
-      });
+        json(res, 200, {
+          ok: true,
+          ticketId: ticket.ticketId,
+          status: "input-required",
+          question: result.needsInfo,
+          answer: null,
+          round: 1,
+        });
+      } else {
+        // Answered directly
+        ticket.status = "answered";
+        ticket.messages.push({
+          id: `msg_${Date.now()}`,
+          role: "agent",
+          text: result.text,
+          ts: Date.now(),
+        });
+        ticket.updatedAt = new Date().toISOString();
+        await saveTickets(tickets);
+
+        console.log(`[HelpDesk] Ticket ${ticket.ticketId} answered (${result.text.length} chars, tools: ${result.toolsUsed.join(",")})`);
+
+        json(res, 200, {
+          ok: true,
+          ticketId: ticket.ticketId,
+          status: "answered",
+          answer: result.text,
+          toolsUsed: result.toolsUsed,
+          round: 1,
+        });
+      }
     } catch (err) {
       console.error(`[HelpDesk] Skill execution failed:`, err.message);
-
-      // Update ticket with error
       ticket.status = "open";
       ticket.messages.push({
         id: `msg_${Date.now()}`,
@@ -204,10 +328,7 @@ export default async function helpdeskRoute(req, res) {
       await saveTickets(tickets);
 
       json(res, 200, {
-        ok: true,
-        ticketId: ticket.ticketId,
-        status: "open",
-        answer: null,
+        ok: true, ticketId: ticket.ticketId, status: "open", answer: null,
         error: `自動回答失敗：${err.message}`,
         message: "問題已記錄，將由人工回覆",
       });
@@ -215,14 +336,14 @@ export default async function helpdeskRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/helpdesk/tickets — List all tickets (full data) ──
+  // ── GET /api/helpdesk/tickets ──
   if (method === "GET" && url === "/api/helpdesk/tickets") {
     const tickets = await loadTickets();
     json(res, 200, { tickets, total: tickets.length });
     return true;
   }
 
-  // ── PUT /api/helpdesk/tickets — Batch save all tickets (for UI) ──
+  // ── PUT /api/helpdesk/tickets ──
   if (method === "PUT" && url === "/api/helpdesk/tickets") {
     const body = JSON.parse(await readBody(req));
     if (!Array.isArray(body)) {
@@ -234,67 +355,47 @@ export default async function helpdeskRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/helpdesk/ticket/:id — Get single ticket with messages ──
+  // ── GET /api/helpdesk/ticket/:id ──
   {
     const m = method === "GET" && url?.match(/^\/api\/helpdesk\/ticket\/([\w.-]+)$/);
     if (m) {
-      const ticketId = m[1];
       const tickets = await loadTickets();
-      const ticket = tickets.find(t => t.ticketId === ticketId);
-      if (!ticket) {
-        json(res, 404, { error: "Ticket not found" });
-        return true;
-      }
+      const ticket = tickets.find(t => t.ticketId === m[1]);
+      if (!ticket) { json(res, 404, { error: "Ticket not found" }); return true; }
       json(res, 200, ticket);
       return true;
     }
   }
 
-  // ── POST /api/helpdesk/ticket/:id/reply — Agent adds follow-up ──
+  // ── POST /api/helpdesk/ticket/:id/reply ──
   {
     const m = method === "POST" && url?.match(/^\/api\/helpdesk\/ticket\/([\w.-]+)\/reply$/);
     if (m) {
-      const ticketId = m[1];
       const body = JSON.parse(await readBody(req));
       const { message } = body;
-
-      if (!message) {
-        json(res, 400, { error: "message is required" });
-        return true;
-      }
+      if (!message) { json(res, 400, { error: "message is required" }); return true; }
 
       const tickets = await loadTickets();
-      const ticket = tickets.find(t => t.ticketId === ticketId);
-      if (!ticket) {
-        json(res, 404, { error: "Ticket not found" });
-        return true;
-      }
+      const ticket = tickets.find(t => t.ticketId === m[1]);
+      if (!ticket) { json(res, 404, { error: "Ticket not found" }); return true; }
 
-      ticket.messages.push({
-        id: `msg_${Date.now()}`,
-        role: "user",
-        text: message,
-        ts: Date.now(),
-      });
-      ticket.status = "open"; // Reopen if was answered
+      ticket.messages.push({ id: `msg_${Date.now()}`, role: "user", text: message, ts: Date.now() });
+      ticket.status = "open";
       ticket.updatedAt = new Date().toISOString();
       await saveTickets(tickets);
-
       json(res, 200, { ok: true, message: "補充訊息已加入" });
       return true;
     }
   }
 
-  // ── GET /api/helpdesk/knowledge — Get PAAW knowledge base ──
+  // ── GET /api/helpdesk/knowledge ──
   if (method === "GET" && url === "/api/helpdesk/knowledge") {
     try {
       const md = await readFile(KNOWLEDGE_FILE, "utf-8");
       json(res, 200, { knowledge: md });
-    } catch {
-      json(res, 404, { error: "Knowledge base not found" });
-    }
+    } catch { json(res, 404, { error: "Knowledge base not found" }); }
     return true;
   }
 
-  return false; // Not handled
+  return false;
 }
