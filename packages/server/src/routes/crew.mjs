@@ -49,7 +49,7 @@ export default async function crewRoute(req, res) {
     const body = JSON.parse(await readBody(req));
     const { loadAgentConfig } = await import("./context.mjs");
     const agentCfg = await loadAgentConfig();
-    const { skillId, prompt, cwd, timeout, maxToolCalls } = body;
+    const { skillId, prompt, cwd, timeout, maxToolCalls, model: modelOverride } = body;
     const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
     const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
     const relTestDir = `data/skills/building/${skillId || "unknown"}/test-output`;
@@ -82,6 +82,7 @@ export default async function crewRoute(req, res) {
         prompt: fullPrompt,
         cwd: cwd || PAAW_ROOT,
         systemPrompt: systemPrompt || undefined,
+        model: modelOverride,
         maxTurns: effectiveMaxTurns,
         timeout: effectiveTimeout,
         rootDir: PAAW_ROOT,

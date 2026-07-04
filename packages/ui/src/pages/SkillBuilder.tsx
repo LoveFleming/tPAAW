@@ -646,7 +646,7 @@ ${userInputLines.join("\n")}
       const res = await fetch(`${API_BASE}/api/skill-test/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined, timeout: skillConfig.testTimeout, maxToolCalls: skillConfig.maxToolCalls }),
+        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined, timeout: skillConfig.testTimeout, maxToolCalls: skillConfig.maxToolCalls, model: model || undefined }),
       });
 
       const reader = res.body?.getReader();
