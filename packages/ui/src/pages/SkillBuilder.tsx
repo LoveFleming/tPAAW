@@ -342,6 +342,7 @@ export default function SkillBuilder() {
   const [aiGenName, setAiGenName] = useState("");
   const [aiGenDesc, setAiGenDesc] = useState("");
   const [aiGenLoading, setAiGenLoading] = useState(false);
+  const [aiGenPromptPreview, setAiGenPromptPreview] = useState<{system: string; user: string} | null>(null);
   const [workingDir, setWorkingDir] = useState("");
 
   // Builder mode: visual (step cards) vs advanced (raw prompt)
@@ -479,59 +480,56 @@ export default function SkillBuilder() {
     setSaveStatus("saved"); setTab("builder");
   };
 
-  // ── AI Generate: input name + description → create file → AI fills content ──
+  // ── AI Generate: input name + description → AI generates content → write → reload ──
   const handleAIGenerate = async () => {
     const name = aiGenName.trim();
     const desc = aiGenDesc.trim();
     if (!name || !desc) return;
     setAiGenLoading(true);
 
-    // 1. Create skill file first (same as handleCreate)
     const slug = name.replace(/\.md$/, "").replace(/\s+/g, "-").toLowerCase().replace(/^build-/, "");
     const basePath = `${workingDir || "."}/data/skills/building/${slug}`;
     const fullPath = `${basePath}/skill-source.md`;
     const pkgPath = `${basePath}/package/SKILL.md`;
+    const requirement = `Skill 名稱：${name}\n功能描述：${desc}`;
 
-    // Create empty placeholder files
-    const emptyForm: SkillForm = { ...EMPTY_SKILL, id: slug, name };
-    await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: fullPath, content: buildSkillMd(emptyForm) }) });
-    await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content: buildSkillMd(emptyForm) }) });
-
-    // Select the new file
-    loadFiles();
-    setSelectedPath(fullPath);
-    setForm(emptyForm);
-    const initInputs: Record<string, string> = {};
-    emptyForm.inputs.forEach(inp => { initInputs[inp.id] = ""; });
-    setTestInputs(initInputs);
-    setSaveStatus("saved");
-    setTab("builder");
-
-    // 2. Call AI to generate full SKILL.md content
+    // 1. Call AI to generate full SKILL.md content (BEFORE creating any files)
     try {
       const res = await fetch(`${API_BASE}/api/skills/ai-generate`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requirement: `Skill 名稱：${name}\n功能描述：${desc}`, model: model || undefined }),
+        body: JSON.stringify({ requirement, model: model || undefined }),
       });
       const data = await res.json();
       if (data.error) { alert("AI 生成失敗：" + data.error); return; }
 
-      // 3. Parse AI output and fill form (parseSkillMd handles both @@@ and ## format)
+      // Save prompt info for preview
+      if (data.systemPrompt || data.userMessage) {
+        setAiGenPromptPreview({ system: data.systemPrompt || "", user: data.userMessage || "" });
+      }
+
+      // 2. Parse AI output and fill form
       const parsed = parseSkillMd(data.content || "");
       // Ensure id/name match user input
       if (!parsed.id || parsed.id === "untitled") parsed.id = slug;
       if (!parsed.name || parsed.name === "Untitled") parsed.name = name;
-      setForm(parsed);
-      const inputs: Record<string, string> = {};
-      parsed.inputs.forEach(inp => { inputs[inp.id] = ""; });
-      setTestInputs(inputs);
+      // Preserve user description
+      if (desc && !parsed.description) parsed.description = desc;
 
-      // 4. Save files — skill-source.md uses @@@ format (for UI), package/SKILL.md uses raw AI markdown (for execution)
+      // 3. Write files — skill-source.md uses @@@ format (for UI), package/SKILL.md uses raw AI markdown
       const sourceContent = buildSkillMd(parsed);  // @@@ format for UI editing
       const pkgContent = (data.content || "").trim();   // raw AI markdown output = executable SKILL.md
       await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: fullPath, content: sourceContent }) });
       await fetch(`${API_BASE}/api/paaw/file-write`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: pkgPath, content: pkgContent }) });
+
+      // 4. Reload file list and select the new file
+      await loadFiles();
+      setSelectedPath(fullPath);
+      setForm(parsed);
+      const inputs: Record<string, string> = {};
+      parsed.inputs.forEach(inp => { inputs[inp.id] = ""; });
+      setTestInputs(inputs);
       setSaveStatus("saved");
+      setTab("builder");
 
       setShowAIGen(false); setAiGenName(""); setAiGenDesc("");
     } catch (err: any) {
@@ -540,6 +538,7 @@ export default function SkillBuilder() {
       setAiGenLoading(false);
     }
   };
+
 
   const [promptPreview, setPromptPreview] = useState(false);
   const [promptPreviewContent, setPromptPreviewContent] = useState<{system: string; prompt: string} | null>(null);
@@ -776,7 +775,7 @@ ${userInputLines.join("\n")}
       {/* ── AI Generate Dialog ── */}
       {showAIGen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => !aiGenLoading && setShowAIGen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-[480px] p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-[520px] max-h-[85vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-sm font-bold text-stone-800 mb-1">✨ AI 產生 Skill</h3>
             <p className="text-xs text-stone-500 mb-4">輸入 Skill 名稱和功能描述，AI 會照格式產出完整的 SKILL.md，產生後你可以直接修改</p>
             <div className="space-y-3 mb-4">
@@ -807,18 +806,47 @@ ${userInputLines.join("\n")}
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => { if (!aiGenLoading) { setShowAIGen(false); setAiGenName(""); setAiGenDesc(""); } }} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50" disabled={aiGenLoading}>{t("common.cancel")}</button>
-              <button onClick={handleAIGenerate} disabled={!aiGenName.trim() || !aiGenDesc.trim() || aiGenLoading}
-                className={cn("px-5 py-2 text-sm font-bold rounded-xl text-white flex items-center gap-2", aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? "hover:opacity-90" : "bg-stone-200 text-stone-400")}
-                style={aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? { background: accent } : {}}>
-                {aiGenLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                {aiGenLoading ? t("skillBuilder.generating") : t("skillBuilder.generateButton")}
-              </button>
+
+            {/* Prompt Preview */}
+            {aiGenPromptPreview && (
+              <div className="mb-4 border border-stone-200 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-stone-50 border-b border-stone-200">
+                  <span className="text-xs font-bold text-stone-600">📋 AI Generate Prompt 預覽</span>
+                  <button onClick={() => setAiGenPromptPreview(null)} className="text-stone-400 hover:text-stone-600 text-xs">✕</button>
+                </div>
+                <div className="p-3 space-y-2 max-h-48 overflow-y-auto">
+                  <div>
+                    <p className="text-xs font-bold text-stone-500 mb-1">System Prompt ({aiGenPromptPreview.system.length} chars)</p>
+                    <pre className="text-xs text-stone-600 bg-stone-50 rounded-lg p-2 whitespace-pre-wrap max-h-32 overflow-y-auto">{aiGenPromptPreview.system}</pre>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-stone-500 mb-1">User Message ({aiGenPromptPreview.user.length} chars)</p>
+                    <pre className="text-xs text-stone-600 bg-stone-50 rounded-lg p-2 whitespace-pre-wrap">{aiGenPromptPreview.user}</pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-2">
+              <button
+                onClick={() => setAiGenPromptPreview({ system: "(點擊 Generate 後顯示實際 prompt)", user: "" })}
+                className="text-xs text-stone-400 hover:text-stone-600 underline"
+                disabled={aiGenLoading}
+              >查看上次 Prompt</button>
+              <div className="flex gap-2">
+                <button onClick={() => { if (!aiGenLoading) { setShowAIGen(false); setAiGenName(""); setAiGenDesc(""); } }} className="px-4 py-2 text-sm rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50" disabled={aiGenLoading}>{t("common.cancel")}</button>
+                <button onClick={handleAIGenerate} disabled={!aiGenName.trim() || !aiGenDesc.trim() || aiGenLoading}
+                  className={cn("px-5 py-2 text-sm font-bold rounded-xl text-white flex items-center gap-2", aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? "hover:opacity-90" : "bg-stone-200 text-stone-400")}
+                  style={aiGenName.trim() && aiGenDesc.trim() && !aiGenLoading ? { background: accent } : {}}>
+                  {aiGenLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  {aiGenLoading ? t("skillBuilder.generating") : t("skillBuilder.generateButton")}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
 
       {/* ── Body ── */}
       <div className="flex-1 flex min-h-0 overflow-hidden">

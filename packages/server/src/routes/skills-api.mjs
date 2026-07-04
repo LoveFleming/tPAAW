@@ -409,22 +409,24 @@ export default async function skillsApiRoute(req, res) {
         return true;
       }
 
-      // Build full system context via context-engine (reads data/ai-settings/skill-builder/{phase}/*.md)
+      // Build system context from generate-specific rules (NOT build phase)
+      // generate phase has its own rules for creating from scratch
       const { contextEngine } = await import("../context-engine.mjs");
-      const ctx = await contextEngine.build({ target: "skill-builder", phase: "build" });
+      const ctx = await contextEngine.build({ target: "skill-builder", phase: "generate" });
       const systemPrompt = ctx.systemPrompt || "";
-      // Output rules and generate prompt are now in data/ai-settings/skill-builder/build/*.md
 
-      // Load generate prompt template
+      // Load generate prompt template (user-facing prompt template)
       let genPrompt = "";
-      try { genPrompt = readFileSync(resolve(PAAW_ROOT, "data/ai-settings/skill-builder/build/generate-prompt.md"), "utf-8").trim(); } catch {}
+      try { genPrompt = readFileSync(resolve(PAAW_ROOT, "data/ai-settings/skill-builder/generate/generate-prompt.md"), "utf-8").trim(); } catch {}
       if (!genPrompt) genPrompt = "請根據以下需求，產出完整的 SKILL.md：";
+
+      const userMessage = `${genPrompt}\n\n${requirement}`;
 
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
         model: llm.model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `${genPrompt}\n\n${requirement}` },
+          { role: "user", content: userMessage },
         ],
         max_tokens: 8192,
         temperature: 0.7,
@@ -441,7 +443,7 @@ export default async function skillsApiRoute(req, res) {
       content = content.replace(/^(?!---)\s*\w+\s*\n(?=---)/, "").trim();
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ content }));
+      res.end(JSON.stringify({ content, systemPrompt, userMessage }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

@@ -1,0 +1,1 @@
+好的，我先讀取 skill-creator 的模板格式，再消化 knowledge 下 about paaw 的相關文件。
