@@ -131,7 +131,7 @@ function getAgentCard(req) {
     version: "1.0.0",
     capabilities: {
       streaming: true,
-      pushNotifications: false,
+      pushNotifications: true,
       stateTransition: true,
     },
     defaultInputModes: ["text"],
@@ -456,29 +456,74 @@ export default async function a2aRoutes(req, res) {
         task.status = { state: "working", timestamp: new Date().toISOString() };
         await saveTask(task);
 
-        console.log(`[A2A] message/send task=${task.id} ${isFollowUp ? "(follow-up)" : ""} text="${userText.slice(0, 80)}..."`);
+        const pushConfig = configuration?.pushNotification;
+        console.log(`[A2A] message/send task=${task.id} ${isFollowUp ? "(follow-up)" : ""} text="${userText.slice(0, 80)}..." webhook=${!!pushConfig}`);
 
-        // ── Route: HelpDesk vs general ──
-        // Check if this looks like a HelpDesk question or any message via A2A
-        // Since Orchestrator already routes, all messages here should be answered
-        const isHelpDeskQuery = true; // Accept all — Orchestrator decides routing
+        // ══ ASYNC MODE (webhook): return working immediately, process in background ══
+        if (pushConfig?.url) {
+          sendJSON(res, 200, { jsonrpc: "2.0", result: task, id });
+          console.log(`[A2A] task=${task.id} returned working (webhook → ${pushConfig.url})`);
 
+          ; (async () => {
+            try {
+              const conversation = (task.history || []).map(h => ({
+                role: h.role === "agent" ? "assistant" : "user",
+                content: h.parts?.map(p => p.text || "").join("") || "",
+              })).filter(m => m.content);
+
+              const hdResult = await runHelpDeskViaA2A(conversation);
+
+              if (hdResult.needsInfo) {
+                task.status = { state: "input-required", timestamp: new Date().toISOString() };
+                task.history.push({ role: "agent", parts: [{ type: "text", kind: "text", text: hdResult.needsInfo }] });
+                task.artifacts = [{ artifactId: `art-${Date.now()}`, name: "Clarification", parts: [{ type: "text", kind: "text", text: hdResult.needsInfo }] }];
+                task.metadata = { toolsUsed: hdResult.toolsUsed, needsInfo: true };
+              } else {
+                task.status = { state: "completed", timestamp: new Date().toISOString() };
+                task.history.push({ role: "agent", parts: [{ type: "text", kind: "text", text: hdResult.text }] });
+                task.artifacts = [{ artifactId: `art-${Date.now()}`, name: "Response", parts: [{ type: "text", kind: "text", text: hdResult.text }] }];
+                task.metadata = { toolsUsed: hdResult.toolsUsed };
+              }
+              await saveTask(task);
+              console.log(`[A2A] task=${task.id} background done: ${task.status.state}`);
+
+              // POST webhook
+              try {
+                const whHeaders = { "Content-Type": "application/json" };
+                if (pushConfig.token) whHeaders["Authorization"] = `Bearer ${pushConfig.token}`;
+                await fetch(pushConfig.url, { method: "POST", headers: whHeaders, body: JSON.stringify({ jsonrpc: "2.0", result: task, id }) });
+                console.log(`[A2A] task=${task.id} webhook delivered`);
+              } catch (whErr) {
+                console.error(`[A2A] task=${task.id} webhook failed: ${whErr.message}`);
+              }
+            } catch (bgErr) {
+              console.error(`[A2A] task=${task.id} background error:`, bgErr);
+              task.status = { state: "failed", timestamp: new Date().toISOString() };
+              task.metadata = { error: bgErr.message };
+              await saveTask(task);
+              try {
+                const whHeaders = { "Content-Type": "application/json" };
+                if (pushConfig.token) whHeaders["Authorization"] = `Bearer ${pushConfig.token}`;
+                await fetch(pushConfig.url, { method: "POST", headers: whHeaders, body: JSON.stringify({ jsonrpc: "2.0", result: task, id }) });
+              } catch {}
+            }
+          })();
+          return true;
+        }
+
+        // ══ SYNC MODE: process and return ══
         let result;
         let needsInfo = null;
 
-        if (isHelpDeskQuery) {
-          // Build conversation from task history
+        {
           const conversation = (task.history || []).map(h => ({
             role: h.role === "agent" ? "assistant" : "user",
             content: h.parts?.map(p => p.text || "").join("") || "",
           })).filter(m => m.content);
 
-          // Use HelpDesk skill executor (with NEED_INFO detection)
           const hdResult = await runHelpDeskViaA2A(conversation);
           result = { text: hdResult.text, toolsUsed: hdResult.toolsUsed };
           needsInfo = hdResult.needsInfo;
-        } else {
-          result = await runAgentLoop({ message });
         }
 
         if (needsInfo) {

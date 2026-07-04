@@ -1,0 +1,66 @@
+{
+  "id": "task-1783174765538-gsf56s",
+  "contextId": "task-1783174765538-gsf56s",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-04T14:19:59.732Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "什麼是 Skill？"
+      }
+    ]
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "什麼是 Skill？"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "## Skill 是什麼？\n\n**Skill 是 PAAW 中最小的能力單元（最小可執行任務單元）**，也是整個 PAAW 生態系的核心建構塊。你可以把它想像成一個「AI 可呼叫的函式」或「可複用的工作模板」。\n\n---\n\n### 核心概念\n\n| 特性 | 說明 |\n|------|------|\n| **最小單元** | 每個 Skill 只做一件事，而且做好一件事 |\n| **宣告式定義** | 你定義「做什麼」和「輸出什麼」，AI runtime 負責「怎麼做」 |\n| **純文字格式** | Skill 以 Markdown 檔案（`SKILL.md`）形式存在，易於版本控管與分享 |\n| **可組合** | Skill 可被 App、Workflow、Crew、CronJob 呼叫，形成更複雜的能力 |\n\n---\n\n### Skill 的檔案結構\n\n每個 Skill 的 `SKILL.md` 使用 **frontmatter（`---` 分隔的 YAML 元資料）** 定義 Meta，body 則包含詳細執行步驟：\n\n```markdown\n---\nid: translate\nname: 翻譯助手\ndescription: 將文字翻譯成指定語言\nexecution:\n  runner: prompt       # 執行器類型\n  mode: sync\n  timeout: 60\ninput:\n  properties:\n    text: { type: string, description: \"要翻譯的文字\" }\n    targetLang: { type: string, description: \"目標語言\" }\noutput:\n  properties:\n    translated: { type: string, description: \"翻譯結果\" }\n---\n\n## Purpose\n將輸入的文字翻譯成目標語言。\n\n## Inputs\n- text：要翻譯的文字\n- targetLang：目標語言\n\n## Execution Steps\n1. 讀取使用者輸入的 text 與 targetLang\n2. 將 text 翻譯為 targetLang\n3. 結構化輸出翻譯結果\n\n## Output Contract\n回傳包含 translated 欄位的 JSON\n```\n\n---\n\n### 4 種執行器類型\n\nSkill 的 `execution.runner` 決定執行的方式：\n\n| Runner | 用途 | 範例 |\n|--------|------|------|\n| `prompt` | AI 依提示詞執行（最常見） | 翻譯、摘要、分析 |\n| `data` | 對 App 資料進行 CRUD | 查詢筆記、新增記錄 |\n| `api` | 呼叫外部 API | 查天氣、發送訊息 |\n| `script` | 執行系統指令或程式碼 | 檔案操作、部署 |\n\n---\n\n### Skill 在 PAAW 生態系中的角色\n\n```\nSkill（最小能力單元）\n  ├─ 被 App 綁定 → 變成可聊天的 Tool\n  ├─ 被 Workflow 組合 → 多步驟自動化\n  ├─ 被 Crew 綁定 → AI 員工的專業技能\n  └─ 被 CronJob 排程 → 定時執行報告或提醒\n```\n\n具體來說：\n\n- **App（Skill-based）**：一個 App 可以綁定多個 Skills，聊天時自動路由\n- **Crew（AI 員工）**：每個 Crew 有角色提示詞 + 綁定 Skills，成為特定領域的 AI 助理\n- **Workflow**：多個 Skills 串接成自動化流程\n- **CronJob**：定時觸發某個 Skill 執行（如每日報告）\n\n---\n\n### Skill 的執行流程\n\n當 Skill 被執行時：\n\n1. **Context Engine** 組裝 systemPrompt（包含 Skill 規則 `crew/skill-rules.md`）\n2. **Agent Loop** 讀取 `SKILL.md` 全文，其中 `{{placeholder}}` 會被替換為實際輸入\n3. AI 依照 **Deterministic Script** 中的步驟逐步執行\n4. 每一步可以使用 Tool（讀檔案、查資料、呼叫 API 等）\n5. 最後依照 **Output Contract** 輸出結構化結果\n\n---\n\n### 一句話總結\n\n> **Skill 就是一個有標準格式的 Markdown 檔案，定義了 AI 要做什麼事、需要什麼輸入、怎麼做、以及輸出什麼。有了 Skill，你不寫程式也能讓 AI 執行結構化任務。**\n\n---\n\n📚 **參考來源：**\n- `knowledge/about-paaw/ai-context/domain/DOMAIN_DICTIONARY.md`\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md`\n- `knowledge/about-paaw/PAAW-REFERENCE.md`\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md`\n\n💡 **延伸問題：**\n- 怎麼建立一個新的 Skill？\n- Skill 的 Deterministic Script 是什麼？\n- Skill 跟 App 有什麼不同？"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783174799732",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "## Skill 是什麼？\n\n**Skill 是 PAAW 中最小的能力單元（最小可執行任務單元）**，也是整個 PAAW 生態系的核心建構塊。你可以把它想像成一個「AI 可呼叫的函式」或「可複用的工作模板」。\n\n---\n\n### 核心概念\n\n| 特性 | 說明 |\n|------|------|\n| **最小單元** | 每個 Skill 只做一件事，而且做好一件事 |\n| **宣告式定義** | 你定義「做什麼」和「輸出什麼」，AI runtime 負責「怎麼做」 |\n| **純文字格式** | Skill 以 Markdown 檔案（`SKILL.md`）形式存在，易於版本控管與分享 |\n| **可組合** | Skill 可被 App、Workflow、Crew、CronJob 呼叫，形成更複雜的能力 |\n\n---\n\n### Skill 的檔案結構\n\n每個 Skill 的 `SKILL.md` 使用 **frontmatter（`---` 分隔的 YAML 元資料）** 定義 Meta，body 則包含詳細執行步驟：\n\n```markdown\n---\nid: translate\nname: 翻譯助手\ndescription: 將文字翻譯成指定語言\nexecution:\n  runner: prompt       # 執行器類型\n  mode: sync\n  timeout: 60\ninput:\n  properties:\n    text: { type: string, description: \"要翻譯的文字\" }\n    targetLang: { type: string, description: \"目標語言\" }\noutput:\n  properties:\n    translated: { type: string, description: \"翻譯結果\" }\n---\n\n## Purpose\n將輸入的文字翻譯成目標語言。\n\n## Inputs\n- text：要翻譯的文字\n- targetLang：目標語言\n\n## Execution Steps\n1. 讀取使用者輸入的 text 與 targetLang\n2. 將 text 翻譯為 targetLang\n3. 結構化輸出翻譯結果\n\n## Output Contract\n回傳包含 translated 欄位的 JSON\n```\n\n---\n\n### 4 種執行器類型\n\nSkill 的 `execution.runner` 決定執行的方式：\n\n| Runner | 用途 | 範例 |\n|--------|------|------|\n| `prompt` | AI 依提示詞執行（最常見） | 翻譯、摘要、分析 |\n| `data` | 對 App 資料進行 CRUD | 查詢筆記、新增記錄 |\n| `api` | 呼叫外部 API | 查天氣、發送訊息 |\n| `script` | 執行系統指令或程式碼 | 檔案操作、部署 |\n\n---\n\n### Skill 在 PAAW 生態系中的角色\n\n```\nSkill（最小能力單元）\n  ├─ 被 App 綁定 → 變成可聊天的 Tool\n  ├─ 被 Workflow 組合 → 多步驟自動化\n  ├─ 被 Crew 綁定 → AI 員工的專業技能\n  └─ 被 CronJob 排程 → 定時執行報告或提醒\n```\n\n具體來說：\n\n- **App（Skill-based）**：一個 App 可以綁定多個 Skills，聊天時自動路由\n- **Crew（AI 員工）**：每個 Crew 有角色提示詞 + 綁定 Skills，成為特定領域的 AI 助理\n- **Workflow**：多個 Skills 串接成自動化流程\n- **CronJob**：定時觸發某個 Skill 執行（如每日報告）\n\n---\n\n### Skill 的執行流程\n\n當 Skill 被執行時：\n\n1. **Context Engine** 組裝 systemPrompt（包含 Skill 規則 `crew/skill-rules.md`）\n2. **Agent Loop** 讀取 `SKILL.md` 全文，其中 `{{placeholder}}` 會被替換為實際輸入\n3. AI 依照 **Deterministic Script** 中的步驟逐步執行\n4. 每一步可以使用 Tool（讀檔案、查資料、呼叫 API 等）\n5. 最後依照 **Output Contract** 輸出結構化結果\n\n---\n\n### 一句話總結\n\n> **Skill 就是一個有標準格式的 Markdown 檔案，定義了 AI 要做什麼事、需要什麼輸入、怎麼做、以及輸出什麼。有了 Skill，你不寫程式也能讓 AI 執行結構化任務。**\n\n---\n\n📚 **參考來源：**\n- `knowledge/about-paaw/ai-context/domain/DOMAIN_DICTIONARY.md`\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md`\n- `knowledge/about-paaw/PAAW-REFERENCE.md`\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md`\n\n💡 **延伸問題：**\n- 怎麼建立一個新的 Skill？\n- Skill 的 Deterministic Script 是什麼？\n- Skill 跟 App 有什麼不同？"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_list",
+      "file_read",
+      "file_list",
+      "file_read",
+      "file_list"
+    ],
+    "model": "paaw-helpdesk"
+  }
+}

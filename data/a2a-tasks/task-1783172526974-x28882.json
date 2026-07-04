@@ -1,0 +1,66 @@
+{
+  "id": "task-1783172526974-x28882",
+  "contextId": "task-1783172526974-x28882",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-04T13:44:11.850Z"
+  },
+  "message": {
+    "kind": "message",
+    "role": "user",
+    "messageId": "msg-0f0487a9-8444-473d-bb4d-cb2d9ee06f9f",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "請詳細介紹PAAW是什麼，包括全名、功能、架構、用途等。"
+      }
+    ],
+    "contextId": "c70c790c-96d0-460d-8133-dc982981592c"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "請詳細介紹PAAW是什麼，包括全名、功能、架構、用途等。"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "好的！我先查閱知識庫中的相關文件來為你詳細介紹 PAAW。\n\n現在我已經有足夠的知識來詳細回答你的問題了！\n\n---\n\n## PAAW 完整介紹\n\n### 📌 全名與定義\n\n**PAAW = Personal AI Assistant Workspace**\n\n> 官方標語：*Build your personal AI workforce*\n\nPAAW 是一個開源的個人 AI 助理工作空間系統，目標是讓**不會寫程式的一般使用者**也能透過 AI 建立自己的 AI 工具與應用。它的核心理念是形成一個**能力飛輪**：\n\n```\n人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料\n```\n\n---\n\n### 🏗️ 核心架構（三層結構）\n\n```\n使用者（不會寫程式）\n    ↓  在聊天視窗或 App Builder 說「我要做一個 XX app」\nApp Builder（AI 幫你建 Skill + App）\n    ↓  產出：app.json + app.html + data\n自動註冊為 Chat Tool\n    ↓\n使用者從「聊天視窗」或「App 視窗」都能用\n    ↓\nApp 產生的資料 → AI 讀取 → 產生洞見\n```\n\n技術上的三層結構：\n\n```\n使用者\n    ↓\n前端 (React 19 + TypeScript + Vite)\n    ↓  WebSocket / REST / SSE\n後端 (Node.js 純 .mjs)\n    ↓  OpenAI-compatible API\nAI Provider（支援多家切換：GLM、DeepSeek、OpenRouter 等）\n```\n\n---\n\n### 🧩 核心功能模組（共 7 大模組）\n\n| 模組 | 功能說明 |\n|------|---------|\n| **1. Chat Assistant（聊天助理）** | 所有 App 與 Skill 都能在聊天視窗使用，支援 SSE 串流回應，自動路由 |\n| **2. Skill Builder（技能建構器）** | **最小的能力單元**，格式固定：Purpose → Inputs → Deterministic Script → Guardrails → Output Contract → Validation。App、Workflow、Crew、CronJob 都會叫用 Skill |\n| **3. App Builder（應用建構器）** | 支援**資料驅動**或 **Skill-based** 兩種 App。每個 App 自動產生 Chat Tool，雙入口：聊天視窗 + App 視窗 |\n| **4. Workflow Builder（工作流建構器）** | 多步驟自動化流程，可組合多個 Skill |\n| **5. Knowledge / Files（知識與檔案管理）** | AI 讀取知識庫檔案產生洞見，支援多種檔案格式 |\n| **6. Memory（記憶管理）** | 分層記憶架構，從短期對話到長期 MEMORY.md 分層管理 |\n| **7. Execution Center（執行中心）** | CronJob 排程引擎、監控與日誌、定時提醒與報告 |\n\n---\n\n### ⚙️ 技術棧\n\n| 層 | 技術 |\n|----|------|\n| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS |\n| **Backend** | Node.js（純 `.mjs`，不使用 TypeScript） |\n| **Database** | **JSON + Markdown 檔案**（`data/` 目錄），少量 SQLite |\n| **AI** | OpenAI-compatible API（`providers.json` 可切換多家） |\n| **通訊** | WebSocket（即時串流）、SSE（單向串流）、REST API |\n| **部署** | Docker + docker-compose（含 Bridge 守護進程） |\n\n---\n\n### 🧠 Context Engine — Prompt 的心臟\n\nPAAW 所有 AI 功能共用同一套 **Context Engine**（位於 `packages/server/src/context-engine.mjs`），它負責統一組裝 systemPrompt：\n\n```\nbuildFullSystemContext()  ← 底層，所有 AI 功能共用\n  ├── _base/paaw-context.md      (PAAW 路徑、結構)\n  ├── _base/core-rules.md        (行為準則)\n  ├── chat/identity.md           (AI 人設)\n  ├── 使用者資訊 + Workspace 清單\n  ├── MEMORY.md                  (長期記憶)\n  ├── Apps 清單 + Tool 規則\n  ├── chat/tool-rules.md         (Tool 使用規則)\n  ├── crew/skill-rules.md        (Skill 執行規則)\n  ├── chat/guardrails.md         (安全限制)\n  └── API Tools + Skills\n```\n\n不同的 AI 功能（Chat、Skill Builder、Crew、Mindmap 等）會在此基礎上疊加各自的專用 rules。\n\n---\n\n### 📁 資料結構\n\nPAAW 不走傳統資料庫，而是**所有資料都是檔案**：\n\n```\ndata/\n├── ai-settings/      # AI 系統提示詞（可線上編輯）\n├── apps/             # App 資料（每個 App 一個目錄）\n├── chats/            # 聊天紀錄\n├── config/           # 系統設定（providers.json, user.json）\n├── crews/            # Crew 定義（AI 員工）\n├── cron/             # Cron Job 定義\n├── skills/           # Skill 檔案\n├── workflows/        # Workflow 定義\n├── knowledge/        # 知識庫檔案\n├── notes/            # 筆記\n└── mindmaps/         # 心智圖輸出\n```\n\n---\n\n### 🌐 A2A Protocol（Agent-to-Agent）\n\nPAAW 實作了 A2A 通訊協定，讓不同 AI Agent 之間可以互相溝通：\n\n- 基於 **JSON-RPC 2.0**\n- `GET /.well-known/agent.json` → Agent Card（能力宣告）\n- `POST /a2a` → JSON-RPC endpoint\n- 方法：`message/send`、`message/stream`、`tasks/get`、`tasks/list`、`tasks/cancel`\n\n---\n\n### 🎯 PAAW 的用途\n\n1. **個人 AI 工具建構** — 不需寫程式，用自然語言描述需求，AI 幫你建 App\n2. **知識管理與產出** — 透過 Notes、Mindmap、Distill 等功能，從資料中提煉洞見\n3. **自動化工作流** — 用 Workflow + Cron 排程建立自動化任務\n4. **AI 員工管理** — 透過 Crew 建立多個 AI 角色，各自綁定 Skill 協作\n5. **個人記憶系統** — AI 會記住你的偏好、專案脈絡，形成長期協作關係\n\n### 📚 參考來源\n\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md`\n- `knowledge/about-paaw/PAAW-REFERENCE.md`\n- `knowledge/about-paaw/AI-FEATURES.md`\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md`\n\n```json\n{\n  \"category\": \"architecture\",\n  \"confidence\": \"high\",\n  \"follow_up\": [\n    \"PAAW 的 Skill 系統是怎麼運作的？我該如何建立一個 Skill？\",\n    \"PAAW 支援哪些 AI Provider？如何切換？\",\n    \"什麼是 Crew？如何建立一個 AI 員工？\",\n    \"PAAW 的記憶系統是怎麼分層管理的？\"\n  ]\n}\n```"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783172651850",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "好的！我先查閱知識庫中的相關文件來為你詳細介紹 PAAW。\n\n現在我已經有足夠的知識來詳細回答你的問題了！\n\n---\n\n## PAAW 完整介紹\n\n### 📌 全名與定義\n\n**PAAW = Personal AI Assistant Workspace**\n\n> 官方標語：*Build your personal AI workforce*\n\nPAAW 是一個開源的個人 AI 助理工作空間系統，目標是讓**不會寫程式的一般使用者**也能透過 AI 建立自己的 AI 工具與應用。它的核心理念是形成一個**能力飛輪**：\n\n```\n人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料\n```\n\n---\n\n### 🏗️ 核心架構（三層結構）\n\n```\n使用者（不會寫程式）\n    ↓  在聊天視窗或 App Builder 說「我要做一個 XX app」\nApp Builder（AI 幫你建 Skill + App）\n    ↓  產出：app.json + app.html + data\n自動註冊為 Chat Tool\n    ↓\n使用者從「聊天視窗」或「App 視窗」都能用\n    ↓\nApp 產生的資料 → AI 讀取 → 產生洞見\n```\n\n技術上的三層結構：\n\n```\n使用者\n    ↓\n前端 (React 19 + TypeScript + Vite)\n    ↓  WebSocket / REST / SSE\n後端 (Node.js 純 .mjs)\n    ↓  OpenAI-compatible API\nAI Provider（支援多家切換：GLM、DeepSeek、OpenRouter 等）\n```\n\n---\n\n### 🧩 核心功能模組（共 7 大模組）\n\n| 模組 | 功能說明 |\n|------|---------|\n| **1. Chat Assistant（聊天助理）** | 所有 App 與 Skill 都能在聊天視窗使用，支援 SSE 串流回應，自動路由 |\n| **2. Skill Builder（技能建構器）** | **最小的能力單元**，格式固定：Purpose → Inputs → Deterministic Script → Guardrails → Output Contract → Validation。App、Workflow、Crew、CronJob 都會叫用 Skill |\n| **3. App Builder（應用建構器）** | 支援**資料驅動**或 **Skill-based** 兩種 App。每個 App 自動產生 Chat Tool，雙入口：聊天視窗 + App 視窗 |\n| **4. Workflow Builder（工作流建構器）** | 多步驟自動化流程，可組合多個 Skill |\n| **5. Knowledge / Files（知識與檔案管理）** | AI 讀取知識庫檔案產生洞見，支援多種檔案格式 |\n| **6. Memory（記憶管理）** | 分層記憶架構，從短期對話到長期 MEMORY.md 分層管理 |\n| **7. Execution Center（執行中心）** | CronJob 排程引擎、監控與日誌、定時提醒與報告 |\n\n---\n\n### ⚙️ 技術棧\n\n| 層 | 技術 |\n|----|------|\n| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS |\n| **Backend** | Node.js（純 `.mjs`，不使用 TypeScript） |\n| **Database** | **JSON + Markdown 檔案**（`data/` 目錄），少量 SQLite |\n| **AI** | OpenAI-compatible API（`providers.json` 可切換多家） |\n| **通訊** | WebSocket（即時串流）、SSE（單向串流）、REST API |\n| **部署** | Docker + docker-compose（含 Bridge 守護進程） |\n\n---\n\n### 🧠 Context Engine — Prompt 的心臟\n\nPAAW 所有 AI 功能共用同一套 **Context Engine**（位於 `packages/server/src/context-engine.mjs`），它負責統一組裝 systemPrompt：\n\n```\nbuildFullSystemContext()  ← 底層，所有 AI 功能共用\n  ├── _base/paaw-context.md      (PAAW 路徑、結構)\n  ├── _base/core-rules.md        (行為準則)\n  ├── chat/identity.md           (AI 人設)\n  ├── 使用者資訊 + Workspace 清單\n  ├── MEMORY.md                  (長期記憶)\n  ├── Apps 清單 + Tool 規則\n  ├── chat/tool-rules.md         (Tool 使用規則)\n  ├── crew/skill-rules.md        (Skill 執行規則)\n  ├── chat/guardrails.md         (安全限制)\n  └── API Tools + Skills\n```\n\n不同的 AI 功能（Chat、Skill Builder、Crew、Mindmap 等）會在此基礎上疊加各自的專用 rules。\n\n---\n\n### 📁 資料結構\n\nPAAW 不走傳統資料庫，而是**所有資料都是檔案**：\n\n```\ndata/\n├── ai-settings/      # AI 系統提示詞（可線上編輯）\n├── apps/             # App 資料（每個 App 一個目錄）\n├── chats/            # 聊天紀錄\n├── config/           # 系統設定（providers.json, user.json）\n├── crews/            # Crew 定義（AI 員工）\n├── cron/             # Cron Job 定義\n├── skills/           # Skill 檔案\n├── workflows/        # Workflow 定義\n├── knowledge/        # 知識庫檔案\n├── notes/            # 筆記\n└── mindmaps/         # 心智圖輸出\n```\n\n---\n\n### 🌐 A2A Protocol（Agent-to-Agent）\n\nPAAW 實作了 A2A 通訊協定，讓不同 AI Agent 之間可以互相溝通：\n\n- 基於 **JSON-RPC 2.0**\n- `GET /.well-known/agent.json` → Agent Card（能力宣告）\n- `POST /a2a` → JSON-RPC endpoint\n- 方法：`message/send`、`message/stream`、`tasks/get`、`tasks/list`、`tasks/cancel`\n\n---\n\n### 🎯 PAAW 的用途\n\n1. **個人 AI 工具建構** — 不需寫程式，用自然語言描述需求，AI 幫你建 App\n2. **知識管理與產出** — 透過 Notes、Mindmap、Distill 等功能，從資料中提煉洞見\n3. **自動化工作流** — 用 Workflow + Cron 排程建立自動化任務\n4. **AI 員工管理** — 透過 Crew 建立多個 AI 角色，各自綁定 Skill 協作\n5. **個人記憶系統** — AI 會記住你的偏好、專案脈絡，形成長期協作關係\n\n### 📚 參考來源\n\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md`\n- `knowledge/about-paaw/PAAW-REFERENCE.md`\n- `knowledge/about-paaw/AI-FEATURES.md`\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md`\n\n```json\n{\n  \"category\": \"architecture\",\n  \"confidence\": \"high\",\n  \"follow_up\": [\n    \"PAAW 的 Skill 系統是怎麼運作的？我該如何建立一個 Skill？\",\n    \"PAAW 支援哪些 AI Provider？如何切換？\",\n    \"什麼是 Crew？如何建立一個 AI 員工？\",\n    \"PAAW 的記憶系統是怎麼分層管理的？\"\n  ]\n}\n```"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read"
+    ],
+    "model": "paaw-helpdesk"
+  }
+}
