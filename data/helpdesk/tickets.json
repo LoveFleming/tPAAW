@@ -1,5 +1,104 @@
 [
   {
+    "ticketId": "TKT-1783165375564",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "使用者回報 PAAW 壞掉了，無法使用，請協助診斷問題。",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783165375564",
+        "role": "user",
+        "text": "使用者回報 PAAW 壞掉了，無法使用，請協助診斷問題。",
+        "ts": 1783165375564
+      },
+      {
+        "id": "msg_1783165382273",
+        "role": "agent",
+        "text": "你遇到的具體狀況是什麼？例如：網頁打不開、聊天沒回應、某個功能報錯、還是有出現什麼錯誤訊息？請描述一下你看到的現象。",
+        "ts": 1783165382273
+      },
+      {
+        "id": "msg_1783165384853",
+        "role": "user",
+        "text": "沒有特別指定",
+        "ts": 1783165384853
+      },
+      {
+        "id": "msg_1783165390472",
+        "role": "agent",
+        "text": "你說「PAAW 壞掉了」，能具體描述一下你看到什麼現象嗎？例如：是網頁完全打不開、聊天沒回應、點某個功能跳出錯誤訊息、還是畫面空白？描述越具體越好，這樣我才能幫你診斷問題所在。",
+        "ts": 1783165390472
+      },
+      {
+        "id": "msg_1783165391533",
+        "role": "user",
+        "text": "沒有特別指定",
+        "ts": 1783165391533
+      },
+      {
+        "id": "msg_1783165424691",
+        "role": "agent",
+        "text": "好的，我來幫你檢查 PAAW 的系統狀態，看看能不能找出問題所在。\n\n看起來 `about-paaw` 目錄下的檔案路徑需要加上子目錄才能正確讀取。\n\n",
+        "ts": 1783165424691
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-04T11:42:55.564Z",
+    "updatedAt": "2026-07-04T11:43:44.691Z"
+  },
+  {
+    "ticketId": "TKT-1783165287822",
+    "agentName": "UI Test Agent",
+    "agentType": "openclaw",
+    "subject": "UI Multi-turn 測試 2",
+    "status": "input-required",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783165287822",
+        "role": "user",
+        "text": "東西壞了",
+        "ts": 1783165287822
+      },
+      {
+        "id": "msg_1783165291980",
+        "role": "agent",
+        "text": "你想問的是 PAAW 中的哪個部分壞了？是 Skill 執行失敗、App 無法使用、聊天功能異常，還是其他問題？可以描述一下你遇到的具體狀況或錯誤訊息嗎？]",
+        "ts": 1783165291980
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-04T11:41:27.822Z",
+    "updatedAt": "2026-07-04T11:41:31.980Z"
+  },
+  {
+    "ticketId": "TKT-1783165212365",
+    "agentName": "UI Test Agent",
+    "agentType": "openclaw",
+    "subject": "UI Multi-turn 測試",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783165212365",
+        "role": "user",
+        "text": "東西壞了",
+        "ts": 1783165212365
+      },
+      {
+        "id": "msg_1783165216247",
+        "role": "agent",
+        "text": "[NEED_INFO:] 你說的「東西壞了」是指 PAAW 的哪個部分？可以更具體描述一下嗎？例如：Skill 執行失敗、聊天沒有回應、App 無法開啟、排程沒有觸發，還是其他問題？",
+        "ts": 1783165216247
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-04T11:40:12.365Z",
+    "updatedAt": "2026-07-04T11:40:16.247Z"
+  },
+  {
     "ticketId": "TKT-1783163625063",
     "agentName": "Agent Orchestrator",
     "agentType": "a2a",

@@ -37,7 +37,7 @@ async function saveTickets(tickets) {
   await writeFile(HELPDESK_DATA, JSON.stringify(tickets, null, 2), "utf-8");
 }
 
-const NEED_INFO_REGEX = /\[NEED_INFO:\s*([\s\S]+?)\]/;
+const NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*(.+)/s;
 
 /**
  * Run the help-desk skill via ToolEngine.
@@ -134,9 +134,11 @@ ${knowledgeBase}
 
   // Check if AI wants more info
   const needMatch = fullText.match(NEED_INFO_REGEX);
-  const needsInfo = needMatch ? needMatch[1].trim() : null;
+  let needsInfo = needMatch ? needMatch[1].trim() : null;
+  // Strip trailing ] from malformed markers
+  if (needsInfo && needsInfo.endsWith(']')) needsInfo = needsInfo.slice(0, -1).trim();
   // Clean text: if NEED_INFO found, strip the marker from the stored text
-  const cleanText = needsInfo ? fullText.replace(NEED_INFO_REGEX, "").trim() : fullText;
+  const cleanText = needsInfo ? fullText.replace(NEED_INFO_REGEX, "").replace(/\]$/, "").trim() : fullText;
 
   return { text: cleanText || fullText, toolsUsed, needsInfo };
 }

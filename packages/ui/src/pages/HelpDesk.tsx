@@ -12,7 +12,7 @@ import { cn } from "../utils";
 // ── Types ──
 interface Message {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "agent";
   text: string;
   ts: number;
 }
@@ -22,7 +22,7 @@ interface Ticket {
   agentName: string;
   agentType: string;
   subject: string;
-  status: "open" | "answered" | "closed";
+  status: "open" | "working" | "input-required" | "answered" | "closed";
   priority: "low" | "medium" | "high" | "urgent";
   messages: Message[];
   tags: string[];
@@ -42,6 +42,8 @@ const AGENT_COLORS: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
   open: { bg: "rgba(251,191,36,0.12)", color: "#fbbf24", label: "待回" },
+  working: { bg: "rgba(74,158,255,0.12)", color: "#4a9eff", label: "處理中" },
+  "input-required": { bg: "rgba(168,85,247,0.12)", color: "#a855f7", label: "需補充" },
   answered: { bg: "rgba(74,222,128,0.12)", color: "#4ade80", label: "已回" },
   closed: { bg: "rgba(107,114,128,0.12)", color: "#9ca3af", label: "已關閉" },
 };
@@ -150,7 +152,8 @@ export default function HelpDesk() {
 
   // ── Stats ──
   const stats = {
-    open: tickets.filter((t) => t.status === "open").length,
+    open: tickets.filter((t) => t.status === "open" || t.status === "input-required").length,
+    working: tickets.filter((t) => t.status === "working").length,
     answered: tickets.filter((t) => t.status === "answered").length,
     total: tickets.length,
   };
@@ -312,11 +315,11 @@ export default function HelpDesk() {
             <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24" }}>
               待回 {stats.open}
             </span>
+            <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(74,158,255,0.12)", color: "#4a9eff" }}>
+              處理中 {stats.working}
+            </span>
             <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(74,222,128,0.12)", color: "#4ade80" }}>
               已回 {stats.answered}
-            </span>
-            <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(74,158,255,0.12)", color: "#4a9eff" }}>
-              總計 {stats.total}
             </span>
           </div>
         </div>
@@ -465,30 +468,46 @@ export default function HelpDesk() {
           ) : (activeTicket.messages?.length === 0 ? (
             <div className="flex-1 flex items-center justify-center" style={{ color: "#6a6a6a" }}>此對話尚無訊息</div>
           ) : (
-            activeTicket.messages.map((m) => (
-              <div
-                key={m.id}
-                className={cn("max-w-[75%] flex flex-col gap-1", m.role === "user" ? "self-start" : m.role === "assistant" ? "self-end items-end" : "self-center max-w-[90%]")}
-              >
+            activeTicket.messages.map((m, msgIdx) => {
+              const userRounds = activeTicket.messages.filter(mm => mm.role === "user").length;
+              const thisUserRound = activeTicket.messages.slice(0, msgIdx + 1).filter(mm => mm.role === "user").length;
+              const isAgent = m.role === "assistant" || m.role === "agent";
+              return (
                 <div
-                  className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed"
-                  style={{
-                    background: m.role === "user" ? "#252525" : m.role === "assistant" ? theme.accent : "#1e1e1e",
-                    color: m.role === "assistant" ? "#fff" : m.role === "system" ? "#a0a0a0" : "#e8e8e8",
-                    border: m.role !== "assistant" ? "1px solid #2e2e2e" : "none",
-                    borderBottomLeftRadius: m.role === "user" ? 4 : undefined,
-                    borderBottomRightRadius: m.role === "assistant" ? 4 : undefined,
-                    fontStyle: m.role === "system" ? "italic" : "normal",
-                    fontSize: m.role === "system" ? 12 : 14,
-                  }}
+                  key={m.id}
+                  className={cn("max-w-[75%] flex flex-col gap-1", m.role === "user" ? "self-start" : isAgent ? "self-end items-end" : "self-center max-w-[90%]")}
                 >
-                  {m.text}
+                  {/* Round badge for multi-turn */}
+                  {m.role === "user" && userRounds > 1 && (
+                    <div className="text-[10px] font-bold px-2 py-0.5 rounded-full self-start" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>
+                      第 {thisUserRound} 輪提問
+                    </div>
+                  )}
+                  {isAgent && userRounds > 1 && (
+                    <div className="text-[10px] font-bold px-2 py-0.5 rounded-full self-end" style={{ background: "rgba(74,222,128,0.12)", color: "#4ade80" }}>
+                      第 {thisUserRound} 輪回答
+                    </div>
+                  )}
+                  <div
+                    className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed"
+                    style={{
+                      background: m.role === "user" ? "#252525" : isAgent ? theme.accent : "#1e1e1e",
+                      color: isAgent ? "#fff" : m.role === "system" ? "#a0a0a0" : "#e8e8e8",
+                      border: !isAgent ? "1px solid #2e2e2e" : "none",
+                      borderBottomLeftRadius: m.role === "user" ? 4 : undefined,
+                      borderBottomRightRadius: isAgent ? 4 : undefined,
+                      fontStyle: m.role === "system" ? "italic" : "normal",
+                      fontSize: m.role === "system" ? 12 : 14,
+                    }}
+                  >
+                    {m.text}
+                  </div>
+                  <div className="text-[11px] px-1" style={{ color: "#6a6a6a" }}>
+                    {m.role === "user" ? `🙋 ${activeTicket.agentName}` : isAgent ? "🎧 PAAW HelpDesk AI" : "ℹ️ System"} · {formatTime(m.ts)}
+                  </div>
                 </div>
-                <div className="text-[11px] px-1" style={{ color: "#6a6a6a" }}>
-                  {m.role === "user" ? `🙋 ${activeTicket.agentName}` : m.role === "assistant" ? "🎧 PAAW Support" : "ℹ️ System"} · {formatTime(m.ts)}
-                </div>
-              </div>
-            ))
+              );
+            })
           ))}
         </div>
 
