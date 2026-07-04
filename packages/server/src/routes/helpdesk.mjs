@@ -132,6 +132,23 @@ ${knowledgeBase}
     }
   }
 
+  // ── Fallback: force summary if ToolEngine exhausted rounds without producing text ──
+  if (fullText.trim().length < 100 && toolsUsed.length > 0) {
+    console.log(`[HelpDesk] Text too short (${fullText.length} chars), forcing summary call`);
+    const res = await fetch(`${provider.baseURL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${provider.apiKey}`,
+        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+      },
+      body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, ...conversation, { role: "user", content: "剛才你讀了知識庫檔案。現在請直接根據你讀到的內容，用繁體中文完整回答使用者的問題。不要使用任何工具，直接輸出答案。" }], temperature: 0.3 }),
+    });
+    const data = await res.json();
+    fullText = data.choices?.[0]?.message?.content || fullText;
+    console.log(`[HelpDesk] Summary call result: ${fullText.length} chars`);
+  }
+
   // Check if AI wants more info
   const needMatch = fullText.match(NEED_INFO_REGEX);
   let needsInfo = needMatch ? needMatch[1].trim() : null;

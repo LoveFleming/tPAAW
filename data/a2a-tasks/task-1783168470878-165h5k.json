@@ -1,0 +1,66 @@
+{
+  "id": "task-1783168470878-165h5k",
+  "contextId": "task-1783168470878-165h5k",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-04T12:35:10.987Z"
+  },
+  "message": {
+    "kind": "message",
+    "role": "user",
+    "messageId": "msg-4964cfce-0554-4b86-bed7-995a6cf99ef4",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "PAAW HelpDesk，請問 PAAW 的 Skill Builder 是什麼？"
+      }
+    ],
+    "contextId": "2900cef1-1bf0-4c0f-b0af-0ae14df03998"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW HelpDesk，請問 PAAW 的 Skill Builder 是什麼？"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n\n\n---\n\n## 🧱 PAAW Skill Builder 是什麼？\n\n**Skill Builder** 是 PAAW 中用來**建構和管理 Skill** 的 AI 輔助工具，簡單來說它就是一個「**讓 AI 幫你寫 AI 技能**」的開發環境。\n\n---\n\n### 📌 核心定位\n\n在 PAAW 的架構中，**Skill** 是最小的能力單元（每個 Skill 是一份結構化的 `SKILL.md` 檔案），而 **Skill Builder** 就是產生這些 Skill 的「工廠」——你不用手刻 Markdown，只要用對話的方式描述需求，AI 就會幫你產出完整可用的 Skill。\n\n---\n\n### 🏗️ 兩種建構模式\n\n| 模式 | 觸發方式 | 運作方式 | 串流 |\n|:---:|:--------:|---------|:---:|\n| **📝 建構模式** | 在 Skill Builder 頁面直接聊天 | 使用 AgentConsole（WebSocket）即時對話，一邊討論一邊建構 Skill | ✅ |\n| **✨ AI 生成模式** | 點擊 ✨ 按鈕 | 後端直接呼叫 LLM，一次產生完整 Skill 填入表單 | ❌ |\n\n---\n\n### ⚙️ 技術運作\n\n當你使用 Skill Builder 時，系統會組裝一套**專屬的 AI Context**（system prompt）：\n\n```\nbuildFullSystemContext()   ← PAAW 基礎上下文（身份、規則、工具等）\n+ skill-builder/skill-format.md   ← Skill 的正確格式規範\n+ skill-builder/builder-rules.md  ← 建構行為準則\n+ skill-builder/test-rules.md     ← 測試規則\n```\n\n這讓 AI 知道：\n- Skill 的標準格式（Purpose → Inputs → Deterministic Script → Guardrails → Output Contract → Validation）\n- 該怎麼引導使用者完成 Skill 定義\n- 如何驗證產出的 Skill 是否正確可用\n\n---\n\n### 🗂️ Skill 儲存位置\n\n建構完成的 Skill 會被存放在 `data/skills/` 目錄下：\n- `data/skills/building/` — 正在建構中的 Skill\n- `data/skills/physical-skill/` — 已完成的 Skill，可供 Crew / Cron / Workflow 使用\n\n---\n\n### 🔗 Skill Builder 在 PAAW 生態中的角色\n\n```\n使用者（描述需求）\n    ↓\nSkill Builder（AI 輔助建構）\n    ↓\n產出 SKILL.md\n    ↓\n可被多種機制使用：\n  ├── App（Skill-based App）\n  ├── Workflow（工作流中的步驟）\n  ├── Crew（AI 員工的專業能力）\n  ├── Cron Job（排程執行）\n  └── Chat Tool（聊天中自動路由）\n```\n\n---\n\n### 💡 一句話總結\n\n> **Skill Builder 就是 PAAW 的「AI 技能編輯器」——你用講的，AI 幫你把 Skill 生出來。**\n\n---\n\n📚 **參考來源：**\n- `knowledge/about-paaw/AI-FEATURES.md` — #2 Skill Builder（建構）、#3 Skill Builder ✨ AI 生成\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md` — Skill Builder 的 context 組裝結構\n- `knowledge/about-paaw/PAAW-REFERENCE.md` — 專案結構中 Skill 的儲存位置\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md` — 核心架構說明\n\n---\n\n**🤔 你可能還會想問：**\n- Skill 的 `SKILL.md` 格式長什麼樣子？\n- 怎麼用 Skill Builder 建立一個翻譯 Skill？\n- Skill 和 App、Workflow 的差別是什麼？"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783168510987",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n\n\n---\n\n## 🧱 PAAW Skill Builder 是什麼？\n\n**Skill Builder** 是 PAAW 中用來**建構和管理 Skill** 的 AI 輔助工具，簡單來說它就是一個「**讓 AI 幫你寫 AI 技能**」的開發環境。\n\n---\n\n### 📌 核心定位\n\n在 PAAW 的架構中，**Skill** 是最小的能力單元（每個 Skill 是一份結構化的 `SKILL.md` 檔案），而 **Skill Builder** 就是產生這些 Skill 的「工廠」——你不用手刻 Markdown，只要用對話的方式描述需求，AI 就會幫你產出完整可用的 Skill。\n\n---\n\n### 🏗️ 兩種建構模式\n\n| 模式 | 觸發方式 | 運作方式 | 串流 |\n|:---:|:--------:|---------|:---:|\n| **📝 建構模式** | 在 Skill Builder 頁面直接聊天 | 使用 AgentConsole（WebSocket）即時對話，一邊討論一邊建構 Skill | ✅ |\n| **✨ AI 生成模式** | 點擊 ✨ 按鈕 | 後端直接呼叫 LLM，一次產生完整 Skill 填入表單 | ❌ |\n\n---\n\n### ⚙️ 技術運作\n\n當你使用 Skill Builder 時，系統會組裝一套**專屬的 AI Context**（system prompt）：\n\n```\nbuildFullSystemContext()   ← PAAW 基礎上下文（身份、規則、工具等）\n+ skill-builder/skill-format.md   ← Skill 的正確格式規範\n+ skill-builder/builder-rules.md  ← 建構行為準則\n+ skill-builder/test-rules.md     ← 測試規則\n```\n\n這讓 AI 知道：\n- Skill 的標準格式（Purpose → Inputs → Deterministic Script → Guardrails → Output Contract → Validation）\n- 該怎麼引導使用者完成 Skill 定義\n- 如何驗證產出的 Skill 是否正確可用\n\n---\n\n### 🗂️ Skill 儲存位置\n\n建構完成的 Skill 會被存放在 `data/skills/` 目錄下：\n- `data/skills/building/` — 正在建構中的 Skill\n- `data/skills/physical-skill/` — 已完成的 Skill，可供 Crew / Cron / Workflow 使用\n\n---\n\n### 🔗 Skill Builder 在 PAAW 生態中的角色\n\n```\n使用者（描述需求）\n    ↓\nSkill Builder（AI 輔助建構）\n    ↓\n產出 SKILL.md\n    ↓\n可被多種機制使用：\n  ├── App（Skill-based App）\n  ├── Workflow（工作流中的步驟）\n  ├── Crew（AI 員工的專業能力）\n  ├── Cron Job（排程執行）\n  └── Chat Tool（聊天中自動路由）\n```\n\n---\n\n### 💡 一句話總結\n\n> **Skill Builder 就是 PAAW 的「AI 技能編輯器」——你用講的，AI 幫你把 Skill 生出來。**\n\n---\n\n📚 **參考來源：**\n- `knowledge/about-paaw/AI-FEATURES.md` — #2 Skill Builder（建構）、#3 Skill Builder ✨ AI 生成\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md` — Skill Builder 的 context 組裝結構\n- `knowledge/about-paaw/PAAW-REFERENCE.md` — 專案結構中 Skill 的儲存位置\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md` — 核心架構說明\n\n---\n\n**🤔 你可能還會想問：**\n- Skill 的 `SKILL.md` 格式長什麼樣子？\n- 怎麼用 Skill Builder 建立一個翻譯 Skill？\n- Skill 和 App、Workflow 的差別是什麼？"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read"
+    ],
+    "model": "paaw-helpdesk"
+  }
+}

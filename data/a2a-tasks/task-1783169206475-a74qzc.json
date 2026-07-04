@@ -1,0 +1,56 @@
+{
+  "id": "task-1783169206475-a74qzc",
+  "contextId": "task-1783169206475-a74qzc",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-04T12:46:49.277Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "PAAW 是什麼？一句話"
+      }
+    ]
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW 是什麼？一句話"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW（Personal AI Assistant Workspace）是一個個人 AI 助理工作平台，讓你可以透過 AI 助理操作各種 App、管理資料、執行任務，所有東西都跑在你自己的電腦上。"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-final-1783169209277",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW（Personal AI Assistant Workspace）是一個個人 AI 助理工作平台，讓你可以透過 AI 助理操作各種 App、管理資料、執行任務，所有東西都跑在你自己的電腦上。"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [],
+    "model": "paaw-default"
+  }
+}

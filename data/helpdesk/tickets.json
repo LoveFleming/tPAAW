@@ -1,5 +1,30 @@
 [
   {
+    "ticketId": "TKT-1783169245161",
+    "agentName": "Test Bot",
+    "agentType": "openclaw",
+    "subject": "PAAW 的 App 是什麼？",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783169245161",
+        "role": "user",
+        "text": "PAAW 的 App 是什麼？",
+        "ts": 1783169245161
+      },
+      {
+        "id": "msg_1783169271509",
+        "role": "agent",
+        "text": "我很清楚這個問題了！以下是關於 PAAW 中 **App** 的完整說明。\n\n---\n\n## PAAW 的 App 是什麼？\n\n### 一句話總結\n\n**App 是 PAAW 中的一個「應用單元」**，它結合了資料、AI 行為與使用者介面，並自動成為聊天中的 Tool，讓你可以透過聊天或專屬視窗兩種方式與它互動。\n\n---\n\n### 兩種 App 類型\n\nPAAW 的 App 分為兩種：\n\n#### 1️⃣ Data App（資料型 App）\n\n- 定義一個 **資料結構（Schema）**，用來儲存某類資訊\n- AI 會根據 Schema 自動進行 CRUD（新增、查詢、更新、刪除）\n- 適合用來追蹤任何結構化資料，例如書籤、記帳、待辦清單、聯絡人等\n- **App 的資料 = AI 的記憶**，AI 可以讀取資料來產生洞見\n\n**範例**：一個「書籤」App 有 `title`、`url`、`description`、`tags` 四個欄位，你可以在聊天中說「幫我加一個書籤」，或在 App 視窗中管理所有書籤。\n\n#### 2️⃣ Skill-based App（技能型 App）\n\n- 綁定一個或多個 **Skill**，App 執行時會觸發 AI 按照 Skill 定義的步驟完成任務\n- 每次使用 App，AI 會根據 Skill 的 Purpose、Inputs、Deterministic Script 來執行\n- 適合用來封裝特定工作流程，例如翻譯、摘要、數據分析等\n\n**範例**：一個「翻譯助手」App 綁定一個翻譯 Skill，你輸入中文，AI 自動執行翻譯步驟並輸出結果。\n\n---\n\n### App 的核心特性\n\n| 特性 | 說明 |\n|------|------|\n| **雙入口** | 可以從 **聊天視窗**（說關鍵字觸發）或 **App 視窗**（專屬頁面）使用 |\n| **自動產生 Chat Tool** | 每個 App 建立後，會自動註冊為聊天中的一個 Tool，AI 在對話中會自動判斷何時使用 |\n| **觸發關鍵字** | App 可設定 `triggers`，聊天中說到這些詞時自動路由到該 App |\n| **資料持久化** | App 的資料存在 `data/apps/<app-id>/` 目錄下，包含 `app.json`（定義）、`app.html`（UI）、`data/`（資料） |\n| **可組合性** | App 可以呼叫 Workflow，Workflow 可以呼叫多個 Skill，形成複雜自動化流程 |\n\n---\n\n### App 的結構\n\n每個 App 在檔案系統中長這樣：\n\n```\ndata/apps/<app-id>/\n├── app.json       # App 定義（metadata、schema、triggers、type）\n├── app.html       # 自訂 UI（可選，standalone HTML）\n└── data/\n    └── <app-id>.json  # App 儲存的資料\n```\n\n而 `app.json` 的核心欄位包含：\n\n| 欄位 | 說明 |\n|------|------|\n| `id` | App 唯一識別碼（英文小寫底線） |\n| `name` | App 中文名稱 |\n| `description` | App 描述 |\n| `type` | `data` 或 `skill-based` |\n| `schema` | JSON Schema 定義資料結構 |\n| `aiPrompt` | AI 操作此 App 的簡短提示 |\n| `triggers` | 聊天觸發關鍵字陣列 |\n| `icon` | 圖示（emoji） |\n| `skills` | （skill-based 類型）綁定的 Skill 定義 |\n\n---\n\n### 實際運作流程\n\n```\n使用者在聊天中說「幫我記一個書籤」\n  ↓\nContext Engine 偵測到關鍵字或 AI 判斷需要操作 App\n  ↓\nAI 呼叫 Bookmark App 的 Tool\n  ↓\n執行對應操作（新增書籤資料到 data/apps/bookmarks/data/）\n  ↓\nChat 回覆：「已幫你新增書籤：PAAW 官網」\n```\n\n---\n\n### 與其他概念的關係\n\n```\nSkill（最小能力單元）\n  └── 可被 App、Workflow、Crew、CronJob 叫用\n\nApp（應用單元）\n  ├── 可以是 Data App（資料驅動）\n  ├── 可以是 Skill-based App（綁定 Skill）\n  ├── 雙入口：聊天 + App 視窗\n  └── 自動成為聊天 Tool\n\nWorkflow（工作流）\n  └── 組合多個 Skill 成自動化流程\n\nCrew（AI 員工）\n  └── 綁定 Skill + 角色，長時間執行任務\n```\n\n---\n\n### 如何建立一個 App？\n\n你可以直接透過 `app_create` 工具或使用 **App Builder**（聊天中的 AI 助理）來建立：\n\n1. 說「我要做一個書籤 App」\n2. 指定資料結構（Data App）或要綁定的 Skill（Skill-based App）\n3. App 建立 → 自動註冊為 Tool → 即可開始使用\n\n---\n\n📚 **參考來源：**\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md`\n- `knowledge/about-paaw/PAAW-REFERENCE.md`\n- `knowledge/about-paaw/AI-FEATURES.md`\n\n💡 **延伸問題：**\n- Data App 和 Skill-based App 實際操作上有什麼差別？\n- 怎麼修改已建立的 App？\n- 一個 App 可以綁定多個 Skill 嗎？",
+        "ts": 1783169271509
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-04T12:47:25.161Z",
+    "updatedAt": "2026-07-04T12:47:51.509Z"
+  },
+  {
     "ticketId": "TKT-1783165375564",
     "agentName": "Agent Orchestrator",
     "agentType": "a2a",

@@ -1,0 +1,31 @@
+{
+  "id": "task-1783168953678-1dzw7y",
+  "contextId": "task-1783168953678-1dzw7y",
+  "status": {
+    "state": "working",
+    "timestamp": "2026-07-04T12:42:33.678Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "PAAW 的 Skill Builder Build 功能是什麼？"
+      }
+    ]
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW 的 Skill Builder Build 功能是什麼？"
+        }
+      ]
+    }
+  ],
+  "artifacts": [],
+  "metadata": {}
+}
