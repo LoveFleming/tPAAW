@@ -1,0 +1,1158 @@
+{
+  "model": "deepseek/deepseek-v4-flash",
+  "messages": [
+    {
+      "role": "system",
+      "content": "---\nid: help-desk\nname: PAAW Help Desk\ndescription: 回答有關 PAAW 的所有問題，涵蓋架構、Skill 系統、Workspace、API、CLI 等主題，透過消化 knowledge 與 source code 提供準確解答\ncategory: knowledge\ntags:\n  - help\n  - qa\n  - paaw\n  - knowledge\n  - support\nuserInputs:\n  - id: question\n    label: 你的問題\n    description: 你想了解的 PAAW 相關問題，例如架構、Skill 撰寫、Workspace 操作、API 用法等\n    placeholder: 例如：PAAW 的 Skill 系統是怎麼運作的？\n    required: true\n    type: text\n    multiline: true\n  - id: depth\n    label: 回答深度\n    description: 控制回答的詳細程度\n    placeholder: summary | standard | deep-dive\n    required: false\n    type: text\n    multiline: false\n  - id: include_source\n    label: 是否引用來源\n    description: 是否在回答中標註資料來源檔案，方便使用者自行查閱\n    placeholder: true | false\n    required: false\n    type: text\n    multiline: false\n---\n\n## Purpose\n\n協助使用者解答任何與 PAAW 相關的問題。此 Skill 會主動搜尋 `knowledge` workspace 下 `about-paaw` 目錄中的所有文件，必要時深入 source code，以提供準確、有依據的回答。無論是概念理解、操作指引、架構解析或疑難排解，都能給出清晰且可執行的答案。\n\n## Inputs\n\n### question（必填）\n你想了解的 PAAW 相關問題。可以是：\n- 概念性問題（例：「什麼是 Skill？」）\n- 操作性問題（例：「怎麼建立一個新的 Skill？」）\n- 架構性問題（例：「PAAW 的 Workspace 機制是什麼？」）\n- 疑難排解（例：「為什麼我的 Skill 執行失敗？」）\n\n### depth（選填，預設 `standard`）\n- `summary` — 簡短摘要，1-3 句話回答\n- `standard` — 標準回答，包含說明與基本範例\n- `deep-dive` — 深入解析，包含完整脈絡、source code 引用與進階用法\n\n### include_source（選填，預設 `true`）\n設為 `true` 時，回答末尾會附上參考的知識庫檔案路徑，方便使用者自行深入查閱。\n\n## Deterministic Script\n\n### Tool Access\n\n- `file_list({ workspace: \"knowledge\" })` — 列出 knowledge workspace 的根目錄\n- `file_list({ workspace: \"knowledge\", path: \"about-paaw\" })` — 列出 about-paaw 下的所有檔案\n- `file_read({ workspace: \"knowledge\", path: \"<file>\" })` — 讀取 knowledge workspace 中的指定檔案\n- `file_list({ workspace: \"<user-workspace>\" })` — 列出使用者 workspace 目錄\n- `file_read({ workspace: \"<user-workspace>\", path: \"<file>\" })` — 讀取使用者 workspace 中的 source code\n\n### Execution Steps\n\n#### 步驟一：問題分類與關鍵字萃取\n\n1. 解析使用者輸入的 `question`\n2. 將問題分類為以下其中一種：\n   - `concept` — 概念解釋（例：什麼是 X）\n   - `how-to` — 操作指引（例：怎麼做 X）\n   - `architecture` — 架構/設計（例：X 是怎麼設計的）\n   - `troubleshooting` — 疑難排解（例：X 壞了怎麼辦）\n3. 從問題中萃取 3-5 個搜尋關鍵字（英文與中文皆提取）\n\n#### 步驟二：知識庫掃描\n\n1. 執行 `file_list({ workspace: \"knowledge\" })` 取得根目錄結構\n2. 執行 `file_list({ workspace: \"knowledge\", path: \"about-paaw\" })` 列出所有可用文件\n3. 根據步驟一萃取的關鍵字，篩選出最相關的檔案（優先順序：檔名匹配 > 目錄匹配）\n4. 逐一讀取相關檔案：`file_read({ workspace: \"knowledge\", path: \"<matched-file>\" })`\n5. 若 `about-paaw` 下的文件不足以回答問題，往 knowledge 根目錄及其他子目錄擴大搜尋\n\n#### 步驟三：Source Code 查閱（視需要）\n\n1. 若知識庫文件無法完整回答問題，且問題涉及：\n   - 內部實作細節\n   - 具體 API 行為\n   - 資料結構或格式定義\n   - 執行流程或生命週期\n2. 則掃描使用者 workspace 下的 source code 目錄\n3. 使用關鍵字定位相關程式碼檔案並讀取\n4. 從 source code 中提取答案，並轉化為使用者友善的說明\n\n#### 步驟四：整合與撰寫回答\n\n1. 根據 `depth` 參數決定回答的詳細程度：\n   - `summary`：1-3 句話直接回答\n   - `standard`：結構化回答，包含：\n     - 直接回答\n     - 補充說明（1-2 段）\n     - 具體範例或操作步驟\n   - `deep-dive`：完整解析，包含：\n     - 背景與脈絡\n     - 詳細技術說明\n     - source code 引用（如適用）\n     - 進階用法或注意事項\n     - 相關延伸主題\n2. 以繁體中文撰寫，技術術語保留英文\n3. 若 `include_source` 為 `true`，在回答末尾附上：\n   ```\n   📚 參考來源：\n   - knowledge/about-paaw/<file-name>\n   - <workspace>/<source-file>（如適用）\n   ```\n\n#### 步驟五：品質檢查\n\n1. 確認回答是否直接回應了使用者的問題\n2. 確認所有技術術語的使用是否正確\n3. 確認沒有編造不存在的事實（若有不確定之處，明確標示）\n4. 若問題超出 PAAW 範圍，禮貌告知並引導至正確資源\n\n### Business Rules\n\n1. **知識庫優先**：所有回答必須優先基於 `knowledge/about-paaw` 下的文件，source code 僅作為補充\n2. **誠實原則**：若知識庫與 source code 都找不到答案，必須明確告知「目前知識庫中沒有相關資訊」，不得編造內容\n3. **語言一致性**：回答使用繁體中文，但 PAAW 的專有名詞（Skill、Workspace、CLI、SKILL.md 等）保留原文\n4. **範圍限定**：只回答與 PAAW 直接相關的問題；若使用者問了不相關的問題，引導其回到 PAAW 主題\n5. **時效性標註**：若 source code 中的行為可能與文件描述不一致，以 source code 為準並標註差異\n6. **最小權限**：僅讀取回答問題所需的檔案，不無差別讀取所有檔案\n\n### Error Handling\n\n#### 情境一：knowledge workspace 為空或無法存取\n\n- **偵測條件**：`file_list({ workspace: \"knowledge\" })` 回傳空結果或錯誤\n- **處理方式**：\n  1. 嘗試直接掃描使用者 workspace 下的 source code\n  2. 若 source code 可用，基於 source code 回答並標註「此回答基於 source code，可能不如文件完整」\n  3. 若 source code 也不可用，回覆：「目前無法存取知識庫與 source code，請確認 workspace 設定是否正確。」\n\n#### 情境二：問題超出 PAAW 範圍或知識庫無涵蓋\n\n- **偵測條件**：搜尋所有相關文件後，找不到與問題相關的內容\n- **處理方式**：\n  1. 明確告知使用者：「目前知識庫中沒有涵蓋這個主題。」\n  2. 嘗試提供最接近的相關資訊作為參考\n  3. 建議使用者可以查看的檔案或目錄\n  4. 若問題完全與 PAAW 無關，禮貌說明此 Help Desk 僅回答 PAAW 相關問題\n\n#### 情境三：使用者問題模糊或有多種解讀\n\n- **偵測條件**：問題缺乏具體性，可能有兩種以上合理的解讀\n- **處理方式**：\n  1. 列出可能的解讀方向\n  2. 針對最可能的解讀提供初步回答\n  3. 邀請使用者進一步釐清問題\n\n## Guardrails\n\n1. **只可讀取**：此 Skill 僅進行檔案讀取與回答，不得寫入、修改或刪除任何檔案\n2. **不執行程式碼**：不執行任何 source code，僅進行靜態閱讀與分析\n3. **不洩露敏感資訊**：若 source code 中包含 API keys、密碼或其他敏感資訊，回答中不得包含這些內容\n4. **回答長度上限**：`summary` 模式不超過 500 字；`standard` 模式不超過 2000 字；`deep-dive` 模式不超過 5000 字\n5. **不得編造**：所有回答中的具體數據、行為描述、API 定義都必須有文件或 source code 作為依據\n6. **單次回答範圍**：一次回答聚焦於一個主題；若使用者問題包含多個獨立子問題，逐一回答但提示可拆分提問以獲得更深入的回答\n\n## Output Contract\n\n**輸出模式：display**\n\n此 Skill 為即時問答用途，回答直接顯示給使用者，不需要存檔。\n\n```json\n{\n  \"mode\": \"display\",\n  \"format\": \"markdown\",\n  \"schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"category\": {\n        \"type\": \"string\",\n        \"description\": \"問題分類：concept | how-to | architecture | troubleshooting\"\n      },\n      \"answer\": {\n        \"type\": \"string\",\n        \"description\": \"回答本文，markdown 格式，根據 depth 決定詳細程度\"\n      },\n      \"sources\": {\n        \"type\": \"array\",\n        \"items\": { \"type\": \"string\" },\n        \"description\": \"參考的檔案路徑列表（include_source 為 true 時提供）\"\n      },\n      \"confidence\": {\n        \"type\": \"string\",\n        \"enum\": [\"high\", \"medium\", \"low\"],\n        \"description\": \"回答信心程度；high = 知識庫有明確記載，medium = 基於推斷或多份文件綜合，low = 主要基於 source code 推測\"\n      },\n      \"follow_up\": {\n        \"type\": \"array\",\n        \"items\": { \"type\": \"string\" },\n        \"description\": \"建議的後續問題，幫助使用者深入探索\"\n      }\n    },\n    \"required\": [\"category\", \"answer\", \"confidence\"]\n  },\n  \"example\": {\n    \"category\": \"concept\",\n    \"answer\": \"## Skill 是什麼？\\n\\nSkill 是 PAAW 中的可重複執行任務單元。每個 Skill 由一份 `SKILL.md` 定義，包含 Purpose、Inputs、Execution Steps、Output Contract 等 section。使用者只需提供 inputs，AI 就會按照 Skill 定義的步驟執行並產出結果。\\n\\n### 核心概念\\n\\n- **宣告式定義**：你定義「做什麼」和「輸出什麼」，由 AI runtime 負責「怎麼做」\\n- **可組合**：Skill 可以呼叫其他 Skill\\n- **可分享**：Skill 以純文字（markdown）形式存在，易於版本控管與分享\\n\\n### 範例\\n\\n一個翻譯 Skill 的結構：\\n\\n1. 使用者輸入要翻譯的文字\\n2. Skill 指示 AI 翻譯成目標語言\\n3. 結構化輸出翻譯結果\",\n    \"sources\": [\n      \"knowledge/about-paaw/skill-system.md\",\n      \"knowledge/about-paaw/architecture.md\"\n    ],\n    \"confidence\": \"high\",\n    \"follow_up\": [\n      \"怎麼建立一個新的 Skill？\",\n      \"Skill 的 Deterministic Script 是什麼？\",\n      \"Skill 可以使用哪些工具？\"\n    ]\n  }\n}\n```\n\n## Validation\n\n1. **問題非空**：`question` 不得為空字串或純空白\n2. **depth 值合法**：若有提供 `depth`，必須是 `summary`、`standard` 或 `deep-dive` 之一；不合法值使用預設 `standard`\n3. **include_source 值合法**：若有提供，必須是 `true` 或 `false`；不合法值使用預設 `true`\n4. **回答必須包含**：`category`、`answer`、`confidence` 三個必填欄位\n5. **confidence 校驗**：若 `confidence` 為 `low`，回答中必須包含免責聲明，說明此答案基於推測，建議查閱原始文件確認\n6. **sources 校驗**：若 `include_source` 為 `true`，`sources` 不得為空陣列（除非知識庫完全沒有相關內容，此時須在 answer 中說明）\n7. **回答長度校驗**：按 Guardrails 定義的長度上限檢查；若超出，自動精簡並在末尾附註「此為精簡版回答，可使用 deep-dive 模式獲取完整內容」\n\n---\n\n## Knowledge Base（即時參考）\n\n# PAAW HelpDesk Knowledge Base\n\n> 其他 Agent 可查詢的 PAAW 知識庫\n\n## PAAW 是什麼？\n\n**PAAW (Personal AI Assistant Workspace)** — Build your personal AI workforce\n\n核心概念：人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料 → 形成能力飛輪\n\n## 核心模組\n\n### 1. Chat Assistant（聊天助理）\n- 所有 App 在聊天視窗都能使用\n- 支援 SSE 串流回應\n- 自動路由到相關 Skill / App\n\n### 2. Skill Builder（技能建構器）\n- Skill 是最小的能力單元\n- 格式：Purpose → Inputs → Deterministic Script → Guardrails → Output Contract → Validation\n- App、Workflow、Crew、CronJob 都會叫用 Skill\n\n### 3. App Builder（應用建構器）\n- 資料驅動 或 Skill-based\n- 每個 App 自動產生 Chat Tool\n- 雙入口：聊天視窗 + App 視窗\n- App 資料 = AI 的記憶\n\n### 4. Workflow Builder（工作流建構器）\n- 多步驟自動化流程\n\n### 5. Knowledge / Files（知識與檔案管理）\n- AI 讀取知識產生洞見\n\n### 6. Memory（記憶管理）\n- 分層記憶架構\n\n### 7. Execution Center（執行中心）\n- CronJob 排程\n- 監控與日誌\n\n## Capability Platform 三層架構\n\n```\n使用者（不會寫程式）\n  ↓ 在聊天視窗或 App Builder 說「我要做一個 XX app」\nApp Builder（AI 幫你建 Skill + App）\n  ↓ 產出：app.json + app.html + data\n自動註冊為 Chat Tool\n  ↓\n使用者從「聊天視窗」或「App 視窗」都能用\n  ↓\nApp 產生的資料 → AI 讀取 → 產生洞見\n```\n\n## A2A Protocol (Agent-to-Agent)\n- JSON-RPC 2.0 binding\n- `GET /.well-known/agent.json` → Agent Card\n- `POST /a2a` → JSON-RPC endpoint\n- Methods: `message/send`, `message/stream`, `tasks/get`, `tasks/list`, `tasks/cancel`\n\n## Tech Stack\n- Frontend: React 18 + Tailwind CSS\n- Backend: Node.js HTTP server\n- Data: JSON file-based storage (data/)\n- AI: Multi-provider (GLM, DeepSeek, OpenRouter)\n\n## App 結構\n每個 App 包含：\n- `app.json` — metadata, schema, triggers\n- `app.html` — UI (standalone HTML)\n- `data/app-data/<app-id>.json` — 資料\n\n## API 端點\n- `GET /api/apps` — 列出所有 App\n- `GET/PUT /api/app-data/:appId` — App 資料 CRUD\n- `GET/POST/PUT/DELETE /api/paaw/chats/:id` — 聊天 CRUD\n- `POST /a2a` — Agent-to-Agent JSON-RPC\n- `POST /api/helpdesk/ask` — 客服提問\n- `GET /api/helpdesk/knowledge` — 知識庫\n\n\n---\n\n你是 PAAW HelpDesk。請根據上面的 Skill 定義和 Knowledge Base 回答問題。\n使用 file_read 和 file_list 工具搜尋 knowledge workspace 獲取更詳細的資訊。\n回答用繁體中文，技術術語保留英文。"
+    },
+    {
+      "role": "user",
+      "content": "PAAW 的 Skill Builder 是什麼？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n好的，我來搜尋知識庫中關於 Skill Builder 的詳細資訊。\n\n",
+      "tool_calls": [
+        {
+          "id": "call_90d8099f62d54240946a6c9f",
+          "type": "function",
+          "function": {
+            "name": "file_list",
+            "arguments": "{\"workspace\":\"knowledge\"}"
+          }
+        },
+        {
+          "id": "call_211018fc47154354bcbf650a",
+          "type": "function",
+          "function": {
+            "name": "file_list",
+            "arguments": "{\"path\":\"about-paaw\",\"workspace\":\"knowledge\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_90d8099f62d54240946a6c9f",
+      "content": "{\"text\":\"📚 knowledge：\\n📁 about-paaw\"}"
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_211018fc47154354bcbf650a",
+      "content": "{\"text\":\"📚 knowledge：\\n📄 AI-FEATURES.md\\n📄 DEVELOPER-GUIDE.md\\n📄 PAAW-REFERENCE.md\\n📄 PROMPT-ARCHITECTURE.md\\n📄 TESTING.md\\n📄 UI-API-MAPPING.md\\n📁 ai-context\"}"
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_0c825624ae6449918cdfacaf",
+          "type": "function",
+          "function": {
+            "name": "file_read",
+            "arguments": "{\"path\": \"about-paaw/PAAW-REFERENCE.md\", \"workspace\": \"knowledge\"}"
+          }
+        },
+        {
+          "id": "call_08169b30815741f08e3d26ef",
+          "type": "function",
+          "function": {
+            "name": "file_read",
+            "arguments": "{\"path\": \"about-paaw/DEVELOPER-GUIDE.md\", \"workspace\": \"knowledge\"}"
+          }
+        },
+        {
+          "id": "call_8e348c4240c24ec696945526",
+          "type": "function",
+          "function": {
+            "name": "file_read",
+            "arguments": "{\"path\": \"about-paaw/PROMPT-ARCHITECTURE.md\", \"workspace\": \"knowledge\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_0c825624ae6449918cdfacaf",
+      "content": "{\"text\":\"# PAAW Developer Reference\\n\\n> 給 AI / 開發者看的技術參考。看完這份就知道 PAAW 的架構、每個功能在哪、怎麼改。\\n>\\n> Repo: `LoveFleming/tAgent` · Branch: `dev`\\n> 最後更新：2026-07-01\\n\\n---\\n\\n## 專案結構\\n\\n```\\ntAgent/\\n├── packages/\\n│   ├── ui/                  # 前端 (React + Vite + TypeScript)\\n│   │   └── src/\\n│   │       ├── App.tsx              # 路由 + Tab 管理 + Sidebar\\n│   │       ├── api.ts               # API_BASE export\\n│   │       ├── pages/               # 每個功能一個 .tsx\\n│   │       ├── components/          # 共用元件\\n│   │       │   ├── AgentConsole.tsx     # WebSocket AI 對話框（streaming）\\n│   │       │   ├── ModelSelector.tsx     # 模型切換下拉框\\n│   │       │   ├── SidebarFileTree.tsx   # 檔案樹 + 右鍵選單\\n│   │       │   ├── KnowledgeTree.tsx     # Knowledge 頁檔案樹\\n│   │       │   └── CrewEditor.tsx        # Crew 編輯器\\n│   │       ├── types/index.ts       # 共用型別 + buildSystemPrompt()\\n│   │       └── i18n/locales/        # zh.json, en.json, ja.json\\n│   │\\n│   ├── server/              # 後端 (Node.js, 純 .mjs)\\n│   │   └── src/\\n│   │       ├── context-engine.mjs       # ★ 統一 context 組裝器\\n│   │       ├── websocket/ws-handler.mjs # WebSocket handler (Chat, AgentConsole)\\n│   │       ├── lib/paaw-agent-loop.mjs  # ★ Agent 執行迴圈 (runAgentLoop / Stream)\\n│   │       ├── routes/                  # API 路由（每個功能一個檔）\\n│   │       └── scheduler/cron-jobs.mjs  # 排程引擎\\n│   │\\n│   ├── db/                  # SQLite ORM (Drizzle)\\n│   ├── engine/              # 執行引擎\\n│   ├── context/             # Context 管理\\n│   └── shared/              # 共用型別\\n│\\n├── data/                    # ★ 所有資料（JSON + Markdown，不是 DB）\\n│   ├── ai-settings/         # AI 系統提示詞（可線上編輯）\\n│   ├── apps/                # App 資料（每個 App 一個目錄）\\n│   ├── chats/               # 聊天紀錄\\n│   ├── config/              # 系統設定\\n│   │   ├── providers.json   # ★ AI Provider 設定（API key, model, baseURL）\\n│   │   ├── user.json        # 使用者資料 + preferences（model 偏好）\\n│   │   └── ui-state.json    # UI 狀態\\n│   ├── crews/               # Crew 定義（每個 Crew 一個 JSON）\\n│   ├── cron/                # Cron job 定義\\n│   ├── skills/              # Skill 檔案\\n│   │   ├── building/        # 正在建構的 skill\\n│   │   └── physical-skill/  # 已產生的 skill（可被 Crew / Cron 使用）\\n│   ├── workflows/           # Workflow 定義\\n│   ├── knowledge/           # 知識庫檔案\\n│   ├── mindmaps/            # 心智圖輸出\\n│   ├── notes/               # 筆記\\n│   └── distill/             # 蒸餾結果\\n│\\n└── docs/\\n    ├── AI-FEATURES.md       # AI 功能完整清單（context/model/streaming 對照）\\n    └── PAAW-REFERENCE.md    # ← 本文件\\n```\\n\\n---\\n\\n## 核心架構\\n\\n### 三層結構\\n\\n```\\n使用者\\n  ↓\\n前端 (React) — 發 prompt + systemPrompt 到 WebSocket / API\\n  ↓\\n後端 (Node.js) — runAgentLoop() 或 callLLMWithRetry()\\n  ↓\\nAI Provider — providers.json 決定用哪家 API\\n```\\n\\n### Context Engine（最重要的檔案）\\n\\n**檔案**：`packages/server/src/context-engine.mjs`\\n\\n**作用**：組裝 AI 的 systemPrompt。所有 AI 功能的 context 都從這裡出。\\n\\n```\\ncontextEngine.build({ target }) → { systemPrompt, prompt?, provider? }\\n```\\n\\n**核心函式**：\\n\\n| 函式 | 說明 |\\n|------|------|\\n| `buildFullSystemContext()` | ★ 共用函式，組裝完整系統 context（identity, user, memory, apps, tools, guardrails 等） |\\n| `_buildChat()` | Chat 用 = full context + 最近對話摘要 |\\n| `_buildSkillBuilder()` | Skill Builder 用 = full context + skill-format + builder-rules + test-rules |\\n| `_buildSkillExec()` | Skill 執行用 = full context + app SYSTEM.md + skill-rules |\\n| `_buildMindmap()` | Mindmap 用 = full context + dynamic context + mindmap rules |\\n| `_buildNotes()` | Notes 用 = full context + dynamic context + notes rules |\\n| `_buildProject()` | Project AI 用 = full context + dynamic context + project rules |\\n| `_buildCrew()` | Crew 用 = full context + skill-rules + crew rolePrompt |\\n| `_buildWorkflow()` | Workflow 用 = 呼叫 `_buildSkillExec()` |\\n\\n**Target 對照**：\\n\\n| target | 用在哪 | 額外帶的 context |\\n|--------|--------|-----------------|\\n| `chat` | Chat, Coding IDE, AppBuilder | 最近對話摘要 |\\n| `skill-exec` | Skill Exec, Workflow, Cron Skill | app SYSTEM.md + skill-rules |\\n| `skill-builder` | Skill Builder, ✨ AI 生成 | skill-format + builder-rules + test-rules |\\n| `crew` | Crew/Employee | crew rolePrompt |\\n| `mindmap` | Mindmap | mindmap/system-prompt.md |\\n| `notes` | Notes | notes/system-prompt.md |\\n| `project` | Project AI 助理 | project/identity.md + project/rules.md |\\n\\n### Agent Loop（AI 執行引擎）\\n\\n**檔案**：`packages/server/src/lib/paaw-agent-loop.mjs`\\n\\n| 函式 | 說明 |\\n|------|------|\\n| `runAgentLoop(config)` | 一次性執行，回傳完整結果 |\\n| `runAgentLoopStream(config, res)` | SSE 串流版本（用於 `/api/agent-run/stream`） |\\n\\n**config 參數**：\\n\\n```javascript\\n{\\n  prompt,          // 使用者訊息\\n  systemPrompt,    // 系統 context（從 contextEngine 來）\\n  model,           // 可選，override provider model\\n  cwd,             // 工作目錄\\n  maxTurns,        // 最大 tool call 輪數（預設讀 agent-config.json）\\n  timeout,         // 逾時秒數\\n  rootDir,         // PAAW_ROOT\\n  skillMd,         // 可選，SKILL.md 內容\\n}\\n```\\n\\n### Provider 設定\\n\\n**檔案**：`data/config/providers.json`\\n\\n```json\\n{\\n  \\\"active\\\": \\\"zai\\\",             // 目前用哪家\\n  \\\"defaultModel\\\": \\\"glm-5.1\\\",   // 預設 model\\n  \\\"providers\\\": {\\n    \\\"zai\\\": { \\\"name\\\": \\\"...\\\", \\\"baseURL\\\": \\\"...\\\", \\\"apiKey\\\": \\\"...\\\", \\\"models\\\": [...] },\\n    \\\"openrouter\\\": { ... }\\n  }\\n}\\n```\\n\\n**讀取方式**：\\n- 後端：`loadP\\n... (截斷)\",\"path\":\"/Users/steward/App/tPAAW/data/knowledge/about-paaw/PAAW-REFERENCE.md\",\"workspace\":\"/Users/steward/App/tPAAW/data/knowledge\"}"
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_08169b30815741f08e3d26ef",
+      "content": "{\"text\":\"# PAAW Developer Onboarding\\n\\n> 這份文件讓任何 AI 或人類開發者能在 30 分鐘內理解 PAAW 全貌，接手開發。\\n>\\n> 最後更新：2026-07-01\\n\\n---\\n\\n## PAAW 是什麼？\\n\\n**PAAW = Personal AI Assistant Workspace**\\n\\n> Build your personal AI workforce — 人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料\\n\\n核心概念：\\n1. **Skill** 是最小能力單元（有固定 Markdown 格式）\\n2. **App** 是資料驅動或 Skill-based 的應用\\n3. **Crew** 是 AI 員工（綁定 Skill + 角色）\\n4. **所有 AI 功能共用同一套 Context Engine** — prompts 從 `data/ai-settings/` 讀取\\n5. **聊天視窗 + App 視窗** 雙入口，每個 App 自動成為 Chat Tool\\n\\n---\\n\\n## 技術棧\\n\\n| 層 | 技術 |\\n|----|------|\\n| **Frontend** | React 19 + TypeScript + Vite |\\n| **Backend** | Node.js（純 `.mjs`，不用 TypeScript） |\\n| **Database** | JSON + Markdown files（`data/` 目錄），少量 SQLite |\\n| **AI** | OpenAI-compatible API（ providers.json 可切換多家） |\\n| **通訊** | WebSocket（即時串流）、SSE（單向串流）、REST |\\n| **部署** | Docker + docker-compose（含 Bridge 守護進程） |\\n\\n⚠️ **關鍵原則**：\\n- **Server 端只寫 `.mjs`**（純 JavaScript），**不能** 用 TypeScript 語法\\n- **Frontend 用 `.tsx`**（TypeScript + React）\\n- **資料全是檔案**（JSON/Markdown），不是 DB-driven\\n\\n---\\n\\n## 30 秒啟動\\n\\n```bash\\n# 1. Clone\\ngit clone https://github.com/LoveFleming/tAgent.git\\ncd tAgent\\ngit checkout dev\\n\\n# 2. Install\\nnpm install\\n\\n# 3. 開發模式（同時跑 UI + API）\\nnpm run dev\\n# → UI: http://localhost:5173 (Vite dev server)\\n# → API: http://localhost:4097\\n\\n# 4. Production 模式\\nnpm run build            # 建構 UI 到 packages/ui/dist/\\nnpm run dev:server       # 只跑 server，會 serve UI dist\\n# → http://localhost:4097 (API + UI 同一個 port)\\n```\\n\\n### 環境變數\\n\\n| 變數 | 預設 | 用途 |\\n|------|------|------|\\n| `PAAW_PORT` | `4097` | API + 靜態 UI port |\\n| `PAAW_WS_PORT` | `4098` | WebSocket (PTY + AgentConsole) port |\\n| `PAAW_ROOT` | 自動偵測 | 資料根目錄 |\\n| `NODE_ENV` | `development` | `production` 時 server serve UI dist |\\n| `BRIDGE_TOKEN` | — | Docker Bridge 認證 |\\n\\nVite 前端的 API URL 由 `vite.config.ts` 的 `define` 注入，不依賴 `.env` 檔。\\n\\n---\\n\\n## Repo 結構（只看重要的）\\n\\n```\\ntAgent/\\n├── packages/\\n│   ├── ui/                      # ← 前端（你在這裡寫 .tsx）\\n│   │   ├── src/\\n│   │   │   ├── App.tsx          # ★ Tab 路由 + Sidebar（所有頁面入口）\\n│   │   │   ├── api.ts           # ★ API_BASE（讀 env var）\\n│   │   │   ├── pages/           # 每個功能一個 .tsx（34 個頁面）\\n│   │   │   ├── components/      # 共用元件（AgentConsole, ModelSelector...）\\n│   │   │   ├── types/index.ts   # 共用型別 + buildSystemPrompt()\\n│   │   │   └── i18n/            # 多語系\\n│   │   └── vite.config.ts       # ★ Vite 設定（env 注入、proxy）\\n│   │\\n│   ├── server/                  # ← 後端（你在這裡寫 .mjs）\\n│   │   ├── src/\\n│   │   │   ├── paaw-server.mjs  # ★ Server 入口（載入所有 route + static UI）\\n│   │   │   ├── context-engine.mjs  # ★ Prompt 統一組裝器（最重要！）\\n│   │   │   ├── websocket/ws-handler.mjs  # WebSocket handler\\n│   │   │   ├── lib/paaw-agent-loop.mjs   # ★ AI 執行迴圈\\n│   │   │   ├── routes/          # API 路由（21 個 .mjs 檔）\\n│   │   │   ├── tools/index.mjs  # Tool 注入到 systemPrompt\\n│   │   │   ├── scheduler/cron-jobs.mjs  # 排程引擎\\n│   │   │   └── lib/security/    # Security Kernel（rate limit, audit, secret）\\n│   │   └── package.json\\n│   │\\n│   ├── db/                      # SQLite ORM (Drizzle) — 目前很少用\\n│   ├── engine/                  # 執行引擎（舊，部分 deprecated）\\n│   ├── context/                 # Context 管理（舊）\\n│   └── shared/                  # 共用型別\\n│\\n├── data/                        # ★ 所有資料（不是 DB，是檔案！）\\n│   ├── ai-settings/             # ★ AI 提示詞（改行為改這裡，不動 code）\\n│   ├── apps/                    # App 資料\\n│   ├── chats/                   # 聊天紀錄\\n│   ├── config/\\n│   │   ├── providers.json       # ★ AI Provider（API key, model）\\n│   │   └── user.json            # 使用者 + preferences\\n│   ├── crews/                   # Crew 定義\\n│   ├── cron/                    # Cron Job 定義\\n│   ├── skills/                  # Skill 檔案\\n│   ├── projects/                # 專案資料\\n│   ├── notes/                   # 筆記\\n│   └── mindmaps/                # 心智圖\\n│\\n├── docs/                        # ← 你在看這裡\\n│   ├── DEVELOPER-GUIDE.md       # ← 本文件\\n│   ├── AI-FEATURES.md           # 15 個 AI 功能完整清單\\n│   ├── PAAW-REFERENCE.md        # 技術參考（架構、API、如何改碼）\\n│   ├── PROMPT-ARCHITECTURE.md   # 提示詞組裝全圖\\n│   └── UI-API-MAPPING.md        # UI 頁面 × API 端點對照\\n│\\n├── Dockerfile                   # Production Docker image\\n├── docker-compose.yml           # PAAW + Bridge 架構\\n└── package.json                 # Workspace root\\n```\\n\\n---\\n\\n## 核心架構（必讀）\\n\\n### 1. Context Engine — Prompt 的心臟\\n\\n**檔案**：`packages/server/src/context-engine.mjs`\\n\\n所有 AI 功能的 systemPrompt 都從這裡組裝：\\n\\n```\\ncontextEngine.build({ target }) → { systemPrompt, provider }\\n```\\n\\n**分層組裝**：\\n\\n```\\nLayer 0: buildFullSystemContext()  ← 所有 AI 共用底層\\n  _base/paaw-context.md      — PAAW 路徑、結構\\n  _base/core-rules.md        — 行為準則\\n  chat/identity.md           — AI 人設\\n  使用者資訊 + MEMORY.md\\n  Apps 清單 + Tool 規則\\n  project/identity + rules   — 專案規則\\n  guardrails + reply-rules   — 安全 + 格式\\n\\nLayer 1: buildDynamicContext()  ← 動態資料\\n  Recent files, git status, etc.\\n\\nLayer 2: 各 target 專用 rules  ← 功能層\\n  chat → 最近對話摘要\\n  skill-builder → skill-format + builder-rules + test-rules\\n  mindmap → mindmap/system-prompt.md\\n  notes → notes/system-prompt.md\\n  project → project/identity.md + project/rules.md\\n```\\n\\n**7 個 target**：\\n\\n| target | method | 用在哪 |\\n|--------|\\n... (截斷)\",\"path\":\"/Users/steward/App/tPAAW/data/knowledge/about-paaw/DEVELOPER-GUIDE.md\",\"workspace\":\"/Users/steward/App/tPAAW/data/knowledge\"}"
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_8e348c4240c24ec696945526",
+      "content": "{\"text\":\"# PAAW 提示詞組裝全圖\\n\\n> 最後更新：2026-07-01\\n>\\n> 這份文件列出**每一個 AI 功能的 system prompt 最終組裝結構**。\\n> 組裝邏輯在 `packages/server/src/context-engine.mjs` 的 `buildFullSystemContext()` 和各 `_build*` 方法。\\n\\n---\\n\\n## 核心架構\\n\\n```\\nbuildFullSystemContext()  ← 所有 AI 功能共用的底層\\n  │\\n  ├── [0] _base/paaw-context.md     — PAAW 路徑、資料結構、Placeholder\\n  ├── [1] _base/core-rules.md       — 語言、行為準則、安全邊界\\n  ├── [2] chat/identity.md          — AI 身份（{{assistantName}} {{nickname}}）\\n  ├── [3] 使用者資訊                 — 名字、介紹、偏好 + Workspace 清單 + Knowledge 路徑\\n  ├── [4] MEMORY.md                 — 長期記憶\\n  ├── [5] Apps 清單 + App 連結規則   — 所有已安裝的 App 及其 Tool\\n  ├── [6] project/identity.md       — 專案管理助理規則\\n  │   project/rules.md\\n  ├── [7] chat/tool-rules.md        — Tool 使用規則（核心！只信 Tool 不信記憶）\\n  ├── [8] crew/skill-rules.md       — Skill 執行規則（讀 SKILL.md → 按步驟執行）\\n  ├── [9] app-builder-rules.md      — App 建構規則（混合進來，不管是不是 App Builder）\\n  ├── [10] chat/system-prompt.md    — 系統行為規範\\n  ├── [11] chat/guardrails.md       — 安全限制\\n  ├── [12] chat/reply-rules.md      — 回覆格式規則\\n  └── [13] API Tools + Generated Skills — 系統工具清單\\n```\\n\\n**問題 #1**：`buildFullSystemContext()` 把所有東西都塞進去，不管目標功能需不需要。\\n例如 Mindmap 不需要 Skill 執行規則，Coding IDE 不需要 App Builder 規則。\\n\\n**問題 #2**：`[9] app-builder-rules.md` 被混在所有 AI 的 context 裡，不管是不是 App Builder。\\n\\n---\\n\\n## 每個 AI 功能的實際組裝\\n\\n### 1. Chat（主聊天）\\n\\n```\\n來源：ws-handler.mjs → contextEngine.build({ target: \\\"chat\\\" })\\n\\nSystem Prompt =\\n  buildFullSystemContext()        ← [0]～[13] 全部\\n  + 最近對話摘要（最新 3 則聊天）\\n```\\n\\n### 2. Skill Builder（建構）\\n\\n```\\n來源：ws-handler.mjs → contextEngine.build({ target: \\\"skill-builder\\\" })\\n\\nSystem Prompt =\\n  buildFullSystemContext()        ← [0]～[13] 全部\\n  + skill-builder/skill-format.md （⚠️ 目前不存在！）\\n  + skill-builder/builder-rules.md\\n  + skill-builder/test-rules.md\\n\\nPrompt =\\n  \\\"你是 PAAW Skill 建構專家...\\\" + 使用者的 Skill 定義\\n```\\n\\n### 3. Skill Builder ✨ AI 生成\\n\\n```\\n來源：skills-api.mjs POST /api/skills/generate\\n\\nSystem Prompt =\\n  contextEngine.build({ target: \\\"skill-builder\\\" })  ← 同上 #2\\n\\nUser Prompt =\\n  使用者輸入的 Skill 名稱 + 功能描述\\n```\\n\\n### 4. Skill Exec（執行）\\n\\n```\\n來源：workflow.mjs POST /api/paaw/skill-exec → contextEngine.build({ target: \\\"skill-exec\\\" })\\n\\nSystem Prompt =\\n  buildFullSystemContext()        ← [0]～[13] 全部\\n  + app 的 SYSTEM.md（如果有）\\n  + crew/skill-rules.md（再次加入，已在 full context 裡了）\\n  + \\\"你是 PAAW Skill 執行引擎...\\\"\\n\\nPrompt =\\n  SKILL.md body（{{PAAW_ROOT}} 已替換 + {{key}} 已替換為 input）\\n```\\n\\n### 5. Workflow\\n\\n```\\n來源：workflow.mjs → contextEngine.build({ target: \\\"workflow\\\" })\\n\\nSystem Prompt =\\n  buildFullSystemContext()        ← 重複！_buildWorkflow 先呼叫 _buildSkillExec\\n  + _buildSkillExec 的 systemPrompt（也包含 buildFullSystemContext）\\n  → 也就是 buildFullSystemContext() 出現兩次！\\n\\nPrompt =\\n  SKILL.md body\\n```\\n\\n**問題 #3**：Workflow 的 context 裡 `buildFullSystemContext()` 被呼叫兩次。\\n\\n### 6-7. Cron Workflow / Cron Skill\\n\\n```\\n來源：cron-jobs.mjs\\n\\nCron Workflow:\\n  如果表單有填 systemPrompt → 用自訂的\\n  如果沒填 → buildFullSystemContext()（直接呼叫 function）\\n\\nCron Skill:\\n  contextEngine.build({ target: \\\"skill-exec\\\" }) → 同 #4\\n```\\n\\n### 8. Crew / Employee（AI 員工）\\n\\n```\\n來源：前端 EmployeeWorkspace.tsx\\n\\nStep 1: GET /api/context/employee?crewId=xxx\\n  → 後端 ai-settings.mjs → contextEngine.build({ target: \\\"crew\\\", crewId })\\n  → _buildCrew():\\n      buildFullSystemContext()      ← [0]～[13] 全部\\n      + crew/skill-rules.md（再次加入，已在 full context 裡了）\\n      + crew JSON 的 rolePrompt（如果有 crewId 且檔案存在）\\n\\nStep 2: 前端附加：\\n  + \\\"請使用 {skillName}\\\"\\n  + \\\"skill path : {absolutePath}/SKILL.md\\\"\\n  + \\\"## 操作員提供的規格資料\\\"\\n  + 各欄位資料\\n\\n最終 System Prompt = API context + 前端附加\\n```\\n\\n**問題 #4**：`crew/skill-rules.md` 在 `buildFullSystemContext()` 裡已經加了一次（[8]），`_buildCrew` 又加一次。\\n\\n### 9. Coding IDE\\n\\n```\\n來源：前端 CodingIDE.tsx\\n\\nGET /api/context/coding → contextEngine.build({ target: \\\"chat\\\" })\\n  → _buildChat():\\n      buildFullSystemContext()      ← [0]～[13] 全部\\n      + 最近對話摘要\\n\\n前端用這個作為 systemPrompt 傳給 AgentConsole SSE stream\\n```\\n\\n### 10. App Builder\\n\\n```\\n來源：前端 AppBuilder.tsx\\n\\nGET /api/context/app-builder → contextEngine.build({ target: \\\"chat\\\" })\\n  → _buildChat()（跟 Chat 完全一樣）\\n\\n前端頁面上有 systemPrompt 文字區可手動覆蓋\\n```\\n\\n### 11. Mindmap\\n\\n```\\n來源：mindmap.mjs generateMindMap()\\n\\nSystem Prompt =\\n  contextEngine.build({ target: \\\"mindmap\\\" }) 的 systemPrompt\\n  = buildFullSystemContext() + buildDynamicContext() + mindmap/system-prompt.md\\n```\\n\\n### 12. Notes\\n\\n```\\n來源：notes.mjs\\n\\nSystem Prompt =\\n  contextEngine.build({ target: \\\"notes\\\" }) 的 systemPrompt\\n  = buildFullSystemContext() + buildDynamicContext() + notes/system-prompt.md\\n```\\n\\n### 13. Project AI 助理\\n\\n```\\n來源：前端 ProjectAiPanel.tsx\\n      → POST /api/paaw/chat { contextTarget: \\\"project\\\", model: ... }\\n\\n後端 chat.mjs:\\n  const ctx = await contextEngine.build({ target: contextTarget || \\\"chat\\\" })\\n  → target=\\\"project\\\" → _buildProject()\\n\\nSystem Prompt =\\n  buildFullSystemContext() + buildDynamicContext() + project/identity.md + project/rules.md\\n\\n訊息 = 使用者輸入的訊息（無最近對話摘要，因為不是 chat target）\\n```\\n\\n### 14. Distill（蒸餾）\\n\\n```\\n來源：distill.mjs callLLM()\\n\\nSystem Prompt =\\n  distill/system-prompt.md（專用，不用 buildFullSystemContext）\\n  + distill/{source}.md（chat / vibe / cron / vibe-coding）\\n```\\n\\n---\\n\\n## 發現的問題\\n\\n| # | 問題 | 影響 | 修\\n... (截斷)\",\"path\":\"/Users/steward/App/tPAAW/data/knowledge/about-paaw/PROMPT-ARCHITECTURE.md\",\"workspace\":\"/Users/steward/App/tPAAW/data/knowledge\"}"
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_520b744b5b25417499fa0a58",
+          "type": "function",
+          "function": {
+            "name": "file_read",
+            "arguments": "{\"path\": \"about-paaw/AI-FEATURES.md\", \"workspace\": \"knowledge\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_520b744b5b25417499fa0a58",
+      "content": "{\"text\":\"# PAAW AI 功能完整清單\\n\\n> 本文件記錄 PAAW 中所有使用 AI 的功能，包含 context/prompt 來源、UI 類型、streaming 支援、model 切換能力等。\\n>\\n> 最後更新：2026-07-01\\n\\n---\\n\\n## 總覽表\\n\\n| # | 功能 | 前端頁面 | UI 類型 | Streaming | Model 切換 | 完整 Context | systemPrompt 來源 |\\n|---|------|---------|---------|:---------:|:---------:|:----------:|-------------------|\\n| 1 | **Chat（主聊天）** | `ChatView.tsx` | AgentConsole (WS) | ✅ | ✅ `chat` | ✅ | `context-engine` + 最近對話摘要 |\\n| 2 | **Skill Builder（建構）** | `SkillBuilder.tsx` | AgentConsole (WS) | ✅ | ✅ `skillBuilder` | ✅ | `context-engine` + skill format + builder/test rules |\\n| 3 | **Skill Builder ✨ AI 生成** | `SkillBuilder.tsx` (✨按鈕) | 後端直接 LLM | ❌ | ✅ body `model` | ✅ | `context-engine` + output rules |\\n| 4 | **Skill Exec（執行）** | — (後端 API) | 後端 API | ❌ | ✅ body `model` | ✅ | `context-engine` + app SYSTEM.md + skill-rules |\\n| 5 | **Workflow（工作流）** | `WorkflowExec.tsx` | 多步 API | ❌ | ✅ body `model` | ✅ | `context-engine._buildSkillExec()` |\\n| 6 | **Cron Workflow** | — (排程觸發) | 後端排程 | ❌ | ✅ body `model` | ✅ | auto `buildFullSystemContext()` |\\n| 7 | **Cron Skill** | — (排程觸發) | 後端排程 | ❌ | ✅ body `model` | ✅ | `context-engine._buildSkillExec()` |\\n| 8 | **Crew / Employee** | `EmployeeWorkspace.tsx` | AgentConsole (WS) | ✅ | ✅ `employee_{id}` | ✅ | `GET /api/context/employee` |\\n| 9 | **Coding IDE** | `CodingIDE.tsx` | SSE (EventSource) | ✅ | ✅ `coding` | ✅ | `GET /api/context/coding` |\\n| 10 | **App Builder** | `AppBuilder.tsx` | AgentConsole (WS) | ✅ | ✅ `appBuilder` | ✅ | `GET /api/context/app-builder` |\\n| 11 | **Mindmap** | `MindMapViewer.tsx` | 一次性 API | ❌ | ✅ body `model` | ✅ | `context-engine` + `mindmap/system-prompt.md` |\\n| 12 | **Notes** | `Notes.tsx` | 一次性 API | ❌ | ✅ inline dropdown | ✅ | `context-engine._buildNotes()` + `notes/system-prompt.md` |\\n| 13 | **Project AI 助理** | `ProjectAiPanel.tsx` | `/api/paaw/chat` | ❌ | ✅ inline dropdown | ✅ | `context-engine._buildProject()` + `project/identity.md` + `project/rules.md` |\\n| 14 | **Distill（蒸餾）** | `SettingsPage.tsx` (按鈕) | 按鈕觸發 | ❌ | ✅ body `model` | ✅ | `distill/system-prompt.md` + per-source prompt |\\n\\n> **註**：原本的 VibeCoding.tsx（舊版多 session）已刪除，VibeCodingIDE.tsx 已改名為 CodingIDE.tsx。App Lab 已改名為 App Builder。Skill Lab 已刪除（功能由 SkillBuilder 取代）。\\n\\n---\\n\\n## 各功能詳解\\n\\n### 1. Chat（主聊天）\\n\\n| 項目 | 說明 |\\n|------|------|\\n| **前端** | `ChatView.tsx` |\\n| **UI** | `AgentConsole` — WebSocket 雙向即時串流 |\\n| **Streaming** | ✅ WebSocket 即時串流，逐字顯示 + tool event 即時更新 |\\n| **Model 切換** | ✅ `ModelSelector` (feature: `chat`)，存 `user.json.preferences.chat` |\\n| **Context** | `context-engine._buildChat()` → `buildFullSystemContext()` + 最近對話摘要 |\\n| **設定檔** | `chat/identity.md`, `chat/tool-rules.md`, `chat/guardrails.md`, `chat/system-prompt.md`, `chat/reply-rules.md` |\\n| **後端** | `ws-handler.mjs` → `runAgentLoop()` |\\n\\n### 2. Skill Builder（建構）\\n\\n| 項目 | 說明 |\\n|------|------|\\n| **前端** | `SkillBuilder.tsx` |\\n| **UI** | `AgentConsole` — WebSocket 雙向即時串流 |\\n| **Streaming** | ✅ |\\n| **Model 切換** | ✅ `ModelSelector` (feature: `skillBuilder`) |\\n| **Context** | `POST /api/ai-settings/skill-builder/build` → `buildFullSystemContext()` + skill format + builder rules + test rules |\\n| **設定檔** | `skill-builder/builder-rules.md`, `skill-builder/test-rules.md`, `skill-builder/skill-format.md` |\\n| **後端** | `ai-settings.mjs` → `contextEngine.build({ target: \\\"skill-builder\\\" })` |\\n\\n### 3. Skill Builder ✨ AI 生成\\n\\n| 項目 | 說明 |\\n|------|------|\\n| **前端** | `SkillBuilder.tsx`（✨ 按鈕觸發） |\\n| **UI** | 無即時 UI — 後端直接 call LLM，回傳結果填入表單 |\\n| **Streaming** | ❌ 一次性回傳 |\\n| **Model 切換** | ✅ body `model` 參數 |\\n| **Context** | `contextEngine.build({ target: \\\"skill-builder\\\" })` + output rules |\\n| **設定檔** | `skill-builder/skill-format.md` |\\n| **後端** | `skills-api.mjs` `POST /api/skills/generate` → `callLLMWithRetry()` |\\n\\n### 4. Skill Exec（Skill 執行）\\n\\n| 項目 | 說明 |\\n|------|------|\\n| **前端** | 無直接 UI（被 Workflow、Cron、API 呼叫） |\\n| **UI** | 後端 API，一次性回傳 |\\n| **Streaming** | ❌ |\\n| **Model 切換** | ✅ body `model` |\\n| **Context** | `context-engine._buildSkillExec()` → `buildFullSystemContext()` + app `SYSTEM.md` + `crew/skill-rules.md` |\\n| **設定檔** | `crew/skill-rules.md`, app `SYSTEM.md` |\\n| **後端** | `workflow.mjs` `POST /api/paaw/skill-exec` → `runAgentLoop()` |\\n\\n### 5. Workflow（工作流）\\n\\n| 項目 | 說明 |\\n|------|------|\\n| **前端** | `WorkflowExec.tsx` |\\n| **UI** | 逐步 API 呼叫，每步 `POST /api/paaw/skill-exec`，前端顯示進度 |\\n| **Streaming** | ❌ 逐步回傳 |\\n| **Model 切換** | ✅ body `model` |\\n| **Context** | `contextEngine.build({ target: \\\"skill-exec\\\" })` |\\n| **設定檔** | app `SYSTEM.md` |\\n| **後端** | `workflow.mjs` → `runAgentLoop()` |\\n\\n### 6. Cron Workflow\\n\\n| 項目 | 說明 |\\n|------|------|\\n| **前端** | 無 UI（排程觸發） |\\n| **Streaming** | ❌ |\\n| **Model 切換** | ✅ body `model`（可透過 cron job 設定指定） |\\n| **Context** | 自動 `buildFullSystemContext()`（若 cron 表單有填則用自訂的） |\\n| **後端** | `cron-jobs.mjs` → `runAgentLoop()` |\\n\\n### 7. Cron Skill\\n\\n| 項目 | 說明 |\\n|------|------|\\n| **前端** | 無 UI（排程觸發） |\\n| **Streaming** | ❌ |\\n| **Model 切換** | ✅ body `model` |\\n| **Context** | `contextEngine.build({ target: \\\"skill-exec\\\" })` |\\n| **設定檔** | SKILL.md 本身 |\\n| **後端** |\\n... (截斷)\",\"path\":\"/Users/steward/App/tPAAW/data/knowledge/about-paaw/AI-FEATURES.md\",\"workspace\":\"/Users/steward/App/tPAAW/data/knowledge\"}"
+    }
+  ],
+  "stream": true,
+  "max_tokens": 4096,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "app_list",
+        "description": "列出所有可用的 App",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "app_create",
+        "description": "建立一個新的 App。支援 Data App 和 Skill-based App。Skill-based App 會自動產生聊天 Tool + 觸發關鍵字路由。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "App ID（英文、小寫、底線）"
+            },
+            "name": {
+              "type": "string",
+              "description": "App 名稱（中文）"
+            },
+            "icon": {
+              "type": "string",
+              "description": "App 圖示（emoji）"
+            },
+            "description": {
+              "type": "string",
+              "description": "App 描述"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "data",
+                "skill-based"
+              ],
+              "description": "App 類型：data（純資料）或 skill-based（AI 執行）"
+            },
+            "dataShape": {
+              "type": "string",
+              "enum": [
+                "array",
+                "object",
+                "none"
+              ],
+              "description": "資料形態"
+            },
+            "triggers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "觸發關鍵字（聊天中說這些詞會自動路由到此 App）"
+            },
+            "schema": {
+              "type": "object",
+              "description": "JSON Schema 定義資料結構"
+            },
+            "aiPrompt": {
+              "type": "string",
+              "description": "AI 操作此 App 的簡短提示（一句話）"
+            },
+            "skills": {
+              "type": "object",
+              "description": "Skill 定義（skill-based 時使用），key 是 skill 名稱，value 是 SKILL.md 內容",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "schema",
+            "aiPrompt"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "app_edit",
+        "description": "修改 App 的定義（名稱、schema、提示詞等）",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "App ID"
+            },
+            "changes": {
+              "type": "object",
+              "description": "要修改的欄位",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "icon": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "aiPrompt": {
+                  "type": "string"
+                },
+                "schema": {
+                  "type": "object"
+                },
+                "dataShape": {
+                  "type": "string",
+                  "enum": [
+                    "array",
+                    "object",
+                    "none"
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "data",
+                    "skill-based"
+                  ],
+                  "description": "App 類型"
+                },
+                "cli": {
+                  "type": "string",
+                  "enum": [
+                    "qwen",
+                    "claude",
+                    "opencode"
+                  ],
+                  "description": "CLI 引擎（skill-based 時使用）"
+                },
+                "triggers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "聊天觸發關鍵字"
+                },
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "綁定的 Skills，每個 { id, path, role }"
+                }
+              }
+            }
+          },
+          "required": [
+            "id",
+            "changes"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_add",
+        "description": "undefined：新增一筆資料。欄位：",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_list",
+        "description": "undefined：列出或查詢資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "_search": {
+              "type": "string",
+              "description": "關鍵字搜尋"
+            },
+            "_limit": {
+              "type": "number",
+              "description": "最多回傳幾筆（預設 20）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_get",
+        "description": "undefined：取得一筆資料的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_update",
+        "description": "undefined：更新一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "undefined_delete",
+        "description": "undefined：刪除一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_add",
+        "description": "書籤：新增一筆資料。欄位：title(string,必填), url(string,必填), description(string), tags(array)",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "url": {
+              "description": "網址",
+              "type": "string"
+            },
+            "description": {
+              "description": "備註",
+              "type": "string"
+            },
+            "tags": {
+              "description": "標籤",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "title",
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_list",
+        "description": "書籤：列出或查詢資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "篩選標題"
+            },
+            "url": {
+              "type": "string",
+              "description": "篩選網址"
+            },
+            "description": {
+              "type": "string",
+              "description": "篩選備註"
+            },
+            "_search": {
+              "type": "string",
+              "description": "關鍵字搜尋"
+            },
+            "_limit": {
+              "type": "number",
+              "description": "最多回傳幾筆（預設 20）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_get",
+        "description": "書籤：取得一筆資料的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_update",
+        "description": "書籤：更新一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            },
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "url": {
+              "description": "網址",
+              "type": "string"
+            },
+            "description": {
+              "description": "備註",
+              "type": "string"
+            },
+            "tags": {
+              "description": "標籤",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "bookmarks_delete",
+        "description": "書籤：刪除一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_add",
+        "description": "Pocket：新增一筆資料。欄位：type(string,必填), text(string,必填), done(boolean), title(string,必填), description(string), word(string,必填), definition(string,必填), example(string), translation(string,必填), event(string,必填), feeling(string,必填), thought(string), nextStep(string)",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "筆記類型",
+              "type": "string"
+            },
+            "text": {
+              "description": "原文",
+              "type": "string"
+            },
+            "done": {
+              "description": "已完成",
+              "type": "boolean"
+            },
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "description": {
+              "description": "描述",
+              "type": "string"
+            },
+            "word": {
+              "description": "單字",
+              "type": "string"
+            },
+            "definition": {
+              "description": "定義",
+              "type": "string"
+            },
+            "example": {
+              "description": "例句",
+              "type": "string"
+            },
+            "translation": {
+              "description": "翻譯",
+              "type": "string"
+            },
+            "event": {
+              "description": "事件",
+              "type": "string"
+            },
+            "feeling": {
+              "description": "感受",
+              "type": "string"
+            },
+            "thought": {
+              "description": "想法",
+              "type": "string"
+            },
+            "nextStep": {
+              "description": "下一步",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text",
+            "title",
+            "word",
+            "definition",
+            "translation",
+            "event",
+            "feeling"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_list",
+        "description": "Pocket：列出或查詢資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "篩選筆記類型"
+            },
+            "text": {
+              "type": "string",
+              "description": "篩選原文"
+            },
+            "done": {
+              "type": "boolean",
+              "description": "篩選已完成"
+            },
+            "title": {
+              "type": "string",
+              "description": "篩選標題"
+            },
+            "description": {
+              "type": "string",
+              "description": "篩選描述"
+            },
+            "word": {
+              "type": "string",
+              "description": "篩選單字"
+            },
+            "definition": {
+              "type": "string",
+              "description": "篩選定義"
+            },
+            "example": {
+              "type": "string",
+              "description": "篩選例句"
+            },
+            "translation": {
+              "type": "string",
+              "description": "篩選翻譯"
+            },
+            "event": {
+              "type": "string",
+              "description": "篩選事件"
+            },
+            "feeling": {
+              "type": "string",
+              "description": "篩選感受"
+            },
+            "thought": {
+              "type": "string",
+              "description": "篩選想法"
+            },
+            "nextStep": {
+              "type": "string",
+              "description": "篩選下一步"
+            },
+            "_search": {
+              "type": "string",
+              "description": "關鍵字搜尋"
+            },
+            "_limit": {
+              "type": "number",
+              "description": "最多回傳幾筆（預設 20）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_get",
+        "description": "Pocket：取得一筆資料的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_update",
+        "description": "Pocket：更新一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            },
+            "type": {
+              "description": "筆記類型",
+              "type": "string"
+            },
+            "text": {
+              "description": "原文",
+              "type": "string"
+            },
+            "done": {
+              "description": "已完成",
+              "type": "boolean"
+            },
+            "title": {
+              "description": "標題",
+              "type": "string"
+            },
+            "description": {
+              "description": "描述",
+              "type": "string"
+            },
+            "word": {
+              "description": "單字",
+              "type": "string"
+            },
+            "definition": {
+              "description": "定義",
+              "type": "string"
+            },
+            "example": {
+              "description": "例句",
+              "type": "string"
+            },
+            "translation": {
+              "description": "翻譯",
+              "type": "string"
+            },
+            "event": {
+              "description": "事件",
+              "type": "string"
+            },
+            "feeling": {
+              "description": "感受",
+              "type": "string"
+            },
+            "thought": {
+              "description": "想法",
+              "type": "string"
+            },
+            "nextStep": {
+              "description": "下一步",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "pocket_delete",
+        "description": "Pocket：刪除一筆資料",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "記錄 ID"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "schedule_cronjob",
+        "description": "建立排程（Cron Job）。可以設定提醒或定期報告。當使用者說「每天提醒我」「每小時跑一次」「排程」時使用。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "排程名稱（中文），例如：吃保健品提醒"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "reminder",
+                "report"
+              ],
+              "description": "reminder=定時提醒，report=定期執行 Skill 報告"
+            },
+            "reminderText": {
+              "type": "string",
+              "description": "提醒文字（type=reminder 時必填），例如：該吃保健品了！💊"
+            },
+            "skillId": {
+              "type": "string",
+              "description": "Skill ID（type=report 時必填），例如：translate"
+            },
+            "schedule": {
+              "type": "string",
+              "description": "Cron 表達式（5 欄）：分 時 日 月 週。例如 '0 9 * * *'=每天9點、'0 * * * *'=每小時、'0 9 * * 1'=每週一9點、'*/30 * * * *'=每30分鐘"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "額外指示（type=report 時可選）"
+            },
+            "outputTarget": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "path"
+              ],
+              "description": "輸出目標：chat=聊天視窗，path=指定路徑。預設 chat"
+            },
+            "outputPath": {
+              "type": "string",
+              "description": "輸出路徑（outputTarget=path 時必填）"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "schedule"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_cronjobs",
+        "description": "列出所有排程（Cron Jobs）。顯示名稱、類型、排程、狀態。",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "update_cronjob",
+        "description": "更新排程設定。可以修改排程時間、提醒文字、啟用/停用等。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "排程 ID（名稱轉 kebab-case）"
+            },
+            "name": {
+              "type": "string",
+              "description": "新名稱（可選）"
+            },
+            "schedule": {
+              "type": "string",
+              "description": "新 cron 表達式（可選）"
+            },
+            "reminderText": {
+              "type": "string",
+              "description": "新提醒文字（可選）"
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "啟用/停用（可選）"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "新指示（可選）"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "delete_cronjob",
+        "description": "刪除排程。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "排程 ID 或名稱"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "run_cronjob",
+        "description": "立即執行排程（手動觸發）。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "排程 ID 或名稱"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "memory_add",
+        "description": "新增一筆記憶到 MEMORY.md。當使用者說「記住」「幫我記」或學到重要資訊時使用。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "section": {
+              "type": "string",
+              "description": "記憶分類，例如：使用者偏好、重要決策、近期待辦、專案脈絡、備忘"
+            },
+            "content": {
+              "type": "string",
+              "description": "要記住的內容"
+            }
+          },
+          "required": [
+            "section",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "memory_update",
+        "description": "更新 MEMORY.md 中某個分類的內容。如果分類不存在會新增。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "section": {
+              "type": "string",
+              "description": "要更新的分類名稱"
+            },
+            "content": {
+              "type": "string",
+              "description": "新的完整內容（會取代該分類下所有內容）"
+            }
+          },
+          "required": [
+            "section",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_list",
+        "description": "列出目錄的檔案。workspace 填工作區名稱或 'knowledge' 列出 Knowledge 目錄。path 填子目錄路徑（預設根目錄）。不指定 workspace 時列出所有工作區和 Knowledge 檔案。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "目錄相對路徑（預設根目錄）"
+            },
+            "workspace": {
+              "type": "string",
+              "description": "工作區名稱或路徑（可選，不填則列出所有工作區）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_read",
+        "description": "讀取檔案內容。path 支援絕對路徑或相對路徑，不指定 workspace 時會自動在所有工作區和 Knowledge 目錄中搜尋",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "檔案相對路徑"
+            },
+            "workspace": {
+              "type": "string",
+              "description": "工作區名稱或路徑（可選，不填則跨工作區搜尋）"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_search",
+        "description": "搜尋筆記。可以搜尋標題、內容、標籤。結果包含可點擊的連結，點擊可直接打開該筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "搜尋關鍵字"
+            }
+          },
+          "required": [
+            "q"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_get",
+        "description": "讀取一則筆記的完整內容",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "筆記 ID"
+            },
+            "notebook": {
+              "type": "string",
+              "description": "筆記本 ID（預設 default）"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_recent",
+        "description": "列出最近編輯的筆記",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "number",
+              "description": "數量（預設 10）"
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "notes_create",
+        "description": "AI 幫忙寫筆記。提供原始內容，AI 會整理成結構化筆記並儲存。也可以從聊天中直接把內容整理成筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string",
+              "description": "要整理的原始內容（會議記錄、文章、想法、對話等）"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "AI 提示詞（選填），例如「整理成會議記錄」「列出重點」「翻譯成英文」"
+            },
+            "notebook": {
+              "type": "string",
+              "description": "筆記本 ID（預設 default）"
+            },
+            "section": {
+              "type": "string",
+              "description": "分類 ID（預設 default）"
+            },
+            "title": {
+              "type": "string",
+              "description": "自訂標題（選填，AI 會建議）"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "自訂標籤（選填，AI 會建議）"
+            }
+          },
+          "required": [
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "project_status",
+        "description": "查看專案看板的整體狀態，包括所有專案的進度、完成率、里程碑。可指定單一專案查看詳情。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "description": "（可選）指定專案 ID 查看單一專案詳情，不指定則列出所有專案摘要"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "project_update_task",
+        "description": "更新專案任務狀態。點擊循環切換：todo → progress → done。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "description": "專案 ID"
+            },
+            "taskId": {
+              "type": "string",
+              "description": "任務 ID"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "todo",
+                "progress",
+                "done"
+              ],
+              "description": "新狀態"
+            }
+          },
+          "required": [
+            "projectId",
+            "taskId",
+            "status"
+          ]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

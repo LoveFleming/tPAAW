@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "id": "work-1783156475961",
+      "skillIds": [
+        "help-desk"
+      ],
+      "inputSummary": "簡單說一下什麼是PAAW?",
+      "cli": "paaw-agent",
+      "inputData": {
+        "question": "簡單說一下什麼是PAAW?",
+        "task": ""
+      },
+      "timestamp": "2026-07-04T09:14:35.961Z"
+    },
+    {
       "id": "work-1782830862072",
       "skillIds": [
         "translate"

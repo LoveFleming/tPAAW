@@ -4,7 +4,8 @@
     "codename": "林雨晴 Rainy Lin",
     "imageUrl": "/crews/pic/sunny_factory_assistant.png",
     "skillIds": [
-        "translate"
+        "translate",
+        "help-desk"
     ],
     "risk": "safe",
     "description": "助理，負責日常對話、回答問題、協助使用 PAAW 功能。",

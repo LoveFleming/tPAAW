@@ -1,1 +1,52 @@
-[]
+[
+  {
+    "ticketId": "TKT-1783158609690",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "請問 PAAW 的 Skill 系統是怎麼運作的？",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783158609690",
+        "role": "user",
+        "text": "請問 PAAW 的 Skill 系統是怎麼運作的？",
+        "ts": 1783158609690
+      },
+      {
+        "id": "msg_1783158679956",
+        "role": "agent",
+        "text": "\n\n我已經讀取了 knowledge 中的所有相關文件。以下是完整的解答 👇\n\n---\n\n# PAAW Skill 系統運作原理\n\n## 什麼是 Skill？\n\n**Skill 是 PAAW 中最小的能力單元**——一個可重複執行的 AI 任務單位。你可以把 Skill 想像成「AI 版的函式」：有輸入、有執行步驟、有輸出，而且可以組合與重複使用。\n\n---\n\n## 一、Skill 的生命週期\n\n### 1. 🔨 建構（Build）\n\nSkill 的建構有兩種方式：\n\n| 方式 | 說明 |\n|------|------|\n| **Skill Builder 聊天建構** | 在 `SkillBuilder.tsx` 中透過 WebSocket 與 AI 對話，逐步定義 Skill |\n| **✨ AI 一鍵生成** | 輸入功能名稱 + 描述，後端呼叫 LLM 自動產出完整 SKILL.md |\n\n建構中的 Skill 存放在 `data/skills/building/`，完成後移至 `data/skills/physical-skill/`。\n\n### 2. 💾 儲存格式：SKILL.md\n\n每個 Skill 用**一份純 Markdown 檔案**定義，結構如下：\n\n```markdown\n---\nid: my-skill\nname: 我的技能\ndescription: 簡單描述\ncategory: task\ntags: [tag1, tag2]\n---\n\n## Purpose\n\n這個 Skill 做什麼用的一句話\n\n## Inputs\n\n### input1（必填）\n- type: text\n- description: 說明文字\n\n### input2（選填）\n- type: number\n- default: 10\n\n## Deterministic Script\n\n1. 接收使用者的輸入\n2. 執行步驟 A\n3. 執行步驟 B\n4. 產出結構化結果\n\n## Guardrails\n\n1. 限制條件\n2. 安全規則\n\n## Output Contract\n\n回傳格式：JSON / Markdown / 其他\n\n## Validation\n\n1. 驗證輸出是否完整\n2. 檢查數值範圍\n```\n\n### 3. 🚀 執行（Execute）\n\nSkill 可以在**四個管道**中被觸發執行：\n\n```\n使用者觸發\n    │\n    ├── Workflow（工作流）— 多步驟自動化，每步呼叫一個 Skill\n    ├── Cron Job（排程）— 定時執行 Skill\n    ├── Crew / Employee（AI 員工）— 綁定角色 + Skill 持續運作\n    └── API 直接呼叫 — POST /api/paaw/skill-exec\n```\n\n---\n\n## 二、Skill 執行時的內部架構\n\n### Context Engine 組裝 System Prompt\n\n當 Skill 被執行時，Context Engine 會為 AI 組裝一份完整的 systemPrompt：\n\n```\ncontextEngine.build({ target: \"skill-exec\" })\n    │\n    ├── buildFullSystemContext() ← 所有 AI 功能共用的底層\n    │   ├── _base/paaw-context.md       — PAAW 路徑與資料結構\n    │   ├── _base/core-rules.md         — 行為準則\n    │   ├── chat/identity.md            — AI 人設\n    │   ├── 使用者資訊 + MEMORY.md      — 使用者偏好與長期記憶\n    │   ├── Apps 清單 + Tool 規則       — 可用的工具\n    │   ├── crew/skill-rules.md         — Skill 執行規則（讀 SKILL.md → 按步驟執行）\n    │   ├── guardrails + reply-rules    — 安全限制與回覆格式\n    │   └── API Tools + Generated Skills\n    │\n    ├── app 的 SYSTEM.md（如果有）      — 該 App 的自訂提示\n    │\n    └── Prompt = SKILL.md 主體           ← 變數替換後的完整內容\n        （{{PAAW_ROOT}} 已替換為實際路徑）\n        （{{key}} 已替換為使用者的輸入值）\n```\n\n### Agent Loop 實際執行\n\n組裝好 systemPrompt 後，交由 **`runAgentLoop()`**（位於 `packages/server/src/lib/paaw-agent-loop.mjs`）執行：\n\n```javascript\nrunAgentLoop({\n  prompt,          // SKILL.md body（變數已替換）\n  systemPrompt,    // 上面組裝好的 systemPrompt\n  model,           // 可指定特定模型\n  skillMd,         // SKILL.md 原始內容（可選）\n  maxTurns,        // 最大 tool call 輪數\n  timeout,         // 逾時秒數\n  rootDir,         // PAAW_ROOT 目錄\n})\n```\n\nAI 會按照 SKILL.md 中 **Deterministic Script** 定義的步驟，逐步執行並產出結果。\n\n---\n\n## 三、Skill 與其他模組的關係\n\n```\n                    ┌─────────────┐\n                    │  Skill      │\n                    │  Builder    │ ← 建構 / 編輯 Skill\n                    └──────┬──────┘\n                           │ 產出 SKILL.md\n                           ▼\n                    ┌─────────────┐\n                    │  SKILL.md   │ ← 儲存在 data/skills/\n                    └──────┬──────┘\n                           │\n         ┌────────────────┼────────────────┐\n         ▼                ▼                ▼\n   ┌──────────┐   ┌────────────┐   ┌────────────┐\n   │ Workflow │   │ Crew/AI    │   │ Cron Job   │\n   │ (多步驟) │   │ Employee   │   │ (排程)     │\n   └──────────┘   └────────────┘   └────────────┘\n         │               │               │\n         └───────────────┼───────────────┘\n                         ▼\n              ┌─────────────────────┐\n              │  Context Engine     │ ← 組裝 systemPrompt\n              │  + Agent Loop       │ ← AI 實際執行\n              └─────────────────────┘\n                         │\n                         ▼\n              ┌─────────────────────┐\n              │  結構化輸出結果      │\n              └─────────────────────┘\n```\n\n### 重點關係\n\n- **Skill + App**：Skill-based App 會綁定一個或多個 Skill，App 的 SYSTEM.md 會注入到 Skill 的 context 中\n- **Skill + Crew**：Crew（AI 員工）綁定 Skill + 角色提示詞，形成有特定能力的 AI 助理\n- **Skill + Workflow**：Workflow 是多個 Skill 的組合，依序執行\n- **Skill + Cron**：排程定時觸發 Skill，產生定期報告或提醒\n\n---\n\n## 四、實際範例\n\n假設你建立了一個「翻譯 Skill」：\n\n1. **定義 Inputs**：`text`（要翻譯的文字）、`targetLang`（目標語言）\n2. **Deterministic Script**：讀取輸入 → 呼叫 AI 翻譯 → 格式化輸出\n3. **執行**：\n   - 在聊天中輸入「幫我翻這段：Hello world → 中文」\n   - AI 偵測到觸發關鍵字，呼叫翻譯 Skill\n   - Context Engine 組裝 systemPrompt\n   - Agent Loop 執行，AI 按照步驟翻譯並回傳結果\n   - 輸出結構化結果：`{ original, translation, language }`\n\n---\n\n## 五、技術關鍵檔案一覽\n\n| 檔案路徑 | 作用 |\n|----------|------|\n| `packages/server/src/context-engine.mjs` | ★ Context 組裝（`_buildSkillExec()` 方法） |\n| `packages/server/src/lib/paaw-agent-loop.mjs` | ★ AI 執行迴圈（`runAgentLoop()`） |\n| `packages/server/src/routes/workflow.mjs` | Skill Exec API（`POST /api/paaw/skill-exec`） |\n| `data/ai-settings/crew/skill-rules.md` | Skill 執行規則提示詞 |\n| `data/skills/` | Skill 檔案存放目錄 |\n| `docs/AI-FEATURES.md` | 所有 AI 功能清單（含 Skill） |\n| `docs/PROMPT-ARCHITECTURE.md` | Prompt 組裝細節 |\n\n---\n\n📚 **參考來源：**\n- `knowledge/about-paaw/PAAW-REFERENCE.md`\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md`\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md`\n- `knowledge/about-paaw/AI-FEATURES.md`\n\n---\n\n💡 **延伸問題建議：**\n- 怎麼建立一個新的 Skill？\n- Deterministic Script 和一般的提示詞有什麼不同？\n- Workflow 跟 Skill 的關係是什麼？\n- Crew 是怎麼綁定多個 Skill 的？",
+        "ts": 1783158679956
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-04T09:50:09.690Z",
+    "updatedAt": "2026-07-04T09:51:19.956Z"
+  },
+  {
+    "ticketId": "TKT-1783158508244",
+    "agentName": "Test Agent",
+    "agentType": "test",
+    "subject": "Skill Builder 問題",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783158508244",
+        "role": "user",
+        "text": "PAAW 的 Skill Builder 是什麼？",
+        "ts": 1783158508244
+      },
+      {
+        "id": "msg_1783158573141",
+        "role": "agent",
+        "text": "\n\n好的，我來搜尋知識庫中關於 Skill Builder 的詳細資訊。\n\n我已經收集到足夠的資料。以下是完整的回答：\n\n---\n\n## 什麼是 PAAW 的 Skill Builder？\n\n**Skill Builder（技能建構器）** 是 PAAW 中用來「建立、編輯與測試 Skill」的專屬工具。你可以把它想像成一個 AI 輔助的「技能編輯工作室」——你告訴 AI 你想要什麼功能，它就會幫你產出結構化的 `SKILL.md` 檔案。\n\n---\n\n### 核心概念\n\n在 PAAW 中，**Skill** 是最小的能力單元，每個 Skill 由一份 `SKILL.md` 定義，內容包含：\n\n```\nPurpose → Inputs → Deterministic Script → Guardrails → Output Contract → Validation\n```\n\n而 **Skill Builder** 就是負責「產生與編輯這些 Skill 定義」的工具。它不是讓你手寫，而是透過聊天對話的方式，你和 AI 協作完成一個 Skill 的設計。\n\n---\n\n### Skill Builder 的兩種使用方式\n\n| 方式 | 說明 |\n|:---:|------|\n| **🛠 建構模式** | 在 `SkillBuilder.tsx` 頁面中，透過聊天視窗和 AI 一步步討論、修改 Skill 定義。AI 會依照格式幫你產出完整的 `SKILL.md` |\n| **✨ AI 生成** | 點選 ✨ 按鈕，直接輸入一個 Skill 名稱 + 一句功能描述，後端立刻產生完整的 Skill 草稿填入表單 |\n\n---\n\n### 它的 AI Context 是怎麼組裝的？\n\n當你使用 Skill Builder 時，AI 會獲得以下 **systemPrompt**：\n\n1. **`buildFullSystemContext()`** — PAAW 的基本脈絡（路徑結構、行為規則、使用者資訊、已安裝 App、工具使用規則等）\n2. **`skill-builder/skill-format.md`** — Skill 的標準格式範本\n3. **`skill-builder/builder-rules.md`** — 建構規則（告訴 AI 如何一步步協助使用者建立 Skill）\n4. **`skill-builder/test-rules.md`** — 測試規則（建構完成後如何驗證 Skill 是否正常運作）\n\n這樣 AI 就能在你的引導下，產出符合 PAAW 標準的 Skill。\n\n---\n\n### 哪些地方會用到 Skill Builder 產出的結果？\n\n建立好的 Skill 會存放在 `data/skills/` 目錄下，並可以被以下機制使用：\n\n```\nSkill Builder 產出 SKILL.md\n        ↓\nApp（Skill-based App 直接叫用）\nWorkflow（工作流中的步驟）\nCrew / Employee（AI 員工綁定 Skill）\nCron Job（排程執行 Skill）\nChat（透過關鍵字路由觸發）\n```\n\n---\n\n### 一句話總結\n\n> **Skill Builder 是 PAAW 的「技能編輯器」——讓你不寫程式碼，透過和 AI 對話就能建立、測試並發布可重複執行的能力單元（Skill）。**\n\n---\n\n### 建議後續問題\n\n- Skill 的 `SKILL.md` 格式長什麼樣子？\n- 怎麼把我建好的 Skill 掛到一個 App 上？\n- Skill 和 Workflow 有什麼不同？\n- 我可以讓一個 Skill 呼叫另一個 Skill 嗎？\n\n---\n\n**📚 參考來源：**\n- `knowledge/about-paaw/AI-FEATURES.md` — #2 Skill Builder 詳細規格\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md` — Skill Builder context 組裝方式\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md` — PAAW 整體架構與核心概念\n- `knowledge/about-paaw/PAAW-REFERENCE.md` — 專案結構與資料存放位置",
+        "ts": 1783158573142
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-04T09:48:28.243Z",
+    "updatedAt": "2026-07-04T09:49:33.142Z"
+  }
+]
