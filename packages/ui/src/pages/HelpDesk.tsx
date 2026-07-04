@@ -85,6 +85,7 @@ export default function HelpDesk() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const composingRef = useRef(false);
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   // New ticket form
@@ -498,7 +499,10 @@ export default function HelpDesk() {
               <textarea
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={() => { composingRef.current = false; }}
                 onKeyDown={(e) => {
+                  if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     sendReply();

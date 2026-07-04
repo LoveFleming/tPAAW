@@ -39,7 +39,7 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [contextId, setContextId] = useState<string | null>(null);
-  const [composing, setComposing] = useState(false);
+  const composingRef = useRef(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef(false);
 
@@ -121,9 +121,9 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
   }, [sending, contextId, addMsg]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // ⚠️ IME: use self-tracked composition state + native checks as fallback.
-    // isComposing alone is unreliable — some IMEs reset it before keydown fires.
-    if (composing || e.nativeEvent.isComposing || e.keyCode === 229) return;
+    // ⚠️ IME: use ref-tracked composition state (useState is async, misses same-cycle).
+    // Also check native isComposing + keyCode 229 as fallback.
+    if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
@@ -201,8 +201,8 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          onCompositionStart={() => setComposing(true)}
-          onCompositionEnd={() => setComposing(false)}
+          onCompositionStart={() => { composingRef.current = true; }}
+          onCompositionEnd={() => { composingRef.current = false; }}
           rows={1}
           placeholder="輸入訊息... (Enter 送出, Shift+Enter 換行)"
           style={{
