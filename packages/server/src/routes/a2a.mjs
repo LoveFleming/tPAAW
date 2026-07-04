@@ -93,7 +93,7 @@ function makeTask({ message, contextId, taskId }) {
     contextId: contextId || id,
     status: { state: "submitted", timestamp: new Date().toISOString() },
     message,  // user message
-    history: [{ role: "user", parts: [{ type: "text", text: extractText(message) }] }],
+    history: [{ role: "user", parts: [{ type: "text", kind: "text", text: extractText(message) }] }],
     artifacts: [],
     metadata: {},
   };
@@ -102,7 +102,7 @@ function makeTask({ message, contextId, taskId }) {
 function extractText(message) {
   if (!message?.parts) return "";
   return message.parts
-    .filter(p => p.type === "text")
+    .filter(p => p.type === "text" || p.kind === "text")
     .map(p => p.text)
     .join("\n");
 }
@@ -124,7 +124,7 @@ function getAgentCard(req) {
   const baseUrl = `${protocol}://${host}`;
 
   return {
-    protocolVersion: "1.0.0",
+    protocolVersion: "0.3.0",
     name: "PAAW Agent",
     description: "Personal AI Assistant Workspace — A2A-enabled agent that can execute skills, manage data apps, and collaborate with other agents.",
     url: `${baseUrl}/a2a`,
@@ -243,6 +243,111 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   return { text: fullText, toolsUsed };
 }
 
+// ── Helpers for multi-turn ──
+
+async function findLatestTaskInContext(contextId) {
+  if (!contextId) return null;
+  const tasks = await listTasks();
+  // Find most recent task in this context that's not terminal
+  const ctxTasks = tasks.filter(t => t.contextId === contextId);
+  return ctxTasks.length > 0 ? ctxTasks[0].id : null;
+}
+
+const A2A_NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*([\s\S]+)/;
+
+/**
+ * Run HelpDesk skill for A2A messages — with NEED_INFO detection.
+ * Reuses helpdesk route's runHelpDeskSkill logic.
+ */
+async function runHelpDeskViaA2A(conversation) {
+  const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
+  const { getToolsAndHandlers } = await import("../tools/index.mjs");
+
+  const HELPDESK_SKILL = resolve(DATA_DIR, "skills/physical-skill/help-desk/SKILL.md");
+  const KNOWLEDGE_FILE = resolve(DATA_DIR, "helpdesk/KNOWLEDGE.md");
+
+  let skillMd = "";
+  try { skillMd = await readFile(HELPDESK_SKILL, "utf-8"); } catch {}
+  let knowledgeBase = "";
+  try { knowledgeBase = await readFile(KNOWLEDGE_FILE, "utf-8"); } catch {}
+
+  const providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
+  const providerId = providerConfig.active;
+  const provider = providerConfig.providers[providerId];
+  if (!provider?.apiKey || provider.apiKey === "na") {
+    throw new Error(`No API key for provider: ${providerId}`);
+  }
+  const model = providerConfig.defaultModel || "glm-5.1";
+
+  const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
+  const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
+    name,
+    description: toolDefs.find(t => t.function.name === name)?.function?.description || name,
+    parameters: toolDefs.find(t => t.function.name === name)?.function?.parameters || { type: "object", properties: {} },
+    execute: async (args) => handler(args),
+  }));
+
+  const engine = new ToolEngine({
+    provider: {
+      id: providerId,
+      baseURL: provider.baseURL,
+      apiKey: provider.apiKey,
+      defaultModel: model,
+      extraHeaders: providerId === "openrouter"
+        ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
+        : undefined,
+    },
+    executors,
+    maxToolRounds: 6,
+    security: { approval: { mode: "auto" }, audit: { enabled: false } },
+    sessionKey: "a2a-helpdesk",
+    agentId: "a2a-helpdesk",
+  });
+
+  const systemPrompt = `${skillMd}
+
+---
+
+## Knowledge Base
+
+${knowledgeBase}
+
+---
+
+你是 PAAW HelpDesk。回答用繁體中文，技術術語保留英文。
+使用 file_read 和 file_list 搜尋知識庫。
+
+## 工具使用紀律
+- 最多讀 3-4 個知識庫檔案
+- 讀完後直接產出完整答案
+
+## 互動規則
+如果需要更多資訊才能回答，在回答開頭加：
+[NEED_INFO: 釐清問題]
+之後只輸出釐清問題本身。`;
+
+  let fullText = "";
+  let toolsUsed = [];
+
+  for await (const chunk of engine.run(systemPrompt, conversation, model)) {
+    switch (chunk.type) {
+      case "text":
+        fullText += chunk.delta;
+        break;
+      case "tool_start":
+        toolsUsed.push(chunk.name);
+        break;
+    }
+  }
+
+  const needMatch = fullText.match(A2A_NEED_INFO_REGEX);
+  let needsInfo = needMatch ? needMatch[1].trim() : null;
+  if (needsInfo && needsInfo.endsWith("]")) needsInfo = needsInfo.slice(0, -1).trim();
+  const cleanText = needsInfo ? fullText.replace(A2A_NEED_INFO_REGEX, "").replace(/\]$/, "").trim() : fullText;
+
+  return { text: cleanText || fullText, toolsUsed, needsInfo };
+}
+
 // ── Route Handler ──
 
 export default async function a2aRoutes(req, res) {
@@ -263,7 +368,7 @@ export default async function a2aRoutes(req, res) {
   // ════════════════════════════════════════
   // GET /.well-known/agent.json — Agent Card discovery
   // ════════════════════════════════════════
-  if (req.method === "GET" && path === "/.well-known/agent.json") {
+  if (req.method === "GET" && (path === "/.well-known/agent.json" || path === "/.well-known/agent-card.json")) {
     sendJSON(res, 200, getAgentCard(req));
     return true;
   }
@@ -313,34 +418,79 @@ export default async function a2aRoutes(req, res) {
           return true;
         }
 
-        // Create task
-        const task = makeTask({ message, contextId: params?.contextId });
+        // Create or load task (for multi-turn, contextId links tasks)
+        const existingTaskId = params?.taskId || (params?.contextId ? await findLatestTaskInContext(params.contextId) : null);
+        let task;
+        let isFollowUp = false;
+        if (existingTaskId) {
+          task = await getTask(existingTaskId);
+          if (task) {
+            isFollowUp = true;
+            task.history.push({ role: "user", parts: [{ type: "text", kind: "text", text: userText }] });
+          }
+        }
+        if (!task) {
+          task = makeTask({ message, contextId: params?.contextId });
+        }
         task.status = { state: "working", timestamp: new Date().toISOString() };
         await saveTask(task);
 
-        console.log(`[A2A] message/send task=${task.id} text="${userText.slice(0, 80)}..."`);
+        console.log(`[A2A] message/send task=${task.id} ${isFollowUp ? "(follow-up)" : ""} text="${userText.slice(0, 80)}..."`);
 
-        // Run agent synchronously
-        const result = await runAgentLoop({ message });
+        // ── Route: HelpDesk vs general ──
+        // Check if this looks like a HelpDesk question or any message via A2A
+        // Since Orchestrator already routes, all messages here should be answered
+        const isHelpDeskQuery = true; // Accept all — Orchestrator decides routing
 
-        // Update task
-        task.status = { state: "completed", timestamp: new Date().toISOString() };
-        task.history.push({ role: "agent", parts: [{ type: "text", text: result.text }] });
-        task.artifacts = [{
-          artifactId: `art-${Date.now()}`,
-          name: "Response",
-          parts: [{ type: "text", text: result.text }],
-        }];
-        task.metadata = { toolsUsed: result.toolsUsed, model: "paaw-default" };
-        await saveTask(task);
+        let result;
+        let needsInfo = null;
 
-        console.log(`[A2A] task=${task.id} completed tools=${result.toolsUsed.join(",")}`);
+        if (isHelpDeskQuery) {
+          // Build conversation from task history
+          const conversation = (task.history || []).map(h => ({
+            role: h.role === "agent" ? "assistant" : "user",
+            content: h.parts?.map(p => p.text || "").join("") || "",
+          })).filter(m => m.content);
 
-        sendJSON(res, 200, {
-          jsonrpc: "2.0",
-          result: task,
-          id,
-        });
+          // Use HelpDesk skill executor (with NEED_INFO detection)
+          const hdResult = await runHelpDeskViaA2A(conversation);
+          result = { text: hdResult.text, toolsUsed: hdResult.toolsUsed };
+          needsInfo = hdResult.needsInfo;
+        } else {
+          result = await runAgentLoop({ message });
+        }
+
+        if (needsInfo) {
+          // Return input-required state — caller can follow up with same contextId
+          task.status = { state: "input-required", timestamp: new Date().toISOString() };
+          task.history.push({ role: "agent", parts: [{ type: "text", kind: "text", text: needsInfo }] });
+          task.artifacts = [{
+            artifactId: `art-${Date.now()}`,
+            name: "Clarification Question",
+            parts: [{ type: "text", kind: "text", text: needsInfo }],
+          }];
+          task.metadata = { toolsUsed: result.toolsUsed, model: "paaw-helpdesk", needsInfo: true };
+          await saveTask(task);
+
+          console.log(`[A2A] task=${task.id} input-required: "${needsInfo.slice(0, 80)}"`);
+
+          sendJSON(res, 200, { jsonrpc: "2.0", result: task, id });
+        } else {
+          // Completed with answer
+          task.status = { state: "completed", timestamp: new Date().toISOString() };
+          task.history.push({ role: "agent", parts: [{ type: "text", kind: "text", text: result.text }] });
+          task.artifacts = [{
+            artifactId: `art-${Date.now()}`,
+            name: "Response",
+            parts: [{ type: "text", kind: "text", text: result.text }],
+          }];
+          task.metadata = { toolsUsed: result.toolsUsed, model: "paaw-helpdesk" };
+          await saveTask(task);
+
+          console.log(`[A2A] task=${task.id} completed (${result.text.length} chars)`);
+
+          sendJSON(res, 200, { jsonrpc: "2.0", result: task, id });
+        }
       } catch (err) {
         console.error(`[A2A] message/send error:`, err);
         sendJSON(res, 200, {
@@ -424,7 +574,7 @@ export default async function a2aRoutes(req, res) {
                   artifact: {
                     artifactId: `art-stream-${Date.now()}`,
                     name: "Streaming Response",
-                    parts: [{ type: "text", text: chunk.delta }],
+                    parts: [{ type: "text", kind: "text", text: chunk.delta }],
                   },
                   append: true,
                   lastChunk: false,
@@ -444,7 +594,7 @@ export default async function a2aRoutes(req, res) {
                   status: {
                     state: "working",
                     timestamp: new Date().toISOString(),
-                    message: { role: "agent", parts: [{ type: "text", text: `🔧 ${chunk.name}(...)` }] },
+                    message: { role: "agent", parts: [{ type: "text", kind: "text", text: `🔧 ${chunk.name}(...)` }] },
                   },
                   final: false,
                 },
@@ -457,11 +607,11 @@ export default async function a2aRoutes(req, res) {
 
         // Final status: completed
         task.status = { state: "completed", timestamp: new Date().toISOString() };
-        task.history.push({ role: "agent", parts: [{ type: "text", text: result.text }] });
+        task.history.push({ role: "agent", parts: [{ type: "text", kind: "text", text: result.text }] });
         task.artifacts = [{
           artifactId: `art-final-${Date.now()}`,
           name: "Response",
-          parts: [{ type: "text", text: result.text }],
+          parts: [{ type: "text", kind: "text", text: result.text }],
         }];
         task.metadata = { toolsUsed: result.toolsUsed, model: "paaw-default" };
         await saveTask(task);
