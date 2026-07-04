@@ -16,10 +16,10 @@ import { readBody, json } from "./shared.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DATA_DIR = resolve(__dirname, "../../../data");
-const HELPDESK_DATA = resolve(DATA_DIR, "app-data/paaw-helpdesk.json");
-const KNOWLEDGE_FILE = resolve(DATA_DIR, "apps/paaw-helpdesk/KNOWLEDGE.md");
+const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk/tickets.json");
+const KNOWLEDGE_FILE = resolve(DATA_DIR, "helpdesk/KNOWLEDGE.md");
 
-await mkdir(resolve(DATA_DIR, "app-data"), { recursive: true });
+await mkdir(resolve(DATA_DIR, "helpdesk"), { recursive: true });
 
 async function loadTickets() {
   try {
@@ -80,23 +80,22 @@ export default async function helpdeskRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/helpdesk/tickets — List all tickets ──
+  // ── GET /api/helpdesk/tickets — List all tickets (full data) ──
   if (method === "GET" && url === "/api/helpdesk/tickets") {
     const tickets = await loadTickets();
-    // Return summary (no full messages)
-    const summary = tickets.map(t => ({
-      ticketId: t.ticketId,
-      agentName: t.agentName,
-      agentType: t.agentType,
-      subject: t.subject,
-      status: t.status,
-      priority: t.priority,
-      messageCount: (t.messages || []).length,
-      tags: t.tags || [],
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt,
-    }));
-    json(res, 200, { tickets: summary, total: summary.length });
+    json(res, 200, { tickets, total: tickets.length });
+    return true;
+  }
+
+  // ── PUT /api/helpdesk/tickets — Batch save all tickets (for UI) ──
+  if (method === "PUT" && url === "/api/helpdesk/tickets") {
+    const body = JSON.parse(await readBody(req));
+    if (!Array.isArray(body)) {
+      json(res, 400, { error: "Expected array of tickets" });
+      return true;
+    }
+    await saveTickets(body);
+    json(res, 200, { ok: true, count: body.length });
     return true;
   }
 

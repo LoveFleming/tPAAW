@@ -24,6 +24,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
 import AISettingsPage from "./pages/AISettingsPage";
 import A2APlayground from "./pages/A2APlayground";
+import HelpDesk from "./pages/HelpDesk";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -489,6 +490,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openHelpDesk = useCallback(() => {
+    const tabId = `${currentScope}:helpdesk`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openSkillAppById = useCallback((skillId: string) => {
     const tabId = `${currentScope}:skillapp.${skillId}`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -526,6 +533,7 @@ function AppInner() {
     if (pageType === "projects") return "Project Board";
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
+    if (pageType === "helpdesk") return "🎧 HelpDesk";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -651,6 +659,9 @@ function AppInner() {
     }
     if (pageType === "wf-exec") {
       return <WorkflowExec />;
+    }
+    if (pageType === "helpdesk") {
+      return <HelpDesk />;
     }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
@@ -837,6 +848,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":wf-exec")} label={t("sidebar.workflows")} onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":helpdesk")} label="🎧 HelpDesk" onClick={openHelpDesk} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 

@@ -60,7 +60,7 @@ App 產生的資料 → AI 讀取 → 產生洞見
 - Methods: `message/send`, `message/stream`, `tasks/get`, `tasks/list`, `tasks/cancel`
 
 ## Tech Stack
-- Frontend: React 18 + Tailwind CSS (app.html 為 standalone)
+- Frontend: React 18 + Tailwind CSS
 - Backend: Node.js HTTP server
 - Data: JSON file-based storage (data/)
 - AI: Multi-provider (GLM, DeepSeek, OpenRouter)
@@ -76,3 +76,5 @@ App 產生的資料 → AI 讀取 → 產生洞見
 - `GET/PUT /api/app-data/:appId` — App 資料 CRUD
 - `GET/POST/PUT/DELETE /api/paaw/chats/:id` — 聊天 CRUD
 - `POST /a2a` — Agent-to-Agent JSON-RPC
+- `POST /api/helpdesk/ask` — 客服提問
+- `GET /api/helpdesk/knowledge` — 知識庫
