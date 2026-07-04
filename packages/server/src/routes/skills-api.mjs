@@ -435,8 +435,10 @@ export default async function skillsApiRoute(req, res) {
       });
 
       let content = (result.content || "").trim();
-      // Strip markdown code fences if AI wrapped output
-      content = content.replace(/^```(?:markdown|md)?\n?/m, "").replace(/\n?```$/m, "").trim();
+      // Strip markdown code fences if AI wrapped output (handle ```yaml, ```markdown, ```md, etc.)
+      content = content.replace(/^```(?:[a-zA-Z]+)?\n?/m, "").replace(/\n?```$/m, "").trim();
+      // Also strip leading non-frontmatter lines (e.g. stray "yaml" after fence removal)
+      content = content.replace(/^(?!---)\s*\w+\s*\n(?=---)/, "").trim();
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ content }));

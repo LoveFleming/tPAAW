@@ -54,6 +54,9 @@ function buildPromptFromFields(form: SkillForm): string {
 
 function parseSkillMd(content: string): SkillForm {
   const form = { ...EMPTY_SKILL };
+  // Strip stray text before frontmatter (e.g. leftover "yaml" after code fence removal)
+  const fmStart = content.indexOf("---");
+  if (fmStart > 0) content = content.slice(fmStart);
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
   if (!fmMatch) { form.systemPrompt = content.trim(); return form; }
   const fm = fmMatch[1];
@@ -142,7 +145,7 @@ function parseSkillMd(content: string): SkillForm {
       legacyBuffer = [];
     };
     for (const line of bodyLines) {
-      const h = line.match(/^##+ (.+)$/);
+      const h = line.match(/^## (.+)$/);  // Only match ## (not ### sub-sections)
       if (h) {
         const heading = h[1].trim();
         // Match heading (including sub-sections like "### Execution Steps")
