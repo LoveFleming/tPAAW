@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎧 PAAW HelpDesk — 客戶服務中心</title>
+<style>
+:root {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-card: #1e1e1e;
+  --bg-elevated: #252525;
+  --bg-hover: #2a2a2a;
+  --bg-input: #1a1a1a;
+  --border: #2e2e2e;
+  --border-light: #3a3a3a;
+  --border-active: #4a9eff;
+  --text-primary: #e8e8e8;
+  --text-secondary: #a0a0a0;
+  --text-muted: #6a6a6a;
+  --accent: #4a9eff;
+  --accent-hover: #3a8eff;
+  --accent-bg: rgba(74, 158, 255, 0.1);
+  --green: #4ade80;
+  --green-bg: rgba(74, 222, 128, 0.1);
+  --red: #f87171;
+  --red-bg: rgba(248, 113, 113, 0.1);
+  --amber: #fbbf24;
+  --amber-bg: rgba(251, 191, 36, 0.1);
+  --purple: #a78bfa;
+  --purple-bg: rgba(167, 139, 250, 0.1);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Layout */
+.app {
+  display: flex;
+  height: 100vh;
+}
+.sidebar {
+  width: 300px;
+  min-width: 300px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidebar */
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-stats {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.stat-pill.open { background: var(--amber-bg); color: var(--amber); }
+.stat-pill.answered { background: var(--green-bg); color: var(--green); }
+.stat-pill.total { background: var(--accent-bg); color: var(--accent); }
+
+.sidebar-search {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-search input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+.sidebar-search input:focus { border-color: var(--accent); }
+.sidebar-search input::placeholder { color: var(--text-muted); }
+
+.ticket-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.ticket-list .empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 16px;
+  font-size: 13px;
+}
+
+.ticket-item {
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.ticket-item:hover { background: var(--bg-hover); }
+.ticket-item.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+.ticket-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.ticket-agent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.agent-badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.agent-badge.openclaw { background: #ff6b6b; }
+.agent-badge.claude { background: #d97757; }
+.agent-badge.chatgpt { background: #10a37f; }
+.agent-badge.gemini { background: #4285f4; }
+.agent-badge.copilot { background: #0078d4; }
+.agent-badge.custom { background: var(--purple); }
+.agent-badge.human { background: var(--green); }
+
+.ticket-subject {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ticket-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-badge.open { background: var(--amber-bg); color: var(--amber); }
+.status-badge.answered { background: var(--green-bg); color: var(--green); }
+.status-badge.closed { background: rgba(107, 114, 128, 0.15); color: var(--text-muted); }
+
+.priority-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+.priority-dot.urgent { background: var(--red); }
+.priority-dot.high { background: var(--amber); }
+.priority-dot.medium { background: var(--accent); }
+.priority-dot.low { background: var(--text-muted); }
+
+/* Main Panel */
+.main-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+}
+.main-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.main-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.main-header-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.danger { color: var(--red); }
+.btn.danger:hover { background: var(--red-bg); border-color: var(--red); }
+
+/* Chat Area */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: 16px;
+}
+.chat-empty .icon { font-size: 48px; }
+.chat-empty h3 { font-size: 18px; font-weight: 600; color: var(--text-secondary); }
+.chat-empty p { font-size: 14px; text-align: center; max-width: 400px; line-height: 1.6; }
+
+.message {
+  max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.message.user { align-self: flex-start; }
+.message.assistant { align-self: flex-end; align-items: flex-end; }
+.message.system { align-self: center; max-width: 90%; }
+
+.message-bubble {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.message.user .message-bubble {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.message.assistant .message-bubble {
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.message.system .message-bubble {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: italic;
+  border-radius: 8px;
+}
+.message-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+/* Tags */
+.ticket-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 20px 12px;
+}
+.tag {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+/* Reply Area */
+.reply-area {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+.reply-box {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.reply-box textarea {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  min-height: 42px;
+  max-height: 120px;
+  outline: none;
+}
+.reply-box textarea:focus { border-color: var(--accent); }
+.reply-box textarea::placeholder { color: var(--text-muted); }
+.send-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.send-btn:hover { background: var(--accent-hover); }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.reply-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* New Ticket Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+}
+.modal h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.modal-field {
+  margin-bottom: 14px;
+}
+.modal-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.modal-field input,
+.modal-field select,
+.modal-field textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+.modal-field textarea { min-height: 80px; resize: vertical; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--green);
+  border-radius: 12px;
+  font-size: 13px;
+  z-index: 200;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .sidebar.mobile-show { display: flex; position: fixed; inset: 0; z-index: 50; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar: Ticket List -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1>🎧 PAAW HelpDesk</h1>
+      <div class="sidebar-stats" id="sidebarStats">
+        <span class="stat-pill open" id="statOpen">待回 0</span>
+        <span class="stat-pill answered" id="statAnswered">已回 0</span>
+        <span class="stat-pill total" id="statTotal">總計 0</span>
+      </div>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="searchInput" placeholder="🔍 搜尋對話..." />
+    </div>
+    <div class="ticket-list" id="ticketList">
+      <div class="empty-state">載入中...</div>
+    </div>
+  </div>
+
+  <!-- Main: Chat View -->
+  <div class="main">
+    <div class="main-header" id="mainHeader">
+      <div class="main-header-info">
+        <div>
+          <h2 id="chatTitle">選擇一個對話或建立新問題</h2>
+          <div class="main-header-meta" id="chatMeta"></div>
+        </div>
+      </div>
+      <div class="header-actions" id="headerActions">
+        <button class="btn primary" onclick="openNewTicketModal()">➕ 新問題</button>
+      </div>
+    </div>
+
+    <div class="ticket-tags" id="ticketTags"></div>
+
+    <div class="chat-area" id="chatArea">
+      <div class="chat-empty">
+        <div class="icon">🎧</div>
+        <h3>PAAW 客戶服務中心</h3>
+        <p>
+          這裡是 PAAW 的客服中心，其他 Agent 可以透過 API 提問，<br>
+          所有對話紀錄都會顯示在這裡。點左邊的對話查看詳情，或建立新問題。
+        </p>
+      </div>
+    </div>
+
+    <div class="reply-area" id="replyArea" style="display:none;">
+      <div class="reply-box">
+        <textarea id="replyText" placeholder="輸入回覆..." rows="1"></textarea>
+        <button class="send-btn" onclick="sendReply()" id="sendBtn">➤</button>
+      </div>
+      <div class="reply-hint">
+        💡 回覆後狀態會自動切為「已回答」 · Enter 送出 / Shift+Enter 換行
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Ticket Modal -->
+<div class="modal-overlay" id="newTicketModal" style="display:none;">
+  <div class="modal">
+    <h3>➕ 建立新客服問題</h3>
+    <div class="modal-field">
+      <label>Agent 名稱</label>
+      <input type="text" id="newAgentName" placeholder="例如: OpenClaw Agent" />
+    </div>
+    <div class="modal-field">
+      <label>Agent 類型</label>
+      <select id="newAgentType">
+        <option value="openclaw">OpenClaw</option>
+        <option value="claude">Claude</option>
+        <option value="chatgpt">ChatGPT</option>
+        <option value="gemini">Gemini</option>
+        <option value="copilot">Copilot</option>
+        <option value="custom">Custom</option>
+        <option value="human">Human</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>主旨</label>
+      <input type="text" id="newSubject" placeholder="問題摘要" />
+    </div>
+    <div class="modal-field">
+      <label>優先級</label>
+      <select id="newPriority">
+        <option value="medium">中</option>
+        <option value="low">低</option>
+        <option value="high">高</option>
+        <option value="urgent">緊急</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>問題內容</label>
+      <textarea id="newMessage" placeholder="詳細描述問題..."></textarea>
+    </div>
+    <div class="modal-field">
+      <label>標籤 (逗號分隔)</label>
+      <input type="text" id="newTags" placeholder="例如: skill, app, bug" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeNewTicketModal()">取消</button>
+      <button class="btn primary" onclick="createTicket()">建立</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let tickets = [];
+let activeTicketId = null;
+let searchTerm = '';
+
+// ── Init ──
+async function init() {
+  await loadTickets();
+  renderSidebar();
+  // Auto-refresh every 10s
+  setInterval(loadTickets, 10000);
+}
+
+// ── Data ──
+async function loadTickets() {
+  try {
+    const res = await fetch(`${API}/app-data/paaw-helpdesk`);
+    tickets = await res.json();
+    if (!Array.isArray(tickets)) tickets = [];
+    renderSidebar();
+    if (activeTicketId) {
+      renderChat(activeTicketId);
+    }
+    updateStats();
+  } catch (err) {
+    console.error('Load tickets error:', err);
+  }
+}
+
+async function saveTickets() {
+  await fetch(`${API}/app-data/paaw-helpdesk`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(tickets),
+  });
+}
+
+// ── Stats ──
+function updateStats() {
+  const open = tickets.filter(t => t.status === 'open').length;
+  const answered = tickets.filter(t => t.status === 'answered').length;
+  const total = tickets.length;
+  document.getElementById('statOpen').textContent = `待回 ${open}`;
+  document.getElementById('statAnswered').textContent = `已回 ${answered}`;
+  document.getElementById('statTotal').textContent = `總計 ${total}`;
+}
+
+// ── Sidebar Rendering ──
+function renderSidebar() {
+  const list = document.getElementById('ticketList');
+  let filtered = tickets;
+  if (searchTerm) {
+    const q = searchTerm.toLowerCase();
+    filtered = tickets.filter(t =>
+      (t.subject || '').toLowerCase().includes(q) ||
+      (t.agentName || '').toLowerCase().includes(q) ||
+      (t.messages || []).some(m => (m.text || '').toLowerCase().includes(q))
+    );
+  }
+
+  // Sort: open first, then by updatedAt desc
+  filtered.sort((a, b) => {
+    if (a.status === 'open' && b.status !== 'open') return -1;
+    if (a.status !== 'open' && b.status === 'open') return 1;
+    return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">' +
+      (tickets.length === 0 ? '📭 尚無客服對話<br>點「新問題」建立第一筆' : '🔍 沒有匹配的對話') +
+      '</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(t => {
+    const isActive = t.ticketId === activeTicketId;
+    const lastMsg = (t.messages || []).slice(-1)[0] || {};
+    const lastText = lastMsg.text || '';
+    const time = formatTime(t.updatedAt || t.createdAt);
+    return `
+      <div class="ticket-item ${isActive ? 'active' : ''}" onclick="selectTicket('${t.ticketId}')">
+        <div class="ticket-item-header">
+          <div class="ticket-agent">
+            <span class="agent-badge ${t.agentType || 'custom'}"></span>
+            ${esc(t.agentName || 'Unknown')}
+          </div>
+          <span class="status-badge ${t.status}">${statusLabel(t.status)}</span>
+        </div>
+        <div class="ticket-subject">${esc(t.subject || '(無主旨)')}</div>
+        <div class="ticket-meta">
+          <span><span class="priority-dot ${t.priority || 'low'}"></span>${lastText.slice(0, 40) || '無訊息'}</span>
+          <span>${time}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Chat Rendering ──
+function renderChat(ticketId) {
+  const ticket = tickets.find(t => t.ticketId === ticketId);
+  if (!ticket) return;
+
+  activeTicketId = ticketId;
+  document.getElementById('chatTitle').textContent = ticket.subject || '(無主旨)';
+  document.getElementById('chatMeta').innerHTML = `
+    <span class="agent-badge ${ticket.agentType || 'custom'}" style="display:inline-block;vertical-align:middle;"></span>
+    ${esc(ticket.agentName || 'Unknown')} · ${ticket.agentType || 'custom'}
+    · ${ticket.messages?.length || 0} 則訊息
+    · 建立於 ${formatTime(ticket.createdAt)}
+  `;
+
+  // Tags
+  const tagsEl = document.getElementById('ticketTags');
+  tagsEl.innerHTML = (ticket.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('');
+
+  // Messages
+  const chatArea = document.getElementById('chatArea');
+  const msgs = ticket.messages || [];
+  if (msgs.length === 0) {
+    chatArea.innerHTML = '<div class="chat-empty"><p>此對話尚無訊息</p></div>';
+  } else {
+    chatArea.innerHTML = msgs.map(m => `
+      <div class="message ${m.role}">
+        <div class="message-bubble">${esc(m.text)}</div>
+        <div class="message-meta">${m.role === 'user' ? '🙋 ' + esc(ticket.agentName || 'Agent') : m.role === 'assistant' ? '🎧 PAAW Support' : 'ℹ️ System'} · ${formatTime(m.ts)}</div>
+      </div>
+    `).join('');
+    // Scroll to bottom
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  // Show reply area
+  document.getElementById('replyArea').style.display = ticket.status !== 'closed' ? 'block' : 'none';
+
+  // Header actions
+  const actions = document.getElementById('headerActions');
+  let actionsHtml = '<button class="btn primary" onclick="openNewTicketModal()">➕ 新問題</button>';
+  if (ticket.status !== 'closed') {
+    actionsHtml += `<button class="btn" onclick="toggleStatus('${ticketId}')">✅ 標記已回答</button>`;
+    actionsHtml += `<button class="btn" onclick="closeTicket('${ticketId}')">🔒 關閉</button>`;
+  } else {
+    actionsHtml += `<button class="btn" onclick="reopenTicket('${ticketId}')">🔓 重新開啟</button>`;
+  }
+  actionsHtml += `<button class="btn danger" onclick="deleteTicket('${ticketId}')">🗑 刪除</button>`;
+  actions.innerHTML = actionsHtml;
+
+  // Update sidebar highlight
+  renderSidebar();
+}
+
+// ── Actions ──
+function selectTicket(ticketId) {
+  renderChat(ticketId);
+}
+
+async function sendReply() {
+  const text = document.getElementById('replyText').value.trim();
+  if (!text || !activeTicketId) return;
+
+  const ticket = tickets.find(t => t.ticketId === activeTicketId);
+  if (!ticket) return;
+
+  ticket.messages.push({
+    id: `msg_${Date.now()}`,
+    role: 'assistant',
+    text,
+    ts: Date.now(),
+  });
+  ticket.status = 'answered';
+  ticket.updatedAt = new Date().toISOString();
+
+  document.getElementById('replyText').value = '';
+  await saveTickets();
+  renderChat(activeTicketId);
+  updateStats();
+  showToast('✅ 回覆已送出');
+}
+
+async function toggleStatus(ticketId) {
+  const ticket = tickets.find(t => t.ticketId === ticketId);
+  if (!ticket) return;
+  ticket.status = ticket.status === 'answered' ? 'open' : 'answered';
+  ticket.updatedAt = new Date().toISOString();
+  await saveTickets();
+  renderChat(ticketId);
+  updateStats();
+}
+
+async function closeTicket(ticketId) {
+  const ticket = tickets.find(t => t.ticketId === ticketId);
+  if (!ticket) return;
+  ticket.status = 'closed';
+  ticket.updatedAt = new Date().toISOString();
+  await saveTickets();
+  renderChat(ticketId);
+  updateStats();
+  showToast('🔒 已關閉');
+}
+
+async function reopenTicket(ticketId) {
+  const ticket = tickets.find(t => t.ticketId === ticketId);
+  if (!ticket) return;
+  ticket.status = 'open';
+  ticket.updatedAt = new Date().toISOString();
+  await saveTickets();
+  renderChat(ticketId);
+  updateStats();
+}
+
+async function deleteTicket(ticketId) {
+  if (!confirm('確定刪除這個對話？此操作無法復原。')) return;
+  tickets = tickets.filter(t => t.ticketId !== ticketId);
+  activeTicketId = null;
+  await saveTickets();
+  renderSidebar();
+  updateStats();
+  document.getElementById('chatArea').innerHTML = `
+    <div class="chat-empty">
+      <div class="icon">🎧</div>
+      <h3>PAAW 客戶服務中心</h3>
+      <p>選擇左邊的對話查看詳情，或建立新問題。</p>
+    </div>
+  `;
+  document.getElementById('replyArea').style.display = 'none';
+  document.getElementById('chatTitle').textContent = '選擇一個對話或建立新問題';
+  document.getElementById('chatMeta').textContent = '';
+  document.getElementById('ticketTags').innerHTML = '';
+  document.getElementById('headerActions').innerHTML = '<button class="btn primary" onclick="openNewTicketModal()">➕ 新問題</button>';
+}
+
+// ── New Ticket Modal ──
+function openNewTicketModal() {
+  document.getElementById('newTicketModal').style.display = 'flex';
+  document.getElementById('newAgentName').focus();
+}
+function closeNewTicketModal() {
+  document.getElementById('newTicketModal').style.display = 'none';
+  document.getElementById('newAgentName').value = '';
+  document.getElementById('newSubject').value = '';
+  document.getElementById('newMessage').value = '';
+  document.getElementById('newTags').value = '';
+}
+
+async function createTicket() {
+  const agentName = document.getElementById('newAgentName').value.trim();
+  const agentType = document.getElementById('newAgentType').value;
+  const subject = document.getElementById('newSubject').value.trim();
+  const priority = document.getElementById('newPriority').value;
+  const message = document.getElementById('newMessage').value.trim();
+  const tagsStr = document.getElementById('newTags').value.trim();
+
+  if (!agentName || !subject || !message) {
+    alert('請填寫 Agent 名稱、主旨和問題內容');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const ticket = {
+    ticketId: `TKT-${Date.now()}`,
+    agentName,
+    agentType,
+    subject,
+    status: 'open',
+    priority,
+    messages: [{
+      id: `msg_${Date.now()}`,
+      role: 'user',
+      text: message,
+      ts: Date.now(),
+    }],
+    tags: tagsStr ? tagsStr.split(',').map(s => s.trim()).filter(Boolean) : [],
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  tickets.unshift(ticket);
+  await saveTickets();
+  closeNewTicketModal();
+  renderChat(ticket.ticketId);
+  updateStats();
+  showToast('✅ 問題已建立');
+}
+
+// ── Helpers ──
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
+  if (isNaN(d)) return '';
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return '剛剛';
+  if (diff < 3600000) return `${Math.floor(diff/60000)} 分前`;
+  if (diff < 86400000) return `${Math.floor(diff/3600000)} 小時前`;
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
+function statusLabel(s) {
+  return { open: '待回', answered: '已回', closed: '已關閉' }[s] || s;
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ── Search ──
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchTerm = e.target.value;
+  renderSidebar();
+});
+
+// ── Reply textarea ──
+document.getElementById('replyText').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendReply();
+  }
+});
+document.getElementById('replyText').addEventListener('input', (e) => {
+  e.target.style.height = 'auto';
+  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+});
+
+// ── Keyboard: Escape to close modal ──
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeNewTicketModal();
+  }
+});
+
+// ── Start ──
+init();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+{
+  "id": "paaw-helpdesk",
+  "name": "PAAW HelpDesk",
+  "icon": "🎧",
+  "description": "PAAW 客戶服務中心 — 接收其他 Agent 的提問，顯示即時對話與歷史紀錄",
+  "type": "data",
+  "dataShape": "array",
+  "schema": {
+    "type": "object",
+    "description": "客服對話票 — 每筆是外部 Agent 發起的提問對話",
+    "properties": {
+      "ticketId": {
+        "type": "string",
+        "label": "票號",
+        "description": "唯一識別碼"
+      },
+      "agentName": {
+        "type": "string",
+        "label": "Agent 名稱",
+        "description": "發問的 Agent 名稱"
+      },
+      "agentType": {
+        "type": "string",
+        "enum": ["openclaw", "claude", "chatgpt", "gemini", "copilot", "custom", "human"],
+        "label": "Agent 類型",
+        "description": "發問的 Agent 種類"
+      },
+      "subject": {
+        "type": "string",
+        "label": "主旨",
+        "description": "問題摘要"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["open", "answered", "closed"],
+        "label": "狀態",
+        "description": "open=待回答, answered=已回答, closed=已關閉"
+      },
+      "priority": {
+        "type": "string",
+        "enum": ["low", "medium", "high", "urgent"],
+        "label": "優先級",
+        "description": "問題優先程度"
+      },
+      "messages": {
+        "type": "array",
+        "label": "對話訊息",
+        "description": "完整對話內容",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+            "text": { "type": "string" },
+            "ts": { "type": "number" }
+          }
+        }
+      },
+      "tags": {
+        "type": "array",
+        "label": "標籤",
+        "description": "問題分類標籤",
+        "items": { "type": "string" }
+      },
+      "createdAt": { "type": "string", "label": "建立時間" },
+      "updatedAt": { "type": "string", "label": "更新時間" }
+    },
+    "required": ["ticketId", "agentName", "subject", "status", "messages"]
+  },
+  "triggers": ["paaw helpdesk", "paaw 客服", "paaw customer service"],
+  "aiPrompt": "PAAW HelpDesk 客服助手，回答關於 PAAW 功能、架構、使用方式的問題",
+  "status": "published",
+  "createdAt": "2026-07-04T01:17:00.000Z"
+}
