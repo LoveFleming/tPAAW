@@ -34,7 +34,7 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
   const [card, setCard] = useState<AgentCard | null>(null);
   const [cardError, setCardError] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "system", text: "👋 歡迎！輸入訊息跟遠端 A2A Demo Agent 聊天", time: "" },
+    { role: "system", text: "👋 歡迎！輸入訊息跟 Help Desk 聊天", time: "" },
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -46,7 +46,7 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
     setMessages((prev) => [...prev, { role, text, time: new Date().toLocaleTimeString() }]);
   }, []);
 
-  // Load remote agent card (from A2A Demo Agent at 4100)
+  // Load remote agent card (from Help Desk Agent at 4100)
   const loadCard = useCallback(async () => {
     try {
       const res = await fetch(`${REMOTE_AGENT_URL}/.well-known/agent-card.json`);
@@ -70,14 +70,14 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages]);
 
-  // ── Send message to A2A Demo Agent (4100) ──
+  // ── Send message to Help Desk (4100) ──
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || sending) return;
     setSending(true);
     setInput("");
     addMsg("user", text);
 
-    addMsg("system", "⏳ Waiting for remote agent...");
+    addMsg("system", "⏳ Waiting for Help Desk...");
 
     try {
       const res = await fetch(`${REMOTE_AGENT_URL}/a2a/jsonrpc`, {
@@ -101,7 +101,7 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
       const data = await res.json();
 
       // Remove "waiting" message
-      setMessages((prev) => prev.filter((m) => m.text !== "⏳ Waiting for remote agent..."));
+      setMessages((prev) => prev.filter((m) => m.text !== "⏳ Waiting for Help Desk..."));
 
       if (data.result) {
         const task = data.result;
@@ -113,13 +113,17 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
         addMsg("system", `❌ ${data.error.message}`);
       }
     } catch (err) {
-      setMessages((prev) => prev.filter((m) => m.text !== "⏳ Waiting for remote agent..."));
+      setMessages((prev) => prev.filter((m) => m.text !== "⏳ Waiting for Help Desk..."));
       addMsg("system", `❌ ${String(err)}`);
     }
     setSending(false);
   }, [sending, contextId, addMsg]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // ⚠️ IME composition: Enter during Chinese/Japanese input should NOT send
+    // isComposing = true when user is in the middle of selecting characters
+    // keyCode 229 is the legacy signal for IME composition
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
@@ -183,7 +187,7 @@ export default function A2APlayground({ }: { _a2a?: boolean }) {
           >
             {(msg.role === "remote" || msg.role === "agent") && (
               <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, opacity: 0.7 }}>
-                {msg.role === "remote" ? "A2A Demo Agent" : "PAAW Agent"}
+                {msg.role === "remote" ? "Help Desk" : "PAAW Agent"}
               </div>
             )}
             {msg.text}
