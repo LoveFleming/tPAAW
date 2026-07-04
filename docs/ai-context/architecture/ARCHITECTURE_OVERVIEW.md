@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> 驗證：`cd /Users/steward/App/tAgent && find packages -maxdepth 1 -type d | sort`
+> 驗證：`cd /Users/steward/App/tPAAW && find packages -maxdepth 1 -type d | sort`
 
 ## 主要模組與責任
 

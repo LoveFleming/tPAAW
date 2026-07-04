@@ -1,6 +1,6 @@
 # Project Overview
 
-> 驗證：`cd /Users/steward/App/tAgent && cat package.json | head -5`
+> 驗證：`cd /Users/steward/App/tPAAW && cat package.json | head -5`
 
 ## 解決什麼問題
 

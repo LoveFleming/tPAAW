@@ -58,7 +58,7 @@ memory/paaw-docs/
 **批次驗證全部文件的關鍵聲明：**
 
 ```bash
-cd /Users/steward/App/tAgent
+cd /Users/steward/App/tPAAW
 
 echo "=== 1. Route 數量 ==="
 echo "文件說 20，實際："

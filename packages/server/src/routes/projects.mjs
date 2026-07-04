@@ -132,7 +132,7 @@ async function ensureDefaultProject() {
     status: "in-progress",
     startDate: "2026-01-01",
     targetDate: "2026-12-31",
-    repo: "https://github.com/LoveFleming/tAgent",
+    repo: "https://github.com/LoveFleming/tPAAW",
     dashboard: "",
     categories: [
       {

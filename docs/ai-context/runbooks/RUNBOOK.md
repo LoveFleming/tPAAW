@@ -5,7 +5,7 @@
 ## 啟動
 
 ```bash
-cd /Users/steward/App/tAgent
+cd /Users/steward/App/tPAAW
 
 # 開發模式（UI + API 同時）
 npm run dev
