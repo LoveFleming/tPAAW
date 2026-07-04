@@ -153,6 +153,19 @@ function getAgentCard(req) {
         inputModes: ["text"],
         outputModes: ["text"],
       },
+      {
+        id: "paaw-helpdesk",
+        name: "PAAW HelpDesk",
+        description: "Customer service — ask any question about PAAW features, architecture, usage, or report issues. Other agents can submit questions and get answers.",
+        tags: ["helpdesk", "support", "faq", "customer-service", "agent-to-agent"],
+        inputModes: ["text"],
+        outputModes: ["text"],
+        endpoints: {
+          ask: `${baseUrl}/api/helpdesk/ask`,
+          tickets: `${baseUrl}/api/helpdesk/tickets`,
+          knowledge: `${baseUrl}/api/helpdesk/knowledge`,
+        },
+      },
     ],
     authentication: {
       schemes: ["none"],
