@@ -389,13 +389,19 @@ export default async function skillsApiRoute(req, res) {
           const idx = model.indexOf("/");
           providerId = model.slice(0, idx);
           llmModel = model.slice(idx + 1);
-        } else if (!modelOverride && llmModel.includes("/")) {
+        } else if (llmModel.includes("/")) {
+          // Strip provider prefix from default model if present
           llmModel = llmModel.split("/").pop();
         }
         const provider = pCfg.providers[providerId];
+        if (!provider) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `Provider '${providerId}' not found in config` }));
+          return true;
+        }
         const baseURL = provider.baseURL.replace(/\/+$/, "");
         const headers = { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` };
-        if (providerId === "openrouter") { headers["HTTP-Referer"] = "https://paaw.ai"; headers["X-Title"] = "PAAW"; }
+        if (providerId === "openrouter") { headers["HTTP-Referer"] = "https://agent-orchestrator.ai"; headers["X-Title"] = "Agent Orchestrator"; }
         llm = { apiUrl: `${baseURL}/chat/completions`, headers, model: llmModel };
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
