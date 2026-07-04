@@ -23,13 +23,17 @@ function RenameInput({ defaultValue, onConfirm, onCancel }: {
 }) {
   const [value, setValue] = useState(defaultValue);
   const ref = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
   return (
     <input
       ref={ref}
       value={value}
       onChange={e => setValue(e.target.value)}
+      onCompositionStart={() => { composingRef.current = true; }}
+      onCompositionEnd={() => { composingRef.current = false; }}
       onKeyDown={e => {
+        if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
         if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
         if (e.key === "Escape") onCancel();
       }}
@@ -190,7 +194,7 @@ const NodeView = React.memo(function NodeView({
           else { onSelect(node.path); onOpenFile(node.path); }
         }}
         onContextMenu={e => onCtx(e, node)}
-        className={cn("flex w-full items-center pr-2 text-left text-[14.5px] leading-tight transition-colors",
+        className={cn("flex w-full items-center pr-2 text-left text-sm leading-tight transition-colors",
           isSelected ? "font-semibold" : "")}
         style={{
           height: "22px",
@@ -246,6 +250,7 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
 }) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
   useEffect(() => { ref.current?.focus(); }, []);
 
   const ext = type === "file" ? ".md" : "";
@@ -265,7 +270,12 @@ function NewItemInput({ parentPath, type, onConfirm, onCancel }: {
         ref={ref}
         value={value}
         onChange={e => setValue(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") onCancel(); }}
+        onCompositionStart={() => { composingRef.current = true; }}
+        onCompositionEnd={() => { composingRef.current = false; }}
+        onKeyDown={e => {
+          if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+          if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") onCancel();
+        }}
         onBlur={() => { if (value.trim()) handleConfirm(); else onCancel(); }}
         placeholder={type === "folder" ? "資料夾名稱" : "檔案名稱"}
         className="flex-1 px-1 py-0 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
