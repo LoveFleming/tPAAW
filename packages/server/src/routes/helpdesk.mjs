@@ -12,6 +12,7 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, json } from "./shared.mjs";
+import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,6 +23,61 @@ const HELPDESK_SKILL = resolve(DATA_DIR, "skills/physical-skill/help-desk/SKILL.
 const CONFIG_DIR = resolve(DATA_DIR, "config");
 
 await mkdir(resolve(DATA_DIR, "helpdesk"), { recursive: true });
+
+// ── 啟動時快取（不每次讀檔）──
+let _skillMd = null;
+let _providerConfig = null;
+let _knowledgeBase = null;
+let _toolDeps = null; // { tools, handlers, ToolEngine }
+
+async function getCachedSkill() {
+  if (!_skillMd) {
+    try { _skillMd = await readFile(HELPDESK_SKILL, "utf-8"); } catch { _skillMd = ""; }
+  }
+  return _skillMd;
+}
+
+async function getCachedProviders() {
+  if (!_providerConfig) {
+    _providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
+  }
+  return _providerConfig;
+}
+
+async function getCachedKnowledge() {
+  if (_knowledgeBase === null) {
+    try { _knowledgeBase = await readFile(KNOWLEDGE_FILE, "utf-8"); } catch { _knowledgeBase = ""; }
+  }
+  return _knowledgeBase;
+}
+
+async function getCachedTools() {
+  if (!_toolDeps) {
+    const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
+    const { getToolsAndHandlers } = await import("../tools/index.mjs");
+    const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
+    const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
+      name,
+      description: toolDefs.find(t => t.function.name === name)?.function?.description || name,
+      parameters: toolDefs.find(t => t.function.name === name)?.function?.parameters || { type: "object", properties: {} },
+      execute: async (args) => handler(args),
+    }));
+    _toolDeps = { ToolEngine, executors };
+  }
+  return _toolDeps;
+}
+
+// Hot-reload hook: call this to clear caches
+export async function reloadHelpDeskCache() {
+  _skillMd = null;
+  _providerConfig = null;
+  _knowledgeBase = null;
+  _toolDeps = null;
+}
+
+// ── Task Persistence (shared with A2A) ──
+const TASKS_DIR = resolve(DATA_DIR, "a2a-tasks");
+const taskStore = new JsonTaskPersistence(TASKS_DIR);
 
 async function loadTickets() {
   try {
@@ -44,7 +100,7 @@ const NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*(.+)/s;
  * @param {Array<{role: string, content: string}>} conversation - Full conversation history
  * @returns {Promise<{text: string, toolsUsed: string[], needsInfo: string|null}>}
  */
-async function runHelpDeskSkill(conversation, modelOverride) {
+async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
   const skillMd = await readFile(HELPDESK_SKILL, "utf-8");
 
   const providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
@@ -55,16 +111,25 @@ async function runHelpDeskSkill(conversation, modelOverride) {
   }
   const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
 
-  const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
-  const { getToolsAndHandlers } = await import("../tools/index.mjs");
+  // Use cached tools
+  const { ToolEngine, executors } = await getCachedTools();
 
-  const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
-  const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
-    name,
-    description: toolDefs.find(t => t.function.name === name)?.function?.description || name,
-    parameters: toolDefs.find(t => t.function.name === name)?.function?.parameters || { type: "object", properties: {} },
-    execute: async (args) => handler(args),
-  }));
+  // Load task memory if available
+  let memoryContext = "";
+  if (taskId && tStore) {
+    const task = await tStore.load(taskId);
+    if (task?.memory?.length > 0) {
+      memoryContext = "\n\n## Previous Memory\n" + task.memory
+        .map(m => `- [${m.type}] ${m.content}`)
+        .join("\n");
+    }
+    if (task?.events?.length > 0) {
+      const recentEvents = task.events.slice(-10);
+      memoryContext += "\n\n## Recent Events\n" + recentEvents
+        .map(e => `- ${e.type}: ${e.name || JSON.stringify(e).slice(0, 80)}`)
+        .join("\n");
+    }
+  }
 
   const engine = new ToolEngine({
     provider: {
@@ -83,8 +148,7 @@ async function runHelpDeskSkill(conversation, modelOverride) {
     agentId: "helpdesk-skill",
   });
 
-  let knowledgeBase = "";
-  try { knowledgeBase = await readFile(KNOWLEDGE_FILE, "utf-8"); } catch {}
+    // knowledgeBase already loaded via cache
 
   const systemPrompt = `${skillMd}
 
@@ -93,7 +157,7 @@ async function runHelpDeskSkill(conversation, modelOverride) {
 ## Knowledge Base（即時參考）
 
 ${knowledgeBase}
-
+${memoryContext}
 ---
 
 你是 PAAW HelpDesk。請根據上面的 Skill 定義和 Knowledge Base 回答問題。
@@ -128,6 +192,10 @@ ${knowledgeBase}
         break;
       case "tool_start":
         toolsUsed.push(chunk.name);
+        // Persist event (await, not fire-and-forget)
+        if (taskId && tStore) {
+          await tStore.appendEvent(taskId, { type: "tool_call", name: chunk.name });
+        }
         break;
     }
   }
@@ -202,7 +270,7 @@ export default async function helpdeskRoute(req, res) {
         .map(m => ({ role: m.role === "agent" ? "assistant" : "user", content: m.text }));
 
       try {
-        const result = await runHelpDeskSkill(conversation, modelOverride);
+        const result = await runHelpDeskSkill(conversation, modelOverride, { taskStore });
 
         if (result.needsInfo) {
           // Still needs more info
@@ -287,7 +355,7 @@ export default async function helpdeskRoute(req, res) {
 
     try {
       const conversation = [{ role: "user", content: message }];
-      const result = await runHelpDeskSkill(conversation, modelOverride);
+      const result = await runHelpDeskSkill(conversation, modelOverride, { taskStore });
 
       if (result.needsInfo) {
         // Need more info before answering

@@ -35,6 +35,46 @@ const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk", "tickets.json");
 const taskStore = new JsonTaskPersistence(TASKS_DIR);
 await taskStore._ensureDir();
 
+// ── 啟動時快取 ──
+let _skillMd = null;
+let _providerConfig = null;
+let _knowledgeBase = null;
+let _toolDeps = null;
+
+async function getCachedSkill() {
+  if (!_skillMd) {
+    try { _skillMd = await readFile(resolve(DATA_DIR, "skills/physical-skill/help-desk/SKILL.md"), "utf-8"); } catch { _skillMd = ""; }
+  }
+  return _skillMd;
+}
+async function getCachedProviders() {
+  if (!_providerConfig) {
+    _providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
+  }
+  return _providerConfig;
+}
+async function getCachedKnowledge() {
+  if (_knowledgeBase === null) {
+    try { _knowledgeBase = await readFile(resolve(DATA_DIR, "helpdesk/KNOWLEDGE.md"), "utf-8"); } catch { _knowledgeBase = ""; }
+  }
+  return _knowledgeBase;
+}
+async function getCachedTools() {
+  if (!_toolDeps) {
+    const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
+    const { getToolsAndHandlers } = await import("../tools/index.mjs");
+    const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
+    const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
+      name,
+      description: toolDefs.find(t => t.function.name === name)?.function?.description || name,
+      parameters: toolDefs.find(t => t.function.name === name)?.function?.parameters || { type: "object", properties: {} },
+      execute: async (args) => handler(args),
+    }));
+    _toolDeps = { ToolEngine, executors };
+  }
+  return _toolDeps;
+}
+
 // ── A2A → Ticket bridge ──
 async function loadTickets() {
   try {
@@ -219,11 +259,11 @@ function getAgentCard(req) {
 
 async function runAgentLoop({ message, systemPrompt, onChunk }) {
   const { contextEngine } = await import("../context-engine.mjs");
-  const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
-  const { getToolsAndHandlers } = await import("../tools/index.mjs");
 
-  // Load provider config
-  const providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
+  // Use cached providers and tools
+  const providerConfig = await getCachedProviders();
+  const { ToolEngine, executors } = await getCachedTools();
+
   const providerId = providerConfig.active;
   const provider = providerConfig.providers[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") {
@@ -234,14 +274,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   // Build context (reuse chat context)
   const ctx = await contextEngine.build({ target: "chat" });
 
-  // Load tools
-  const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
-  const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
-    name,
-    description: toolDefs.find(t => t.function.name === name)?.function?.description || name,
-    parameters: toolDefs.find(t => t.function.name === name)?.function?.parameters || { type: "object", properties: {} },
-    execute: async (args) => handler(args),
-  }));
+  // executors from cache
 
   const engine = new ToolEngine({
     provider: {
@@ -299,33 +332,36 @@ const A2A_NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*([\s\S]+)/;
  * Run HelpDesk skill for A2A messages — with NEED_INFO detection.
  * Reuses helpdesk route's runHelpDeskSkill logic.
  */
-async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride } = {}) {
-  const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
-  const { getToolsAndHandlers } = await import("../tools/index.mjs");
+async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, taskId } = {}) {
+  // Use cached values
+  const skillMd = await getCachedSkill();
+  const knowledgeBase = await getCachedKnowledge();
+  const providerConfig = await getCachedProviders();
+  const { ToolEngine, executors } = await getCachedTools();
 
-  const HELPDESK_SKILL = resolve(DATA_DIR, "skills/physical-skill/help-desk/SKILL.md");
-  const KNOWLEDGE_FILE = resolve(DATA_DIR, "helpdesk/KNOWLEDGE.md");
-
-  let skillMd = "";
-  try { skillMd = await readFile(HELPDESK_SKILL, "utf-8"); } catch {}
-  let knowledgeBase = "";
-  try { knowledgeBase = await readFile(KNOWLEDGE_FILE, "utf-8"); } catch {}
-
-  const providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
   const providerId = providerConfig.active;
   const provider = providerConfig.providers[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") {
     throw new Error(`No API key for provider: ${providerId}`);
   }
-  const model = providerConfig.defaultModel || "glm-5.1";
+  const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
 
-  const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
-  const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
-    name,
-    description: toolDefs.find(t => t.function.name === name)?.function?.description || name,
-    parameters: toolDefs.find(t => t.function.name === name)?.function?.parameters || { type: "object", properties: {} },
-    execute: async (args) => handler(args),
-  }));
+  // Load task memory if available
+  let memoryContext = "";
+  if (taskId) {
+    const task = await taskStore.load(taskId);
+    if (task?.memory?.length > 0) {
+      memoryContext = "\n\n## Previous Memory\n" + task.memory
+        .map(m => `- [${m.type}] ${m.content}`)
+        .join("\n");
+    }
+    if (task?.events?.length > 0) {
+      const recentEvents = task.events.slice(-10);
+      memoryContext += "\n\n## Recent Events\n" + recentEvents
+        .map(e => `- ${e.type}: ${e.name || JSON.stringify(e).slice(0, 80)}`)
+        .join("\n");
+    }
+  }
 
   const engine = new ToolEngine({
     provider: {
@@ -351,7 +387,7 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride } = {
 ## Knowledge Base
 
 ${knowledgeBase}
-
+${memoryContext}
 ---
 
 你是 PAAW HelpDesk。回答用繁體中文，技術術語保留英文。
@@ -378,7 +414,7 @@ ${knowledgeBase}
         toolsUsed.push(chunk.name);
         if (onProgress) onProgress({ type: "tool_start", name: chunk.name, toolsUsed });
         // Persist event
-        taskStore.appendEvent(task.id, { type: "tool_call", name: chunk.name }).catch(() => {});
+        await taskStore.appendEvent(task.id, { type: "tool_call", name: chunk.name });
         break;
     }
   }
@@ -517,7 +553,7 @@ export default async function a2aRoutes(req, res) {
                 content: h.parts?.map(p => p.text || "").join("") || "",
               })).filter(m => m.content);
 
-              const hdResult = await runHelpDeskViaA2A(conversation, { modelOverride });
+              const hdResult = await runHelpDeskViaA2A(conversation, { modelOverride, taskId: task.id });
 
               if (hdResult.needsInfo) {
                 task.status = { state: "input-required", timestamp: new Date().toISOString() };
@@ -580,6 +616,7 @@ export default async function a2aRoutes(req, res) {
               }
             },
             modelOverride,
+            taskId: task.id,
           });
           result = { text: hdResult.text, toolsUsed: hdResult.toolsUsed };
           needsInfo = hdResult.needsInfo;
