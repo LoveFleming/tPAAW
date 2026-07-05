@@ -253,6 +253,22 @@ const PAAW_TOOLS = [
       },
     },
   },
+    {
+      type: "function",
+      function: {
+        name: "browser_test",
+      description: "Test a web page by fetching its URL and checking the response. Use for verifying endpoints, checking if dev server is running, or inspecting page content. Returns status code, headers, and first 2000 chars of body.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "URL to test (e.g. http://localhost:5173)" },
+          expectStatus: { type: "number", description: "Expected HTTP status code (default: 200)" },
+          expectText: { type: "string", description: "Text that should appear in the response body" },
+        },
+        required: ["url"],
+      },
+    },
+  },
 ];
 
 // ── Shell Execution Helper ──
@@ -527,6 +543,64 @@ async function executeTool(call, cwd, rootDir, onEvent) {
       case "ask_user": {
         if (onEvent) onEvent({ type: "tool_end", name, result: `Asked: ${args.question}` });
         return `[User interaction not available in agent loop. Please make your best judgment and proceed. Question was: ${args.question}]`;
+      }
+
+      case "browser_test": {
+        const testUrl = args.url;
+        const expectStatus = args.expectStatus || 200;
+        const expectText = args.expectText;
+
+        if (!testUrl) return "Error: url is required for browser_test";
+
+        if (onEvent) onEvent({ type: "tool_start", name, args: testUrl });
+
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10_000);
+          const res = await fetch(testUrl, {
+            signal: controller.signal,
+            redirect: "follow",
+          });
+          clearTimeout(timeout);
+
+          const text = await res.text();
+          const headers = {};
+          res.headers.forEach((v, k) => { headers[k] = v; });
+
+          let report = `URL: ${testUrl}\n`;
+          report += `Status: ${res.status} ${res.statusText}\n`;
+          report += `Content-Type: ${headers["content-type"] || "(none)"}\n`;
+          report += `Body length: ${text.length} chars\n`;
+
+          // Status check
+          if (res.status === expectStatus) {
+            report += `✅ Status ${res.status} matches expected ${expectStatus}\n`;
+          } else {
+            report += `❌ Status ${res.status} does NOT match expected ${expectStatus}\n`;
+          }
+
+          // Text check
+          if (expectText) {
+            if (text.includes(expectText)) {
+              report += `✅ Found expected text: "${expectText.slice(0, 60)}"\n`;
+            } else {
+              report += `❌ Expected text not found: "${expectText.slice(0, 60)}"\n`;
+            }
+          }
+
+          // Body preview
+          report += `\n--- Body (first 2000 chars) ---\n${text.slice(0, 2000)}`;
+          if (text.length > 2000) report += `\n... (${text.length - 2000} more chars)`;
+
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${res.status} ${res.statusText}` });
+          return report;
+        } catch (fetchErr) {
+          const errMsg = fetchErr.name === "AbortError"
+            ? `Request to ${testUrl} timed out after 10s`
+            : `Failed to fetch ${testUrl}: ${fetchErr.message}`;
+          if (onEvent) onEvent({ type: "tool_error", name, error: errMsg });
+          return `❌ ${errMsg}\n\nThis usually means the dev server is not running. Check the port and try again.`;
+        }
       }
 
       default:

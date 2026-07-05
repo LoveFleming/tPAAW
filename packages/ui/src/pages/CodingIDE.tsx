@@ -33,6 +33,8 @@ import SidebarFileTree from "../components/SidebarFileTree";
 import PaawTree from "../components/PaawTree";
 import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
+import BrowserPreview from "../components/BrowserPreview";
+import BrowserDevTools, { type ConsoleEntry } from "../components/BrowserDevTools";
 import ModelSelector from "../components/ModelSelector";
 
 // ── Types ──
@@ -171,7 +173,7 @@ export default function CodingIDE() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [showGitPanel, setShowGitPanel] = useState(false);
   const [showApiTester, setShowApiTester] = useState(false);
-  const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester">("editor");
+  const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester" | "browser">("editor");
   const resizingRef = useRef<{ type: "sidebar" | "ai" | "terminal"; startX: number; startY: number; startSize: number } | null>(null);
 
   // ── Quick Open State (Cmd+P) ──
@@ -221,6 +223,10 @@ export default function CodingIDE() {
 
   // ── Right Panel Tab State ──
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions">("chat");
+
+  // ── Browser Preview State ──
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [browserConsoleLogs, setBrowserConsoleLogs] = useState<ConsoleEntry[]>([]);
 
   // ── Git State ──
   const [gitStatus, setGitStatus] = useState<{ branch: string; staged: GitFileStatus[]; unstaged: GitFileStatus[]; untracked: GitFileStatus[]; all: GitFileStatus[] } | null>(null);
@@ -868,6 +874,11 @@ const sendChat = useCallback(async () => {
             showApiTester ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
           {tt("vibe.api")}
         </button>
+        <button onClick={() => { setShowBrowser(!showBrowser); if (!showBrowser) { setActiveSubPanel("browser"); } }}
+          className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
+            showBrowser ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+          🌐
+        </button>
         <button onClick={() => setShowAiPanel(!showAiPanel)}
           className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
             showAiPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
@@ -969,6 +980,7 @@ const sendChat = useCallback(async () => {
             {activeSubPanel === "diff" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔀 Diff {gitDiffFile && <span className="text-stone-400 font-normal">— {gitDiffFile}</span>}</div>}
             {activeSubPanel === "blame" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔍 Blame — {blameFile}</div>}
             {activeSubPanel === "api-tester" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🌐 API Tester</div>}
+            {activeSubPanel === "browser" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🌐 Browser Preview</div>}
             {activeSubPanel === "editor" && openTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">{tt("vibe.noFilesOpen")}</div>}
           </div>
 
@@ -1390,6 +1402,21 @@ const sendChat = useCallback(async () => {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* === BROWSER PREVIEW === */}
+            {activeSubPanel === "browser" && showBrowser && (
+              <div className="flex-1 flex flex-col min-w-0">
+                <BrowserPreview
+                  projectRoot={rootPath || ""}
+                  onConsoleLog={(entry) => setBrowserConsoleLogs(prev => [...prev.slice(-200), entry])}
+                />
+                <BrowserDevTools
+                  consoleLogs={browserConsoleLogs}
+                  onClearConsole={() => setBrowserConsoleLogs([])}
+                  iframeUrl={undefined}
+                />
               </div>
             )}
 
