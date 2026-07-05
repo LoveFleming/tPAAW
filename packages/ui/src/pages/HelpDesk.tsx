@@ -77,6 +77,94 @@ function escHtml(s: string): string {
   return d.innerHTML;
 }
 
+// ── A2A Task Detail Component ──
+function A2aTaskDetail({ task, theme, formatTime }: { task: any; theme: any; formatTime: (t: string) => string }) {
+  if (!task) return <div className="text-center py-10 text-sm" style={{ color: "#6a6a6a" }}>載入中...</div>;
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Task Info */}
+      <div className="rounded-xl p-4" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          <div style={{ color: "#6a6a6a" }}>Task ID</div>
+          <div className="font-mono" style={{ color: "#a0a0a0" }}>{task.id}</div>
+          <div style={{ color: "#6a6a6a" }}>Context ID</div>
+          <div className="font-mono" style={{ color: "#a0a0a0" }}>{task.contextId || "—"}</div>
+          <div style={{ color: "#6a6a6a" }}>State</div>
+          <div style={{ color: task.status?.state === "completed" ? "#4ade80" : "#4a9eff" }}>{task.status?.state}</div>
+          <div style={{ color: "#6a6a6a" }}>Timestamp</div>
+          <div style={{ color: "#a0a0a0" }}>{task.status?.timestamp ? formatTime(task.status.timestamp) : "—"}</div>
+          {task.metadata?.toolsUsed?.length > 0 && (
+            <>
+              <div style={{ color: "#6a6a6a" }}>Tools Used</div>
+              <div className="flex flex-wrap gap-1">
+                {task.metadata.toolsUsed.map((tool: string, i: number) => (
+                  <span key={i} className="px-2 py-0.5 rounded text-[10px]" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>{tool}</span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Conversation History */}
+      <div>
+        <div className="text-xs font-semibold mb-2" style={{ color: "#a0a0a0" }}>💬 互動訊息</div>
+        {(task.history || []).map((msg: any, i: number) => {
+          const text = msg.parts?.map((p: any) => p.text).join("") || "";
+          const isUser = msg.role === "user";
+          const isAgent = msg.role === "agent";
+          return (
+            <div key={i} className={cn("mb-3 flex", isUser ? "justify-start" : "justify-end")}>
+              <div className={cn("max-w-[75%] flex flex-col gap-1")}>
+                <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#6a6a6a" }}>
+                  <span className="inline-block w-2 h-2 rounded-full" style={{ background: isUser ? "#4a9eff" : "#4ade80" }} />
+                  <span className="font-semibold">{isUser ? "📡 Agent Orchestrator" : "🎧 PAAW HelpDesk"}</span>
+                </div>
+                <div
+                  className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
+                  style={{
+                    background: isUser ? "#252525" : theme.accent,
+                    color: isAgent ? "#fff" : "#e8e8e8",
+                    borderBottomLeftRadius: isUser ? 4 : undefined,
+                    borderBottomRightRadius: isAgent ? 4 : undefined,
+                    border: isUser ? "1px solid #2e2e2e" : "none",
+                  }}
+                >
+                  {text}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Artifacts */}
+      {task.artifacts && task.artifacts.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold mb-2" style={{ color: "#a0a0a0" }}>📦 Artifacts</div>
+          {task.artifacts.map((art: any, i: number) => (
+            <div key={i} className="rounded-xl p-3 mb-1" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
+              <div className="text-xs font-semibold mb-1" style={{ color: "#4ade80" }}>{art.name || `Artifact ${i + 1}`}</div>
+              <div className="text-xs whitespace-pre-wrap" style={{ color: "#a0a0a0" }}>
+                {art.parts?.map((p: any) => p.text).join("").slice(0, 500)}
+                {(art.parts?.map((p: any) => p.text).join("") || "").length > 500 ? "..." : ""}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Raw JSON */}
+      <details>
+        <summary className="text-xs font-semibold cursor-pointer" style={{ color: "#6a6a6a" }}>🔧 Raw JSON</summary>
+        <pre className="mt-2 p-3 rounded-xl text-[10px] overflow-x-auto" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e", color: "#a0a0a0" }}>
+          {JSON.stringify(task, null, 2)}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
 export default function HelpDesk() {
   const { info: theme } = useTheme();
   const { t: tt } = useI18n();
@@ -94,7 +182,8 @@ export default function HelpDesk() {
   const [viewMode, setViewMode] = useState<"tickets" | "a2a">("tickets");
   const [a2aTasks, setA2aTasks] = useState<any[]>([]);
   const [a2aLoading, setA2aLoading] = useState(false);
-  const [activeA2aTask, setActiveA2aTask] = useState<any | null>(null);
+  const [a2aTabs, setA2aTabs] = useState<{ id: string; task: any }[]>([]);
+  const [activeA2aTabId, setActiveA2aTabId] = useState<string>("main"); // "main" or task.id
 
   // New ticket form
   const [fAgentName, setFAgentName] = useState("");
@@ -140,13 +229,32 @@ export default function HelpDesk() {
       const res = await fetch(`${API}/api/a2a/tasks`);
       if (res.ok) {
         const data = await res.json();
-        setA2aTasks(data.data || []);
+        const tasks = data.data || [];
+        setA2aTasks(tasks);
+        // Sync open tabs with latest task data
+        setA2aTabs(prev => prev.map(t => {
+          const updated = tasks.find((task: any) => task.id === t.id);
+          return updated ? { ...t, task: updated } : t;
+        }));
       }
     } catch (err) {
       console.error("Load A2A tasks error:", err);
     } finally {
       setA2aLoading(false);
     }
+  }, []);
+
+  const openA2aTab = useCallback((task: any) => {
+    setA2aTabs(prev => {
+      if (prev.find(t => t.id === task.id)) return prev;
+      return [...prev, { id: task.id, task }];
+    });
+    setActiveA2aTabId(task.id);
+  }, []);
+
+  const closeA2aTab = useCallback((tabId: string) => {
+    setA2aTabs(prev => prev.filter(t => t.id !== tabId));
+    setActiveA2aTabId(prev => prev === tabId ? "main" : prev);
   }, []);
 
   useEffect(() => {
@@ -418,14 +526,14 @@ export default function HelpDesk() {
                 return (
                   <div
                     key={task.id}
-                    onClick={() => setActiveA2aTask(task)}
+                    onClick={() => openA2aTab(task)}
                     className={cn("p-3 rounded-lg cursor-pointer mb-1 border transition-all")}
                     style={{
-                      background: activeA2aTask?.id === task.id ? "rgba(168,85,247,0.1)" : "transparent",
-                      borderColor: activeA2aTask?.id === task.id ? "#a855f7" : "transparent",
+                      background: activeA2aTabId === task.id ? "rgba(168,85,247,0.1)" : "transparent",
+                      borderColor: activeA2aTabId === task.id ? "#a855f7" : "transparent",
                     }}
-                    onMouseEnter={(e) => { if (activeA2aTask?.id !== task.id) e.currentTarget.style.background = "#2a2a2a"; }}
-                    onMouseLeave={(e) => { if (activeA2aTask?.id !== task.id) e.currentTarget.style.background = "transparent"; }}
+                    onMouseEnter={(e) => { if (activeA2aTabId !== task.id) e.currentTarget.style.background = "#2a2a2a"; }}
+                    onMouseLeave={(e) => { if (activeA2aTabId !== task.id) e.currentTarget.style.background = "transparent"; }}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "#a0a0a0" }}>
@@ -495,38 +603,50 @@ export default function HelpDesk() {
       {/* ── Main: Chat View / A2A Detail ── */}
       <div className="flex-1 flex flex-col">
         {viewMode === "a2a" ? (
-          /* ── A2A Interaction Detail ── */
+          /* ── A2A Tabbed Interface ── */
           <>
-            {/* A2A Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ background: "#1a1a1a", borderColor: "#2e2e2e" }}>
-              <div>
-                <h2 className="text-base font-semibold">
-                  {activeA2aTask ? `📡 ${activeA2aTask.id}` : "🤖 A2A Agent 互動記錄"}
-                </h2>
-                {activeA2aTask && (
-                  <div className="text-xs mt-0.5" style={{ color: "#6a6a6a" }}>
-                    State: <span style={{ color: activeA2aTask.status?.state === "completed" ? "#4ade80" : "#4a9eff" }}>{activeA2aTask.status?.state}</span>
-                    {activeA2aTask.metadata?.toolsUsed?.length > 0 && (
-                      <> · 工具: {activeA2aTask.metadata.toolsUsed.join(", ")}</>
-                    )}
-                  </div>
-                )}
-              </div>
-
+            {/* A2A Tab Bar */}
+            <div className="flex items-center gap-0.5 px-2 pt-1.5 border-b overflow-x-auto" style={{ background: "#1a1a1a", borderColor: "#2e2e2e", scrollbarWidth: "thin" }}>
+              {/* Main tab */}
+              <button
+                onClick={() => setActiveA2aTabId("main")}
+                className={cn("px-3 py-2 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5",
+                  activeA2aTabId === "main" ? "bg-[#0f0f0f]" : "text-stone-400 hover:bg-stone-800")}
+                style={activeA2aTabId === "main" ? { color: "#a855f7", borderBottom: "2px solid #a855f7" } : {}}
+              >
+                🏠 A2A Main
+              </button>
+              {/* Task tabs */}
+              {a2aTabs.map(tab => (
+                <div
+                  key={tab.id}
+                  className={cn("group flex items-center gap-1 px-3 py-2 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors",
+                    activeA2aTabId === tab.id ? "bg-[#0f0f0f]" : "text-stone-400 hover:bg-stone-800")}
+                  style={activeA2aTabId === tab.id ? { color: "#e8e8e8", borderBottom: "2px solid #a855f7" } : {}}
+                >
+                  <button onClick={() => setActiveA2aTabId(tab.id)} className="flex items-center gap-1">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: tab.task.status?.state === "completed" ? "#4ade80" : "#4a9eff" }} />
+                    {tab.id.split("-").pop()}
+                  </button>
+                  <button onClick={() => closeA2aTab(tab.id)} className="opacity-0 group-hover:opacity-100 text-stone-500 hover:text-red-400 ml-0.5">✕</button>
+                </div>
+              ))}
             </div>
 
             {/* A2A Content */}
             <div className="flex-1 overflow-y-auto p-5" style={{ scrollbarWidth: "thin" }}>
-              {!activeA2aTask ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4" style={{ color: "#6a6a6a" }}>
-                  <span className="text-5xl">🤖</span>
-                  <h3 className="text-lg font-semibold" style={{ color: "#a0a0a0" }}>A2A Agent 互動視覺化</h3>
-                  <p className="text-sm text-center max-w-md leading-relaxed">
-                    點左邊的 Task 查看 Agent 之間的互動詳情。<br/>
-                    每次 Agent Orchestrator 發送請求到 PAAW HelpDesk，互動記錄都會出現在這裡。
-                  </p>
+              {activeA2aTabId === "main" ? (
+                /* ── Main Overview: All handled work ── */
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h2 className="text-lg font-bold">🤖 A2A Agent 互動主控台</h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>
+                      共 {a2aTasks.length} 筆
+                    </span>
+                  </div>
+
                   {/* Flow diagram */}
-                  <div className="mt-4 p-4 rounded-xl text-xs" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e", maxWidth: 500 }}>
+                  <div className="p-4 rounded-xl text-xs" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
                     <div className="font-semibold mb-3" style={{ color: "#a855f7" }}>📡 A2A 互動流程</div>
                     <div className="flex items-center gap-2 text-[11px]" style={{ color: "#a0a0a0" }}>
                       <span className="px-2 py-1 rounded-lg" style={{ background: "rgba(74,158,255,0.15)", color: "#4a9eff" }}>Agent Orchestrator</span>
@@ -542,90 +662,74 @@ export default function HelpDesk() {
                       <span className="px-2 py-1 rounded-lg" style={{ background: "rgba(74,158,255,0.1)", color: "#4a9eff" }}>JSON-RPC Response</span>
                     </div>
                   </div>
+
+                  {/* Stats row */}
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { label: "總任務", value: a2aTasks.length, color: "#a855f7" },
+                      { label: "已完成", value: a2aTasks.filter(t => t.status?.state === "completed").length, color: "#4ade80" },
+                      { label: "處理中", value: a2aTasks.filter(t => t.status?.state === "working").length, color: "#4a9eff" },
+                      { label: "待回覆", value: a2aTasks.filter(t => t.status?.state === "input-required").length, color: "#fbbf24" },
+                    ].map((s, i) => (
+                      <div key={i} className="rounded-xl p-3 text-center" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
+                        <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
+                        <div className="text-[11px] mt-0.5" style={{ color: "#6a6a6a" }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Recent activity table */}
+                  <div className="rounded-xl overflow-hidden" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
+                    <div className="px-4 py-2.5 text-xs font-semibold border-b" style={{ borderColor: "#2e2e2e", color: "#a0a0a0" }}>
+                      📋 最近接待記錄
+                    </div>
+                    {a2aTasks.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-sm" style={{ color: "#6a6a6a" }}>尚無 A2A 互動記錄</div>
+                    ) : (
+                      <div className="divide-y" style={{ borderColor: "#2e2e2e" }}>
+                        {a2aTasks.slice(0, 15).map((task) => {
+                          const userText = task.history?.find((h: any) => h.role === "user")?.parts?.map((p: any) => p.text).join("") || "";
+                          const agentText = task.history?.find((h: any) => h.role === "agent")?.parts?.map((p: any) => p.text).join("") || "";
+                          const state = task.status?.state || "unknown";
+                          const stateColors: Record<string, string> = {
+                            completed: "#4ade80", working: "#4a9eff", "input-required": "#a855f7",
+                            failed: "#f87171", canceled: "#9ca3af",
+                          };
+                          const toolCount = task.metadata?.toolsUsed?.length || 0;
+                          return (
+                            <div
+                              key={task.id}
+                              onClick={() => openA2aTab(task)}
+                              className="px-4 py-2.5 flex items-center gap-3 cursor-pointer transition-colors hover:bg-stone-800"
+                              style={{ borderColor: "#2e2e2e" }}
+                            >
+                              <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: stateColors[state] || "#6a6a6a" }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate" style={{ color: "#e8e8e8" }}>{userText || "(empty)"}</div>
+                                <div className="text-[11px] truncate" style={{ color: "#6a6a6a" }}>
+                                  {agentText.slice(0, 80) || "..."}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {toolCount > 0 && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>
+                                    🔧 {toolCount}
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase" style={{ background: `rgba(${state === "completed" ? "74,222,128" : state === "working" ? "74,158,255" : "168,85,247"},0.12)`, color: stateColors[state] || "#6a6a6a" }}>
+                                  {state}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
-                /* A2A Task Detail */
-                <div className="flex flex-col gap-4">
-                  {/* Task Info */}
-                  <div className="rounded-xl p-4" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                      <div style={{ color: "#6a6a6a" }}>Task ID</div>
-                      <div className="font-mono" style={{ color: "#a0a0a0" }}>{activeA2aTask.id}</div>
-                      <div style={{ color: "#6a6a6a" }}>Context ID</div>
-                      <div className="font-mono" style={{ color: "#a0a0a0" }}>{activeA2aTask.contextId || "—"}</div>
-                      <div style={{ color: "#6a6a6a" }}>State</div>
-                      <div style={{ color: activeA2aTask.status?.state === "completed" ? "#4ade80" : "#4a9eff" }}>{activeA2aTask.status?.state}</div>
-                      <div style={{ color: "#6a6a6a" }}>Timestamp</div>
-                      <div style={{ color: "#a0a0a0" }}>{activeA2aTask.status?.timestamp ? formatTime(activeA2aTask.status.timestamp) : "—"}</div>
-                      {activeA2aTask.metadata?.toolsUsed?.length > 0 && (
-                        <>
-                          <div style={{ color: "#6a6a6a" }}>Tools Used</div>
-                          <div className="flex flex-wrap gap-1">
-                            {activeA2aTask.metadata.toolsUsed.map((tool: string, i: number) => (
-                              <span key={i} className="px-2 py-0.5 rounded text-[10px]" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>{tool}</span>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Conversation History */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2" style={{ color: "#a0a0a0" }}>💬 互動訊息</div>
-                    {(activeA2aTask.history || []).map((msg: any, i: number) => {
-                      const text = msg.parts?.map((p: any) => p.text).join("") || "";
-                      const isUser = msg.role === "user";
-                      const isAgent = msg.role === "agent";
-                      return (
-                        <div key={i} className={cn("mb-3 flex", isUser ? "justify-start" : "justify-end")}>
-                          <div className={cn("max-w-[75%] flex flex-col gap-1")}>
-                            <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#6a6a6a" }}>
-                              <span className="inline-block w-2 h-2 rounded-full" style={{ background: isUser ? "#4a9eff" : "#4ade80" }} />
-                              <span className="font-semibold">{isUser ? "📡 Agent Orchestrator" : "🎧 PAAW HelpDesk"}</span>
-                            </div>
-                            <div
-                              className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
-                              style={{
-                                background: isUser ? "#252525" : theme.accent,
-                                color: isAgent ? "#fff" : "#e8e8e8",
-                                borderBottomLeftRadius: isUser ? 4 : undefined,
-                                borderBottomRightRadius: isAgent ? 4 : undefined,
-                                border: isUser ? "1px solid #2e2e2e" : "none",
-                              }}
-                            >
-                              {text}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Artifacts */}
-                  {activeA2aTask.artifacts && activeA2aTask.artifacts.length > 0 && (
-                    <div>
-                      <div className="text-xs font-semibold mb-2" style={{ color: "#a0a0a0" }}>📦 Artifacts</div>
-                      {activeA2aTask.artifacts.map((art: any, i: number) => (
-                        <div key={i} className="rounded-xl p-3 mb-1" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
-                          <div className="text-xs font-semibold mb-1" style={{ color: "#4ade80" }}>{art.name || `Artifact ${i + 1}`}</div>
-                          <div className="text-xs whitespace-pre-wrap" style={{ color: "#a0a0a0" }}>
-                            {art.parts?.map((p: any) => p.text).join("").slice(0, 500)}
-                            {(art.parts?.map((p: any) => p.text).join("") || "").length > 500 ? "..." : ""}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Raw JSON */}
-                  <details>
-                    <summary className="text-xs font-semibold cursor-pointer" style={{ color: "#6a6a6a" }}>🔧 Raw JSON</summary>
-                    <pre className="mt-2 p-3 rounded-xl text-[10px] overflow-x-auto" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e", color: "#a0a0a0" }}>
-                      {JSON.stringify(activeA2aTask, null, 2)}
-                    </pre>
-                  </details>
-                </div>
+                /* ── Task Detail Tab ── */
+                <A2aTaskDetail task={a2aTabs.find(t => t.id === activeA2aTabId)?.task} theme={theme} formatTime={formatTime} />
               )}
             </div>
           </>
