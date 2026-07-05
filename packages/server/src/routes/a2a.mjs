@@ -320,7 +320,7 @@ const A2A_NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*([\s\S]+)/;
  * Run HelpDesk skill for A2A messages — with NEED_INFO detection.
  * Reuses helpdesk route's runHelpDeskSkill logic.
  */
-async function runHelpDeskViaA2A(conversation, { onProgress } = {}) {
+async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride } = {}) {
   const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
   const { getToolsAndHandlers } = await import("../tools/index.mjs");
 
@@ -504,6 +504,7 @@ export default async function a2aRoutes(req, res) {
         // Create or load task (for multi-turn, contextId links tasks)
         // contextId can be in params.contextId OR message.contextId (A2A SDK format)
         const ctxId = params?.contextId || message?.contextId;
+        const modelOverride = params?.metadata?.model || message?.metadata?.model;
         const existingTaskId = params?.taskId || (ctxId ? await findLatestTaskInContext(ctxId) : null);
         let task;
         let isFollowUp = false;
@@ -535,7 +536,7 @@ export default async function a2aRoutes(req, res) {
                 content: h.parts?.map(p => p.text || "").join("") || "",
               })).filter(m => m.content);
 
-              const hdResult = await runHelpDeskViaA2A(conversation);
+              const hdResult = await runHelpDeskViaA2A(conversation, { modelOverride });
 
               if (hdResult.needsInfo) {
                 task.status = { state: "input-required", timestamp: new Date().toISOString() };
@@ -597,6 +598,7 @@ export default async function a2aRoutes(req, res) {
                 await saveTask(task);
               }
             },
+            modelOverride,
           });
           result = { text: hdResult.text, toolsUsed: hdResult.toolsUsed };
           needsInfo = hdResult.needsInfo;

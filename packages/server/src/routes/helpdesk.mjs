@@ -44,7 +44,7 @@ const NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*(.+)/s;
  * @param {Array<{role: string, content: string}>} conversation - Full conversation history
  * @returns {Promise<{text: string, toolsUsed: string[], needsInfo: string|null}>}
  */
-async function runHelpDeskSkill(conversation) {
+async function runHelpDeskSkill(conversation, modelOverride) {
   const skillMd = await readFile(HELPDESK_SKILL, "utf-8");
 
   const providerConfig = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
@@ -53,7 +53,7 @@ async function runHelpDeskSkill(conversation) {
   if (!provider?.apiKey || provider.apiKey === "na") {
     throw new Error(`No API key for provider: ${providerId}`);
   }
-  const model = providerConfig.defaultModel || "glm-5.1";
+  const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
 
   const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
   const { getToolsAndHandlers } = await import("../tools/index.mjs");
@@ -167,7 +167,7 @@ export default async function helpdeskRoute(req, res) {
   // ── POST /api/helpdesk/ask — Submit question (new or follow-up) ──
   if (method === "POST" && url === "/api/helpdesk/ask") {
     const body = JSON.parse(await readBody(req));
-    const { agentName, agentType, subject, message, priority, tags, ticketId } = body;
+    const { agentName, agentType, subject, message, priority, tags, ticketId, model: modelOverride } = body;
 
     if (!agentName || !message) {
       json(res, 400, { error: "agentName and message are required" });
@@ -202,7 +202,7 @@ export default async function helpdeskRoute(req, res) {
         .map(m => ({ role: m.role === "agent" ? "assistant" : "user", content: m.text }));
 
       try {
-        const result = await runHelpDeskSkill(conversation);
+        const result = await runHelpDeskSkill(conversation, modelOverride);
 
         if (result.needsInfo) {
           // Still needs more info
@@ -287,7 +287,7 @@ export default async function helpdeskRoute(req, res) {
 
     try {
       const conversation = [{ role: "user", content: message }];
-      const result = await runHelpDeskSkill(conversation);
+      const result = await runHelpDeskSkill(conversation, modelOverride);
 
       if (result.needsInfo) {
         // Need more info before answering
@@ -413,6 +413,21 @@ export default async function helpdeskRoute(req, res) {
       const md = await readFile(KNOWLEDGE_FILE, "utf-8");
       json(res, 200, { knowledge: md });
     } catch { json(res, 404, { error: "Knowledge base not found" }); }
+    return true;
+  }
+
+  // ── GET /api/helpdesk/models ──
+  if (method === "GET" && url === "/api/helpdesk/models") {
+    try {
+      const cfg = JSON.parse(await readFile(resolve(CONFIG_DIR, "providers.json"), "utf-8"));
+      const models = [];
+      for (const [pid, p] of Object.entries(cfg.providers || {})) {
+        for (const m of (p.models || [])) {
+          models.push({ id: m.id, name: m.name, provider: pid, providerName: p.name });
+        }
+      }
+      json(res, 200, { active: cfg.active, defaultModel: cfg.defaultModel, models });
+    } catch { json(res, 500, { error: "Failed to load providers" }); }
     return true;
   }
 

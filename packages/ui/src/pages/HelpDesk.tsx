@@ -180,6 +180,8 @@ export default function HelpDesk() {
 
   // A2A state
   const [viewMode, setViewMode] = useState<"tickets" | "a2a">("tickets");
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const [a2aTasks, setA2aTasks] = useState<any[]>([]);
   const [a2aLoading, setA2aLoading] = useState(false);
   const [a2aTabs, setA2aTabs] = useState<{ id: string; task: any }[]>([]);
@@ -221,6 +223,17 @@ export default function HelpDesk() {
     const timer = setInterval(loadTickets, 10000);
     return () => clearInterval(timer);
   }, [loadTickets]);
+
+  // ── Load Models ──
+  useEffect(() => {
+    fetch(`${API}/api/helpdesk/models`)
+      .then(res => res.json())
+      .then(data => {
+        setAvailableModels(data.models || []);
+        setSelectedModel(data.defaultModel || "");
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Load A2A Tasks ──
   const loadA2aTasks = useCallback(async () => {
@@ -425,6 +438,7 @@ export default function HelpDesk() {
           priority: fPriority,
           message: fMessage.trim(),
           tags: fTags.trim() ? fTags.split(",").map((s) => s.trim()).filter(Boolean) : [],
+          ...(selectedModel ? { model: selectedModel } : {}),
         }),
       });
       if (res.ok) {
@@ -502,6 +516,24 @@ export default function HelpDesk() {
             style={{ background: "#1a1a1a", border: "1px solid #2e2e2e", color: "#e8e8e8" }}
           />
         </div>
+        )}
+
+        {/* Model Selector */}
+        {availableModels.length > 0 && (
+          <div className="px-4 py-2 border-t" style={{ borderColor: "#2e2e2e" }}>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="w-full px-2 py-1 rounded text-xs outline-none"
+              style={{ background: "#1a1a1a", border: "1px solid #2e2e2e", color: "#e8e8e8" }}
+            >
+              {availableModels.map((m: any) => (
+                <option key={`${m.provider}/${m.id}`} value={m.id}>
+                  {m.providerName} · {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
         {/* Ticket List / A2A Task List */}
