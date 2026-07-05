@@ -114,7 +114,7 @@ function A2aTaskDetail({ task, theme, formatTime }: { task: any; theme: any; for
           const isUser = msg.role === "user";
           const isAgent = msg.role === "agent";
           return (
-            <div key={i} className={cn("mb-3 flex", isUser ? "justify-start" : "justify-end")}>
+            <div key={i} className="mb-3 flex justify-start">
               <div className={cn("max-w-[75%] flex flex-col gap-1")}>
                 <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#6a6a6a" }}>
                   <span className="inline-block w-2 h-2 rounded-full" style={{ background: isUser ? "#4a9eff" : "#4ade80" }} />
@@ -787,7 +787,7 @@ export default function HelpDesk() {
               return (
                 <div
                   key={m.id}
-                  className={cn("max-w-[75%] flex flex-col gap-1", m.role === "user" ? "self-start" : isAgent ? "self-end items-end" : "self-center max-w-[90%]")}
+                  className={cn("max-w-[80%] flex flex-col gap-1 self-start items-start")}
                 >
                   {/* Round badge for multi-turn */}
                   {m.role === "user" && userRounds > 1 && (
@@ -796,7 +796,7 @@ export default function HelpDesk() {
                     </div>
                   )}
                   {isAgent && userRounds > 1 && (
-                    <div className="text-[10px] font-bold px-2 py-0.5 rounded-full self-end" style={{ background: "rgba(74,222,128,0.12)", color: "#4ade80" }}>
+                    <div className="text-[10px] font-bold px-2 py-0.5 rounded-full self-start" style={{ background: "rgba(74,222,128,0.12)", color: "#4ade80" }}>
                       第 {thisUserRound} 輪回答
                     </div>
                   )}
