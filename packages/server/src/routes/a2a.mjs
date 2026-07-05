@@ -21,6 +21,7 @@ import { existsSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,7 +31,9 @@ const TASKS_DIR = resolve(DATA_DIR, "a2a-tasks");
 const CONFIG_DIR = resolve(DATA_DIR, "config");
 const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk", "tickets.json");
 
-await mkdir(TASKS_DIR, { recursive: true });
+// ── Task Persistence Adapter ──
+const taskStore = new JsonTaskPersistence(TASKS_DIR);
+await taskStore._ensureDir();
 
 // ── A2A → Ticket bridge ──
 async function loadTickets() {
@@ -133,33 +136,11 @@ function genId() {
   return `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ── Task Storage ──
+// ── Task Storage (delegates to TaskPersistenceAdapter) ──
 
-async function saveTask(task) {
-  await writeFile(resolve(TASKS_DIR, `${task.id}.json`), JSON.stringify(task, null, 2));
-  return task;
-}
-
-async function getTask(taskId) {
-  try {
-    return JSON.parse(await readFile(resolve(TASKS_DIR, `${taskId}.json`), "utf-8"));
-  } catch {
-    return null;
-  }
-}
-
-async function listTasks() {
-  try {
-    const files = await readdir(TASKS_DIR);
-    const tasks = [];
-    for (const f of files.filter(f => f.endsWith(".json")).sort().reverse()) {
-      try { tasks.push(JSON.parse(await readFile(resolve(TASKS_DIR, f), "utf-8"))); } catch {}
-    }
-    return tasks;
-  } catch {
-    return [];
-  }
-}
+async function saveTask(task) { return taskStore.save(task); }
+async function getTask(taskId) { return taskStore.load(taskId); }
+async function listTasks() { return taskStore.list(); }
 
 // ── A2A Data Types ──
 
@@ -308,10 +289,8 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
 
 async function findLatestTaskInContext(contextId) {
   if (!contextId) return null;
-  const tasks = await listTasks();
-  // Find most recent task in this context that's not terminal
-  const ctxTasks = tasks.filter(t => t.contextId === contextId);
-  return ctxTasks.length > 0 ? ctxTasks[0].id : null;
+  const task = await taskStore.findByContext(contextId);
+  return task?.id || null;
 }
 
 const A2A_NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*([\s\S]+)/;
@@ -398,6 +377,8 @@ ${knowledgeBase}
       case "tool_start":
         toolsUsed.push(chunk.name);
         if (onProgress) onProgress({ type: "tool_start", name: chunk.name, toolsUsed });
+        // Persist event
+        taskStore.appendEvent(task.id, { type: "tool_call", name: chunk.name }).catch(() => {});
         break;
     }
   }
