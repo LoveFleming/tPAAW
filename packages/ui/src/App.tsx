@@ -532,7 +532,7 @@ function AppInner() {
     if (pageType === "projects") return "Project Board";
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
-    if (pageType === "helpdesk") return "🎧 HelpDesk";
+    if (pageType === "helpdesk") return "HelpDesk";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -844,7 +844,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":wf-exec")} label={t("sidebar.workflows")} onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":helpdesk")} label="🎧 HelpDesk" onClick={openHelpDesk} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":helpdesk")} label="HelpDesk" onClick={openHelpDesk} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
 
