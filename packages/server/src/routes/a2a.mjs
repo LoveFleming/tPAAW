@@ -45,51 +45,58 @@ async function saveTicketsFile(tickets) {
 
 /** Create or update a HelpDesk ticket from an A2A task. */
 async function syncTicketFromTask(task) {
-  const tickets = await loadTickets();
-  const userMsg = task.history?.find(h => h.role === "user");
-  const userText = userMsg?.parts?.map(p => p.text).join("") || "(A2A request)";
-  const agentMsg = task.history?.filter(h => h.role === "agent" && h.parts?.[0]?.text !== "⏳ 處理中...").pop();
-  const agentText = agentMsg?.parts?.map(p => p.text).join("") || "";
-  const ticketTag = `a2a:${task.id}`;
+  try {
+    const tickets = await loadTickets();
+    const userMsg = task.history?.find(h => h.role === "user");
+    const userText = userMsg?.parts?.map(p => p.text).join("") || "(A2A request)";
+    const agentMsg = task.history?.filter(h => h.role === "agent" && h.parts?.[0]?.text !== "⏳ 處理中...").pop();
+    const agentText = agentMsg?.parts?.map(p => p.text).join("") || "";
+    const ticketTag = `a2a:${task.id}`;
 
-  // Find existing ticket by tag
-  let ticket = tickets.find(t => t.tags?.includes(ticketTag));
+    // Find existing ticket by tag
+    let ticket = tickets.find(t => t.tags?.includes(ticketTag));
 
-  if (!ticket) {
-    // Create new ticket
-    ticket = {
-      ticketId: `TKT-${Date.now()}`,
-      agentName: "Agent Orchestrator",
-      agentType: "a2a",
-      subject: userText.slice(0, 60),
-      status: "working",
-      priority: "medium",
-      messages: [
-        { id: `msg_${Date.now()}`, role: "user", text: userText, ts: Date.now() },
-      ],
-      tags: [ticketTag, "a2a"],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    tickets.push(ticket);
+    if (!ticket) {
+      // Create new ticket
+      ticket = {
+        ticketId: `TKT-${Date.now()}`,
+        agentName: "Agent Orchestrator",
+        agentType: "a2a",
+        subject: userText.slice(0, 60),
+        status: "working",
+        priority: "medium",
+        messages: [
+          { id: `msg_${Date.now()}`, role: "user", text: userText, ts: Date.now() },
+        ],
+        tags: [ticketTag, "a2a"],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      tickets.push(ticket);
+      console.log(`[A2A→Ticket] Created ticket ${ticket.ticketId} for task ${task.id}`);
+    }
+
+    // Update with agent response if we have one
+    if (agentText && !ticket.messages.find(m => m.text === agentText)) {
+      ticket.messages.push({
+        id: `msg_${Date.now()}`, role: "agent", text: agentText, ts: Date.now(),
+      });
+    }
+
+    // Sync status
+    const state = task.status?.state;
+    if (state === "completed") ticket.status = "answered";
+    else if (state === "input-required") ticket.status = "input-required";
+    else ticket.status = "working";
+    ticket.updatedAt = new Date().toISOString();
+
+    await saveTicketsFile(tickets);
+    console.log(`[A2A→Ticket] Synced ticket ${ticket.ticketId} state=${state}`);
+    return ticket;
+  } catch (err) {
+    console.error(`[A2A→Ticket] ERROR: ${err.message}\n${err.stack}`);
+    return null;
   }
-
-  // Update with agent response if we have one
-  if (agentText && !ticket.messages.find(m => m.text === agentText)) {
-    ticket.messages.push({
-      id: `msg_${Date.now()}`, role: "agent", text: agentText, ts: Date.now(),
-    });
-  }
-
-  // Sync status
-  const state = task.status?.state;
-  if (state === "completed") ticket.status = "answered";
-  else if (state === "input-required") ticket.status = "input-required";
-  else ticket.status = "working";
-  ticket.updatedAt = new Date().toISOString();
-
-  await saveTicketsFile(tickets);
-  return ticket;
 }
 
 // ── Helpers ──
