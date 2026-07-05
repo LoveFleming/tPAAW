@@ -23,7 +23,7 @@ import KnowledgeTree from "./components/KnowledgeTree";
 import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
 import AISettingsPage from "./pages/AISettingsPage";
-import A2APlayground from "./pages/A2APlayground";
+
 import HelpDesk from "./pages/HelpDesk";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
@@ -168,7 +168,7 @@ function AppInner() {
 
   const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
   const visibleTabs = useMemo(() => {
-    return openTabs.filter(t => t === "_chat" || t === "_settings" || t === "_a2a" || t.startsWith(currentScope + ":") || t.startsWith("workspace:"));
+    return openTabs.filter(t => t === "_chat" || t === "_settings" || t.startsWith(currentScope + ":") || t.startsWith("workspace:"));
   }, [openTabs, currentScope]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -517,7 +517,6 @@ function AppInner() {
   const labelFor = useCallback((fullId: string): string => {
     if (fullId === "_chat") return "💬 交談";
     if (fullId === "_settings") return t("sidebar.settings");
-    if (fullId === "_a2a") return "🔗 A2A Playground";
     const { factoryId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return t("sidebar.aiCrew");
     if (pageType === "skills") return t("sidebar.skillPool");
@@ -613,10 +612,7 @@ function AppInner() {
       return <AISettingsPage />;
     }
 
-    // ── A2A Playground ──
-    if (fullId === "_a2a") {
-      return <A2APlayground />;
-    }
+    // ── A2A Playground (removed) ──
 
 
     const { scopeKey, factoryId } = parsed;
@@ -920,16 +916,6 @@ function AppInner() {
 
           {/* Settings */}
           <div className="px-3 py-2 border-t shrink-0 space-y-1" style={{ borderColor: themeInfo.accentBorder + "60" }}>
-            <button
-              onClick={() => {
-                if (!openTabs.includes("_a2a")) setOpenTabs(prev => [...prev, "_a2a"]);
-                setActivePage("_a2a");
-              }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
-            >
-              <span>🔗</span>
-              <span>A2A Playground</span>
-            </button>
             <button
               onClick={() => {
                 if (!openTabs.includes("_settings")) setOpenTabs(prev => [...prev, "_settings"]);
