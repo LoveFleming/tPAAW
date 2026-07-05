@@ -271,10 +271,29 @@ export class PaawProject {
     const sessDir = join(this.paawDir, "sessions");
     await mkdir(sessDir, { recursive: true });
 
+    // ── Capture git diff stats ──
+    let gitDiff = null;
+    try {
+      const status = await runShell("git status --porcelain", this.root, 5000);
+      const diffStat = await runShell("git diff --stat", this.root, 5000);
+      const diffCached = await runShell("git diff --cached --stat", this.root, 5000);
+      if (status.trim() || diffStat.trim() || diffCached.trim()) {
+        gitDiff = { status: status.trim(), diffStat: (diffStat + diffCached).trim() };
+      }
+    } catch {}
+
+    // ── Capture branch ──
+    let gitBranch = "";
+    try {
+      gitBranch = (await runShell("git rev-parse --abbrev-ref HEAD", this.root, 3000)).trim();
+    } catch {}
+
+    const enrichedData = { ...sessionData, gitDiff, gitBranch };
+
     const dateStr = today();
     const slug = slugify(sessionData.task || sessionData.prompt || "task");
     const filename = `${dateStr}-${slug}.md`;
-    const content = this._renderSessionMd(sessionData, dateStr);
+    const content = this._renderSessionMd(enrichedData, dateStr);
 
     await writeFile(join(sessDir, filename), content, "utf-8");
     return { filename, path: join(sessDir, filename) };
@@ -287,6 +306,7 @@ export class PaawProject {
     lines.push(`**日期**: ${dateStr}`);
     lines.push(`**耗時**: ${data.durationMs ? Math.round(data.durationMs / 1000) : "?"}s`);
     lines.push(`**結果**: ${data.success ? "✅ 成功" : "❌ 失敗"}`);
+    if (data.gitBranch) lines.push(`**分支**: \`${data.gitBranch}\``);
     lines.push("");
 
     // Task
@@ -330,6 +350,26 @@ export class PaawProject {
       }
 
       lines.push("");
+    }
+
+    // Git diff analysis
+    if (data.gitDiff) {
+      lines.push("## Git 變更分析");
+      lines.push("");
+      if (data.gitDiff.status) {
+        lines.push("### Status");
+        lines.push("```");
+        lines.push(data.gitDiff.status);
+        lines.push("```");
+        lines.push("");
+      }
+      if (data.gitDiff.diffStat) {
+        lines.push("### Diff Stat");
+        lines.push("```");
+        lines.push(data.gitDiff.diffStat);
+        lines.push("```");
+        lines.push("");
+      }
     }
 
     // AI response
@@ -377,6 +417,89 @@ export class PaawProject {
 
     await writeFile(cl, lines.join("\n"), "utf-8");
     return { ok: true };
+  }
+
+  // ── Auto-generate Changelog from Session ──
+
+  async generateChangelogFromSession(sessionData) {
+    if (!sessionData.toolCalls || sessionData.toolCalls.length === 0) return null;
+
+    // Extract changed files from tool calls
+    const changedFiles = new Map(); // path -> { ops: Set, additions: 0, deletions: 0 }
+    for (const tc of sessionData.toolCalls) {
+      if (tc.name !== "write_file" && tc.name !== "edit_file") continue;
+      try {
+        const args = JSON.parse(tc.args);
+        if (!args.path) continue;
+        const rel = args.path.replace(this.root + "/", "");
+        if (!changedFiles.has(rel)) {
+          changedFiles.set(rel, { ops: new Set(), isNew: false });
+        }
+        const entry = changedFiles.get(rel);
+        entry.ops.add(tc.name);
+        if (tc.name === "write_file" && sessionData.toolCalls.filter(t => t.name === "write_file").indexOf(tc) === 0) {
+          entry.isNew = true; // rough heuristic
+        }
+      } catch {}
+    }
+
+    // Try to get actual git diff for accuracy
+    let gitAdded = 0, gitDeleted = 0;
+    let fileStats = [];
+    try {
+      const diffStat = await runShell("git diff --stat --numstat", this.root, 5000);
+      for (const line of diffStat.trim().split("\n").filter(Boolean)) {
+        const parts = line.split("\t");
+        if (parts.length >= 3) {
+          const added = parseInt(parts[0]) || 0;
+          const deleted = parseInt(parts[1]) || 0;
+          const file = parts[2];
+          gitAdded += added;
+          gitDeleted += deleted;
+          fileStats.push({ file, added, deleted });
+        }
+      }
+    } catch {}
+
+    // Build changelog entries
+    const entries = [];
+    const newFiles = [];
+    const modifiedFiles = [];
+
+    for (const [file, info] of changedFiles) {
+      if (info.isNew) newFiles.push(file);
+      else modifiedFiles.push(file);
+    }
+
+    // Categorize changes
+    const task = sessionData.task || sessionData.prompt || "code changes";
+    const taskLower = task.toLowerCase();
+
+    let category = "changed";
+    if (/fix|bug|修復|修正/.test(taskLower)) category = "fixed";
+    else if (/add|new|新增|create/.test(taskLower)) category = "added";
+    else if (/refactor|重構/.test(taskLower)) category = "changed";
+    else if (/remove|delete|移除/.test(taskLower)) category = "removed";
+
+    // Build description
+    let desc = task.slice(0, 80);
+    if (newFiles.length > 0) desc += ` (${newFiles.length} new file${newFiles.length > 1 ? "s" : ""})`;
+    if (modifiedFiles.length > 0) desc += ` (${modifiedFiles.length} modified)`;
+
+    entries.push({ type: category, description: desc });
+
+    // Add file-level details
+    if (fileStats.length > 0) {
+      const totalLine = `+${gitAdded} −${gitDeleted} lines across ${fileStats.length} file${fileStats.length > 1 ? "s" : ""}`;
+      entries.push({ type: "changed", description: totalLine });
+    }
+
+    // Write to changelog
+    for (const entry of entries) {
+      await this.appendChangelog(entry);
+    }
+
+    return { entries, changedFiles: [...changedFiles.keys()], gitAdded, gitDeleted };
   }
 
   // ── Decision Records ──

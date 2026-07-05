@@ -35,6 +35,7 @@ import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
 import BrowserPreview from "../components/BrowserPreview";
 import BrowserDevTools, { type ConsoleEntry } from "../components/BrowserDevTools";
+import DecisionLog from "../components/DecisionLog";
 import ModelSelector from "../components/ModelSelector";
 
 // ── Types ──
@@ -222,7 +223,7 @@ export default function CodingIDE() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // ── Right Panel Tab State ──
-  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions">("chat");
+  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions">("chat");
 
   // ── Browser Preview State ──
   const [showBrowser, setShowBrowser] = useState(false);
@@ -1481,6 +1482,11 @@ const sendChat = useCallback(async () => {
                     rightTab === "sessions" ? "bg-green-100 text-green-700" : "text-stone-400 hover:bg-stone-50")}>
                   📜 Sessions
                 </button>
+                <button onClick={() => setRightTab("decisions")}
+                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
+                    rightTab === "decisions" ? "bg-amber-100 text-amber-700" : "text-stone-400 hover:bg-stone-50")}>
+                  🧠 ADR
+                </button>
                 <span className="flex-1" />
                 {rightTab === "chat" && (
                   <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs px-1">✕</button>
@@ -1576,6 +1582,13 @@ const sendChat = useCallback(async () => {
               {rightTab === "sessions" && (
                 <div className="flex-1 min-h-0">
                   <SessionHistory projectRoot={rootPath || ""} />
+                </div>
+              )}
+
+              {/* ── Decisions Tab Content ── */}
+              {rightTab === "decisions" && (
+                <div className="flex-1 min-h-0">
+                  <DecisionLog projectRoot={rootPath || ""} />
                 </div>
               )}
             </div>

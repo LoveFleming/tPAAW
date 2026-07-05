@@ -269,6 +269,54 @@ const PAAW_TOOLS = [
       },
     },
   },
+    {
+      type: "function",
+      function: {
+        name: "record_decision",
+        description: "Record an architectural or technical decision (ADR) to .paaw/DECISIONS.md. Use when you make a non-trivial design choice, pick a library, or decide on a pattern.",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Short title for the decision" },
+            context: { type: "string", description: "Why this decision is being considered" },
+            decision: { type: "string", description: "What was decided" },
+            consequences: { type: "string", description: "Impact and trade-offs" },
+          },
+          required: ["title", "decision"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "update_changelog",
+        description: "Add an entry to .paaw/CHANGELOG.md after making code changes. Call this after writing/editing files.",
+        parameters: {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: ["added", "changed", "fixed", "removed", "deprecated"], description: "Category of change" },
+            description: { type: "string", description: "What changed (one line summary)" },
+          },
+          required: ["type", "description"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "update_docs",
+        description: "Update or create documentation in .paaw/ (PROJECT.md, ARCHITECTURE.md, etc.). Use after significant architectural changes.",
+        parameters: {
+          type: "object",
+          properties: {
+            file: { type: "string", description: "Filename to update (e.g. PROJECT.md, ARCHITECTURE.md)" },
+            content: { type: "string", description: "Full file content to write" },
+            append: { type: "boolean", description: "If true, append to existing content instead of replacing" },
+          },
+          required: ["file", "content"],
+        },
+      },
+    },
 ];
 
 // ── Shell Execution Helper ──
@@ -603,6 +651,49 @@ async function executeTool(call, cwd, rootDir, onEvent) {
         }
       }
 
+      case "record_decision": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) {
+          return "⚠️ .paaw/ not initialized. Decision not recorded. (This is OK — the decision is still captured in the session log.)";
+        }
+        const result = await paaw.addDecision({
+          title: args.title,
+          context: args.context,
+          decision: args.decision,
+          consequences: args.consequences,
+        });
+        if (onEvent) onEvent({ type: "tool_end", name, result: `ADR-${result.adrNum}` });
+        return `✅ Decision recorded as ADR-${result.adrNum} in .paaw/DECISIONS.md\nTitle: ${args.title}`;
+      }
+
+      case "update_changelog": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) {
+          return "⚠️ .paaw/ not initialized. Changelog not updated.";
+        }
+        await paaw.appendChangelog({
+          type: args.type,
+          description: args.description,
+        });
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${args.type}: ${args.description.slice(0, 50)}` });
+        return `✅ Changelog updated: [${args.type}] ${args.description}`;
+      }
+
+      case "update_docs": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) await paaw.init();
+        const docFile = args.file?.replace(/\.\.\//g, "").replace(/^\//, ""); // sanitize
+        if (!docFile) return "Error: file is required";
+        if (args.append) {
+          const existing = await paaw.readFile(docFile) || "";
+          await paaw.writeFile(docFile, existing + "\n" + args.content);
+        } else {
+          await paaw.writeFile(docFile, args.content);
+        }
+        if (onEvent) onEvent({ type: "tool_end", name, result: docFile });
+        return `✅ Documentation updated: .paaw/${docFile}`;
+      }
+
       default:
         return `Error: unknown tool '${name}'`;
     }
@@ -855,6 +946,13 @@ export async function runAgentLoop(config) {
         toolCalls: toolCallLog,
         durationMs,
       });
+      // Auto-generate changelog if there were file changes
+      if (toolCallLog.some(tc => tc.name === "write_file" || tc.name === "edit_file")) {
+        await paaw.generateChangelogFromSession({
+          task: prompt.slice(0, 200),
+          toolCalls: toolCallLog,
+        });
+      }
     } catch (e) {
       console.error("[paaw-project] Failed to record session:", e.message);
     }
