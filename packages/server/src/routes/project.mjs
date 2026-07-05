@@ -2,20 +2,20 @@
  * Project Route — .paaw/ project knowledge API
  *
  * Endpoints:
- *   GET    /api/project/context?path=...        — Get full .paaw/ context
- *   POST   /api/project/init?path=...           — Initialize .paaw/ directory
- *   GET    /api/project/tree?path=...           — Get .paaw/ directory tree
- *   GET    /api/project/sessions?path=...       — List sessions
- *   GET    /api/project/sessions/:filename?path=... — Read specific session
- *   GET    /api/project/standards?path=...      — List standards
- *   GET    /api/project/standards/:name?path=...— Read standard
- *   PUT    /api/project/standards/:name?path=...— Write standard
- *   GET    /api/project/decisions?path=...      — Read decisions
- *   POST   /api/project/decisions?path=...      — Add decision
- *   GET    /api/project/changelog?path=...      — Read changelog
- *   GET    /api/project/file?path=...&file=...  — Read any .paaw/ file
- *   PUT    /api/project/file?path=...&file=...  — Write any .paaw/ file
- *   POST   /api/project/generate-overview?path=... — Auto-generate PROJECT.md
+ *   GET    /api/coding-project/context?path=...        — Get full .paaw/ context
+ *   POST   /api/coding-project/init?path=...           — Initialize .paaw/ directory
+ *   GET    /api/coding-project/tree?path=...           — Get .paaw/ directory tree
+ *   GET    /api/coding-project/sessions?path=...       — List sessions
+ *   GET    /api/coding-project/sessions/:filename?path=... — Read specific session
+ *   GET    /api/coding-project/standards?path=...      — List standards
+ *   GET    /api/coding-project/standards/:name?path=...— Read standard
+ *   PUT    /api/coding-project/standards/:name?path=...— Write standard
+ *   GET    /api/coding-project/decisions?path=...      — Read decisions
+ *   POST   /api/coding-project/decisions?path=...      — Add decision
+ *   GET    /api/coding-project/changelog?path=...      — Read changelog
+ *   GET    /api/coding-project/file?path=...&file=...  — Read any .paaw/ file
+ *   PUT    /api/coding-project/file?path=...&file=...  — Write any .paaw/ file
+ *   POST   /api/coding-project/generate-overview?path=... — Auto-generate PROJECT.md
  */
 
 import { readFile, writeFile, readdir } from "fs/promises";
@@ -40,8 +40,8 @@ export default async function projectRoute(req, res) {
   const url = req.url || "";
   const q = parseQuery(url);
 
-  // All routes start with /api/project
-  if (!url.startsWith("/api/project")) return false;
+  // All routes start with /api/coding-project
+  if (!url.startsWith("/api/coding-project")) return false;
 
   const projectPath = q.path;
   if (!projectPath) {
@@ -54,8 +54,8 @@ export default async function projectRoute(req, res) {
   const paaw = createPaawProject(root);
 
   try {
-    // ── GET /api/project/context ──
-    if (url.startsWith("/api/project/context") && method === "GET") {
+    // ── GET /api/coding-project/context ──
+    if (url.startsWith("/api/coding-project/context") && method === "GET") {
       const ctx = await paaw.loadContext();
       if (!ctx) {
         res.writeHead(404, { "Content-Type": "application/json" });
@@ -67,16 +67,16 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── POST /api/project/init ──
-    if (url.startsWith("/api/project/init") && method === "POST") {
+    // ── POST /api/coding-project/init ──
+    if (url.startsWith("/api/coding-project/init") && method === "POST") {
       const result = await paaw.init();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
       return true;
     }
 
-    // ── GET /api/project/tree ──
-    if (url.startsWith("/api/project/tree") && method === "GET") {
+    // ── GET /api/coding-project/tree ──
+    if (url.startsWith("/api/coding-project/tree") && method === "GET") {
       const tree = await paaw.listTree();
       if (!tree) {
         res.writeHead(404, { "Content-Type": "application/json" });
@@ -88,7 +88,7 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/project/sessions/:filename ──
+    // ── GET /api/coding-project/sessions/:filename ──
     const sessionMatch = url.match(/^\/api\/project\/sessions\/([^?]+)/);
     if (sessionMatch && method === "GET") {
       const content = await paaw.readSession(decodeURIComponent(sessionMatch[1]));
@@ -102,23 +102,23 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/project/sessions ──
-    if (url.startsWith("/api/project/sessions") && method === "GET") {
+    // ── GET /api/coding-project/sessions ──
+    if (url.startsWith("/api/coding-project/sessions") && method === "GET") {
       const sessions = await paaw.listSessions();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(sessions));
       return true;
     }
 
-    // ── GET /api/project/standards ──
-    if (url.startsWith("/api/project/standards") && !url.match(/\/api\/project\/standards\/[^?]+/) && method === "GET") {
+    // ── GET /api/coding-project/standards ──
+    if (url.startsWith("/api/coding-project/standards") && !url.match(/\/api\/project\/standards\/[^?]+/) && method === "GET") {
       const standards = await paaw.listStandards();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(standards));
       return true;
     }
 
-    // ── GET/PUT /api/project/standards/:name ──
+    // ── GET/PUT /api/coding-project/standards/:name ──
     const stdMatch = url.match(/^\/api\/project\/standards\/([^?]+)/);
     if (stdMatch) {
       const name = decodeURIComponent(stdMatch[1]);
@@ -142,16 +142,16 @@ export default async function projectRoute(req, res) {
       }
     }
 
-    // ── GET /api/project/decisions ──
-    if (url.startsWith("/api/project/decisions") && method === "GET") {
+    // ── GET /api/coding-project/decisions ──
+    if (url.startsWith("/api/coding-project/decisions") && method === "GET") {
       const content = await paaw.readFile("DECISIONS.md");
       res.writeHead(200, { "Content-Type": "text/markdown" });
       res.end(content || "");
       return true;
     }
 
-    // ── POST /api/project/decisions ──
-    if (url.startsWith("/api/project/decisions") && method === "POST") {
+    // ── POST /api/coding-project/decisions ──
+    if (url.startsWith("/api/coding-project/decisions") && method === "POST") {
       const body = JSON.parse(await readBody(req));
       const result = await paaw.addDecision(body);
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -159,16 +159,16 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/project/changelog ──
-    if (url.startsWith("/api/project/changelog") && method === "GET") {
+    // ── GET /api/coding-project/changelog ──
+    if (url.startsWith("/api/coding-project/changelog") && method === "GET") {
       const content = await paaw.readFile("CHANGELOG.md");
       res.writeHead(200, { "Content-Type": "text/markdown" });
       res.end(content || "");
       return true;
     }
 
-    // ── GET /api/project/file ──
-    if (url.startsWith("/api/project/file") && method === "GET" && q.file) {
+    // ── GET /api/coding-project/file ──
+    if (url.startsWith("/api/coding-project/file") && method === "GET" && q.file) {
       const content = await paaw.readFile(q.file);
       if (content === null) {
         res.writeHead(404, { "Content-Type": "application/json" });
@@ -180,8 +180,8 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── PUT /api/project/file ──
-    if (url.startsWith("/api/project/file") && method === "PUT" && q.file) {
+    // ── PUT /api/coding-project/file ──
+    if (url.startsWith("/api/coding-project/file") && method === "PUT" && q.file) {
       const body = await readBody(req);
       const result = await paaw.writeFile(q.file, body);
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -189,8 +189,8 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── POST /api/project/generate-overview ──
-    if (url.startsWith("/api/project/generate-overview") && method === "POST") {
+    // ── POST /api/coding-project/generate-overview ──
+    if (url.startsWith("/api/coding-project/generate-overview") && method === "POST") {
       // Ensure .paaw/ exists first
       if (!paaw.exists) await paaw.init();
       const content = await paaw.generateProjectOverview();
@@ -199,8 +199,8 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/project/templates ──
-    if (url.startsWith("/api/project/templates") && method === "GET") {
+    // ── GET /api/coding-project/templates ──
+    if (url.startsWith("/api/coding-project/templates") && method === "GET") {
       const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
       const templates = [];
       try {
@@ -218,7 +218,7 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/project/templates/:name ──
+    // ── GET /api/coding-project/templates/:name ──
     const tplMatch = url.match(/^\/api\/project\/templates\/([^?]+)/);
     if (tplMatch && method === "GET") {
       const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
@@ -235,8 +235,8 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── POST /api/project/import-template ──
-    if (url.startsWith("/api/project/import-template") && method === "POST") {
+    // ── POST /api/coding-project/import-template ──
+    if (url.startsWith("/api/coding-project/import-template") && method === "POST") {
       const body = JSON.parse(await readBody(req));
       const templateName = body.template; // e.g. "typescript.md"
       const targetName = body.target || templateName; // save as
@@ -260,9 +260,9 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── POST /api/project/generate-standards ──
+    // ── POST /api/coding-project/generate-standards ──
     // Uses LLM to analyze codebase and generate coding standards
-    if (url.startsWith("/api/project/generate-standards") && method === "POST") {
+    if (url.startsWith("/api/coding-project/generate-standards") && method === "POST") {
       if (!paaw.exists) await paaw.init();
       const generated = await generateStandardsFromCodebase(root);
       if (generated) {
@@ -273,9 +273,9 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/project/all ──
+    // ── GET /api/coding-project/all ──
     // Returns everything needed for the right-panel tabs in one call
-    if (url.startsWith("/api/project/all") && method === "GET") {
+    if (url.startsWith("/api/coding-project/all") && method === "GET") {
       if (!paaw.exists) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ initialized: false }));

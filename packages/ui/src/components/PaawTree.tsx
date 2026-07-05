@@ -121,7 +121,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
     if (!projectRoot) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/project/tree?path=${encodeURIComponent(projectRoot)}`);
+      const res = await fetch(`${API_BASE}/api/coding-project/tree?path=${encodeURIComponent(projectRoot)}`);
       if (res.ok) {
         const data = await res.json();
         setTree(data);
@@ -170,7 +170,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
   const handleInit = async () => {
     if (!projectRoot) return;
     try {
-      await fetch(`${API_BASE}/api/project/init?path=${encodeURIComponent(projectRoot)}`, { method: "POST" });
+      await fetch(`${API_BASE}/api/coding-project/init?path=${encodeURIComponent(projectRoot)}`, { method: "POST" });
       await loadTree();
     } catch (err) {
       console.error("[PaawTree] init failed:", err);
@@ -180,7 +180,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
   const handleGenerate = async () => {
     if (!projectRoot) return;
     try {
-      await fetch(`${API_BASE}/api/project/generate-overview?path=${encodeURIComponent(projectRoot)}`, { method: "POST" });
+      await fetch(`${API_BASE}/api/coding-project/generate-overview?path=${encodeURIComponent(projectRoot)}`, { method: "POST" });
       await loadTree();
     } catch (err) {
       console.error("[PaawTree] generate failed:", err);

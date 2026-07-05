@@ -51,7 +51,7 @@ export default function StandardsEditor({ projectRoot, refreshKey = 0 }: Standar
     if (!projectRoot) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/project/standards?path=${encodeURIComponent(projectRoot)}`);
+      const res = await fetch(`${API_BASE}/api/coding-project/standards?path=${encodeURIComponent(projectRoot)}`);
       if (res.ok) {
         const data = await res.json();
         setFiles(data);
@@ -67,7 +67,7 @@ export default function StandardsEditor({ projectRoot, refreshKey = 0 }: Standar
     setSelected(name);
     setDirty(false);
     try {
-      const res = await fetch(`${API_BASE}/api/project/standards/${encodeURIComponent(name)}?path=${encodeURIComponent(projectRoot)}`);
+      const res = await fetch(`${API_BASE}/api/coding-project/standards/${encodeURIComponent(name)}?path=${encodeURIComponent(projectRoot)}`);
       if (res.ok) {
         const text = await res.text();
         setContent(text);
@@ -81,7 +81,7 @@ export default function StandardsEditor({ projectRoot, refreshKey = 0 }: Standar
     if (!selected) return;
     setSaving(true);
     try {
-      await fetch(`${API_BASE}/api/project/standards/${encodeURIComponent(selected)}?path=${encodeURIComponent(projectRoot)}`, {
+      await fetch(`${API_BASE}/api/coding-project/standards/${encodeURIComponent(selected)}?path=${encodeURIComponent(projectRoot)}`, {
         method: "PUT",
         body: content,
       });
@@ -95,7 +95,7 @@ export default function StandardsEditor({ projectRoot, refreshKey = 0 }: Standar
   // ── Load templates ──
   const loadTemplates = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/project/templates`);
+      const res = await fetch(`${API_BASE}/api/coding-project/templates`);
       if (res.ok) {
         setTemplates(await res.json());
       }
@@ -105,7 +105,7 @@ export default function StandardsEditor({ projectRoot, refreshKey = 0 }: Standar
   // ── Import template ──
   const handleImport = async (templateName: string) => {
     try {
-      await fetch(`${API_BASE}/api/project/import-template?path=${encodeURIComponent(projectRoot)}`, {
+      await fetch(`${API_BASE}/api/coding-project/import-template?path=${encodeURIComponent(projectRoot)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ template: templateName }),
@@ -119,7 +119,7 @@ export default function StandardsEditor({ projectRoot, refreshKey = 0 }: Standar
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const res = await fetch(`${API_BASE}/api/project/generate-standards?path=${encodeURIComponent(projectRoot)}`, {
+      const res = await fetch(`${API_BASE}/api/coding-project/generate-standards?path=${encodeURIComponent(projectRoot)}`, {
         method: "POST",
       });
       if (res.ok) {
@@ -141,7 +141,7 @@ export default function StandardsEditor({ projectRoot, refreshKey = 0 }: Standar
     if (!name) return;
     if (!name.endsWith(".md")) name += ".md";
     try {
-      await fetch(`${API_BASE}/api/project/standards/${encodeURIComponent(name)}?path=${encodeURIComponent(projectRoot)}`, {
+      await fetch(`${API_BASE}/api/coding-project/standards/${encodeURIComponent(name)}?path=${encodeURIComponent(projectRoot)}`, {
         method: "PUT",
         body: `# ${name.replace(".md", "").replace(/[-_]/g, " ")}\n\n> Describe your coding standards here.\n`,
       });

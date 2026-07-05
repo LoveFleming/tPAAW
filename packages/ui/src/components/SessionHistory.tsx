@@ -54,7 +54,7 @@ export default function SessionHistory({ projectRoot, refreshKey = 0 }: SessionH
     if (!projectRoot) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/project/sessions?path=${encodeURIComponent(projectRoot)}`);
+      const res = await fetch(`${API_BASE}/api/coding-project/sessions?path=${encodeURIComponent(projectRoot)}`);
       if (res.ok) {
         const data = await res.json();
         setSessions(data);
@@ -68,7 +68,7 @@ export default function SessionHistory({ projectRoot, refreshKey = 0 }: SessionH
   const openSession = useCallback(async (filename: string) => {
     setSelected(filename);
     try {
-      const res = await fetch(`${API_BASE}/api/project/sessions/${encodeURIComponent(filename)}?path=${encodeURIComponent(projectRoot)}`);
+      const res = await fetch(`${API_BASE}/api/coding-project/sessions/${encodeURIComponent(filename)}?path=${encodeURIComponent(projectRoot)}`);
       if (res.ok) {
         setContent(await res.text());
       }
