@@ -138,7 +138,7 @@ export function NavItem({
             onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = ""; e.currentTarget.style.color = "#78716c"; } }}
         >
             <div className="flex items-center gap-2.5 min-w-0">
-                {emoji && <span className="text-[15px] shrink-0" style={{ width: 16, textAlign: "center" }}>{emoji}</span>}
+                <span className="text-[15px] shrink-0" style={{ width: 16, textAlign: "center" }}>{emoji || ""}</span>
                 <span className="truncate">{label}</span>
             </div>
             {right}
