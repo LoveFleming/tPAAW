@@ -21,6 +21,7 @@
 import { readFile, writeFile, readdir } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
+import { exec as execCb } from "child_process";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 
@@ -300,6 +301,135 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── GET /api/coding-project/health ──
+    if (url.startsWith("/api/coding-project/health") && method === "GET") {
+      const health = await collectProjectHealth(root, paaw);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(health));
+      return true;
+    }
+
+    // ── Snapshot endpoints ──
+
+    // POST /api/coding-project/snapshot — create manual snapshot
+    if (url.startsWith("/api/coding-project/snapshot") && method === "POST" && !url.includes("/restore")) {
+      const { PaawSnapshot } = await import("../lib/paaw-snapshot.mjs");
+      const snap = new PaawSnapshot(root, paaw.paawDir);
+      if (!paaw.exists) await paaw.init();
+      const body = JSON.parse(await readBody(req) || "{}");
+      const result = await snap.create(body.label || "manual");
+      await snap.cleanup(50);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    }
+
+    // GET /api/coding-project/snapshots — list snapshots
+    if (url.startsWith("/api/coding-project/snapshots") && method === "GET") {
+      const { PaawSnapshot } = await import("../lib/paaw-snapshot.mjs");
+      const snap = new PaawSnapshot(root, paaw.paawDir);
+      const list = await snap.list();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(list));
+      return true;
+    }
+
+    // POST /api/coding-project/snapshot/restore — restore file from snapshot
+    if (url.startsWith("/api/coding-project/snapshot/restore") && method === "POST") {
+      const { PaawSnapshot } = await import("../lib/paaw-snapshot.mjs");
+      const snap = new PaawSnapshot(root, paaw.paawDir);
+      const body = JSON.parse(await readBody(req));
+      const result = await snap.restoreFile(body.snapshot, body.file);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    }
+
+    // ── Git tracking strategy ──
+
+    // GET /api/coding-project/git-strategy — get .paaw gitignore status
+    if (url.startsWith("/api/coding-project/git-strategy") && method === "GET") {
+      const gitignorePath = join(root, ".gitignore");
+      let paawTracked = true;
+      let gitignoreContent = "";
+      if (existsSync(gitignorePath)) {
+        gitignoreContent = readSync(gitignorePath, "utf-8");
+        paawTracked = !gitignoreContent.includes(".paaw/");
+      }
+      // Check if .paaw/ is already committed
+      let committed = false;
+      try {
+        const check = await runShellCmd(`git ls-files .paaw/`, root, 5000);
+        committed = check.trim().length > 0;
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ paawTracked, committed, gitignoreHasPaaw: !paawTracked }));
+      return true;
+    }
+
+    // PUT /api/coding-project/git-strategy — set strategy
+    if (url.startsWith("/api/coding-project/git-strategy") && method === "PUT") {
+      const body = JSON.parse(await readBody(req));
+      const strategy = body.strategy; // "track" | "ignore" | "branch"
+      const gitignorePath = join(root, ".gitignore");
+      let gitignoreContent = existsSync(gitignorePath) ? readSync(gitignorePath, "utf-8") : "";
+
+      if (strategy === "ignore") {
+        if (!gitignoreContent.includes(".paaw/")) {
+          gitignoreContent = gitignoreContent.trimEnd() + "\n# PAAW AI-Native IDE\n.paaw/\n";
+          await writeFile(gitignorePath, gitignoreContent, "utf-8");
+        }
+      } else if (strategy === "track") {
+        // Remove .paaw/ from gitignore if present
+        gitignoreContent = gitignoreContent
+          .replace(/^\.paaw\/$/gm, "")
+          .replace(/^# PAAW AI-Native IDE$/gm, "")
+          .replace(/\n{3,}/g, "\n\n");
+        await writeFile(gitignorePath, gitignoreContent, "utf-8");
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, strategy }));
+      return true;
+    }
+
+    // ── Recent projects (multi-project) ──
+
+    // GET /api/coding-project/recent — list recently opened projects
+    if (url.startsWith("/api/coding-project/recent") && method === "GET") {
+      const recentPath = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "config", "recent-projects.json");
+      let recent = [];
+      try {
+        if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(recent));
+      return true;
+    }
+
+    // POST /api/coding-project/recent — add/update recent project
+    if (url.startsWith("/api/coding-project/recent") && method === "POST") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      const recentPath = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "config", "recent-projects.json");
+      let recent = [];
+      try {
+        if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
+      } catch {}
+
+      // Add or update
+      const path = body.path || root;
+      const name = body.name || path.split("/").pop();
+      recent = recent.filter(r => r.path !== path);
+      recent.unshift({ path, name, lastOpened: new Date().toISOString(), hasPaaw: existsSync(join(path, ".paaw")) });
+      recent = recent.slice(0, 20); // keep last 20
+
+      await mkdir(dirname(recentPath), { recursive: true });
+      await writeFile(recentPath, JSON.stringify(recent, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(recent));
+      return true;
+    }
+
   } catch (err) {
     console.error("[project route] error:", err.message);
     res.writeHead(500, { "Content-Type": "application/json" });
@@ -391,4 +521,137 @@ Output ONLY the markdown document, starting with # Coding Standards (Auto-Genera
     console.error("[project route] generate-standards error:", err.message);
     return null;
   }
+}
+
+// ── Shell helper ──
+
+function runShellCmd(command, cwd, timeoutMs = 10_000) {
+  return new Promise((resolve) => {
+    execCb(command, { cwd, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024, shell: true,
+      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" }
+    }, (err, stdout, stderr) => {
+      resolve((stdout || "") + (stderr ? "\n" + stderr : ""));
+    });
+  });
+}
+
+// ── Collect Project Health ──
+
+async function collectProjectHealth(root, paaw) {
+  const health = {
+    paawCompleteness: { initialized: paaw.exists, files: [], score: 0 },
+    git: { branch: "", uncommitted: 0 },
+    codeStats: { totalFiles: 0, totalLines: 0, languages: [] },
+    sessions: { total: 0, recent: 0, successRate: 0 },
+    dependencies: undefined,
+  };
+
+  // ── .paaw/ completeness ──
+  const expectedFiles = ["PROJECT.md", "ARCHITECTURE.md", "DECISIONS.md", "CHANGELOG.md", "CODING-STANDARDS.md"];
+  let existCount = 0;
+  for (const f of expectedFiles) {
+    const content = await paaw.readFile(f);
+    const exists = content !== null;
+    if (exists) existCount++;
+    health.paawCompleteness.files.push({ name: f, exists, size: exists ? content.length : undefined });
+  }
+  // Check subdirs
+  for (const d of ["sessions", "standards"]) {
+    const dirPath = join(paaw.paawDir, d);
+    const exists = existsSync(dirPath);
+    if (exists) existCount++;
+    health.paawCompleteness.files.push({ name: d + "/", exists });
+  }
+  health.paawCompleteness.score = Math.round((existCount / (expectedFiles.length + 2)) * 100);
+
+  // ── Git health ──
+  try {
+    const branch = (await runShellCmd("git rev-parse --abbrev-ref HEAD", root, 3000)).trim();
+    const status = await runShellCmd("git status --porcelain", root, 5000);
+    const uncommitted = status.trim().split("\n").filter(Boolean).length;
+    const logLine = (await runShellCmd("git log -1 --oneline --format=%h___%s___%cr", root, 3000)).trim();
+    const remote = (await runShellCmd("git remote get-url origin", root, 3000)).trim();
+
+    const [hash, ...rest] = logLine.split("___");
+    const subject = rest[0] || "";
+    const when = rest[1] || "";
+
+    health.git = {
+      branch,
+      uncommitted,
+      lastCommit: subject ? `${hash} ${subject}` : undefined,
+      lastCommitDate: when || undefined,
+      remote: remote || undefined,
+    };
+  } catch {}
+
+  // ── Code stats ──
+  try {
+    const gitFiles = (await runShellCmd("git ls-files", root, 5000)).trim().split("\n").filter(Boolean);
+    health.codeStats.totalFiles = gitFiles.length;
+
+    // Count lines and languages
+    const langCount = {};
+    let totalLines = 0;
+    const extMap = { ".js": "JavaScript", ".mjs": "JavaScript", ".ts": "TypeScript", ".tsx": "TypeScript", ".jsx": "JavaScript", ".css": "CSS", ".html": "HTML", ".json": "JSON", ".md": "Markdown", ".py": "Python", ".go": "Go", ".rs": "Rust", ".java": "Java", ".c": "C", ".cpp": "C++" };
+
+    // Sample up to 500 files for performance
+    const sample = gitFiles.slice(0, 500);
+    for (const f of sample) {
+      const ext = "." + (f.split(".").pop() || "");
+      const lang = extMap[ext];
+      if (lang) {
+        langCount[lang] = (langCount[lang] || 0) + 1;
+        try {
+          const content = readSync(join(root, f), "utf-8");
+          totalLines += content.split("\n").length;
+        } catch {}
+      } else if (!ext.includes("/")) {
+        langCount[ext] = (langCount[ext] || 0) + 1;
+      }
+    }
+
+    health.codeStats.totalLines = totalLines;
+
+    // Language percentages
+    const totalLangFiles = Object.values(langCount).reduce((a, b) => a + b, 0);
+    health.codeStats.languages = Object.entries(langCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([lang, count]) => ({ lang, files: count, percent: Math.round((count / totalLangFiles) * 100) }));
+  } catch {}
+
+  // ── AI Sessions ──
+  try {
+    const sessions = await paaw.listSessions();
+    health.sessions.total = sessions.length;
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    health.sessions.recent = sessions.filter(s => new Date(s.modified).getTime() > sevenDaysAgo).length;
+
+    // Calculate success rate from session content
+    let successCount = 0;
+    let checked = 0;
+    for (const s of sessions.slice(0, 20)) {
+      try {
+        const content = await paaw.readSession(s.filename);
+        if (content) {
+          checked++;
+          if (content.includes("✅ 成功")) successCount++;
+        }
+      } catch {}
+    }
+    health.sessions.successRate = checked > 0 ? Math.round((successCount / checked) * 100) : 0;
+  } catch {}
+
+  // ── Dependencies ──
+  try {
+    const pkgPath = join(root, "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readSync(pkgPath, "utf-8"));
+      const total = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).length;
+      health.dependencies = { total };
+    }
+  } catch {}
+
+  return health;
 }

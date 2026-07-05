@@ -28,6 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
+import { PaawSnapshot } from "./paaw-snapshot.mjs";
 
 // ── Types ──
 
@@ -419,6 +420,14 @@ async function executeTool(call, cwd, rootDir, onEvent) {
       case "write_file": {
         const filePath = resolvePath(args.path);
         if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
+        // Auto-snapshot before first modification
+        if (!snapshotTaken && paaw?.exists) {
+          try {
+            const snap = new PaawSnapshot(cwd, paaw.paawDir);
+            await snap.createPreEdit(filePath);
+            snapshotTaken = true;
+          } catch {}
+        }
         await mkdir(dirname(filePath), { recursive: true });
         await writeFile(filePath, args.content, "utf-8");
         if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)` });
@@ -429,6 +438,14 @@ async function executeTool(call, cwd, rootDir, onEvent) {
         const filePath = resolvePath(args.path);
         if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
+        // Auto-snapshot before first modification
+        if (!snapshotTaken && paaw?.exists) {
+          try {
+            const snap = new PaawSnapshot(cwd, paaw.paawDir);
+            await snap.createPreEdit(filePath);
+            snapshotTaken = true;
+          } catch {}
+        }
         const content = await readFile(filePath, "utf-8");
         const occurrences = content.split(args.old_text).length - 1;
         if (occurrences === 0) return `Error: old_text not found in ${args.path}`;
@@ -832,6 +849,7 @@ export async function runAgentLoop(config) {
   const startTime = Date.now();
   const timeoutMs = effectiveTimeout * 1000;
   const toolCallLog = [];
+  let snapshotTaken = false; // auto-snapshot before first file write
 
   // Resolve LLM config
   const llm = resolveLLMConfig(rootDir, modelOverride);

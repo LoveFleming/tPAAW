@@ -36,6 +36,7 @@ import SessionHistory from "../components/SessionHistory";
 import BrowserPreview from "../components/BrowserPreview";
 import BrowserDevTools, { type ConsoleEntry } from "../components/BrowserDevTools";
 import DecisionLog from "../components/DecisionLog";
+import ProjectHealth from "../components/ProjectHealth";
 import ModelSelector from "../components/ModelSelector";
 
 // ── Types ──
@@ -223,11 +224,15 @@ export default function CodingIDE() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // ── Right Panel Tab State ──
-  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions">("chat");
+  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health">("chat");
 
   // ── Browser Preview State ──
   const [showBrowser, setShowBrowser] = useState(false);
   const [browserConsoleLogs, setBrowserConsoleLogs] = useState<ConsoleEntry[]>([]);
+
+  // ── Recent Projects State ──
+  const [recentProjects, setRecentProjects] = useState<{ path: string; name: string; hasPaaw: boolean }[]>([]);
+  const [showRecentProjects, setShowRecentProjects] = useState(false);
 
   // ── Git State ──
   const [gitStatus, setGitStatus] = useState<{ branch: string; staged: GitFileStatus[]; unstaged: GitFileStatus[]; untracked: GitFileStatus[]; all: GitFileStatus[] } | null>(null);
@@ -291,7 +296,18 @@ export default function CodingIDE() {
     })();
   }, []);
 
-  useEffect(() => { try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {} }, [rootPath]);
+  useEffect(() => {
+    try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {}
+    // Save to recent projects server-side
+    if (rootPath) {
+      fetch(`${API_BASE}/api/coding-project/recent?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).catch(() => {});
+    }
+  }, [rootPath]);
+
+  // Load recent projects on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/api/coding-project/recent`).then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {});
+  }, []);
   useEffect(() => {
     try { localStorage.setItem("paaw.api-tester.history", JSON.stringify(apiHistory.slice(0, 50))); } catch {}
   }, [apiHistory]);
@@ -906,6 +922,26 @@ const sendChat = useCallback(async () => {
                 className="flex-1 text-sm font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
               <button onClick={() => setShowDirExplorer(true)}
                 className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600" title={tt("coding.browseDir")}>📂</button>
+              <button onClick={() => setShowRecentProjects(!showRecentProjects)}
+                className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600 relative" title="Recent projects">🕘
+                {showRecentProjects && recentProjects.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-stone-200 rounded-lg shadow-xl z-50 max-h-72 overflow-y-auto" style={{ scrollbarWidth: "thin" }} onClick={e => e.stopPropagation()}>
+                    <div className="px-2 py-1 text-[10px] font-semibold text-stone-400 border-b border-stone-100">Recent Projects</div>
+                    {recentProjects.map(rp => (
+                      <div key={rp.path}
+                        onClick={() => { setRootPath(rp.path); setShowRecentProjects(false); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
+                        className="px-2 py-1.5 cursor-pointer hover:bg-blue-50 border-b border-stone-50 last:border-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">{rp.hasPaaw ? "🤖" : "📁"}</span>
+                          <span className="text-xs font-medium text-stone-700 truncate">{rp.name}</span>
+                        </div>
+                        <div className="text-[9px] text-stone-300 truncate ml-5">{rp.path}</div>
+                      </div>
+                    ))}
+                    {recentProjects.length === 0 && <div className="px-2 py-2 text-[10px] text-stone-400 text-center">No recent projects</div>}
+                  </div>
+                )}
+              </button>
             </div>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
@@ -1487,6 +1523,11 @@ const sendChat = useCallback(async () => {
                     rightTab === "decisions" ? "bg-amber-100 text-amber-700" : "text-stone-400 hover:bg-stone-50")}>
                   🧠 ADR
                 </button>
+                <button onClick={() => setRightTab("health")}
+                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
+                    rightTab === "health" ? "bg-teal-100 text-teal-700" : "text-stone-400 hover:bg-stone-50")}>
+                  📊 Health
+                </button>
                 <span className="flex-1" />
                 {rightTab === "chat" && (
                   <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs px-1">✕</button>
@@ -1589,6 +1630,13 @@ const sendChat = useCallback(async () => {
               {rightTab === "decisions" && (
                 <div className="flex-1 min-h-0">
                   <DecisionLog projectRoot={rootPath || ""} />
+                </div>
+              )}
+
+              {/* ── Health Tab Content ── */}
+              {rightTab === "health" && (
+                <div className="flex-1 min-h-0">
+                  <ProjectHealth projectRoot={rootPath || ""} />
                 </div>
               )}
             </div>
