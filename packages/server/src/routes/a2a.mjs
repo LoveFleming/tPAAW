@@ -425,7 +425,9 @@ export default async function a2aRoutes(req, res) {
         }
 
         // Create or load task (for multi-turn, contextId links tasks)
-        const existingTaskId = params?.taskId || (params?.contextId ? await findLatestTaskInContext(params.contextId) : null);
+        // contextId can be in params.contextId OR message.contextId (A2A SDK format)
+        const ctxId = params?.contextId || message?.contextId;
+        const existingTaskId = params?.taskId || (ctxId ? await findLatestTaskInContext(ctxId) : null);
         let task;
         let isFollowUp = false;
         if (existingTaskId) {
@@ -436,7 +438,7 @@ export default async function a2aRoutes(req, res) {
           }
         }
         if (!task) {
-          task = makeTask({ message, contextId: params?.contextId });
+          task = makeTask({ message, contextId: ctxId });
         }
         task.status = { state: "working", timestamp: new Date().toISOString() };
         await saveTask(task);
@@ -584,7 +586,8 @@ export default async function a2aRoutes(req, res) {
         }
 
         // Create task
-        const task = makeTask({ message, contextId: params?.contextId });
+        const ctxId2 = params?.contextId || message?.contextId;
+        const task = makeTask({ message, contextId: ctxId2 });
         task.status = { state: "working", timestamp: new Date().toISOString() };
         await saveTask(task);
 
