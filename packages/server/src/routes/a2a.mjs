@@ -182,10 +182,7 @@ function genId() {
 async function saveTask(task) {
   // Reload from disk to merge any events/tokens written by appendEvent during tool calls
   const persisted = await taskStore.load(task.id);
-  if (persisted?.events?.length) {
-    console.log(`[saveTask] merging ${persisted.events.length} events from disk for task ${task.id}`);
-    task.events = persisted.events;
-  }
+  if (persisted?.events?.length) task.events = persisted.events;
   if (persisted?.tokenUsage) task.tokenUsage = persisted.tokenUsage;
   if (persisted?.memory?.length) task.memory = persisted.memory;
   return taskStore.save(task);
@@ -426,7 +423,6 @@ ${memoryContext}
         if (onProgress) await onProgress({ type: "tool_start", name: chunk.name, toolsUsed });
         // Persist event
         if (taskId) {
-          console.log(`[A2A-HelpDesk] appendEvent for task ${taskId}: ${chunk.name}`);
           await taskStore.appendEvent(taskId, { type: "tool_call", name: chunk.name });
         }
         break;
