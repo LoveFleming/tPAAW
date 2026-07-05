@@ -138,22 +138,6 @@ function getAgentCard(req) {
     defaultOutputModes: ["text"],
     skills: [
       {
-        id: "paaw-chat",
-        name: "PAAW Chat",
-        description: "General AI assistant — can chat, answer questions, and execute PAAW skills/apps",
-        tags: ["chat", "assistant", "general"],
-        inputModes: ["text"],
-        outputModes: ["text"],
-      },
-      {
-        id: "paaw-skill-exec",
-        name: "Skill Executor",
-        description: "Execute any registered PAAW skill via natural language",
-        tags: ["skill", "execution"],
-        inputModes: ["text"],
-        outputModes: ["text"],
-      },
-      {
         id: "paaw-helpdesk",
         name: "PAAW HelpDesk",
         description: "Customer service — ask any question about PAAW features, architecture, usage, or report issues. Other agents can submit questions and get answers.",
