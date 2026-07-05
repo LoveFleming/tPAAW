@@ -18,9 +18,11 @@
  *   POST   /api/project/generate-overview?path=... — Auto-generate PROJECT.md
  */
 
-import { readFile, writeFile } from "fs/promises";
-import { resolve, join } from "path";
+import { readFile, writeFile, readdir } from "fs/promises";
+import { existsSync, readFileSync as readSync } from "fs";
+import { resolve, join, dirname } from "path";
 import { createPaawProject } from "../lib/paaw-project.mjs";
+import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 
 // ── Query parser ──
 
@@ -197,6 +199,107 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── GET /api/project/templates ──
+    if (url.startsWith("/api/project/templates") && method === "GET") {
+      const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
+      const templates = [];
+      try {
+        const entries = await readdir(templatesDir);
+        for (const name of entries.filter(f => f.endsWith(".md")).sort()) {
+          const content = await readFile(join(templatesDir, name), "utf-8");
+          // Extract title from first heading
+          const titleLine = content.split("\n").find(l => l.startsWith("# "));
+          const title = titleLine ? titleLine.replace(/^#\s*/, "") : name.replace(".md", "");
+          templates.push({ name, title, preview: content.slice(0, 200) });
+        }
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(templates));
+      return true;
+    }
+
+    // ── GET /api/project/templates/:name ──
+    const tplMatch = url.match(/^\/api\/project\/templates\/([^?]+)/);
+    if (tplMatch && method === "GET") {
+      const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
+      const name = decodeURIComponent(tplMatch[1]);
+      const filePath = join(templatesDir, name);
+      try {
+        const content = await readFile(filePath, "utf-8");
+        res.writeHead(200, { "Content-Type": "text/markdown" });
+        res.end(content);
+      } catch {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Template not found" }));
+      }
+      return true;
+    }
+
+    // ── POST /api/project/import-template ──
+    if (url.startsWith("/api/project/import-template") && method === "POST") {
+      const body = JSON.parse(await readBody(req));
+      const templateName = body.template; // e.g. "typescript.md"
+      const targetName = body.target || templateName; // save as
+      if (!templateName) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing 'template' field" }));
+        return true;
+      }
+      const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
+      try {
+        const content = await readFile(join(templatesDir, templateName), "utf-8");
+        // Ensure .paaw/ exists
+        if (!paaw.exists) await paaw.init();
+        await paaw.writeStandard(targetName, content);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, name: targetName, size: content.length }));
+      } catch {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Template not found" }));
+      }
+      return true;
+    }
+
+    // ── POST /api/project/generate-standards ──
+    // Uses LLM to analyze codebase and generate coding standards
+    if (url.startsWith("/api/project/generate-standards") && method === "POST") {
+      if (!paaw.exists) await paaw.init();
+      const generated = await generateStandardsFromCodebase(root);
+      if (generated) {
+        await paaw.writeStandard("auto-generated.md", generated);
+      }
+      res.writeHead(200, { "Content-Type": "text/markdown" });
+      res.end(generated || "# Failed to generate standards");
+      return true;
+    }
+
+    // ── GET /api/project/all ──
+    // Returns everything needed for the right-panel tabs in one call
+    if (url.startsWith("/api/project/all") && method === "GET") {
+      if (!paaw.exists) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ initialized: false }));
+        return true;
+      }
+      const [context, sessions, standards, decisions, changelog] = await Promise.all([
+        paaw.loadContext(),
+        paaw.listSessions(),
+        paaw.listStandards(),
+        paaw.readFile("DECISIONS.md"),
+        paaw.readFile("CHANGELOG.md"),
+      ]);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        initialized: true,
+        context,
+        sessions,
+        standards,
+        decisions,
+        changelog,
+      }));
+      return true;
+    }
+
   } catch (err) {
     console.error("[project route] error:", err.message);
     res.writeHead(500, { "Content-Type": "application/json" });
@@ -216,4 +319,76 @@ function readBody(req) {
     req.on("end", () => resolve(data));
     req.on("error", reject);
   });
+}
+
+// ── Generate Standards from Codebase ──
+
+async function generateStandardsFromCodebase(projectRoot) {
+  // 1. Gather codebase info
+  const samples = [];
+  const root = projectRoot;
+
+  // Read package.json
+  try {
+    const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
+    samples.push(`package.json scripts: ${JSON.stringify(pkg.scripts || {})}`);
+    samples.push(`dependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}`);
+    samples.push(`devDependencies: ${Object.keys(pkg.devDependencies || {}).join(", ")}`);
+  } catch {}
+
+  // Read a few source files as samples
+  const sourcePatterns = [
+    "packages/server/src/lib/*.mjs",
+    "packages/ui/src/pages/*.tsx",
+    "packages/ui/src/components/*.tsx",
+  ];
+
+  for (const pattern of sourcePatterns) {
+    try {
+      const { glob } = await import("fs/promises");
+      // Use readdir as fallback
+      const dir = join(root, pattern.replace(/\/[^/]+$/, ""));
+      const ext = pattern.match(/\*\.(.+)$/)?.[1] || "mjs";
+      if (existsSync(dir)) {
+        const files = await readdir(dir);
+        const matching = files.filter(f => f.endsWith(`.${ext}`)).slice(0, 3);
+        for (const f of matching) {
+          const content = readSync(join(dir, f), "utf-8");
+          samples.push(`--- ${f} (first 600 chars) ---\n${content.slice(0, 600)}`);
+        }
+      }
+    } catch {}
+  }
+
+  if (samples.length === 0) return null;
+
+  // 2. Build prompt
+  const prompt = `Analyze the following codebase samples and generate a comprehensive Coding Standards document in Markdown format.
+Focus on:
+1. File naming conventions used
+2. Code style (indentation, quotes, semicolons)
+3. Error handling patterns
+4. Export patterns (ESM vs CJS)
+5. Framework-specific conventions (React, Node.js)
+6. Any existing patterns that should be standardized
+
+Codebase samples:
+
+${samples.join("\n\n")}
+
+Output ONLY the markdown document, starting with # Coding Standards (Auto-Generated).`;
+
+  // 3. Call LLM
+  try {
+    const rootDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
+    const result = await callLLMWithRetry(rootDir, {
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      maxTokens: 2000,
+    });
+    return result.content || null;
+  } catch (err) {
+    console.error("[project route] generate-standards error:", err.message);
+    return null;
+  }
 }

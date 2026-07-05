@@ -31,6 +31,8 @@ import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
 import PaawTree from "../components/PaawTree";
+import StandardsEditor from "../components/StandardsEditor";
+import SessionHistory from "../components/SessionHistory";
 import ModelSelector from "../components/ModelSelector";
 
 // ── Types ──
@@ -216,6 +218,9 @@ export default function CodingIDE() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Right Panel Tab State ──
+  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions">("chat");
 
   // ── Git State ──
   const [gitStatus, setGitStatus] = useState<{ branch: string; staged: GitFileStatus[]; unstaged: GitFileStatus[]; untracked: GitFileStatus[]; all: GitFileStatus[] } | null>(null);
@@ -1426,15 +1431,42 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* ── AI Chat Sidebar ── */}
+        {/* ── Right Panel: Chat / Standards / Sessions ── */}
         {showAiPanel && (
           <>
             <div className="w-px cursor-col-resize hover:w-0.5 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
               onMouseDown={e => startResize("ai", e)} style={{ backgroundColor: tk.border }} />
             <div className="flex flex-col shrink-0 select-none" style={{ width: aiPanelWidth, backgroundColor: "#fff" }}>
-              <div className="flex items-center px-3 py-2 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                <span className="text-sm font-bold text-stone-700">{tt("vibe.aiChat")}</span>
-                {activeTab && <span className="text-sm text-stone-400 ml-2 truncate">({activeTab.name})</span>}
+              {/* Tab Bar */}
+              <div className="flex items-center px-2 py-1.5 shrink-0 gap-0.5" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+                <button onClick={() => setRightTab("chat")}
+                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
+                    rightTab === "chat" ? "bg-blue-100 text-blue-700" : "text-stone-400 hover:bg-stone-50")}>
+                  🤖 Chat
+                </button>
+                <button onClick={() => setRightTab("standards")}
+                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
+                    rightTab === "standards" ? "bg-purple-100 text-purple-700" : "text-stone-400 hover:bg-stone-50")}>
+                  📏 Standards
+                </button>
+                <button onClick={() => setRightTab("sessions")}
+                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
+                    rightTab === "sessions" ? "bg-green-100 text-green-700" : "text-stone-400 hover:bg-stone-50")}>
+                  📜 Sessions
+                </button>
+                <span className="flex-1" />
+                {rightTab === "chat" && (
+                  <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs px-1">✕</button>
+                )}
+                {rightTab !== "chat" && (
+                  <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs px-1">✕</button>
+                )}
+              </div>
+
+              {/* ── Chat Tab Content ── */}
+              {rightTab === "chat" && (<>
+              <div className="flex items-center px-3 py-1.5 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+                {activeTab && <span className="text-sm text-stone-400 ml-1 truncate">📄 {activeTab.name}</span>}
                 <span className="flex-1" />
                 {/* Mode toggle: Agent vs Chat */}
                 <div className="flex items-center gap-1 mr-2">
@@ -1504,6 +1536,21 @@ const sendChat = useCallback(async () => {
                   {activeTab && <span className="text-xs text-stone-300">· 自動帶入 {activeTab.name}</span>}
                 </div>
               </div>
+              </>)}
+
+              {/* ── Standards Tab Content ── */}
+              {rightTab === "standards" && (
+                <div className="flex-1 min-h-0">
+                  <StandardsEditor projectRoot={rootPath || ""} />
+                </div>
+              )}
+
+              {/* ── Sessions Tab Content ── */}
+              {rightTab === "sessions" && (
+                <div className="flex-1 min-h-0">
+                  <SessionHistory projectRoot={rootPath || ""} />
+                </div>
+              )}
             </div>
           </>
         )}
