@@ -190,6 +190,24 @@ async function saveTask(task) {
 async function getTask(taskId) { return taskStore.load(taskId); }
 async function listTasks() { return taskStore.list(); }
 
+// ── Webhook notification helper ──
+/** POST task status update to pushNotification webhook URL */
+async function notifyWebhook(task, pushConfig) {
+  if (!pushConfig?.url) return;
+  try {
+    const whHeaders = { "Content-Type": "application/json" };
+    if (pushConfig.token) whHeaders["Authorization"] = `Bearer ${pushConfig.token}`;
+    await fetch(pushConfig.url, {
+      method: "POST",
+      headers: whHeaders,
+      body: JSON.stringify({ jsonrpc: "2.0", result: task, id: `notify-${task.id}` }),
+    });
+    console.log(`[A2A] webhook notified: task=${task.id} state=${task.status.state}`);
+  } catch (err) {
+    console.error(`[A2A] webhook notify failed: ${err.message}`);
+  }
+}
+
 // ── A2A Data Types ──
 
 function makeTask({ message, contextId, taskId }) {
@@ -563,7 +581,22 @@ export default async function a2aRoutes(req, res) {
                 content: h.parts?.map(p => p.text || "").join("") || "",
               })).filter(m => m.content);
 
-              const hdResult = await runHelpDeskViaA2A(conversation, { modelOverride, taskId: task.id });
+              // ── Intermediate status webhook notifications ──
+              const onStatus = async (statusUpdate) => {
+                task.status = { state: statusUpdate.state || "working", timestamp: new Date().toISOString(), ...statusUpdate };
+                await saveTask(task);
+                await notifyWebhook(task, pushConfig);
+              };
+
+              // Notify: thinking
+              await onStatus({ state: "working", message: "thinking" });
+
+              const hdResult = await runHelpDeskViaA2A(conversation, { modelOverride, taskId: task.id, onProgress: async (prog) => {
+                // Notify: tool execution
+                if (prog.type === "tool_start") {
+                  await onStatus({ state: "working", message: `executing tool: ${prog.name}` });
+                }
+              }});
 
               if (hdResult.needsInfo) {
                 task.status = { state: "input-required", timestamp: new Date().toISOString() };
@@ -579,25 +612,14 @@ export default async function a2aRoutes(req, res) {
               await saveTask(task);
               console.log(`[A2A] task=${task.id} background done: ${task.status.state}`);
 
-              // POST webhook
-              try {
-                const whHeaders = { "Content-Type": "application/json" };
-                if (pushConfig.token) whHeaders["Authorization"] = `Bearer ${pushConfig.token}`;
-                await fetch(pushConfig.url, { method: "POST", headers: whHeaders, body: JSON.stringify({ jsonrpc: "2.0", result: task, id }) });
-                console.log(`[A2A] task=${task.id} webhook delivered`);
-              } catch (whErr) {
-                console.error(`[A2A] task=${task.id} webhook failed: ${whErr.message}`);
-              }
+              // POST webhook (final result)
+              await notifyWebhook(task, pushConfig);
             } catch (bgErr) {
               console.error(`[A2A] task=${task.id} background error:`, bgErr);
               task.status = { state: "failed", timestamp: new Date().toISOString() };
               task.metadata = { error: bgErr.message };
               await saveTask(task);
-              try {
-                const whHeaders = { "Content-Type": "application/json" };
-                if (pushConfig.token) whHeaders["Authorization"] = `Bearer ${pushConfig.token}`;
-                await fetch(pushConfig.url, { method: "POST", headers: whHeaders, body: JSON.stringify({ jsonrpc: "2.0", result: task, id }) });
-              } catch {}
+              await notifyWebhook(task, pushConfig);
             }
           })();
           return true;
