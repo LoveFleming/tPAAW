@@ -27,6 +27,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
+import { createPaawProject } from "./paaw-project.mjs";
 
 // ── Types ──
 
@@ -581,8 +582,13 @@ async function callLLM(apiUrl, headers, model, messages, tools, stream = false) 
 
 // ── System Prompt Assembly ──
 
-function buildSystemPrompt({ cwd, skillMd, customPrompt, params }) {
+function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) {
   const parts = [];
+
+  // ── Inject .paaw/ project context (pre-loaded by caller) ──
+  if (paawContext) {
+    parts.push(paawContext);
+  }
 
   // If customPrompt is provided, it replaces the default agent prompt entirely
   // (customPrompt comes from contextEngine — e.g. skill-builder rules)
@@ -667,8 +673,17 @@ export async function runAgentLoop(config) {
 
   if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns: effectiveMaxTurns });
 
-  // Build system prompt
-  const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params });
+  // Build system prompt (load .paaw/ project context first)
+  let paawContext = null;
+  let paaw = null;
+  try {
+    paaw = createPaawProject(cwd);
+    if (paaw.exists) {
+      paawContext = await paaw.loadContextText();
+    }
+  } catch {}
+
+  const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
 
   // Initialize messages
   const messages = [
@@ -755,6 +770,22 @@ export async function runAgentLoop(config) {
 
   if (onEvent) onEvent({ type: "end", turns, durationMs, toolCalls: toolCallLog.length });
 
+  // ── Record session to .paaw/sessions/ ──
+  if (paaw && paaw.exists) {
+    try {
+      await paaw.recordSession({
+        task: prompt.slice(0, 200),
+        prompt,
+        success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
+        content: finalContent,
+        toolCalls: toolCallLog,
+        durationMs,
+      });
+    } catch (e) {
+      console.error("[paaw-project] Failed to record session:", e.message);
+    }
+  }
+
   return {
     success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
     content: finalContent,
@@ -804,8 +835,15 @@ export async function runAgentLoopStream(config, res) {
   const llm = resolveLLMConfig(rootDir, modelOverride);
   sendSSE("start", { model: llm.model, cwd, maxTurns });
 
-  // Build system prompt
-  const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params });
+  // Build system prompt (load .paaw/ project context first)
+  let paawContext = null;
+  try {
+    const paaw = createPaawProject(cwd);
+    if (paaw.exists) {
+      paawContext = await paaw.loadContextText();
+    }
+  } catch {}
+  const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
   const messages = [
     { role: "system", content: systemPrompt },
     { role: "user", content: prompt },

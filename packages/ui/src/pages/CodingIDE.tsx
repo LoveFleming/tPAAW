@@ -30,6 +30,7 @@ import "highlight.js/styles/github.css";
 import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
+import PaawTree from "../components/PaawTree";
 import ModelSelector from "../components/ModelSelector";
 
 // ── Types ──
@@ -923,6 +924,15 @@ const sendChat = useCallback(async () => {
               </div>
             )}
           </div>
+          {/* ── .paaw/ Project Knowledge ── */}
+          {rootPath && (
+            <div style={{ borderTop: `1px solid ${tk.borderLight}`, maxHeight: "40%", overflowY: "auto", scrollbarWidth: "thin" }}>
+              <PaawTree
+                projectRoot={rootPath}
+                onOpenFile={(path, name) => openFile(path)}
+              />
+            </div>
+          )}
           <div className="px-2 py-1 flex items-center" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
             <span className="text-xs text-stone-400 truncate">{rootPath ? rootPath.split("/").pop() : "No project"}</span>
           </div>
