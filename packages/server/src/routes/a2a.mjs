@@ -28,8 +28,69 @@ const PAAW_ROOT = resolve(__dirname, "../../../..");
 const DATA_DIR = resolve(PAAW_ROOT, "data");
 const TASKS_DIR = resolve(DATA_DIR, "a2a-tasks");
 const CONFIG_DIR = resolve(DATA_DIR, "config");
+const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk", "tickets.json");
 
 await mkdir(TASKS_DIR, { recursive: true });
+
+// ── A2A → Ticket bridge ──
+async function loadTickets() {
+  try {
+    const raw = await readFile(HELPDESK_DATA, "utf-8");
+    return JSON.parse(raw);
+  } catch { return []; }
+}
+async function saveTicketsFile(tickets) {
+  await writeFile(HELPDESK_DATA, JSON.stringify(tickets, null, 2), "utf-8");
+}
+
+/** Create or update a HelpDesk ticket from an A2A task. */
+async function syncTicketFromTask(task) {
+  const tickets = await loadTickets();
+  const userMsg = task.history?.find(h => h.role === "user");
+  const userText = userMsg?.parts?.map(p => p.text).join("") || "(A2A request)";
+  const agentMsg = task.history?.filter(h => h.role === "agent" && h.parts?.[0]?.text !== "⏳ 處理中...").pop();
+  const agentText = agentMsg?.parts?.map(p => p.text).join("") || "";
+  const ticketTag = `a2a:${task.id}`;
+
+  // Find existing ticket by tag
+  let ticket = tickets.find(t => t.tags?.includes(ticketTag));
+
+  if (!ticket) {
+    // Create new ticket
+    ticket = {
+      ticketId: `TKT-${Date.now()}`,
+      agentName: "Agent Orchestrator",
+      agentType: "a2a",
+      subject: userText.slice(0, 60),
+      status: "working",
+      priority: "medium",
+      messages: [
+        { id: `msg_${Date.now()}`, role: "user", text: userText, ts: Date.now() },
+      ],
+      tags: [ticketTag, "a2a"],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    tickets.push(ticket);
+  }
+
+  // Update with agent response if we have one
+  if (agentText && !ticket.messages.find(m => m.text === agentText)) {
+    ticket.messages.push({
+      id: `msg_${Date.now()}`, role: "agent", text: agentText, ts: Date.now(),
+    });
+  }
+
+  // Sync status
+  const state = task.status?.state;
+  if (state === "completed") ticket.status = "answered";
+  else if (state === "input-required") ticket.status = "input-required";
+  else ticket.status = "working";
+  ticket.updatedAt = new Date().toISOString();
+
+  await saveTicketsFile(tickets);
+  return ticket;
+}
 
 // ── Helpers ──
 
@@ -539,6 +600,7 @@ export default async function a2aRoutes(req, res) {
           }];
           task.metadata = { toolsUsed: result.toolsUsed, model: "paaw-helpdesk", needsInfo: true };
           await saveTask(task);
+          await syncTicketFromTask(task);
 
           console.log(`[A2A] task=${task.id} input-required: "${needsInfo.slice(0, 80)}"`);
 
@@ -554,6 +616,7 @@ export default async function a2aRoutes(req, res) {
           }];
           task.metadata = { toolsUsed: result.toolsUsed, model: "paaw-helpdesk" };
           await saveTask(task);
+          await syncTicketFromTask(task);
 
           console.log(`[A2A] task=${task.id} completed (${result.text.length} chars)`);
 
