@@ -47,10 +47,12 @@ async function saveTicketsFile(tickets) {
 async function syncTicketFromTask(task) {
   try {
     const tickets = await loadTickets();
-    const userMsg = task.history?.find(h => h.role === "user");
+    // Get all meaningful messages (skip placeholders)
+    const historyMsgs = (task.history || []).filter(
+      h => h.parts?.[0]?.text !== "⏳ 處理中..."
+    );
+    const userMsg = historyMsgs.find(h => h.role === "user");
     const userText = userMsg?.parts?.map(p => p.text).join("") || "(A2A request)";
-    const agentMsg = task.history?.filter(h => h.role === "agent" && h.parts?.[0]?.text !== "⏳ 處理中...").pop();
-    const agentText = agentMsg?.parts?.map(p => p.text).join("") || "";
     const ticketTag = `a2a:${task.id}`;
 
     // Find existing ticket by tag
@@ -65,9 +67,7 @@ async function syncTicketFromTask(task) {
         subject: userText.slice(0, 60),
         status: "working",
         priority: "medium",
-        messages: [
-          { id: `msg_${Date.now()}`, role: "user", text: userText, ts: Date.now() },
-        ],
+        messages: [],
         tags: [ticketTag, "a2a"],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -76,11 +76,20 @@ async function syncTicketFromTask(task) {
       console.log(`[A2A→Ticket] Created ticket ${ticket.ticketId} for task ${task.id}`);
     }
 
-    // Update with agent response if we have one
-    if (agentText && !ticket.messages.find(m => m.text === agentText)) {
-      ticket.messages.push({
-        id: `msg_${Date.now()}`, role: "agent", text: agentText, ts: Date.now(),
-      });
+    // Sync ALL messages from task history (skip placeholders)
+    for (const h of historyMsgs) {
+      const text = h.parts?.map(p => p.text).join("") || "";
+      if (!text) continue;
+      const role = h.role === "agent" ? "agent" : "user";
+      // Only add if not already in ticket
+      if (!ticket.messages.find(m => m.text === text)) {
+        ticket.messages.push({
+          id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          role,
+          text,
+          ts: Date.now(),
+        });
+      }
     }
 
     // Sync status
@@ -91,7 +100,7 @@ async function syncTicketFromTask(task) {
     ticket.updatedAt = new Date().toISOString();
 
     await saveTicketsFile(tickets);
-    console.log(`[A2A→Ticket] Synced ticket ${ticket.ticketId} state=${state}`);
+    console.log(`[A2A→Ticket] Synced ticket ${ticket.ticketId} state=${state} msgs=${ticket.messages.length}`);
     return ticket;
   } catch (err) {
     console.error(`[A2A→Ticket] ERROR: ${err.message}\n${err.stack}`);
