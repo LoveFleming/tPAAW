@@ -152,7 +152,7 @@ export default function HelpDesk() {
   useEffect(() => {
     if (viewMode === "a2a") {
       loadA2aTasks();
-      const timer = setInterval(loadA2aTasks, 5000);
+      const timer = setInterval(loadA2aTasks, 2000);
       return () => clearInterval(timer);
     }
   }, [viewMode, loadA2aTasks]);
@@ -512,7 +512,7 @@ export default function HelpDesk() {
                   </div>
                 )}
               </div>
-              <button onClick={loadA2aTasks} className="text-xs text-stone-400 hover:text-stone-200 px-2 py-1">↻ 刷新</button>
+
             </div>
 
             {/* A2A Content */}
