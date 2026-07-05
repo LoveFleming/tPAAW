@@ -243,7 +243,7 @@ const A2A_NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*([\s\S]+)/;
  * Run HelpDesk skill for A2A messages — with NEED_INFO detection.
  * Reuses helpdesk route's runHelpDeskSkill logic.
  */
-async function runHelpDeskViaA2A(conversation) {
+async function runHelpDeskViaA2A(conversation, { onProgress } = {}) {
   const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
   const { getToolsAndHandlers } = await import("../tools/index.mjs");
 
@@ -320,6 +320,7 @@ ${knowledgeBase}
         break;
       case "tool_start":
         toolsUsed.push(chunk.name);
+        if (onProgress) onProgress({ type: "tool_start", name: chunk.name, toolsUsed });
         break;
     }
   }
@@ -505,10 +506,25 @@ export default async function a2aRoutes(req, res) {
             content: h.parts?.map(p => p.text || "").join("") || "",
           })).filter(m => m.content);
 
-          const hdResult = await runHelpDeskViaA2A(conversation);
+          const hdResult = await runHelpDeskViaA2A(conversation, {
+            onProgress: async (prog) => {
+              if (prog.type === "tool_start") {
+                // Live-update task so UI polling can see progress
+                task.metadata = { ...task.metadata, toolsUsed: prog.toolsUsed, liveState: "processing" };
+                task.history = [
+                  ...task.history.filter(h => h.role !== "agent" || h.parts?.[0]?.text !== "⏳ 處理中..."),
+                  { role: "agent", parts: [{ type: "text", kind: "text", text: "⏳ 處理中..." }] },
+                ];
+                await saveTask(task);
+              }
+            },
+          });
           result = { text: hdResult.text, toolsUsed: hdResult.toolsUsed };
           needsInfo = hdResult.needsInfo;
         }
+
+        // Remove placeholder "⏳ 處理中..." before pushing final answer
+        task.history = task.history.filter(h => !(h.role === "agent" && h.parts?.[0]?.text === "⏳ 處理中..."));
 
         if (needsInfo) {
           // Return input-required state — caller can follow up with same contextId
