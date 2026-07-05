@@ -636,96 +636,58 @@ export default function HelpDesk() {
             {/* A2A Content */}
             <div className="flex-1 overflow-y-auto p-5" style={{ scrollbarWidth: "thin" }}>
               {activeA2aTabId === "main" ? (
-                /* ── Main Overview: All handled work ── */
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h2 className="text-lg font-bold">🤖 A2A Agent 互動主控台</h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>
-                      共 {a2aTasks.length} 筆
+                /* ── Main: A2A Session Log Window ── */
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h2 className="text-base font-semibold">📡 A2A Session Log</h2>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>
+                      {a2aTasks.length} sessions
                     </span>
                   </div>
-
-                  {/* Flow diagram */}
-                  <div className="p-4 rounded-xl text-xs" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
-                    <div className="font-semibold mb-3" style={{ color: "#a855f7" }}>📡 A2A 互動流程</div>
-                    <div className="flex items-center gap-2 text-[11px]" style={{ color: "#a0a0a0" }}>
-                      <span className="px-2 py-1 rounded-lg" style={{ background: "rgba(74,158,255,0.15)", color: "#4a9eff" }}>Agent Orchestrator</span>
-                      <span>→</span>
-                      <span className="px-2 py-1 rounded-lg" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7" }}>PAAW A2A Endpoint</span>
-                      <span>→</span>
-                      <span className="px-2 py-1 rounded-lg" style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80" }}>HelpDesk AI</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] mt-2" style={{ color: "#6a6a6a" }}>
-                      <span style={{ marginLeft: 80 }}>←</span>
-                      <span className="px-2 py-1 rounded-lg" style={{ background: "rgba(74,222,128,0.1)", color: "#4ade80" }}>回覆 + Artifacts</span>
-                      <span>←</span>
-                      <span className="px-2 py-1 rounded-lg" style={{ background: "rgba(74,158,255,0.1)", color: "#4a9eff" }}>JSON-RPC Response</span>
-                    </div>
-                  </div>
-
-                  {/* Stats row */}
-                  <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { label: "總任務", value: a2aTasks.length, color: "#a855f7" },
-                      { label: "已完成", value: a2aTasks.filter(t => t.status?.state === "completed").length, color: "#4ade80" },
-                      { label: "處理中", value: a2aTasks.filter(t => t.status?.state === "working").length, color: "#4a9eff" },
-                      { label: "待回覆", value: a2aTasks.filter(t => t.status?.state === "input-required").length, color: "#fbbf24" },
-                    ].map((s, i) => (
-                      <div key={i} className="rounded-xl p-3 text-center" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
-                        <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
-                        <div className="text-[11px] mt-0.5" style={{ color: "#6a6a6a" }}>{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Recent activity table */}
-                  <div className="rounded-xl overflow-hidden" style={{ background: "#1a1a1a", border: "1px solid #2e2e2e" }}>
-                    <div className="px-4 py-2.5 text-xs font-semibold border-b" style={{ borderColor: "#2e2e2e", color: "#a0a0a0" }}>
-                      📋 最近接待記錄
-                    </div>
-                    {a2aTasks.length === 0 ? (
-                      <div className="px-4 py-8 text-center text-sm" style={{ color: "#6a6a6a" }}>尚無 A2A 互動記錄</div>
-                    ) : (
-                      <div className="divide-y" style={{ borderColor: "#2e2e2e" }}>
-                        {a2aTasks.slice(0, 15).map((task) => {
-                          const userText = task.history?.find((h: any) => h.role === "user")?.parts?.map((p: any) => p.text).join("") || "";
-                          const agentText = task.history?.find((h: any) => h.role === "agent")?.parts?.map((p: any) => p.text).join("") || "";
-                          const state = task.status?.state || "unknown";
-                          const stateColors: Record<string, string> = {
-                            completed: "#4ade80", working: "#4a9eff", "input-required": "#a855f7",
-                            failed: "#f87171", canceled: "#9ca3af",
-                          };
-                          const toolCount = task.metadata?.toolsUsed?.length || 0;
-                          return (
-                            <div
-                              key={task.id}
-                              onClick={() => openA2aTab(task)}
-                              className="px-4 py-2.5 flex items-center gap-3 cursor-pointer transition-colors hover:bg-stone-800"
-                              style={{ borderColor: "#2e2e2e" }}
-                            >
-                              <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: stateColors[state] || "#6a6a6a" }} />
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium truncate" style={{ color: "#e8e8e8" }}>{userText || "(empty)"}</div>
-                                <div className="text-[11px] truncate" style={{ color: "#6a6a6a" }}>
-                                  {agentText.slice(0, 80) || "..."}
-                                </div>
+                  {a2aTasks.length === 0 ? (
+                    <div className="text-center py-16 text-sm" style={{ color: "#6a6a6a" }}>尚無 A2A 互動記錄</div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {a2aTasks.map((task) => {
+                        const userText = task.history?.find((h: any) => h.role === "user")?.parts?.map((p: any) => p.text).join("") || "";
+                        const agentText = task.history?.find((h: any) => h.role === "agent")?.parts?.map((p: any) => p.text).join("") || "";
+                        const state = task.status?.state || "unknown";
+                        const stateColors: Record<string, string> = {
+                          completed: "#4ade80", working: "#4a9eff", "input-required": "#a855f7",
+                          failed: "#f87171", canceled: "#9ca3af",
+                        };
+                        const toolCount = task.metadata?.toolsUsed?.length || 0;
+                        const msgCount = task.history?.length || 0;
+                        const ts = task.status?.timestamp;
+                        return (
+                          <div
+                            key={task.id}
+                            onClick={() => openA2aTab(task)}
+                            className="px-3 py-2 rounded-lg cursor-pointer transition-colors hover:bg-stone-800 flex items-center gap-3"
+                            style={{ border: "1px solid #2e2e2e", background: "#1a1a1a" }}
+                          >
+                            {/* Status dot */}
+                            <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: stateColors[state] || "#6a6a6a" }} />
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate" style={{ color: "#e8e8e8" }}>
+                                {userText || "(empty)"}
                               </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                {toolCount > 0 && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>
-                                    🔧 {toolCount}
-                                  </span>
-                                )}
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase" style={{ background: `rgba(${state === "completed" ? "74,222,128" : state === "working" ? "74,158,255" : "168,85,247"},0.12)`, color: stateColors[state] || "#6a6a6a" }}>
-                                  {state}
-                                </span>
+                              <div className="text-[11px] truncate" style={{ color: "#6a6a6a" }}>
+                                {agentText.slice(0, 100) || "..."}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                            {/* Meta */}
+                            <div className="flex items-center gap-2 flex-shrink-0 text-[10px]" style={{ color: "#6a6a6a" }}>
+                              {toolCount > 0 && <span>🔧 {toolCount}</span>}
+                              <span>💬 {msgCount}</span>
+                              {ts && <span>{formatTime(ts)}</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* ── Task Detail Tab ── */
