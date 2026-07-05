@@ -178,7 +178,18 @@ function genId() {
 
 // ── Task Storage (delegates to TaskPersistenceAdapter) ──
 
-async function saveTask(task) { return taskStore.save(task); }
+/** Save task to disk, preserving events/tokens that were appended during tool execution */
+async function saveTask(task) {
+  // Reload from disk to merge any events/tokens written by appendEvent during tool calls
+  const persisted = await taskStore.load(task.id);
+  if (persisted?.events?.length) {
+    console.log(`[saveTask] merging ${persisted.events.length} events from disk for task ${task.id}`);
+    task.events = persisted.events;
+  }
+  if (persisted?.tokenUsage) task.tokenUsage = persisted.tokenUsage;
+  if (persisted?.memory?.length) task.memory = persisted.memory;
+  return taskStore.save(task);
+}
 async function getTask(taskId) { return taskStore.load(taskId); }
 async function listTasks() { return taskStore.list(); }
 
@@ -412,9 +423,12 @@ ${memoryContext}
         break;
       case "tool_start":
         toolsUsed.push(chunk.name);
-        if (onProgress) onProgress({ type: "tool_start", name: chunk.name, toolsUsed });
+        if (onProgress) await onProgress({ type: "tool_start", name: chunk.name, toolsUsed });
         // Persist event
-        await taskStore.appendEvent(task.id, { type: "tool_call", name: chunk.name });
+        if (taskId) {
+          console.log(`[A2A-HelpDesk] appendEvent for task ${taskId}: ${chunk.name}`);
+          await taskStore.appendEvent(taskId, { type: "tool_call", name: chunk.name });
+        }
         break;
     }
   }
