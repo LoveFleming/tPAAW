@@ -4,8 +4,7 @@
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
-import { generateText, tool as aiTool, jsonSchema } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { resolveProvider, toOpenAITools, runToolLoop } from "../lib/llm-fetch.mjs";
 
 // ── Paths (reuse from context.mjs) ──
 const PAAW_ROOT = PATHS.PAAW_ROOT;
@@ -166,114 +165,64 @@ export default async function chatRoutes(req, res) {
         } catch {}
       }, 3000);
 
-      // ── Load tool handlers → AI SDK tools ──
+      // ── Load tool handlers ──
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
       const { tools: toolDefinitions, handlers: toolHandlers } = await getToolsAndHandlers();
 
-      const aiSdkTools = {};
+      // ── Build OpenAI-format tool definitions ──
+      const openaiTools = toOpenAITools(toolDefinitions);
+
+      // ── Build handlers map (toolName → async (args) => string) ──
+      const handlerMap = {};
       for (const td of toolDefinitions) {
-        const fn = td.function;
+        const fn = td.function || td;
         const handler = toolHandlers[fn.name];
         if (!handler) continue;
-        aiSdkTools[fn.name] = aiTool({
-          description: fn.description || fn.name,
-          parameters: jsonSchema(fn.parameters || { type: "object", properties: {} }),
-          execute: async (args) => {
-            try {
-              const result = await handler(args);
-              if (fn.name === "app_create" || fn.name === "app_edit") invalidateCache();
-              // PAAW handlers return { text, data?, record? } — AI SDK needs a plain string
-              // for the LLM to consume. Return text or JSON-stringify as fallback.
-              if (typeof result === "string") return result;
-              if (result?.text) return result.text;
-              return JSON.stringify(result);
-            } catch (err) {
-              return `Tool error: ${err.message}`;
-            }
-          },
-        });
+        handlerMap[fn.name] = async (args) => {
+          try {
+            const result = await handler(args);
+            if (fn.name === "app_create" || fn.name === "app_edit") invalidateCache();
+            if (typeof result === "string") return result;
+            if (result?.text) return result.text;
+            return JSON.stringify(result);
+          } catch (err) {
+            return `Tool error: ${err.message}`;
+          }
+        };
       }
 
-      // ── Create AI SDK provider ──
-      const openai = createOpenAI({
-        baseURL: resolvedProvider.baseURL.replace(/\/+$/, ""),
-        apiKey: resolvedProvider.apiKey,
-        compatibility: "compatible", // 强制 Chat Completions API
-        headers: resolvedProviderId === "openrouter"
-          ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
-          : undefined,
+      // ── Resolve provider for raw fetch ──
+      const conn = await resolveProvider(PAAW_ROOT, model);
+
+      // ── Run tool loop via raw Chat Completions API ──
+      const streamStart = Date.now();
+      console.log(`[${chatReqId}] raw fetch tool loop starting...`);
+
+      const loopResult = await runToolLoop(conn, {
+        system: ctx.systemPrompt,
+        messages: messages || [],
+        tools: openaiTools,
+        handlers: handlerMap,
+        maxRounds: 5,
+        maxOutputTokens: 8192,
+        onToolCall: ({ name, args }) => {
+          res.write(`data: ${JSON.stringify({ tool_call: { name, args, status: "executing" } })}\n\n`);
+          if (typeof res.flush === "function") res.flush();
+          console.log(`[${chatReqId}] tool_start: ${name}`);
+        },
+        onToolResult: ({ name, result }) => {
+          res.write(`data: ${JSON.stringify({ tool_result: { name, result: result.slice(0, 2000) } })}\n\n`);
+          if (typeof res.flush === "function") res.flush();
+        },
+        onText: (text) => {
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+          if (typeof res.flush === "function") res.flush();
+        },
       });
 
-      // ── Run via manual multi-step tool loop ──
-      // AI SDK maxSteps doesn't work reliably with OpenRouter/DeepSeek (stops after tool call).
-      // We implement the loop manually: call LLM → if tool_calls → execute → feed back → repeat.
-      let fullText = "";
-      let toolsUsed = [];
-      let chunkCount = 0;
-      const streamStart = Date.now();
-      const allMessages = [...(messages || [])];
-      const MAX_TOOL_ROUNDS = 5;
-
-      console.log(`[${chatReqId}] manual tool loop starting...`);
-
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        // Use generateText (non-streaming) to check if LLM wants tools or text
-        const result = await generateText({
-          model: openai.chat(model),
-          system: ctx.systemPrompt,
-          messages: allMessages,
-          tools: aiSdkTools,
-          maxOutputTokens: 8192,
-          onStepFinish: ({ toolCalls, toolResults }) => {
-            if (toolCalls) {
-              for (const tc of toolCalls) {
-                toolsUsed.push(tc.toolName);
-                res.write(`data: ${JSON.stringify({ tool_call: { name: tc.toolName, args: tc.args, status: "executing" } })}\n\n`);
-                if (typeof res.flush === "function") res.flush();
-                console.log(`[${chatReqId}] tool_start: ${tc.toolName}`);
-              }
-            }
-          },
-        });
-
-        const finishReason = result.finishReason;
-        const stepText = result.text || "";
-        const toolCalls = result.steps?.[0]?.toolCalls || [];
-
-        // If LLM produced text (no tool calls, or finishReason=stop), stream it and done
-        if (finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
-          if (stepText) {
-            chunkCount++;
-            fullText += stepText;
-            res.write(`data: ${JSON.stringify({ content: stepText })}\n\n`);
-            if (typeof res.flush === "function") res.flush();
-          }
-          break;
-        }
-
-        // Stream any intermediate text
-        if (stepText) {
-          chunkCount++;
-          res.write(`data: ${JSON.stringify({ content: stepText })}\n\n`);
-          if (typeof res.flush === "function") res.flush();
-          fullText += stepText;
-        }
-
-        // Tool results → convert to user message for next round
-        if (toolCalls.length > 0) {
-          const toolResults = result.steps?.[0]?.toolResults || [];
-          const toolSummary = toolResults.map(tr => {
-            const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
-            return `[Tool: ${tr.toolName}] Result:\n${out}`;
-          }).join("\n\n");
-          allMessages.push({
-            role: "user",
-            content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
-          });
-        }
-
-        console.log(`[${chatReqId}] round ${round + 1}: tools=${toolCalls.map(t => t.toolName).join(",")} text=${stepText.length}chars`);
-      }
+      const fullText = loopResult.text;
+      const toolsUsed = loopResult.toolsUsed;
+      const chunkCount = toolsUsed.length;
 
       // Send DONE
       res.write("data: [DONE]\n\n");

@@ -28,8 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
-import { generateText, tool as aiTool, jsonSchema } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { resolveProvider, toOpenAITools, runToolLoop } from "./llm-fetch.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 
 // ── Types ──
@@ -59,8 +58,8 @@ import { PaawSnapshot } from "./paaw-snapshot.mjs";
  */
 
 // ── Provider Resolution ──
-
-function loadProviderConfig(rootDir) {
+// Local sync version (createAIProvider uses readFileSync)
+function loadProviderConfigSync(rootDir) {
   const configPath = resolve(rootDir, "data/config/providers.json");
   try {
     return JSON.parse(readSync(configPath, "utf-8"));
@@ -70,7 +69,7 @@ function loadProviderConfig(rootDir) {
 }
 
 function resolveLLMConfig(rootDir, modelOverride) {
-  const config = loadProviderConfig(rootDir);
+  const config = loadProviderConfigSync(rootDir);
   if (!config) throw new Error("No provider config found");
 
   // Parse "providerId/modelId" format (from ModelSelector)
@@ -111,7 +110,7 @@ function resolveLLMConfig(rootDir, modelOverride) {
 
 /** Create AI SDK OpenAI provider from PAAW provider config */
 function createAIProvider(rootDir, modelOverride) {
-  const config = loadProviderConfig(rootDir);
+  const config = loadProviderConfigSync(rootDir);
   if (!config) throw new Error("No provider config found");
 
   let providerId = config.active;
@@ -129,40 +128,46 @@ function createAIProvider(rootDir, modelOverride) {
   const provider = config.providers[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
 
-  const openai = createOpenAI({
-    baseURL: provider.baseURL.replace(/\/+$/, ""),
-    apiKey: provider.apiKey,
-        compatibility: "compatible", // 强制 Chat Completions API
-    headers: providerId === "openrouter"
-      ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
-      : undefined,
-  });
+  // Return raw connection info — no AI SDK wrapper needed
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${provider.apiKey}`,
+  };
+  if (providerId === "openrouter") {
+    headers["HTTP-Referer"] = "https://paaw.ai";
+    headers["X-Title"] = "PAAW";
+  }
 
-  return { model: openai.chat(model), providerId, modelName: model };
+  return {
+    conn: {
+      baseURL: provider.baseURL.replace(/\/+$/, ""),
+      apiKey: provider.apiKey,
+      model,
+      headers,
+      providerId,
+    },
+    providerId,
+    modelName: model,
+  };
 }
 
-/** Convert PAAW_TOOLS array to AI SDK tool map */
-function buildAISdkTools(cwd, rootDir, onEvent) {
-  const tools = {};
+/** Build OpenAI-format tools + handler map from PAAW_TOOLS */
+function buildRawTools(cwd, rootDir, onEvent) {
+  const openaiTools = toOpenAITools(PAAW_TOOLS);
+  const handlerMap = {};
   for (const td of PAAW_TOOLS) {
     const fn = td.function;
-    tools[fn.name] = aiTool({
-      description: fn.description || fn.name,
-      parameters: jsonSchema(fn.parameters || { type: "object", properties: {} }),
-      execute: async (args) => {
-        // Wrap args into the format executeTool expects
-        const call = {
-          function: {
-            name: fn.name,
-            arguments: JSON.stringify(args),
-          },
-        };
-        const result = await executeTool(call, cwd, rootDir, onEvent);
-        return result;
-      },
-    });
+    handlerMap[fn.name] = async (args) => {
+      const call = {
+        function: {
+          name: fn.name,
+          arguments: JSON.stringify(args),
+        },
+      };
+      return await executeTool(call, cwd, rootDir, onEvent);
+    };
   }
-  return tools;
+  return { openaiTools, handlerMap };
 }
 
 // ── Tool Definitions (OpenAI function-calling format) ──
@@ -912,7 +917,7 @@ export async function runAgentLoop(config) {
   const startTime = Date.now();
   const toolCallLog = [];
 
-  // Resolve LLM via Vercel AI SDK
+  // Resolve LLM provider
   const aiProvider = createAIProvider(rootDir, modelOverride);
 
   if (onEvent) onEvent({ type: "start", model: aiProvider.modelName, cwd, maxTurns: effectiveMaxTurns });
@@ -929,8 +934,8 @@ export async function runAgentLoop(config) {
 
   const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
 
-  // Build AI SDK tools from PAAW_TOOLS + executeTool
-  const aiSdkTools = buildAISdkTools(cwd, rootDir, (evt) => {
+  // Build raw tools + handlers
+  const { openaiTools, handlerMap } = buildRawTools(cwd, rootDir, (evt) => {
     if (onEvent) onEvent(evt);
   });
 
@@ -938,58 +943,25 @@ export async function runAgentLoop(config) {
   let turns = 0;
 
   try {
-    // ── Manual tool loop (AI SDK maxSteps doesn't work with OpenRouter) ──
-    const loopMessages = [{ role: "user", content: prompt }];
-    const MAX_TOOL_ROUNDS = effectiveMaxTurns;
-
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const result = await generateText({
-        model: aiProvider.model,
-        system: systemPrompt,
-        messages: loopMessages,
-        tools: aiSdkTools,
-        maxOutputTokens: 8192,
-        onStepFinish: ({ toolCalls, toolResults }) => {
-          turns++;
-          if (onEvent) onEvent({ type: "turn_start", turn: turns });
-          if (toolCalls) {
-            for (const tc of toolCalls) {
-              toolCallLog.push({
-                turn: turns,
-                name: tc.toolName,
-                args: JSON.stringify(tc.args),
-                result: typeof toolResults?.[0]?.result === "string"
-                  ? toolResults[0].result.slice(0, 1000)
-                  : JSON.stringify(toolResults?.[0]?.result || "").slice(0, 1000),
-              });
-            }
-          }
-        },
-      });
-
-      const toolCalls = result.steps?.[0]?.toolCalls || [];
-      const stepText = result.text || "";
-
-      if (result.finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
-        finalContent = stepText;
-        break;
-      }
-
-      // Feed tool results back
-      if (stepText) finalContent += stepText;
-      const toolResults = result.steps?.[0]?.toolResults || [];
-      if (toolCalls.length > 0) {
-        const toolSummary = toolResults.map(tr => {
-          const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
-          return `[Tool: ${tr.toolName}] Result:\n${out}`;
-        }).join("\n\n");
-        loopMessages.push({
-          role: "user",
-          content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
+    const loopResult = await runToolLoop(aiProvider.conn, {
+      system: systemPrompt,
+      messages: [{ role: "user", content: prompt }],
+      tools: openaiTools,
+      handlers: handlerMap,
+      maxRounds: effectiveMaxTurns,
+      maxOutputTokens: 8192,
+      onToolCall: ({ name, args }) => {
+        turns++;
+        if (onEvent) onEvent({ type: "turn_start", turn: turns });
+        toolCallLog.push({
+          turn: turns,
+          name,
+          args: JSON.stringify(args),
         });
-      }
-      if (round === MAX_TOOL_ROUNDS - 1) finalContent = stepText || finalContent;
-    }
+      },
+    });
+
+    finalContent = loopResult.text;
     if (!isMeaningfulContent(finalContent)) {
       finalContent = "[LLM returned empty or whitespace-only response after retries]";
     }
@@ -1067,7 +1039,7 @@ export async function runAgentLoopStream(config, res) {
     } catch {}
   };
 
-  // Resolve LLM via Vercel AI SDK
+  // Resolve LLM provider
   const aiProvider = createAIProvider(rootDir, modelOverride);
   sendSSE("start", { model: aiProvider.modelName, cwd, maxTurns: effectiveMaxTurns });
 
@@ -1081,69 +1053,31 @@ export async function runAgentLoopStream(config, res) {
   } catch {}
   const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
 
-  // Build AI SDK tools
-  const aiSdkTools = buildAISdkTools(cwd, rootDir, null);
+  // Build raw tools + handlers
+  const { openaiTools, handlerMap } = buildRawTools(cwd, rootDir, null);
 
   let turns = 0;
 
   try {
-    // ── Manual tool loop for streaming (AI SDK maxSteps doesn't work with OpenRouter) ──
-    const loopMessages = [{ role: "user", content: prompt }];
-    const MAX_TOOL_ROUNDS = effectiveMaxTurns;
-    let finalContent = "";
-
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const result = await generateText({
-        model: aiProvider.model,
-        system: systemPrompt,
-        messages: loopMessages,
-        tools: aiSdkTools,
-        maxOutputTokens: 8192,
-        onStepFinish: ({ toolCalls, toolResults }) => {
-          turns++;
-          sendSSE("turn", { turn: turns });
-          if (toolCalls) {
-            for (const tc of toolCalls) {
-              sendSSE("tool", { name: tc.toolName, args: tc.args });
-            }
-          }
-          if (toolResults) {
-            for (const tr of toolResults) {
-              const resultText = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result);
-              sendSSE("tool_result", { name: tr.toolName, result: resultText.slice(0, 2000) });
-            }
-          }
-        },
-      });
-
-      const toolCalls = result.steps?.[0]?.toolCalls || [];
-      const stepText = result.text || "";
-
-      if (result.finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
-        finalContent = stepText;
-        sendSSE("content", { content: stepText, done: false });
-        break;
-      }
-
-      // Stream intermediate text
-      if (stepText) {
-        finalContent += stepText;
-        sendSSE("content", { content: stepText, done: false });
-      }
-
-      // Feed tool results back
-      const toolResults = result.steps?.[0]?.toolResults || [];
-      if (toolCalls.length > 0) {
-        const toolSummary = toolResults.map(tr => {
-          const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
-          return `[Tool: ${tr.toolName}] Result:\n${out}`;
-        }).join("\n\n");
-        loopMessages.push({
-          role: "user",
-          content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
-        });
-      }
-    }
+    const loopResult = await runToolLoop(aiProvider.conn, {
+      system: systemPrompt,
+      messages: [{ role: "user", content: prompt }],
+      tools: openaiTools,
+      handlers: handlerMap,
+      maxRounds: effectiveMaxTurns,
+      maxOutputTokens: 8192,
+      onToolCall: ({ name, args }) => {
+        turns++;
+        sendSSE("turn", { turn: turns });
+        sendSSE("tool", { name, args });
+      },
+      onToolResult: ({ name, result }) => {
+        sendSSE("tool_result", { name, result: result.slice(0, 2000) });
+      },
+      onText: (text) => {
+        sendSSE("content", { content: text, done: false });
+      },
+    });
 
     sendSSE("content", { content: "", done: true });
     sendSSE("done", { turns, durationMs: Date.now() - startTime });

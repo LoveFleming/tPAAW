@@ -13,12 +13,12 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, json } from "./shared.mjs";
 import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
-import { generateText, tool as aiTool, jsonSchema } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { resolveProvider, toOpenAITools, runToolLoop } from "../lib/llm-fetch.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DATA_DIR = resolve(__dirname, "../../../../data");
+const PAAW_ROOT = resolve(__dirname, "../../../..");
 const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk/tickets.json");
 const KNOWLEDGE_FILE = resolve(DATA_DIR, "helpdesk/KNOWLEDGE.md");
 const HELPDESK_SKILL = resolve(DATA_DIR, "skills/physical-skill/help-desk/SKILL.md");
@@ -57,28 +57,28 @@ async function getCachedTools() {
   if (!_toolDeps) {
     const { getToolsAndHandlers } = await import("../tools/index.mjs");
     const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
-    // Convert OpenAI function format → Vercel AI SDK tool() format
-    const aiSdkTools = {};
+
+    // Build OpenAI-format tool definitions
+    const openaiTools = toOpenAITools(toolDefs);
+
+    // Build handler map
+    const handlerMap = {};
     for (const td of toolDefs) {
-      const fn = td.function;
+      const fn = td.function || td;
       const handler = toolHandlers[fn.name];
       if (!handler) continue;
-      aiSdkTools[fn.name] = aiTool({
-        description: fn.description || fn.name,
-        parameters: jsonSchema(fn.parameters || { type: "object", properties: {} }),
-        execute: async (args) => {
-          try {
-            const result = await handler(args);
-            if (typeof result === "string") return result;
-            if (result?.text) return result.text;
-            return JSON.stringify(result);
-          } catch (err) {
-            return `Tool error: ${err.message}`;
-          }
-        },
-      });
+      handlerMap[fn.name] = async (args) => {
+        try {
+          const result = await handler(args);
+          if (typeof result === "string") return result;
+          if (result?.text) return result.text;
+          return JSON.stringify(result);
+        } catch (err) {
+          return `Tool error: ${err.message}`;
+        }
+      };
     }
-    _toolDeps = { aiSdkTools };
+    _toolDeps = { openaiTools, handlerMap };
   }
   return _toolDeps;
 }
@@ -121,6 +121,7 @@ const NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*(.+)/s;
 async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
   const skillMd = await readFile(HELPDESK_SKILL, "utf-8");
   const knowledgeBase = await getCachedKnowledge();
+  // Validate provider
   const providerConfig = await getCachedProviders();
   const providerId = providerConfig.active;
   const provider = providerConfig.providers[providerId];
@@ -129,7 +130,7 @@ async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
   }
   const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
 
-  const { aiSdkTools } = await getCachedTools();
+  const { openaiTools, handlerMap } = await getCachedTools();
 
   // Load task memory if available
   const { taskId, tStore } = options;
@@ -149,15 +150,8 @@ async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
     }
   }
 
-  // Create AI SDK OpenAI provider
-  const openai = createOpenAI({
-    baseURL: provider.baseURL.replace(/\/+$/, ""),
-    apiKey: provider.apiKey,
-        compatibility: "compatible", // 强制 Chat Completions API
-    headers: providerId === "openrouter"
-      ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
-      : undefined,
-  });
+  // ── Resolve provider for raw fetch ──
+  const conn = await resolveProvider(PAAW_ROOT, model);
 
   const systemPrompt = `${skillMd}
 
@@ -191,7 +185,6 @@ ${memoryContext}
 不要在 [NEED_INFO:] 之後加其他內容，只輸出釐清問題本身。
 一個 [NEED_INFO:] 只能問一個問題。`;
 
-  // Map conversation roles for AI SDK
   const aiMessages = conversation.map(m => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: m.content,
@@ -201,77 +194,40 @@ ${memoryContext}
   let toolsUsed = [];
 
   try {
-    // ── Manual tool loop (AI SDK maxSteps doesn't work with OpenRouter) ──
-    const loopMessages = [...aiMessages];
-    const MAX_TOOL_ROUNDS = 6;
+    // ── Run tool loop via raw Chat Completions API ──
+    const loopResult = await runToolLoop(conn, {
+      system: systemPrompt,
+      messages: aiMessages,
+      tools: openaiTools,
+      handlers: handlerMap,
+      maxRounds: 6,
+      maxOutputTokens: 4096,
+      temperature: 0.7,
+      onToolCall: async ({ name }) => {
+        toolsUsed.push(name);
+        if (taskId && tStore) {
+          await tStore.appendEvent(taskId, { type: "tool_call", name });
+        }
+      },
+    });
 
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const result = await generateText({
-        model: openai.chat(model),
-        system: systemPrompt,
-        messages: loopMessages,
-        tools: aiSdkTools,
-        temperature: 0.7,
-        maxOutputTokens: 4096,
-        onStepFinish: async ({ toolCalls }) => {
-          if (toolCalls) {
-            for (const tc of toolCalls) {
-              toolsUsed.push(tc.toolName);
-              if (taskId && tStore) {
-                await tStore.appendEvent(taskId, { type: "tool_call", name: tc.toolName });
-              }
-            }
-          }
-        },
-      });
-
-      const toolCalls = result.steps?.[0]?.toolCalls || [];
-      const stepText = result.text || "";
-
-      // No tool calls → we have the final answer
-      if (result.finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
-        fullText = stepText;
-        break;
-      }
-
-      // Has tool calls → feed results back as user message
-      if (stepText) fullText += stepText;
-      const toolResults = result.steps?.[0]?.toolResults || [];
-      if (toolCalls.length > 0) {
-        const toolSummary = toolResults.map(tr => {
-          const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
-          return `[Tool: ${tr.toolName}] Result:\n${out}`;
-        }).join("\n\n");
-        loopMessages.push({
-          role: "user",
-          content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
-        });
-      }
-
-      // Last round: use whatever text we have
-      if (round === MAX_TOOL_ROUNDS - 1) {
-        fullText = stepText || fullText;
-      }
-    }
+    fullText = loopResult.text;
 
     // Fallback: if text too short but tools were used, force a summary
     if (fullText.trim().length < 100 && toolsUsed.length > 0) {
       console.log(`[HelpDesk] Text too short (${fullText.length} chars), forcing summary call`);
-      const summaryResult = await generateText({
-        model: openai.chat(model),
+      const { paawGenerate } = await import("../lib/ai-sdk-helpers.mjs");
+      fullText = await paawGenerate(PAAW_ROOT, {
         system: systemPrompt,
         messages: [
           ...aiMessages,
           { role: "user", content: "剛才你讀了知識庫檔案。現在請直接根據你讀到的內容，用繁體中文完整回答使用者的問題。不要使用任何工具，直接輸出答案。" },
         ],
-        temperature: 0.3,
-        maxOutputTokens: 2000,
-      });
-      fullText = summaryResult.text || fullText;
+      }, { temperature: 0.3, maxOutputTokens: 2000 });
       console.log(`[HelpDesk] Summary call result: ${fullText.length} chars`);
     }
   } catch (err) {
-    console.error(`[HelpDesk] generateText error: ${err.message}`);
+    console.error(`[HelpDesk] tool loop error: ${err.message}`);
     throw err;
   }
 
