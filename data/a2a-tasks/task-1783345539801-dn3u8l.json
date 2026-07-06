@@ -1,0 +1,115 @@
+{
+  "id": "task-1783345539801-dn3u8l",
+  "contextId": "task-1783345539801-dn3u8l",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-06T13:45:57.916Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "pocket 列出資料"
+      }
+    ]
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "pocket 列出資料"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "以下是你的 **Pocket（口袋筆記）** 所有資料一覽 ✨\n\n---\n\n### ✅ Todo（待辦事項）\n\n| # | 標題 | 原文 | 狀態 |\n|---|------|------|------|\n| 1 | 🏃 明早六點記得去公園走路運動放鬆一下心情 | 明早六點記得去公園走路運動放鬆一下心情 | ✅ **已完成** |\n| 2 | 📋 6/26 AI Agent 報告 | 6/26 AI Agent 報告 | ⏳ 未完成 |\n| 3 | 🥛 買牛奶 | 買牛奶 | ⏳ 未完成 |\n| 4 | 🗓️ 明天開會 | 明天開會 | ⏳ 未完成 |\n| 5 | 🗓️ 明天開會（重複） | 明天開會 | ⏳ 未完成 |\n| 6 | 🧪 測試20260706 | 測試20260706 | ⏳ 未完成 |\n\n### 🌤️ Mood（心情日記）\n\n| 事件 | 感受 |\n|------|------|\n| 連假都在準備報告，沒陪小孩複習功課 | 😔 很對不起小孩 |\n\n### 📄 其他\n\n| 內容 |\n|------|\n| 買牛奶（無分類資料） |\n\n---\n\n**總計：8 筆資料**（6 筆 todo、1 筆 mood、1 筆未分類）\n\n需要我幫你整理成筆記、或刪除重複的項目嗎？"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783345557916",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "以下是你的 **Pocket（口袋筆記）** 所有資料一覽 ✨\n\n---\n\n### ✅ Todo（待辦事項）\n\n| # | 標題 | 原文 | 狀態 |\n|---|------|------|------|\n| 1 | 🏃 明早六點記得去公園走路運動放鬆一下心情 | 明早六點記得去公園走路運動放鬆一下心情 | ✅ **已完成** |\n| 2 | 📋 6/26 AI Agent 報告 | 6/26 AI Agent 報告 | ⏳ 未完成 |\n| 3 | 🥛 買牛奶 | 買牛奶 | ⏳ 未完成 |\n| 4 | 🗓️ 明天開會 | 明天開會 | ⏳ 未完成 |\n| 5 | 🗓️ 明天開會（重複） | 明天開會 | ⏳ 未完成 |\n| 6 | 🧪 測試20260706 | 測試20260706 | ⏳ 未完成 |\n\n### 🌤️ Mood（心情日記）\n\n| 事件 | 感受 |\n|------|------|\n| 連假都在準備報告，沒陪小孩複習功課 | 😔 很對不起小孩 |\n\n### 📄 其他\n\n| 內容 |\n|------|\n| 買牛奶（無分類資料） |\n\n---\n\n**總計：8 筆資料**（6 筆 todo、1 筆 mood、1 筆未分類）\n\n需要我幫你整理成筆記、或刪除重複的項目嗎？"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "pocket_list",
+      "pocket_get",
+      "pocket_get",
+      "pocket_get",
+      "pocket_get",
+      "pocket_get",
+      "pocket_get",
+      "pocket_get",
+      "pocket_get"
+    ],
+    "model": "paaw-helpdesk"
+  },
+  "createdAt": "2026-07-06T13:45:39.801Z",
+  "updatedAt": "2026-07-06T13:45:57.917Z",
+  "events": [
+    {
+      "type": "tool_call",
+      "name": "pocket_list",
+      "ts": 1783345542529
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549724
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549730
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549733
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549736
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549739
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549741
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549743
+    },
+    {
+      "type": "tool_call",
+      "name": "pocket_get",
+      "ts": 1783345549744
+    }
+  ]
+}

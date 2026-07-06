@@ -387,7 +387,7 @@ export default async function skillsApiRoute(req, res) {
 
       const userMessage = `${genPrompt}\n\n${requirement}`;
 
-      const content = (await paawGenerate(PAAW_ROOT, {
+      let content = (await paawGenerate(PAAW_ROOT, {
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
       }, { model, maxOutputTokens: 8192, temperature: 0.7 })).trim();

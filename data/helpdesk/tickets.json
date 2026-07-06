@@ -1,5 +1,105 @@
 [
   {
+    "ticketId": "TKT-1783345523658",
+    "agentName": "pocket",
+    "agentType": "custom",
+    "subject": "pocket 有幾筆資料？",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783345523658",
+        "role": "user",
+        "text": "pocket 有幾筆資料？",
+        "ts": 1783345523658
+      },
+      {
+        "id": "msg_1783345531106",
+        "role": "agent",
+        "text": "目前 **Pocket** 共有 **8 筆資料**，類型分布如下：\n\n| 類型 | 數量 |\n|------|:----:|\n| todo（待辦） | 6 筆 |\n| mood（心情） | 1 筆 |\n| 未分類 | 1 筆 |\n\n如果你想知道每筆的詳細內容，可以進一步查詢哦！",
+        "ts": 1783345531106
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-06T13:45:23.658Z",
+    "updatedAt": "2026-07-06T13:45:31.106Z"
+  },
+  {
+    "ticketId": "TKT-1783344958532",
+    "agentName": "pocket",
+    "agentType": "custom",
+    "subject": "pocket裡有什麼？",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783344958532",
+        "role": "user",
+        "text": "pocket裡有什麼？",
+        "ts": 1783344958532
+      },
+      {
+        "id": "msg_1783344981240",
+        "role": "agent",
+        "text": "以下是 **Pocket** 目前的內容總覽，共 **7 筆資料**：\n\n---\n\n### 📋 待辦事項（Todo）\n\n| # | 標題 | 狀態 |\n|---|------|------|\n| 1 | 🏃 **明早六點記得去公園走路運動放鬆一下心情** | ✅ **已完成** |\n| 2 | 📄 **6/26 AI Agent 報告** | ⏳ 待處理 |\n| 3 | 🥛 **買牛奶** | ⏳ 待處理 |\n| 4 | 🥛 **買牛奶**（重複） | ⏳ 待處理 |\n| 5 | 📅 **明天開會** | ⏳ 待處理 |\n| 6 | 📅 **明天開會**（重複） | ⏳ 待處理 |\n\n### 💭 心情記錄（Mood）\n\n| # | 事件 | 感受 |\n|---|------|------|\n| 7 | 😢 **連假沒陪小孩** — 連假都在準備報告，沒陪小孩複習功課 | 很對不起小孩 |\n\n---\n\n### 小整理\n\n- 有些待辦事項有**重複**的記錄（買牛奶 ×2、明天開會 ×2），可能是不小心新增了多次，可以考慮刪除重複的\n- 有 1 筆已完成（去公園走路 ✅）\n- 還有 5 個待辦事項未完成\n\n需要我幫你刪除重複的記錄，或是整理一下嗎？",
+        "ts": 1783344981240
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-06T13:35:58.531Z",
+    "updatedAt": "2026-07-06T13:36:21.240Z"
+  },
+  {
+    "ticketId": "TKT-1783344865083",
+    "agentName": "pocket",
+    "agentType": "custom",
+    "subject": "pocket裡有什麼？",
+    "status": "open",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783344865083",
+        "role": "user",
+        "text": "pocket裡有什麼？",
+        "ts": 1783344865083
+      },
+      {
+        "id": "msg_1783344865090",
+        "role": "system",
+        "text": "[自動回答失敗：rootDir is not defined]",
+        "ts": 1783344865090
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-06T13:34:25.082Z",
+    "updatedAt": "2026-07-06T13:34:25.090Z"
+  },
+  {
+    "ticketId": "TKT-1783342854114",
+    "agentName": "pocket",
+    "agentType": "custom",
+    "subject": "pocket裡有什麼資料？",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783342854114",
+        "role": "user",
+        "text": "pocket裡有什麼資料？",
+        "ts": 1783342854114
+      },
+      {
+        "id": "msg_1783342868234",
+        "role": "agent",
+        "text": "目前 **Pocket** 裡沒有任何資料，是空的。\n\n不過讓我跟你介紹一下 Pocket 是什麼：\n\n## Pocket 是什麼？\n\nPocket 是一個**生活點滴記錄工具**，可以用來記錄各種日常資訊，目前支援的類型包括：\n\n| 類型 | 用途 |\n|------|------|\n| 📝 **單字學習** | 記下新學的單字、定義、例句、翻譯 |\n| 🎪 **活動記錄** | 記錄參加的活動、當下的感受與想法 |\n| 💭 **心情日記** | 記錄事件、心情感受、後續行動 |\n\n## 使用方法\n\n你可以直接跟我說：\n\n- 「幫我記一個單字：`serendipity`，意思是意外發現的美好事物」\n- 「記錄今天去了華山文創園區，心情很好」\n- 「記一下昨天和朋友吃飯的感想」\n\n然後我就會幫你存入 Pocket。\n\n---\n\n如果你想開始使用 Pocket，現在就可以告訴我想記錄什麼內容哦！😊",
+        "ts": 1783342868234
+      }
+    ],
+    "tags": [],
+    "createdAt": "2026-07-06T13:00:54.114Z",
+    "updatedAt": "2026-07-06T13:01:08.234Z"
+  },
+  {
     "ticketId": "TKT-1783332042591",
     "agentName": "test",
     "agentType": "custom",
@@ -319,5 +419,145 @@
     ],
     "createdAt": "2026-07-06T10:01:22.308Z",
     "updatedAt": "2026-07-06T10:01:22.308Z"
+  },
+  {
+    "ticketId": "TKT-1783342917763",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "[object Object]",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783342917763_iox5",
+        "role": "user",
+        "text": "[object Object]",
+        "ts": 1783342917763
+      },
+      {
+        "id": "msg_1783342917763_3yn9",
+        "role": "agent",
+        "text": "看起來你的訊息好像沒有正常送達——我收到的內容是 `[object Object]`，這通常表示前端傳送時出了序列化問題。\n\n---\n\n沒關係！PAAW HelpDesk 仍然在這裡為你服務。請重新告訴我你想問的 PAAW 相關問題，例如：\n\n- **概念類**：什麼是 Skill？什麼是 Workspace？\n- **操作類**：怎麼建立一個 App？怎麼寫 SKILL.md？\n- **架構類**：PAAW 的 Capability Platform 三層架構是？\n- **疑難排解**：我的 Skill 執行失敗怎麼辦？\n\n請直接輸入你的問題就可以囉！🙌",
+        "ts": 1783342917763
+      }
+    ],
+    "tags": [
+      "a2a:task-1783342911935-ae9v9a",
+      "a2a"
+    ],
+    "createdAt": "2026-07-06T13:01:57.763Z",
+    "updatedAt": "2026-07-06T13:01:57.763Z"
+  },
+  {
+    "ticketId": "TKT-1783342932480",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "[object Object]",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783342932480_p0xf",
+        "role": "user",
+        "text": "[object Object]",
+        "ts": 1783342932480
+      },
+      {
+        "id": "msg_1783342932480_7h85",
+        "role": "agent",
+        "text": "我注意到您的問題似乎沒有正常傳送（顯示為 `[object Object]`），這可能是前端介面的一個小問題。\n\n請您重新輸入想詢問的問題，以下是一些您可以問的範例：\n\n---\n\n**概念類**\n- 「什麼是 PAAW 的 Skill 系統？」\n- 「PAAW 的 Workspace 機制是什麼？」\n- 「什麼是 Skill Builder？」\n\n**操作類**\n- 「如何建立一個新的 App？」\n- 「怎麼寫一個 Skill 的 Deterministic Script？」\n- 「A2A Protocol 要怎麼用？」\n\n**架構類**\n- 「PAAW 的三層架構是什麼？」\n- 「Capability Platform 是怎麼設計的？」\n- 「App 的資料儲存機制？」\n\n**疑難排解**\n- 「為什麼 App 跑不出來？」\n- 「Chat Tool 沒有自動註冊怎麼辦？」\n\n---\n\n請重新輸入您的問題，我很樂意為您解答 😊",
+        "ts": 1783342932480
+      }
+    ],
+    "tags": [
+      "a2a:task-1783342925623-g3b5kr",
+      "a2a"
+    ],
+    "createdAt": "2026-07-06T13:02:12.480Z",
+    "updatedAt": "2026-07-06T13:02:12.480Z"
+  },
+  {
+    "ticketId": "TKT-1783345011815",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "[object Object]",
+    "status": "input-required",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783345011815_pkit",
+        "role": "user",
+        "text": "[object Object]",
+        "ts": 1783345011815
+      },
+      {
+        "id": "msg_1783345011815_7a8b",
+        "role": "agent",
+        "text": "釐清問題]\n\n我看到你傳送了 `[object Object]`，這看起來像是系統傳送格式有誤，而不是一個具體的問題。😅\n\n請直接輸入你想了解的 **PAAW 相關問題**，例如：\n\n- 「PAAW 的 Skill 系統是怎麼運作的？」\n- 「怎麼建立一個新的 App？」\n- 「Workspace 是什麼？」\n- 「PAAW 的架構是怎樣的？」\n\n任何關於 PAAW 的問題都可以問我！",
+        "ts": 1783345011815
+      }
+    ],
+    "tags": [
+      "a2a:task-1783345005986-sl01ge",
+      "a2a"
+    ],
+    "createdAt": "2026-07-06T13:36:51.815Z",
+    "updatedAt": "2026-07-06T13:36:51.815Z"
+  },
+  {
+    "ticketId": "TKT-1783345061207",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "pocket 加一筆 todo：測試混合策略",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783345061207_ryp9",
+        "role": "user",
+        "text": "pocket 加一筆 todo：測試混合策略",
+        "ts": 1783345061207
+      },
+      {
+        "id": "msg_1783345061207_izqq",
+        "role": "agent",
+        "text": "\n\n好的，我來幫你在 Pocket 新增一筆 todo 類型的筆記。不過，我需要先確認一下這筆筆記的詳細資訊。\n\n從你提供的內容來看，這是一筆 **todo** 類型的筆記，但 Pocket 的 todo 類型需要以下必填欄位：\n\n- **title**（標題）\n- **text**（原文/描述）\n- **type**（類型）\n- **word**（單字）\n- **definition**（定義）\n- **translation**（翻譯）\n- **event**（事件）\n- **feeling**（感受）\n\n請問你是否可以補充以下資訊：\n\n1. **標題**：你想怎麼命名這筆 todo？（例如：「測試混合策略」）\n2. **描述/原文**：這筆 todo 的具體內容是什麼？\n3. **單字**與**定義**：是否有相關的關鍵字或定義？\n4. **事件**：這筆 todo 與什麼事件相關？\n5. **感受**：你對這件事的感受如何？\n\n或者，如果你只是想單純記一筆待辦事項，我也可以幫你用 **筆記** 的方式記錄下來，會更簡潔！",
+        "ts": 1783345061207
+      }
+    ],
+    "tags": [
+      "a2a:task-1783345038456-srcuo3",
+      "a2a"
+    ],
+    "createdAt": "2026-07-06T13:37:41.207Z",
+    "updatedAt": "2026-07-06T13:37:41.207Z"
+  },
+  {
+    "ticketId": "TKT-1783345557919",
+    "agentName": "Agent Orchestrator",
+    "agentType": "a2a",
+    "subject": "pocket 列出資料",
+    "status": "answered",
+    "priority": "medium",
+    "messages": [
+      {
+        "id": "msg_1783345557919_5vzg",
+        "role": "user",
+        "text": "pocket 列出資料",
+        "ts": 1783345557919
+      },
+      {
+        "id": "msg_1783345557919_incc",
+        "role": "agent",
+        "text": "以下是你的 **Pocket（口袋筆記）** 所有資料一覽 ✨\n\n---\n\n### ✅ Todo（待辦事項）\n\n| # | 標題 | 原文 | 狀態 |\n|---|------|------|------|\n| 1 | 🏃 明早六點記得去公園走路運動放鬆一下心情 | 明早六點記得去公園走路運動放鬆一下心情 | ✅ **已完成** |\n| 2 | 📋 6/26 AI Agent 報告 | 6/26 AI Agent 報告 | ⏳ 未完成 |\n| 3 | 🥛 買牛奶 | 買牛奶 | ⏳ 未完成 |\n| 4 | 🗓️ 明天開會 | 明天開會 | ⏳ 未完成 |\n| 5 | 🗓️ 明天開會（重複） | 明天開會 | ⏳ 未完成 |\n| 6 | 🧪 測試20260706 | 測試20260706 | ⏳ 未完成 |\n\n### 🌤️ Mood（心情日記）\n\n| 事件 | 感受 |\n|------|------|\n| 連假都在準備報告，沒陪小孩複習功課 | 😔 很對不起小孩 |\n\n### 📄 其他\n\n| 內容 |\n|------|\n| 買牛奶（無分類資料） |\n\n---\n\n**總計：8 筆資料**（6 筆 todo、1 筆 mood、1 筆未分類）\n\n需要我幫你整理成筆記、或刪除重複的項目嗎？",
+        "ts": 1783345557919
+      }
+    ],
+    "tags": [
+      "a2a:task-1783345539801-dn3u8l",
+      "a2a"
+    ],
+    "createdAt": "2026-07-06T13:45:57.919Z",
+    "updatedAt": "2026-07-06T13:45:57.919Z"
   }
 ]
