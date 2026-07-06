@@ -28,6 +28,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
+import { generateText, streamText, tool as aiTool, jsonSchema } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 
 // ── Types ──
@@ -100,6 +102,59 @@ function resolveLLMConfig(rootDir, modelOverride) {
   }
 
   return { apiUrl, headers, model, providerId };
+}
+
+// ── Vercel AI SDK Helpers ──
+
+/** Create AI SDK OpenAI provider from PAAW provider config */
+function createAIProvider(rootDir, modelOverride) {
+  const config = loadProviderConfig(rootDir);
+  if (!config) throw new Error("No provider config found");
+
+  let providerId = config.active;
+  let model = modelOverride || config.defaultModel || "glm-5.1";
+  if (modelOverride && modelOverride.includes("/")) {
+    const firstSlash = modelOverride.indexOf("/");
+    providerId = modelOverride.slice(0, firstSlash);
+    model = modelOverride.slice(firstSlash + 1);
+  }
+
+  const provider = config.providers[providerId];
+  if (!provider) throw new Error(`Provider '${providerId}' not found`);
+
+  const openai = createOpenAI({
+    baseURL: provider.baseURL.replace(/\/+$/, ""),
+    apiKey: provider.apiKey,
+    headers: providerId === "openrouter"
+      ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
+      : undefined,
+  });
+
+  return { model: openai(model), providerId, modelName: model };
+}
+
+/** Convert PAAW_TOOLS array to AI SDK tool map */
+function buildAISdkTools(cwd, rootDir, onEvent) {
+  const tools = {};
+  for (const td of PAAW_TOOLS) {
+    const fn = td.function;
+    tools[fn.name] = aiTool({
+      description: fn.description || fn.name,
+      parameters: jsonSchema(fn.parameters || { type: "object", properties: {} }),
+      execute: async (args) => {
+        // Wrap args into the format executeTool expects
+        const call = {
+          function: {
+            name: fn.name,
+            arguments: JSON.stringify(args),
+          },
+        };
+        const result = await executeTool(call, cwd, rootDir, onEvent);
+        return result;
+      },
+    });
+  }
+  return tools;
 }
 
 // ── Tool Definitions (OpenAI function-calling format) ──
@@ -847,14 +902,12 @@ export async function runAgentLoop(config) {
   const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
 
   const startTime = Date.now();
-  const timeoutMs = effectiveTimeout * 1000;
   const toolCallLog = [];
-  let snapshotTaken = false; // auto-snapshot before first file write
 
-  // Resolve LLM config
-  const llm = resolveLLMConfig(rootDir, modelOverride);
+  // Resolve LLM via Vercel AI SDK
+  const aiProvider = createAIProvider(rootDir, modelOverride);
 
-  if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns: effectiveMaxTurns });
+  if (onEvent) onEvent({ type: "start", model: aiProvider.modelName, cwd, maxTurns: effectiveMaxTurns });
 
   // Build system prompt (load .paaw/ project context first)
   let paawContext = null;
@@ -868,90 +921,53 @@ export async function runAgentLoop(config) {
 
   const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
 
-  // Initialize messages
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: prompt },
-  ];
+  // Build AI SDK tools from PAAW_TOOLS + executeTool
+  const aiSdkTools = buildAISdkTools(cwd, rootDir, (evt) => {
+    if (onEvent) onEvent(evt);
+  });
 
   let finalContent = "";
   let turns = 0;
 
-  for (let i = 0; i < maxTurns; i++) {
-    // Check timeout
-    if (Date.now() - startTime > timeoutMs) {
-      finalContent += "\n\n[Agent loop timed out]";
-      break;
+  try {
+    const result = await generateText({
+      model: aiProvider.model,
+      system: systemPrompt,
+      messages: [{ role: "user", content: prompt }],
+      tools: aiSdkTools,
+      maxSteps: effectiveMaxTurns,
+      maxOutputTokens: 8192,
+      onStepFinish: ({ toolCalls, toolResults, finishReason }) => {
+        turns++;
+        if (onEvent) onEvent({ type: "turn_start", turn: turns });
+        if (toolCalls) {
+          for (const tc of toolCalls) {
+            toolCallLog.push({
+              turn: turns,
+              name: tc.toolName,
+              args: JSON.stringify(tc.args),
+              result: typeof toolResults?.[0]?.result === "string"
+                ? toolResults[0].result.slice(0, 1000)
+                : JSON.stringify(toolResults?.[0]?.result || "").slice(0, 1000),
+            });
+          }
+        }
+      },
+    });
+
+    finalContent = result.text || "";
+    if (!isMeaningfulContent(finalContent)) {
+      finalContent = "[LLM returned empty or whitespace-only response after retries]";
     }
-
-    turns++;
-
-    if (onEvent) onEvent({ type: "turn_start", turn: i + 1 });
-
-    // Call LLM
-    let response;
-    try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, PAAW_TOOLS);
-    } catch (err) {
-      finalContent = `LLM API error: ${err.message}`;
-      if (onEvent) onEvent({ type: "error", error: err.message });
-      break;
-    }
-
-    // Parse response
-    const choice = response.choices?.[0];
-    if (!choice) {
-      finalContent = "LLM returned empty response";
-      if (onEvent) onEvent({ type: "error", error: "LLM returned no choices" });
-      break;
-    }
-
-    const assistantMsg = choice.message;
-    // sanitize content（清隱藏字元）
-    let content = sanitizeContent(assistantMsg.content || "");
-    const toolCalls = assistantMsg.tool_calls;
-
-    // Add assistant message to history
-    const historyMsg = { role: "assistant", content };
-    if (toolCalls) historyMsg.tool_calls = toolCalls;
-    messages.push(historyMsg);
-
-    // If LLM just responded with text (no tool calls), we're done
-    if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
-      // 防禦：如果 content 是空的或只有隱藏字元，標記為失敗
-      if (!isMeaningfulContent(content)) {
-        finalContent = "[LLM returned empty or whitespace-only response after retries]";
-        if (onEvent) onEvent({ type: "assistant", content: finalContent });
-      } else {
-        finalContent = content;
-        if (onEvent) onEvent({ type: "assistant", content });
-      }
-      break;
-    }
-
-    // LLM wants to call tools
-    if (content && onEvent) onEvent({ type: "assistant_thinking", content });
-
-    // Execute each tool call
-    for (const call of toolCalls) {
-      const toolResult = await executeTool(call, cwd, rootDir, onEvent);
-      toolCallLog.push({
-        turn: i + 1,
-        name: call.function.name,
-        args: call.function.arguments,
-        result: toolResult.slice(0, 1000),
-      });
-      messages.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: toolResult,
-      });
-    }
+  } catch (err) {
+    finalContent = `LLM API error: ${err.message}`;
+    if (onEvent) onEvent({ type: "error", error: err.message });
   }
 
   const durationMs = Date.now() - startTime;
 
   if (onEvent) onEvent({ type: "end", turns, durationMs, toolCalls: toolCallLog.length });
+  if (onEvent && finalContent) onEvent({ type: "assistant", content: finalContent });
 
   // ── Record session to .paaw/sessions/ ──
   if (paaw && paaw.exists) {
@@ -964,7 +980,6 @@ export async function runAgentLoop(config) {
         toolCalls: toolCallLog,
         durationMs,
       });
-      // Auto-generate changelog if there were file changes
       if (toolCallLog.some(tc => tc.name === "write_file" || tc.name === "edit_file")) {
         await paaw.generateChangelogFromSession({
           task: prompt.slice(0, 200),
@@ -986,8 +1001,7 @@ export async function runAgentLoop(config) {
 }
 
 /**
- * Run agent loop with streaming (SSE) support.
- * Returns the raw fetch Response for the caller to pipe as SSE.
+ * Run agent loop with streaming (SSE) support via Vercel AI SDK streamText.
  */
 export async function runAgentLoopStream(config, res) {
   const {
@@ -1009,10 +1023,8 @@ export async function runAgentLoopStream(config, res) {
   } catch {}
 
   const effectiveMaxTurns = maxTurns ?? agentCfg.maxTurns;
-  const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
 
   const startTime = Date.now();
-  const timeoutMs = timeout * 1000;
 
   // SSE helper
   const sendSSE = (event, data) => {
@@ -1021,11 +1033,11 @@ export async function runAgentLoopStream(config, res) {
     } catch {}
   };
 
-  // Resolve LLM config
-  const llm = resolveLLMConfig(rootDir, modelOverride);
-  sendSSE("start", { model: llm.model, cwd, maxTurns });
+  // Resolve LLM via Vercel AI SDK
+  const aiProvider = createAIProvider(rootDir, modelOverride);
+  sendSSE("start", { model: aiProvider.modelName, cwd, maxTurns: effectiveMaxTurns });
 
-  // Build system prompt (load .paaw/ project context first)
+  // Build system prompt
   let paawContext = null;
   try {
     const paaw = createPaawProject(cwd);
@@ -1034,67 +1046,47 @@ export async function runAgentLoopStream(config, res) {
     }
   } catch {}
   const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: prompt },
-  ];
+
+  // Build AI SDK tools
+  const aiSdkTools = buildAISdkTools(cwd, rootDir, null);
 
   let turns = 0;
 
-  for (let i = 0; i < maxTurns; i++) {
-    if (Date.now() - startTime > timeoutMs) {
-      sendSSE("error", { message: "Agent loop timed out" });
-      break;
+  try {
+    const result = streamText({
+      model: aiProvider.model,
+      system: systemPrompt,
+      messages: [{ role: "user", content: prompt }],
+      tools: aiSdkTools,
+      maxSteps: effectiveMaxTurns,
+      maxOutputTokens: 8192,
+      onStepFinish: ({ toolCalls, toolResults }) => {
+        turns++;
+        sendSSE("turn", { turn: turns });
+        if (toolCalls) {
+          for (const tc of toolCalls) {
+            sendSSE("tool", { name: tc.toolName, args: tc.args });
+            if (toolResults) {
+              for (const tr of toolResults) {
+                const resultText = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result);
+                sendSSE("tool_result", { name: tc.toolName, result: resultText.slice(0, 2000) });
+              }
+            }
+          }
+        }
+      },
+    });
+
+    // Stream text chunks as SSE content events
+    for await (const chunk of result.textStream) {
+      sendSSE("content", { content: chunk, done: false });
     }
 
-    turns++;
-    sendSSE("turn", { turn: i + 1 });
-
-    // Call LLM (non-streaming for now — tool calling needs complete response)
-    let response;
-    try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, PAAW_TOOLS);
-    } catch (err) {
-      sendSSE("error", { message: err.message });
-      break;
-    }
-
-    const choice = response.choices?.[0];
-    if (!choice) { sendSSE("error", { message: "Empty LLM response" }); break; }
-
-    const assistantMsg = choice.message;
-    const content = assistantMsg.content || "";
-    const toolCalls = assistantMsg.tool_calls;
-
-    const historyMsg = { role: "assistant", content };
-    if (toolCalls) historyMsg.tool_calls = toolCalls;
-    messages.push(historyMsg);
-
-    // Final text response — stream it
-    if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
-      sendSSE("content", { content, done: true });
-      break;
-    }
-
-    // Intermediate thinking
-    if (content) sendSSE("thinking", { content });
-
-    // Execute tools
-    for (const call of toolCalls) {
-      let args;
-      try { args = JSON.parse(call.function.arguments); } catch { args = {}; }
-      sendSSE("tool", { name: call.function.name, args });
-
-      const toolResult = await executeTool(call, cwd, rootDir, null);
-      sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
-
-      messages.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: toolResult,
-      });
-    }
+    // Wait for completion
+    const finalResult = await result;
+    sendSSE("content", { content: "", done: true });
+    sendSSE("done", { turns, durationMs: Date.now() - startTime });
+  } catch (err) {
+    sendSSE("error", { message: err.message });
   }
-
-  sendSSE("done", { turns, durationMs: Date.now() - startTime });
 }

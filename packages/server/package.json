@@ -8,11 +8,13 @@
     "start": "node src/paaw-server.mjs"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.8",
     "@opencode-ai/sdk": "^1.2.12",
     "@qwen-code/sdk": "^0.1.7",
+    "ai": "^7.0.15",
+    "chokidar": "^5.0.0",
     "js-yaml": "^4.1.1",
     "node-pty": "^1.2.0-beta.13",
-    "ws": "^8.20.0",
-    "chokidar": "^5.0.0"
+    "ws": "^8.20.0"
   }
 }

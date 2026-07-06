@@ -22,6 +22,8 @@ import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
+import { generateText, tool as aiTool, jsonSchema } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -61,16 +63,28 @@ async function getCachedKnowledge() {
 }
 async function getCachedTools() {
   if (!_toolDeps) {
-    const { ToolEngine } = await import("../lib/tool-engine/index.mjs");
     const { getToolsAndHandlers } = await import("../tools/index.mjs");
     const { tools: toolDefs, handlers: toolHandlers } = await getToolsAndHandlers();
-    const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
-      name,
-      description: toolDefs.find(t => t.function.name === name)?.function?.description || name,
-      parameters: toolDefs.find(t => t.function.name === name)?.function?.parameters || { type: "object", properties: {} },
-      execute: async (args) => handler(args),
-    }));
-    _toolDeps = { ToolEngine, executors };
+    // Convert OpenAI function format → Vercel AI SDK tool() format
+    const aiSdkTools = {};
+    for (const td of toolDefs) {
+      const fn = td.function;
+      const handler = toolHandlers[fn.name];
+      if (!handler) continue;
+      aiSdkTools[fn.name] = aiTool({
+        description: fn.description || fn.name,
+        parameters: jsonSchema(fn.parameters || { type: "object", properties: {} }),
+        execute: async (args) => {
+          try {
+            const result = await handler(args);
+            return result;
+          } catch (err) {
+            return { error: true, text: `Tool error: ${err.message}` };
+          }
+        },
+      });
+    }
+    _toolDeps = { aiSdkTools };
   }
   return _toolDeps;
 }
@@ -286,9 +300,8 @@ function getAgentCard(req) {
 async function runAgentLoop({ message, systemPrompt, onChunk }) {
   const { contextEngine } = await import("../context-engine.mjs");
 
-  // Use cached providers and tools
   const providerConfig = await getCachedProviders();
-  const { ToolEngine, executors } = await getCachedTools();
+  const { aiSdkTools } = await getCachedTools();
 
   const providerId = providerConfig.active;
   const provider = providerConfig.providers[providerId];
@@ -300,48 +313,42 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   // Build context (reuse chat context)
   const ctx = await contextEngine.build({ target: "chat" });
 
-  // executors from cache
-
-  const engine = new ToolEngine({
-    provider: {
-      id: providerId,
-      baseURL: provider.baseURL,
-      apiKey: provider.apiKey,
-      defaultModel: model,
-      extraHeaders: providerId === "openrouter"
-        ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
-        : undefined,
-    },
-    executors,
-    maxToolRounds: 5,
-    security: {
-      approval: { mode: process.env.NODE_ENV === "development" ? "auto" : "always" },
-      audit: { enabled: true },
-    },
-    sessionKey: "a2a",
-    agentId: "a2a-server",
+  // Create AI SDK provider
+  const openai = createOpenAI({
+    baseURL: provider.baseURL.replace(/\/+$/, ""),
+    apiKey: provider.apiKey,
+    headers: providerId === "openrouter"
+      ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
+      : undefined,
   });
 
   // Convert A2A message → chat messages format
   const userText = typeof message === "string" ? message : extractText(message);
   const messages = [{ role: "user", content: userText }];
 
-  let fullText = "";
-  let toolsUsed = [];
+  const result = await generateText({
+    model: openai(model),
+    system: ctx.systemPrompt || systemPrompt,
+    messages,
+    tools: aiSdkTools,
+    maxSteps: 5,
+    maxOutputTokens: 4096,
+    onStepFinish: ({ toolCalls }) => {
+      if (toolCalls && onChunk) {
+        for (const tc of toolCalls) {
+          onChunk({ type: "tool_start", name: tc.toolName });
+        }
+      }
+    },
+  });
 
-  for await (const chunk of engine.run(ctx.systemPrompt, messages, model)) {
-    if (onChunk) onChunk(chunk);
-    switch (chunk.type) {
-      case "text":
-        fullText += chunk.delta;
-        break;
-      case "tool_start":
-        toolsUsed.push(chunk.name);
-        break;
-    }
+  // Simulate streaming text chunks for SSE compatibility
+  if (onChunk && result.text) {
+    onChunk({ type: "text", delta: result.text });
   }
 
-  return { text: fullText, toolsUsed };
+  const toolsUsed = result.steps?.flatMap(s => s.toolCalls?.map(tc => tc.toolName) || []) || [];
+  return { text: result.text || "", toolsUsed };
 }
 
 // ── Helpers for multi-turn ──
@@ -355,15 +362,15 @@ async function findLatestTaskInContext(contextId) {
 const A2A_NEED_INFO_REGEX = /\[NEED_INFO:?\]?\s*([\s\S]+)/;
 
 /**
- * Run HelpDesk skill for A2A messages — with NEED_INFO detection.
- * Reuses helpdesk route's runHelpDeskSkill logic.
+ * Run HelpDesk skill for A2A messages — via Vercel AI SDK.
+ * With NEED_INFO detection.
  */
 async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, taskId } = {}) {
   // Use cached values
   const skillMd = await getCachedSkill();
   const knowledgeBase = await getCachedKnowledge();
   const providerConfig = await getCachedProviders();
-  const { ToolEngine, executors } = await getCachedTools();
+  const { aiSdkTools } = await getCachedTools();
 
   const providerId = providerConfig.active;
   const provider = providerConfig.providers[providerId];
@@ -389,21 +396,13 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
     }
   }
 
-  const engine = new ToolEngine({
-    provider: {
-      id: providerId,
-      baseURL: provider.baseURL,
-      apiKey: provider.apiKey,
-      defaultModel: model,
-      extraHeaders: providerId === "openrouter"
-        ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
-        : undefined,
-    },
-    executors,
-    maxToolRounds: 6,
-    security: { approval: { mode: "auto" }, audit: { enabled: false } },
-    sessionKey: "a2a-helpdesk",
-    agentId: "a2a-helpdesk",
+  // Create AI SDK provider
+  const openai = createOpenAI({
+    baseURL: provider.baseURL.replace(/\/+$/, ""),
+    apiKey: provider.apiKey,
+    headers: providerId === "openrouter"
+      ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
+      : undefined,
   });
 
   const systemPrompt = `${skillMd}
@@ -428,44 +427,57 @@ ${memoryContext}
 [NEED_INFO: 釐清問題]
 之後只輸出釐清問題本身。`;
 
+  // Map conversation roles for AI SDK
+  const aiMessages = conversation.map(m => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: m.content,
+  }));
+
   let fullText = "";
   let toolsUsed = [];
 
-  for await (const chunk of engine.run(systemPrompt, conversation, model)) {
-    switch (chunk.type) {
-      case "text":
-        fullText += chunk.delta;
-        break;
-      case "tool_start":
-        toolsUsed.push(chunk.name);
-        if (onProgress) await onProgress({ type: "tool_start", name: chunk.name, toolsUsed });
-        // Persist event
-        if (taskId) {
-          await taskStore.appendEvent(taskId, { type: "tool_call", name: chunk.name });
+  try {
+    const result = await generateText({
+      model: openai(model),
+      system: systemPrompt,
+      messages: aiMessages,
+      tools: aiSdkTools,
+      maxSteps: 6,
+      maxOutputTokens: 4096,
+      onStepFinish: async ({ toolCalls }) => {
+        if (toolCalls) {
+          for (const tc of toolCalls) {
+            toolsUsed.push(tc.toolName);
+            if (onProgress) await onProgress({ type: "tool_start", name: tc.toolName, toolsUsed });
+            if (taskId) {
+              await taskStore.appendEvent(taskId, { type: "tool_call", name: tc.toolName });
+            }
+          }
         }
-        break;
-    }
-  }
-
-  // ── Fallback: if ToolEngine exhausted rounds without producing text, force a final summary ──
-  if (fullText.trim().length < 100 && toolsUsed.length > 0) {
-    console.log(`[A2A-HelpDesk] Text too short (${fullText.length} chars), forcing final summary call`);
-    const summaryMessages = [
-      ...conversation,
-      { role: "user", content: "剛才你讀了知識庫檔案。現在請直接根據你讀到的內容，用繁體中文完整回答使用者的問題。不要使用任何工具，直接輸出答案。" },
-    ];
-    const res = await fetch(`${provider.baseURL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${provider.apiKey}`,
-        ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
       },
-      body: JSON.stringify({ model, messages: [{ role: "system", content: systemPrompt }, ...summaryMessages], temperature: 0.3 }),
     });
-    const data = await res.json();
-    fullText = data.choices?.[0]?.message?.content || fullText;
-    console.log(`[A2A-HelpDesk] Summary call result: ${fullText.length} chars`);
+
+    fullText = result.text || "";
+
+    // Fallback: if text too short but tools were used, force a summary
+    if (fullText.trim().length < 100 && toolsUsed.length > 0) {
+      console.log(`[A2A-HelpDesk] Text too short (${fullText.length} chars), forcing final summary call`);
+      const summaryResult = await generateText({
+        model: openai(model),
+        system: systemPrompt,
+        messages: [
+          ...aiMessages,
+          { role: "user", content: "剛才你讀了知識庫檔案。現在請直接根據你讀到的內容，用繁體中文完整回答使用者的問題。不要使用任何工具，直接輸出答案。" },
+        ],
+        temperature: 0.3,
+        maxOutputTokens: 2000,
+      });
+      fullText = summaryResult.text || fullText;
+      console.log(`[A2A-HelpDesk] Summary call result: ${fullText.length} chars`);
+    }
+  } catch (err) {
+    console.error(`[A2A-HelpDesk] generateText error: ${err.message}`);
+    throw err;
   }
 
   const needMatch = fullText.match(A2A_NEED_INFO_REGEX);
