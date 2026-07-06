@@ -53,7 +53,7 @@ export async function createAIModel(rootDir, modelOverride) {
       : undefined,
   });
 
-  return { model: openai(model), providerId, modelName: model };
+  return { model: openai.chat(model), providerId, modelName: model };
 }
 
 /**

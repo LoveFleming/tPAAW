@@ -138,7 +138,7 @@ function createAIProvider(rootDir, modelOverride) {
       : undefined,
   });
 
-  return { model: openai(model), providerId, modelName: model };
+  return { model: openai.chat(model), providerId, modelName: model };
 }
 
 /** Convert PAAW_TOOLS array to AI SDK tool map */

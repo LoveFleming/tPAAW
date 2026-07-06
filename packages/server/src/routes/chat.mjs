@@ -209,7 +209,7 @@ export default async function chatRoutes(req, res) {
       console.log(`[${chatReqId}] AI SDK streamText() starting...`);
 
       const result = streamText({
-        model: openai(model),
+        model: openai.chat(model),
         system: ctx.systemPrompt,
         messages: messages || [],
         tools: aiSdkTools,

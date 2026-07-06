@@ -200,7 +200,7 @@ ${memoryContext}
 
   try {
     const result = await generateText({
-      model: openai(model),
+      model: openai.chat(model),
       system: systemPrompt,
       messages: aiMessages,
       tools: aiSdkTools,
@@ -225,7 +225,7 @@ ${memoryContext}
     if (fullText.trim().length < 100 && toolsUsed.length > 0) {
       console.log(`[HelpDesk] Text too short (${fullText.length} chars), forcing summary call`);
       const summaryResult = await generateText({
-        model: openai(model),
+        model: openai.chat(model),
         system: systemPrompt,
         messages: [
           ...aiMessages,

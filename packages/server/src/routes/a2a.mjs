@@ -328,7 +328,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   const messages = [{ role: "user", content: userText }];
 
   const result = await generateText({
-    model: openai(model),
+    model: openai.chat(model),
     system: ctx.systemPrompt || systemPrompt,
     messages,
     tools: aiSdkTools,
@@ -440,7 +440,7 @@ ${memoryContext}
 
   try {
     const result = await generateText({
-      model: openai(model),
+      model: openai.chat(model),
       system: systemPrompt,
       messages: aiMessages,
       tools: aiSdkTools,
@@ -465,7 +465,7 @@ ${memoryContext}
     if (fullText.trim().length < 100 && toolsUsed.length > 0) {
       console.log(`[A2A-HelpDesk] Text too short (${fullText.length} chars), forcing final summary call`);
       const summaryResult = await generateText({
-        model: openai(model),
+        model: openai.chat(model),
         system: systemPrompt,
         messages: [
           ...aiMessages,
