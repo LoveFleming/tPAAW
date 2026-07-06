@@ -47,6 +47,7 @@ export async function createAIModel(rootDir, modelOverride) {
   const openai = createOpenAI({
     baseURL: provider.baseURL.replace(/\/+$/, ""),
     apiKey: provider.apiKey,
+    compatibility: "compatible", // 強制 Chat Completions API（非 Responses API）
     headers: providerId === "openrouter"
       ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
       : undefined,

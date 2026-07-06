@@ -194,6 +194,7 @@ export default async function chatRoutes(req, res) {
       const openai = createOpenAI({
         baseURL: resolvedProvider.baseURL.replace(/\/+$/, ""),
         apiKey: resolvedProvider.apiKey,
+        compatibility: "compatible", // 强制 Chat Completions API
         headers: resolvedProviderId === "openrouter"
           ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
           : undefined,

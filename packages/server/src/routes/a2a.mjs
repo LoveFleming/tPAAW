@@ -317,6 +317,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   const openai = createOpenAI({
     baseURL: provider.baseURL.replace(/\/+$/, ""),
     apiKey: provider.apiKey,
+    compatibility: "compatible", // 强制 Chat Completions API
     headers: providerId === "openrouter"
       ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
       : undefined,
@@ -400,6 +401,7 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
   const openai = createOpenAI({
     baseURL: provider.baseURL.replace(/\/+$/, ""),
     apiKey: provider.apiKey,
+    compatibility: "compatible", // 强制 Chat Completions API
     headers: providerId === "openrouter"
       ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
       : undefined,

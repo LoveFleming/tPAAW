@@ -151,6 +151,7 @@ async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
   const openai = createOpenAI({
     baseURL: provider.baseURL.replace(/\/+$/, ""),
     apiKey: provider.apiKey,
+        compatibility: "compatible", // 强制 Chat Completions API
     headers: providerId === "openrouter"
       ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
       : undefined,
