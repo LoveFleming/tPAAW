@@ -77,9 +77,11 @@ async function getCachedTools() {
         execute: async (args) => {
           try {
             const result = await handler(args);
-            return result;
+            if (typeof result === "string") return result;
+            if (result?.text) return result.text;
+            return JSON.stringify(result);
           } catch (err) {
-            return { error: true, text: `Tool error: ${err.message}` };
+            return `Tool error: ${err.message}`;
           }
         },
       });

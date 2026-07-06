@@ -182,9 +182,13 @@ export default async function chatRoutes(req, res) {
             try {
               const result = await handler(args);
               if (fn.name === "app_create" || fn.name === "app_edit") invalidateCache();
-              return result;
+              // PAAW handlers return { text, data?, record? } — AI SDK needs a plain string
+              // for the LLM to consume. Return text or JSON-stringify as fallback.
+              if (typeof result === "string") return result;
+              if (result?.text) return result.text;
+              return JSON.stringify(result);
             } catch (err) {
-              return { error: true, text: `Tool error: ${err.message}` };
+              return `Tool error: ${err.message}`;
             }
           },
         });
@@ -200,47 +204,76 @@ export default async function chatRoutes(req, res) {
           : undefined,
       });
 
-      // ── Run via Vercel AI SDK streamText ──
+      // ── Run via manual multi-step tool loop ──
+      // AI SDK maxSteps doesn't work reliably with OpenRouter/DeepSeek (stops after tool call).
+      // We implement the loop manually: call LLM → if tool_calls → execute → feed back → repeat.
       let fullText = "";
       let toolsUsed = [];
       let chunkCount = 0;
       const streamStart = Date.now();
+      const allMessages = [...(messages || [])];
+      const MAX_TOOL_ROUNDS = 5;
 
-      console.log(`[${chatReqId}] AI SDK streamText() starting...`);
+      console.log(`[${chatReqId}] manual tool loop starting...`);
 
-      const result = streamText({
-        model: openai.chat(model),
-        system: ctx.systemPrompt,
-        messages: messages || [],
-        tools: aiSdkTools,
-        maxSteps: 5,
-        maxOutputTokens: 8192,
-        onStepFinish: ({ toolCalls, toolResults }) => {
-          if (toolCalls) {
-            for (const tc of toolCalls) {
-              toolsUsed.push(tc.toolName);
-              res.write(`data: ${JSON.stringify({ tool_call: { name: tc.toolName, args: tc.args, status: "executing" } })}\n\n`);
-              if (typeof res.flush === "function") res.flush();
-              console.log(`[${chatReqId}] tool_start: ${tc.toolName}`);
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        // Use generateText (non-streaming) to check if LLM wants tools or text
+        const { generateText } = await import("ai");
+        const result = await generateText({
+          model: openai.chat(model),
+          system: ctx.systemPrompt,
+          messages: allMessages,
+          tools: aiSdkTools,
+          maxOutputTokens: 8192,
+          onStepFinish: ({ toolCalls, toolResults }) => {
+            if (toolCalls) {
+              for (const tc of toolCalls) {
+                toolsUsed.push(tc.toolName);
+                res.write(`data: ${JSON.stringify({ tool_call: { name: tc.toolName, args: tc.args, status: "executing" } })}\n\n`);
+                if (typeof res.flush === "function") res.flush();
+                console.log(`[${chatReqId}] tool_start: ${tc.toolName}`);
+              }
             }
-          }
-          if (toolResults) {
-            for (const tr of toolResults) {
-              const resultText = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
-              res.write(`data: ${JSON.stringify({ tool_result: { name: tr.toolName, result: resultText.slice(0, 2000) } })}\n\n`);
-              if (typeof res.flush === "function") res.flush();
-            }
-          }
-        },
-      });
+          },
+        });
 
-      // Stream text chunks to client
-      for await (const chunk of result.textStream) {
-        chunkCount++;
-        fullText += chunk;
-        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
-        if (typeof res.flush === "function") res.flush();
-        if (chunkCount <= 5 || chunkCount % 20 === 0) console.log(`[${chatReqId}] text chunk #${chunkCount} len=${chunk.length}`);
+        const finishReason = result.finishReason;
+        const stepText = result.text || "";
+        const toolCalls = result.steps?.[0]?.toolCalls || [];
+
+        // If LLM produced text (no tool calls, or finishReason=stop), stream it and done
+        if (finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
+          if (stepText) {
+            chunkCount++;
+            fullText += stepText;
+            res.write(`data: ${JSON.stringify({ content: stepText })}\n\n`);
+            if (typeof res.flush === "function") res.flush();
+          }
+          break;
+        }
+
+        // Stream any intermediate text
+        if (stepText) {
+          chunkCount++;
+          res.write(`data: ${JSON.stringify({ content: stepText })}\n\n`);
+          if (typeof res.flush === "function") res.flush();
+          fullText += stepText;
+        }
+
+        // Tool results → convert to user message for next round
+        if (toolCalls.length > 0) {
+          const toolResults = result.steps?.[0]?.toolResults || [];
+          const toolSummary = toolResults.map(tr => {
+            const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
+            return `[Tool: ${tr.toolName}] Result:\n${out}`;
+          }).join("\n\n");
+          allMessages.push({
+            role: "user",
+            content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
+          });
+        }
+
+        console.log(`[${chatReqId}] round ${round + 1}: tools=${toolCalls.map(t => t.toolName).join(",")} text=${stepText.length}chars`);
       }
 
       // Send DONE
