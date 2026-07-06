@@ -28,7 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
-import { generateText, streamText, tool as aiTool, jsonSchema } from "ai";
+import { generateText, tool as aiTool, jsonSchema } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 
@@ -938,32 +938,58 @@ export async function runAgentLoop(config) {
   let turns = 0;
 
   try {
-    const result = await generateText({
-      model: aiProvider.model,
-      system: systemPrompt,
-      messages: [{ role: "user", content: prompt }],
-      tools: aiSdkTools,
-      maxSteps: effectiveMaxTurns,
-      maxOutputTokens: 8192,
-      onStepFinish: ({ toolCalls, toolResults, finishReason }) => {
-        turns++;
-        if (onEvent) onEvent({ type: "turn_start", turn: turns });
-        if (toolCalls) {
-          for (const tc of toolCalls) {
-            toolCallLog.push({
-              turn: turns,
-              name: tc.toolName,
-              args: JSON.stringify(tc.args),
-              result: typeof toolResults?.[0]?.result === "string"
-                ? toolResults[0].result.slice(0, 1000)
-                : JSON.stringify(toolResults?.[0]?.result || "").slice(0, 1000),
-            });
-          }
-        }
-      },
-    });
+    // ── Manual tool loop (AI SDK maxSteps doesn't work with OpenRouter) ──
+    const loopMessages = [{ role: "user", content: prompt }];
+    const MAX_TOOL_ROUNDS = effectiveMaxTurns;
 
-    finalContent = result.text || "";
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const result = await generateText({
+        model: aiProvider.model,
+        system: systemPrompt,
+        messages: loopMessages,
+        tools: aiSdkTools,
+        maxOutputTokens: 8192,
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          turns++;
+          if (onEvent) onEvent({ type: "turn_start", turn: turns });
+          if (toolCalls) {
+            for (const tc of toolCalls) {
+              toolCallLog.push({
+                turn: turns,
+                name: tc.toolName,
+                args: JSON.stringify(tc.args),
+                result: typeof toolResults?.[0]?.result === "string"
+                  ? toolResults[0].result.slice(0, 1000)
+                  : JSON.stringify(toolResults?.[0]?.result || "").slice(0, 1000),
+              });
+            }
+          }
+        },
+      });
+
+      const toolCalls = result.steps?.[0]?.toolCalls || [];
+      const stepText = result.text || "";
+
+      if (result.finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
+        finalContent = stepText;
+        break;
+      }
+
+      // Feed tool results back
+      if (stepText) finalContent += stepText;
+      const toolResults = result.steps?.[0]?.toolResults || [];
+      if (toolCalls.length > 0) {
+        const toolSummary = toolResults.map(tr => {
+          const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
+          return `[Tool: ${tr.toolName}] Result:\n${out}`;
+        }).join("\n\n");
+        loopMessages.push({
+          role: "user",
+          content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
+        });
+      }
+      if (round === MAX_TOOL_ROUNDS - 1) finalContent = stepText || finalContent;
+    }
     if (!isMeaningfulContent(finalContent)) {
       finalContent = "[LLM returned empty or whitespace-only response after retries]";
     }
@@ -1061,37 +1087,64 @@ export async function runAgentLoopStream(config, res) {
   let turns = 0;
 
   try {
-    const result = streamText({
-      model: aiProvider.model,
-      system: systemPrompt,
-      messages: [{ role: "user", content: prompt }],
-      tools: aiSdkTools,
-      maxSteps: effectiveMaxTurns,
-      maxOutputTokens: 8192,
-      onStepFinish: ({ toolCalls, toolResults }) => {
-        turns++;
-        sendSSE("turn", { turn: turns });
-        if (toolCalls) {
-          for (const tc of toolCalls) {
-            sendSSE("tool", { name: tc.toolName, args: tc.args });
-            if (toolResults) {
-              for (const tr of toolResults) {
-                const resultText = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result);
-                sendSSE("tool_result", { name: tc.toolName, result: resultText.slice(0, 2000) });
-              }
+    // ── Manual tool loop for streaming (AI SDK maxSteps doesn't work with OpenRouter) ──
+    const loopMessages = [{ role: "user", content: prompt }];
+    const MAX_TOOL_ROUNDS = effectiveMaxTurns;
+    let finalContent = "";
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const result = await generateText({
+        model: aiProvider.model,
+        system: systemPrompt,
+        messages: loopMessages,
+        tools: aiSdkTools,
+        maxOutputTokens: 8192,
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          turns++;
+          sendSSE("turn", { turn: turns });
+          if (toolCalls) {
+            for (const tc of toolCalls) {
+              sendSSE("tool", { name: tc.toolName, args: tc.args });
             }
           }
-        }
-      },
-    });
+          if (toolResults) {
+            for (const tr of toolResults) {
+              const resultText = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result);
+              sendSSE("tool_result", { name: tr.toolName, result: resultText.slice(0, 2000) });
+            }
+          }
+        },
+      });
 
-    // Stream text chunks as SSE content events
-    for await (const chunk of result.textStream) {
-      sendSSE("content", { content: chunk, done: false });
+      const toolCalls = result.steps?.[0]?.toolCalls || [];
+      const stepText = result.text || "";
+
+      if (result.finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
+        finalContent = stepText;
+        sendSSE("content", { content: stepText, done: false });
+        break;
+      }
+
+      // Stream intermediate text
+      if (stepText) {
+        finalContent += stepText;
+        sendSSE("content", { content: stepText, done: false });
+      }
+
+      // Feed tool results back
+      const toolResults = result.steps?.[0]?.toolResults || [];
+      if (toolCalls.length > 0) {
+        const toolSummary = toolResults.map(tr => {
+          const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
+          return `[Tool: ${tr.toolName}] Result:\n${out}`;
+        }).join("\n\n");
+        loopMessages.push({
+          role: "user",
+          content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
+        });
+      }
     }
 
-    // Wait for completion
-    const finalResult = await result;
     sendSSE("content", { content: "", done: true });
     sendSSE("done", { turns, durationMs: Date.now() - startTime });
   } catch (err) {

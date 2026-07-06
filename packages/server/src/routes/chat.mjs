@@ -4,7 +4,7 @@
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
-import { streamText, tool as aiTool, jsonSchema } from "ai";
+import { generateText, tool as aiTool, jsonSchema } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
 // ── Paths (reuse from context.mjs) ──
@@ -218,7 +218,6 @@ export default async function chatRoutes(req, res) {
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         // Use generateText (non-streaming) to check if LLM wants tools or text
-        const { generateText } = await import("ai");
         const result = await generateText({
           model: openai.chat(model),
           system: ctx.systemPrompt,

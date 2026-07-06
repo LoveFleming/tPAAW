@@ -201,27 +201,58 @@ ${memoryContext}
   let toolsUsed = [];
 
   try {
-    const result = await generateText({
-      model: openai.chat(model),
-      system: systemPrompt,
-      messages: aiMessages,
-      tools: aiSdkTools,
-      maxSteps: 6,
-      temperature: 0.7,
-      maxOutputTokens: 4096,
-      onStepFinish: async ({ toolCalls, toolResults }) => {
-        if (toolCalls) {
-          for (const tc of toolCalls) {
-            toolsUsed.push(tc.toolName);
-            if (taskId && tStore) {
-              await tStore.appendEvent(taskId, { type: "tool_call", name: tc.toolName });
+    // ── Manual tool loop (AI SDK maxSteps doesn't work with OpenRouter) ──
+    const loopMessages = [...aiMessages];
+    const MAX_TOOL_ROUNDS = 6;
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const result = await generateText({
+        model: openai.chat(model),
+        system: systemPrompt,
+        messages: loopMessages,
+        tools: aiSdkTools,
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+        onStepFinish: async ({ toolCalls }) => {
+          if (toolCalls) {
+            for (const tc of toolCalls) {
+              toolsUsed.push(tc.toolName);
+              if (taskId && tStore) {
+                await tStore.appendEvent(taskId, { type: "tool_call", name: tc.toolName });
+              }
             }
           }
-        }
-      },
-    });
+        },
+      });
 
-    fullText = result.text || "";
+      const toolCalls = result.steps?.[0]?.toolCalls || [];
+      const stepText = result.text || "";
+
+      // No tool calls → we have the final answer
+      if (result.finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
+        fullText = stepText;
+        break;
+      }
+
+      // Has tool calls → feed results back as user message
+      if (stepText) fullText += stepText;
+      const toolResults = result.steps?.[0]?.toolResults || [];
+      if (toolCalls.length > 0) {
+        const toolSummary = toolResults.map(tr => {
+          const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
+          return `[Tool: ${tr.toolName}] Result:\n${out}`;
+        }).join("\n\n");
+        loopMessages.push({
+          role: "user",
+          content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
+        });
+      }
+
+      // Last round: use whatever text we have
+      if (round === MAX_TOOL_ROUNDS - 1) {
+        fullText = stepText || fullText;
+      }
+    }
 
     // Fallback: if text too short but tools were used, force a summary
     if (fullText.trim().length < 100 && toolsUsed.length > 0) {

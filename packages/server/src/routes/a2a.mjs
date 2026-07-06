@@ -327,31 +327,56 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
 
   // Convert A2A message → chat messages format
   const userText = typeof message === "string" ? message : extractText(message);
-  const messages = [{ role: "user", content: userText }];
+  const loopMessages = [{ role: "user", content: userText }];
+  const MAX_TOOL_ROUNDS = 5;
+  let finalText = "";
+  let toolsUsed = [];
 
-  const result = await generateText({
-    model: openai.chat(model),
-    system: ctx.systemPrompt || systemPrompt,
-    messages,
-    tools: aiSdkTools,
-    maxSteps: 5,
-    maxOutputTokens: 4096,
-    onStepFinish: ({ toolCalls }) => {
-      if (toolCalls && onChunk) {
-        for (const tc of toolCalls) {
-          onChunk({ type: "tool_start", name: tc.toolName });
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const result = await generateText({
+      model: openai.chat(model),
+      system: ctx.systemPrompt || systemPrompt,
+      messages: loopMessages,
+      tools: aiSdkTools,
+      maxOutputTokens: 4096,
+      onStepFinish: ({ toolCalls }) => {
+        if (toolCalls && onChunk) {
+          for (const tc of toolCalls) {
+            onChunk({ type: "tool_start", name: tc.toolName });
+          }
         }
-      }
-    },
-  });
+      },
+    });
 
-  // Simulate streaming text chunks for SSE compatibility
-  if (onChunk && result.text) {
-    onChunk({ type: "text", delta: result.text });
+    const stepToolCalls = result.steps?.[0]?.toolCalls || [];
+    const stepText = result.text || "";
+    toolsUsed.push(...(stepToolCalls.map(tc => tc.toolName)));
+
+    if (result.finishReason === "stop" || (stepToolCalls.length === 0 && stepText)) {
+      finalText = stepText;
+      break;
+    }
+
+    const toolResults = result.steps?.[0]?.toolResults || [];
+    if (stepToolCalls.length > 0) {
+      const toolSummary = toolResults.map(tr => {
+        const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
+        return `[Tool: ${tr.toolName}] Result:\n${out}`;
+      }).join("\n\n");
+      loopMessages.push({
+        role: "user",
+        content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
+      });
+    }
+    if (round === MAX_TOOL_ROUNDS - 1) finalText = stepText;
   }
 
-  const toolsUsed = result.steps?.flatMap(s => s.toolCalls?.map(tc => tc.toolName) || []) || [];
-  return { text: result.text || "", toolsUsed };
+  // Simulate streaming text chunks for SSE compatibility
+  if (onChunk && finalText) {
+    onChunk({ type: "text", delta: finalText });
+  }
+
+  return { text: finalText, toolsUsed };
 }
 
 // ── Helpers for multi-turn ──
@@ -441,27 +466,53 @@ ${memoryContext}
   let toolsUsed = [];
 
   try {
-    const result = await generateText({
-      model: openai.chat(model),
-      system: systemPrompt,
-      messages: aiMessages,
-      tools: aiSdkTools,
-      maxSteps: 6,
-      maxOutputTokens: 4096,
-      onStepFinish: async ({ toolCalls }) => {
-        if (toolCalls) {
-          for (const tc of toolCalls) {
-            toolsUsed.push(tc.toolName);
-            if (onProgress) await onProgress({ type: "tool_start", name: tc.toolName, toolsUsed });
-            if (taskId) {
-              await taskStore.appendEvent(taskId, { type: "tool_call", name: tc.toolName });
+    // ── Manual tool loop (AI SDK maxSteps doesn't work with OpenRouter) ──
+    const loopMessages = [...aiMessages];
+    const MAX_TOOL_ROUNDS = 6;
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const result = await generateText({
+        model: openai.chat(model),
+        system: systemPrompt,
+        messages: loopMessages,
+        tools: aiSdkTools,
+        maxOutputTokens: 4096,
+        onStepFinish: async ({ toolCalls }) => {
+          if (toolCalls) {
+            for (const tc of toolCalls) {
+              toolsUsed.push(tc.toolName);
+              if (onProgress) await onProgress({ type: "tool_start", name: tc.toolName, toolsUsed });
+              if (taskId) {
+                await taskStore.appendEvent(taskId, { type: "tool_call", name: tc.toolName });
+              }
             }
           }
-        }
-      },
-    });
+        },
+      });
 
-    fullText = result.text || "";
+      const toolCalls = result.steps?.[0]?.toolCalls || [];
+      const stepText = result.text || "";
+
+      if (result.finishReason === "stop" || (toolCalls.length === 0 && stepText)) {
+        fullText = stepText;
+        break;
+      }
+
+      // Feed tool results back
+      if (stepText) fullText += stepText;
+      const toolResults = result.steps?.[0]?.toolResults || [];
+      if (toolCalls.length > 0) {
+        const toolSummary = toolResults.map(tr => {
+          const out = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
+          return `[Tool: ${tr.toolName}] Result:\n${out}`;
+        }).join("\n\n");
+        loopMessages.push({
+          role: "user",
+          content: stepText ? `${stepText}\n\n${toolSummary}` : toolSummary,
+        });
+      }
+      if (round === MAX_TOOL_ROUNDS - 1) fullText = stepText || fullText;
+    }
 
     // Fallback: if text too short but tools were used, force a summary
     if (fullText.trim().length < 100 && toolsUsed.length > 0) {
