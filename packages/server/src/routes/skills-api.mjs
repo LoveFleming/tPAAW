@@ -372,72 +372,26 @@ export default async function skillsApiRoute(req, res) {
         return true;
       }
 
-      // Use direct LLM call (not agent loop) — we just want text output
-      const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
-
-      // Resolve LLM config inline (resolveLLMConfig not exported from agent loop)
-      const { readFileSync: readSync } = await import("fs");
-      const { resolve: resolvePath } = await import("path");
-      const providerConfigPath = resolvePath(PAAW_ROOT, "data/config/providers.json");
-      let llm;
-      try {
-        const pCfg = JSON.parse(readSync(providerConfigPath, "utf-8"));
-        let providerId = pCfg.active;
-        let llmModel = model || pCfg.defaultModel || "glm-5.1";
-        // Parse "providerId/modelId" format
-        if (model && model.includes("/")) {
-          const idx = model.indexOf("/");
-          providerId = model.slice(0, idx);
-          llmModel = model.slice(idx + 1);
-        } else if (llmModel.includes("/")) {
-          // Strip provider prefix from default model if present
-          llmModel = llmModel.split("/").pop();
-        }
-        const provider = pCfg.providers[providerId];
-        if (!provider) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: `Provider '${providerId}' not found in config` }));
-          return true;
-        }
-        const baseURL = provider.baseURL.replace(/\/+$/, "");
-        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` };
-        if (providerId === "openrouter") { headers["HTTP-Referer"] = "https://agent-orchestrator.ai"; headers["X-Title"] = "Agent Orchestrator"; }
-        llm = { apiUrl: `${baseURL}/chat/completions`, headers, model: llmModel };
-      } catch (err) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: `Failed to load provider config: ${err.message}` }));
-        return true;
-      }
+      // Use AI SDK for LLM call
+      const { paawGenerate } = await import("../lib/ai-sdk-helpers.mjs");
 
       // Build system context from generate-specific rules (NOT build phase)
-      // generate phase has its own rules for creating from scratch
       const { contextEngine } = await import("../context-engine.mjs");
       const ctx = await contextEngine.build({ target: "skill-builder", phase: "generate" });
       const systemPrompt = ctx.systemPrompt || "";
 
-      // Load generate prompt template (user-facing prompt template)
+      // Load generate prompt template
       let genPrompt = "";
       try { genPrompt = readFileSync(resolve(PAAW_ROOT, "data/ai-settings/skill-builder/generate/generate-prompt.md"), "utf-8").trim(); } catch {}
       if (!genPrompt) genPrompt = "請根據以下需求，產出完整的 SKILL.md：";
 
       const userMessage = `${genPrompt}\n\n${requirement}`;
 
-      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
-        model: llm.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-        max_tokens: 8192,
-        temperature: 0.7,
-      }, {
-        maxRetries: 3,
-        timeoutMs: 90_000,
-        validateContent: true,
-      });
-
-      let content = (result.content || "").trim();
-      // Strip markdown code fences if AI wrapped output (handle ```yaml, ```markdown, ```md, etc.)
+      const content = (await paawGenerate(PAAW_ROOT, {
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      }, { model, maxOutputTokens: 8192, temperature: 0.7 })).trim();
+      // Strip markdown code fences if AI wrapped output
       content = content.replace(/^```(?:[a-zA-Z]+)?\n?/m, "").replace(/\n?```$/m, "").trim();
       // Also strip leading non-frontmatter lines (e.g. stray "yaml" after fence removal)
       content = content.replace(/^(?!---)\s*\w+\s*\n(?=---)/, "").trim();

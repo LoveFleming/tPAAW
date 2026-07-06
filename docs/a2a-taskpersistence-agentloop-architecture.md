@@ -1,8 +1,9 @@
 # PAAW HelpDesk — A2A × Task Persistence × Agent Loop 架構文件
 
-> **Version:** 1.0.0  
+> **Version:** 2.0.0  
 > **Last Updated:** 2026-07-06  
-> **Scope:** PAAW Server (`packages/server/src/`)
+> **Scope:** PAAW Server (`packages/server/src/`)  
+> **Changelog:** v2 — 全部 LLM 呼叫已遷移至 Vercel AI SDK (`ai` + `@ai-sdk/openai`)
 
 ---
 
@@ -41,22 +42,25 @@
 │  (a2a.mjs 內也有一組精簡版 runHelpDeskViaA2A)                  │
 │                                                              │
 │   ┌───────────────────────────────────────────────┐         │
-│   │              LLM Tool-Calling Loop             │         │
+│   │     Vercel AI SDK generateText/streamText      │         │
+│   │     (取代舊的 ToolEngine + raw fetch)           │         │
 │   │                                               │         │
 │   │  1. 組裝 system prompt (SKILL.md + Knowledge)  │         │
-│   │  2. 送入 LLM API (function calling)           │         │
-│   │  3. LLM 回傳 tool_calls → 執行工具            │         │
-│   │  4. 工具結果餵回 LLM → 重複 2-3               │         │
-│   │  5. LLM 回傳純文字 → 完成                     │         │
+│   │  2. generateText({ model, tools, maxSteps })  │         │
+│   │  3. AI SDK 自動管理 tool-calling loop          │         │
+│   │  4. onStepFinish 回報 tool 執行進度            │         │
+│   │  5. result.text → 最終答案                     │         │
 │   │                                               │         │
 │   │  Tools: read_file, write_file, grep,          │         │
 │   │         git, bash, ask_user, diff...          │         │
+│   │  (via buildAISdkTools → aiTool + jsonSchema)  │         │
 │   └───────────────────────┬───────────────────────┘         │
 │                           │                                  │
 │   ┌───────────────────────┴───────────────────────┐         │
-│   │            ToolEngine / 直接 API               │         │
-│   │  Provider: zai (GLM) / openrouter (Kimi/DS)   │         │
-│   │  Retry: callLLMWithRetry + fetchStreamWithRetry│        │
+│   │            AI SDK OpenAI Provider              │         │
+│   │  createOpenAI({ baseURL, apiKey, headers })   │         │
+│   │  Compatible: zai (GLM) / openrouter (Kimi/DS) │         │
+│   │  Built-in retry + structured output           │         │
 │   └───────────────────────────────────────────────┘         │
 └───────────────┬──────────────────────────────────────────────┘
                 │
@@ -171,20 +175,60 @@ Agent Loop 執行中 → webhook 通知 status: "working" (thinking / tool execu
 ### 職責
 Agent Loop 是 PAAW 的 AI 推理引擎，負責：
 - 組裝 system prompt（SKILL.md + Knowledge Base + Memory）
-- 管理 LLM function calling 迴圈
-- 執行工具並把結果餵回 LLM
-- 控制最大輪數、超時、安全策略
+- 透過 Vercel AI SDK 的 `generateText` 管理 function calling 迴圈
+- 執行工具並把結果自動餵回 LLM（AI SDK 內建）
+- 控制最大步數（maxSteps）、安全策略
+
+### Vercel AI SDK 整合（v2.0.0 更新）
+
+所有 LLM 呼叫已從 raw `fetch` + 手動 ToolEngine 遷移至 **Vercel AI SDK**：
+
+| 項目 | 舊（v1） | 新（v2） |
+|------|----------|----------|
+| LLM 呼叫 | `callLLMWithRetry(apiUrl, headers, body)` | `generateText({ model, system, messages, tools })` |
+| Tool loop | 手動 `for` + parse response + execute tools | AI SDK `maxSteps` 自動管理 |
+| Provider | 手動組 `baseURL + headers + apiKey` | `createOpenAI({ baseURL, apiKey, headers })` |
+| Streaming | `fetchStreamWithRetry` + 手動 SSE | `streamText()` + `textStream` |
+| Tool 定義 | `PAAW_TOOLS` array + `executeTool` switch | `aiTool({ parameters: jsonSchema() })` |
+| 共用 helper | `llm-utils.mjs` | `ai-sdk-helpers.mjs` (`paawGenerate()`) |
 
 ### 兩種實作
 
 | 實作 | 位置 | 用途 |
 |------|------|------|
 | **完整版** | `lib/paaw-agent-loop.mjs` | Agent Builder（coding tasks），有完整工具集 |
-| **精簡版** | `a2a.mjs: runHelpDeskViaA2A()` | A2A HelpDesk，用 ToolEngine + 快取 |
+| **精簡版** | `a2a.mjs: runHelpDeskViaA2A()` | A2A HelpDesk，用 AI SDK generateText + 快取 |
 
-### Tool-Calling Loop 流程
+### AI SDK Tool-Calling Flow
 
 ```
+1. Build system prompt (SKILL.md + Knowledge + Memory)
+          |
+          v
+2. generateText({
+     model: openai(modelName),
+     system: systemPrompt,
+     messages: [...],
+     tools: aiSdkTools,
+     maxSteps: 6,
+     onStepFinish: callback
+   })
+   -> AI SDK manages entire tool-calling loop internally
+          |
+          v
+   AI SDK auto:
+   - Call LLM API
+   - Got tool_calls -> auto execute
+   - Feed results back to LLM
+   - Repeat until text response or maxSteps
+   - onStepFinish reports per-step progress
+          |
+          v
+3. result.text -> final answer
+   result.steps -> execution history
+   result.usage -> token stats
+```
+
 ┌──────────────────────────────────────────┐
 │  1. 組裝 system prompt                    │
 │     SKILL.md + Knowledge Base + Memory    │
@@ -406,6 +450,7 @@ packages/server/src/
 │   └── paaw-snapshot.mjs    ← 修改前自動快照
 └── tools/
     └── index.mjs            ← ToolEngine 工具定義 + handler
+├── ai-sdk-helpers.mjs       ← 共用 AI SDK helper (paawGenerate, createAIModel)
 
 data/
 ├── a2a-tasks/               ← Task JSON 檔案
@@ -421,6 +466,31 @@ data/
         └── help-desk/
             └── SKILL.md     ← HelpDesk Skill 定義
 ```
+
+---
+
+## 📦 已遷移至 Vercel AI SDK 的模組（v2.0.0）
+
+| 模組 | 檔案 | 舊方式 | 新方式 |
+|------|------|--------|--------|
+| **HelpDesk** | `routes/helpdesk.mjs` | `ToolEngine.run()` | `generateText({ tools, maxSteps })` |
+| **A2A HelpDesk** | `routes/a2a.mjs:runHelpDeskViaA2A` | `ToolEngine.run()` | `generateText({ tools, maxSteps })` |
+| **A2A Agent Loop** | `routes/a2a.mjs:runAgentLoop` | `ToolEngine.run()` | `generateText({ tools })` |
+| **Chat SSE** | `routes/chat.mjs` | `ToolEngine.run()` + 手動 SSE | `streamText()` + `textStream` |
+| **Agent Loop** | `lib/paaw-agent-loop.mjs:runAgentLoop` | `callLLMWithRetry` + 手動 loop | `generateText({ tools, maxSteps })` |
+| **Agent Loop Stream** | `lib/paaw-agent-loop.mjs:runAgentLoopStream` | `fetchStreamWithRetry` | `streamText()` |
+| **Distill** | `routes/distill.mjs` | `callLLMWithRetry` | `paawGenerate()` |
+| **Mindmap** | `routes/mindmap.mjs` | `callLLMWithRetry` | `paawGenerate()` |
+| **Notes AI** | `routes/notes.mjs` | `callLLMWithRetry` | `paawGenerate()` |
+| **Skills API** | `routes/skills-api.mjs` | `callLLMWithRetry` | `paawGenerate()` |
+| **Vibe Sessions** | `routes/vibe-sessions.mjs` | `callLLMWithRetry` | `paawGenerate()` |
+| **Cron Jobs** | `scheduler/cron-jobs.mjs` | `callLLMWithRetry` | `paawGenerate()` |
+| **Project** | `routes/project.mjs` | `callLLMWithRetry` | `paawGenerate()` |
+| **Agent Orchestrator** | `agent-orchestrator/src/server.ts` | raw `fetch` | `generateText()` |
+
+**共用的 helper：** `lib/ai-sdk-helpers.mjs`
+- `paawGenerate(rootDir, input, options)` — 一行搞定 LLM 呼叫
+- `createAIModel(rootDir, modelOverride)` — 建立 AI SDK model object
 
 ---
 

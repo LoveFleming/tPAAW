@@ -15,7 +15,8 @@ import { existsSync, readFileSync } from "fs";
 import { resolve, join, extname } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { paawGenerate } from "../lib/ai-sdk-helpers.mjs";
+import { sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
 import { readBody } from "./shared.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -148,7 +149,6 @@ function resolveLLM(modelOverride) {
 // ── 呼叫 LLM 產生心智圖 ──
 
 async function generateMindMap(userPrompt, content, modelOverride) {
-  const llm = resolveLLM(modelOverride);
   const fullPrompt = `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`;
 
   // Build full system context + mindmap-specific prompt
@@ -159,21 +159,12 @@ async function generateMindMap(userPrompt, content, modelOverride) {
     systemPrompt = ctx.systemPrompt || systemPrompt;
   } catch {}
 
-  const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
-    model: llm.model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: fullPrompt },
-    ],
-    max_tokens: 4096,
-  }, {
-    maxRetries: 3,
-    timeoutMs: 90_000,
-    validateContent: true,
-    sanitize: true,
-  });
+  const resultText = await paawGenerate(PAAW_ROOT, {
+    system: systemPrompt,
+    messages: [{ role: "user", content: fullPrompt }],
+  }, { model: modelOverride, maxOutputTokens: 4096, temperature: 0.5 });
 
-  const markdown = cleanMarkdownResponse(result.content);
+  const markdown = cleanMarkdownResponse(resultText);
   if (!markdown || !markdown.startsWith("#")) {
     throw new Error("AI 回應格式不正確，無法解析為心智圖");
   }

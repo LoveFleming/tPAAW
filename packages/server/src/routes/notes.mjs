@@ -37,7 +37,8 @@ import { resolve, join, extname } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { readBody } from "./shared.mjs";
-import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { paawGenerate } from "../lib/ai-sdk-helpers.mjs";
+import { sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -88,7 +89,6 @@ function resolveLLM(modelOverride) {
 }
 
 async function aiWriteNote(userPrompt, content, modelOverride) {
-  const llm = resolveLLM(modelOverride);
   const fullPrompt = userPrompt
     ? `${userPrompt}\n\n---\n以下是要整理的內容：\n\n${content}`
     : `請幫我整理以下內容成結構化筆記：\n\n${content}`;
@@ -101,21 +101,12 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
     systemPrompt = ctx.systemPrompt || systemPrompt;
   } catch {}
 
-  const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
-    model: llm.model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: fullPrompt },
-    ],
-    max_tokens: 4096,
-  }, {
-    maxRetries: 3,
-    timeoutMs: 90_000,
-    validateContent: true,
-    sanitize: true,
-  });
+  const resultText = await paawGenerate(PAAW_ROOT, {
+    system: systemPrompt,
+    messages: [{ role: "user", content: fullPrompt }],
+  }, { model: modelOverride, maxOutputTokens: 4096, temperature: 0.5 });
 
-  let html = sanitizeContent(result.content);
+  let html = sanitizeContent(resultText);
   if (!isMeaningfulContent(html)) throw new Error("AI 回應內容為空");
 
   // 解析標題和標籤

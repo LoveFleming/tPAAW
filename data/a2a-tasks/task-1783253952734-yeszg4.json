@@ -1,0 +1,99 @@
+{
+  "id": "task-1783253952734-yeszg4",
+  "contextId": "ticket-ctx-1783253952724",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-05T12:20:00.847Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "請介紹 PAAW 的 Skill Builder 功能"
+      }
+    ],
+    "messageId": "msg-ticket-1783253952724",
+    "contextId": "ticket-ctx-1783253952724"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "請介紹 PAAW 的 Skill Builder 功能"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "## PAAW Skill Builder 功能介紹\n\n### 🏗️ 什麼是 Skill Builder？\n\n**Skill Builder** 是 PAAW 中用來「建構 Skill」的 AI 驅動工具。它讓使用者透過**自然語言對話**的方式，定義一個可重複執行的任務單元（Skill），而不需要寫任何程式碼。\n\n---\n\n### ✨ 兩大使用模式\n\n#### 1️⃣ 聊天建構模式（主要入口）\n\n- **位置**：`SkillBuilder.tsx` 頁面\n- **UI**：`AgentConsole`（WebSocket 串流對話框）\n- **運作方式**：你直接跟 AI 對話，描述想要的功能，AI 會逐步引導你定義：\n  - **Purpose** — 這個 Skill 要做什麼\n  - **Inputs** — 需要使用者提供哪些參數\n  - **Deterministic Script** — 執行步驟（工具使用、邏輯流程）\n  - **Guardrails** — 安全限制與邊界\n  - **Output Contract** — 輸出格式與驗證規則\n- **Streaming**：✅ 支援即時串流，可看到 AI 逐步回應\n- **Model 切換**：✅ 可在介面上切換不同 AI 模型\n\n#### 2️⃣ ✨ AI 一鍵生成模式\n\n- **觸發方式**：在 Skill Builder 頁面中點擊 ✨ 按鈕\n- **運作方式**：你只要輸入 **Skill 名稱 + 一句功能描述**，後端 AI 會自動產生完整的 SKILL.md\n- **Streaming**：❌ 一次性回傳，結果直接填入表單\n- **特色**：最快速的建立方式，適合已有明確想法時使用\n\n---\n\n### 🧠 Context 組裝（AI 如何理解你要做什麼）\n\n當你使用 Skill Builder 時，後端 `context-engine.mjs` 會為 AI 組裝專屬的 system prompt，包含：\n\n```\nbuildFullSystemContext()      ← PAAW 共用底層（身份、記憶、工具清單等）\n+ skill-builder/skill-format.md  ← Skill 的標準格式定義\n+ skill-builder/builder-rules.md ← 建構規則（如何引導使用者）\n+ skill-builder/test-rules.md    ← 測試規則（如何驗證 Skill）\n```\n\n這確保 AI 知道：\n- Skill 的正確格式長怎樣\n- 如何引導你一步步定義完整\n- 如何測試產出的 Skill 是否正確\n\n---\n\n### 📁 產出結果\n\n建構完成的 Skill 會儲存在 `data/skills/` 目錄下，分為兩個子目錄：\n\n| 目錄 | 用途 |\n|------|------|\n| `data/skills/building/` | 正在建構中的草稿 Skill |\n| `data/skills/physical-skill/` | 已完成的正式 Skill，可被 Crew / Workflow / Cron 使用 |\n\n每個 Skill 本體是一份 **SKILL.md** 檔案，遵循統一的 markdown 格式，易於版本控管與分享。\n\n---\n\n### 🔗 Skill 可以被哪些地方使用？\n\n建立好的 Skill 不是孤立的，它可以被：\n\n| 用途 | 說明 |\n|------|------|\n| **App** | Skill-based App 綁定一個 Skill，聊天時自動觸發 |\n| **Workflow** | 多個 Skill 串接成自動化流程 |\n| **Crew** | 指派給 AI 員工（Employee）當作他的專業能力 |\n| **Cron Job** | 定時排程執行 Skill，產生定期報告或提醒 |\n\n---\n\n### 💡 使用範例\n\n> **你想做一個「翻譯 Skill」**\n\n在 Skill Builder 中對 AI 說：「我想做一個翻譯 Skill，可以把英文文章翻成繁體中文。」\n\nAI 會：\n1. 幫你定義 Inputs：`text`（原文）+ `target_language`（目標語言）\n2. 寫好 Execution Steps：讀取原文 → 翻譯 → 結構化輸出\n3. 設定 Guardrails：不翻譯敏感內容、保留原文格式\n4. 產出完整的 SKILL.md\n5. 存到 `data/skills/physical-skill/translate/SKILL.md`\n\n---\n\n### ⚠️ 注意事項\n\n- **目前已知問題**：`skill-builder/skill-format.md` 設定檔在專案中尚未建立（文件有標註 ⚠️），這可能影響 AI 對 Skill 格式的掌握精準度\n- **最佳做法**：建議先用 ✨ 一鍵生成建立骨架，再用聊天模式微調細節\n\n---\n\n### 📚 參考來源\n\n- `about-paaw/PAAW-REFERENCE.md` — 專案結構與 Skill 存放路徑\n- `about-paaw/PROMPT-ARCHITECTURE.md` — Skill Builder 的 Context 組裝細節\n- `about-paaw/DEVELOPER-GUIDE.md` — 開發者入門與架構總覽\n- `about-paaw/AI-FEATURES.md` — AI 功能完整清單（Skill Builder 為 #2、#3）\n\n**信心程度**：`high` — 知識庫有明確記載\n\n**建議後續問題**：\n- 怎麼用 ✨ AI 生成功能快速建立一個 Skill？\n- Skill 的 SKILL.md 格式具體長什麼樣子？\n- 如何把 Skill 綁定到 App 或 Crew？"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783254000847",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "## PAAW Skill Builder 功能介紹\n\n### 🏗️ 什麼是 Skill Builder？\n\n**Skill Builder** 是 PAAW 中用來「建構 Skill」的 AI 驅動工具。它讓使用者透過**自然語言對話**的方式，定義一個可重複執行的任務單元（Skill），而不需要寫任何程式碼。\n\n---\n\n### ✨ 兩大使用模式\n\n#### 1️⃣ 聊天建構模式（主要入口）\n\n- **位置**：`SkillBuilder.tsx` 頁面\n- **UI**：`AgentConsole`（WebSocket 串流對話框）\n- **運作方式**：你直接跟 AI 對話，描述想要的功能，AI 會逐步引導你定義：\n  - **Purpose** — 這個 Skill 要做什麼\n  - **Inputs** — 需要使用者提供哪些參數\n  - **Deterministic Script** — 執行步驟（工具使用、邏輯流程）\n  - **Guardrails** — 安全限制與邊界\n  - **Output Contract** — 輸出格式與驗證規則\n- **Streaming**：✅ 支援即時串流，可看到 AI 逐步回應\n- **Model 切換**：✅ 可在介面上切換不同 AI 模型\n\n#### 2️⃣ ✨ AI 一鍵生成模式\n\n- **觸發方式**：在 Skill Builder 頁面中點擊 ✨ 按鈕\n- **運作方式**：你只要輸入 **Skill 名稱 + 一句功能描述**，後端 AI 會自動產生完整的 SKILL.md\n- **Streaming**：❌ 一次性回傳，結果直接填入表單\n- **特色**：最快速的建立方式，適合已有明確想法時使用\n\n---\n\n### 🧠 Context 組裝（AI 如何理解你要做什麼）\n\n當你使用 Skill Builder 時，後端 `context-engine.mjs` 會為 AI 組裝專屬的 system prompt，包含：\n\n```\nbuildFullSystemContext()      ← PAAW 共用底層（身份、記憶、工具清單等）\n+ skill-builder/skill-format.md  ← Skill 的標準格式定義\n+ skill-builder/builder-rules.md ← 建構規則（如何引導使用者）\n+ skill-builder/test-rules.md    ← 測試規則（如何驗證 Skill）\n```\n\n這確保 AI 知道：\n- Skill 的正確格式長怎樣\n- 如何引導你一步步定義完整\n- 如何測試產出的 Skill 是否正確\n\n---\n\n### 📁 產出結果\n\n建構完成的 Skill 會儲存在 `data/skills/` 目錄下，分為兩個子目錄：\n\n| 目錄 | 用途 |\n|------|------|\n| `data/skills/building/` | 正在建構中的草稿 Skill |\n| `data/skills/physical-skill/` | 已完成的正式 Skill，可被 Crew / Workflow / Cron 使用 |\n\n每個 Skill 本體是一份 **SKILL.md** 檔案，遵循統一的 markdown 格式，易於版本控管與分享。\n\n---\n\n### 🔗 Skill 可以被哪些地方使用？\n\n建立好的 Skill 不是孤立的，它可以被：\n\n| 用途 | 說明 |\n|------|------|\n| **App** | Skill-based App 綁定一個 Skill，聊天時自動觸發 |\n| **Workflow** | 多個 Skill 串接成自動化流程 |\n| **Crew** | 指派給 AI 員工（Employee）當作他的專業能力 |\n| **Cron Job** | 定時排程執行 Skill，產生定期報告或提醒 |\n\n---\n\n### 💡 使用範例\n\n> **你想做一個「翻譯 Skill」**\n\n在 Skill Builder 中對 AI 說：「我想做一個翻譯 Skill，可以把英文文章翻成繁體中文。」\n\nAI 會：\n1. 幫你定義 Inputs：`text`（原文）+ `target_language`（目標語言）\n2. 寫好 Execution Steps：讀取原文 → 翻譯 → 結構化輸出\n3. 設定 Guardrails：不翻譯敏感內容、保留原文格式\n4. 產出完整的 SKILL.md\n5. 存到 `data/skills/physical-skill/translate/SKILL.md`\n\n---\n\n### ⚠️ 注意事項\n\n- **目前已知問題**：`skill-builder/skill-format.md` 設定檔在專案中尚未建立（文件有標註 ⚠️），這可能影響 AI 對 Skill 格式的掌握精準度\n- **最佳做法**：建議先用 ✨ 一鍵生成建立骨架，再用聊天模式微調細節\n\n---\n\n### 📚 參考來源\n\n- `about-paaw/PAAW-REFERENCE.md` — 專案結構與 Skill 存放路徑\n- `about-paaw/PROMPT-ARCHITECTURE.md` — Skill Builder 的 Context 組裝細節\n- `about-paaw/DEVELOPER-GUIDE.md` — 開發者入門與架構總覽\n- `about-paaw/AI-FEATURES.md` — AI 功能完整清單（Skill Builder 為 #2、#3）\n\n**信心程度**：`high` — 知識庫有明確記載\n\n**建議後續問題**：\n- 怎麼用 ✨ AI 生成功能快速建立一個 Skill？\n- Skill 的 SKILL.md 格式具體長什麼樣子？\n- 如何把 Skill 綁定到 App 或 Crew？"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read"
+    ],
+    "model": "paaw-helpdesk"
+  },
+  "createdAt": "2026-07-05T12:19:12.734Z",
+  "updatedAt": "2026-07-05T12:20:00.848Z",
+  "events": [
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783253960885
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783253963398
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783253967362
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783253967363
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783253967364
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783253970955
+    }
+  ]
+}

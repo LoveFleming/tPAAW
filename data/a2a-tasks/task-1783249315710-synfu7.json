@@ -1,0 +1,248 @@
+{
+  "id": "task-1783249315710-synfu7",
+  "contextId": "7f8d867a-59fe-437f-857b-baeba58d56bf",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-05T11:04:57.515Z"
+  },
+  "message": {
+    "kind": "message",
+    "role": "user",
+    "messageId": "msg-9bd6eac9-957a-476a-91e7-2e1d321583f0",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "你好，請介紹一下 PAAW HelpDesk 能做什麼，然後問我一個問題"
+      }
+    ],
+    "contextId": "7f8d867a-59fe-437f-857b-baeba58d56bf"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "你好，請介紹一下 PAAW HelpDesk 能做什麼，然後問我一個問題"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "## PAAW HelpDesk 能做什麼？🤖\n\n**PAAW HelpDesk** 是 PAAW (Personal AI Assistant Workspace) 的專屬客服助手，專門回答與 PAAW 相關的所有問題。我能做的事包括：\n\n### 📚 知識查詢\n- **概念解釋**：什麼是 Skill？什麼是 Workspace？什麼是 App Builder？\n- **架構解析**：PAAW 的三層架構是怎麼設計的？Context Engine 如何運作？\n- **操作指引**：怎麼建立一個新 Skill？如何設定 CronJob？如何部署 PAAW？\n\n### 🔍 深入探查\n我會自動搜尋 `knowledge` workspace 中的知識庫文件（包括 `PAAW-REFERENCE.md`、`AI-FEATURES.md`、`RUNBOOK.md` 等），必要時也會查閱 Source Code，確保回答有憑有據。\n\n### 🎯 回答風格可調整\n- **summary** — 簡短回答\n- **standard** — 標準回答（附說明與範例）\n- **deep-dive** — 深入技術解析（含 source code 引用）\n\n---\n\n## 現在輪到我問你了！ 🙋♂️\n\n> **你對 PAAW 的哪個方面最感興趣？** 例如：\n> - Skill 系統是怎麼運作的？\n> - 怎麼建立一個 App？\n> - Context Engine 是什麼？\n> - 如何部署 PAAW？\n> - 或是你有任何使用上的問題？\n\n請告訴我你的問題，我馬上幫你解答！"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "請詳細說明 PAAW 的 Context Engine 運作原理，包括它如何收集、處理和提供上下文資訊給其他元件。"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n好的，讓我先掃描知識庫，查閱 Context Engine 的相關資料。\n\n現在我對 Context Engine 有完整的掌握了。讓我為你深入解析。\n\n---\n\n# PAAW Context Engine 完整解析 🔍\n\n> 回答深度：**deep-dive**\n> 信心程度：**high**（知識庫 + source code 交叉驗證）\n\n---\n\n## 一、Context Engine 是什麼？\n\n**Context Engine** 是 PAAW 所有 AI 功能的**系統提示詞（systemPrompt）組裝器**，位於：\n\n```\npackages/server/src/context-engine.mjs  （約 513 行）\n```\n\n它是 PAAW 的**大腦中樞**——任何需要 AI 的功能（Chat、Skill 執行、Crew、Workflow、Mindmap、Notes 等）在呼叫 LLM 之前，**必定先經過 Context Engine** 把 system prompt 組裝好。\n\n---\n\n## 二、核心運作原理\n\n### 2.1 單一入口、多種輸出\n\n```javascript\ncontextEngine.build({ target }) → { systemPrompt, prompt?, provider?, meta? }\n```\n\n參數只有一個 `target`，Context Engine 根據 target 決定**要組裝哪些內容進去**。\n\n### 2.2 四層組裝架構\n\nContext Engine 採用**分層疊加**（Layered Assembly）的設計，分為 4 個 Layer：\n\n```\nbuildFullSystemContext()\n  │\n  ├── Layer 0: buildBaseContext()\n  │     └── 硬編碼路徑：PAAW_ROOT、data/ 目錄結構、Placeholder 格式\n  │\n  ├── Layer 1: readCategoryFiles(category)\n  │     └── 讀取 data/ai-settings/{category}/ 底下的所有 .md 檔案\n  │         依字母順序合併成一段文字\n  │\n  ├── Layer 2: buildDynamicContext()\n  │     ├── user.json → 使用者名稱、介紹、偏好\n  │     ├── MEMORY.md → 長期記憶\n  │     └── Apps 清單 + 每個 App 的 Tool 定義\n  │\n  └── Layer 3: buildRuntimeTools()\n        ├── API registry → 系統工具（file_read, file_list, app CRUD 等）\n        └── Generated skills → 動態產生的 Skill 工具\n```\n\n### 2.3 buildFullSystemContext() 的 14 層內容\n\n這個共用函式是所有 target 的**基底**，組合了以下 14 個段落：\n\n| 編號 | 來源 | 內容 |\n|:---:|------|------|\n| [0] | `_base/paaw-context.md` | PAAW 路徑、資料結構、Placeholder |\n| [1] | `_base/core-rules.md` | 語言、行為準則、安全邊界 |\n| [2] | `chat/identity.md` | AI 身份（{{assistantName}}） |\n| [3] | **動態** | 使用者資訊 + Workspace 清單 + Knowledge 路徑 |\n| [4] | **動態** | MEMORY.md（長期記憶） |\n| [5] | **動態** | Apps 清單 + App 連結規則 |\n| [6] | `project/*.md` | 專案管理助理規則 |\n| [7] | `chat/tool-rules.md` | Tool 使用規則（核心規則：只信 Tool 不信記憶） |\n| [8] | `crew/skill-rules.md` | Skill 執行規則（讀 SKILL.md → 按步驟執行） |\n| [9] | `app-builder-rules.md` | App 建構規則 |\n| [10] | `chat/system-prompt.md` | 系統行為規範 |\n| [11] | `chat/guardrails.md` | 安全限制 |\n| [12] | `chat/reply-rules.md` | 回覆格式規則 |\n| [13] | **動態** | API Tools + Generated Skills 清單 |\n\n---\n\n## 三、12 個 Target 的差異化組裝\n\n不同 target 在基底之上，**疊加不同的 Layer 1 設定檔**，形成差異化的 system prompt：\n\n### Target 對照表\n\n| target | Layer 1 設定檔目錄 | 額外套件 | 使用場景 |\n|--------|:------------------:|:---------:|:--------:|\n| `chat` | `chat/` | 最近對話摘要 | 主聊天 |\n| `skill-exec` | `crew/` | app SYSTEM.md + SKILL.md | Skill 執行 |\n| `skill-builder` | `skill-builder/` | builder-rules + test-rules + skill-format | Skill 建構 |\n| `crew` | `crew/` | crew rolePrompt | AI 員工 |\n| `workflow` | `crew/` + `workflow/` | SKILL.md | 工作流 |\n| `mindmap` | `mindmap/` | mindmap/system-prompt.md | 心智圖 |\n| `notes` | `notes/` | notes/system-prompt.md | 筆記 |\n| `project` | `project/` | project/identity.md + project/rules.md | 專案 AI |\n| `distill` | `distill/` | — | 蒸餾（獨立，不用 buildFullSystemContext） |\n| `app-builder` | `app-builder/` | — | App 建構 |\n| `coding` | `chat/`（同 chat） | 最近對話摘要 | Coding IDE |\n| `app-exec` | `app/` | app SYSTEM.md | App 執行 |\n\n### 各 target 的 _buildXxx() 函式\n\n```javascript\ncontext-engine.mjs\n├── _buildChat()       → buildFullSystemContext() + 最近 3 則對話摘要\n├── _buildSkillExec()  → buildFullSystemContext() + app SYSTEM.md + crew/skill-rules.md\n├── _buildSkillBuilder()→ buildFullSystemContext() + skill-format + builder-rules + test-rules\n├── _buildCrew()       → buildFullSystemContext() + crew/skill-rules.md + crew rolePrompt\n├── _buildWorkflow()   → 呼叫 _buildSkillExec()（等同 skill-exec）\n├── _buildMindmap()    → buildFullSystemContext() + buildDynamicContext() + mindmap/system-prompt.md\n├── _buildNotes()      → buildFullSystemContext() + buildDynamicContext() + notes/system-prompt.md\n└── _buildProject()    → buildFullSystemContext() + buildDynamicContext() + project/identity.md + project/rules.md\n```\n\n---\n\n## 四、資料流向全圖\n\n以下是 Context Engine 在整個 PAAW 系統中的完整資料流程：\n\n```\n使用者輸入問題\n  │\n  ▼\n前端（React）\n  ├── ChatView.tsx → WebSocket → ws-handler.mjs\n  ├── SkillBuilder.tsx → WebSocket\n  ├── EmployeeWorkspace.tsx → WebSocket\n  ├── WorkflowExec.tsx → HTTP API\n  └── CodingIDE.tsx → SSE\n        │\n        ▼\n後端接收請求\n  │\n  ├── 1️⃣ 載入 provider 設定（data/config/providers.json）\n  │    └── 決定用哪家 LLM API（zai / openrouter）\n  │\n  ├── 2️⃣ 呼叫 contextEngine.build({ target })\n  │    │\n  │    ├── Layer 0: buildBaseContext()\n  │    │     └── 回傳: PAAW_ROOT=/path, data/ structure\n  │    │\n  │    ├── Layer 1: readCategoryFiles(\"chat\")\n  │    │     └── 讀取 data/ai-settings/chat/*.md → 合併成一段文字\n  │    │\n  │    ├── Layer 2: buildDynamicContext()\n  │    │     ├── 讀 data/config/user.json → 使用者資訊\n  │    │     ├── 讀 MEMORY.md → 長期記憶\n  │    │     └── 掃描 data/apps/*/app.json → 所有 App 定義\n  │    │\n  │    └── Layer 3: buildRuntimeTools()\n  │          ├── tools/index.mjs 的 API registry\n  │          └── App schema 自動產生的 CRUD tool 定義\n  │\n  ├── 3️⃣ 回傳 { systemPrompt, prompt?, provider?, meta? }\n  │\n  ├── 4️⃣ 傳給 ToolEngine.run(systemPrompt, messages, model)\n  │    │\n  │    └── ReAct Loop（最多 5 輪）：\n  │         ├── LLM 回覆文字 → SSE 串流回前端\n  │         ├── LLM 回 tool_calls\n  │         │     ├── SecurityKernel 安全檢查\n  │         │     ├── 執行實際工具（file_read, app_add 等）\n  │         │     ├── Result Validation（寫入後回查）\n  │         │     └── 結果餵回給 LLM\n  │         └── 偵測假 tool call → 重試\n  │\n  └── 5️⃣ distill 記錄互動（分析使用者行為模式）\n```\n\n---\n\n## 五、與其他元件的協作關係\n\n### 5.1 Context Engine ↔ ai-settings 目錄\n\n`data/ai-settings/` 目錄下有 **12 個子目錄**，每個對應一個 target：\n\n```\ndata/ai-settings/\n├── _base/           ← Layer 1 基底（所有 target 都會載入）\n├── chat/            ← identity.md, tool-rules.md, system-prompt.md, guardrails.md, reply-rules.md\n├── crew/            ← skill-rules.md\n├── skill-builder/   ← builder-rules.md, test-rules.md, skill-format.md\n├── mindmap/         ← system-prompt.md\n├── notes/           ← system-prompt.md\n├── project/         ← identity.md, rules.md\n├── distill/         ← system-prompt.md\n├── workflow/\n├── app-builder/\n├── app/\n└── coding/\n```\n\n這些 `.md` 檔案**可以在線編輯**，修改後立即生效，不需要重啟伺服器。\n\n### 5.2 Context Engine ↔ ToolEngine\n\nContext Engine 只負責**組裝 system prompt**，真正的執行由 `ToolEngine` 負責：\n\n```\nContext Engine          ToolEngine\n  │                       │\n  │── systemPrompt ──────→│  runAgentLoop(config)\n  │                       │    ├── callLLM()  → LLM API\n  │                       │    ├── executeTool() → 實際工具\n  │                       │    └── loop → repeat\n  │                       │\n  │                       │── SecurityKernel（每次 tool call 前檢查）\n  │                       │── Result Validation（寫入後回查）\n  │                       │── 假 tool call 偵測\n  │                       │\n  │  ←─ SSE stream ──────│\n```\n\n### 5.3 Context Engine ↔ Memory\n\nMemory 是 Layer 2 的一部分。`MEMORY.md` 的內容被 `buildDynamicContext()` 讀取後，**直接嵌入 system prompt**。這是一種 **in-context memory** 的設計——所有記憶都放在 prompt 裡，不需要向量資料庫或 RAG 系統。\n\n---\n\n## 六、設計特色與 Trade-off\n\n### 優點\n\n1. **單一入口、統一管理** — 所有 AI 功能的 system prompt 都由同一支程式組裝，維護成本低\n2. **檔案驅動** — `ai-settings/` 下的 `.md` 檔案可以在線編輯，不需重啟\n3. **多 target 彈性** — 12 種 target 共用基底、差異疊加，避免重複\n4. **純文字記憶** — 使用 in-context memory，不需向量資料庫，系統簡單\n\n### 已知問題（來自知識庫記錄）\n\n| # | 問題 | 說明 |\n|:-:|------|------|\n| 1 | **過度載入** | `buildFullSystemContext()` 把所有內容都塞進去，不管 target 是否需要（如 Mindmap 不需要 Skill 執行規則） |\n| 2 | **app-builder-rules 汙染** | `[9] app-builder-rules.md` 被混入所有 context，不只 App Builder |\n| 3 | **Workflow 重複** | `_buildWorkflow()` 先呼叫 `_buildSkillExec()`，後者裡已有 `buildFullSystemContext()`，造成重複 |\n| 4 | **crew/skill-rules.md 重複** | Layer 1 [8] 已加入，`_buildCrew()` 又加一次 |\n\n---\n\n## 七、總結\n\n**Context Engine 的核心邏輯一句話：** 統一入口、四層疊加、差異組裝。\n\n它是 PAAW 所有 AI 能力的**提示詞工廠**——無論是 ChatGPT 式的對話、可重複執行的 Skill、帶角色的 Crew、還是自動化 Workflow，都先經過 Context Engine 把系統提示詞組裝好，再交給 ToolEngine 執行 ReAct Loop。\n\n如果你想要深入了解某個特定 target 的組裝細節，或是想看看實際的 source code 實作，歡迎繼續追問！🙌\n\n---\n\n📚 **參考來源：**\n- `about-paaw/PAAW-REFERENCE.md` — 專案結構與核心架構\n- `about-paaw/AI-FEATURES.md` — 14 個 AI 功能的 context 對照表\n- `about-paaw/PROMPT-ARCHITECTURE.md` — 提示詞組裝全圖\n- `about-paaw/ai-context/architecture/ARCHITECTURE_OVERVIEW.md` — 整體架構概覽\n- `about-paaw/ai-context/flows/CORE_FLOWS.md` — Flow 3: Context Engine Assembly\n- `about-paaw/ai-context/domain/DOMAIN_DICTIONARY.md` — Context Target 定義"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "使用者問：Context Engine 存在過度載入的問題，例如 Mindmap 不需要 Skill 執行規則卻被塞入。開發團隊有沒有計畫未來優化 Context Engine 的分層策略，讓每個 target 只載入真正需要的內容？"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n# Context Engine 過度載入問題：現況、已知債務與未來展望 🧠\n\n> 信心程度：**high**（知識庫有明確記載，附 source code 佐證）\n\n---\n\n## 一、這個問題團隊確實知道\n\n首先直接回答你的問題：**過度載入的問題在開發團隊內部已被明確識別並記錄在案**。`PROMPT-ARCHITECTURE.md` 中白紙黑字列出了至少 **4 個已知問題**：\n\n| # | 問題 | 具體內容 |\n|:-:|:----|:---------|\n| **P1** | **不分 target 全塞** | `buildFullSystemContext()` 把所有 14 層內容（[0]～[13]）都塞進去，不管目標功能需不需要。**你舉的 Mindmap 不需要 Skill 執行規則，就是這個問題** |\n| **P2** | **app-builder-rules 汙染** | `[9] app-builder-rules.md` 被混在所有 AI 的 context 裡——Chat、Mindmap、Coding IDE 都載入了只有 App Builder 才需要的建構規則 |\n| **P3** | **Workflow 重複載入** | `_buildWorkflow()` 先呼叫 `_buildSkillExec()`，後者裡面已有 `buildFullSystemContext()`，結果**整個基底被載入兩次** |\n| **P4** | **crew/skill-rules.md 重複** | Layer 1 的 `[8]` 已經加入，`_buildCrew()` 又加一次 |\n\n此外 `CORE_FLOWS.md` 也特別註記：\n\n> 「**需要人工確認：mindmap/notes/project/distill/app-exec 的 layer 差異**，需逐一看 `_buildXxx()` 函式」\n\n這句話本身就是一種**對現狀不滿的體現**——因為設計不夠乾淨，所以需要人工逐一確認每個 target 到底載入了什麼。\n\n---\n\n## 二、為什麼這個問題會存在？（技術債務溯源）\n\nContext Engine 的 4 層設計本身是 good intention，問題出在**實作演化路徑**上：\n\n### 2.1 從「共用基底」到「共用了一切」\n\n最初的設計概念是好的：\n```\n基底 (buildBaseContext) → 共用規則 (readCategoryFiles) → 動態資料 → 工具\n```\n\n但隨著 PAAW 功能從 3 個 target 擴展到 **12 個 target**，開發者為了省事，直接把所有共同可能需要的規則都塞進 `buildFullSystemContext()`，然後各個 `_buildXxx()` 再往上面疊加。結果：\n\n```\nbuildFullSystemContext() 不再是「基底」，而是「大全集」\n```\n\n### 2.2 檔案驅動設計的副作用\n\n`data/ai-settings/` 目錄下有 12 個子目錄，每個 target 對應一個。但 `buildFullSystemContext()` 硬編碼了 14 段內容的載入順序，**沒有根據 target 做條件判斷**。\n\n### 2.3 CORE_FLOWS.md 的 layer 差異表也說明了問題\n\n文件中有一張「各 target 的差異」表，其中顯示：\n\n| Target | Layer 0 | Layer 1 | Layer 2 | Layer 3 |\n|:-------|:-------:|:-------:|:-------:|:-------:|\n| chat | ✅ | chat/ | ✅ | ✅ |\n| crew | ✅ | crew/ | ❌ | ❌ |\n| skill-exec | ✅ | crew/ | ❌ | ❌ |\n| mindmap | ❓ | ❓ | ❓ | ❓ |\n\n你可能注意到：**表格下半部的 mindmap/notes/project/distill/app-exec 都是「待確認」狀態**。這代表目前連誰載入了什麼，都沒有完整的文件記錄。這就是你問的那個問題的直接證據。\n\n---\n\n## 三、有沒有計畫要修？（誠實回答）\n\n### 從知識庫中可以確定的結論\n\n**短期內沒有看到明確的 roadmap 或排程來重構 Context Engine。**\n\n原因來自 `CHANGE_GUIDE.md` 和 `RISK_AND_DEBT.md` 的交叉佐證：\n\n#### 🟡 原因 1：Context Engine 被標示為「🔴 不可以輕易改」\n\n> **context-engine.mjs（所有 AI 功能的 context 來源）**\n> 改了可能讓所有 AI 行為異常。改完要逐個 target 測試。\n\n這是 PAAW 程式碼中被標示為**最高危險等級**的 5 個檔案之一。改了 context-engine 可能導致：\n- Chat 行為異常\n- Skill 執行錯亂\n- Crew 角色混亂\n- 所有 12 個 target 都可能受影響\n\n#### 🟡 原因 2：沒有自動化測試\n\n`RISK_AND_DEBT.md` 明確指出：\n\n> **核心 AI 流程** — Chat + Tool Engine + SSE 完全沒自動化測試\n\n要重構 Context Engine 卻沒有測試來驗證每個 target 的行為是否正確，**風險極高**。沒有測試保護的重構，在實務上幾乎不會被排入開發排程。\n\n#### 🟡 原因 3：耦合問題（C1）\n\n`CHANGE_GUIDE.md` 也警告：\n\n> **context-engine.mjs ↔ tools/index.mjs 的 loadAppInstructions()**\n> 兩個地方各實作了一次 App instructions 的組裝邏輯。只改一邊 = bug。\n\n這意味著即使要拆解 Context Engine，也會影響到另一個 1402 行的巨大檔案 `tools/index.mjs`。\n\n---\n\n## 四、如果要優化，理想方案是什麼？\n\n從現有文件可以推導出理想的優化方向。假設未來有人來修，最合理的策略是：\n\n### 方案 A：顯式依賴宣告（Recommended）\n\n```javascript\n// 理想的 context-engine.mjs 設計\nconst TARGET_LAYERS = {\n  chat:       { layers: [0,1,2,3], category: 'chat',       extras: ['recentChats'] },\n  mindmap:    { layers: [0,2],      category: 'mindmap',    extras: ['mindmapPrompt'] },\n  notes:      { layers: [0,2],      category: 'notes',      extras: ['notesPrompt'] },\n  crew:       { layers: [0,1],      category: 'crew',       extras: ['rolePrompt'] },\n  skillExec:  { layers: [0,1],      category: 'crew',       extras: ['skillMd', 'systemMd'] },\n  skillBuilder: { layers: [0,1],    category: 'skill-builder', extras: ['skillFormat','builderRules','testRules'] },\n  appBuilder: { layers: [0,2,3],    category: 'app-builder', extras: [] },\n  project:    { layers: [0,2],      category: 'project',    extras: ['projectPrompt'] },\n  coding:     { layers: [0,1,2,3],  category: 'chat',       extras: ['recentChats'] },\n  workflow:   { layers: [0,1,2],    category: 'crew',       extras: ['skillMd'] },\n  distill:    { layers: [],         category: 'distill',    extras: [] },\n  appExec:    { layers: [0,1],      category: 'app',        extras: ['systemMd'] },\n}\n```\n\n**每個 target 宣告自己要哪些 Layer**，不再全部塞入。這可以把 context 長度減少 **30%~50%**，直接省 token。\n\n### 方案 B：按需載入（Lazy Loading）\n\n將 14 段內容改為**可選的模組**，每個 target 只載入自己需要的段落編號：\n\n```\nchat target  → [0,1,2,3,4,5,7,10,11,12,13]  （不需 [6] project, [8] skill-rules, [9] app-builder）\nmindmap      → [0,1,2,3,4,5,10,11,12,13]    （不需 [6],[7],[8],[9]）\nnotes        → [0,1,2,3,4,5,10,11,12,13]    （不需 [6],[7],[8],[9]）\n```\n\n### 方案 C：AI 設定的「繼承 + 覆蓋」機制\n\n仿物件導向的繼承概念，每個 target 的 ai-settings 目錄可以：\n```\n_base/            ← 所有 target 的基底\nmindmap/\n  ├── extends: _base  ← 繼承基底\n  └── skills.md: OFF  ← 明確關閉不需要的規則\n```\n\n---\n\n## 五、結論\n\n| 面向 | 狀態 |\n|:-----|:-----|\n| **團隊是否知道問題？** | ✅ **是** — PROMPT-ARCHITECTURE.md 明確記錄 4 個已知問題 |\n| **有沒有計畫要修？** | ❌ **文件中沒有看到明確的藍圖或排程** |\n| **為什麼還沒修？** | 🟡 因為 context-engine 被標示為最高危險等級、沒有自動化測試保護、且與 tools/index.mjs 有耦合 |\n| **理想解法？** | 💡 顯式宣告每個 target 需要的 Layer，按需載入 |\n\n### 我的觀察\n\n以一個 actively developed 的專案來說，Context Engine 目前的設計是**合理的取捨**：\n\n- **先求有**：`buildFullSystemContext()` 大全集方式讓開發速度快，加新 target 很簡單\n- **再求好**：token 浪費 + prompt 汙染的問題確實存在，但還沒痛到需要冒險重構\n- **未來可優化**：一旦有自動化測試保護（或 token 成本暴增），這個重構就會被排入\n\n如果你或團隊想推動這件事，**第一步不是改 context-engine.mjs**，而是先寫測試——為每個 target 驗證它的 system prompt 該包含什麼、不該包含什麼。有了測試保護，重構才安全。\n\n---\n\n📚 **參考來源：**\n- `about-paaw/PROMPT-ARCHITECTURE.md` — 問題 #1～#4 的詳細記錄\n- `about-paaw/ai-context/flows/CORE_FLOWS.md` — 各 target layer 差異表（含待確認項目）\n- `about-paaw/ai-context/change-guide/CHANGE_GUIDE.md` — 標示 context-engine 為最高危險等級\n- `about-paaw/ai-context/risk/RISK_AND_DEBT.md` — 測試不足、耦合問題 C1 的記錄\n- `about-paaw/ai-context/architecture/ARCHITECTURE_OVERVIEW.md` — Context Engine 4 層架構定義"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783249497515",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n# Context Engine 過度載入問題：現況、已知債務與未來展望 🧠\n\n> 信心程度：**high**（知識庫有明確記載，附 source code 佐證）\n\n---\n\n## 一、這個問題團隊確實知道\n\n首先直接回答你的問題：**過度載入的問題在開發團隊內部已被明確識別並記錄在案**。`PROMPT-ARCHITECTURE.md` 中白紙黑字列出了至少 **4 個已知問題**：\n\n| # | 問題 | 具體內容 |\n|:-:|:----|:---------|\n| **P1** | **不分 target 全塞** | `buildFullSystemContext()` 把所有 14 層內容（[0]～[13]）都塞進去，不管目標功能需不需要。**你舉的 Mindmap 不需要 Skill 執行規則，就是這個問題** |\n| **P2** | **app-builder-rules 汙染** | `[9] app-builder-rules.md` 被混在所有 AI 的 context 裡——Chat、Mindmap、Coding IDE 都載入了只有 App Builder 才需要的建構規則 |\n| **P3** | **Workflow 重複載入** | `_buildWorkflow()` 先呼叫 `_buildSkillExec()`，後者裡面已有 `buildFullSystemContext()`，結果**整個基底被載入兩次** |\n| **P4** | **crew/skill-rules.md 重複** | Layer 1 的 `[8]` 已經加入，`_buildCrew()` 又加一次 |\n\n此外 `CORE_FLOWS.md` 也特別註記：\n\n> 「**需要人工確認：mindmap/notes/project/distill/app-exec 的 layer 差異**，需逐一看 `_buildXxx()` 函式」\n\n這句話本身就是一種**對現狀不滿的體現**——因為設計不夠乾淨，所以需要人工逐一確認每個 target 到底載入了什麼。\n\n---\n\n## 二、為什麼這個問題會存在？（技術債務溯源）\n\nContext Engine 的 4 層設計本身是 good intention，問題出在**實作演化路徑**上：\n\n### 2.1 從「共用基底」到「共用了一切」\n\n最初的設計概念是好的：\n```\n基底 (buildBaseContext) → 共用規則 (readCategoryFiles) → 動態資料 → 工具\n```\n\n但隨著 PAAW 功能從 3 個 target 擴展到 **12 個 target**，開發者為了省事，直接把所有共同可能需要的規則都塞進 `buildFullSystemContext()`，然後各個 `_buildXxx()` 再往上面疊加。結果：\n\n```\nbuildFullSystemContext() 不再是「基底」，而是「大全集」\n```\n\n### 2.2 檔案驅動設計的副作用\n\n`data/ai-settings/` 目錄下有 12 個子目錄，每個 target 對應一個。但 `buildFullSystemContext()` 硬編碼了 14 段內容的載入順序，**沒有根據 target 做條件判斷**。\n\n### 2.3 CORE_FLOWS.md 的 layer 差異表也說明了問題\n\n文件中有一張「各 target 的差異」表，其中顯示：\n\n| Target | Layer 0 | Layer 1 | Layer 2 | Layer 3 |\n|:-------|:-------:|:-------:|:-------:|:-------:|\n| chat | ✅ | chat/ | ✅ | ✅ |\n| crew | ✅ | crew/ | ❌ | ❌ |\n| skill-exec | ✅ | crew/ | ❌ | ❌ |\n| mindmap | ❓ | ❓ | ❓ | ❓ |\n\n你可能注意到：**表格下半部的 mindmap/notes/project/distill/app-exec 都是「待確認」狀態**。這代表目前連誰載入了什麼，都沒有完整的文件記錄。這就是你問的那個問題的直接證據。\n\n---\n\n## 三、有沒有計畫要修？（誠實回答）\n\n### 從知識庫中可以確定的結論\n\n**短期內沒有看到明確的 roadmap 或排程來重構 Context Engine。**\n\n原因來自 `CHANGE_GUIDE.md` 和 `RISK_AND_DEBT.md` 的交叉佐證：\n\n#### 🟡 原因 1：Context Engine 被標示為「🔴 不可以輕易改」\n\n> **context-engine.mjs（所有 AI 功能的 context 來源）**\n> 改了可能讓所有 AI 行為異常。改完要逐個 target 測試。\n\n這是 PAAW 程式碼中被標示為**最高危險等級**的 5 個檔案之一。改了 context-engine 可能導致：\n- Chat 行為異常\n- Skill 執行錯亂\n- Crew 角色混亂\n- 所有 12 個 target 都可能受影響\n\n#### 🟡 原因 2：沒有自動化測試\n\n`RISK_AND_DEBT.md` 明確指出：\n\n> **核心 AI 流程** — Chat + Tool Engine + SSE 完全沒自動化測試\n\n要重構 Context Engine 卻沒有測試來驗證每個 target 的行為是否正確，**風險極高**。沒有測試保護的重構，在實務上幾乎不會被排入開發排程。\n\n#### 🟡 原因 3：耦合問題（C1）\n\n`CHANGE_GUIDE.md` 也警告：\n\n> **context-engine.mjs ↔ tools/index.mjs 的 loadAppInstructions()**\n> 兩個地方各實作了一次 App instructions 的組裝邏輯。只改一邊 = bug。\n\n這意味著即使要拆解 Context Engine，也會影響到另一個 1402 行的巨大檔案 `tools/index.mjs`。\n\n---\n\n## 四、如果要優化，理想方案是什麼？\n\n從現有文件可以推導出理想的優化方向。假設未來有人來修，最合理的策略是：\n\n### 方案 A：顯式依賴宣告（Recommended）\n\n```javascript\n// 理想的 context-engine.mjs 設計\nconst TARGET_LAYERS = {\n  chat:       { layers: [0,1,2,3], category: 'chat',       extras: ['recentChats'] },\n  mindmap:    { layers: [0,2],      category: 'mindmap',    extras: ['mindmapPrompt'] },\n  notes:      { layers: [0,2],      category: 'notes',      extras: ['notesPrompt'] },\n  crew:       { layers: [0,1],      category: 'crew',       extras: ['rolePrompt'] },\n  skillExec:  { layers: [0,1],      category: 'crew',       extras: ['skillMd', 'systemMd'] },\n  skillBuilder: { layers: [0,1],    category: 'skill-builder', extras: ['skillFormat','builderRules','testRules'] },\n  appBuilder: { layers: [0,2,3],    category: 'app-builder', extras: [] },\n  project:    { layers: [0,2],      category: 'project',    extras: ['projectPrompt'] },\n  coding:     { layers: [0,1,2,3],  category: 'chat',       extras: ['recentChats'] },\n  workflow:   { layers: [0,1,2],    category: 'crew',       extras: ['skillMd'] },\n  distill:    { layers: [],         category: 'distill',    extras: [] },\n  appExec:    { layers: [0,1],      category: 'app',        extras: ['systemMd'] },\n}\n```\n\n**每個 target 宣告自己要哪些 Layer**，不再全部塞入。這可以把 context 長度減少 **30%~50%**，直接省 token。\n\n### 方案 B：按需載入（Lazy Loading）\n\n將 14 段內容改為**可選的模組**，每個 target 只載入自己需要的段落編號：\n\n```\nchat target  → [0,1,2,3,4,5,7,10,11,12,13]  （不需 [6] project, [8] skill-rules, [9] app-builder）\nmindmap      → [0,1,2,3,4,5,10,11,12,13]    （不需 [6],[7],[8],[9]）\nnotes        → [0,1,2,3,4,5,10,11,12,13]    （不需 [6],[7],[8],[9]）\n```\n\n### 方案 C：AI 設定的「繼承 + 覆蓋」機制\n\n仿物件導向的繼承概念，每個 target 的 ai-settings 目錄可以：\n```\n_base/            ← 所有 target 的基底\nmindmap/\n  ├── extends: _base  ← 繼承基底\n  └── skills.md: OFF  ← 明確關閉不需要的規則\n```\n\n---\n\n## 五、結論\n\n| 面向 | 狀態 |\n|:-----|:-----|\n| **團隊是否知道問題？** | ✅ **是** — PROMPT-ARCHITECTURE.md 明確記錄 4 個已知問題 |\n| **有沒有計畫要修？** | ❌ **文件中沒有看到明確的藍圖或排程** |\n| **為什麼還沒修？** | 🟡 因為 context-engine 被標示為最高危險等級、沒有自動化測試保護、且與 tools/index.mjs 有耦合 |\n| **理想解法？** | 💡 顯式宣告每個 target 需要的 Layer，按需載入 |\n\n### 我的觀察\n\n以一個 actively developed 的專案來說，Context Engine 目前的設計是**合理的取捨**：\n\n- **先求有**：`buildFullSystemContext()` 大全集方式讓開發速度快，加新 target 很簡單\n- **再求好**：token 浪費 + prompt 汙染的問題確實存在，但還沒痛到需要冒險重構\n- **未來可優化**：一旦有自動化測試保護（或 token 成本暴增），這個重構就會被排入\n\n如果你或團隊想推動這件事，**第一步不是改 context-engine.mjs**，而是先寫測試——為每個 target 驗證它的 system prompt 該包含什麼、不該包含什麼。有了測試保護，重構才安全。\n\n---\n\n📚 **參考來源：**\n- `about-paaw/PROMPT-ARCHITECTURE.md` — 問題 #1～#4 的詳細記錄\n- `about-paaw/ai-context/flows/CORE_FLOWS.md` — 各 target layer 差異表（含待確認項目）\n- `about-paaw/ai-context/change-guide/CHANGE_GUIDE.md` — 標示 context-engine 為最高危險等級\n- `about-paaw/ai-context/risk/RISK_AND_DEBT.md` — 測試不足、耦合問題 C1 的記錄\n- `about-paaw/ai-context/architecture/ARCHITECTURE_OVERVIEW.md` — Context Engine 4 層架構定義"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_read",
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_read"
+    ]
+  },
+  "createdAt": "2026-07-05T11:01:55.710Z",
+  "updatedAt": "2026-07-05T11:04:57.515Z",
+  "events": [
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249319569
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249319572
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249323292
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249323294
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249323295
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249361064
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249365158
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249365160
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249365161
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249370999
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249371001
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249371002
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249371003
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249377960
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249377962
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249377964
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249385784
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249441068
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249454691
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249454693
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249460014
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249460016
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249460018
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249464207
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783249464209
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249468137
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783249468143
+    }
+  ]
+}

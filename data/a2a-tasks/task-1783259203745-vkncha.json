@@ -1,0 +1,207 @@
+{
+  "id": "task-1783259203745-vkncha",
+  "contextId": "0f439405-ec57-470b-9596-3151e5c7e4ff",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-05T13:49:00.566Z"
+  },
+  "message": {
+    "kind": "message",
+    "role": "user",
+    "messageId": "msg-763ddc22-d6c5-4911-9540-c25ed587ba30",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "你好，請介紹一下 PAAW HelpDesk 能做什麼，然後問我一個問題。"
+      }
+    ],
+    "contextId": "0f439405-ec57-470b-9596-3151e5c7e4ff"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "你好，請介紹一下 PAAW HelpDesk 能做什麼，然後問我一個問題。"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n好的！讓我先看一下知識庫的相關文件，確保資訊準確。\n\n## 👋 你好！我是 **PAAW HelpDesk**\n\n我是你的 PAAW 專屬客服助手，專門回答與 **PAAW（Personal AI Assistant Workspace）** 相關的所有問題。以下是你能問我的事情：\n\n---\n\n### 🎯 我能回答的主題\n\n| 類別 | 你可以問什麼 |\n|------|-------------|\n| **🧠 概念解釋** | 什麼是 Skill？什麼是 Workspace？什麼是 Crew？ |\n| **🔧 操作指引** | 怎麼建立一個 App？怎麼寫 SKILL.md？怎麼設定 Cron Job？ |\n| **🏗️ 架構解析** | PAAW 的三層架構？Context Engine 怎麼運作？Agent Loop 流程？ |\n| **❓ 疑難排解** | 為什麼我的 Skill 執行失敗？路由怎麼設定？Tool 為什麼不能用？ |\n\n### 📚 我的知識來源\n\n我會優先查閱 `knowledge/about-paaw/` 下的所有文件（如架構參考、提示詞架構、AI 功能清單），必要時也會深入 source code，確保回答準確有依據。\n\n### 💬 互動方式\n\n你可以指定回答的**深度**（`summary` / `standard` / `deep-dive`），也可以要求我附上**資料來源**方便你自行查閱。\n\n---\n\n### 🤔 現在輪到你了！\n\n**你想問我什麼關於 PAAW 的問題？** 例如：\n\n> - 「PAAW 的 Skill 系統是怎麼運作的？」\n> - 「怎麼建立一個新的 App？」\n> - 「什麼是 Context Engine？它怎麼組裝 prompt？」\n> - 「Crew 和 Workflow 有什麼不同？」\n\n儘管問吧！😊"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "請問 PAAW 的 Context Engine 是如何動態組裝 prompt 的？能舉例說明嗎？"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "好問題！讓我查一下知識庫中關於 Context Engine 的相關文件太好了！我從知識庫的 `PROMPT-ARCHITECTURE.md` 和 `AI-FEATURES.md` 找到了詳細的資訊。讓我為你深入解析！\n\n---\n\n# 🧠 PAAW Context Engine：動態組裝 Prompt 完全解析\n\n## 一、核心定位\n\nContext Engine 是 PAAW 的 **提示詞工廠**，實作在 `packages/server/src/context-engine.mjs` 中。它的核心方法 `buildFullSystemContext()` 負責把來自不同來源的提示片段，按照**固定的順序層層堆疊**，為不同的 AI 功能動態組裝出最適合的 System Prompt。\n\n---\n\n## 二、底層架構：14 層疊加\n\n`buildFullSystemContext()` 是所有 AI 功能共用的底層，它依序疊加 14 個區塊：\n\n```\n[0]  _base/paaw-context.md       → PAAW 路徑、資料結構、Placeholder 定義\n[1]  _base/core-rules.md         → 語言、行為準則、安全邊界\n[2]  chat/identity.md            → AI 身份（{{assistantName}} {{nickname}}）\n[3]  使用者資訊                  → 名字、介紹、偏好 + Workspace 清單 + Knowledge 路徑\n[4]  MEMORY.md                   → 長期記憶（你叫 AI 記住的東西）\n[5]  Apps 清單 + App 連結規則    → 所有已安裝的 App 及其 Tool\n[6]  project/identity.md         → 專案管理助理規則\n     project/rules.md\n[7]  chat/tool-rules.md          → Tool 使用規則（核心規則：只信 Tool 不信記憶）\n[8]  crew/skill-rules.md         → Skill 執行規則（讀 SKILL.md → 按步驟執行）\n[9]  app-builder-rules.md        → App 建構規則\n[10] chat/system-prompt.md       → 系統行為規範\n[11] chat/guardrails.md          → 安全限制\n[12] chat/reply-rules.md         → 回覆格式規則\n[13] API Tools + Generated Skills → 系統可用的工具清單\n```\n\n這 14 層構成了 **底層通用上下文**，所有 AI 功能都會拿到這份基礎。\n\n---\n\n## 三、動態組裝：依目標功能「增減層」\n\n不同 AI 功能在 `buildFullSystemContext()` 之上，**動態附加專屬的 context 片段**。以下是幾個關鍵範例：\n\n### 🎯 範例 1：Chat（主聊天）\n\n```mermaid\nflowchart LR\n    A[buildFullSystemContext<br/>0～13 全部] --> B[+ 最近對話摘要<br/>最新 3 則聊天]\n    B --> C[最終 System Prompt]\n```\n\n**實際組合**：14 層全疊 + 最近 3 則對話內容摘要\n**用途**：讓 AI 知道自己是誰、有哪些工具、使用者是誰、記住了什麼、以及最近在聊什麼\n\n---\n\n### 🎯 範例 2：Skill Exec（Skill 執行）\n\n當你問 AI「幫我翻譯這段文字」且 PAAW 路由到一個翻譯 Skill 時：\n\n```mermaid\nflowchart LR\n    A[buildFullSystemContext<br/>0～13 全部] --> B[+ app 的 SYSTEM.md<br/>如果有的話]\n    B --> C[+ crew/skill-rules.md<br/>強化 Skill 執行規則]\n    C --> D[+ 你是 PAAW Skill 執行引擎]\n    D --> E[Prompt = SKILL.md body<br/>{{PAAW_ROOT}}→實際路徑<br/>{{key}}→使用者輸入]\n```\n\n**實際組合**：14 層基礎 + Skill 專屬規則 + SKILL.md 內容（變數已代換）\n\n---\n\n### 🎯 範例 3：Crew / Employee（AI 員工）\n\n當你建立一個 Crew 團隊時：\n\n```mermaid\nflowchart LR\n    A[buildFullSystemContext<br/>0～13 全部] --> B[+ crew/skill-rules.md]\n    B --> C[+ Crew JSON 的 rolePrompt<br/>角色的專屬人設與規範]\n    C --> D[前端再附加：<br/>請使用 {skillName}<br/>skill path : {path}/SKILL.md<br/>## 操作員提供的規格資料]\n```\n\n**實際組合**：14 層基礎 + Crew 角色人設 + 要用的 Skill 路徑 + 使用者提供的資料\n\n---\n\n### 🎯 範例 4：Distill（蒸餾）— 最輕量的特例\n\n```mermaid\nflowchart LR\n    A[distill/system-prompt.md<br/>專用！不用 buildFullSystemContext] --> B[+ distill/{source}.md<br/>chat / vibe / cron / vibe-coding]\n    B --> C[最終 System Prompt]\n```\n\n**實際組合**：完全不使用 14 層基礎，只用專屬的蒸餾提示詞\n**用途**：把大量對話摘要濃縮成結構化資料，不需要知道 Tool、App 等資訊\n\n---\n\n## 四、完整功能對照表\n\n| # | AI 功能 | Context 組合方式 |\n|---|---------|-----------------|\n| 1 | **Chat** | `buildFullSystemContext()` + 最近對話摘要 |\n| 2 | **Skill Builder** | `buildFullSystemContext()` + skill format + builder rules + test rules |\n| 3 | **Skill Exec** | `buildFullSystemContext()` + app SYSTEM.md + skill-rules |\n| 4 | **Workflow** | `buildFullSystemContext()` + app SYSTEM.md + skill-rules（多步執行） |\n| 5 | **Crew/Employee** | `buildFullSystemContext()` + rolePrompt + skill path |\n| 6 | **App Builder** | `buildFullSystemContext()`（等同 Chat） |\n| 7 | **Coding IDE** | `buildFullSystemContext()` + 最近對話摘要（等同 Chat） |\n| 8 | **Mindmap** | `buildFullSystemContext()` + `mindmap/system-prompt.md` |\n| 9 | **Notes** | `buildFullSystemContext()` + `notes/system-prompt.md` |\n| 10 | **Project AI** | `buildFullSystemContext()` + project/identity.md + project/rules.md |\n| 11 | **Distill** | 專用 `distill/system-prompt.md`（不用基礎層） |\n| 12 | **Cron Workflow** | 自訂 systemPrompt 或 `buildFullSystemContext()` |\n| 13 | **Cron Skill** | `buildFullSystemContext()` + app SYSTEM.md + skill-rules |\n\n---\n\n## 五、具體舉例 🌟\n\n假設你建立了一個**翻譯 Skill**，名為 `translate`，它的 `SKILL.md` 內容包含：\n\n```markdown\n## Purpose\n將使用者的輸入翻譯成英文\n\n## Inputs\n- text: 要翻譯的文字\n\n## Execution Steps\n1. 接收使用者輸入的 text\n2. 將其翻譯成英文\n3. 回傳翻譯結果\n```\n\n當你在聊天中說 **「幫我翻譯：今天天氣真好」** 時，Context Engine 會這樣組裝 Prompt：\n\n```\n[系統層 - 自動組裝，使用者看不到]\n\n[0] PAAW 基礎路徑定義\n[1] 行為核心規則\n[2] 你的 AI 助手身份\n[3] 使用者資訊（你叫小明、偏好繁體中文）\n[4] MEMORY.md（你之前叫 AI 記過的東西）\n[5] 所有已安裝的 App 清單（包含 translate Skill 的 Tool）\n[6] 專案規則\n[7] Tool 使用規則（只能使用 Tool 回傳的資料）\n[8] Skill 執行規則\n[9] App 建構規則\n[10] 系統行為規範\n[11] 安全限制\n[12] 回覆格式規則\n[13] 可用工具清單（包含 translate Tool）\n\n+ 「你是 PAAW Skill 執行引擎...」\n+ translate/SKILL.md 全文（中 {{text}} 已被換成「今天天氣真好」）\n\n[使用者輸入]\n幫我翻譯：今天天氣真好\n```\n\n於是 AI 看到的是：**一份完整的操作手冊 + 這個 Skill 的執行步驟 + 使用者要翻譯的內容**，就能準確執行翻譯任務並回傳結果。\n\n---\n\n## 六、已知的設計問題（文件中也有記錄）\n\n文件中也誠實標註了幾個 current issues：\n\n1. **Over-inclusion**：`buildFullSystemContext()` 把所有層都塞進去，不管目標功能是否需要（例如 Mindmap 不需要 Skill 執行規則）\n2. **重複疊加**：某些功能（如 Workflow、Crew）會把 `buildFullSystemContext()` 或 `crew/skill-rules.md` 重複加入，造成冗餘\n3. **App Builder 規則混入**：`app-builder-rules.md` 被混合在所有 AI 的 context 中，不管是不是在建構 App\n\n---\n\n📚 **參考來源：**\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md`\n- `knowledge/about-paaw/AI-FEATURES.md`\n\n---\n\n**怎麼樣，這個回答有清楚嗎？** 如果你想深入某個特定功能（例如 Crew 的 context 是怎麼跟 rolePrompt 結合的，或者 Workflow 的多步執行細節），我可以再用 `deep-dive` 模式為你詳細解析！😊"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "關於提到的 over-inclusion 和重複疊加等設計問題，PAAW 團隊目前有計畫改善這些冗餘嗎？還是說這是刻意保留的設計？"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "## 關於 Over-inclusion 與重複疊加的設計問題\n\n根據我讀到的 **`PROMPT-ARCHITECTURE.md`** 與 **`AI-FEATURES.md`** 的內容，文件中確實有明確列出這些問題，並將其標註為 **「Current Issues」**（當前已知問題），而非刻意保留的設計。\n\n具體來說，文件中記錄了以下幾點：\n\n### 文件中有提到的部分\n\n1. **Over-inclusion（過度包含）**\n   - 被記錄為一個已知問題：`buildFullSystemContext()` 把所有層都塞進 prompt 中，無論目標功能是否需要（例如 Mindmap 不需要 Skill 執行規則、Cron Skill 不需要所有 chat 層）\n   - 文件中沒有說這是刻意保留的設計，而是以「問題」的口吻描述\n\n2. **重複疊加（Duplicate Stacking）**\n   - 某些功能（如 Workflow、Crew）會把相同的 context 層（如 `crew/skill-rules.md` 或 `buildFullSystemContext()`）重複疊加\n   - 文件中將此歸類為冗餘，並非刻意的 feature\n\n3. **App Builder 規則混入**\n   - `app-builder-rules.md` 被混入所有 AI 功能中，即使不是在建構 App\n   - 同樣被歸類為問題\n\n### 文件中「沒有提到的部分」\n\n**目前知識庫文件中，並沒有提到 PAAW 團隊針對這些問題的具體改善計畫、路線圖（roadmap）或時程表。** 也就是說：\n\n- 文件沒有說「這是故意的，我們保留它」\n- 也沒有說「我們預計在 X 版本重構它」\n- 文件對這些問題的描述停留在「現狀說明」階段，而非「未來規劃」\n\n### 我的合理推測（非文件內容，僅供參考）\n\n從文件語氣來看，這些被標為「Current Issues」的項目，**比較像是一份誠實的架構檢討紀錄**——團隊意識到了這些設計上的取捨帶來的副作用，但尚未決定（或尚未完成）如何重構它。\n\n一個可能的原因是：`buildFullSystemContext()` 的「一刀切」設計雖然有冗餘，但它在**實作上非常簡單且穩定**——把所有東西都塞進去，保證每個功能都不會漏掉需要的 context。要把它拆成更精細的模組化設計，需要重新設計整個 Context Engine 的組裝邏輯，這是一個較大的工程。\n\n### 結論\n\n📚 **根據知識庫現有文件：**\n- ✅ 這些問題已被團隊記錄與承認\n- ❌ 文件中**沒有**提到具體的改善計畫或時程\n- ❌ 文件中**沒有**說這是刻意保留的設計\n\n如果你需要更確切的答案，建議可以：\n1. 查看 source code 中是否有 TODO 或 FIXME 註解（我可以幫你讀）\n2. 向 PAAW 團隊直接詢問 roadmap 規劃\n\n要我用 `deep-dive` 模式去 source code 裡翻看看有沒有註解或重構的蛛絲馬跡嗎？😊"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783259340566",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "## 關於 Over-inclusion 與重複疊加的設計問題\n\n根據我讀到的 **`PROMPT-ARCHITECTURE.md`** 與 **`AI-FEATURES.md`** 的內容，文件中確實有明確列出這些問題，並將其標註為 **「Current Issues」**（當前已知問題），而非刻意保留的設計。\n\n具體來說，文件中記錄了以下幾點：\n\n### 文件中有提到的部分\n\n1. **Over-inclusion（過度包含）**\n   - 被記錄為一個已知問題：`buildFullSystemContext()` 把所有層都塞進 prompt 中，無論目標功能是否需要（例如 Mindmap 不需要 Skill 執行規則、Cron Skill 不需要所有 chat 層）\n   - 文件中沒有說這是刻意保留的設計，而是以「問題」的口吻描述\n\n2. **重複疊加（Duplicate Stacking）**\n   - 某些功能（如 Workflow、Crew）會把相同的 context 層（如 `crew/skill-rules.md` 或 `buildFullSystemContext()`）重複疊加\n   - 文件中將此歸類為冗餘，並非刻意的 feature\n\n3. **App Builder 規則混入**\n   - `app-builder-rules.md` 被混入所有 AI 功能中，即使不是在建構 App\n   - 同樣被歸類為問題\n\n### 文件中「沒有提到的部分」\n\n**目前知識庫文件中，並沒有提到 PAAW 團隊針對這些問題的具體改善計畫、路線圖（roadmap）或時程表。** 也就是說：\n\n- 文件沒有說「這是故意的，我們保留它」\n- 也沒有說「我們預計在 X 版本重構它」\n- 文件對這些問題的描述停留在「現狀說明」階段，而非「未來規劃」\n\n### 我的合理推測（非文件內容，僅供參考）\n\n從文件語氣來看，這些被標為「Current Issues」的項目，**比較像是一份誠實的架構檢討紀錄**——團隊意識到了這些設計上的取捨帶來的副作用，但尚未決定（或尚未完成）如何重構它。\n\n一個可能的原因是：`buildFullSystemContext()` 的「一刀切」設計雖然有冗餘，但它在**實作上非常簡單且穩定**——把所有東西都塞進去，保證每個功能都不會漏掉需要的 context。要把它拆成更精細的模組化設計，需要重新設計整個 Context Engine 的組裝邏輯，這是一個較大的工程。\n\n### 結論\n\n📚 **根據知識庫現有文件：**\n- ✅ 這些問題已被團隊記錄與承認\n- ❌ 文件中**沒有**提到具體的改善計畫或時程\n- ❌ 文件中**沒有**說這是刻意保留的設計\n\n如果你需要更確切的答案，建議可以：\n1. 查看 source code 中是否有 TODO 或 FIXME 註解（我可以幫你讀）\n2. 向 PAAW 團隊直接詢問 roadmap 規劃\n\n要我用 `deep-dive` 模式去 source code 裡翻看看有沒有註解或重構的蛛絲馬跡嗎？😊"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_list",
+      "file_read",
+      "file_read"
+    ]
+  },
+  "createdAt": "2026-07-05T13:46:43.745Z",
+  "updatedAt": "2026-07-05T13:49:00.566Z",
+  "events": [
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259214393
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259218412
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259218418
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259221795
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259257701
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259264684
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259264690
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259268057
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259270973
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259275222
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259304197
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259308663
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259308668
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259308673
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259314267
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259314271
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783259317678
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259321107
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783259327303
+    }
+  ]
+}

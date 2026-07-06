@@ -16,7 +16,8 @@ import {
 
 // ── AI Settings paths ──
 const DISTILL_VIBE_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/distill/vibe.md");
-import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { paawGenerate } from "../lib/ai-sdk-helpers.mjs";
+import { isMeaningfulContent } from "../lib/llm-utils.mjs";
 
 async function readBodyStr(req) {
   return new Promise((ok) => {
@@ -194,42 +195,20 @@ export default async function vibeSessionsRoute(req, res) {
 
         let distilled = null;
         try {
-          const providerConfig = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf8"));
-          const providerId = providerConfig.active;
-          const provider = providerConfig.providers[providerId];
-          if (provider?.apiKey && provider.apiKey !== "na") {
-            const model = providerConfig.defaultModel || "glm-5.1";
-            const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-            const headers = {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${provider.apiKey}`,
-              ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-            };
-            // Prepend base context (knowledge + workspace dirs)
-            let fullSystemPrompt = distillPrompt;
-            try {
-              const { contextEngine } = await import("../context-engine.mjs");
-              const ctx = await contextEngine.build({ target: "distill" });
-              if (ctx.systemPrompt) fullSystemPrompt = ctx.systemPrompt + "\n\n" + distillPrompt;
-            } catch {}
-            const reqBody = {
-              model,
-              messages: [
-                { role: "system", content: fullSystemPrompt },
-                { role: "user", content: fullPrompt },
-              ],
-              max_tokens: 4096,
-            };
-            const result = await callLLMWithRetry(apiUrl, headers, reqBody, {
-              maxRetries: 3,
-              timeoutMs: 60_000,
-              validateContent: true,
-              sanitize: true,
-            });
-            distilled = isMeaningfulContent(result.content) ? result.content : null;
-          }
+          // Prepend base context (knowledge + workspace dirs)
+          let fullSystemPrompt = distillPrompt;
+          try {
+            const { contextEngine } = await import("../context-engine.mjs");
+            const ctx = await contextEngine.build({ target: "distill" });
+            if (ctx.systemPrompt) fullSystemPrompt = ctx.systemPrompt + "\n\n" + distillPrompt;
+          } catch {}
+          const text = await paawGenerate(PAAW_ROOT, {
+            system: fullSystemPrompt,
+            messages: [{ role: "user", content: fullPrompt }],
+          }, { maxOutputTokens: 4096, temperature: 0.5 });
+          distilled = isMeaningfulContent(text) ? text : null;
         } catch (err) {
-          console.error(`[vibe-sessions] LLM distill call failed after retries: ${err.message}`);
+          console.error(`[vibe-sessions] LLM distill call failed: ${err.message}`);
         }
 
         if (!distilled || distilled.length < 50) {

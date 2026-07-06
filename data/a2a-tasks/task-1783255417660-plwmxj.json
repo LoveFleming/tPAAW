@@ -1,0 +1,92 @@
+{
+  "id": "task-1783255417660-plwmxj",
+  "contextId": "sse-ctx",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-05T12:44:00.330Z"
+  },
+  "message": {
+    "role": "user",
+    "parts": [
+      {
+        "type": "text",
+        "text": "PAAW 是什麼？"
+      }
+    ],
+    "messageId": "sse-msg",
+    "contextId": "sse-ctx"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "PAAW 是什麼？"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n## PAAW 是什麼？\n\n**PAAW = Personal AI Assistant Workspace**\n\n> Build your personal AI workforce — 用自己的 AI 勞動力\n\nPAAW 是一個開源的 **個人 AI 工作平台**，核心哲學是：\n\n> **人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料 → 形成能力飛輪** 🚀\n\n---\n\n### 一句話理解\n\nPAAW 不是你平常在用的「跟 AI 聊天」工具——它更像一個 **AI 操作系統**，讓你能**建構自己的 AI 工具（Skill）、組裝 AI 應用（App）、雇用 AI 員工（Crew）**，全部在一個聊天視窗 + App 視窗的雙入口環境中完成。\n\n---\n\n### 核心概念\n\n| 概念 | 說明 |\n|------|------|\n| **Skill（技能）** | 最小能力單元，用固定 Markdown 格式（SKILL.md）定義：做什麼、輸入什麼、怎麼執行、輸出什麼 |\n| **App（應用）** | 資料驅動或 Skill-based 的應用，每個 App 自動成為聊天工具 |\n| **Crew（AI 員工）** | 綁定 Skill + 角色的 AI 工作者，有專屬人設 |\n| **Workflow（工作流）** | 多步驟自動化流程 |\n| **Knowledge（知識庫）** | AI 讀取你的知識檔案產生洞見 |\n| **Memory（記憶）** | 分層記憶架構，AI 記得你的偏好與脈絡 |\n\n---\n\n### 技術架構\n\nPAAW 採用**三層結構**：\n\n```\n使用者\n  ↓ 發 prompt + context\n前端 (React 19 + TypeScript + Vite)\n  ↓ WebSocket / API\n後端 (Node.js + .mjs) — runAgentLoop() 執行引擎\n  ↓ OpenAI-compatible API\nAI Provider（可切換：GLM、DeepSeek、OpenRouter 等）\n```\n\n**特別之處**：\n- **資料全是檔案**（`data/` 目錄下的 JSON + Markdown），不是傳統資料庫\n- **所有 AI 共用同一套 Context Engine**，systemPrompt 統一組裝\n- **支援多 AI Provider 切換**，透過 `providers.json` 管理 API Key\n\n---\n\n### 你可以用 PAAW 做什麼？\n\n1. **建構自己的 AI Skill** — 用自然語言描述你想做的事情，AI 幫你產生可重複執行的 Skill\n2. **建立 App** — 資料管理 App、Skill-based App，自動註冊為 Chat Tool\n3. **排程任務** — 設定 Cron Job 定時提醒或自動執行報告\n4. **組裝工作流** — 多步驟自動化，串聯多個 Skill\n5. **雇用 AI Crew** — 設定角色與技能，讓 AI 員工協作\n6. **管理知識** — 上傳檔案讓 AI 學習，產出洞見\n\n---\n\n### 一句話總結\n\n> **PAAW 是一個讓你不用寫程式、用自然語言就能打造個人 AI 團隊的平台。**\n\n📚 **參考來源：**\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md` — PAAW 開發者入門\n- `knowledge/about-paaw/PAAW-REFERENCE.md` — 技術參考與架構\n- `knowledge/about-paaw/AI-FEATURES.md` — 15 個 AI 功能完整清單"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783255440330",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "\n\n## PAAW 是什麼？\n\n**PAAW = Personal AI Assistant Workspace**\n\n> Build your personal AI workforce — 用自己的 AI 勞動力\n\nPAAW 是一個開源的 **個人 AI 工作平台**，核心哲學是：\n\n> **人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料 → 形成能力飛輪** 🚀\n\n---\n\n### 一句話理解\n\nPAAW 不是你平常在用的「跟 AI 聊天」工具——它更像一個 **AI 操作系統**，讓你能**建構自己的 AI 工具（Skill）、組裝 AI 應用（App）、雇用 AI 員工（Crew）**，全部在一個聊天視窗 + App 視窗的雙入口環境中完成。\n\n---\n\n### 核心概念\n\n| 概念 | 說明 |\n|------|------|\n| **Skill（技能）** | 最小能力單元，用固定 Markdown 格式（SKILL.md）定義：做什麼、輸入什麼、怎麼執行、輸出什麼 |\n| **App（應用）** | 資料驅動或 Skill-based 的應用，每個 App 自動成為聊天工具 |\n| **Crew（AI 員工）** | 綁定 Skill + 角色的 AI 工作者，有專屬人設 |\n| **Workflow（工作流）** | 多步驟自動化流程 |\n| **Knowledge（知識庫）** | AI 讀取你的知識檔案產生洞見 |\n| **Memory（記憶）** | 分層記憶架構，AI 記得你的偏好與脈絡 |\n\n---\n\n### 技術架構\n\nPAAW 採用**三層結構**：\n\n```\n使用者\n  ↓ 發 prompt + context\n前端 (React 19 + TypeScript + Vite)\n  ↓ WebSocket / API\n後端 (Node.js + .mjs) — runAgentLoop() 執行引擎\n  ↓ OpenAI-compatible API\nAI Provider（可切換：GLM、DeepSeek、OpenRouter 等）\n```\n\n**特別之處**：\n- **資料全是檔案**（`data/` 目錄下的 JSON + Markdown），不是傳統資料庫\n- **所有 AI 共用同一套 Context Engine**，systemPrompt 統一組裝\n- **支援多 AI Provider 切換**，透過 `providers.json` 管理 API Key\n\n---\n\n### 你可以用 PAAW 做什麼？\n\n1. **建構自己的 AI Skill** — 用自然語言描述你想做的事情，AI 幫你產生可重複執行的 Skill\n2. **建立 App** — 資料管理 App、Skill-based App，自動註冊為 Chat Tool\n3. **排程任務** — 設定 Cron Job 定時提醒或自動執行報告\n4. **組裝工作流** — 多步驟自動化，串聯多個 Skill\n5. **雇用 AI Crew** — 設定角色與技能，讓 AI 員工協作\n6. **管理知識** — 上傳檔案讓 AI 學習，產出洞見\n\n---\n\n### 一句話總結\n\n> **PAAW 是一個讓你不用寫程式、用自然語言就能打造個人 AI 團隊的平台。**\n\n📚 **參考來源：**\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md` — PAAW 開發者入門\n- `knowledge/about-paaw/PAAW-REFERENCE.md` — 技術參考與架構\n- `knowledge/about-paaw/AI-FEATURES.md` — 15 個 AI 功能完整清單"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_read"
+    ]
+  },
+  "createdAt": "2026-07-05T12:43:37.660Z",
+  "updatedAt": "2026-07-05T12:44:00.331Z",
+  "events": [
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783255420641
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783255425164
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783255428807
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783255428808
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783255428810
+    }
+  ]
+}

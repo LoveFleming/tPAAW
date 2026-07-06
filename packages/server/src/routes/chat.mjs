@@ -4,6 +4,8 @@
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
+import { streamText, tool as aiTool, jsonSchema } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 
 // ── Paths (reuse from context.mjs) ──
 const PAAW_ROOT = PATHS.PAAW_ROOT;
@@ -110,13 +112,18 @@ export default async function chatRoutes(req, res) {
       // ── Resolve provider ──
       const providerConfig = JSON.parse(await readFile(resolve(PAAW_DATA_DIR, "config/providers.json"), "utf-8"));
 
-      // Parse model ID — may be "providerId/modelId" or "providerId/nested/model"
+      // Parse model ID — may be "providerId/modelId" or just "model" or "vendor/model"
       let resolvedProviderId = requestedProvider || providerConfig.active;
       let model = requestedModel || providerConfig.defaultModel || "glm-5.1";
+      // Only treat first segment as providerId if it matches a known provider
       if (model.includes("/")) {
         const idx = model.indexOf("/");
-        resolvedProviderId = model.slice(0, idx);
-        model = model.slice(idx + 1);
+        const possibleProvider = model.slice(0, idx);
+        if (providerConfig.providers[possibleProvider]) {
+          resolvedProviderId = possibleProvider;
+          model = model.slice(idx + 1);
+        }
+        // else: leave model as-is (e.g. "deepseek/deepseek-v4-flash" is a model under openrouter)
       }
       const resolvedProvider = providerConfig.providers[resolvedProviderId];
       if (!resolvedProvider) {
@@ -159,95 +166,87 @@ export default async function chatRoutes(req, res) {
         } catch {}
       }, 3000);
 
-      // ── Load tool handlers & convert to executors ──
+      // ── Load tool handlers → AI SDK tools ──
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
       const { tools: toolDefinitions, handlers: toolHandlers } = await getToolsAndHandlers();
 
-      // 把 toolHandlers 轉成 ToolEngine 的 executor 格式
-      const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
-        name,
-        description: toolDefinitions.find(t => t.function.name === name)?.function?.description || name,
-        parameters: toolDefinitions.find(t => t.function.name === name)?.function?.parameters || { type: 'object', properties: {} },
-        execute: async (args) => {
-          const result = await handler(args);
-          // 有些 tool 需要 cache invalidation
-          if (name === 'app_create' || name === 'app_edit') invalidateCache();
-          return result
-        },
-      }))
-
-      // ── 建立 Tool Engine（含 Security Kernel）──
-      const { ToolEngine } = await import("../lib/tool-engine/index.mjs")
-      const engine = new ToolEngine({
-        provider: {
-          id: resolvedProviderId,
-          baseURL: resolvedProvider.baseURL,
-          apiKey: resolvedProvider.apiKey,
-          defaultModel: model,
-          extraHeaders: resolvedProviderId === 'openrouter'
-            ? { 'HTTP-Referer': 'https://paaw.ai', 'X-Title': 'PAAW' }
-            : undefined,
-        },
-        executors,
-        maxToolRounds: 5,
-        // 啟用 Security Kernel
-        security: {
-          approval: { mode: process.env.NODE_ENV === 'development' ? 'auto' : 'always' },
-          audit: { enabled: true },
-        },
-        sessionKey: req.headers['x-session-key'] || 'chat',
-        agentId: 'default',
-      })
-
-      // ── 執行 ReAct loop，stream 給前端 ──
-      let fullText = ''
-      let toolsUsed = []
-      let chunkCount = 0
-      const streamStart = Date.now()
-
-      console.log(`[${chatReqId}] ToolEngine.run() starting...`);
-
-      for await (const chunk of engine.run(ctx.systemPrompt, messages || [], model)) {
-        chunkCount++
-        const elapsed = Date.now() - streamStart
-        switch (chunk.type) {
-          case 'text':
-            fullText += chunk.delta
-            res.write(`data: ${JSON.stringify({ content: chunk.delta })}\n\n`)
-            if (typeof res.flush === 'function') res.flush()
-            if (chunkCount <= 5 || chunkCount % 20 === 0) console.log(`[${chatReqId}] text chunk #${chunkCount} ${elapsed}ms len=${chunk.delta.length}`)
-            break
-
-          case 'tool_start':
-            toolsUsed.push(chunk.name)
-            res.write(`data: ${JSON.stringify({ tool_call: { name: chunk.name, args: chunk.args, status: 'executing' } })}\n\n`)
-            if (typeof res.flush === 'function') res.flush()
-            console.log(`[${chatReqId}] tool_start: ${chunk.name} ${elapsed}ms`)
-            break
-
-          case 'tool_end':
-            res.write(`data: ${JSON.stringify({ tool_result: { name: chunk.name, result: chunk.result } })}\n\n`)
-            if (typeof res.flush === 'function') res.flush()
-            console.log(`[${chatReqId}] tool_end: ${chunk.name} error=${!!chunk.result?.error} ${elapsed}ms`)
-            break
-
-          case 'done':
-            res.write('data: [DONE]\n\n')
-            if (typeof res.flush === 'function') res.flush()
-            res.end()
-            console.log(`[${chatReqId}] DONE ${elapsed}ms chunks=${chunkCount} tools=${toolsUsed.join(',')} textLen=${fullText.length}`)
-            break
-
-          case 'error':
-            res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`)
-            if (typeof res.flush === 'function') res.flush()
-            res.end()
-            console.log(`[${chatReqId}] ERROR: ${chunk.message} ${elapsed}ms`)
-            break
-        }
+      const aiSdkTools = {};
+      for (const td of toolDefinitions) {
+        const fn = td.function;
+        const handler = toolHandlers[fn.name];
+        if (!handler) continue;
+        aiSdkTools[fn.name] = aiTool({
+          description: fn.description || fn.name,
+          parameters: jsonSchema(fn.parameters || { type: "object", properties: {} }),
+          execute: async (args) => {
+            try {
+              const result = await handler(args);
+              if (fn.name === "app_create" || fn.name === "app_edit") invalidateCache();
+              return result;
+            } catch (err) {
+              return { error: true, text: `Tool error: ${err.message}` };
+            }
+          },
+        });
       }
 
-      console.log(`[${chatReqId}] === Stream ended === ${Date.now() - streamStart}ms total, ${chunkCount} chunks`);
+      // ── Create AI SDK provider ──
+      const openai = createOpenAI({
+        baseURL: resolvedProvider.baseURL.replace(/\/+$/, ""),
+        apiKey: resolvedProvider.apiKey,
+        headers: resolvedProviderId === "openrouter"
+          ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }
+          : undefined,
+      });
+
+      // ── Run via Vercel AI SDK streamText ──
+      let fullText = "";
+      let toolsUsed = [];
+      let chunkCount = 0;
+      const streamStart = Date.now();
+
+      console.log(`[${chatReqId}] AI SDK streamText() starting...`);
+
+      const result = streamText({
+        model: openai(model),
+        system: ctx.systemPrompt,
+        messages: messages || [],
+        tools: aiSdkTools,
+        maxSteps: 5,
+        maxOutputTokens: 8192,
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          if (toolCalls) {
+            for (const tc of toolCalls) {
+              toolsUsed.push(tc.toolName);
+              res.write(`data: ${JSON.stringify({ tool_call: { name: tc.toolName, args: tc.args, status: "executing" } })}\n\n`);
+              if (typeof res.flush === "function") res.flush();
+              console.log(`[${chatReqId}] tool_start: ${tc.toolName}`);
+            }
+          }
+          if (toolResults) {
+            for (const tr of toolResults) {
+              const resultText = typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result || {});
+              res.write(`data: ${JSON.stringify({ tool_result: { name: tr.toolName, result: resultText.slice(0, 2000) } })}\n\n`);
+              if (typeof res.flush === "function") res.flush();
+            }
+          }
+        },
+      });
+
+      // Stream text chunks to client
+      for await (const chunk of result.textStream) {
+        chunkCount++;
+        fullText += chunk;
+        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+        if (typeof res.flush === "function") res.flush();
+        if (chunkCount <= 5 || chunkCount % 20 === 0) console.log(`[${chatReqId}] text chunk #${chunkCount} len=${chunk.length}`);
+      }
+
+      // Send DONE
+      res.write("data: [DONE]\n\n");
+      if (typeof res.flush === "function") res.flush();
+      res.end();
+      console.log(`[${chatReqId}] DONE ${Date.now() - streamStart}ms chunks=${chunkCount} tools=${toolsUsed.join(",")} textLen=${fullText.length}`);
 
       // 清掉 heartbeat
       clearInterval(heartbeatTimer);
@@ -261,7 +260,7 @@ export default async function chatRoutes(req, res) {
           user: typeof lastUser === "string" ? lastUser.slice(0, 1000) : JSON.stringify(lastUser).slice(0, 1000),
           assistant: fullText.slice(0, 3000),
           model,
-          provider: providerId,
+          provider: resolvedProviderId,
           tools: toolsUsed,
         });
       } catch {}

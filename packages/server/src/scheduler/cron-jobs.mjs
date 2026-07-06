@@ -12,7 +12,8 @@ import {
   VIBE_SESSIONS_DIR, readBody, PORT,
 } from "../routes/shared.mjs";
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
-import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { paawGenerate } from "../lib/ai-sdk-helpers.mjs";
 
 // Lazy-load distill module
 let _distillMod = null;
@@ -631,35 +632,13 @@ async function vibeSessionsApiHandler(req, res) {
 
       let distilled = null;
       try {
-        const providerConfig = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf8"));
-        const providerId = providerConfig.active;
-        const provider = providerConfig.providers[providerId];
-        if (provider?.apiKey && provider.apiKey !== "na") {
-          const model = providerConfig.defaultModel || "glm-5.1";
-          const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-          const headers = {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${provider.apiKey}`,
-            ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-          };
-          const reqBody = {
-            model,
-            messages: [
-              { role: "system", content: distillPrompt },
-              { role: "user", content: fullPrompt },
-            ],
-            max_tokens: 4096,
-          };
-          const result = await callLLMWithRetry(apiUrl, headers, reqBody, {
-            maxRetries: 3,
-            timeoutMs: 60_000,
-            validateContent: true,
-            sanitize: true,
-          });
-          distilled = isMeaningfulContent(result.content) ? result.content : null;
-        }
+        const text = await paawGenerate(PAAW_ROOT, {
+          system: distillPrompt,
+          messages: [{ role: "user", content: fullPrompt }],
+        }, { maxOutputTokens: 4096, temperature: 0.5 });
+        distilled = isMeaningfulContent(text) ? text : null;
       } catch (err) {
-        console.error(`[cron-jobs] LLM distill call failed after retries: ${err.message}`);
+        console.error(`[cron-jobs] LLM distill call failed: ${err.message}`);
       }
 
       if (!distilled || distilled.length < 50) {

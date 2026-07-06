@@ -77,11 +77,14 @@ function resolveLLMConfig(rootDir, modelOverride) {
   // Model ID may contain "/" (e.g. "deepseek/deepseek-v4-flash")
   let providerId = config.active;
   let model = modelOverride || config.defaultModel || "glm-5.1";
+  // Only treat first segment as providerId if it matches a known provider
   if (modelOverride && modelOverride.includes("/")) {
-    // First segment = providerId, rest = modelId
     const firstSlash = modelOverride.indexOf("/");
-    providerId = modelOverride.slice(0, firstSlash);
-    model = modelOverride.slice(firstSlash + 1);
+    const possibleProvider = modelOverride.slice(0, firstSlash);
+    if (config.providers[possibleProvider]) {
+      providerId = possibleProvider;
+      model = modelOverride.slice(firstSlash + 1);
+    }
   }
 
   const provider = config.providers[providerId];
@@ -113,10 +116,14 @@ function createAIProvider(rootDir, modelOverride) {
 
   let providerId = config.active;
   let model = modelOverride || config.defaultModel || "glm-5.1";
+  // Only treat first segment as providerId if it matches a known provider
   if (modelOverride && modelOverride.includes("/")) {
     const firstSlash = modelOverride.indexOf("/");
-    providerId = modelOverride.slice(0, firstSlash);
-    model = modelOverride.slice(firstSlash + 1);
+    const possibleProvider = modelOverride.slice(0, firstSlash);
+    if (config.providers[possibleProvider]) {
+      providerId = possibleProvider;
+      model = modelOverride.slice(firstSlash + 1);
+    }
   }
 
   const provider = config.providers[providerId];

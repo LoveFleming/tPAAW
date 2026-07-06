@@ -143,58 +143,23 @@ export function recordCronExecution({ jobName, success, result, duration }) {
 }
 
 // ── LLM Call Helper (with retry + sanitize) ──
-import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { paawGenerate } from "../lib/ai-sdk-helpers.mjs";
+import { isMeaningfulContent } from "../lib/llm-utils.mjs";
 
 async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride) {
   try {
-    const providerConfig = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8"));
-    let providerId = providerConfig.active;
-    let model = modelOverride || providerConfig.defaultModel || "glm-5.1";
-    // Parse "providerId/modelId" format
-    if (modelOverride && modelOverride.includes("/")) {
-      const idx = modelOverride.indexOf("/");
-      providerId = modelOverride.slice(0, idx);
-      model = modelOverride.slice(idx + 1);
-    } else if (!modelOverride && model.includes("/")) {
-      model = model.split("/").pop();
-    }
-    const provider = providerConfig.providers[providerId];
-    if (!provider?.apiKey || provider.apiKey === "na") {
-      console.error("[distill] No API key configured");
+    const text = await paawGenerate(PAAW_ROOT, {
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    }, { model: modelOverride, maxOutputTokens: maxTokens, temperature: 0.5 });
+
+    if (!isMeaningfulContent(text)) {
+      console.error("[distill] LLM returned empty/whitespace content");
       return null;
     }
-
-    const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
-
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${provider.apiKey}`,
-      ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
-    };
-
-    const body = {
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: maxTokens,
-    };
-
-    const result = await callLLMWithRetry(apiUrl, headers, body, {
-      maxRetries: 3,
-      timeoutMs: 60_000,
-      validateContent: true,
-      sanitize: true,
-    });
-
-    if (!isMeaningfulContent(result.content)) {
-      console.error(`[distill] LLM returned empty/whitespace content after ${result.attempts} attempts`);
-      return null;
-    }
-    return result.content;
+    return text;
   } catch (err) {
-    console.error(`[distill] LLM call failed after retries: ${err.message}`);
+    console.error(`[distill] LLM call failed: ${err.message}`);
   }
   return null;
 }

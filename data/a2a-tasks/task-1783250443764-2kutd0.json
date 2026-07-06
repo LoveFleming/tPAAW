@@ -1,0 +1,99 @@
+{
+  "id": "task-1783250443764-2kutd0",
+  "contextId": "61e8c463-9439-44c5-b7a7-a0ce23cc3353",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-05T11:21:07.488Z"
+  },
+  "message": {
+    "kind": "message",
+    "role": "user",
+    "messageId": "msg-f43241fc-f76e-42aa-b67c-36c4bffae0da",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "請介紹 PAAW 的 Skill Builder 功能"
+      }
+    ],
+    "contextId": "61e8c463-9439-44c5-b7a7-a0ce23cc3353"
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "請介紹 PAAW 的 Skill Builder 功能"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "# PAAW Skill Builder — 技能建構器 🛠️\n\n## 什麼是 Skill Builder？\n\n**Skill Builder** 是 PAAW 中用來**建構 Skill（技能）** 的視覺化工具。在 PAAW 中，**Skill 是最小的能力單元**，一個 Skill = 一個有明確輸入/輸出的 AI 任務。而 Skill Builder 就是讓你用**聊天 + 表單填寫**的方式，輕鬆建立這些 AI 任務。\n\n---\n\n## Skill 的核心結構\n\n每個 Skill 本質上是一份 **SKILL.md** 文件，包含以下區塊：\n\n| 區塊 | 說明 |\n|------|------|\n| **Purpose** | 這個 Skill 做什麼（一句話描述） |\n| **Inputs** | 需要什麼輸入參數 |\n| **Deterministic Script** | 執行步驟，包含 Tool Access、Execution Steps、Business Rules、Error Handling |\n| **Guardrails** | 安全限制（不得做什麼、不得洩漏什麼） |\n| **Output Contract** | 輸出格式保證（JSON schema 或 markdown 結構） |\n| **Validation** | 如何驗證結果是否正確 |\n\n---\n\n## 建構流程\n\n### 步驟 1：打開 Skill Builder\n點擊左側欄的 **🔧 Skill Builder**，進入建構頁面。\n\n### 步驟 2：填入各欄位\n你可以手動填寫 Purpose、Inputs、Execution Steps 等欄位，或者...\n\n### 步驟 3：✨ 一鍵 AI 自動生成\n點 **✨ 按鈕**，用一句話描述你要的 Skill，AI 會幫你填完所有欄位。\n\n> **例如**：輸入「我要一個翻譯 Skill，輸入英文文字，輸出繁中翻譯」\n> AI 就會自動產出完整的 SKILL.md，包含 Execution Steps、Guardrails、Output Contract 等。\n\n### 步驟 4：Build 產出\n點 **Build** 按鈕 → AI 產出完整 SKILL.md，檔案存放在 `data/skills/building/{slug}/` 目錄下。\n\n### 步驟 5：Test 驗證\n點 **Test** → 輸入測試資料，實際驗證 Skill 的行為是否符合預期。\n\n---\n\n## Skill 的四種執行引擎（Runner）\n\n| Runner | 說明 | 適用場景 |\n|--------|------|----------|\n| **`llm`** | AI 直接回應 | ✅ 最常用，翻譯、摘要、分析等 |\n| **`cli`** | 執行命令列工具 | 執行 shell 指令、腳本 |\n| **`script`** | 執行 JavaScript | 需要程式邏輯處理 |\n| **`api`** | 呼叫外部 API | 整合第三方服務 |\n\n---\n\n## Skill 可以在哪些地方被叫用？\n\nSkill 建立後，有以下 5 種執行方式：\n\n```\n你建立的 Skill\n    ├── 💬 聊天中自動觸發（關鍵字匹配）\n    ├── 👥 Crew 作為員工的能力\n    ├── ⚡ Workflow 作為流程的一步\n    ├── ⏰ Cron Job 排程執行\n    └── 🔌 API 直接呼叫 POST /api/paaw/skill-exec\n```\n\n---\n\n## 實際範例：一個翻譯 Skill\n\n假設你想建立一個翻譯 Skill，Skill Builder 的產出會像這樣：\n\n```markdown\n# Skill\n\n## Purpose\n將英文文字翻譯成繁體中文，保留原文語氣與專業術語。\n\n## Inputs\n- text: 要翻譯的英文文字（字串，必填）\n\n## Deterministic Script\n### Execution Steps\n1. 讀取使用者輸入的 text\n2. 將 text 翻譯成繁體中文\n3. 回傳翻譯結果\n\n## Guardrails\n- 不得翻譯敏感內容\n- 保持專業術語不翻譯\n\n## Output Contract\n回傳翻譯後的繁體中文字串\n```\n\n---\n\n## 技術細節（Context Engine 如何運作）\n\n從後端架構來看，Skill Builder 的 AI 對話使用 **`contextEngine.build({ target: \"skill-builder\" })`** 來組裝 system prompt，包含：\n\n- **PAAW 基礎 context**（路徑、行為準則、AI 身份）\n- **skill-builder/builder-rules.md** — 建構規則\n- **skill-builder/test-rules.md** — 測試驗證規則\n- 所有已安裝的 App 與 Tool 清單\n\n這樣 AI 在生成 Skill 時，就知道格式規範、驗證標準，以及可以使用哪些系統工具。\n\n---\n\n## 重點整理\n\n| 特性 | 說明 |\n|------|------|\n| 🎯 **定位** | PAAW 中最小的能力單元建構工具 |\n| 📝 **格式** | 純 Markdown（SKILL.md），易於版本控管與分享 |\n| 🤖 **AI 輔助** | 一句話描述，AI 自動生成完整 Skill |\n| 🧪 **可測試** | 內建測試功能，先試再上線 |\n| 🔗 **可組合** | 可被 Crew、Workflow、Cron Job 組合使用 |\n| 📂 **檔案位置** | `data/skills/building/{slug}/` |\n\n---\n\n📚 **參考來源：**\n- `knowledge/USER-MANUAL.md` — 第 4 章：Skill Builder\n- `knowledge/about-paaw/PAAW-REFERENCE.md` — 專案結構與 Context Engine\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md` — 開發者視角的架構說明\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md` — Skill Builder 的 context 組裝細節\n\n> 💡 **想進一步了解？** 你可以問：\n> - 怎麼建立一個實際的翻譯 Skill？\n> - Skill 和 App 有什麼不同？\n> - 如何讓 Skill 在聊天中被自動觸發？"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783250467488",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "# PAAW Skill Builder — 技能建構器 🛠️\n\n## 什麼是 Skill Builder？\n\n**Skill Builder** 是 PAAW 中用來**建構 Skill（技能）** 的視覺化工具。在 PAAW 中，**Skill 是最小的能力單元**，一個 Skill = 一個有明確輸入/輸出的 AI 任務。而 Skill Builder 就是讓你用**聊天 + 表單填寫**的方式，輕鬆建立這些 AI 任務。\n\n---\n\n## Skill 的核心結構\n\n每個 Skill 本質上是一份 **SKILL.md** 文件，包含以下區塊：\n\n| 區塊 | 說明 |\n|------|------|\n| **Purpose** | 這個 Skill 做什麼（一句話描述） |\n| **Inputs** | 需要什麼輸入參數 |\n| **Deterministic Script** | 執行步驟，包含 Tool Access、Execution Steps、Business Rules、Error Handling |\n| **Guardrails** | 安全限制（不得做什麼、不得洩漏什麼） |\n| **Output Contract** | 輸出格式保證（JSON schema 或 markdown 結構） |\n| **Validation** | 如何驗證結果是否正確 |\n\n---\n\n## 建構流程\n\n### 步驟 1：打開 Skill Builder\n點擊左側欄的 **🔧 Skill Builder**，進入建構頁面。\n\n### 步驟 2：填入各欄位\n你可以手動填寫 Purpose、Inputs、Execution Steps 等欄位，或者...\n\n### 步驟 3：✨ 一鍵 AI 自動生成\n點 **✨ 按鈕**，用一句話描述你要的 Skill，AI 會幫你填完所有欄位。\n\n> **例如**：輸入「我要一個翻譯 Skill，輸入英文文字，輸出繁中翻譯」\n> AI 就會自動產出完整的 SKILL.md，包含 Execution Steps、Guardrails、Output Contract 等。\n\n### 步驟 4：Build 產出\n點 **Build** 按鈕 → AI 產出完整 SKILL.md，檔案存放在 `data/skills/building/{slug}/` 目錄下。\n\n### 步驟 5：Test 驗證\n點 **Test** → 輸入測試資料，實際驗證 Skill 的行為是否符合預期。\n\n---\n\n## Skill 的四種執行引擎（Runner）\n\n| Runner | 說明 | 適用場景 |\n|--------|------|----------|\n| **`llm`** | AI 直接回應 | ✅ 最常用，翻譯、摘要、分析等 |\n| **`cli`** | 執行命令列工具 | 執行 shell 指令、腳本 |\n| **`script`** | 執行 JavaScript | 需要程式邏輯處理 |\n| **`api`** | 呼叫外部 API | 整合第三方服務 |\n\n---\n\n## Skill 可以在哪些地方被叫用？\n\nSkill 建立後，有以下 5 種執行方式：\n\n```\n你建立的 Skill\n    ├── 💬 聊天中自動觸發（關鍵字匹配）\n    ├── 👥 Crew 作為員工的能力\n    ├── ⚡ Workflow 作為流程的一步\n    ├── ⏰ Cron Job 排程執行\n    └── 🔌 API 直接呼叫 POST /api/paaw/skill-exec\n```\n\n---\n\n## 實際範例：一個翻譯 Skill\n\n假設你想建立一個翻譯 Skill，Skill Builder 的產出會像這樣：\n\n```markdown\n# Skill\n\n## Purpose\n將英文文字翻譯成繁體中文，保留原文語氣與專業術語。\n\n## Inputs\n- text: 要翻譯的英文文字（字串，必填）\n\n## Deterministic Script\n### Execution Steps\n1. 讀取使用者輸入的 text\n2. 將 text 翻譯成繁體中文\n3. 回傳翻譯結果\n\n## Guardrails\n- 不得翻譯敏感內容\n- 保持專業術語不翻譯\n\n## Output Contract\n回傳翻譯後的繁體中文字串\n```\n\n---\n\n## 技術細節（Context Engine 如何運作）\n\n從後端架構來看，Skill Builder 的 AI 對話使用 **`contextEngine.build({ target: \"skill-builder\" })`** 來組裝 system prompt，包含：\n\n- **PAAW 基礎 context**（路徑、行為準則、AI 身份）\n- **skill-builder/builder-rules.md** — 建構規則\n- **skill-builder/test-rules.md** — 測試驗證規則\n- 所有已安裝的 App 與 Tool 清單\n\n這樣 AI 在生成 Skill 時，就知道格式規範、驗證標準，以及可以使用哪些系統工具。\n\n---\n\n## 重點整理\n\n| 特性 | 說明 |\n|------|------|\n| 🎯 **定位** | PAAW 中最小的能力單元建構工具 |\n| 📝 **格式** | 純 Markdown（SKILL.md），易於版本控管與分享 |\n| 🤖 **AI 輔助** | 一句話描述，AI 自動生成完整 Skill |\n| 🧪 **可測試** | 內建測試功能，先試再上線 |\n| 🔗 **可組合** | 可被 Crew、Workflow、Cron Job 組合使用 |\n| 📂 **檔案位置** | `data/skills/building/{slug}/` |\n\n---\n\n📚 **參考來源：**\n- `knowledge/USER-MANUAL.md` — 第 4 章：Skill Builder\n- `knowledge/about-paaw/PAAW-REFERENCE.md` — 專案結構與 Context Engine\n- `knowledge/about-paaw/DEVELOPER-GUIDE.md` — 開發者視角的架構說明\n- `knowledge/about-paaw/PROMPT-ARCHITECTURE.md` — Skill Builder 的 context 組裝細節\n\n> 💡 **想進一步了解？** 你可以問：\n> - 怎麼建立一個實際的翻譯 Skill？\n> - Skill 和 App 有什麼不同？\n> - 如何讓 Skill 在聊天中被自動觸發？"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list",
+      "file_list",
+      "file_read",
+      "file_read",
+      "file_read",
+      "file_read"
+    ]
+  },
+  "createdAt": "2026-07-05T11:20:43.764Z",
+  "updatedAt": "2026-07-05T11:21:07.488Z",
+  "events": [
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783250446009
+    },
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783250450307
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783250450309
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783250454560
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783250454563
+    },
+    {
+      "type": "tool_call",
+      "name": "file_read",
+      "ts": 1783250454565
+    }
+  ]
+}

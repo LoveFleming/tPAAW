@@ -1,0 +1,69 @@
+{
+  "id": "task-1783332058150-ot61cf",
+  "contextId": "task-1783332058150-ot61cf",
+  "status": {
+    "state": "completed",
+    "timestamp": "2026-07-06T10:01:22.304Z"
+  },
+  "message": {
+    "kind": "message",
+    "role": "user",
+    "messageId": "msg-test2",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "什麼是 Skill？一句話"
+      }
+    ]
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "什麼是 Skill？一句話"
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "Skill 是 PAAW 中定義的最小可執行能力單元，由結構化 Markdown 描述，包含目的、輸入、執行步驟和輸出合約。"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art-1783332082304",
+      "name": "Response",
+      "parts": [
+        {
+          "type": "text",
+          "kind": "text",
+          "text": "Skill 是 PAAW 中定義的最小可執行能力單元，由結構化 Markdown 描述，包含目的、輸入、執行步驟和輸出合約。"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "toolsUsed": [
+      "file_list"
+    ],
+    "model": "paaw-helpdesk"
+  },
+  "createdAt": "2026-07-06T10:00:58.150Z",
+  "updatedAt": "2026-07-06T10:01:22.305Z",
+  "events": [
+    {
+      "type": "tool_call",
+      "name": "file_list",
+      "ts": 1783332061715
+    }
+  ]
+}

@@ -23,7 +23,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { exec as execCb } from "child_process";
 import { createPaawProject } from "../lib/paaw-project.mjs";
-import { callLLMWithRetry } from "../lib/llm-utils.mjs";
+import { paawGenerate } from "../lib/ai-sdk-helpers.mjs";
 
 // ── Query parser ──
 
@@ -508,15 +508,11 @@ ${samples.join("\n\n")}
 
 Output ONLY the markdown document, starting with # Coding Standards (Auto-Generated).`;
 
-  // 3. Call LLM
+  // 3. Call LLM via AI SDK
   try {
     const rootDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
-    const result = await callLLMWithRetry(rootDir, {
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      maxTokens: 2000,
-    });
-    return result.content || null;
+    const text = await paawGenerate(rootDir, prompt, { temperature: 0.3, maxOutputTokens: 2000 });
+    return text || null;
   } catch (err) {
     console.error("[project route] generate-standards error:", err.message);
     return null;
