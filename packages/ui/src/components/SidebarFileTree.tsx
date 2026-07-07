@@ -583,7 +583,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   // ── Rename handler ──
   const handleRename = useCallback(async (oldPath: string, newName: string) => {
     setRenamingNode(null);
-    const oldName = oldPath.split("/").pop() || "";
+    const oldName = oldPath.split(/[\\/]/).pop() || "";
     if (newName === oldName) return;
     const parent = oldPath.substring(0, oldPath.lastIndexOf("/"));
     const newPath = `${parent}/${newName}`;
@@ -599,7 +599,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
 
   // ── Create new file/folder ──
   const handleCreate = useCallback(async (fullPath: string) => {
-    const name = fullPath.split("/").pop() || "";
+    const name = fullPath.split(/[\\/]/).pop() || "";
     const isFile = name.includes(".");
     try {
       if (isFile) {
@@ -623,7 +623,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
   // ── Import file handler ──
   const handleImport = useCallback(async (srcPath: string) => {
     const targetDir = importTargetDir || projectRoot;
-    const name = srcPath.split("/").pop() || "imported-file";
+    const name = srcPath.split(/[\\/]/).pop() || "imported-file";
     const destPath = `${targetDir}/${name}`;
     try {
       const resp = await fetch(`${API_BASE}/api/fs/copy`, {
@@ -728,7 +728,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
         onClose={() => { setShowPicker(false); setImportTargetDir(""); }}
         onPick={handleImport}
         existingNames={existingNames}
-        title={importTargetDir ? `匯入檔案到 ${importTargetDir.split("/").pop()}` : "匯入檔案"}
+        title={importTargetDir ? `匯入檔案到 ${importTargetDir.split(/[\\/]/).pop()}` : "匯入檔案"}
       />
 
       {/* Move Picker */}

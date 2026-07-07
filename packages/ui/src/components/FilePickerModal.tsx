@@ -99,7 +99,7 @@ export default function FilePickerModal({ open, mode, onClose, onPick, existingN
   }, [tree, activeWs]);
 
   // Selection validation
-  const selectedName = selectedPath?.split("/").pop() || "";
+  const selectedName = selectedPath?.split(/[\\/]/).pop() || "";
   const isDuplicate = selectedName && existingNames.includes(selectedName);
   const canConfirm = selectedPath && (!isDuplicate || dupAction === "overwrite");
 
@@ -135,7 +135,7 @@ export default function FilePickerModal({ open, mode, onClose, onPick, existingN
                   className={`px-2 py-1 text-[10px] rounded-md font-medium transition-colors ${
                     activeWs === ws ? "bg-stone-700 text-white" : "bg-stone-100 text-stone-500 hover:bg-stone-200"
                   }`}>
-                  {ws.split("/").pop()}
+                  {ws.split(/[\\/]/).pop()}
                 </button>
               ))}
             </div>

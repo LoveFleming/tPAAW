@@ -694,7 +694,9 @@ export default async function crewRoute(req, res) {
   if (req.method === "GET" && req.url?.startsWith("/api/fs/browse-files")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const dirPath = params.get("path") || "";
-    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.USERPROFILE || process.env.HOME || "/");
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/");
+    // Normalize to forward slashes for cross-platform (Windows server → any client)
+    const norm = (p) => p.replace(/\\/g, "/");
     try {
       const s = await stat(absPath);
       if (!s.isDirectory()) {
@@ -709,14 +711,14 @@ export default async function crewRoute(req, res) {
         if (!a.isDirectory() && b.isDirectory()) return 1;
         return a.name.localeCompare(b.name);
       });
-      const dirs = visible.filter(e => e.isDirectory()).map(e => ({ name: e.name, path: join(absPath, e.name), type: "dir" }));
-      const files = visible.filter(e => !e.isDirectory()).map(e => ({ name: e.name, path: join(absPath, e.name), type: "file" }));
-      const parent = (absPath !== "/" && !/^[A-Za-z]:\\$/.test(absPath)) ? dirname(absPath) : null;
+      const dirs = visible.filter(e => e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "dir" }));
+      const files = visible.filter(e => !e.isDirectory()).map(e => ({ name: e.name, path: norm(join(absPath, e.name)), type: "file" }));
+      const parent = (absPath !== "/" && !/^[A-Za-z]:[\\\/]$/.test(absPath)) ? norm(dirname(absPath)) : null;
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ currentPath: absPath, parent, directories: dirs, files }));
+      res.end(JSON.stringify({ currentPath: norm(absPath), parent, directories: dirs, files }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message, currentPath: absPath, parent: null, directories: [], files: [] }));
+      res.end(JSON.stringify({ error: err.message, currentPath: norm(absPath), parent: null, directories: [], files: [] }));
     }
     return true;
   }
@@ -725,7 +727,8 @@ export default async function crewRoute(req, res) {
   if (req.method === "GET" && req.url?.startsWith("/api/fs/browse") && !req.url?.startsWith("/api/fs/browse-files")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const dirPath = params.get("path") || "";
-    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.USERPROFILE || process.env.HOME || "/");
+    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/");
+    const norm = (p) => p.replace(/\\/g, "/");
     try {
       const s = await stat(absPath);
       if (!s.isDirectory()) {
@@ -738,13 +741,13 @@ export default async function crewRoute(req, res) {
       const dirs = entries
         .filter(e => e.isDirectory() && !IGNORED.has(e.name) && !e.name.startsWith("."))
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map(e => ({ name: e.name, path: join(absPath, e.name) }));
-      const parent = (absPath !== "/" && !/^[A-Za-z]:\\$/.test(absPath)) ? dirname(absPath) : null;
+        .map(e => ({ name: e.name, path: norm(join(absPath, e.name)) }));
+      const parent = (absPath !== "/" && !/^[A-Za-z]:[\\\/]$/.test(absPath)) ? norm(dirname(absPath)) : null;
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ currentPath: absPath, parent, directories: dirs }));
+      res.end(JSON.stringify({ currentPath: norm(absPath), parent, directories: dirs }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message, currentPath: absPath, parent: null, directories: [] }));
+      res.end(JSON.stringify({ error: err.message, currentPath: norm(absPath), parent: null, directories: [] }));
     }
     return true;
   }
@@ -939,8 +942,10 @@ export default async function crewRoute(req, res) {
     try {
       const { srcPath, destPath } = JSON.parse(cpBody);
       if (!srcPath || !destPath) throw new Error("Missing srcPath or destPath");
-      const absSrc = resolve(srcPath);
-      const absDest = resolve(destPath);
+      // Normalize backslashes to forward slashes before resolve (cross-platform)
+      const norm = (p) => p.replace(/\\/g, "/");
+      const absSrc = resolve(norm(srcPath));
+      const absDest = resolve(norm(destPath));
       const { cp } = await import("fs/promises");
       await cp(absSrc, absDest, { recursive: true });
       res.writeHead(200, { "Content-Type": "application/json" });

@@ -75,7 +75,7 @@ export default function MoveFolderPicker({
 
   if (!open) return null;
 
-  const currentDirName = currentPath.split("/").pop() || currentPath;
+  const currentDirName = currentPath.split(/[\\/]/).pop() || currentPath;
 
   return (
     <div
@@ -225,7 +225,7 @@ export default function MoveFolderPicker({
           style={{ borderColor: t.accentBorder + "60", backgroundColor: t.accentBg + "40" }}
         >
           <span className="text-[10px] text-stone-400 truncate max-w-[55%]">
-            {selectedDir ? `📁 ${selectedDir.split("/").pop()}` : "請選擇目標資料夾"}
+            {selectedDir ? `📁 ${selectedDir.split(/[\\/]/).pop()}` : "請選擇目標資料夾"}
           </span>
           <div className="flex gap-2">
             <button

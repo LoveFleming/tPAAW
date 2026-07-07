@@ -465,7 +465,7 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
 
   // Create new file/folder
   const handleCreate = useCallback(async (fullPath: string) => {
-    const name = fullPath.split("/").pop() || "";
+    const name = fullPath.split(/[\\/]/).pop() || "";
     const isFile = name.includes(".");
     try {
       if (isFile) {
@@ -489,7 +489,7 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
   // Rename
   const handleRename = useCallback(async (oldPath: string, newName: string) => {
     setRenamingNode(null);
-    const oldName = oldPath.split("/").pop() || "";
+    const oldName = oldPath.split(/[\\/]/).pop() || "";
     if (newName === oldName) return;
     const parentPath = oldPath.substring(0, oldPath.lastIndexOf("/"));
     const newPath = `${parentPath}/${newName}`;
@@ -528,7 +528,8 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
   const handleImport = useCallback(async (srcPath: string) => {
     if (!ROOT) return;
     const targetDir = importTargetDir || ROOT;
-    const name = srcPath.split("/").pop() || "imported-file";
+    // Cross-platform filename extraction: handle both / and \\
+    const name = srcPath.split(/[\\/]/).pop() || "imported-file";
     const destPath = `${targetDir}/${name}`;
     try {
       const resp = await fetch(`${API_BASE}/api/fs/copy`, {
@@ -583,7 +584,7 @@ export default function KnowledgeTree({ onOpenFile, onEditFile, onOpenInBriefing
         onClose={() => { setShowPicker(false); setImportTargetDir(""); }}
         onPick={handleImport}
         existingNames={existingNames}
-        title={importTargetDir ? `匯入檔案到 ${importTargetDir.split("/").pop()}` : "匯入檔案到 Knowledge"}
+        title={importTargetDir ? `匯入檔案到 ${importTargetDir.split(/[\\/]/).pop()}` : "匯入檔案到 Knowledge"}
       />
 
       {/* Move Picker — folder-only picker for moving files */}

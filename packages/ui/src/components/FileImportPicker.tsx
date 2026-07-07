@@ -70,7 +70,7 @@ export default function FileImportPicker({
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === "Enter" && selectedFile) {
-        const name = selectedFile.split("/").pop() || "";
+        const name = selectedFile.split(/[\\/]/).pop() || "";
         if (!existingNames.includes(name) || dupAction === "overwrite") {
           onPick(selectedFile);
           onClose();
@@ -83,7 +83,7 @@ export default function FileImportPicker({
 
   if (!open) return null;
 
-  const selectedName = selectedFile?.split("/").pop() || "";
+  const selectedName = selectedFile?.split(/[\\/]/).pop() || "";
   const isDuplicate = selectedName && existingNames.includes(selectedName);
   const canConfirm = selectedFile && (!isDuplicate || dupAction === "overwrite");
 
