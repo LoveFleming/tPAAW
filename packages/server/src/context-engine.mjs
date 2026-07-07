@@ -120,14 +120,23 @@ function loadProviderConfig() {
   return { providerId: activeId, provider, model };
 }
 
-/** 動態資料：使用者資訊 + 記憶 + Apps */
+/** 動態資料：日期時間 + 使用者資訊 + 記憶 + Apps */
 function buildDynamicContext() {
   const user = loadUserProfile();
   const memory = loadMemory();
   const apps = loadAppInstructions();
   const assistantName = user.assistantName || "林語晴";
 
+  // 當前日期時間（每次構建 system prompt 時取即時值）
+  const _now = new Date();
+  const _dateStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const _weekday = ["日", "一", "二", "三", "四", "五", "六"][_now.getDay()];
+  const _timeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
+
   const parts = [];
+
+  // 日期時間
+  parts.push(`=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 Asia/Taipei (UTC+8)`);
 
   // 使用者資訊
   parts.push(`=== 使用者資訊 ===\n- 名字：${user.name || "未知"}\n- 介紹：${user.intro || ""}\n- 偏好風格：${user.style || "casual"}`);
