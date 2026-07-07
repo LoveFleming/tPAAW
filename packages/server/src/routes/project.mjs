@@ -18,7 +18,7 @@
  *   POST   /api/coding-project/generate-overview?path=... — Auto-generate PROJECT.md
  */
 
-import { readFile, writeFile, readdir } from "fs/promises";
+import { readFile, writeFile, readdir, mkdir } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { exec as execCb } from "child_process";
