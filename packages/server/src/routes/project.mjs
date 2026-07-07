@@ -407,6 +407,25 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // DELETE /api/coding-project/recent — remove a project from recent list
+    if (url.startsWith("/api/coding-project/recent") && method === "DELETE") {
+      const params = new URL(req.url, "http://localhost").searchParams;
+      const removePath = params.get("path");
+      const recentPath = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "config", "recent-projects.json");
+      let recent = [];
+      try {
+        if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
+      } catch {}
+      if (removePath) {
+        recent = recent.filter(r => r.path !== removePath);
+        await mkdir(dirname(recentPath), { recursive: true });
+        await writeFile(recentPath, JSON.stringify(recent, null, 2), "utf-8");
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(recent));
+      return true;
+    }
+
     // POST /api/coding-project/recent — add/update recent project
     if (url.startsWith("/api/coding-project/recent") && method === "POST") {
       const body = JSON.parse(await readBody(req) || "{}");

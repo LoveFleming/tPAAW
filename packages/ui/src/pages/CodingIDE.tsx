@@ -234,6 +234,26 @@ export default function CodingIDE() {
   const [recentProjects, setRecentProjects] = useState<{ path: string; name: string; hasPaaw: boolean }[]>([]);
   const [showRecentProjects, setShowRecentProjects] = useState(false);
 
+  // Close / unload project
+  const closeProject = useCallback(() => {
+    if (!rootPath) return;
+    // Remove from recent projects
+    fetch(`${API_BASE}/api/coding-project/recent?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" })
+      .then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {});
+    // Clear state
+    setRootPath("");
+    setOpenTabs([]);
+    setActiveTabId(null);
+    setExpandedDirs(new Set());
+    setDirContents({});
+    dirContentsRef.current = {};
+    setGitStatus(null);
+    setGitLog([]);
+    setGitDiff("");
+    setChatMessages([]);
+    try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {}
+  }, [rootPath]);
+
   // ── Git State ──
   const [gitStatus, setGitStatus] = useState<{ branch: string; staged: GitFileStatus[]; unstaged: GitFileStatus[]; untracked: GitFileStatus[]; all: GitFileStatus[] } | null>(null);
   const [gitLog, setGitLog] = useState<GitCommit[]>([]);
@@ -372,7 +392,7 @@ export default function CodingIDE() {
       const res = await fetch(`${API_BASE}/api/vibe-fs/read?path=${encodeURIComponent(path)}`);
       const data = await res.json();
       if (data.content !== undefined) {
-        const name = path.split("/").pop() || path;
+        const name = path.split(/[\\/]/).pop() || path;
         const tab: OpenTab = { id: path, name, path, content: data.content, originalContent: data.content, modified: false, language: getLanguage(name), hljsLang: getHljsLang(name), lastSaved: data.modified };
         setOpenTabs(prev => [...prev, tab]);
         setActiveTabId(path);
@@ -868,6 +888,18 @@ const sendChat = useCallback(async () => {
       <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
         <span className="text-sm font-bold text-stone-700">{tt("vibe.title")}</span>
 
+        {/* Project name + close */}
+        {rootPath && (
+          <div className="ml-2 flex items-center gap-1">
+            <span className="text-xs px-2 py-1 rounded-lg bg-stone-100 text-stone-600 font-medium truncate max-w-[200px]">📁 {rootPath.split(/[\\/]/).pop()}</span>
+            <button onClick={closeProject}
+              className="text-xs px-1.5 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
+              title={tt("vibe.closeProject", "關閉專案")}>
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Search shortcut buttons */}
         <button onClick={() => { setShowQuickOpen(true); setQuickOpenQuery(""); setQuickOpenResults([]); setQuickOpenIndex(0); }}
           className="ml-2 text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors flex items-center gap-1"
@@ -897,9 +929,9 @@ const sendChat = useCallback(async () => {
           🌐
         </button>
         <button onClick={() => setShowAiPanel(!showAiPanel)}
-          className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
-            showAiPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          {tt("vibe.ai")}
+          className={cn("text-xs px-2.5 py-1 rounded-lg border font-bold transition-colors mr-1",
+            showAiPanel ? "bg-purple-700 text-white border-purple-700" : "text-purple-600 border-purple-200 hover:bg-purple-50 bg-purple-50")}>
+          🤖 AI
         </button>
         <button onClick={() => setShowTerminal(!showTerminal)}
           disabled={!rootPath}
@@ -929,13 +961,16 @@ const sendChat = useCallback(async () => {
                     <div className="px-2 py-1 text-[10px] font-semibold text-stone-400 border-b border-stone-100">Recent Projects</div>
                     {recentProjects.map(rp => (
                       <div key={rp.path}
-                        onClick={() => { setRootPath(rp.path); setShowRecentProjects(false); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
-                        className="px-2 py-1.5 cursor-pointer hover:bg-blue-50 border-b border-stone-50 last:border-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs">{rp.hasPaaw ? "🤖" : "📁"}</span>
-                          <span className="text-xs font-medium text-stone-700 truncate">{rp.name}</span>
+                        className="px-2 py-1.5 cursor-pointer hover:bg-blue-50 border-b border-stone-50 last:border-0 flex items-center gap-1.5">
+                        <div className="flex-1 min-w-0" onClick={() => { setRootPath(rp.path); setShowRecentProjects(false); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs">{rp.hasPaaw ? "🤖" : "📁"}</span>
+                            <span className="text-xs font-medium text-stone-700 truncate">{rp.name}</span>
+                          </div>
+                          <div className="text-[9px] text-stone-300 truncate ml-5">{rp.path}</div>
                         </div>
-                        <div className="text-[9px] text-stone-300 truncate ml-5">{rp.path}</div>
+                        <button onClick={(e) => { e.stopPropagation(); fetch(`${API_BASE}/api/coding-project/recent?path=${encodeURIComponent(rp.path)}`, { method: "DELETE" }).then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {}); }}
+                          className="text-stone-300 hover:text-red-500 text-xs shrink-0 px-1" title={tt("vibe.removeRecent", "移除")}>✕</button>
                       </div>
                     ))}
                     {recentProjects.length === 0 && <div className="px-2 py-2 text-[10px] text-stone-400 text-center">No recent projects</div>}
@@ -987,7 +1022,7 @@ const sendChat = useCallback(async () => {
             </div>
           )}
           <div className="px-2 py-1 flex items-center" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-            <span className="text-xs text-stone-400 truncate">{rootPath ? rootPath.split("/").pop() : "No project"}</span>
+            <span className="text-xs text-stone-400 truncate">{rootPath ? rootPath.split(/[\\/]/).pop() : "No project"}</span>
           </div>
         </div>
 
@@ -1485,7 +1520,7 @@ const sendChat = useCallback(async () => {
                   Terminal
                 </span>
                 <span className="flex-1" />
-                <span className="text-[10px] text-stone-500">{rootPath ? rootPath.split("/").pop() : "~"}</span>
+                <span className="text-[10px] text-stone-500">{rootPath ? rootPath.split(/[\\/]/).pop() : "~"}</span>
                 <button onClick={() => setShowTerminal(false)} className="text-stone-500 hover:text-white text-xs ml-2">✕</button>
               </div>
               <div className="flex-1 min-h-0">
@@ -1565,9 +1600,17 @@ const sendChat = useCallback(async () => {
                     <span className="text-3xl">🤖</span>
                     <p className="text-stone-400 text-sm">{tt("vibe.aiAskFile")}<br />{tt("vibe.aiAutoContextDesc")}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {[tt("vibe.aiQuickExplain"), tt("vibe.aiQuickProblem"), tt("vibe.aiQuickComment"), tt("vibe.aiQuickPerf")].map(q => (
-                        <button key={q} onClick={() => setChatInput(q)}
-                          className="text-sm px-2.5 py-1.5 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">{q}</button>
+                      {[tt("vibe.aiQuickExplain"), tt("vibe.aiQuickProblem"), tt("vibe.aiQuickComment"), tt("vibe.aiQuickPerf"), tt("vibe.aiQuickReview", "🔍 Review")].map(q => (
+                        <button key={q} onClick={() => {
+                          const isReview = q.includes("Review") || q.includes("review") || q.includes("レビュー");
+                          if (isReview) {
+                            setChatInput("請幫我 review 這個專案的整體狀況：git status、最近修改、架構、和需要注意的事項。");
+                          } else {
+                            setChatInput(q);
+                          }
+                        }}
+                          className={cn("text-sm px-2.5 py-1.5 rounded-full border transition-colors",
+                            q.includes("Review") ? "border-purple-200 text-purple-600 hover:bg-purple-50" : "border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300")}>{q}</button>
                       ))}
                     </div>
                   </div>
