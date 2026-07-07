@@ -90,6 +90,7 @@
   "vibe.close": "閉じる",
   "vibe.closeProject": "プロジェクトを閉じる",
   "vibe.removeRecent": "削除",
+  "vibe.aiInitialize": "AI初期化",
   "vibe.refresh": "更新",
   "vibe.git": "🔀 Git",
   "vibe.api": "🌐 API",

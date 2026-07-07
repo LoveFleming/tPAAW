@@ -224,7 +224,7 @@ export default function CodingIDE() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // ── Right Panel Tab State ──
-  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health">("chat");
+  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts">("chat");
 
   // ── Browser Preview State ──
   const [showBrowser, setShowBrowser] = useState(false);
@@ -253,6 +253,82 @@ export default function CodingIDE() {
     setChatMessages([]);
     try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {}
   }, [rootPath]);
+
+  // ── AI Initialize State ──
+  const [aiInitializing, setAiInitializing] = useState(false);
+  const [aiInitSteps, setAiInitSteps] = useState<Array<{ id: string; name: string; status: "pending" | "running" | "done" | "error" | "skip"; size?: number; error?: string }>>([]);
+  const [showAiInitPanel, setShowAiInitPanel] = useState(false);
+
+  // ── AI Prompt Management State ──
+  const [aiPrompts, setAiPrompts] = useState<Array<{ filename: string; name: string; defaultContent: string; customContent: string | null; activeContent: string; hasOverride: boolean; size: number }>[]>([]);
+  const [editingPrompt, setEditingPrompt] = useState<string | null>(null);
+  const [editingPromptContent, setEditingPromptContent] = useState("");
+  const [promptSaving, setPromptSaving] = useState(false);
+
+  const startAiInitialize = useCallback(async () => {
+    if (!rootPath || aiInitializing) return;
+    setAiInitializing(true);
+    setShowAiInitPanel(true);
+    const steps = [
+      { id: "scan", name: "🔍 掃描專案結構" },
+      { id: "api-spec", name: "📝 產出 API Spec" },
+      { id: "error-mapping", name: "🐛 產出 Error Mapping" },
+      { id: "test-payload", name: "🧪 產出 API Test Payload" },
+      { id: "standards", name: "📏 產出 Coding Standards" },
+      { id: "faq", name: "🤖 產出 HelpDesk FAQ" },
+      { id: "overview", name: "📊 產出 PROJECT.md" },
+    ];
+    setAiInitSteps(steps.map(s => ({ ...s, status: "pending" as const })));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      if (!res.ok || !res.body) {
+        setAiInitSteps(prev => prev.map(s => ({ ...s, status: "error" as const, error: `HTTP ${res.status}` })));
+        setAiInitializing(false); return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.startsWith("event: ") || line.startsWith("data: ")) {
+            try {
+              if (line.startsWith("data: ")) {
+                const data = JSON.parse(line.slice(6));
+                // Handle events based on the event type from the previous line
+                if (data.step) {
+                  if (data.reason) {
+                    // step_skip
+                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "skip" as const } : s));
+                  } else if (data.error) {
+                    // step_error
+                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "error" as const, error: data.error } : s));
+                  } else if (data.preview !== undefined) {
+                    // step_done
+                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "done" as const, size: data.size } : s));
+                  } else {
+                    // step_start
+                    setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const } : s));
+                  }
+                }
+                if (data.message === "AI Initialize complete") {
+                  setAiInitializing(false);
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch (err: any) {
+      setAiInitSteps(prev => prev.map(s => ({ ...s, status: "error" as const, error: err.message })));
+    }
+    setAiInitializing(false);
+  }, [rootPath, aiInitializing]);
 
   // ── Git State ──
   const [gitStatus, setGitStatus] = useState<{ branch: string; staged: GitFileStatus[]; unstaged: GitFileStatus[]; untracked: GitFileStatus[]; all: GitFileStatus[] } | null>(null);
@@ -883,15 +959,70 @@ const sendChat = useCallback(async () => {
         title="📂 選擇專案目錄"
       />
     )}
+
+    {/* AI Initialize Progress Panel */}
+    {showAiInitPanel && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!aiInitializing) setShowAiInitPanel(false); }}>
+        <div className="bg-white rounded-2xl shadow-2xl border flex flex-col" style={{ width: "min(520px, 90vw)", maxHeight: "70vh" }} onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-2xl" style={{ backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
+            <h3 className="text-base font-bold text-emerald-700">🚀 AI Initialize</h3>
+            {!aiInitializing && (
+              <button onClick={() => setShowAiInitPanel(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+            {aiInitSteps.map((step, i) => (
+              <div key={step.id} className="flex items-center gap-3 py-2">
+                <span className="text-lg shrink-0">
+                  {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : step.status === "skip" ? "⏭️" : "⬜"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className={cn("text-sm font-medium", step.status === "running" ? "text-emerald-700" : step.status === "done" ? "text-stone-600" : step.status === "error" ? "text-red-500" : "text-stone-400")}>
+                    {step.name}
+                    {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
+                  </div>
+                  {step.status === "done" && step.size && (
+                    <div className="text-[10px] text-stone-300">{step.size.toLocaleString()} chars</div>
+                  )}
+                  {step.status === "error" && step.error && (
+                    <div className="text-[10px] text-red-400">{step.error}</div>
+                  )}
+                  {step.status === "skip" && (
+                    <div className="text-[10px] text-stone-300">Skipped</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="px-5 py-3 border-t flex items-center justify-between" style={{ borderColor: "#f0f0f0" }}>
+            <span className="text-xs text-stone-400">
+              {aiInitializing ? "AI 正在分析專案..." : `${aiInitSteps.filter(s => s.status === "done").length}/${aiInitSteps.length} 完成`}
+            </span>
+            {!aiInitializing && aiInitSteps.some(s => s.status === "done") && (
+              <button onClick={() => setShowAiInitPanel(false)} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
+                完成 ✅
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
         <span className="text-sm font-bold text-stone-700">{tt("vibe.title")}</span>
 
-        {/* Project name + close */}
+        {/* Project name + close + AI Init */}
         {rootPath && (
           <div className="ml-2 flex items-center gap-1">
             <span className="text-xs px-2 py-1 rounded-lg bg-stone-100 text-stone-600 font-medium truncate max-w-[200px]">📁 {rootPath.split(/[\\/]/).pop()}</span>
+            <button onClick={startAiInitialize}
+              disabled={aiInitializing}
+              className={cn("text-xs px-2 py-1 rounded-lg border font-bold transition-colors",
+                aiInitializing ? "border-amber-200 bg-amber-50 text-amber-600" : "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100")}
+              title={tt("vibe.aiInitialize", "AI Initialize")}>
+              {aiInitializing ? "⏳ AI Init..." : "🚀 AI Init"}
+            </button>
             <button onClick={closeProject}
               className="text-xs px-1.5 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
               title={tt("vibe.closeProject", "關閉專案")}>
@@ -1272,6 +1403,34 @@ const sendChat = useCallback(async () => {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-stone-500">🌐 API Tester</span>
                     <span className="flex-1" />
+                    {rootPath && (
+                      <button onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=test-payloads/all-payloads.json`);
+                          if (res.ok) {
+                            const data = await res.json();
+                            if (data.content) {
+                              try {
+                                const payloads = JSON.parse(data.content);
+                                if (payloads.tests?.[0]?.request) {
+                                  const t = payloads.tests[0];
+                                  setApiMethod(t.request.method || "GET");
+                                  setApiUrl(t.request.path || "");
+                                  if (t.request.headers) setApiHeaders(Object.entries(t.request.headers).map(([k, v]) => ({ key: k, value: String(v), enabled: true })));
+                                  if (t.request.body) setApiBody(typeof t.request.body === "string" ? t.request.body : JSON.stringify(t.request.body, null, 2));
+                                  alert(`已載入第 1 個 test payload（共 ${payloads.tests.length} 個）`);
+                                } else if (payloads.endpoint) {
+                                  setApiMethod(payloads.tests?.[0]?.request?.method || payloads.request?.method || "GET");
+                                  setApiUrl(payloads.endpoint.split(" ").pop() || payloads.request?.path || "");
+                                }
+                              } catch { alert("AI test payload 格式有誤，請在 .paaw/test-payloads/ 檢查"); }
+                            } else { alert("尚未產出 API Test Payload。先點 🚀 AI Initialize"); }
+                          } else { alert("尚未產出 API Test Payload。先點 🚀 AI Initialize"); }
+                        } catch { alert("載入失敗"); }
+                      }} className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 font-bold" title="載入 AI 產出的 test payload">
+                        🧪 AI
+                      </button>
+                    )}
                     {apiHistory.length > 0 && (
                       <div className="relative group">
                         <button className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 hover:bg-stone-200 font-semibold">
@@ -1563,6 +1722,11 @@ const sendChat = useCallback(async () => {
                     rightTab === "health" ? "bg-teal-100 text-teal-700" : "text-stone-400 hover:bg-stone-50")}>
                   📊 Health
                 </button>
+                <button onClick={() => { setRightTab("prompts"); if (rootPath) fetch(`${API_BASE}/api/coding-project/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(data => { if (Array.isArray(data)) setAiPrompts(data); }).catch(() => {}); }}
+                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
+                    rightTab === "prompts" ? "bg-orange-100 text-orange-700" : "text-stone-400 hover:bg-stone-50")}>
+                  🎯 Prompts
+                </button>
                 <span className="flex-1" />
                 {rightTab === "chat" && (
                   <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs px-1">✕</button>
@@ -1680,6 +1844,67 @@ const sendChat = useCallback(async () => {
               {rightTab === "health" && (
                 <div className="flex-1 min-h-0">
                   <ProjectHealth projectRoot={rootPath || ""} />
+                </div>
+              )}
+              {rightTab === "prompts" && (
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2" style={{ scrollbarWidth: "thin" }}>
+                  <div className="text-xs text-stone-400 mb-2">AI Initialize 使用的 Prompt 模板。自訂會覆蓋預設。</div>
+                  {aiPrompts.map(p => (
+                    <div key={p.filename} className="border rounded-lg p-3" style={{ borderColor: p.hasOverride ? "#fbbf24" : "#e5e5e5", backgroundColor: p.hasOverride ? "#fffbeb" : "#fff" }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-stone-700">{p.name}</span>
+                        {p.hasOverride && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-bold">自訂</span>}
+                        <span className="flex-1" />
+                        <button onClick={() => { setEditingPrompt(p.filename); setEditingPromptContent(p.activeContent); }}
+                          className="text-xs px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200">✏️ 編輯</button>
+                        {p.hasOverride && (
+                          <button onClick={async () => {
+                            if (!confirm("確定要恢復預設 prompt？")) return;
+                            await fetch(`${API_BASE}/api/coding-project/prompts/${p.filename}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
+                            const updated = await fetch(`${API_BASE}/api/coding-project/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+                            if (Array.isArray(updated)) setAiPrompts(updated);
+                          }} className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-600 hover:bg-amber-100">↩ 預設</button>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-stone-400 truncate">{p.activeContent.slice(0, 100)}...</div>
+                      <div className="text-[10px] text-stone-300 mt-0.5">{p.size.toLocaleString()} chars</div>
+                    </div>
+                  ))}
+                  {editingPrompt && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setEditingPrompt(null)}>
+                      <div className="bg-white rounded-2xl shadow-2xl border flex flex-col" style={{ width: "min(640px, 90vw)", height: "min(70vh, 500px)" }} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-4 py-2 border-b" style={{ backgroundColor: "#fff7ed", borderColor: "#fed7aa" }}>
+                          <h3 className="text-sm font-bold text-orange-700">✏️ {editingPrompt}</h3>
+                          <button onClick={() => setEditingPrompt(null)} className="text-stone-400 hover:text-stone-600">✕</button>
+                        </div>
+                        <textarea value={editingPromptContent} onChange={e => setEditingPromptContent(e.target.value)}
+                          className="flex-1 p-3 text-sm font-mono resize-none outline-none" style={{ tabSize: 2 }} spellCheck={false} />
+                        <div className="px-4 py-2 border-t flex items-center justify-between" style={{ borderColor: "#f0f0f0" }}>
+                          <span className="text-[10px] text-stone-400">儲存後會覆蓋預設 prompt</span>
+                          <div className="flex gap-2">
+                            <button onClick={() => setEditingPrompt(null)} className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 text-stone-600">取消</button>
+                            <button onClick={async () => {
+                              setPromptSaving(true);
+                              await fetch(`${API_BASE}/api/coding-project/prompts/${editingPrompt}?path=${encodeURIComponent(rootPath)}`, {
+                                method: "PUT", headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ content: editingPromptContent }),
+                              });
+                              const updated = await fetch(`${API_BASE}/api/coding-project/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
+                              if (Array.isArray(updated)) setAiPrompts(updated);
+                              setPromptSaving(false);
+                              setEditingPrompt(null);
+                            }} disabled={promptSaving}
+                              className="px-4 py-1.5 text-xs font-bold text-white rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50">
+                              {promptSaving ? "儲存中..." : "💾 儲存"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {aiPrompts.length === 0 && (
+                    <div className="text-center py-8 text-xs text-stone-400">開啟專案後可管理 AI Prompt</div>
+                  )}
                 </div>
               )}
             </div>

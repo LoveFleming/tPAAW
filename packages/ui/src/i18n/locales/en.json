@@ -91,6 +91,7 @@
   "vibe.close": "Close",
   "vibe.closeProject": "Close Project",
   "vibe.removeRecent": "Remove",
+  "vibe.aiInitialize": "AI Initialize",
   "vibe.refresh": "Refresh",
   "vibe.git": "🔀 Git",
   "vibe.api": "🌐 API",

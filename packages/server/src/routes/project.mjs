@@ -18,7 +18,7 @@
  *   POST   /api/coding-project/generate-overview?path=... — Auto-generate PROJECT.md
  */
 
-import { readFile, writeFile, readdir, mkdir } from "fs/promises";
+import { readFile, writeFile, readdir, mkdir, unlink } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { exec as execCb } from "child_process";
@@ -393,7 +393,263 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── Recent projects (multi-project) ──
+    // ── AI Initialize — multi-step project knowledge auto-fill ──
+
+    // POST /api/coding-project/ai-initial
+    if (url.startsWith("/api/coding-project/ai-initial") && method === "POST") {
+      const steps = [
+        { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "api-spec", name: "📝 產出 API Spec", promptFile: "gen-api-spec.md" },
+        { id: "error-mapping", name: "🐛 產出 Error Mapping", promptFile: "gen-error-mapping.md" },
+        { id: "test-payload", name: "🧪 產出 API Test Payload", promptFile: "gen-test-payload.md" },
+        { id: "standards", name: "📏 產出 Coding Standards", promptFile: "gen-standards.md" },
+        { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
+        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+      ];
+
+      // SSE stream — send progress as each step completes
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+
+      const sendEvent = (event, data) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      try {
+        // Ensure .paaw/ exists
+        await paaw.init();
+
+        // Gather project info for context
+        let projectContext = `Project root: ${root}\n`;
+        try {
+          const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
+          projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`;
+        } catch {}
+
+        // Get file tree
+        try {
+          const treeOutput = await runShellCmd("find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -name '*.map' | head -200", root);
+          projectContext += `\nFile tree:\n${treeOutput}`;
+        } catch {}
+
+        // Get recent git log
+        try {
+          const gitLog = await runShellCmd("git log --oneline -20", root);
+          projectContext += `\nRecent git log:\n${gitLog}`;
+        } catch {}
+
+        // Load prompt templates
+        const promptsDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts", "ai-initial");
+        const loadPrompt = (filename) => {
+          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
+        };
+
+        // Check project-level overrides in .paaw/prompts/ai-initial/
+        const loadProjectPrompt = (filename) => {
+          const overridePath = join(root, ".paaw", "prompts", "ai-initial", filename);
+          if (existsSync(overridePath)) {
+            try { return readSync(overridePath, "utf-8"); } catch {}
+          }
+          return loadPrompt(filename);
+        };
+
+        // Accumulate context from previous steps
+        let scanResult = "";
+        let apiSpecResult = "";
+        let errorMappingResult = "";
+
+        for (const step of steps) {
+          sendEvent("step_start", { step: step.id, name: step.name });
+
+          const promptTemplate = loadProjectPrompt(step.promptFile);
+          if (!promptTemplate) {
+            sendEvent("step_skip", { step: step.id, name: step.name, reason: "Prompt template not found" });
+            continue;
+          }
+
+          // Build full prompt with accumulated context
+          let fullPrompt = promptTemplate;
+          fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
+          if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
+          if (step.id === "api-spec" || step.id === "test-payload" || step.id === "error-mapping") {
+            // These steps benefit from scan results
+          }
+          if (apiSpecResult && (step.id === "test-payload" || step.id === "faq" || step.id === "overview")) {
+            fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
+          }
+          if (errorMappingResult && (step.id === "faq" || step.id === "overview")) {
+            fullPrompt += `\n\n--- ERROR MAPPING ---\n${errorMappingResult}`;
+          }
+
+          // Call LLM
+          try {
+            const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
+            const result = await callLLMWithRetry(paawRoot, {
+              messages: [{ role: "user", content: fullPrompt }],
+              temperature: 0.2,
+              maxTokens: 4000,
+            });
+
+            const content = result.content || "";
+
+            // Store results
+            if (step.id === "scan") {
+              scanResult = content;
+            } else if (step.id === "api-spec") {
+              apiSpecResult = content;
+              await paaw.writeFile("specs/api-contract.md", content);
+            } else if (step.id === "error-mapping") {
+              errorMappingResult = content;
+              // Save error mapping table
+              const mappingMatch = content.match(/\|.*Code.*\|.*Type.*\|.*\n([\s\S]*?)(?=\n[^|]|$)/);
+              if (mappingMatch) {
+                await paaw.writeFile("specs/error-codes.md", content);
+              } else {
+                await paaw.writeFile("specs/error-codes.md", content);
+              }
+              // Extract individual runbooks from content
+              const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
+              for (const rm of runbookMatches) {
+                await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
+              }
+            } else if (step.id === "test-payload") {
+              // Parse JSON test payloads and save individually
+              await paaw.writeFile("test-payloads/all-payloads.json", content);
+              // Try to parse and save individual payloads
+              try {
+                const payloads = JSON.parse(content);
+                if (Array.isArray(payloads)) {
+                  for (const p of payloads) {
+                    const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
+                    await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
+                  }
+                } else if (payloads.endpoint) {
+                  const slug = payloads.endpoint.replace(/[^a-zA-Z0-9-]/g, "-");
+                  await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(payloads, null, 2));
+                }
+              } catch {
+                // If LLM didn't return valid JSON, save raw content
+              }
+            } else if (step.id === "standards") {
+              await paaw.writeFile("standards/coding-style.md", content);
+            } else if (step.id === "faq") {
+              await paaw.writeFile("helpdesk/faq.md", content);
+            } else if (step.id === "overview") {
+              await paaw.writeFile("PROJECT.md", content);
+            }
+
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              size: content.length,
+              preview: content.slice(0, 200),
+            });
+          } catch (err) {
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+        }
+
+        sendEvent("done", { message: "AI Initialize complete" });
+      } catch (err) {
+        sendEvent("error", { error: err.message });
+      }
+
+      res.end();
+      return true;
+    }
+
+// ── AI Initialize Prompt Management ──
+
+    // GET /api/coding-project/prompts — list all AI Initial prompts
+    if (url.startsWith("/api/coding-project/prompts") && method === "GET" && !url.includes("/prompts/")) {
+      const promptsDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts", "ai-initial");
+      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      try {
+        const files = existsSync(promptsDir) ? await readdir(promptsDir) : [];
+        const prompts = [];
+        for (const f of files.filter(f => f.endsWith(".md")).sort()) {
+          const content = readSync(resolve(promptsDir, f), "utf-8");
+          const hasOverride = existsSync(resolve(projectPromptsDir, f));
+          let overrideContent = null;
+          if (hasOverride) {
+            try { overrideContent = readSync(resolve(projectPromptsDir, f), "utf-8"); } catch {}
+          }
+          prompts.push({
+            filename: f,
+            name: f.replace(/\.md$/, ""),
+            defaultContent: content,
+            customContent: overrideContent,
+            activeContent: overrideContent || content,
+            hasOverride,
+            size: (overrideContent || content).length,
+          });
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(prompts));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // GET /api/coding-project/prompts/:filename — read specific prompt
+    if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "GET") {
+      const filename = url.split("/prompts/").pop();
+      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      const projectFile = resolve(projectPromptsDir, filename);
+      if (existsSync(projectFile)) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ filename, content: readSync(projectFile, "utf-8"), source: "project" }));
+      } else {
+        const defaultDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts", "ai-initial");
+        const defaultFile = resolve(defaultDir, filename);
+        if (existsSync(defaultFile)) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ filename, content: readSync(defaultFile, "utf-8"), source: "default" }));
+        } else {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Prompt not found" }));
+        }
+      }
+      return true;
+    }
+
+    // PUT /api/coding-project/prompts/:filename — save custom prompt
+    if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "PUT") {
+      const filename = url.split("/prompts/").pop();
+      const { content } = JSON.parse(await readBody(req));
+      if (!content) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing content" }));
+        return true;
+      }
+      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      await mkdir(projectPromptsDir, { recursive: true });
+      await writeFile(resolve(projectPromptsDir, filename), content, "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, filename, source: "project" }));
+      return true;
+    }
+
+    // DELETE /api/coding-project/prompts/:filename — remove custom prompt (revert to default)
+    if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "DELETE") {
+      const filename = url.split("/prompts/").pop();
+      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      const projectFile = resolve(projectPromptsDir, filename);
+      if (existsSync(projectFile)) {
+        try { await unlink(projectFile); } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, filename, reverted: true }));
+      return true;
+    }
+
+// ── Recent projects (multi-project) ──
 
     // GET /api/coding-project/recent — list recently opened projects
     if (url.startsWith("/api/coding-project/recent") && method === "GET") {
