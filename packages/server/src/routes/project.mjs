@@ -562,7 +562,123 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-// ── AI Initialize Prompt Management ──
+// ── Domain AI — specialized AI per area ──
+
+    // POST /api/coding-project/domain-ai — run a domain AI
+    if (url.startsWith("/api/coding-project/domain-ai") && method === "POST") {
+      const { domain, prompt, history } = JSON.parse(await readBody(req));
+      const validDomains = ["spec", "test", "bug", "docs", "maintain"];
+      if (!validDomains.includes(domain)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Invalid domain: ${domain}. Valid: ${validDomains.join(", ")}` }));
+        return true;
+      }
+
+      // SSE stream
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+
+      const sendEvent = (event, data) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      try {
+        // Load domain system prompt
+        const promptsBase = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts");
+        const domainPromptDir = join(promptsBase, `${domain}-ai`);
+        const systemPromptFile = resolve(promptsBase, "domain-ai-system.md");
+        let systemPrompt = "";
+        try { systemPrompt = readSync(systemPromptFile, "utf-8"); } catch {}
+
+        // Load all domain prompts
+        let domainContext = "";
+        try {
+          const domainFiles = await readdir(domainPromptDir);
+          for (const f of domainFiles.filter(f => f.endsWith(".md")).sort()) {
+            domainContext += `\n--- ${f} ---\n${readSync(resolve(domainPromptDir, f), "utf-8")}`;
+          }
+        } catch {}
+
+        // Check project-level overrides
+        const projectPromptDir = join(root, ".paaw", "prompts", `${domain}-ai`);
+        if (existsSync(projectPromptDir)) {
+          try {
+            const pFiles = await readdir(projectPromptDir);
+            for (const f of pFiles.filter(f => f.endsWith(".md")).sort()) {
+              domainContext += `\n--- PROJECT OVERRIDE: ${f} ---\n${readSync(resolve(projectPromptDir, f), "utf-8")}`;
+            }
+          } catch {}
+        }
+
+        // Load relevant .paaw/ context based on domain
+        let paawContext = "";
+        const domainPaawFiles = {
+          spec: ["specs/api-contract.md", "specs/error-codes.md", "specs/node-contract.md", "specs/flow-spec.md"],
+          test: ["specs/api-contract.md", "test-payloads/all-payloads.json"],
+          bug: ["specs/error-codes.md", "DECISIONS.md"],
+          docs: ["PROJECT.md", "helpdesk/faq.md", "CHANGELOG.md"],
+          maintain: ["CODING-STANDARDS.md", "DECISIONS.md"],
+        };
+        for (const f of domainPaawFiles[domain] || []) {
+          const content = await paaw.readFile(f);
+          if (content) paawContext += `\n=== ${f} ===\n${content.slice(0, 3000)}\n`;
+        }
+
+        // Also load standards dir for maintain
+        if (domain === "maintain") {
+          const stdFiles = await paaw.listStandards();
+          for (const sf of stdFiles) {
+            const c = await paaw.readStandard(sf.name);
+            if (c) paawContext += `\n=== standards/${sf.name} ===\n${c.slice(0, 1500)}\n`;
+          }
+        }
+
+        // Load runbooks for bug
+        if (domain === "bug") {
+          const rbDir = join(paaw.paawDir, "runbook");
+          if (existsSync(rbDir)) {
+            try {
+              const rbFiles = await readdir(rbDir);
+              for (const rf of rbFiles.filter(f => f.endsWith(".md")).slice(0, 10)) {
+                const c = await readFile(join(rbDir, rf), "utf-8");
+                paawContext += `\n=== runbook/${rf} ===\n${c.slice(0, 1000)}\n`;
+              }
+            } catch {}
+          }
+        }
+
+        // Build full system prompt
+        const fullSystemPrompt = `${systemPrompt}\n\n## Your Domain: ${domain.toUpperCase()}\n${domainContext}\n\n## Project Knowledge\n${paawContext}`;
+
+        // Build messages
+        const messages = [{ role: "system", content: fullSystemPrompt }];
+        // Add history
+        if (Array.isArray(history)) {
+          for (const m of history.slice(-10)) {
+            messages.push({ role: m.role, content: m.content });
+          }
+        }
+        messages.push({ role: "user", content: prompt });
+
+        // Call LLM
+        const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
+        const result = await callLLMWithRetry(paawRoot, {
+          messages,
+          temperature: 0.3,
+          maxTokens: 4000,
+        });
+
+        sendEvent("done", { content: result.content || "" });
+      } catch (err) {
+        sendEvent("error", { error: err.message });
+      }
+      res.end();
+      return true;
+    }
 
     // GET /api/coding-project/status — Code Status Dashboard scores
     if (url.startsWith("/api/coding-project/status") && method === "GET") {

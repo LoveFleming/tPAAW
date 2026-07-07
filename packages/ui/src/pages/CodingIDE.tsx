@@ -260,7 +260,7 @@ export default function CodingIDE() {
   const [showAiInitPanel, setShowAiInitPanel] = useState(false);
 
   // ── AI Prompt Management State ──
-  const [aiPrompts, setAiPrompts] = useState<Array<{ filename: string; name: string; defaultContent: string; customContent: string | null; activeContent: string; hasOverride: boolean; size: number }>[]>([]);
+  const [aiPrompts, setAiPrompts] = useState<Array<{ filename: string; name: string; defaultContent: string; customContent: string | null; activeContent: string; hasOverride: boolean; size: number }>>([]);
   const [editingPrompt, setEditingPrompt] = useState<string | null>(null);
   const [editingPromptContent, setEditingPromptContent] = useState("");
   const [promptSaving, setPromptSaving] = useState(false);
@@ -270,6 +270,7 @@ export default function CodingIDE() {
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
   const [fixingArea, setFixingArea] = useState<string | null>(null);
   const [fixProgress, setFixProgress] = useState<Array<{ step: string; name?: string; status: "running" | "done" | "error" | "skip" }>>([]);
+  const [domainAutoPrompt, setDomainAutoPrompt] = useState<{ mode: string; prompt: string } | null>(null);
 
   const startAiInitialize = useCallback(async () => {
     if (!rootPath || aiInitializing) return;
@@ -643,7 +644,7 @@ export default function CodingIDE() {
   // ═══════════════════════════════════════════════
   // AI Chat Sidebar
   // ═══════════════════════════════════════════════
-  const [chatMode, setChatMode] = useState<"chat" | "agent">("agent");
+  const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentToolLog, setAgentToolLog] = useState<Array<{name: string; args: string; result: string}>>([]);
   const [codingModel, setVibeModel] = useState<string>("");
@@ -655,7 +656,63 @@ const sendChat = useCallback(async () => {
     setChatInput("");
     logEvent("ai_chat", { prompt: chatInput.trim().slice(0, 200) });
 
-    if (chatMode === "agent") {
+    // ── Domain AI mode (spec, test, bug, docs, maintain) ──
+    if (["spec", "test", "bug", "docs", "maintain"].includes(chatMode)) {
+      setChatLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-project/domain-ai?path=${encodeURIComponent(rootPath)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            domain: chatMode,
+            prompt: userMsg.content,
+            history: chatMessages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+          }),
+        });
+        if (!res.ok || !res.body) {
+          const errText = await res.text();
+          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${chatMode.toUpperCase()} AI error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
+          setChatLoading(false); return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantContent = "";
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.content !== undefined && data.message === undefined) {
+                  assistantContent = data.content;
+                }
+                if (data.error) {
+                  assistantContent = `❌ Error: ${data.error}`;
+                }
+              } catch {}
+            }
+          }
+          // Update streaming content
+          if (assistantContent) {
+            setChatMessages(prev => {
+              const last = prev[prev.length - 1];
+              return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: assistantContent }] : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }];
+            });
+          }
+        }
+        if (!assistantContent) {
+          setChatMessages(prev => [...prev, { role: "assistant", content: `(${chatMode.toUpperCase()} AI completed with no output)`, ts: new Date().toISOString() }]);
+        }
+      } catch (err: any) {
+        setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${chatMode.toUpperCase()} AI error: ${err.message}`, ts: new Date().toISOString() }]);
+      }
+      setChatLoading(false);
+    } else if (chatMode === "agent") {
       // ── PAAW Agent Loop (self-owned runtime, no external CLI) ──
       setChatLoading(true);
       setAgentRunning(true);
@@ -757,6 +814,20 @@ const sendChat = useCallback(async () => {
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+
+  // Handle domain AI auto-prompt from Dashboard
+  useEffect(() => {
+    if (domainAutoPrompt && showAiPanel) {
+      const { prompt } = domainAutoPrompt;
+      setDomainAutoPrompt(null);
+      setChatInput(prompt);
+      // Auto-send after a short delay to let state settle
+      setTimeout(() => {
+        const sendBtn = document.querySelector("[data-send-chat]") as HTMLButtonElement;
+        if (sendBtn) sendBtn.click();
+      }, 100);
+    }
+  }, [domainAutoPrompt, showAiPanel]);
 
   // ═══════════════════════════════════════════════
   // Git Operations
@@ -1754,21 +1825,57 @@ const sendChat = useCallback(async () => {
               <div className="flex items-center px-3 py-1.5 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
                 {activeTab && <span className="text-sm text-stone-400 ml-1 truncate">📄 {activeTab.name}</span>}
                 <span className="flex-1" />
-                {/* Mode toggle: Agent vs Chat */}
-                <div className="flex items-center gap-1 mr-2">
+                {/* Mode toggle */}
+                <div className="flex items-center gap-0.5 mr-2 flex-wrap">
                   <button onClick={() => setChatMode("agent")}
-                    className={cn("text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors",
+                    className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
                       chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
                     🤖 Agent
                   </button>
                   <button onClick={() => setChatMode("chat")}
-                    className={cn("text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors",
+                    className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
                       chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
                     💬 Chat
+                  </button>
+                  <span className="text-stone-200 mx-0.5">|</span>
+                  <button onClick={() => setChatMode("spec")}
+                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                      chatMode === "spec" ? "bg-blue-50 text-blue-600 border-blue-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                    📋 Spec
+                  </button>
+                  <button onClick={() => setChatMode("test")}
+                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                      chatMode === "test" ? "bg-purple-50 text-purple-600 border-purple-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                    🧪 Test
+                  </button>
+                  <button onClick={() => setChatMode("bug")}
+                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                      chatMode === "bug" ? "bg-red-50 text-red-600 border-red-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                    🐛 Bug
+                  </button>
+                  <button onClick={() => setChatMode("docs")}
+                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                      chatMode === "docs" ? "bg-amber-50 text-amber-600 border-amber-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                    📖 Docs
+                  </button>
+                  <button onClick={() => setChatMode("maintain")}
+                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                      chatMode === "maintain" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                    🔧 Maintain
                   </button>
                 </div>
                 <ModelSelector feature="coding" value={codingModel} onChange={setVibeModel} />
                 {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
+                {["spec","test","bug","docs","maintain"].includes(chatMode) && (
+                  <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold mr-2",
+                    chatMode === "spec" ? "bg-blue-50 text-blue-600" :
+                    chatMode === "test" ? "bg-purple-50 text-purple-600" :
+                    chatMode === "bug" ? "bg-red-50 text-red-600" :
+                    chatMode === "docs" ? "bg-amber-50 text-amber-600" :
+                    "bg-emerald-50 text-emerald-600")}>
+                    {chatMode.toUpperCase()} AI
+                  </span>
+                )}
                 <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
               </div>
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ fontSize: 13 }}>
@@ -1821,7 +1928,7 @@ const sendChat = useCallback(async () => {
                     placeholder={tt("vibe.aiPlaceholder")}
                     className="flex-1 text-sm px-3 py-2 border rounded-lg resize-none outline-none focus:border-blue-400"
                     style={{ borderColor: "#ddd", minHeight: 38, maxHeight: 120 }} rows={1} />
-                  <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
+                  <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} data-send-chat
                     className="px-3 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40 transition-all active:scale-95 shrink-0"
                     style={{ backgroundColor: tk.accent }}>Send</button>
                 </div>
@@ -2014,7 +2121,17 @@ const sendChat = useCallback(async () => {
                               }} disabled={!!fixingArea}
                                 className={cn("text-[10px] px-2 py-1 rounded-full font-bold",
                                   fixingArea ? "bg-stone-100 text-stone-400" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-200")}>
-                                🤖 Fix
+                                🤖 Auto Fix
+                              </button>
+                              <button onClick={() => {
+                                const modeMap: Record<string, string> = { spec: "spec", test: "test", bug: "bug", docs: "docs", maintain: "maintain" };
+                                const labelMap: Record<string, string> = { spec: "Spec", test: "Test", bug: "Bug/Error", docs: "Docs", maintain: "Maintainability" };
+                                setChatMode(modeMap[expandedArea] as any);
+                                setDomainAutoPrompt({ mode: expandedArea, prompt: `分析 ${labelMap[expandedArea]} 區域的缺口，列出要補的項目` });
+                                setShowAiPanel(true);
+                                setRightTab("chat");
+                              }} className="text-[10px] px-2 py-1 rounded-full font-bold bg-purple-50 text-purple-600 hover:bg-purple-100">
+                                💬 Chat AI
                               </button>
                             </div>
                             {/* Fix progress */}
@@ -2048,10 +2165,10 @@ const sendChat = useCallback(async () => {
                         <div className="mt-2 space-y-1.5">
                           <div className="text-[10px] text-stone-400 font-bold">⚡ Quick Actions</div>
                           <div className="flex flex-wrap gap-1.5">
-                            <button onClick={() => { setExpandedArea("spec"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium">🔧 Fix Spec</button>
-                            <button onClick={() => { setExpandedArea("test"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium">🧪 Add Tests</button>
-                            <button onClick={() => { setExpandedArea("docs"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100 font-medium">📖 Update Docs</button>
-                            <button onClick={async () => { startAiInitialize(); }} className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-medium">🚀 Full AI Init</button>
+                            <button onClick={() => { setChatMode("spec"); setDomainAutoPrompt({ mode: "spec", prompt: "分析 Spec 區域的缺口，列出要補的項目" }); setShowAiPanel(true); setRightTab("chat"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium">📋 Spec AI</button>
+                            <button onClick={() => { setChatMode("test"); setDomainAutoPrompt({ mode: "test", prompt: "分析 Test 覆蓋率缺口，列出缺少的 test payload 和測試" }); setShowAiPanel(true); setRightTab("chat"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium">🧪 Test AI</button>
+                            <button onClick={() => { setChatMode("docs"); setDomainAutoPrompt({ mode: "docs", prompt: "分析文件缺失和過時的內容，列出需要更新的項目" }); setShowAiPanel(true); setRightTab("chat"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100 font-medium">📖 Docs AI</button>
+                            <button onClick={() => { startAiInitialize(); }} className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-medium">🚀 Full AI Init</button>
                           </div>
                         </div>
                       </>
