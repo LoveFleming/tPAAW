@@ -224,7 +224,7 @@ export default function CodingIDE() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // ── Right Panel Tab State ──
-  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts">("chat");
+  const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
 
   // ── Browser Preview State ──
   const [showBrowser, setShowBrowser] = useState(false);
@@ -264,6 +264,12 @@ export default function CodingIDE() {
   const [editingPrompt, setEditingPrompt] = useState<string | null>(null);
   const [editingPromptContent, setEditingPromptContent] = useState("");
   const [promptSaving, setPromptSaving] = useState(false);
+
+  // ── Code Status Dashboard State ──
+  const [codeStatus, setCodeStatus] = useState<{ initialized: boolean; scores: Record<string, { score: number; items: Array<{ name: string; status: string; detail: string }> }> } | null>(null);
+  const [expandedArea, setExpandedArea] = useState<string | null>(null);
+  const [fixingArea, setFixingArea] = useState<string | null>(null);
+  const [fixProgress, setFixProgress] = useState<Array<{ step: string; name?: string; status: "running" | "done" | "error" | "skip" }>>([]);
 
   const startAiInitialize = useCallback(async () => {
     if (!rootPath || aiInitializing) return;
@@ -318,6 +324,8 @@ export default function CodingIDE() {
                 }
                 if (data.message === "AI Initialize complete") {
                   setAiInitializing(false);
+                  // Refresh status after AI Init
+                  fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {});
                 }
               }
             } catch {}
@@ -1722,6 +1730,11 @@ const sendChat = useCallback(async () => {
                     rightTab === "health" ? "bg-teal-100 text-teal-700" : "text-stone-400 hover:bg-stone-50")}>
                   📊 Health
                 </button>
+                <button onClick={() => { setRightTab("status"); if (rootPath) fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
+                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
+                    rightTab === "status" ? "bg-emerald-100 text-emerald-700" : "text-stone-400 hover:bg-stone-50")}>
+                  🏥 Status
+                </button>
                 <button onClick={() => { setRightTab("prompts"); if (rootPath) fetch(`${API_BASE}/api/coding-project/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(data => { if (Array.isArray(data)) setAiPrompts(data); }).catch(() => {}); }}
                   className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
                     rightTab === "prompts" ? "bg-orange-100 text-orange-700" : "text-stone-400 hover:bg-stone-50")}>
@@ -1905,6 +1918,145 @@ const sendChat = useCallback(async () => {
                   {aiPrompts.length === 0 && (
                     <div className="text-center py-8 text-xs text-stone-400">開啟專案後可管理 AI Prompt</div>
                   )}
+                </div>
+              )}
+              {rightTab === "status" && (
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
+                  {!codeStatus?.initialized && (
+                    <div className="text-center py-8">
+                      <div className="text-4xl mb-3">🏥</div>
+                      <div className="text-sm text-stone-400 mb-2">尚無專案健康資料</div>
+                      <button onClick={() => { if (rootPath) fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
+                        className="px-4 py-1.5 text-xs font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
+                        🔄 重新掃描
+                      </button>
+                    </div>
+                  )}
+                  {codeStatus?.initialized && (() => {
+                    const areas = [
+                      { key: "spec", icon: "📋", label: "Spec", color: "#3b82f6" },
+                      { key: "test", icon: "🧪", label: "Test", color: "#8b5cf6" },
+                      { key: "bug", icon: "🐛", label: "Bug/Error", color: "#ef4444" },
+                      { key: "docs", icon: "📖", label: "Docs", color: "#f59e0b" },
+                      { key: "maintain", icon: "🔧", label: "Maintain", color: "#10b981" },
+                    ];
+                    const maxScore = 100;
+                    return (
+                      <>
+                        <div className="text-xs text-stone-400 mb-1">專案健康度大盤 · <button onClick={async () => { const s = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()); setCodeStatus(s); }} className="text-emerald-600 hover:underline">刷新</button></div>
+                        {/* Score cards row */}
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {areas.map(a => {
+                            const sc = codeStatus.scores?.[a.key];
+                            const score = Math.min(sc?.score || 0, maxScore);
+                            const pct = Math.round((score / maxScore) * 100);
+                            const barColor = pct >= 70 ? a.color : pct >= 40 ? "#f59e0b" : "#ef4444";
+                            return (
+                              <div key={a.key} onClick={() => setExpandedArea(expandedArea === a.key ? null : a.key)}
+                                className={cn("cursor-pointer rounded-lg p-2 text-center border-2 transition-all",
+                                  expandedArea === a.key ? "border-stone-400 bg-stone-50" : "border-transparent hover:border-stone-200")}>
+                                <div className="text-lg">{a.icon}</div>
+                                <div className="text-[10px] text-stone-400 mt-0.5">{a.label}</div>
+                                <div className="text-lg font-bold mt-0.5" style={{ color: barColor }}>{pct}</div>
+                                <div className="w-full h-1 rounded-full bg-stone-100 mt-1">
+                                  <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Expanded detail */}
+                        {expandedArea && codeStatus.scores?.[expandedArea] && (
+                          <div className="border rounded-lg overflow-hidden" style={{ borderColor: areas.find(a => a.key === expandedArea)?.color || "#e5e5e5" }}>
+                            <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: areas.find(a => a.key === expandedArea)?.color + "10" }}>
+                              <span className="text-base">{areas.find(a => a.key === expandedArea)?.icon}</span>
+                              <span className="text-sm font-bold" style={{ color: areas.find(a => a.key === expandedArea)?.color }}>{areas.find(a => a.key === expandedArea)?.label} Details</span>
+                              <span className="flex-1" />
+                              <button onClick={async () => {
+                                if (fixingArea) return;
+                                setFixingArea(expandedArea);
+                                setFixProgress([]);
+                                const res = await fetch(`${API_BASE}/api/coding-project/ai-fix?path=${encodeURIComponent(rootPath)}`, {
+                                  method: "POST", headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ area: expandedArea }),
+                                });
+                                if (!res.ok || !res.body) { setFixingArea(null); return; }
+                                const reader = res.body.getReader();
+                                const decoder = new TextDecoder();
+                                let buf = "";
+                                while (true) {
+                                  const { done, value } = await reader.read();
+                                  if (done) break;
+                                  buf += decoder.decode(value, { stream: true });
+                                  const lines = buf.split("\n"); buf = lines.pop() || "";
+                                  for (const line of lines) {
+                                    if (line.startsWith("data: ")) {
+                                      try {
+                                        const d = JSON.parse(line.slice(6));
+                                        if (d.step) {
+                                          if (d.error) {
+                                            setFixProgress(prev => [...prev, { step: d.step, status: "error" as const }]);
+                                          } else if (d.preview !== undefined) {
+                                            setFixProgress(prev => [...prev, { step: d.step, status: "done" as const }]);
+                                          } else if (d.reason) {
+                                            setFixProgress(prev => [...prev, { step: d.step, status: "skip" as const }]);
+                                          } else {
+                                            setFixProgress(prev => [...prev, { step: d.step, name: d.name, status: "running" as const }]);
+                                          }
+                                        }
+                                        if (d.scores) setCodeStatus({ initialized: true, scores: d.scores });
+                                        if (d.message?.includes("complete")) setFixingArea(null);
+                                      } catch {}
+                                    }
+                                  }
+                                }
+                                setFixingArea(null);
+                              }} disabled={!!fixingArea}
+                                className={cn("text-[10px] px-2 py-1 rounded-full font-bold",
+                                  fixingArea ? "bg-stone-100 text-stone-400" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-200")}>
+                                🤖 Fix
+                              </button>
+                            </div>
+                            {/* Fix progress */}
+                            {fixingArea === expandedArea && fixProgress.length > 0 && (
+                              <div className="px-3 py-2 bg-amber-50 border-b border-amber-100 space-y-1">
+                                {fixProgress.map((fp, i) => (
+                                  <div key={i} className="text-[10px] flex items-center gap-1.5">
+                                    <span>{fp.status === "done" ? "✅" : fp.status === "running" ? "⏳" : fp.status === "error" ? "❌" : "⏭️"}</span>
+                                    <span className={fp.status === "running" ? "text-amber-700 animate-pulse" : "text-stone-500"}>{fp.name || fp.step}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Items */}
+                            <div className="divide-y divide-stone-100">
+                              {codeStatus.scores[expandedArea].items.map((item, i) => (
+                                <div key={i} className="px-3 py-2 flex items-center gap-2">
+                                  <span className="text-sm">{item.status === "ok" ? "✅" : item.status === "warn" ? "⚠️" : item.status === "missing" ? "❌" : "ℹ️"}</span>
+                                  <span className="text-xs font-medium text-stone-700">{item.name}</span>
+                                  <span className="flex-1" />
+                                  <span className={cn("text-[10px]",
+                                    item.status === "ok" ? "text-emerald-500" : item.status === "warn" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400")}>
+                                    {item.detail}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Quick actions */}
+                        <div className="mt-2 space-y-1.5">
+                          <div className="text-[10px] text-stone-400 font-bold">⚡ Quick Actions</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button onClick={() => { setExpandedArea("spec"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium">🔧 Fix Spec</button>
+                            <button onClick={() => { setExpandedArea("test"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium">🧪 Add Tests</button>
+                            <button onClick={() => { setExpandedArea("docs"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100 font-medium">📖 Update Docs</button>
+                            <button onClick={async () => { startAiInitialize(); }} className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-medium">🚀 Full AI Init</button>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>

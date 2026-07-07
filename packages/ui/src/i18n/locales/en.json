@@ -92,6 +92,8 @@
   "vibe.closeProject": "Close Project",
   "vibe.removeRecent": "Remove",
   "vibe.aiInitialize": "AI Initialize",
+  "vibe.codeStatus": "Code Status Dashboard",
+  "vibe.fixArea": "AI Fix",
   "vibe.refresh": "Refresh",
   "vibe.git": "🔀 Git",
   "vibe.api": "🌐 API",

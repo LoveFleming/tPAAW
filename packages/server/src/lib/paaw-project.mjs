@@ -627,6 +627,296 @@ export class PaawProject {
     return content;
   }
 
+  // ── Code Status Dashboard Scores ──
+
+  async computeStatus() {
+    if (!this.exists) return null;
+
+    const scores = {
+      spec: { score: 0, items: [] },
+      test: { score: 0, items: [] },
+      bug: { score: 0, items: [] },
+      docs: { score: 0, items: [] },
+      maintain: { score: 0, items: [] },
+    };
+
+    // ── Spec Score ──
+    const specItems = [];
+    let specPoints = 0;
+
+    // API Contract
+    const apiSpec = await this.readFile("specs/api-contract.md");
+    if (apiSpec && apiSpec.length > 50) {
+      specPoints += 30;
+      specItems.push({ name: "API Contract", status: "ok", detail: `${apiSpec.length} chars` });
+    } else {
+      specItems.push({ name: "API Contract", status: "missing", detail: "Run AI Init to generate" });
+    }
+
+    // Error Mapping
+    const errorMapping = await this.readFile("specs/error-codes.md");
+    if (errorMapping && errorMapping.length > 50) {
+      specPoints += 25;
+      specItems.push({ name: "Error Mapping", status: "ok", detail: `${errorMapping.length} chars` });
+    } else {
+      specItems.push({ name: "Error Mapping", status: "missing", detail: "Run AI Init to generate" });
+    }
+
+    // Node / Component Contract
+    const nodeContract = await this.readFile("specs/node-contract.md");
+    if (nodeContract && nodeContract.length > 50) {
+      specPoints += 20;
+      specItems.push({ name: "Node Contract", status: "ok", detail: `${nodeContract.length} chars` });
+    } else {
+      specItems.push({ name: "Node Contract", status: "missing", detail: "Optional" });
+    }
+
+    // Flow Spec
+    const flowSpec = await this.readFile("specs/flow-spec.md");
+    if (flowSpec && flowSpec.length > 50) {
+      specPoints += 15;
+      specItems.push({ name: "Flow Spec", status: "ok", detail: `${flowSpec.length} chars` });
+    } else {
+      specItems.push({ name: "Flow Spec", status: "missing", detail: "Optional" });
+    }
+
+    // API route count (try to detect from source)
+    let apiCount = 0;
+    try {
+      const routeOutput = await runShell("grep -r 'app\.\(get\|post\|put\|delete\|patch\)\|router\.' --include='*.mjs' --include='*.js' --include='*.ts' -l 2>/dev/null | head -20", this.root, 5000);
+      if (routeOutput.trim()) {
+        const routeCount = await runShell("grep -r 'url\.startsWith\|app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)' --include='*.mjs' --include='*.js' --include='*.ts' -h 2>/dev/null | wc -l", this.root, 5000);
+        apiCount = parseInt(routeCount.trim()) || 0;
+      }
+    } catch {}
+    specItems.push({ name: "API Endpoints", status: "info", detail: apiCount > 0 ? `~${apiCount} detected` : "Unknown" });
+    specPoints += 10; // base score for having routes
+
+    scores.spec = { score: specPoints, items: specItems };
+
+    // ── Test Score ──
+    const testItems = [];
+    let testPoints = 0;
+
+    // API Test Payloads
+    const tpDir = join(this.paawDir, "test-payloads");
+    let tpCount = 0;
+    if (existsSync(tpDir)) {
+      try {
+        const tpFiles = await readdir(tpDir);
+        tpCount = tpFiles.filter(f => f.endsWith(".json")).length;
+      } catch {}
+    }
+    if (tpCount > 0) {
+      testPoints += 40;
+      testItems.push({ name: "API Test Payloads", status: "ok", detail: `${tpCount} file(s)` });
+    } else {
+      testItems.push({ name: "API Test Payloads", status: "missing", detail: "Run AI Init to generate" });
+    }
+
+    // Unit test coverage
+    let hasTests = false;
+    try {
+      const testCheck = await runShell("find . -name '*.test.*' -o -name '*.spec.*' | head -5", this.root, 5000);
+      hasTests = testCheck.trim().length > 0;
+    } catch {}
+    if (hasTests) {
+      testPoints += 30;
+      testItems.push({ name: "Unit Tests", status: "ok", detail: "Found test files" });
+    } else {
+      testItems.push({ name: "Unit Tests", status: "missing", detail: "No test files found" });
+    }
+
+    // E2E config
+    let hasE2E = false;
+    try {
+      const e2eCheck = await runShell("ls playwright.config.* cypress.config.* 2>/dev/null", this.root, 3000);
+      hasE2E = e2eCheck.trim().length > 0;
+    } catch {}
+    if (hasE2E) {
+      testPoints += 20;
+      testItems.push({ name: "E2E Tests", status: "ok", detail: "Configured" });
+    } else {
+      testItems.push({ name: "E2E Tests", status: "missing", detail: "Not configured" });
+    }
+
+    testPoints += 10; // base
+    scores.test = { score: testPoints, items: testItems };
+
+    // ── Bug/Error Score ──
+    const bugItems = [];
+    let bugPoints = 0;
+
+    // Runbooks
+    const rbDir = join(this.paawDir, "runbook");
+    let rbCount = 0;
+    if (existsSync(rbDir)) {
+      try {
+        const rbFiles = await readdir(rbDir);
+        rbCount = rbFiles.filter(f => f.endsWith(".md")).length;
+      } catch {}
+    }
+    if (rbCount > 0) {
+      bugPoints += 40;
+      bugItems.push({ name: "Runbooks", status: "ok", detail: `${rbCount} runbook(s)` });
+    } else {
+      bugItems.push({ name: "Runbooks", status: "missing", detail: "Run AI Init to generate" });
+    }
+
+    // Error handling check
+    let errorHandlingFiles = 0;
+    try {
+      const ehCheck = await runShell("grep -rl 'try.*catch\|AppException\|throw new' --include='*.mjs' --include='*.js' --include='*.ts' | head -10", this.root, 5000);
+      errorHandlingFiles = ehCheck.trim().split("\n").filter(Boolean).length;
+    } catch {}
+    if (errorHandlingFiles > 0) {
+      bugPoints += 30;
+      bugItems.push({ name: "Error Handling", status: "ok", detail: `${errorHandlingFiles} file(s) with try/catch` });
+    } else {
+      bugItems.push({ name: "Error Handling", status: "warn", detail: "No error handling detected" });
+    }
+
+    // Error mapping completeness
+    if (errorMapping && errorMapping.length > 50) {
+      bugPoints += 20;
+      bugItems.push({ name: "Error Mapping", status: "ok", detail: "Defined" });
+    } else {
+      bugItems.push({ name: "Error Mapping", status: "missing", detail: "Missing" });
+    }
+
+    bugPoints += 10; // base
+    scores.bug = { score: bugPoints, items: bugItems };
+
+    // ── Docs Score ──
+    const docsItems = [];
+    let docsPoints = 0;
+
+    // PROJECT.md
+    const projectMd = await this.readFile("PROJECT.md");
+    if (projectMd && !projectMd.includes("(auto-detect)")) {
+      docsPoints += 25;
+      docsItems.push({ name: "PROJECT.md", status: "ok", detail: "Exists and filled" });
+    } else if (projectMd) {
+      docsPoints += 10;
+      docsItems.push({ name: "PROJECT.md", status: "warn", detail: "Exists but not filled" });
+    } else {
+      docsItems.push({ name: "PROJECT.md", status: "missing", detail: "Missing" });
+    }
+
+    // README
+    let readmeStatus = "missing";
+    let readmeDetail = "Missing";
+    try {
+      const readmeCheck = await runShell("ls README.md readme.md 2>/dev/null", this.root, 3000);
+      if (readmeCheck.trim()) {
+        readmeStatus = "ok";
+        docsPoints += 20;
+        // Check age
+        try {
+          const readmeAge = await runShell("git log -1 --format='%ci' -- README.md 2>/dev/null", this.root, 3000);
+          if (readmeAge.trim()) {
+            const daysSince = Math.floor((Date.now() - new Date(readmeAge.trim()).getTime()) / 86400000);
+            readmeDetail = daysSince > 90 ? `Outdated (${daysSince} days)` : `Updated ${daysSince} days ago`;
+            if (daysSince > 90) {
+              docsPoints -= 10;
+              readmeStatus = "warn";
+            }
+          } else {
+            readmeDetail = "Exists";
+          }
+        } catch { readmeDetail = "Exists"; }
+      }
+    } catch {}
+    docsItems.push({ name: "README", status: readmeStatus, detail: readmeDetail });
+
+    // HelpDesk FAQ
+    const faq = await this.readFile("helpdesk/faq.md");
+    if (faq && faq.length > 50) {
+      docsPoints += 25;
+      docsItems.push({ name: "HelpDesk FAQ", status: "ok", detail: `${faq.length} chars` });
+    } else {
+      docsItems.push({ name: "HelpDesk FAQ", status: "missing", detail: "Run AI Init to generate" });
+    }
+
+    // Changelog
+    const changelog = await this.readFile("CHANGELOG.md");
+    if (changelog && changelog.length > 100 && !changelog.includes("(自動生成)")) {
+      docsPoints += 20;
+      docsItems.push({ name: "Changelog", status: "ok", detail: "Has entries" });
+    } else if (changelog) {
+      docsPoints += 5;
+      docsItems.push({ name: "Changelog", status: "warn", detail: "Empty or template" });
+    } else {
+      docsItems.push({ name: "Changelog", status: "missing", detail: "Missing" });
+    }
+
+    docsPoints += 10; // base
+    scores.docs = { score: docsPoints, items: docsItems };
+
+    // ── Maintainability Score ──
+    const maintainItems = [];
+    let maintainPoints = 0;
+
+    // Standards
+    const standards = await this.readFile("CODING-STANDARDS.md");
+    const standardsDir = join(this.paawDir, "standards");
+    let stdCount = 0;
+    if (existsSync(standardsDir)) {
+      try {
+        const stdFiles = await readdir(standardsDir);
+        stdCount = stdFiles.filter(f => f.endsWith(".md")).length;
+      } catch {}
+    }
+    if ((standards && standards.length > 100) || stdCount > 0) {
+      maintainPoints += 25;
+      maintainItems.push({ name: "Coding Standards", status: "ok", detail: stdCount > 0 ? `${stdCount} standard file(s)` : "Main file exists" });
+    } else {
+      maintainItems.push({ name: "Coding Standards", status: "missing", detail: "Run AI Init to generate" });
+    }
+
+    // Decisions
+    const decisions = await this.readFile("DECISIONS.md");
+    const adrCount = (decisions || "").match(/## ADR-\d+/g)?.length || 0;
+    if (adrCount > 0) {
+      maintainPoints += 25;
+      maintainItems.push({ name: "Decision Records", status: "ok", detail: `${adrCount} ADR(s)` });
+    } else {
+      maintainItems.push({ name: "Decision Records", status: "missing", detail: "No ADRs recorded" });
+    }
+
+    // Git hygiene
+    let gitClean = false;
+    try {
+      const gitStatus = await runShell("git status --porcelain", this.root, 5000);
+      gitClean = gitStatus.trim().length === 0;
+    } catch {}
+    if (gitClean) {
+      maintainPoints += 20;
+      maintainItems.push({ name: "Git Status", status: "ok", detail: "Clean working tree" });
+    } else {
+      maintainPoints += 5;
+      maintainItems.push({ name: "Git Status", status: "warn", detail: "Uncommitted changes" });
+    }
+
+    // Dependency audit
+    let hasAudit = false;
+    try {
+      const auditCheck = await runShell("ls .paaw/dependency-audit.md 2>/dev/null || ls npm-audit* 2>/dev/null", this.root, 3000);
+      hasAudit = auditCheck.trim().length > 0;
+    } catch {}
+    if (hasAudit) {
+      maintainPoints += 20;
+      maintainItems.push({ name: "Dependency Audit", status: "ok", detail: "Audited" });
+    } else {
+      maintainItems.push({ name: "Dependency Audit", status: "missing", detail: "Not done" });
+    }
+
+    maintainPoints += 10; // base
+    scores.maintain = { score: maintainPoints, items: maintainItems };
+
+    return scores;
+  }
+
   // ── List .paaw/ directory tree ──
 
   async listTree() {

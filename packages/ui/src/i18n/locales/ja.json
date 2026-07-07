@@ -91,6 +91,8 @@
   "vibe.closeProject": "プロジェクトを閉じる",
   "vibe.removeRecent": "削除",
   "vibe.aiInitialize": "AI初期化",
+  "vibe.codeStatus": "コードステータスダッシュボード",
+  "vibe.fixArea": "AI修正",
   "vibe.refresh": "更新",
   "vibe.git": "🔀 Git",
   "vibe.api": "🌐 API",
