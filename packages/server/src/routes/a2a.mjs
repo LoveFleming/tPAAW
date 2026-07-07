@@ -406,6 +406,11 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
     agentId: "a2a-helpdesk",
   });
 
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const weekday = ["日", "一", "二", "三", "四", "五", "六"][now.getDay()];
+  const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
   const systemPrompt = `${skillMd}
 
 ---
@@ -414,6 +419,12 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
 
 ${knowledgeBase}
 ${memoryContext}
+---
+
+## Current Date & Time
+
+今天是 ${dateStr}（星期${weekday}），時間 ${timeStr}，時區 Asia/Taipei (UTC+8)。
+
 ---
 
 你是 PAAW HelpDesk。回答用繁體中文，技術術語保留英文。
