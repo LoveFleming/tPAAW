@@ -683,9 +683,9 @@ export class PaawProject {
     // API route count (try to detect from source)
     let apiCount = 0;
     try {
-      const routeOutput = await runShell("grep -r 'app\.\(get\|post\|put\|delete\|patch\)\|router\.' --include='*.mjs' --include='*.js' --include='*.ts' -l 2>/dev/null | head -20", this.root, 5000);
-      if (routeOutput.trim()) {
-        const routeCount = await runShell("grep -r 'url\.startsWith\|app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)' --include='*.mjs' --include='*.js' --include='*.ts' -h 2>/dev/null | wc -l", this.root, 5000);
+      const routeFiles = await runShell("grep -rl 'url.startsWith\\|if (url' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | head -20", this.root, 5000);
+      if (routeFiles.trim()) {
+        const routeCount = await runShell("grep -c 'url.startsWith\\|if (url' --include='*.mjs' --include='*.js' --include='*.ts' -r packages/server/src/ 2>/dev/null | awk -F: '{s+=$2} END {print s}'", this.root, 5000);
         apiCount = parseInt(routeCount.trim()) || 0;
       }
     } catch {}
@@ -730,7 +730,7 @@ export class PaawProject {
     // E2E config
     let hasE2E = false;
     try {
-      const e2eCheck = await runShell("ls playwright.config.* cypress.config.* 2>/dev/null", this.root, 3000);
+      const e2eCheck = await runShell("find . -maxdepth 1 -name 'playwright.config.*' -o -name 'cypress.config.*' 2>/dev/null", this.root, 3000);
       hasE2E = e2eCheck.trim().length > 0;
     } catch {}
     if (hasE2E) {
@@ -766,7 +766,7 @@ export class PaawProject {
     // Error handling check
     let errorHandlingFiles = 0;
     try {
-      const ehCheck = await runShell("grep -rl 'try.*catch\|AppException\|throw new' --include='*.mjs' --include='*.js' --include='*.ts' | head -10", this.root, 5000);
+      const ehCheck = await runShell("grep -rl 'try {' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | head -10", this.root, 5000);
       errorHandlingFiles = ehCheck.trim().split("\n").filter(Boolean).length;
     } catch {}
     if (errorHandlingFiles > 0) {
@@ -807,7 +807,7 @@ export class PaawProject {
     let readmeStatus = "missing";
     let readmeDetail = "Missing";
     try {
-      const readmeCheck = await runShell("ls README.md readme.md 2>/dev/null", this.root, 3000);
+      const readmeCheck = await runShell("test -f README.md && echo yes || (test -f readme.md && echo yes || echo no)", this.root, 3000);
       if (readmeCheck.trim()) {
         readmeStatus = "ok";
         docsPoints += 20;
@@ -901,7 +901,7 @@ export class PaawProject {
     // Dependency audit
     let hasAudit = false;
     try {
-      const auditCheck = await runShell("ls .paaw/dependency-audit.md 2>/dev/null || ls npm-audit* 2>/dev/null", this.root, 3000);
+      const auditCheck = await runShell("test -f .paaw/dependency-audit.md && echo yes || (test -f npm-audit-report.json && echo yes || echo no)", this.root, 3000);
       hasAudit = auditCheck.trim().length > 0;
     } catch {}
     if (hasAudit) {

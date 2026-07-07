@@ -25,6 +25,40 @@ import { exec as execCb } from "child_process";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 
+// ── LLM Call Helper for project routes ──
+// Resolves provider config and calls LLM with proper 4-arg signature
+async function callProjectLLM(rootDir, body, opts = {}) {
+  // rootDir here is the paawRoot (PAAW server root, NOT user's project root)
+  // providers.json lives at {PAAW_ROOT}/data/config/providers.json
+  // Since paawRoot is computed as 5 dirs up from this file,
+  // it resolves to the PAAW server root
+  const providersFile = join(rootDir, "data", "config", "providers.json");
+  let providerConfig;
+  try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }
+  const providerId = providerConfig.active || "zai";
+  const model = body.model || providerConfig.defaultModel || "glm-5.1";
+  const provider = providerConfig.providers[providerId];
+  if (!provider?.apiKey || provider.apiKey === "na") { return { content: null }; }
+  const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${provider.apiKey}`,
+    ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+  };
+  const reqBody = {
+    model,
+    messages: body.messages,
+    temperature: body.temperature ?? 0.3,
+    max_tokens: body.maxTokens ?? 4000,
+  };
+  return callLLMWithRetry(apiUrl, headers, reqBody, {
+    maxRetries: opts.maxRetries ?? 3,
+    timeoutMs: opts.timeoutMs ?? 60_000,
+    validateContent: true,
+    sanitize: true,
+  });
+}
+
 // ── Query parser ──
 
 function parseQuery(url) {
@@ -38,8 +72,9 @@ function parseQuery(url) {
 
 export default async function projectRoute(req, res) {
   const method = req.method;
-  const url = req.url || "";
-  const q = parseQuery(url);
+  const rawUrl = req.url || "";
+  const url = rawUrl.split("?")[0];
+  const q = parseQuery(rawUrl);
 
   // All routes start with /api/coding-project
   if (!url.startsWith("/api/coding-project")) return false;
@@ -487,8 +522,8 @@ export default async function projectRoute(req, res) {
 
           // Call LLM
           try {
-            const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
-            const result = await callLLMWithRetry(paawRoot, {
+            const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
+            const result = await callProjectLLM(paawRoot, {
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
               maxTokens: 4000,
@@ -665,8 +700,8 @@ export default async function projectRoute(req, res) {
         messages.push({ role: "user", content: prompt });
 
         // Call LLM
-        const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
-        const result = await callLLMWithRetry(paawRoot, {
+        const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
+        const result = await callProjectLLM(paawRoot, {
           messages,
           temperature: 0.3,
           maxTokens: 4000,
@@ -769,8 +804,8 @@ export default async function projectRoute(req, res) {
           fullPrompt += `\n\n--- INSTRUCTION ---\nOnly fill in gaps. Do not regenerate content that already exists and is correct.`;
 
           try {
-            const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
-            const result = await callLLMWithRetry(paawRoot, {
+            const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
+            const result = await callProjectLLM(paawRoot, {
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
               maxTokens: 4000,
@@ -1028,8 +1063,8 @@ Output ONLY the markdown document, starting with # Coding Standards (Auto-Genera
 
   // 3. Call LLM
   try {
-    const rootDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
-    const result = await callLLMWithRetry(rootDir, {
+    const rootDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
+    const result = await callProjectLLM(rootDir, {
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
       maxTokens: 2000,
