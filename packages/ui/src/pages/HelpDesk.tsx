@@ -166,7 +166,7 @@ function A2aTaskDetail({ task, theme, formatTime }: { task: any; theme: any; for
   );
 }
 
-export default function HelpDesk() {
+export default function HelpDesk({ active = true }: { active?: boolean }) {
   const { info: theme } = useTheme();
   const { t: tt } = useI18n();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -220,10 +220,11 @@ export default function HelpDesk() {
   }, [activeId]);
 
   useEffect(() => {
+    if (!active) return;
     loadTickets();
     const timer = setInterval(loadTickets, 10000);
     return () => clearInterval(timer);
-  }, [loadTickets]);
+  }, [active, loadTickets]);
 
   // ── Load Models ──
   useEffect(() => {
@@ -272,12 +273,11 @@ export default function HelpDesk() {
   }, []);
 
   useEffect(() => {
-    if (viewMode === "a2a") {
-      loadA2aTasks();
-      const timer = setInterval(loadA2aTasks, 2000);
-      return () => clearInterval(timer);
-    }
-  }, [viewMode, loadA2aTasks]);
+    if (!active || viewMode !== "a2a") return;
+    loadA2aTasks();
+    const timer = setInterval(loadA2aTasks, 5000);
+    return () => clearInterval(timer);
+  }, [active, viewMode, loadA2aTasks]);
 
   // ── Active ticket with full messages ──
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);

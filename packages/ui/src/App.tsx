@@ -657,7 +657,7 @@ function AppInner() {
       return <WorkflowExec />;
     }
     if (pageType === "helpdesk") {
-      return <HelpDesk />;
+      return <HelpDesk active={!!active} />;
     }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
