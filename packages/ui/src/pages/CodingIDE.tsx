@@ -165,6 +165,14 @@ export default function CodingIDE() {
     accentBorder: themeInfo.accentBorder,
     accentText: themeInfo.accentText,
     accentHover: themeInfo.accentHover,
+    // Toolbar tokens (derived from accent)
+    toolbarBg: themeInfo.accentText || "#1e1e1e",     // dark version of accent
+    toolbarBorder: themeInfo.accentBorder || "#333",
+    toolbarText: "rgba(255,255,255,0.9)",
+    toolbarTextMuted: "rgba(255,255,255,0.5)",
+    toolbarHover: "rgba(255,255,255,0.1)",
+    toolbarActive: "rgba(255,255,255,0.15)",
+    toolbarAccent: themeInfo.accent,
   }), [themeInfo]);
 
   // ── Layout State ──
@@ -1248,13 +1256,13 @@ const sendChat = useCallback(async () => {
     )}
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
-      <div className="flex items-center h-9 px-2 border-b shrink-0 select-none" style={{ backgroundColor: "#1e1e1e", borderColor: "#333" }}>
+      <div className="flex items-center h-9 px-2 border-b shrink-0 select-none" style={{ backgroundColor: tk.toolbarBg, borderColor: tk.toolbarBorder }}>
         {/* ⚡ Title + Project Menu */}
         <div className="relative">
           <button onClick={() => setShowProjectMenu(!showProjectMenu)}
-            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded hover:bg-white/10 text-white/90 font-semibold transition-colors">
+            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
             <span className="text-sm">⚡</span> {tt("vibe.projectMenu", "Project")}
-            <span className="text-[10px] text-white/40">▼</span>
+            <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showProjectMenu && (
             <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
@@ -1290,7 +1298,7 @@ const sendChat = useCallback(async () => {
 
         {/* Project name badge */}
         {rootPath && (
-          <span className="ml-2 text-xs px-2 py-0.5 rounded bg-white/10 text-white/70 font-mono truncate max-w-[160px]">{rootPath.split(/[\\/]/).pop()}</span>
+          <span className="ml-2 text-xs px-2 py-0.5 rounded font-mono truncate max-w-[160px]" style={{ backgroundColor: tk.toolbarHover, color: tk.toolbarText }}>{rootPath.split(/[\\/]/).pop()}</span>
         )}
 
         {/* AI Initialize */}
@@ -1298,7 +1306,8 @@ const sendChat = useCallback(async () => {
           <button onClick={startAiInitialize}
             disabled={aiInitializing}
             className={cn("ml-2 text-xs px-2 py-0.5 rounded font-bold transition-colors",
-              aiInitializing ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30")}>
+              aiInitializing ? "opacity-60" : "")}
+            style={{ backgroundColor: aiInitializing ? tk.toolbarHover : tk.accent + "33", color: aiInitializing ? tk.toolbarText : tk.accent }}>
             {aiInitializing ? "⏳ AI Init..." : "🚀 AI Init"}
           </button>
         )}
@@ -1306,8 +1315,8 @@ const sendChat = useCallback(async () => {
         {/* Search dropdown */}
         <div className="relative ml-2">
           <button onClick={() => setShowSearchMenu(!showSearchMenu)}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-white/10 text-white/70 transition-colors" title="Search">
-            🔍 <span className="text-[10px] text-white/40">▼</span>
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors" style={{ color: tk.toolbarText }} title="Search">
+            🔍 <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showSearchMenu && (
             <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
@@ -1327,8 +1336,8 @@ const sendChat = useCallback(async () => {
         {/* Crew dropdown */}
         <div className="relative">
           <button onClick={() => setShowCrewMenu(!showCrewMenu)}
-            className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
-              activeCrew ? "bg-emerald-500/20 text-emerald-300" : "text-white/50 hover:bg-white/10")}
+            className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+            style={{ backgroundColor: activeCrew ? tk.accent + "33" : "transparent", color: activeCrew ? tk.accent : tk.toolbarTextMuted }}
             title={tt("vibe.crew", "AI Crew")}>👥</button>
           {showCrewMenu && (
             <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
@@ -1346,26 +1355,26 @@ const sendChat = useCallback(async () => {
         </div>
         {/* Right-side tool icons */}
         <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
-            showGitPanel ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10")}
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+          style={{ backgroundColor: showGitPanel ? tk.toolbarActive : "transparent", color: showGitPanel ? tk.toolbarText : tk.toolbarTextMuted }}
           title={tt("vibe.git")}>🔀</button>
         <button onClick={() => { setShowApiTester(!showApiTester); if (!showApiTester) { setActiveSubPanel("api-tester"); } }}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
-            showApiTester ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10")}
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+          style={{ backgroundColor: showApiTester ? tk.toolbarActive : "transparent", color: showApiTester ? tk.toolbarText : tk.toolbarTextMuted }}
           title={tt("vibe.api")}>🌐</button>
         <button onClick={() => { setShowBrowser(!showBrowser); if (!showBrowser) { setActiveSubPanel("browser"); } }}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
-            showBrowser ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10")}
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+          style={{ backgroundColor: showBrowser ? tk.toolbarActive : "transparent", color: showBrowser ? tk.toolbarText : tk.toolbarTextMuted }}
           title="Browser">👁️</button>
         <button onClick={() => setShowAiPanel(!showAiPanel)}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
-            showAiPanel ? "bg-purple-500/30 text-purple-300" : "text-purple-400/60 hover:bg-purple-500/10")}
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+          style={{ backgroundColor: showAiPanel ? tk.accent + "33" : "transparent", color: showAiPanel ? tk.accent : tk.toolbarTextMuted }}
           title="AI Chat">🤖</button>
         <button onClick={() => setShowTerminal(!showTerminal)}
           disabled={!rootPath}
           className={cn("text-xs px-2 py-1 rounded transition-colors",
-            showTerminal ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10",
             !rootPath && "opacity-20 cursor-not-allowed")}
+          style={{ backgroundColor: showTerminal ? tk.toolbarActive : "transparent", color: showTerminal ? tk.toolbarText : tk.toolbarTextMuted }}
           title={tt("vibe.term")}>⌨️</button>
       </div>
 
