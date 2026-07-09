@@ -1296,11 +1296,6 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* Project name badge */}
-        {rootPath && (
-          <span className="ml-2 text-xs px-2 py-0.5 rounded font-mono truncate max-w-[160px]" style={{ backgroundColor: tk.toolbarHover, color: tk.toolbarText }}>{rootPath.split(/[\\/]/).pop()}</span>
-        )}
-
         {/* AI Initialize */}
         {rootPath && (
           <button onClick={startAiInitialize}
