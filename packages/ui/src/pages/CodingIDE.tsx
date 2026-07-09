@@ -1298,6 +1298,10 @@ const sendChat = useCallback(async () => {
                       className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
                       <span>➕</span> {tt("vibe.newProject", "New Project")}
                     </button>
+                    <button onClick={() => { setShowProjectMenu(false); setShowDirExplorer(true); }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                      <span>📂</span> {tt("vibe.importProject", "Import Project")}
+                    </button>
                     {rootPath && (
                       <button onClick={() => { setShowProjectMenu(false); closeProject(); }}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2">
@@ -1359,6 +1363,10 @@ const sendChat = useCallback(async () => {
                   <button onClick={() => { setNewProjectParent(""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
                     className="text-xs px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
                     ➕ {tt("vibe.newProject", "New Project")}
+                  </button>
+                  <button onClick={() => setShowDirExplorer(true)}
+                    className="text-xs px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold">
+                    📂 {tt("vibe.importProject", "Import Project")}
                   </button>
                   {recentProjects.length > 0 && (
                     <div className="border-t border-stone-200 pt-2 mt-1">
