@@ -1360,10 +1360,6 @@ const sendChat = useCallback(async () => {
                     className="text-xs px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
                     ➕ {tt("vibe.newProject", "New Project")}
                   </button>
-                  <input value={rootPath} onChange={e => setRootPath(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && rootPath) { setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rootPath); } }}
-                    placeholder={tt("vibe.projectPath")}
-                    className="text-xs font-mono px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400" style={{ borderColor: "#e7e5e4" }} />
                   {recentProjects.length > 0 && (
                     <div className="border-t border-stone-200 pt-2 mt-1">
                       <div className="text-[10px] font-semibold text-stone-400 mb-1">{tt("vibe.recentProjects")}</div>
