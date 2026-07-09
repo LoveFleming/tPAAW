@@ -87,7 +87,7 @@ const server = createServer(async (req, res) => {
 
   // ── Static frontend (production) — serve UI dist from PAAW server ──
   if (!res.headersSent && req.method === "GET") {
-    const UI_DIST = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\//, "")), "../../ui/dist");
+    const UI_DIST = resolve(PAAW_ROOT, "packages/ui/dist");
     const { existsSync: _exists } = await import("fs");
     if (_exists(UI_DIST)) {
       let reqPath = req.url?.split("?")[0] || "/";

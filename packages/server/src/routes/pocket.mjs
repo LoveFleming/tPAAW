@@ -8,8 +8,9 @@ import { join, resolve, dirname } from "path";
 import {
   PAAW_ROOT, readBody,
 } from "./shared.mjs";
+import { fileURLToPath } from "url";
 
-const __dirname = dirname(import.meta.url.replace("file://", ""));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default async function pocketRoute(req, res) {
   const url = req.url || "";

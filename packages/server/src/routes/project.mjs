@@ -22,18 +22,24 @@
 import { readFile, writeFile, readdir, mkdir, unlink } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 
+// ── PAAW root directory (cross-platform safe) ──
+// fileURLToPath handles Windows drive-letter URLs correctly,
+// unlike new URL(import.meta.url).pathname which adds a leading /
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
-async function callProjectLLM(rootDir, body, opts = {}) {
-  // rootDir here is the paawRoot (PAAW server root, NOT user's project root)
+async function callProjectLLM(body, opts = {}) {
   // providers.json lives at {PAAW_ROOT}/data/config/providers.json
-  // Since paawRoot is computed as 5 dirs up from this file,
   // it resolves to the PAAW server root
-  const providersFile = join(rootDir, "data", "config", "providers.json");
+  const providersFile = join(PAAW_ROOT, "data", "config", "providers.json");
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }
   const providerId = providerConfig.active || "zai";
@@ -291,7 +297,7 @@ export default async function projectRoute(req, res) {
 
     // ── GET /api/coding-project/templates ──
     if (url.startsWith("/api/coding-project/templates") && method === "GET") {
-      const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
+      const templatesDir = join(PAAW_ROOT, "data", "templates", "standards");
       const templates = [];
       try {
         const entries = await readdir(templatesDir);
@@ -311,7 +317,7 @@ export default async function projectRoute(req, res) {
     // ── GET /api/coding-project/templates/:name ──
     const tplMatch = url.match(/^\/api\/project\/templates\/([^?]+)/);
     if (tplMatch && method === "GET") {
-      const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
+      const templatesDir = join(PAAW_ROOT, "data", "templates", "standards");
       const name = decodeURIComponent(tplMatch[1]);
       const filePath = join(templatesDir, name);
       try {
@@ -335,7 +341,7 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ error: "Missing 'template' field" }));
         return true;
       }
-      const templatesDir = resolve(join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "templates", "standards"));
+      const templatesDir = join(PAAW_ROOT, "data", "templates", "standards");
       try {
         const content = await readFile(join(templatesDir, templateName), "utf-8");
         // Ensure .paaw/ exists
@@ -532,7 +538,7 @@ export default async function projectRoute(req, res) {
         } catch {}
 
         // Load prompt templates
-        const promptsDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts", "ai-initial");
+        const promptsDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
         const loadPrompt = (filename) => {
           try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
         };
@@ -576,8 +582,7 @@ export default async function projectRoute(req, res) {
 
           // Call LLM
           try {
-            const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
-            const result = await callProjectLLM(paawRoot, {
+            const result = await callProjectLLM({
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
               maxTokens: 4000,
@@ -677,7 +682,7 @@ export default async function projectRoute(req, res) {
 
       try {
         // Load domain system prompt
-        const promptsBase = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts");
+        const promptsBase = join(PAAW_ROOT, "data", "prompts");
         const domainPromptDir = join(promptsBase, `${domain}-ai`);
         const systemPromptFile = resolve(promptsBase, "domain-ai-system.md");
         let systemPrompt = "";
@@ -754,8 +759,7 @@ export default async function projectRoute(req, res) {
         messages.push({ role: "user", content: prompt });
 
         // Call LLM
-        const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
-        const result = await callProjectLLM(paawRoot, {
+        const result = await callProjectLLM({
           messages,
           temperature: 0.3,
           maxTokens: 4000,
@@ -829,7 +833,7 @@ export default async function projectRoute(req, res) {
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
-        const promptsDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts", "ai-initial");
+        const promptsDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
         const loadPrompt = (filename) => {
           const overridePath = join(root, ".paaw", "prompts", "ai-initial", filename);
           if (existsSync(overridePath)) {
@@ -858,8 +862,7 @@ export default async function projectRoute(req, res) {
           fullPrompt += `\n\n--- INSTRUCTION ---\nOnly fill in gaps. Do not regenerate content that already exists and is correct.`;
 
           try {
-            const paawRoot = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
-            const result = await callProjectLLM(paawRoot, {
+            const result = await callProjectLLM({
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
               maxTokens: 4000,
@@ -898,7 +901,7 @@ export default async function projectRoute(req, res) {
 
     // GET /api/coding-project/prompts — list all AI Initial prompts
     if (url.startsWith("/api/coding-project/prompts") && method === "GET" && !url.includes("/prompts/")) {
-      const promptsDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts", "ai-initial");
+      const promptsDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
       const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
       try {
         const files = existsSync(promptsDir) ? await readdir(promptsDir) : [];
@@ -938,7 +941,7 @@ export default async function projectRoute(req, res) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ filename, content: readSync(projectFile, "utf-8"), source: "project" }));
       } else {
-        const defaultDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "prompts", "ai-initial");
+        const defaultDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
         const defaultFile = resolve(defaultDir, filename);
         if (existsSync(defaultFile)) {
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -985,7 +988,7 @@ export default async function projectRoute(req, res) {
 
     // GET /api/coding-project/recent — list recently opened projects
     if (url.startsWith("/api/coding-project/recent") && method === "GET") {
-      const recentPath = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "config", "recent-projects.json");
+      const recentPath = join(PAAW_ROOT, "data", "config", "recent-projects.json");
       let recent = [];
       try {
         if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
@@ -999,7 +1002,7 @@ export default async function projectRoute(req, res) {
     if (url.startsWith("/api/coding-project/recent") && method === "DELETE") {
       const params = new URL(req.url, "http://localhost").searchParams;
       const removePath = params.get("path");
-      const recentPath = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "config", "recent-projects.json");
+      const recentPath = join(PAAW_ROOT, "data", "config", "recent-projects.json");
       let recent = [];
       try {
         if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
@@ -1017,7 +1020,7 @@ export default async function projectRoute(req, res) {
     // POST /api/coding-project/recent — add/update recent project
     if (url.startsWith("/api/coding-project/recent") && method === "POST") {
       const body = JSON.parse(await readBody(req) || "{}");
-      const recentPath = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "data", "config", "recent-projects.json");
+      const recentPath = join(PAAW_ROOT, "data", "config", "recent-projects.json");
       let recent = [];
       try {
         if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
@@ -1117,8 +1120,7 @@ Output ONLY the markdown document, starting with # Coding Standards (Auto-Genera
 
   // 3. Call LLM
   try {
-    const rootDir = resolve(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..");
-    const result = await callProjectLLM(rootDir, {
+    const result = await callProjectLLM({
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
       maxTokens: 2000,
