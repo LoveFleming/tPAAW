@@ -293,6 +293,21 @@ export default function CodingIDE() {
   const [showCrewMenu, setShowCrewMenu] = useState(false);
   const [activeCrew, setActiveCrew] = useState<string | null>(null);
 
+  // ── Click-outside: close all toolbar dropdowns ──
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // If click is outside any toolbar dropdown trigger, close all menus
+      if (!target.closest(".toolbar-dropdown-trigger")) {
+        setShowProjectMenu(false);
+        setShowSearchMenu(false);
+        setShowCrewMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   // ── Coding Crew Definitions ──
   const codingCrews = [
     { id: "coding.architect", emoji: "🏛️", title: "架構師", mode: "chat" as const },
@@ -1299,7 +1314,7 @@ const sendChat = useCallback(async () => {
         {/* ⚡ Project */}
         <div className="relative">
           <button onClick={() => setShowProjectMenu(!showProjectMenu)}
-            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
+            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
             <span className="text-sm">⚡</span> {tt("vibe.projectMenu", "Project")}
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
@@ -1338,7 +1353,7 @@ const sendChat = useCallback(async () => {
         {/* 🤖 AI dropdown (AI Init + AI Crew unified) */}
         <div className="relative ml-1">
           <button onClick={() => setShowCrewMenu(!showCrewMenu)}
-            className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors")}
+            className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors")}
             style={{ backgroundColor: (activeCrew || aiInitializing) ? tk.accent + "33" : "transparent", color: (activeCrew || aiInitializing) ? tk.accent : tk.toolbarText }}
             onMouseEnter={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
             onMouseLeave={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = activeCrew ? tk.accent + "33" : "transparent"; }}>
@@ -1369,11 +1384,11 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* 🔍 搜尋 dropdown */}
+        {/* 搜尋 dropdown — 移除重複 🔍 icon，只保留名稱 */}
         <div className="relative ml-1">
           <button onClick={() => setShowSearchMenu(!showSearchMenu)}
-            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
-            🔍 {tt("vibe.search", "搜尋")}
+            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
+            {tt("vibe.search", "搜尋")}
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showSearchMenu && (
