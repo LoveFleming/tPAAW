@@ -1428,19 +1428,6 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* Tool buttons with icon + name — all on left side */}
-        <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true })}
-          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ml-1")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "tool:git") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent"; }}
-          title={tt("vibe.git")}>🔀 Git</button>
-        <button onClick={() => openMainTab({ id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true })}
-          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:api") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "tool:api") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent"; }}
-          title={tt("vibe.api")}>🌐 API</button>
         {/* 👁️ Browser dropdown — multi-instance */}
         <div className="relative ml-1">
           <button onClick={() => setShowBrowserMenu(!showBrowserMenu)}
@@ -1508,6 +1495,23 @@ const sendChat = useCallback(async () => {
             </div>
           )}
         </div>
+
+        {/* ── spacer ── */}
+        <div className="flex-1" />
+
+        {/* ── Right side: non-dropdown tool buttons ── */}
+        <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true })}
+          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:git") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent"; }}
+          title={tt("vibe.git")}>🔀 Git</button>
+        <button onClick={() => openMainTab({ id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true })}
+          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:api") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:api") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent"; }}
+          title={tt("vibe.api")}>🌐 API</button>
       </div>
 
       {/* ── Main Content ── */}
