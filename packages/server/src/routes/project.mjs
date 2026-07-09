@@ -88,6 +88,35 @@ export default async function projectRoute(req, res) {
   if (!url.startsWith("/api/coding-project")) return false;
 
   const projectPath = q.path;
+
+  // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
+  const crewMatch = url.match(/^\/api\/coding-crew\/([^?]+)/);
+  if (crewMatch && method === "GET") {
+    const crewId = decodeURIComponent(crewMatch[1]);
+    const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
+    try {
+      if (existsSync(crewFile)) {
+        const crew = JSON.parse(readSync(crewFile, "utf-8"));
+        // If crew has injectProjectContext and we have a project path, append .paaw/ context
+        if (crew.injectProjectContext && projectPath) {
+          const projRoot = resolve(projectPath);
+          const projPaaw = createPaawProject(projRoot);
+          const ctx = await projPaaw.loadContext();
+          if (ctx) crew._projectContext = ctx;
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(crew));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Crew not found", crewId }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   if (!projectPath) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));

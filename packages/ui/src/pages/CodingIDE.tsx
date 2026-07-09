@@ -246,6 +246,18 @@ export default function CodingIDE() {
   // ── Project Menu State ──
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSearchMenu, setShowSearchMenu] = useState(false);
+  const [showCrewMenu, setShowCrewMenu] = useState(false);
+  const [activeCrew, setActiveCrew] = useState<string | null>(null);
+
+  // ── Coding Crew Definitions ──
+  const codingCrews = [
+    { id: "coding.architect", emoji: "🏛️", title: "架構師", mode: "chat" as const },
+    { id: "coding.spec-writer", emoji: "📐", title: "規格師", mode: "spec" as const },
+    { id: "coding.developer", emoji: "💻", title: "開發人員", mode: "agent" as const },
+    { id: "coding.unit-tester", emoji: "🧪", title: "Unit Test", mode: "test" as const },
+    { id: "coding.e2e-tester", emoji: "🎭", title: "E2E Tester", mode: "test" as const },
+    { id: "coding.doc-writer", emoji: "📝", title: "文件製作員", mode: "docs" as const },
+  ];
 
   // Close / unload project
   const closeProject = useCallback(() => {
@@ -680,6 +692,7 @@ const sendChat = useCallback(async () => {
             domain: chatMode,
             prompt: userMsg.content,
             history: chatMessages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+            crewId: activeCrew || undefined,
           }),
         });
         if (!res.ok || !res.body) {
@@ -739,12 +752,23 @@ const sendChat = useCallback(async () => {
           if (ctxRes.ok) { const ctx = await ctxRes.json(); vibeSystemPrompt = ctx.systemPrompt || ""; }
         } catch {}
 
+        let crewSystemAdd = "";
+        if (activeCrew) {
+          try {
+            const crewRes = await fetch(`${API_BASE}/api/coding-crew/${activeCrew}`);
+            if (crewRes.ok) {
+              const crewData = await crewRes.json();
+              crewSystemAdd = `\n\n[AI 人員角色]\n${crewData.rolePrompt || ""}\n`;
+            }
+          } catch {}
+        }
+
         const res = await fetch(`${API_BASE}/api/agent-run/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: userMsg.content + context,
-            systemPrompt: vibeSystemPrompt,
+            systemPrompt: vibeSystemPrompt + crewSystemAdd,
             model: codingModel || undefined,
             cwd: rootPath || undefined,
             maxTurns: 15,
@@ -1300,6 +1324,26 @@ const sendChat = useCallback(async () => {
         </div>
 
         <div className="flex-1" />
+        {/* Crew dropdown */}
+        <div className="relative">
+          <button onClick={() => setShowCrewMenu(!showCrewMenu)}
+            className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
+              activeCrew ? "bg-emerald-500/20 text-emerald-300" : "text-white/50 hover:bg-white/10")}
+            title={tt("vibe.crew", "AI Crew")}>👥</button>
+          {showCrewMenu && (
+            <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+              <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
+              {codingCrews.map(crew => (
+                <button key={crew.id} onClick={() => { setShowCrewMenu(false); setActiveCrew(crew.id); setChatMode(crew.mode); setShowAiPanel(true); setRightTab("chat"); }}
+                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
+                    activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
+                  <span>{crew.emoji}</span> <span>{crew.title}</span>
+                  {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {/* Right-side tool icons */}
         <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
           className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
@@ -2029,6 +2073,11 @@ const sendChat = useCallback(async () => {
                 </div>
                 <ModelSelector feature="coding" value={codingModel} onChange={setVibeModel} />
                 {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
+                {activeCrew && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold mr-2">
+                    {codingCrews.find(c => c.id === activeCrew)?.emoji} {codingCrews.find(c => c.id === activeCrew)?.title}
+                  </span>
+                )}
                 {["spec","test","bug","docs","maintain"].includes(chatMode) && (
                   <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold mr-2",
                     chatMode === "spec" ? "bg-blue-50 text-blue-600" :

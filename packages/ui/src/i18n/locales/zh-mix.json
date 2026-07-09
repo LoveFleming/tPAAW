@@ -100,6 +100,8 @@
   "vibe.recentProjects": "最近專案",
   "vibe.addProject": "加入你的 Code Project",
   "vibe.importProject": "匯入現有專案",
+  "vibe.crew": "AI 人員",
+  "vibe.crewSelect": "選擇 AI 人員",
   "vibe.aiInitialize": "AI Initialize",
   "vibe.codeStatus": "Code Status Dashboard",
   "vibe.fixArea": "AI Fix",
