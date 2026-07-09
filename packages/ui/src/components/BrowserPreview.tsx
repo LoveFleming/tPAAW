@@ -51,6 +51,7 @@ export default function BrowserPreview({ projectRoot, onConsoleLog, initialUrl }
   const [detectedPort, setDetectedPort] = useState<number | null>(null);
   const [showPortList, setShowPortList] = useState(false);
   const [portChecks, setPortChecks] = useState<Record<number, boolean>>({});
+  const [activePorts, setActivePorts] = useState(COMMON_PORTS);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const reloadKey = useRef(0);
 
@@ -122,8 +123,31 @@ export default function BrowserPreview({ projectRoot, onConsoleLog, initialUrl }
   // ── Auto-detect dev server port ──
   const detectPort = useCallback(async () => {
     setDetecting(true);
+
+    // 1. Try reading .paaw/dev-config.json from project
+    let devConfig: any = null;
+    let configPorts: { port: number; label: string; path?: string }[] = [];
+    let configDefaultUrl = "";
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/dev-config?path=${encodeURIComponent(projectRoot)}`);
+      if (res.ok) devConfig = await res.json();
+      if (devConfig?.browser?.ports) configPorts = devConfig.browser.ports;
+      if (devConfig?.browser?.defaultUrl) configDefaultUrl = devConfig.browser.defaultUrl;
+    } catch {}
+
+    // If defaultUrl is set, use it directly
+    if (configDefaultUrl) {
+      navigate(configDefaultUrl);
+      setDetecting(false);
+      return;
+    }
+
+    // 2. Merge project ports with common ports (project ports first)
+    const allPorts = [...configPorts, ...COMMON_PORTS.filter(cp => !configPorts.some(pp => pp.port === cp.port))];
+    setActivePorts(allPorts);
+
     const checks: Record<number, boolean> = {};
-    await Promise.all(COMMON_PORTS.map(async ({ port }) => {
+    await Promise.all(allPorts.map(async ({ port }) => {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 2000);
@@ -139,8 +163,8 @@ export default function BrowserPreview({ projectRoot, onConsoleLog, initialUrl }
     }));
     setPortChecks(checks);
 
-    // Auto-navigate to first responding port
-    const firstAlive = COMMON_PORTS.find(({ port }) => checks[port]);
+    // Auto-navigate to first responding port (project ports have priority)
+    const firstAlive = allPorts.find(({ port }) => checks[port]);
     if (firstAlive) {
       setDetectedPort(firstAlive.port);
       navigate(`http://localhost:${firstAlive.port}`);
@@ -225,7 +249,7 @@ export default function BrowserPreview({ projectRoot, onConsoleLog, initialUrl }
         <div className="border-b border-stone-200 bg-blue-50 px-2 py-1.5 shrink-0">
           <div className="text-[10px] text-blue-600 font-semibold mb-1">📡 Port Detection — click to open</div>
           <div className="flex flex-wrap gap-1.5">
-            {COMMON_PORTS.map(({ port, label }) => (
+            {activePorts.map(({ port, label }) => (
               <button
                 key={port}
                 onClick={() => { navigate(`http://localhost:${port}`); setShowPortList(false); }}

@@ -203,6 +203,25 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── GET /api/coding-project/dev-config?path=... — Read dev-config.json ──
+    if (url.startsWith("/api/coding-project/dev-config") && method === "GET") {
+      const devConfigPath = join(root, ".paaw", "dev-config.json");
+      if (existsSync(devConfigPath)) {
+        try {
+          const config = JSON.parse(readSync(devConfigPath, "utf-8"));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(config));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({}));
+      }
+      return true;
+    }
+
     // ── GET /api/coding-project/tree ──
     if (url.startsWith("/api/coding-project/tree") && method === "GET") {
       const tree = await paaw.listTree();
