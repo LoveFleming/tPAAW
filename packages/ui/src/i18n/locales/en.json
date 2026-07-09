@@ -97,6 +97,8 @@
   "vibe.newProjectRequired": "Please fill in project name and parent directory",
   "vibe.creating": "Creating...",
   "vibe.createProject": "Create",
+  "vibe.projectMenu": "Project",
+  "vibe.recentProjects": "Recent Projects",
   "vibe.aiInitialize": "AI Initialize",
   "vibe.codeStatus": "Code Status Dashboard",
   "vibe.fixArea": "AI Fix",

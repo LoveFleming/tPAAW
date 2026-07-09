@@ -96,6 +96,8 @@
   "vibe.newProjectRequired": "プロジェクト名と親ディレクトリを入力してください",
   "vibe.creating": "作成中...",
   "vibe.createProject": "作成",
+  "vibe.projectMenu": "プロジェクト",
+  "vibe.recentProjects": "最近のプロジェクト",
   "vibe.aiInitialize": "AI初期化",
   "vibe.codeStatus": "コードステータスダッシュボード",
   "vibe.fixArea": "AI修正",

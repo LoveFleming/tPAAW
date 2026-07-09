@@ -243,6 +243,9 @@ export default function CodingIDE() {
   const [newProjectCreating, setNewProjectCreating] = useState(false);
   const [newProjectError, setNewProjectError] = useState("");
 
+  // ── Project Menu State ──
+  const [showProjectMenu, setShowProjectMenu] = useState(false);
+
   // Close / unload project
   const closeProject = useCallback(() => {
     if (!rootPath) return;
@@ -1234,11 +1237,6 @@ const sendChat = useCallback(async () => {
               title={tt("vibe.aiInitialize", "AI Initialize")}>
               {aiInitializing ? "⏳ AI Init..." : "🚀 AI Init"}
             </button>
-            <button onClick={closeProject}
-              className="text-xs px-1.5 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
-              title={tt("vibe.closeProject", "關閉專案")}>
-              ✕
-            </button>
           </div>
         )}
 
@@ -1290,37 +1288,43 @@ const sendChat = useCallback(async () => {
         <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
           <div className="px-2 py-1.5 " style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             <div className="flex items-center gap-1.5">
+              {/* Project Menu */}
+              <div className="relative">
+                <button onClick={() => setShowProjectMenu(!showProjectMenu)}
+                  className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600 font-semibold" title={tt("vibe.projectMenu", "Project")}>☰</button>
+                {showProjectMenu && (
+                  <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-stone-200 rounded-lg shadow-xl z-50 py-1" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => { setShowProjectMenu(false); setNewProjectParent(rootPath ? rootPath.split("/").slice(0, -1).join("/") || rootPath : ""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
+                      <span>➕</span> {tt("vibe.newProject", "New Project")}
+                    </button>
+                    {rootPath && (
+                      <button onClick={() => { setShowProjectMenu(false); closeProject(); }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2">
+                        <span>✕</span> {tt("vibe.closeProject")}
+                      </button>
+                    )}
+                    {recentProjects.length > 0 && (
+                      <>
+                        <div className="border-t border-stone-100 my-1" />
+                        <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.recentProjects", "Recent Projects")}</div>
+                        {recentProjects.slice(0, 8).map(rp => (
+                          <button key={rp.path} onClick={() => { setShowProjectMenu(false); setRootPath(rp.path); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
+                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 flex items-center gap-2 truncate">
+                            <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate">{rp.name}</span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
               <input value={rootPath} onChange={e => setRootPath(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && rootPath) { setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rootPath); } }}
                 placeholder={tt("vibe.projectPath")}
                 className="flex-1 text-sm font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
               <button onClick={() => setShowDirExplorer(true)}
                 className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600" title={tt("coding.browseDir")}>📂</button>
-              <button onClick={() => { setNewProjectParent(rootPath ? rootPath.split("/").slice(0, -1).join("/") || rootPath : ""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
-                className="text-xs px-1.5 py-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700" title={tt("vibe.newProject", "New Project")}>➕</button>
-              <button onClick={() => setShowRecentProjects(!showRecentProjects)}
-                className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600 relative" title="Recent projects">🕘
-                {showRecentProjects && recentProjects.length > 0 && (
-                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-stone-200 rounded-lg shadow-xl z-50 max-h-72 overflow-y-auto" style={{ scrollbarWidth: "thin" }} onClick={e => e.stopPropagation()}>
-                    <div className="px-2 py-1 text-[10px] font-semibold text-stone-400 border-b border-stone-100">Recent Projects</div>
-                    {recentProjects.map(rp => (
-                      <div key={rp.path}
-                        className="px-2 py-1.5 cursor-pointer hover:bg-blue-50 border-b border-stone-50 last:border-0 flex items-center gap-1.5">
-                        <div className="flex-1 min-w-0" onClick={() => { setRootPath(rp.path); setShowRecentProjects(false); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs">{rp.hasPaaw ? "🤖" : "📁"}</span>
-                            <span className="text-xs font-medium text-stone-700 truncate">{rp.name}</span>
-                          </div>
-                          <div className="text-[9px] text-stone-300 truncate ml-5">{rp.path}</div>
-                        </div>
-                        <button onClick={(e) => { e.stopPropagation(); fetch(`${API_BASE}/api/coding-project/recent?path=${encodeURIComponent(rp.path)}`, { method: "DELETE" }).then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {}); }}
-                          className="text-stone-300 hover:text-red-500 text-xs shrink-0 px-1" title={tt("vibe.removeRecent", "移除")}>✕</button>
-                      </div>
-                    ))}
-                    {recentProjects.length === 0 && <div className="px-2 py-2 text-[10px] text-stone-400 text-center">No recent projects</div>}
-                  </div>
-                )}
-              </button>
             </div>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
