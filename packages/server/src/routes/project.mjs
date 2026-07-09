@@ -26,6 +26,7 @@ import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
+import { normalizePath, readBody } from "./shared.mjs";
 
 // ── PAAW root directory (cross-platform safe) ──
 // fileURLToPath handles Windows drive-letter URLs correctly,
@@ -93,6 +94,8 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
+  // Normalize path separators (Windows backslash → forward slash)
+  const norm = normalizePath;
   const root = resolve(projectPath);
   const paaw = createPaawProject(root);
 
@@ -144,7 +147,7 @@ export default async function projectRoute(req, res) {
       // Check if already exists
       if (existsSync(projectDir)) {
         res.writeHead(409, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Directory already exists", path: projectDir }));
+        res.end(JSON.stringify({ error: "Directory already exists", path: norm(projectDir) }));
         return true;
       }
 
@@ -167,7 +170,7 @@ export default async function projectRoute(req, res) {
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, path: projectDir, name: projectName }));
+      res.end(JSON.stringify({ ok: true, path: norm(projectDir), name: projectName }));
       return true;
     }
 
@@ -993,6 +996,8 @@ export default async function projectRoute(req, res) {
       try {
         if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
       } catch {}
+      // Normalize paths for frontend
+      recent = recent.map(r => ({ ...r, path: norm(r.path) }));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(recent));
       return true;
@@ -1008,10 +1013,12 @@ export default async function projectRoute(req, res) {
         if (existsSync(recentPath)) recent = JSON.parse(readSync(recentPath, "utf-8"));
       } catch {}
       if (removePath) {
-        recent = recent.filter(r => r.path !== removePath);
+        recent = recent.filter(r => norm(r.path) !== removePath);
         await mkdir(dirname(recentPath), { recursive: true });
         await writeFile(recentPath, JSON.stringify(recent, null, 2), "utf-8");
       }
+      // Normalize paths for frontend
+      recent = recent.map(r => ({ ...r, path: norm(r.path) }));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(recent));
       return true;
@@ -1027,8 +1034,8 @@ export default async function projectRoute(req, res) {
       } catch {}
 
       // Add or update
-      const path = body.path || root;
-      const name = body.name || path.split("/").pop();
+      const path = norm(body.path || root);
+      const name = body.name || path.split(/[\\/]/).pop();
       recent = recent.filter(r => r.path !== path);
       recent.unshift({ path, name, lastOpened: new Date().toISOString(), hasPaaw: existsSync(join(path, ".paaw")) });
       recent = recent.slice(0, 20); // keep last 20
@@ -1052,14 +1059,7 @@ export default async function projectRoute(req, res) {
 
 // ── Read request body ──
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", chunk => { data += chunk; });
-    req.on("end", () => resolve(data));
-    req.on("error", reject);
-  });
-}
+// ── readBody imported from shared.mjs ──
 
 // ── Generate Standards from Codebase ──
 
