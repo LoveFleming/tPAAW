@@ -245,6 +245,7 @@ export default function CodingIDE() {
 
   // ── Project Menu State ──
   const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [showSearchMenu, setShowSearchMenu] = useState(false);
 
   // Close / unload project
   const closeProject = useCallback(() => {
@@ -1223,111 +1224,112 @@ const sendChat = useCallback(async () => {
     )}
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
-      <div className="flex items-center h-9 px-3 border-b shrink-0 select-none" style={{ backgroundColor: "#fff", borderColor: "#e5e5e5" }}>
-        <span className="text-sm font-bold text-stone-700">{tt("vibe.title")}</span>
+      <div className="flex items-center h-9 px-2 border-b shrink-0 select-none" style={{ backgroundColor: "#1e1e1e", borderColor: "#333" }}>
+        {/* ⚡ Title + Project Menu */}
+        <div className="relative">
+          <button onClick={() => setShowProjectMenu(!showProjectMenu)}
+            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded hover:bg-white/10 text-white/90 font-semibold transition-colors">
+            <span className="text-sm">⚡</span> {tt("vibe.projectMenu", "Project")}
+            <span className="text-[10px] text-white/40">▼</span>
+          </button>
+          {showProjectMenu && (
+            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+              <button onClick={() => { setShowProjectMenu(false); setNewProjectParent(rootPath ? rootPath.split("/").slice(0, -1).join("/") || rootPath : ""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
+                <span>➕</span> {tt("vibe.newProject", "New Project")}
+              </button>
+              <button onClick={() => { setShowProjectMenu(false); setShowDirExplorer(true); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                <span>📂</span> {tt("vibe.importProject", "Import Project")}
+              </button>
+              {rootPath && (
+                <button onClick={() => { setShowProjectMenu(false); closeProject(); }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2">
+                  <span>✕</span> {tt("vibe.closeProject")}
+                </button>
+              )}
+              {recentProjects.length > 0 && (
+                <>
+                  <div className="border-t border-stone-100 my-1" />
+                  <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.recentProjects", "Recent Projects")}</div>
+                  {recentProjects.slice(0, 8).map(rp => (
+                    <button key={rp.path} onClick={() => { setShowProjectMenu(false); setRootPath(rp.path); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 flex items-center gap-2 truncate">
+                      <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate">{rp.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
-        {/* Project name + close + AI Init */}
+        {/* Project name badge */}
         {rootPath && (
-          <div className="ml-2 flex items-center gap-1">
-            <span className="text-xs px-2 py-1 rounded-lg bg-stone-100 text-stone-600 font-medium truncate max-w-[200px]">📁 {rootPath.split(/[\\/]/).pop()}</span>
-            <button onClick={startAiInitialize}
-              disabled={aiInitializing}
-              className={cn("text-xs px-2 py-1 rounded-lg border font-bold transition-colors",
-                aiInitializing ? "border-amber-200 bg-amber-50 text-amber-600" : "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100")}
-              title={tt("vibe.aiInitialize", "AI Initialize")}>
-              {aiInitializing ? "⏳ AI Init..." : "🚀 AI Init"}
-            </button>
-          </div>
+          <span className="ml-2 text-xs px-2 py-0.5 rounded bg-white/10 text-white/70 font-mono truncate max-w-[160px]">{rootPath.split(/[\\/]/).pop()}</span>
         )}
 
-        {/* Search shortcut buttons */}
-        <button onClick={() => { setShowQuickOpen(true); setQuickOpenQuery(""); setQuickOpenResults([]); setQuickOpenIndex(0); }}
-          className="ml-2 text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors flex items-center gap-1"
-          title="Quick Open (Cmd+P)">
-          🔍 <span className="text-[10px]">⌘P</span>
-        </button>
-        <button onClick={() => { setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
-          className="ml-1 text-xs px-2 py-1 rounded-lg border border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors flex items-center gap-1"
-          title="Search (Cmd+Shift+F)">
-          📋 <span className="text-[10px]">⇧⌘F</span>
-        </button>
+        {/* AI Initialize */}
+        {rootPath && (
+          <button onClick={startAiInitialize}
+            disabled={aiInitializing}
+            className={cn("ml-2 text-xs px-2 py-0.5 rounded font-bold transition-colors",
+              aiInitializing ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30")}>
+            {aiInitializing ? "⏳ AI Init..." : "🚀 AI Init"}
+          </button>
+        )}
+
+        {/* Search dropdown */}
+        <div className="relative ml-2">
+          <button onClick={() => setShowSearchMenu(!showSearchMenu)}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-white/10 text-white/70 transition-colors" title="Search">
+            🔍 <span className="text-[10px] text-white/40">▼</span>
+          </button>
+          {showSearchMenu && (
+            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+              <button onClick={() => { setShowSearchMenu(false); setShowQuickOpen(true); setQuickOpenQuery(""); setQuickOpenResults([]); setQuickOpenIndex(0); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                <span>📄</span> Quick Open <span className="ml-auto text-[10px] text-stone-400">⌘P</span>
+              </button>
+              <button onClick={() => { setShowSearchMenu(false); setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                <span>📋</span> Find & Replace <span className="ml-auto text-[10px] text-stone-400">⇧⌘F</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="flex-1" />
+        {/* Right-side tool icons */}
         <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
-          className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
-            showGitPanel ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          {tt("vibe.git")}
-        </button>
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
+            showGitPanel ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10")}
+          title={tt("vibe.git")}>🔀</button>
         <button onClick={() => { setShowApiTester(!showApiTester); if (!showApiTester) { setActiveSubPanel("api-tester"); } }}
-          className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
-            showApiTester ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          {tt("vibe.api")}
-        </button>
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
+            showApiTester ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10")}
+          title={tt("vibe.api")}>🌐</button>
         <button onClick={() => { setShowBrowser(!showBrowser); if (!showBrowser) { setActiveSubPanel("browser"); } }}
-          className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors mr-1",
-            showBrowser ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-          🌐
-        </button>
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
+            showBrowser ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10")}
+          title="Browser">👁️</button>
         <button onClick={() => setShowAiPanel(!showAiPanel)}
-          className={cn("text-xs px-2.5 py-1 rounded-lg border font-bold transition-colors mr-1",
-            showAiPanel ? "bg-purple-700 text-white border-purple-700" : "text-purple-600 border-purple-200 hover:bg-purple-50 bg-purple-50")}>
-          🤖 AI
-        </button>
+          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5",
+            showAiPanel ? "bg-purple-500/30 text-purple-300" : "text-purple-400/60 hover:bg-purple-500/10")}
+          title="AI Chat">🤖</button>
         <button onClick={() => setShowTerminal(!showTerminal)}
           disabled={!rootPath}
-          className={cn("text-xs px-2 py-1 rounded-lg border font-semibold transition-colors",
-            showTerminal ? "bg-stone-800 text-white border-stone-800" : "text-stone-400 border-stone-200 hover:bg-stone-50",
-            !rootPath && "opacity-30 cursor-not-allowed")}>
-          {tt("vibe.term")}
-        </button>
+          className={cn("text-xs px-2 py-1 rounded transition-colors",
+            showTerminal ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10",
+            !rootPath && "opacity-20 cursor-not-allowed")}
+          title={tt("vibe.term")}>⌨️</button>
       </div>
 
       {/* ── Main Content ── */}
       <div className="flex-1 flex min-h-0">
         {/* ── File Explorer ── */}
         <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
-          <div className="px-2 py-1.5 " style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-            <div className="flex items-center gap-1.5">
-              {/* Project Menu */}
-              <div className="relative">
-                <button onClick={() => setShowProjectMenu(!showProjectMenu)}
-                  className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600 font-semibold" title={tt("vibe.projectMenu", "Project")}>☰</button>
-                {showProjectMenu && (
-                  <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-stone-200 rounded-lg shadow-xl z-50 py-1" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setShowProjectMenu(false); setNewProjectParent(rootPath ? rootPath.split("/").slice(0, -1).join("/") || rootPath : ""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
-                      <span>➕</span> {tt("vibe.newProject", "New Project")}
-                    </button>
-                    <button onClick={() => { setShowProjectMenu(false); setShowDirExplorer(true); }}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
-                      <span>📂</span> {tt("vibe.importProject", "Import Project")}
-                    </button>
-                    {rootPath && (
-                      <button onClick={() => { setShowProjectMenu(false); closeProject(); }}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2">
-                        <span>✕</span> {tt("vibe.closeProject")}
-                      </button>
-                    )}
-                    {recentProjects.length > 0 && (
-                      <>
-                        <div className="border-t border-stone-100 my-1" />
-                        <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.recentProjects", "Recent Projects")}</div>
-                        {recentProjects.slice(0, 8).map(rp => (
-                          <button key={rp.path} onClick={() => { setShowProjectMenu(false); setRootPath(rp.path); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
-                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 flex items-center gap-2 truncate">
-                            <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate">{rp.name}</span>
-                          </button>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-              <input value={rootPath} onChange={e => setRootPath(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && rootPath) { setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rootPath); } }}
-                placeholder={tt("vibe.projectPath")}
-                className="flex-1 text-sm font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
-            </div>
+          <div className="px-2 py-1.5" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
               <div className="flex items-center gap-1 mt-1">
