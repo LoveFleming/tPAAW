@@ -1295,7 +1295,8 @@ const sendChat = useCallback(async () => {
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-2 border-b shrink-0 select-none" style={{ backgroundColor: tk.toolbarBg, borderColor: tk.toolbarBorder }}>
-        {/* ⚡ Title + Project Menu */}
+        {/* ── Left-side toolbar: all features with icon + name ── */}
+        {/* ⚡ Project */}
         <div className="relative">
           <button onClick={() => setShowProjectMenu(!showProjectMenu)}
             className="flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
@@ -1334,22 +1335,46 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* AI Initialize */}
-        {rootPath && (
-          <button onClick={startAiInitialize}
-            disabled={aiInitializing}
-            className={cn("ml-2 text-xs px-2 py-0.5 rounded font-bold transition-colors",
-              aiInitializing ? "opacity-60" : "")}
-            style={{ backgroundColor: aiInitializing ? tk.toolbarHover : tk.accent + "33", color: aiInitializing ? tk.toolbarText : tk.accent }}>
-            {aiInitializing ? "⏳ AI Init..." : "🚀 AI Init"}
+        {/* 🤖 AI dropdown (AI Init + AI Crew unified) */}
+        <div className="relative ml-1">
+          <button onClick={() => setShowCrewMenu(!showCrewMenu)}
+            className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors")}
+            style={{ backgroundColor: (activeCrew || aiInitializing) ? tk.accent + "33" : "transparent", color: (activeCrew || aiInitializing) ? tk.accent : tk.toolbarText }}
+            onMouseEnter={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+            onMouseLeave={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = activeCrew ? tk.accent + "33" : "transparent"; }}>
+            <span className="text-sm">🤖</span> AI
+            <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
-        )}
+          {showCrewMenu && (
+            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+              {/* AI Initialize */}
+              {rootPath && (
+                <button onClick={() => { setShowCrewMenu(false); startAiInitialize(); }}
+                  disabled={aiInitializing}
+                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2", aiInitializing && "opacity-60")}>
+                  <span>🚀</span> {aiInitializing ? "AI Init ⏳" : "AI Initialize"}
+                </button>
+              )}
+              <div className="border-t border-stone-100 my-1" />
+              <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
+              {codingCrews.map(crew => (
+                <button key={crew.id} onClick={() => { setShowCrewMenu(false); setActiveCrew(crew.id); setChatMode(crew.mode); setShowAiPanel(true); setRightTab("chat"); }}
+                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
+                    activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
+                  <span>{crew.emoji}</span> <span>{crew.title}</span>
+                  {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* Search dropdown */}
-        <div className="relative ml-2">
+        {/* 🔍 搜尋 dropdown */}
+        <div className="relative ml-1">
           <button onClick={() => setShowSearchMenu(!showSearchMenu)}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors" style={{ color: tk.toolbarText }} title="Search">
-            🔍 <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
+            className="flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
+            🔍 {tt("vibe.search", "搜尋")}
+            <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showSearchMenu && (
             <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
@@ -1365,53 +1390,33 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        <div className="flex-1" />
-        {/* Crew dropdown */}
-        <div className="relative">
-          <button onClick={() => setShowCrewMenu(!showCrewMenu)}
-            className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
-            style={{ backgroundColor: activeCrew ? tk.accent + "33" : "transparent", color: activeCrew ? tk.accent : tk.toolbarTextMuted }}
-            title={tt("vibe.crew", "AI Crew")}>👥</button>
-          {showCrewMenu && (
-            <div className="absolute top-full right-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
-              <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
-              {codingCrews.map(crew => (
-                <button key={crew.id} onClick={() => { setShowCrewMenu(false); setActiveCrew(crew.id); setChatMode(crew.mode); setShowAiPanel(true); setRightTab("chat"); }}
-                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
-                    activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
-                  <span>{crew.emoji}</span> <span>{crew.title}</span>
-                  {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        {/* Right-side tool icons — open as main tabs */}
+        {/* Tool buttons with icon + name — all on left side */}
         <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true })}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ml-1")}
           style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
-          title={tt("vibe.git")}>🔀</button>
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:git") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent"; }}
+          title={tt("vibe.git")}>🔀 Git</button>
         <button onClick={() => openMainTab({ id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true })}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:api") ? tk.toolbarText : tk.toolbarTextMuted }}
-          title={tt("vibe.api")}>🌐</button>
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:api") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent"; }}
+          title={tt("vibe.api")}>🌐 API</button>
         <button onClick={() => openMainTab({ id: "tool:browser", type: "browser", label: "Browser", icon: "👁️", closable: true })}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
+          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:browser" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:browser") ? tk.toolbarText : tk.toolbarTextMuted }}
-          title="Browser">👁️</button>
-        <button onClick={() => {
-          const crew = activeCrew ? codingCrews.find(c => c.id === activeCrew) : null;
-          openMainTab({ id: activeCrew ? `crew:${activeCrew}` : "tool:ai", type: "ai-crew", label: crew ? crew.title : "AI Chat", icon: crew?.emoji || "🤖", closable: true, crewId: activeCrew || undefined });
-        }}
-          className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
-          style={{ backgroundColor: activeMainTab?.type === "ai-crew" ? tk.accent + "33" : "transparent", color: mainTabs.some(t => t.type === "ai-crew") ? tk.accent : tk.toolbarTextMuted }}
-          title="AI Chat">🤖</button>
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:browser") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:browser" ? tk.toolbarActive : "transparent"; }}
+          title="Browser">👁️ Browser</button>
         <button onClick={() => openMainTab({ id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true })}
           disabled={!rootPath}
-          className={cn("text-xs px-2 py-1 rounded transition-colors",
+          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors",
             !rootPath && "opacity-20 cursor-not-allowed")}
           style={{ backgroundColor: activeMainTab?.id === "tool:terminal" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:terminal") ? tk.toolbarText : tk.toolbarTextMuted }}
-          title={tt("vibe.term")}>⌨️</button>
+          onMouseEnter={e => { if (rootPath && activeMainTab?.id !== "tool:terminal") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:terminal" ? tk.toolbarActive : "transparent"; }}
+          title={tt("vibe.term")}>⌨️ Terminal</button>
       </div>
 
       {/* ── Main Content ── */}
