@@ -254,6 +254,21 @@ export default function CodingIDE() {
       return remaining;
     });
   }, [activeMainTabId]);
+
+  // ── Open new Browser / Terminal instances ──
+  const openNewBrowser = useCallback(() => {
+    const count = browserCounterRef.current++;
+    const tabId = `tool:browser#${count}`;
+    openMainTab({ id: tabId, type: "browser", label: `Browser ${count + 1}`, icon: "\uD83D\uDC41\uFE0F", closable: true });
+  }, [openMainTab]);
+
+  const openNewTerminal = useCallback(() => {
+    if (!rootPath) return;
+    const count = terminalCounterRef.current++;
+    const tabId = `tool:terminal#${count}`;
+    openMainTab({ id: tabId, type: "terminal", label: `Terminal ${count + 1}`, icon: "\u2328\uFE0F", closable: true });
+  }, [openMainTab, rootPath]);
+
   const [loadingFile, setLoadingFile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,7 +306,13 @@ export default function CodingIDE() {
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSearchMenu, setShowSearchMenu] = useState(false);
   const [showCrewMenu, setShowCrewMenu] = useState(false);
+  const [showBrowserMenu, setShowBrowserMenu] = useState(false);
+  const [showTerminalMenu, setShowTerminalMenu] = useState(false);
   const [activeCrew, setActiveCrew] = useState<string | null>(null);
+
+  // ── Multi-instance counters for Browser & Terminal ──
+  const browserCounterRef = useRef(0);
+  const terminalCounterRef = useRef(0);
 
   // ── Click-outside: close all toolbar dropdowns ──
   useEffect(() => {
@@ -302,6 +323,8 @@ export default function CodingIDE() {
         setShowProjectMenu(false);
         setShowSearchMenu(false);
         setShowCrewMenu(false);
+        setShowBrowserMenu(false);
+        setShowTerminalMenu(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -1418,20 +1441,73 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:api") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent"; }}
           title={tt("vibe.api")}>🌐 API</button>
-        <button onClick={() => openMainTab({ id: "tool:browser", type: "browser", label: "Browser", icon: "👁️", closable: true })}
-          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:browser" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:browser") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "tool:browser") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:browser" ? tk.toolbarActive : "transparent"; }}
-          title="Browser">👁️ Browser</button>
-        <button onClick={() => openMainTab({ id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true })}
-          disabled={!rootPath}
-          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors",
-            !rootPath && "opacity-20 cursor-not-allowed")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:terminal" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:terminal") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (rootPath && activeMainTab?.id !== "tool:terminal") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:terminal" ? tk.toolbarActive : "transparent"; }}
-          title={tt("vibe.term")}>⌨️ Terminal</button>
+        {/* 👁️ Browser dropdown — multi-instance */}
+        <div className="relative ml-1">
+          <button onClick={() => setShowBrowserMenu(!showBrowserMenu)}
+            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors"
+            style={{ backgroundColor: mainTabs.some(t => t.type === "browser") ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.type === "browser") ? tk.toolbarText : tk.toolbarTextMuted }}
+            onMouseEnter={e => { if (!mainTabs.some(t => t.type === "browser")) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = mainTabs.some(t => t.type === "browser") ? tk.toolbarActive : "transparent"; }}>
+            👁️ Browser <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
+          </button>
+          {showBrowserMenu && (
+            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+              <button onClick={() => { setShowBrowserMenu(false); openNewBrowser(); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                <span>➕</span> New Browser
+              </button>
+              {mainTabs.filter(t => t.type === "browser").length > 0 && (
+                <>
+                  <div className="border-t border-stone-100 my-1" />
+                  <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">Open Browsers</div>
+                  {mainTabs.filter(t => t.type === "browser").map(tab => (
+                    <button key={tab.id} onClick={() => { setShowBrowserMenu(false); setActiveMainTabId(tab.id); }}
+                      className={cn("w-full text-left px-3 py-2 text-xs hover:bg-blue-50 flex items-center gap-2 truncate",
+                        activeMainTabId === tab.id && "bg-blue-50 text-blue-700 font-semibold")}>
+                      <span>{tab.icon}</span> <span>{tab.label}</span>
+                      {activeMainTabId === tab.id && <span className="ml-auto text-blue-500">●</span>}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ⌨️ Terminal dropdown — multi-instance */}
+        <div className="relative ml-1">
+          <button onClick={() => { if (rootPath) setShowTerminalMenu(!showTerminalMenu); }}
+            disabled={!rootPath}
+            className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors",
+              !rootPath && "opacity-20 cursor-not-allowed")}
+            style={{ backgroundColor: mainTabs.some(t => t.type === "terminal") ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.type === "terminal") ? tk.toolbarText : tk.toolbarTextMuted }}
+            onMouseEnter={e => { if (rootPath && !mainTabs.some(t => t.type === "terminal")) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = mainTabs.some(t => t.type === "terminal") ? tk.toolbarActive : "transparent"; }}>
+            ⌨️ Terminal <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
+          </button>
+          {showTerminalMenu && rootPath && (
+            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+              <button onClick={() => { setShowTerminalMenu(false); openNewTerminal(); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                <span>➕</span> New Terminal
+              </button>
+              {mainTabs.filter(t => t.type === "terminal").length > 0 && (
+                <>
+                  <div className="border-t border-stone-100 my-1" />
+                  <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">Open Terminals</div>
+                  {mainTabs.filter(t => t.type === "terminal").map(tab => (
+                    <button key={tab.id} onClick={() => { setShowTerminalMenu(false); setActiveMainTabId(tab.id); }}
+                      className={cn("w-full text-left px-3 py-2 text-xs hover:bg-blue-50 flex items-center gap-2 truncate",
+                        activeMainTabId === tab.id && "bg-blue-50 text-blue-700 font-semibold")}>
+                      <span>{tab.icon}</span> <span>{tab.label}</span>
+                      {activeMainTabId === tab.id && <span className="ml-auto text-blue-500">●</span>}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Main Content ── */}
@@ -1989,7 +2065,7 @@ const sendChat = useCallback(async () => {
 
             {/* === BROWSER PREVIEW === */}
             {activeMainTab?.type === "browser" && (
-              <div className="flex-1 flex flex-col min-w-0">
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
                 <BrowserPreview
                   projectRoot={rootPath || ""}
                   onConsoleLog={(entry) => setBrowserConsoleLogs(prev => [...prev.slice(-200), entry])}
@@ -2101,7 +2177,7 @@ const sendChat = useCallback(async () => {
 
             {/* === TERMINAL TAB === */}
             {activeMainTab?.type === "terminal" && (
-              <div className="flex-1 flex flex-col min-w-0">
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
                 <div className="flex-1 min-h-0 bg-[#1e1717]">
                   <ShellTerminal cwd={rootPath || undefined} />
                 </div>
