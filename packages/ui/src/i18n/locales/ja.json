@@ -98,6 +98,7 @@
   "vibe.createProject": "作成",
   "vibe.projectMenu": "プロジェクト",
   "vibe.recentProjects": "最近のプロジェクト",
+  "vibe.addProject": "Code Project を追加",
   "vibe.aiInitialize": "AI初期化",
   "vibe.codeStatus": "コードステータスダッシュボード",
   "vibe.fixArea": "AI修正",

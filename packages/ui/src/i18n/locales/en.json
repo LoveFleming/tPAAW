@@ -99,6 +99,7 @@
   "vibe.createProject": "Create",
   "vibe.projectMenu": "Project",
   "vibe.recentProjects": "Recent Projects",
+  "vibe.addProject": "Add your Code Project",
   "vibe.aiInitialize": "AI Initialize",
   "vibe.codeStatus": "Code Status Dashboard",
   "vibe.fixArea": "AI Fix",

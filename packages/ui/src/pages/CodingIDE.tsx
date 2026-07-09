@@ -1323,8 +1323,6 @@ const sendChat = useCallback(async () => {
                 onKeyDown={e => { if (e.key === "Enter" && rootPath) { setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rootPath); } }}
                 placeholder={tt("vibe.projectPath")}
                 className="flex-1 text-sm font-mono px-2 py-1 border rounded bg-stone-50 outline-none focus:border-blue-400" style={{ borderColor: tk.borderInput }} />
-              <button onClick={() => setShowDirExplorer(true)}
-                className="text-xs px-1.5 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600" title={tt("coding.browseDir")}>📂</button>
             </div>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
@@ -1354,9 +1352,30 @@ const sendChat = useCallback(async () => {
                 }}
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
-                <span className="text-3xl">📂</span>
-                <p className="text-xs text-stone-400">{tt("vibe.noProject")}</p>
+              <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
+                <span className="text-4xl">💻</span>
+                <p className="text-sm font-medium text-stone-500">{tt("vibe.addProject", "加入你的 Code Project")}</p>
+                <div className="flex flex-col gap-1.5 w-full max-w-[200px]">
+                  <button onClick={() => { setNewProjectParent(""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
+                    className="text-xs px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                    ➕ {tt("vibe.newProject", "New Project")}
+                  </button>
+                  <input value={rootPath} onChange={e => setRootPath(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && rootPath) { setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rootPath); } }}
+                    placeholder={tt("vibe.projectPath")}
+                    className="text-xs font-mono px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400" style={{ borderColor: "#e7e5e4" }} />
+                  {recentProjects.length > 0 && (
+                    <div className="border-t border-stone-200 pt-2 mt-1">
+                      <div className="text-[10px] font-semibold text-stone-400 mb-1">{tt("vibe.recentProjects")}</div>
+                      {recentProjects.slice(0, 5).map(rp => (
+                        <button key={rp.path} onClick={() => { setRootPath(rp.path); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
+                          className="w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 rounded flex items-center gap-1.5 truncate">
+                          <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate text-stone-600">{rp.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
