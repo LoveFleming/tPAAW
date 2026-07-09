@@ -269,6 +269,63 @@ export default function CodingIDE() {
     openMainTab({ id: tabId, type: "terminal", label: `Terminal ${count + 1}`, icon: "\u2328\uFE0F", closable: true });
   }, [openMainTab, rootPath]);
 
+  // ── AI Fix handler for Dashboard ──
+  const startAiFix = useCallback(async (area: string) => {
+    if (!rootPath) return;
+    setFixingArea(area);
+    setFixProgress([]);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/ai-fix?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ area }),
+      });
+      if (!res.ok || !res.body) {
+        setFixProgress([{ step: area, status: "error" as const }]);
+        setFixingArea(null); return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.step && data.reason) {
+                setFixProgress(prev => [...prev, { step: data.step, status: "skip" as const }]);
+              } else if (data.step && data.error) {
+                setFixProgress(prev => [...prev, { step: data.step, status: "error" as const }]);
+              } else if (data.step && data.preview !== undefined) {
+                setFixProgress(prev => [...prev, { step: data.step, name: data.name, status: "done" as const }]);
+              } else if (data.step) {
+                setFixProgress(prev => [...prev, { step: data.step, name: data.name, status: "running" as const }]);
+              }
+              if (data.message === "AI Fix complete") {
+                setFixingArea(null);
+                // Refresh status after fix
+                fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {});
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch (err: any) {
+      setFixProgress([{ step: area, status: "error" as const }]);
+      setFixingArea(null);
+    }
+  }, [rootPath]);
+
+  // ── Auto-trigger AI Fix when fixingArea is set ──
+  useEffect(() => {
+    if (fixingArea) startAiFix(fixingArea);
+  }, [fixingArea, startAiFix]);
+
   const [loadingFile, setLoadingFile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -434,6 +491,9 @@ export default function CodingIDE() {
                   setAiInitializing(false);
                   // Refresh status after AI Init
                   fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {});
+                  // Auto-open Dashboard to show results
+                  openMainTab({ id: "tool:dashboard", type: "status", label: "Dashboard", icon: "📊", closable: true });
+                  setShowAiInitPanel(false);
                 }
               }
             } catch {}
@@ -520,6 +580,10 @@ export default function CodingIDE() {
   useEffect(() => {
     fetch(`${API_BASE}/api/coding-project/recent`).then(r => r.json()).then(data => { if (Array.isArray(data)) setRecentProjects(data); }).catch(() => {});
   }, []);
+  // Load code status on mount when rootPath exists
+  useEffect(() => {
+    if (rootPath) fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {});
+  }, [rootPath]);
   useEffect(() => {
     try { localStorage.setItem("paaw.api-tester.history", JSON.stringify(apiHistory.slice(0, 50))); } catch {}
   }, [apiHistory]);
@@ -1357,6 +1421,15 @@ const sendChat = useCallback(async () => {
                   <span>✕</span> {tt("vibe.closeProject")}
                 </button>
               )}
+              {rootPath && (
+                <>
+                  <div className="border-t border-stone-100 my-1" />
+                  <button onClick={() => { setShowProjectMenu(false); openMainTab({ id: "tool:dashboard", type: "status", label: "Dashboard", icon: "📊", closable: true }); }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
+                    <span>📊</span> Project Dashboard
+                  </button>
+                </>
+              )}
               {recentProjects.length > 0 && (
                 <>
                   <div className="border-t border-stone-100 my-1" />
@@ -2173,6 +2246,126 @@ const sendChat = useCallback(async () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* === PROJECT DASHBOARD === */}
+            {activeMainTab?.type === "status" && (
+              <div key={activeMainTab.id} className="flex-1 flex min-w-0 overflow-hidden">
+                {/* Left: Code Status (AI Initial scores) */}
+                <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                  <div className="px-5 py-3 border-b" style={{ borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">📊</span>
+                      <span className="text-sm font-bold text-stone-700">Project Dashboard</span>
+                      {!codeStatus && rootPath && (
+                        <button
+                          onClick={() => { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
+                          className="ml-auto text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-semibold">
+                          🚀 AI Initialize
+                        </button>
+                      )}
+                      {codeStatus && (
+                        <button
+                          onClick={() => { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
+                          className="ml-auto text-xs text-stone-400 hover:text-stone-600">↻</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {!codeStatus ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+                      <span className="text-5xl opacity-40">📊</span>
+                      <p className="text-sm text-stone-400">{tt("vibe.aiInitialize", "AI Initialize")} 專案後會產生健康度報告</p>
+                      <p className="text-xs text-stone-300">包含 API Spec、Error Mapping、Test Coverage、Coding Standards 等指標</p>
+                    </div>
+                  ) : !codeStatus.initialized ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+                      <span className="text-5xl opacity-40">📊</span>
+                      <p className="text-sm text-stone-400">尚未進行 AI Initialize</p>
+                      <button
+                        onClick={() => startAiInitialize()}
+                        className="px-4 py-2 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
+                        🚀 開始 AI Initialize
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="px-5 py-4 space-y-4">
+                      {Object.entries(codeStatus.scores).map(([area, data]) => (
+                        <div key={area} className="border rounded-lg overflow-hidden" style={{ borderColor: tk.borderLight }}>
+                          <div
+                            className="flex items-center gap-2 px-4 py-2 cursor-pointer select-none"
+                            style={{ backgroundColor: tk.bgMuted }}
+                            onClick={() => setExpandedArea(expandedArea === area ? null : area)}
+                          >
+                            <span className="text-[10px] text-stone-400 w-3">{expandedArea === area ? "▼" : "▶"}</span>
+                            <span className="text-xs font-bold text-stone-700 capitalize">{area.replace(/[-_]/g, " ")}</span>
+                            <div className="flex-1" />
+                            <div className="flex items-center gap-2">
+                              <div className="w-24 h-1.5 rounded-full bg-stone-200 overflow-hidden">
+                                <div className={cn("h-full rounded-full", data.score >= 80 ? "bg-green-500" : data.score >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${data.score}%` }} />
+                              </div>
+                              <span className={cn("text-xs font-bold", data.score >= 80 ? "text-green-600" : data.score >= 50 ? "text-amber-600" : "text-red-600")}>{data.score}</span>
+                            </div>
+                            {!fixingArea && data.score < 80 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setFixingArea(area); }}
+                                className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
+                              >🔧 Fix</button>
+                            )}
+                          </div>
+                          {expandedArea === area && (
+                            <div className="px-4 py-2 space-y-1">
+                              {data.items.map((item, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs">
+                                  <span className={item.status === "done" ? "text-green-500" : item.status === "partial" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400"}>
+                                    {item.status === "done" ? "✅" : item.status === "partial" ? "🟡" : item.status === "missing" ? "❌" : "⚪"}
+                                  </span>
+                                  <span className="text-stone-600">{item.name}</span>
+                                  {item.detail && <span className="text-stone-400 ml-auto truncate max-w-[200px]" title={item.detail}>{item.detail}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* AI Fix progress */}
+                  {fixingArea && (
+                    <div className="px-5 py-4">
+                      <div className="border rounded-lg p-4" style={{ borderColor: tk.accent + "60", backgroundColor: tk.accentBg }}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-sm font-bold" style={{ color: tk.accent }}>🔧 Fixing: {fixingArea}</span>
+                          <button onClick={() => { setFixingArea(null); setFixProgress([]); }} className="ml-auto text-xs text-stone-400 hover:text-stone-600">✕</button>
+                        </div>
+                        {fixProgress.length === 0 ? (
+                          <div className="text-xs text-stone-400 animate-pulse">Starting AI fix...</div>
+                        ) : (
+                          <div className="space-y-1">
+                            {fixProgress.map((step, i) => (
+                              <div key={i} className="flex items-center gap-2 text-xs">
+                                <span className={step.status === "done" ? "text-green-500" : step.status === "running" ? "text-blue-500 animate-pulse" : step.status === "error" ? "text-red-400" : "text-stone-300"}>
+                                  {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : "⏭️"}
+                                </span>
+                                <span className="text-stone-600">{step.step}</span>
+                                {step.name && <span className="text-stone-400">— {step.name}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Project Health */}
+                {rootPath && (
+                  <div className="shrink-0 w-72 border-l" style={{ borderColor: tk.borderLight }}>
+                    <ProjectHealth projectRoot={rootPath} refreshKey={Date.now()} />
+                  </div>
+                )}
               </div>
             )}
 
