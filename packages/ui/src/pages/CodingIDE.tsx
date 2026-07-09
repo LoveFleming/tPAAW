@@ -1496,10 +1496,7 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* ── spacer ── */}
-        <div className="flex-1" />
-
-        {/* ── Right side: non-dropdown tool buttons ── */}
+        {/* Non-dropdown tool buttons */}
         <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true })}
           className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
