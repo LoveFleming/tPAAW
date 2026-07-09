@@ -77,7 +77,7 @@ export default async function vibeFsRoute(req, res) {
       await mkdir(dirname(resolve(fPath)), { recursive: true });
       await writeFile(resolve(fPath), fContent, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, path: resolve(fPath) }));
+      res.end(JSON.stringify({ ok: true, path: normalizePath(resolve(fPath)) }));
     } catch (err) {
       res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
     }
@@ -278,7 +278,7 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
 
       if (path) {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ path }));
+        res.end(JSON.stringify({ path: normalizePath(path) }));
       } else {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ path: null, error: "Cancelled or no dialog available" }));
