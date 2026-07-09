@@ -59,6 +59,18 @@ interface OpenTab {
   lastSaved?: string;
 }
 
+// ── Main Tab Types ──
+type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "status" | "prompts";
+
+interface MainTab {
+  id: string;
+  type: MainTabType;
+  label: string;
+  icon: string;
+  closable: boolean;
+  crewId?: string;
+}
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -218,6 +230,30 @@ export default function CodingIDE() {
   // ── Editor State ──
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+  // ── Main Tabs (unified: editor files + tools + AI crew) ──
+  const [mainTabs, setMainTabs] = useState<MainTab[]>([]);
+  const [activeMainTabId, setActiveMainTabId] = useState<string | null>(null);
+  const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
+
+  const openMainTab = useCallback((tab: MainTab) => {
+    setMainTabs(prev => {
+      const existing = prev.find(t => t.id === tab.id);
+      if (existing) return prev;
+      return [...prev, tab];
+    });
+    setActiveMainTabId(tab.id);
+  }, []);
+
+  const closeMainTab = useCallback((id: string) => {
+    setMainTabs(prev => {
+      const remaining = prev.filter(t => t.id !== id);
+      if (activeMainTabId === id) {
+        setActiveMainTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
+      }
+      return remaining;
+    });
+  }, [activeMainTabId]);
   const [loadingFile, setLoadingFile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -515,7 +551,8 @@ export default function CodingIDE() {
         setOpenTabs(prev => [...prev, tab]);
         setActiveTabId(path);
         setIsEditing(false);
-        setActiveSubPanel("editor");
+        // Open as main tab too
+        openMainTab({ id: `file:${path}`, type: "editor", label: name, icon: getFileIcon(name), closable: true, filePath: path });
         logEvent("open_file", { path, language: tab.language });
       }
     } catch {}
@@ -525,8 +562,9 @@ export default function CodingIDE() {
   const closeTab = useCallback((id: string) => {
     setOpenTabs(prev => prev.filter(ot => ot.id !== id));
     if (activeTabId === id) { const remaining = openTabs.filter(ot => ot.id !== id); setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null); }
+    closeMainTab(`file:${id}`);
     logEvent("close_file", { path: id });
-  }, [activeTabId, openTabs, logEvent]);
+  }, [activeTabId, openTabs, logEvent, closeMainTab]);
 
   const saveFile = useCallback(async (tab: OpenTab) => {
     if (!tab.modified) return;
@@ -1348,28 +1386,31 @@ const sendChat = useCallback(async () => {
             </div>
           )}
         </div>
-        {/* Right-side tool icons */}
-        <button onClick={() => { setShowGitPanel(!showGitPanel); if (!showGitPanel) { setActiveSubPanel("diff"); } }}
+        {/* Right-side tool icons — open as main tabs */}
+        <button onClick={() => openMainTab({ id: "tool:git", type: "git", label: "Git", icon: "🔀", closable: true })}
           className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
-          style={{ backgroundColor: showGitPanel ? tk.toolbarActive : "transparent", color: showGitPanel ? tk.toolbarText : tk.toolbarTextMuted }}
+          style={{ backgroundColor: activeMainTab?.id === "tool:git" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:git") ? tk.toolbarText : tk.toolbarTextMuted }}
           title={tt("vibe.git")}>🔀</button>
-        <button onClick={() => { setShowApiTester(!showApiTester); if (!showApiTester) { setActiveSubPanel("api-tester"); } }}
+        <button onClick={() => openMainTab({ id: "tool:api", type: "api", label: "API Tester", icon: "🌐", closable: true })}
           className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
-          style={{ backgroundColor: showApiTester ? tk.toolbarActive : "transparent", color: showApiTester ? tk.toolbarText : tk.toolbarTextMuted }}
+          style={{ backgroundColor: activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:api") ? tk.toolbarText : tk.toolbarTextMuted }}
           title={tt("vibe.api")}>🌐</button>
-        <button onClick={() => { setShowBrowser(!showBrowser); if (!showBrowser) { setActiveSubPanel("browser"); } }}
+        <button onClick={() => openMainTab({ id: "tool:browser", type: "browser", label: "Browser", icon: "👁️", closable: true })}
           className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
-          style={{ backgroundColor: showBrowser ? tk.toolbarActive : "transparent", color: showBrowser ? tk.toolbarText : tk.toolbarTextMuted }}
+          style={{ backgroundColor: activeMainTab?.id === "tool:browser" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:browser") ? tk.toolbarText : tk.toolbarTextMuted }}
           title="Browser">👁️</button>
-        <button onClick={() => setShowAiPanel(!showAiPanel)}
+        <button onClick={() => {
+          const crew = activeCrew ? codingCrews.find(c => c.id === activeCrew) : null;
+          openMainTab({ id: activeCrew ? `crew:${activeCrew}` : "tool:ai", type: "ai-crew", label: crew ? crew.title : "AI Chat", icon: crew?.emoji || "🤖", closable: true, crewId: activeCrew || undefined });
+        }}
           className={cn("text-xs px-2 py-1 rounded transition-colors mr-0.5")}
-          style={{ backgroundColor: showAiPanel ? tk.accent + "33" : "transparent", color: showAiPanel ? tk.accent : tk.toolbarTextMuted }}
+          style={{ backgroundColor: activeMainTab?.type === "ai-crew" ? tk.accent + "33" : "transparent", color: mainTabs.some(t => t.type === "ai-crew") ? tk.accent : tk.toolbarTextMuted }}
           title="AI Chat">🤖</button>
-        <button onClick={() => setShowTerminal(!showTerminal)}
+        <button onClick={() => openMainTab({ id: "tool:terminal", type: "terminal", label: "Terminal", icon: "⌨️", closable: true })}
           disabled={!rootPath}
           className={cn("text-xs px-2 py-1 rounded transition-colors",
             !rootPath && "opacity-20 cursor-not-allowed")}
-          style={{ backgroundColor: showTerminal ? tk.toolbarActive : "transparent", color: showTerminal ? tk.toolbarText : tk.toolbarTextMuted }}
+          style={{ backgroundColor: activeMainTab?.id === "tool:terminal" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:terminal") ? tk.toolbarText : tk.toolbarTextMuted }}
           title={tt("vibe.term")}>⌨️</button>
       </div>
 
@@ -1451,37 +1492,37 @@ const sendChat = useCallback(async () => {
         <div className="w-px cursor-col-resize hover:w-0.5 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
           onMouseDown={e => startResize("sidebar", e)} style={{ backgroundColor: tk.borderLight }} />
 
-        {/* ── Center: Editor + Git/API Panels + Terminal ── */}
+        {/* ── Center: Unified Tab System ── */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Tab Bar */}
-          <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
-            {activeSubPanel === "editor" && openTabs.map(tab => {
+          {/* Tab Bar — all tabs (files + tools + AI crew) */}
+          <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgMuted, borderBottom: `1px solid ${tk.borderLight}` }}>
+            {mainTabs.map(tab => {
+              const isEditorFile = tab.type === "editor";
+              const fileTab = isEditorFile ? openTabs.find(ot => ot.id === tab.filePath) : null;
+              const isActive = activeMainTabId === tab.id;
               return (
                 <div key={tab.id}
                   className={cn("group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors",
-                    activeTabId === tab.id ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
-                  style={activeTabId === tab.id ? { borderTop: "2px solid #3b82f6" } : { borderTop: "2px solid transparent" }}
-                  onClick={() => { setActiveTabId(tab.id); setIsEditing(false); setActiveSubPanel("editor"); }}>
-                  <span className="text-xs shrink-0">{getFileIcon(tab.name)}</span>
-                  <span className="truncate max-w-[120px]">{tab.name}</span>
-                  {tab.modified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
-                  <button onClick={e => { e.stopPropagation(); closeTab(tab.id); }}
-                    className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-xs ml-1">✕</button>
+                    isActive ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
+                  style={isActive ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
+                  onClick={() => { setActiveMainTabId(tab.id); if (isEditorFile && fileTab) setActiveTabId(fileTab.id); }}>
+                  <span className="text-xs shrink-0">{tab.icon}</span>
+                  <span className="truncate max-w-[120px]">{tab.label}</span>
+                  {isEditorFile && fileTab?.modified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
+                  {tab.closable && (
+                    <button onClick={e => { e.stopPropagation(); closeMainTab(tab.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 text-xs ml-1">✕</button>
+                  )}
                 </div>
               );
             })}
-            {activeSubPanel === "diff" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔀 Diff {gitDiffFile && <span className="text-stone-400 font-normal">— {gitDiffFile}</span>}</div>}
-            {activeSubPanel === "blame" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🔍 Blame — {blameFile}</div>}
-            {activeSubPanel === "api-tester" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🌐 API Tester</div>}
-            {activeSubPanel === "browser" && <div className="px-4 py-1.5 text-xs font-semibold text-stone-600 bg-white" style={{ borderTop: "2px solid #3b82f6" }}>🌐 Browser Preview</div>}
-            {activeSubPanel === "editor" && openTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">{tt("vibe.noFilesOpen")}</div>}
+            {mainTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">{tt("vibe.noFilesOpen")}</div>}
           </div>
-
-          {/* ── Content Area: Editor / Diff / Blame / API Tester ── */}
+          {/* ── Content Area ── */}
           <div className="flex-1 flex min-h-0 overflow-hidden relative">
 
             {/* === EDITOR === */}
-            {activeSubPanel === "editor" && activeTab && (
+            {activeMainTab?.type === "editor" && activeTab && (
               <div className="flex-1 flex min-w-0 overflow-hidden">
                 <div className="shrink-0 select-none text-right overflow-hidden"
                   style={{ color: tk.textMuted, backgroundColor: tk.bgMuted, borderRight: `1px solid ${tk.borderLight}`, width: lineNumWidth }}>
@@ -1511,7 +1552,7 @@ const sendChat = useCallback(async () => {
             )}
 
             {/* === GIT PANEL (Diff / Blame / Status / Review) === */}
-            {(activeSubPanel === "diff" || activeSubPanel === "blame") && showGitPanel && (
+            {activeMainTab?.type === "git" && (
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Git sub-tabs */}
                 <div className="flex items-center px-2 py-1 shrink-0 gap-0.5" style={{ backgroundColor: tk.bg, borderBottom: `1px solid ${tk.borderLight}` }}>
@@ -1685,7 +1726,7 @@ const sendChat = useCallback(async () => {
             )}
 
             {/* === API TESTER === */}
-            {activeSubPanel === "api-tester" && showApiTester && (
+            {activeMainTab?.type === "api" && (
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* ── Top: Request Builder ── */}
                 <div data-api-panel="request" className="shrink-0 overflow-y-auto p-3 space-y-2 flex flex-col" style={{ flex: "0 0 50%", borderBottom: `1px solid ${tk.borderLight}`, maxHeight: "70%" }}>
@@ -1927,7 +1968,7 @@ const sendChat = useCallback(async () => {
             )}
 
             {/* === BROWSER PREVIEW === */}
-            {activeSubPanel === "browser" && showBrowser && (
+            {activeMainTab?.type === "browser" && (
               <div className="flex-1 flex flex-col min-w-0">
                 <BrowserPreview
                   projectRoot={rootPath || ""}
@@ -1941,460 +1982,129 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === Empty state === */}
-            {activeSubPanel === "editor" && !activeTab && (
+            {/* === AI CREW / CHAT TAB === */}
+            {activeMainTab?.type === "ai-crew" && (
+              <div className="flex-1 flex flex-col min-w-0 bg-white">
+                {/* Chat header */}
+                <div className="flex items-center px-3 py-1.5 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+                  {activeCrew && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold mr-2">
+                      {codingCrews.find(c => c.id === activeCrew)?.emoji} {codingCrews.find(c => c.id === activeCrew)?.title}
+                    </span>
+                  )}
+                  {activeTab && <span className="text-sm text-stone-400 ml-1 truncate">📄 {activeTab.name}</span>}
+                  <span className="flex-1" />
+                  {/* Mode toggle */}
+                  <div className="flex items-center gap-0.5 mr-2 flex-wrap">
+                    <button onClick={() => setChatMode("agent")}
+                      className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
+                        chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                      🤖 Agent
+                    </button>
+                    <button onClick={() => setChatMode("chat")}
+                      className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
+                        chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                      💬 Chat
+                    </button>
+                    <span className="text-stone-200 mx-0.5">|</span>
+                    <button onClick={() => setChatMode("spec")}
+                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                        chatMode === "spec" ? "bg-blue-50 text-blue-600 border-blue-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                      📋 Spec
+                    </button>
+                    <button onClick={() => setChatMode("test")}
+                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                        chatMode === "test" ? "bg-purple-50 text-purple-600 border-purple-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                      🧪 Test
+                    </button>
+                    <button onClick={() => setChatMode("bug")}
+                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                        chatMode === "bug" ? "bg-red-50 text-red-600 border-red-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                      🐛 Bug
+                    </button>
+                    <button onClick={() => setChatMode("docs")}
+                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                        chatMode === "docs" ? "bg-amber-50 text-amber-600 border-amber-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                      📄 Docs
+                    </button>
+                    <button onClick={() => setChatMode("maintain")}
+                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                        chatMode === "maintain" ? "bg-teal-50 text-teal-600 border-teal-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                      🔧 Maintain
+                    </button>
+                  </div>
+                  {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
+                  <ModelSelector value={codingModel} onChange={setCodingModel} />
+                </div>
+
+                {/* Chat messages */}
+                <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ scrollbarWidth: "thin" }}>
+                  {chatMessages.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400">
+                      <span className="text-3xl">🤖</span>
+                      <p className="text-xs">{activeCrew ? `${codingCrews.find(c => c.id === activeCrew)?.emoji} ${codingCrews.find(c => c.id === activeCrew)?.title} 已就緒` : "選擇 👥 人員或直接對話"}</p>
+                    </div>
+                  )}
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={cn("rounded-lg px-3 py-2 text-sm",
+                      msg.role === "user" ? "bg-stone-50 text-stone-700" : msg.role === "assistant" ? "bg-blue-50 text-blue-800 whitespace-pre-wrap" : "bg-stone-100 text-stone-500 text-xs")}>
+                      {msg.role === "user" ? "🙋" : msg.role === "assistant" ? "🤖" : "⚙️"} {msg.content}
+                    </div>
+                  ))}
+                  {chatLoading && <div className="text-xs text-purple-500 animate-pulse">🤖 思考中...</div>}
+                </div>
+
+                {/* Chat input */}
+                <div className="shrink-0 px-3 py-2" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      ref={chatInputRef}
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={handleChatKeyDown}
+                      placeholder={activeCrew ? `問 ${codingCrews.find(c => c.id === activeCrew)?.title}...` : "輸入訊息..."}
+                      className="flex-1 text-sm px-3 py-2 border rounded-lg resize-none outline-none focus:border-blue-400"
+                      style={{ borderColor: tk.borderInput }}
+                      rows={2}
+                    />
+                    <button
+                      onClick={() => { if (!chatInput.trim()) return; const msg = chatInput.trim(); setChatInput(""); sendChatMessage(msg); }}
+                      disabled={chatLoading || !chatInput.trim()}
+                      className="px-3 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40"
+                      style={{ backgroundColor: tk.accent }}>
+                      {tt("vibe.send")}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === TERMINAL TAB === */}
+            {activeMainTab?.type === "terminal" && (
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex-1 min-h-0 bg-[#1e1717]">
+                  <ShellTerminal cwd={rootPath || undefined} />
+                </div>
+              </div>
+            )}
+
+            {/* === No tab selected === */}
+            {!activeMainTab && (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
                 <div className="text-5xl">⚡</div>
                 <h2 className="text-lg font-bold text-stone-600">{tt("vibe.welcome")}</h2>
                 <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
                   {tt("vibe.welcomeLine1")}<br />
                   {tt("vibe.welcomeLine2")}<br />
-                  {tt("vibe.welcomeLine3")}<br />
-                  🤖 AI Chat — 對著檔案問問題
+                  {tt("vibe.welcomeLine3")}
                 </p>
               </div>
             )}
 
           </div>
 
-          {/* Terminal resize handle */}
-          {showTerminal && <div className="h-px cursor-row-resize hover:h-1 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
-            onMouseDown={e => startResize("terminal", e)} style={{ backgroundColor: tk.border }} />}
-
-          {/* Terminal */}
-          {showTerminal && (
-            <div className="shrink-0 flex flex-col" style={{ height: terminalHeight }}>
-              <div className="flex items-center px-2 py-0.5 shrink-0 select-none" style={{ backgroundColor: "#1e1717", borderBottom: "1px solid #2d2424" }}>
-                <span className="text-xs text-stone-400 font-semibold">
-                  Terminal
-                </span>
-                <span className="flex-1" />
-                <span className="text-[10px] text-stone-500">{rootPath ? rootPath.split(/[\\/]/).pop() : "~"}</span>
-                <button onClick={() => setShowTerminal(false)} className="text-stone-500 hover:text-white text-xs ml-2">✕</button>
-              </div>
-              <div className="flex-1 min-h-0">
-                <ShellTerminal cwd={rootPath || undefined} />
-              </div>
-            </div>
-          )}
+          {/* Terminal — moved to main tab, bottom panel removed */}
         </div>
-
-        {/* ── Right Panel: Chat / Standards / Sessions ── */}
-        {showAiPanel && (
-          <>
-            <div className="w-px cursor-col-resize hover:w-0.5 hover:bg-blue-400 active:bg-blue-500 transition-all shrink-0"
-              onMouseDown={e => startResize("ai", e)} style={{ backgroundColor: tk.border }} />
-            <div className="flex flex-col shrink-0 select-none" style={{ width: aiPanelWidth, backgroundColor: "#fff" }}>
-              {/* Tab Bar */}
-              <div className="flex items-center px-2 py-1.5 shrink-0 gap-0.5" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                <button onClick={() => setRightTab("chat")}
-                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
-                    rightTab === "chat" ? "bg-blue-100 text-blue-700" : "text-stone-400 hover:bg-stone-50")}>
-                  🤖 Chat
-                </button>
-                <button onClick={() => setRightTab("standards")}
-                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
-                    rightTab === "standards" ? "bg-purple-100 text-purple-700" : "text-stone-400 hover:bg-stone-50")}>
-                  📏 Standards
-                </button>
-                <button onClick={() => setRightTab("sessions")}
-                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
-                    rightTab === "sessions" ? "bg-green-100 text-green-700" : "text-stone-400 hover:bg-stone-50")}>
-                  📜 Sessions
-                </button>
-                <button onClick={() => setRightTab("decisions")}
-                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
-                    rightTab === "decisions" ? "bg-amber-100 text-amber-700" : "text-stone-400 hover:bg-stone-50")}>
-                  🧠 ADR
-                </button>
-                <button onClick={() => setRightTab("health")}
-                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
-                    rightTab === "health" ? "bg-teal-100 text-teal-700" : "text-stone-400 hover:bg-stone-50")}>
-                  📊 Health
-                </button>
-                <button onClick={() => { setRightTab("status"); if (rootPath) fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
-                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
-                    rightTab === "status" ? "bg-emerald-100 text-emerald-700" : "text-stone-400 hover:bg-stone-50")}>
-                  🏥 Status
-                </button>
-                <button onClick={() => { setRightTab("prompts"); if (rootPath) fetch(`${API_BASE}/api/coding-project/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(data => { if (Array.isArray(data)) setAiPrompts(data); }).catch(() => {}); }}
-                  className={cn("text-xs px-2.5 py-1 rounded-md font-semibold transition-colors",
-                    rightTab === "prompts" ? "bg-orange-100 text-orange-700" : "text-stone-400 hover:bg-stone-50")}>
-                  🎯 Prompts
-                </button>
-                <span className="flex-1" />
-                {rightTab === "chat" && (
-                  <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs px-1">✕</button>
-                )}
-                {rightTab !== "chat" && (
-                  <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs px-1">✕</button>
-                )}
-              </div>
-
-              {/* ── Chat Tab Content ── */}
-              {rightTab === "chat" && (<>
-              <div className="flex items-center px-3 py-1.5 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                {activeTab && <span className="text-sm text-stone-400 ml-1 truncate">📄 {activeTab.name}</span>}
-                <span className="flex-1" />
-                {/* Mode toggle */}
-                <div className="flex items-center gap-0.5 mr-2 flex-wrap">
-                  <button onClick={() => setChatMode("agent")}
-                    className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
-                      chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                    🤖 Agent
-                  </button>
-                  <button onClick={() => setChatMode("chat")}
-                    className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
-                      chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                    💬 Chat
-                  </button>
-                  <span className="text-stone-200 mx-0.5">|</span>
-                  <button onClick={() => setChatMode("spec")}
-                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                      chatMode === "spec" ? "bg-blue-50 text-blue-600 border-blue-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                    📋 Spec
-                  </button>
-                  <button onClick={() => setChatMode("test")}
-                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                      chatMode === "test" ? "bg-purple-50 text-purple-600 border-purple-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                    🧪 Test
-                  </button>
-                  <button onClick={() => setChatMode("bug")}
-                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                      chatMode === "bug" ? "bg-red-50 text-red-600 border-red-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                    🐛 Bug
-                  </button>
-                  <button onClick={() => setChatMode("docs")}
-                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                      chatMode === "docs" ? "bg-amber-50 text-amber-600 border-amber-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                    📖 Docs
-                  </button>
-                  <button onClick={() => setChatMode("maintain")}
-                    className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                      chatMode === "maintain" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                    🔧 Maintain
-                  </button>
-                </div>
-                <ModelSelector feature="coding" value={codingModel} onChange={setVibeModel} />
-                {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
-                {activeCrew && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold mr-2">
-                    {codingCrews.find(c => c.id === activeCrew)?.emoji} {codingCrews.find(c => c.id === activeCrew)?.title}
-                  </span>
-                )}
-                {["spec","test","bug","docs","maintain"].includes(chatMode) && (
-                  <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold mr-2",
-                    chatMode === "spec" ? "bg-blue-50 text-blue-600" :
-                    chatMode === "test" ? "bg-purple-50 text-purple-600" :
-                    chatMode === "bug" ? "bg-red-50 text-red-600" :
-                    chatMode === "docs" ? "bg-amber-50 text-amber-600" :
-                    "bg-emerald-50 text-emerald-600")}>
-                    {chatMode.toUpperCase()} AI
-                  </span>
-                )}
-                <button onClick={() => setShowAiPanel(false)} className="text-stone-400 hover:text-stone-700 text-xs">✕</button>
-              </div>
-              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ fontSize: 13 }}>
-                {chatMessages.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-2">
-                    <span className="text-3xl">🤖</span>
-                    <p className="text-stone-400 text-sm">{tt("vibe.aiAskFile")}<br />{tt("vibe.aiAutoContextDesc")}</p>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {[tt("vibe.aiQuickExplain"), tt("vibe.aiQuickProblem"), tt("vibe.aiQuickComment"), tt("vibe.aiQuickPerf"), tt("vibe.aiQuickReview", "🔍 Review")].map(q => (
-                        <button key={q} onClick={() => {
-                          const isReview = q.includes("Review") || q.includes("review") || q.includes("レビュー");
-                          if (isReview) {
-                            setChatInput("請幫我 review 這個專案的整體狀況：git status、最近修改、架構、和需要注意的事項。");
-                          } else {
-                            setChatInput(q);
-                          }
-                        }}
-                          className={cn("text-sm px-2.5 py-1.5 rounded-full border transition-colors",
-                            q.includes("Review") ? "border-purple-200 text-purple-600 hover:bg-purple-50" : "border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300")}>{q}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {chatMessages.map((msg, i) => (
-                  <div key={i} className={cn("rounded-lg px-3 py-2.5 text-sm leading-relaxed", msg.role === "user" ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-stone-700")}>
-                    <div className="text-xs font-bold text-stone-400 mb-1">{msg.role === "user" ? tt("vibe.aiYou") : tt("vibe.ai")}</div>
-                    <pre className="whitespace-pre-wrap font-sans break-words text-sm" style={{ fontFamily: "inherit" }}>{msg.content}</pre>
-                  </div>
-                ))}
-                {chatLoading && <div className="text-sm text-stone-400 animate-pulse px-3 flex items-center gap-1.5"><span className="w-3 h-3 border-[1.5px] border-stone-400 border-t-transparent rounded-full animate-spin" />{tt("vibe.aiThinking")}</div>}
-                <div ref={chatEndRef} />
-              </div>
-              {/* Agent Tool Log */}
-              {agentToolLog.length > 0 && (
-                <div className="px-3 py-2 shrink-0" style={{ borderTop: `1px solid ${tk.borderLight}`, maxHeight: 150, overflowY: "auto" }}>
-                  <div className="text-xs font-bold text-purple-500 mb-1">⚡ Agent Tools ({agentToolLog.length})</div>
-                  {agentToolLog.map((t, i) => (
-                    <div key={i} className="text-xs text-stone-500 py-0.5 border-b" style={{ borderColor: "#f5f5f5" }}>
-                      <span className="font-semibold text-purple-600">{t.name}</span>
-                      <span className="text-stone-400 ml-1">{t.args?.slice(0, 60)}</span>
-                      {t.result && <span className="text-emerald-500 ml-1">✓ {t.result.slice(0, 50)}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="px-2 py-2 shrink-0" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-                <div className="flex items-end gap-1.5">
-                  <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); setChatInput(""); sendChat(); } }}
-                    placeholder={tt("vibe.aiPlaceholder")}
-                    className="flex-1 text-sm px-3 py-2 border rounded-lg resize-none outline-none focus:border-blue-400"
-                    style={{ borderColor: "#ddd", minHeight: 38, maxHeight: 120 }} rows={1} />
-                  <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} data-send-chat
-                    className="px-3 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40 transition-all active:scale-95 shrink-0"
-                    style={{ backgroundColor: tk.accent }}>Send</button>
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-stone-300">Enter 發送 · Shift+Enter 換行</span>
-                  {activeTab && <span className="text-xs text-stone-300">· 自動帶入 {activeTab.name}</span>}
-                </div>
-              </div>
-              </>)}
-
-              {/* ── Standards Tab Content ── */}
-              {rightTab === "standards" && (
-                <div className="flex-1 min-h-0">
-                  <StandardsEditor projectRoot={rootPath || ""} />
-                </div>
-              )}
-
-              {/* ── Sessions Tab Content ── */}
-              {rightTab === "sessions" && (
-                <div className="flex-1 min-h-0">
-                  <SessionHistory projectRoot={rootPath || ""} />
-                </div>
-              )}
-
-              {/* ── Decisions Tab Content ── */}
-              {rightTab === "decisions" && (
-                <div className="flex-1 min-h-0">
-                  <DecisionLog projectRoot={rootPath || ""} />
-                </div>
-              )}
-
-              {/* ── Health Tab Content ── */}
-              {rightTab === "health" && (
-                <div className="flex-1 min-h-0">
-                  <ProjectHealth projectRoot={rootPath || ""} />
-                </div>
-              )}
-              {rightTab === "prompts" && (
-                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2" style={{ scrollbarWidth: "thin" }}>
-                  <div className="text-xs text-stone-400 mb-2">AI Initialize 使用的 Prompt 模板。自訂會覆蓋預設。</div>
-                  {aiPrompts.map(p => (
-                    <div key={p.filename} className="border rounded-lg p-3" style={{ borderColor: p.hasOverride ? "#fbbf24" : "#e5e5e5", backgroundColor: p.hasOverride ? "#fffbeb" : "#fff" }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-stone-700">{p.name}</span>
-                        {p.hasOverride && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-bold">自訂</span>}
-                        <span className="flex-1" />
-                        <button onClick={() => { setEditingPrompt(p.filename); setEditingPromptContent(p.activeContent); }}
-                          className="text-xs px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200">✏️ 編輯</button>
-                        {p.hasOverride && (
-                          <button onClick={async () => {
-                            if (!confirm("確定要恢復預設 prompt？")) return;
-                            await fetch(`${API_BASE}/api/coding-project/prompts/${p.filename}?path=${encodeURIComponent(rootPath)}`, { method: "DELETE" });
-                            const updated = await fetch(`${API_BASE}/api/coding-project/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
-                            if (Array.isArray(updated)) setAiPrompts(updated);
-                          }} className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-600 hover:bg-amber-100">↩ 預設</button>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-stone-400 truncate">{p.activeContent.slice(0, 100)}...</div>
-                      <div className="text-[10px] text-stone-300 mt-0.5">{p.size.toLocaleString()} chars</div>
-                    </div>
-                  ))}
-                  {editingPrompt && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setEditingPrompt(null)}>
-                      <div className="bg-white rounded-2xl shadow-2xl border flex flex-col" style={{ width: "min(640px, 90vw)", height: "min(70vh, 500px)" }} onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-4 py-2 border-b" style={{ backgroundColor: "#fff7ed", borderColor: "#fed7aa" }}>
-                          <h3 className="text-sm font-bold text-orange-700">✏️ {editingPrompt}</h3>
-                          <button onClick={() => setEditingPrompt(null)} className="text-stone-400 hover:text-stone-600">✕</button>
-                        </div>
-                        <textarea value={editingPromptContent} onChange={e => setEditingPromptContent(e.target.value)}
-                          className="flex-1 p-3 text-sm font-mono resize-none outline-none" style={{ tabSize: 2 }} spellCheck={false} />
-                        <div className="px-4 py-2 border-t flex items-center justify-between" style={{ borderColor: "#f0f0f0" }}>
-                          <span className="text-[10px] text-stone-400">儲存後會覆蓋預設 prompt</span>
-                          <div className="flex gap-2">
-                            <button onClick={() => setEditingPrompt(null)} className="px-3 py-1.5 text-xs rounded-lg border border-stone-200 text-stone-600">取消</button>
-                            <button onClick={async () => {
-                              setPromptSaving(true);
-                              await fetch(`${API_BASE}/api/coding-project/prompts/${editingPrompt}?path=${encodeURIComponent(rootPath)}`, {
-                                method: "PUT", headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ content: editingPromptContent }),
-                              });
-                              const updated = await fetch(`${API_BASE}/api/coding-project/prompts?path=${encodeURIComponent(rootPath)}`).then(r => r.json());
-                              if (Array.isArray(updated)) setAiPrompts(updated);
-                              setPromptSaving(false);
-                              setEditingPrompt(null);
-                            }} disabled={promptSaving}
-                              className="px-4 py-1.5 text-xs font-bold text-white rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50">
-                              {promptSaving ? "儲存中..." : "💾 儲存"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {aiPrompts.length === 0 && (
-                    <div className="text-center py-8 text-xs text-stone-400">開啟專案後可管理 AI Prompt</div>
-                  )}
-                </div>
-              )}
-              {rightTab === "status" && (
-                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
-                  {!codeStatus?.initialized && (
-                    <div className="text-center py-8">
-                      <div className="text-4xl mb-3">🏥</div>
-                      <div className="text-sm text-stone-400 mb-2">尚無專案健康資料</div>
-                      <button onClick={() => { if (rootPath) fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
-                        className="px-4 py-1.5 text-xs font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
-                        🔄 重新掃描
-                      </button>
-                    </div>
-                  )}
-                  {codeStatus?.initialized && (() => {
-                    const areas = [
-                      { key: "spec", icon: "📋", label: "Spec", color: "#3b82f6" },
-                      { key: "test", icon: "🧪", label: "Test", color: "#8b5cf6" },
-                      { key: "bug", icon: "🐛", label: "Bug/Error", color: "#ef4444" },
-                      { key: "docs", icon: "📖", label: "Docs", color: "#f59e0b" },
-                      { key: "maintain", icon: "🔧", label: "Maintain", color: "#10b981" },
-                    ];
-                    const maxScore = 100;
-                    return (
-                      <>
-                        <div className="text-xs text-stone-400 mb-1">專案健康度大盤 · <button onClick={async () => { const s = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()); setCodeStatus(s); }} className="text-emerald-600 hover:underline">刷新</button></div>
-                        {/* Score cards row */}
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {areas.map(a => {
-                            const sc = codeStatus.scores?.[a.key];
-                            const score = Math.min(sc?.score || 0, maxScore);
-                            const pct = Math.round((score / maxScore) * 100);
-                            const barColor = pct >= 70 ? a.color : pct >= 40 ? "#f59e0b" : "#ef4444";
-                            return (
-                              <div key={a.key} onClick={() => setExpandedArea(expandedArea === a.key ? null : a.key)}
-                                className={cn("cursor-pointer rounded-lg p-2 text-center border-2 transition-all",
-                                  expandedArea === a.key ? "border-stone-400 bg-stone-50" : "border-transparent hover:border-stone-200")}>
-                                <div className="text-lg">{a.icon}</div>
-                                <div className="text-[10px] text-stone-400 mt-0.5">{a.label}</div>
-                                <div className="text-lg font-bold mt-0.5" style={{ color: barColor }}>{pct}</div>
-                                <div className="w-full h-1 rounded-full bg-stone-100 mt-1">
-                                  <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {/* Expanded detail */}
-                        {expandedArea && codeStatus.scores?.[expandedArea] && (
-                          <div className="border rounded-lg overflow-hidden" style={{ borderColor: areas.find(a => a.key === expandedArea)?.color || "#e5e5e5" }}>
-                            <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: areas.find(a => a.key === expandedArea)?.color + "10" }}>
-                              <span className="text-base">{areas.find(a => a.key === expandedArea)?.icon}</span>
-                              <span className="text-sm font-bold" style={{ color: areas.find(a => a.key === expandedArea)?.color }}>{areas.find(a => a.key === expandedArea)?.label} Details</span>
-                              <span className="flex-1" />
-                              <button onClick={async () => {
-                                if (fixingArea) return;
-                                setFixingArea(expandedArea);
-                                setFixProgress([]);
-                                const res = await fetch(`${API_BASE}/api/coding-project/ai-fix?path=${encodeURIComponent(rootPath)}`, {
-                                  method: "POST", headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ area: expandedArea }),
-                                });
-                                if (!res.ok || !res.body) { setFixingArea(null); return; }
-                                const reader = res.body.getReader();
-                                const decoder = new TextDecoder();
-                                let buf = "";
-                                while (true) {
-                                  const { done, value } = await reader.read();
-                                  if (done) break;
-                                  buf += decoder.decode(value, { stream: true });
-                                  const lines = buf.split("\n"); buf = lines.pop() || "";
-                                  for (const line of lines) {
-                                    if (line.startsWith("data: ")) {
-                                      try {
-                                        const d = JSON.parse(line.slice(6));
-                                        if (d.step) {
-                                          if (d.error) {
-                                            setFixProgress(prev => [...prev, { step: d.step, status: "error" as const }]);
-                                          } else if (d.preview !== undefined) {
-                                            setFixProgress(prev => [...prev, { step: d.step, status: "done" as const }]);
-                                          } else if (d.reason) {
-                                            setFixProgress(prev => [...prev, { step: d.step, status: "skip" as const }]);
-                                          } else {
-                                            setFixProgress(prev => [...prev, { step: d.step, name: d.name, status: "running" as const }]);
-                                          }
-                                        }
-                                        if (d.scores) setCodeStatus({ initialized: true, scores: d.scores });
-                                        if (d.message?.includes("complete")) setFixingArea(null);
-                                      } catch {}
-                                    }
-                                  }
-                                }
-                                setFixingArea(null);
-                              }} disabled={!!fixingArea}
-                                className={cn("text-[10px] px-2 py-1 rounded-full font-bold",
-                                  fixingArea ? "bg-stone-100 text-stone-400" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-200")}>
-                                🤖 Auto Fix
-                              </button>
-                              <button onClick={() => {
-                                const modeMap: Record<string, string> = { spec: "spec", test: "test", bug: "bug", docs: "docs", maintain: "maintain" };
-                                const labelMap: Record<string, string> = { spec: "Spec", test: "Test", bug: "Bug/Error", docs: "Docs", maintain: "Maintainability" };
-                                setChatMode(modeMap[expandedArea] as any);
-                                setDomainAutoPrompt({ mode: expandedArea, prompt: `分析 ${labelMap[expandedArea]} 區域的缺口，列出要補的項目` });
-                                setShowAiPanel(true);
-                                setRightTab("chat");
-                              }} className="text-[10px] px-2 py-1 rounded-full font-bold bg-purple-50 text-purple-600 hover:bg-purple-100">
-                                💬 Chat AI
-                              </button>
-                            </div>
-                            {/* Fix progress */}
-                            {fixingArea === expandedArea && fixProgress.length > 0 && (
-                              <div className="px-3 py-2 bg-amber-50 border-b border-amber-100 space-y-1">
-                                {fixProgress.map((fp, i) => (
-                                  <div key={i} className="text-[10px] flex items-center gap-1.5">
-                                    <span>{fp.status === "done" ? "✅" : fp.status === "running" ? "⏳" : fp.status === "error" ? "❌" : "⏭️"}</span>
-                                    <span className={fp.status === "running" ? "text-amber-700 animate-pulse" : "text-stone-500"}>{fp.name || fp.step}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {/* Items */}
-                            <div className="divide-y divide-stone-100">
-                              {codeStatus.scores[expandedArea].items.map((item, i) => (
-                                <div key={i} className="px-3 py-2 flex items-center gap-2">
-                                  <span className="text-sm">{item.status === "ok" ? "✅" : item.status === "warn" ? "⚠️" : item.status === "missing" ? "❌" : "ℹ️"}</span>
-                                  <span className="text-xs font-medium text-stone-700">{item.name}</span>
-                                  <span className="flex-1" />
-                                  <span className={cn("text-[10px]",
-                                    item.status === "ok" ? "text-emerald-500" : item.status === "warn" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400")}>
-                                    {item.detail}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {/* Quick actions */}
-                        <div className="mt-2 space-y-1.5">
-                          <div className="text-[10px] text-stone-400 font-bold">⚡ Quick Actions</div>
-                          <div className="flex flex-wrap gap-1.5">
-                            <button onClick={() => { setChatMode("spec"); setDomainAutoPrompt({ mode: "spec", prompt: "分析 Spec 區域的缺口，列出要補的項目" }); setShowAiPanel(true); setRightTab("chat"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium">📋 Spec AI</button>
-                            <button onClick={() => { setChatMode("test"); setDomainAutoPrompt({ mode: "test", prompt: "分析 Test 覆蓋率缺口，列出缺少的 test payload 和測試" }); setShowAiPanel(true); setRightTab("chat"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium">🧪 Test AI</button>
-                            <button onClick={() => { setChatMode("docs"); setDomainAutoPrompt({ mode: "docs", prompt: "分析文件缺失和過時的內容，列出需要更新的項目" }); setShowAiPanel(true); setRightTab("chat"); }} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100 font-medium">📖 Docs AI</button>
-                            <button onClick={() => { startAiInitialize(); }} className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-medium">🚀 Full AI Init</button>
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-          </>
-        )}
       </div>
 
       {/* ── Quick Open Modal (Cmd+P) ── */}
