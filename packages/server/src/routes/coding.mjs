@@ -168,10 +168,6 @@ export default async function projectRoute(req, res) {
         maxTurns: agent.maxTurns,
         timeout: 120,
         rootDir: cwd || PAAW_ROOT,
-        onEvent: (event) => {
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
-          if (typeof res.flush === "function") res.flush();
-        },
       }, res);
 
       res.end();

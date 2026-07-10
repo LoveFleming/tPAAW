@@ -595,11 +595,6 @@ export default async function a2aRoutes(req, res) {
               maxTurns: agent.maxTurns,
               timeout: 120,
               rootDir,
-              onEvent: (event) => {
-                // Forward events as SSE data
-                res.write(`data: ${JSON.stringify(event)}\n\n`);
-                if (typeof res.flush === "function") res.flush();
-              },
             }, res);
 
             res.end();
