@@ -478,9 +478,11 @@ export default function CodingIDE() {
     setAiInitializing(true);
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
-      { id: "api-spec", name: "📝 產出 API Spec" },
-      { id: "error-mapping", name: "🐛 產出 Error Mapping" },
-      { id: "test-payload", name: "🧪 產出 API Test Payload" },
+      { id: "architecture", name: "🏗️ 產出 Architecture Map" },
+      { id: "api-spec", name: "📡 產出 API Contract" },
+      { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks" },
+      { id: "decisions", name: "🏛️ 產出 Decision Records (ADR)" },
+      { id: "test-payload", name: "🧪 產出 Test Payloads" },
       { id: "standards", name: "📏 產出 Coding Standards" },
       { id: "faq", name: "🤖 產出 HelpDesk FAQ" },
       { id: "overview", name: "📊 產出 PROJECT.md" },

@@ -727,13 +727,15 @@ export default async function projectRoute(req, res) {
 
     // ── AI Initialize — multi-step project knowledge auto-fill ──
 
-    // POST /api/coding-project/ai-initial
+    // POST /api/coding-project/ai-initial (Code Understanding)
     if (url.startsWith("/api/coding-project/ai-initial") && method === "POST") {
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "api-spec", name: "📝 產出 API Spec", promptFile: "gen-api-spec.md" },
-        { id: "error-mapping", name: "🐛 產出 Error Mapping", promptFile: "gen-error-mapping.md" },
-        { id: "test-payload", name: "🧪 產出 API Test Payload", promptFile: "gen-test-payload.md" },
+        { id: "architecture", name: "🏗️ 產出 Architecture Map", promptFile: "gen-architecture.md" },
+        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
+        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
+        { id: "decisions", name: "🏛️ 產出 Decision Records (ADR)", promptFile: "gen-decisions.md" },
+        { id: "test-payload", name: "🧪 產出 Test Payloads", promptFile: "gen-test-payload.md" },
         { id: "standards", name: "📏 產出 Coding Standards", promptFile: "gen-standards.md" },
         { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
         { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
@@ -775,14 +777,14 @@ export default async function projectRoute(req, res) {
         } catch {}
 
         // Load prompt templates
-        const promptsDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
+        const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
         const loadPrompt = (filename) => {
           try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
         };
 
-        // Check project-level overrides in .paaw/prompts/ai-initial/
+        // Check project-level overrides in .paaw/prompts/code-understanding/
         const loadProjectPrompt = (filename) => {
-          const overridePath = join(root, ".paaw", "prompts", "ai-initial", filename);
+          const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
           if (existsSync(overridePath)) {
             try { return readSync(overridePath, "utf-8"); } catch {}
           }
@@ -791,8 +793,10 @@ export default async function projectRoute(req, res) {
 
         // Accumulate context from previous steps
         let scanResult = "";
+        let architectureResult = "";
         let apiSpecResult = "";
         let errorMappingResult = "";
+        let decisionsResult = "";
 
         for (const step of steps) {
           sendEvent("step_start", { step: step.id, name: step.name });
@@ -807,14 +811,17 @@ export default async function projectRoute(req, res) {
           let fullPrompt = promptTemplate;
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
-          if (step.id === "api-spec" || step.id === "test-payload" || step.id === "error-mapping") {
-            // These steps benefit from scan results
+          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "standards" || step.id === "faq" || step.id === "overview")) {
+            fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, 3000)}`;
           }
           if (apiSpecResult && (step.id === "test-payload" || step.id === "faq" || step.id === "overview")) {
             fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
           }
           if (errorMappingResult && (step.id === "faq" || step.id === "overview")) {
             fullPrompt += `\n\n--- ERROR MAPPING ---\n${errorMappingResult}`;
+          }
+          if (decisionsResult && (step.id === "standards" || step.id === "faq" || step.id === "overview")) {
+            fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
           }
 
           // Call LLM
@@ -830,6 +837,9 @@ export default async function projectRoute(req, res) {
             // Store results
             if (step.id === "scan") {
               scanResult = content;
+            } else if (step.id === "architecture") {
+              architectureResult = content;
+              await paaw.writeFile("ARCHITECTURE.md", content);
             } else if (step.id === "api-spec") {
               apiSpecResult = content;
               await paaw.writeFile("specs/api-contract.md", content);
@@ -847,6 +857,9 @@ export default async function projectRoute(req, res) {
               for (const rm of runbookMatches) {
                 await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
               }
+            } else if (step.id === "decisions") {
+              decisionsResult = content;
+              await paaw.writeFile("DECISIONS.md", content);
             } else if (step.id === "test-payload") {
               // Parse JSON test payloads and save individually
               await paaw.writeFile("test-payloads/all-payloads.json", content);
@@ -1070,9 +1083,9 @@ export default async function projectRoute(req, res) {
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
-        const promptsDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
+        const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
         const loadPrompt = (filename) => {
-          const overridePath = join(root, ".paaw", "prompts", "ai-initial", filename);
+          const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
           if (existsSync(overridePath)) {
             try { return readSync(overridePath, "utf-8"); } catch {}
           }
@@ -1138,8 +1151,8 @@ export default async function projectRoute(req, res) {
 
     // GET /api/coding-project/prompts — list all AI Initial prompts
     if (url.startsWith("/api/coding-project/prompts") && method === "GET" && !url.includes("/prompts/")) {
-      const promptsDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
-      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
       try {
         const files = existsSync(promptsDir) ? await readdir(promptsDir) : [];
         const prompts = [];
@@ -1172,13 +1185,13 @@ export default async function projectRoute(req, res) {
     // GET /api/coding-project/prompts/:filename — read specific prompt
     if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "GET") {
       const filename = url.split("/prompts/").pop();
-      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
       const projectFile = resolve(projectPromptsDir, filename);
       if (existsSync(projectFile)) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ filename, content: readSync(projectFile, "utf-8"), source: "project" }));
       } else {
-        const defaultDir = join(PAAW_ROOT, "data", "prompts", "ai-initial");
+        const defaultDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
         const defaultFile = resolve(defaultDir, filename);
         if (existsSync(defaultFile)) {
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -1200,7 +1213,7 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ error: "Missing content" }));
         return true;
       }
-      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
       await mkdir(projectPromptsDir, { recursive: true });
       await writeFile(resolve(projectPromptsDir, filename), content, "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -1211,7 +1224,7 @@ export default async function projectRoute(req, res) {
     // DELETE /api/coding-project/prompts/:filename — remove custom prompt (revert to default)
     if (url.match(/\/api\/coding-project\/prompts\/[\w-]+\.md$/) && method === "DELETE") {
       const filename = url.split("/prompts/").pop();
-      const projectPromptsDir = join(root, ".paaw", "prompts", "ai-initial");
+      const projectPromptsDir = join(root, ".paaw", "prompts", "code-understanding");
       const projectFile = resolve(projectPromptsDir, filename);
       if (existsSync(projectFile)) {
         try { await unlink(projectFile); } catch {}
