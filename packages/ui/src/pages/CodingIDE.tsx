@@ -991,10 +991,10 @@ const sendChat = useCallback(async () => {
       setChatLoading(false);
       setAgentRunning(false);
     } else {
-      // ── Chat SSE mode (with crew role prompt) ──
+      // ── Chat mode = Agent Loop (coding agent, not paaw chat) ──
       setChatLoading(true);
       try {
-        // Fetch crew role prompt for chat context
+        // Fetch crew role prompt
         let crewSystemAdd = "";
         if (activeCrew) {
           try {
@@ -1005,15 +1005,30 @@ const sendChat = useCallback(async () => {
             }
           } catch {}
         }
-        const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
-        const systemMessage = crewSystemAdd ? { role: "system", content: crewSystemAdd } : null;
-        const messages = [
-          ...(systemMessage ? [systemMessage] : []),
-          ...chatMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
-          { role: "user", content: userMsg.content + context },
-        ];
-        const res = await fetch(`${API_BASE}/api/paaw/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages, providerId: "openrouter", appId: "vibe-coding" }) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Fetch vibe coding system context
+        let vibeSystemPrompt = "";
+        try {
+          const ctxRes = await fetch(`${API_BASE}/api/context/vibe-coding`);
+          if (ctxRes.ok) { const ctx = await ctxRes.json(); vibeSystemPrompt = ctx.systemPrompt || ""; }
+        } catch {}
+
+        const res = await fetch(`${API_BASE}/api/agent-run/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: userMsg.content,
+            systemPrompt: vibeSystemPrompt + (crewSystemAdd ? `\n\n[AI 人員角色]\n${crewSystemAdd}` : ""),
+            model: codingModel || undefined,
+            cwd: rootPath || undefined,
+            maxTurns: 1,
+            timeout: 60,
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Agent error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
+          setChatLoading(false); return;
+        }
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
         let assistantContent = "";
@@ -1026,12 +1041,29 @@ const sendChat = useCallback(async () => {
           buffer = lines.pop() || "";
           for (const line of lines) {
             if (line.startsWith("data: ") && line !== "data: [DONE]") {
-              try { const chunk = JSON.parse(line.slice(6)); if (chunk.content) { assistantContent += chunk.content; setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: assistantContent }] : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; }); } } catch {}
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.content !== undefined) {
+                  assistantContent = data.content;
+                  setChatMessages(prev => {
+                    const last = prev[prev.length - 1];
+                    return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: assistantContent }] : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }];
+                  });
+                }
+                if (data.error) {
+                  assistantContent = `❌ Error: ${data.error}`;
+                  setChatMessages(prev => [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]);
+                }
+              } catch {}
             }
           }
         }
-        if (assistantContent) setChatMessages(prev => { const last = prev[prev.length - 1]; return last?.role === "assistant" && last.content === assistantContent ? prev : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]; });
-      } catch (err: any) { setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]); }
+        if (!assistantContent) {
+          setChatMessages(prev => [...prev, { role: "assistant", content: "(Agent completed with no output)", ts: new Date().toISOString() }]);
+        }
+      } catch (err: any) {
+        setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
+      }
       setChatLoading(false);
     }
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
@@ -2287,31 +2319,60 @@ const sendChat = useCallback(async () => {
                     </div>
                   )}
                   {chatMessages.map((msg, i) => (
-                    <div key={i} className={cn("rounded-xl px-4 py-2.5 text-sm",
-                      msg.role === "user"
-                        ? "bg-stone-50 text-stone-700 ml-8"
-                        : msg.role === "assistant"
-                          ? "mr-8"
-                          : "bg-stone-100 text-stone-500 text-xs mx-4")}>
-                      <div className="flex items-start gap-2">
-                        {msg.role === "assistant" && (profile?.imageUrl ?
-                          <img src={`${API_BASE}${profile.imageUrl}`} className="w-5 h-5 rounded-full object-cover shrink-0 mt-0.5" /> :
-                          <span className="text-base shrink-0 mt-0.5">{crew?.emoji || "🤖"}</span>
-                        )}
-                        <div className={cn("flex-1 min-w-0",
-                          msg.role === "assistant" ? "rounded-xl px-3 py-2 text-sm whitespace-pre-wrap" : "")}
-                          style={msg.role === "assistant" ? { backgroundColor: tk.accentBg, color: "#1c1917" } : {}}>
-                          {msg.content}
+                    <div key={i} className="flex justify-start">
+                      <div className="flex gap-2.5 max-w-[95%]">
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 mt-1">
+                          {msg.role === "assistant" ? (
+                            profile?.imageUrl ?
+                              <img src={`${API_BASE}${profile.imageUrl}`} className="w-8 h-8 rounded-full object-cover" /> :
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: tk.accent + "22", border: `1px solid ${tk.accent}33` }}>
+                                {crew?.emoji || "🤖"}
+                              </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${tk.accent}, ${tk.accentHover || tk.accent})` }}>
+                              你
+                            </div>
+                          )}
                         </div>
-                        {msg.role === "user" && <span className="text-base shrink-0 mt-0.5">🙋</span>}
+                        {/* Bubble */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-xs font-medium text-stone-600">{msg.role === "assistant" ? (profile?.codename || crew?.title || "AI") : "你"}</span>
+                            {msg.ts && <span className="text-[10px] text-stone-300">{new Date(msg.ts).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}</span>}
+                          </div>
+                          <div className={cn("px-4 py-3 text-sm leading-relaxed rounded-2xl",
+                            msg.role === "assistant"
+                              ? "bg-white shadow-sm border border-stone-100 text-stone-700"
+                              : "bg-stone-50 text-stone-700")}>
+                            {msg.content}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
-                  {chatLoading && <div className="flex items-center gap-2 px-4 text-xs" style={{ color: tk.accent }}>
-                    <span className="animate-pulse">●</span>
-                    <span className="animate-pulse">●</span>
-                    <span className="animate-pulse">●</span>
-                    <span className="ml-1">{crew?.title} 思考中...</span>
+                  {chatLoading && <div className="flex justify-start">
+                    <div className="flex gap-2.5">
+                      <div className="flex-shrink-0 mt-1">
+                        {profile?.imageUrl ?
+                          <img src={`${API_BASE}${profile.imageUrl}`} className="w-8 h-8 rounded-full object-cover" /> :
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: tk.accent + "22" }}>
+                            {crew?.emoji || "🤖"}
+                          </div>
+                        }
+                      </div>
+                      <div>
+                        <span className="text-xs font-medium text-stone-600">{profile?.codename || crew?.title || "AI"}</span>
+                        <div className="flex items-center gap-2 py-2">
+                          <div className="flex gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: tk.accent, animationDelay: "0ms" }} />
+                            <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: tk.accent, animationDelay: "150ms" }} />
+                            <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: tk.accent, animationDelay: "300ms" }} />
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: tk.accent }}>思考中</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>}
                 </div>
 
