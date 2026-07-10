@@ -414,6 +414,7 @@ export default function CodingIDE() {
   // ── Coding Crew Definitions ──
   const codingCrews = [
     { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const },
+    { id: "ai.skill-designer", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const },
     { id: "coding.spec-writer", emoji: "📐", title: "規格師", mode: "spec" as const },
     { id: "coding.developer", emoji: "💻", title: "開發人員", mode: "agent" as const },
     { id: "coding.unit-tester", emoji: "🧪", title: "Unit Test", mode: "test" as const },
@@ -1497,10 +1498,17 @@ const sendChat = useCallback(async () => {
                   setShowCrewMenu(false);
                   setActiveCrew(crew.id);
                   setChatMode(crew.mode);
-                  // Fetch crew profile
-                  fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => setCrewProfile(prev => ({ ...prev, [crew.id]: data }))).catch(() => {});
                   // Open as main tab
                   openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
+                  // Fetch crew profile and seed greeting if new conversation
+                  fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => {
+                    setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
+                    // Seed greeting if no existing messages for this crew
+                    if (!crewConversations[crew.id] || crewConversations[crew.id].length === 0) {
+                      const greeting = data?.chatConfig?.greeting || `嗨！我是${data?.codename || crew.title}，有什麼我可以幫忙的嗎？`;
+                      setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting }] }));
+                    }
+                  }).catch(() => {});
                 }}
                   className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
                     activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
