@@ -30,7 +30,16 @@ interface ProjectStatus {
   gitStatus: string;
   recentCommits: string;
   unpushed: string;
-  scores?: Record<string, { score: number; items: any[] }>;
+}
+
+interface CodeScoreItem {
+  name: string;
+  status: string;
+  detail: string;
+}
+interface CodeStatus {
+  initialized: boolean;
+  scores: Record<string, { score: number; items: CodeScoreItem[] }>;
 }
 
 interface EMDashboardProps {
@@ -55,6 +64,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
   const [report, setReport] = useState<string | null>(null);
   const [emRunning, setEmRunning] = useState(false);
   const [emLog, setEmLog] = useState<string[]>([]);
+  const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
+  const [expandedArea, setExpandedArea] = useState<string | null>(null);
 
   // ── Fetch data when rootPath changes ──
   const refreshData = useCallback(async () => {
@@ -70,6 +81,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
       const res = await fetch(`${API_BASE}/api/coding-crew/action-log?limit=15`);
       const data = await res.json();
       setActionLog(data.entries || []);
+    } catch {}
+    // Code status (AI Initialize scores)
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`);
+      const data = await res.json();
+      setCodeStatus(data);
     } catch {}
     // Overnight report
     try {
@@ -300,6 +317,59 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
             <StatusRow icon="🔄" label="Unpushed" value={status?.unpushed || "none"} ok={!status?.unpushed} />
             <StatusRow icon="📦" label="Path" value={rootPath.split("/").slice(-2).join("/")} ok />
           </div>
+        </div>
+
+        {/* ── Code Health (from AI Initialize) ── */}
+        <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
+              <span>📊</span> Code Health
+            </h3>
+            {!codeStatus && rootPath && (
+              <button
+                onClick={() => { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
+                className="text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
+              >🚀 AI Init</button>
+            )}
+            {codeStatus && (
+              <button onClick={refreshData} className="text-xs text-stone-400 hover:text-stone-600">↻</button>
+            )}
+          </div>
+          {!codeStatus ? (
+            <p className="text-xs text-stone-400 py-2">尚未 AI Initialize。點 🚀 產生健康度報告。</p>
+          ) : !codeStatus.initialized ? (
+            <p className="text-xs text-stone-400 py-2">尚未初始化。</p>
+          ) : (
+            <div className="space-y-1.5">
+              {Object.entries(codeStatus.scores).map(([area, data]) => (
+                <div key={area}>
+                  <div
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                    onClick={() => setExpandedArea(expandedArea === area ? null : area)}
+                  >
+                    <span className="text-xs text-stone-300 w-3">{expandedArea === area ? "▼" : "▶"}</span>
+                    <span className="text-xs font-semibold text-stone-600 capitalize flex-1">{area.replace(/[-_]/g, " ")}</span>
+                    <div className="w-16 h-1.5 rounded-full bg-stone-200 overflow-hidden">
+                      <div className={cn("h-full rounded-full", data.score >= 80 ? "bg-green-500" : data.score >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${data.score}%` }} />
+                    </div>
+                    <span className={cn("text-xs font-bold", data.score >= 80 ? "text-green-600" : data.score >= 50 ? "text-amber-600" : "text-red-600")}>{data.score}</span>
+                  </div>
+                  {expandedArea === area && (
+                    <div className="ml-5 mt-1 space-y-0.5">
+                      {data.items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs">
+                          <span className={item.status === "done" ? "text-green-500" : item.status === "partial" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400"}>
+                            {item.status === "done" ? "✅" : item.status === "partial" ? "🟡" : item.status === "missing" ? "❌" : "⚪"}
+                          </span>
+                          <span className="text-stone-500">{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Agent Activity (Action Log) ── */}
