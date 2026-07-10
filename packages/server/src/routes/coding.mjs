@@ -252,6 +252,57 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-crew/em-run — Trigger EM orchestration (SSE) ──
+  if (url === "/api/coding-crew/em-run" && method === "POST") {
+    const body = await _readBody(req);
+    const { cwd } = JSON.parse(body || "{}");
+    const rootDir = cwd || projectPath || PAAW_ROOT;
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+    const sendSSE = (type, data) => {
+      res.write(`event: ${type}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+      const { runEMSession } = await import("../lib/overnight-manager.mjs");
+      sendSSE("start", { message: "🎖️ EM Session 啟動", ts: new Date().toISOString() });
+      const { report, workList, results } = await runEMSession({ rootDir, sendSSE });
+      sendSSE("complete", { workList, results, report });
+    } catch (err) {
+      console.error("[EM] error:", err);
+      sendSSE("error", { message: err.message });
+    }
+
+    res.end();
+    return true;
+  }
+
+  // ── GET /api/coding-crew/overnight-report — Get latest report ──
+  if (url.startsWith("/api/coding-crew/overnight-report") && method === "GET") {
+    const params = new URL(url, "http://localhost").searchParams;
+    const date = params.get("date") || new Date().toISOString().slice(0, 10);
+    const rootDir = projectPath || PAAW_ROOT;
+    const reportPath = join(rootDir, ".paaw", "overnight-reports", `${date}.md`);
+    if (!existsSync(reportPath)) {
+      sendJSON(res, 200, { exists: false, report: null });
+      return true;
+    }
+    const { readFile: rf } = await import("fs/promises");
+    const report = await rf(reportPath, "utf-8");
+    sendJSON(res, 200, { exists: true, report, date });
+    return true;
+  }
+
   if (!projectPath) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));

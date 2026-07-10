@@ -67,7 +67,7 @@ function loadProviderConfig(rootDir) {
   }
 }
 
-function resolveLLMConfig(rootDir, modelOverride) {
+export function resolveLLMConfig(rootDir, modelOverride) {
   const config = loadProviderConfig(rootDir);
   if (!config) throw new Error("No provider config found");
 
@@ -837,7 +837,7 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
 // ── LLM API Call ──
 
-async function callLLM(apiUrl, headers, model, messages, tools, stream = false) {
+export async function callLLM(apiUrl, headers, model, messages, tools, stream = false) {
   console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}`);
   const body = {
     model,

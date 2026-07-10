@@ -434,6 +434,10 @@ export default function CodingIDE() {
     { id: "coding.engineering-manager", emoji: "🎖️", title: "武大安 EM", mode: "chat" as const },
   ];
 
+  // ── EM Orchestration State ──
+  const [emRunning, setEmRunning] = useState(false);
+  const [emLog, setEmLog] = useState<string[]>([]);
+
   // Close / unload project
   const closeProject = useCallback(() => {
     if (!rootPath) return;
@@ -1312,6 +1316,22 @@ const sendChat = useCallback(async () => {
   // ═══════════════════════════════════════════════
   return (
     <>
+    {/* EM Orchestration Floating Panel */}
+    {(emRunning || emLog.length > 0) && (
+      <div className="fixed bottom-4 right-4 w-96 max-h-80 bg-white border border-amber-300 rounded-lg shadow-xl z-50 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border-b border-amber-200">
+          <span className="text-sm font-semibold text-amber-800">🎖️ EM 自動調度</span>
+          <button onClick={() => { if (!emRunning) { setEmLog([]); } }} className="text-xs text-stone-400 hover:text-stone-600">{emRunning ? "執行中..." : "關閉 ✕"}</button>
+        </div>
+        <div className="overflow-y-auto max-h-64 p-3 space-y-1">
+          {emLog.map((line, i) => (
+            <div key={i} className="text-xs text-stone-700 leading-relaxed">{line}</div>
+          ))}
+          {emRunning && <div className="text-xs text-amber-600 animate-pulse">⏳ 執行中...</div>}
+        </div>
+      </div>
+    )}
+
     {/* Directory Explorer Modal */}
     {showDirExplorer && (
       <DirectoryExplorer
@@ -1580,6 +1600,51 @@ const sendChat = useCallback(async () => {
                   {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
                 </button>
               ))}
+
+              {/* Divider + EM Trigger */}
+              <div className="border-t border-stone-200 my-1"></div>
+              <button
+                onClick={async () => {
+                  setShowCrewMenu(false);
+                  if (emRunning) return;
+                  setEmRunning(true);
+                  setEmLog([]);
+                  try {
+                    const res = await fetch(`${API_BASE}/api/coding-crew/em-run`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ cwd: rootPath || undefined }),
+                    });
+                    const reader = res.body?.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = "";
+                    while (reader) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      buffer += decoder.decode(value, { stream: true });
+                      const lines = buffer.split("\n");
+                      buffer = lines.pop() || "";
+                      for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                          try {
+                            const d = JSON.parse(line.slice(6));
+                            if (d.message) setEmLog(prev => [...prev, d.message]);
+                          } catch {}
+                        }
+                      }
+                    }
+                  } catch (err: any) {
+                    setEmLog(prev => [...prev, `❌ EM error: ${err.message}`]);
+                  }
+                  setEmRunning(false);
+                }}
+                disabled={emRunning || !rootPath}
+                className={cn("w-full text-left px-3 py-2 text-sm hover:bg-amber-50 flex items-center gap-2 text-amber-700 font-semibold",
+                  (emRunning || !rootPath) && "opacity-50 cursor-not-allowed")}
+              >
+                <span>🚀</span>
+                <span>{emRunning ? "EM 執行中..." : "EM 自動調度"}</span>
+              </button>
             </div>
           )}
         </div>
