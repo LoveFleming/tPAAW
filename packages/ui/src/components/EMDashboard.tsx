@@ -248,12 +248,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
         <div className="flex items-center gap-2 px-5 py-2.5 border-b" style={{ borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
           <span className="text-lg">🎖️</span>
           <span className="text-sm font-bold text-stone-700">EM 大總管</span>
-          <span className="text-xs text-stone-400">Engineering Manager</span>
+          <span className="text-sm text-stone-400">Engineering Manager</span>
           <div className="flex-1" />
           <button
             onClick={runEM}
             disabled={emRunning}
-            className={cn("text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1",
+            className={cn("text-sm px-3 py-1 rounded-md font-bold flex items-center gap-1",
               emRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-amber-600 text-white hover:bg-amber-700")}
           >
             {emRunning ? "⏳ 執行中..." : "🚀 EM 自動調度"}
@@ -264,9 +264,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
         {emLog.length > 0 && (
           <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 max-h-32 overflow-y-auto">
             {emLog.map((line, i) => (
-              <div key={i} className="text-xs text-amber-800 leading-relaxed">{line}</div>
+              <div key={i} className="text-sm text-amber-800 leading-relaxed">{line}</div>
             ))}
-            {emRunning && <div className="text-xs text-amber-600 animate-pulse">⏳ 執行中...</div>}
+            {emRunning && <div className="text-sm text-amber-600 animate-pulse">⏳ 執行中...</div>}
           </div>
         )}
 
@@ -328,17 +328,17 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
             {!codeStatus && rootPath && (
               <button
                 onClick={() => { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
-                className="text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
+                className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
               >🚀 AI Init</button>
             )}
             {codeStatus && (
-              <button onClick={refreshData} className="text-xs text-stone-400 hover:text-stone-600">↻</button>
+              <button onClick={refreshData} className="text-sm text-stone-400 hover:text-stone-600">↻</button>
             )}
           </div>
           {!codeStatus ? (
-            <p className="text-xs text-stone-400 py-2">尚未 AI Initialize。點 🚀 產生健康度報告。</p>
+            <p className="text-sm text-stone-400 py-2">尚未 AI Initialize。點 🚀 產生健康度報告。</p>
           ) : !codeStatus.initialized ? (
-            <p className="text-xs text-stone-400 py-2">尚未初始化。</p>
+            <p className="text-sm text-stone-400 py-2">尚未初始化。</p>
           ) : (
             <div className="space-y-1.5">
               {Object.entries(codeStatus.scores).map(([area, data]) => (
@@ -347,17 +347,17 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
                     className="flex items-center gap-2 cursor-pointer select-none"
                     onClick={() => setExpandedArea(expandedArea === area ? null : area)}
                   >
-                    <span className="text-xs text-stone-300 w-3">{expandedArea === area ? "▼" : "▶"}</span>
-                    <span className="text-xs font-semibold text-stone-600 capitalize flex-1">{area.replace(/[-_]/g, " ")}</span>
+                    <span className="text-sm text-stone-300 w-3">{expandedArea === area ? "▼" : "▶"}</span>
+                    <span className="text-sm font-semibold text-stone-600 capitalize flex-1">{area.replace(/[-_]/g, " ")}</span>
                     <div className="w-16 h-1.5 rounded-full bg-stone-200 overflow-hidden">
                       <div className={cn("h-full rounded-full", data.score >= 80 ? "bg-green-500" : data.score >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${data.score}%` }} />
                     </div>
-                    <span className={cn("text-xs font-bold", data.score >= 80 ? "text-green-600" : data.score >= 50 ? "text-amber-600" : "text-red-600")}>{data.score}</span>
+                    <span className={cn("text-sm font-bold", data.score >= 80 ? "text-green-600" : data.score >= 50 ? "text-amber-600" : "text-red-600")}>{data.score}</span>
                   </div>
                   {expandedArea === area && (
                     <div className="ml-5 mt-1 space-y-0.5">
                       {data.items.map((item, i) => (
-                        <div key={i} className="flex items-center gap-1.5 text-xs">
+                        <div key={i} className="flex items-center gap-1.5 text-sm">
                           <span className={item.status === "done" ? "text-green-500" : item.status === "partial" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400"}>
                             {item.status === "done" ? "✅" : item.status === "partial" ? "🟡" : item.status === "missing" ? "❌" : "⚪"}
                           </span>
@@ -378,14 +378,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
             <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
               <span>⚡</span> Agent Activity
             </h3>
-            <button onClick={refreshData} className="text-xs text-stone-400 hover:text-stone-600">↻</button>
+            <button onClick={refreshData} className="text-sm text-stone-400 hover:text-stone-600">↻</button>
           </div>
           {actionLog.length === 0 ? (
-            <p className="text-xs text-stone-400 py-2">尚無 agent 活動紀錄</p>
+            <p className="text-sm text-stone-400 py-2">尚無 agent 活動紀錄</p>
           ) : (
             <div className="space-y-1.5">
               {actionLog.slice(0, 10).map((entry, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs">
+                <div key={i} className="flex items-start gap-2 text-sm">
                   <span className="text-stone-300 shrink-0">{entry.ts?.slice(11, 16) || "--:--"}</span>
                   <span className="shrink-0 font-semibold" style={{
                     color: entry.agent === "architect" ? "#DC2626" :
@@ -413,15 +413,15 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
           </h3>
           {report ? (
             <details>
-              <summary className="text-xs text-amber-700 cursor-pointer hover:text-amber-800">
+              <summary className="text-sm text-amber-700 cursor-pointer hover:text-amber-800">
                 {report.split("\n")[0]?.replace(/^#\s*/, "") || "View report"}
               </summary>
-              <pre className="mt-2 text-xs text-stone-600 whitespace-pre-wrap max-h-60 overflow-y-auto bg-white rounded p-2 border" style={{ borderColor: tk.borderLight }}>
+              <pre className="mt-2 text-sm text-stone-600 whitespace-pre-wrap max-h-60 overflow-y-auto bg-white rounded p-2 border" style={{ borderColor: tk.borderLight }}>
                 {report}
               </pre>
             </details>
           ) : (
-            <p className="text-xs text-stone-400 py-2">尚無隔天報告。點「🚀 EM 自動調度」產生。</p>
+            <p className="text-sm text-stone-400 py-2">尚無隔天報告。點「🚀 EM 自動調度」產生。</p>
           )}
         </div>
 
@@ -431,16 +431,16 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
             <span>🔗</span> 快速操作
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/PROJECT.md`)} className="text-xs px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
+            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/PROJECT.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
               📄 PROJECT.md
             </button>
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/TODO.md`)} className="text-xs px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
+            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/TODO.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
               ✅ TODO.md
             </button>
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/DECISIONS.md`)} className="text-xs px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
+            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/DECISIONS.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
               🏛️ DECISIONS.md
             </button>
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/CHANGELOG.md`)} className="text-xs px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
+            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/CHANGELOG.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
               📝 CHANGELOG.md
             </button>
           </div>
@@ -453,7 +453,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
 // ── Helper: Status Row ──
 function StatusRow({ icon, label, value, ok }: { icon: string; label: string; value: string; ok?: boolean }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex items-center gap-2 text-sm">
       <span>{icon}</span>
       <span className="font-semibold text-stone-500 w-16 shrink-0">{label}</span>
       <span className={cn("truncate flex-1", ok ? "text-green-600" : "text-amber-600")} title={value}>{value}</span>
