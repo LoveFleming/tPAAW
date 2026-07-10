@@ -344,12 +344,25 @@ export default function CodingIDE() {
   const highlightRef = useRef<HTMLPreElement>(null);
 
 
-  // ── AI Chat State ──
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [activeCrew, setActiveCrew] = useState<string | null>(null);
+
+  // ── AI Chat State (per-crew conversations) ──
+  const [crewConversations, setCrewConversations] = useState<Record<string, ChatMessage[]>>({});
+  const chatMessages = useMemo(() => activeCrew ? (crewConversations[activeCrew] || []) : [], [activeCrew, crewConversations]);
+  const setChatMessages = useCallback((fn: (prev: ChatMessage[]) => ChatMessage[]) => {
+    if (!activeCrew) return;
+    setCrewConversations(prev => {
+      const current = prev[activeCrew] || [];
+      const next = typeof fn === 'function' ? fn(current) : fn;
+      return { ...prev, [activeCrew]: next };
+    });
+  }, [activeCrew]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  // Crew profile data
+  const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
 
   // ── Right Panel Tab State ──
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
@@ -377,8 +390,6 @@ export default function CodingIDE() {
   const [showCrewMenu, setShowCrewMenu] = useState(false);
   const [showBrowserMenu, setShowBrowserMenu] = useState(false);
   const [showTerminalMenu, setShowTerminalMenu] = useState(false);
-  const [activeCrew, setActiveCrew] = useState<string | null>(null);
-
   // ── Multi-instance counters for Browser & Terminal ──
   const browserCounterRef = useRef(0);
   const terminalCounterRef = useRef(0);
@@ -426,7 +437,7 @@ export default function CodingIDE() {
     setGitStatus(null);
     setGitLog([]);
     setGitDiff("");
-    setChatMessages([]);
+    setChatMessages(() => []);
     try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {}
   }, [rootPath]);
 
@@ -1486,8 +1497,10 @@ const sendChat = useCallback(async () => {
                   setShowCrewMenu(false);
                   setActiveCrew(crew.id);
                   setChatMode(crew.mode);
-                  // Open as main tab (not right panel)
-                  openMainTab({ id: activeCrew ? `crew:${crew.id}` : `crew:${crew.id}`, type: "ai-crew", label: `${crew.emoji} ${crew.title}`, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
+                  // Fetch crew profile
+                  fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => setCrewProfile(prev => ({ ...prev, [crew.id]: data }))).catch(() => {});
+                  // Open as main tab
+                  openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: `${crew.emoji} ${crew.title}`, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
                 }}
                   className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
                     activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
@@ -2172,102 +2185,178 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === AI CREW / CHAT TAB === */}
-            {activeMainTab?.type === "ai-crew" && (
-              <div className="flex-1 flex flex-col min-w-0 bg-white">
-                {/* Chat header */}
-                <div className="flex items-center px-3 py-1.5 shrink-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                  {activeCrew && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold mr-2">
-                      {codingCrews.find(c => c.id === activeCrew)?.emoji} {codingCrews.find(c => c.id === activeCrew)?.title}
-                    </span>
-                  )}
-                  {activeTab && <span className="text-sm text-stone-400 ml-1 truncate">📄 {activeTab.name}</span>}
-                  <span className="flex-1" />
-                  {/* Mode toggle */}
-                  <div className="flex items-center gap-0.5 mr-2 flex-wrap">
-                    <button onClick={() => setChatMode("agent")}
-                      className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
-                        chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                      🤖 Agent
-                    </button>
-                    <button onClick={() => setChatMode("chat")}
-                      className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
-                        chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                      💬 Chat
-                    </button>
-                    <span className="text-stone-200 mx-0.5">|</span>
-                    <button onClick={() => setChatMode("spec")}
-                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                        chatMode === "spec" ? "bg-blue-50 text-blue-600 border-blue-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                      📋 Spec
-                    </button>
-                    <button onClick={() => setChatMode("test")}
-                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                        chatMode === "test" ? "bg-purple-50 text-purple-600 border-purple-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                      🧪 Test
-                    </button>
-                    <button onClick={() => setChatMode("bug")}
-                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                        chatMode === "bug" ? "bg-red-50 text-red-600 border-red-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                      🐛 Bug
-                    </button>
-                    <button onClick={() => setChatMode("docs")}
-                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                        chatMode === "docs" ? "bg-amber-50 text-amber-600 border-amber-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                      📄 Docs
-                    </button>
-                    <button onClick={() => setChatMode("maintain")}
-                      className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                        chatMode === "maintain" ? "bg-teal-50 text-teal-600 border-teal-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                      🔧 Maintain
-                    </button>
+            {/* === AI CREW / EMPLOYEE CHAT TAB === */}
+            {activeMainTab?.type === "ai-crew" && activeCrew && (() => {
+              const crew = codingCrews.find(c => c.id === activeCrew);
+              const profile = crewProfile[activeCrew] as any;
+              const rolePrompt = profile?.rolePrompt || "";
+              const roleSummary = rolePrompt.split('\n').find(l => l.trim() && !l.startsWith('#') && !l.startsWith('你是') && l.length > 5) || rolePrompt.slice(0, 80);
+              const hasProject = !!rootPath;
+              return (
+              <div key={activeCrew} className="flex-1 flex flex-col min-w-0 bg-white">
+                {/* Profile header */}
+                <div className="shrink-0 px-4 py-3" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: `linear-gradient(135deg, ${tk.accent}11 0%, ${tk.accentBg} 100%)` }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: tk.accent + "22", border: `2px solid ${tk.accent}44` }}>
+                      {crew?.emoji || "🤖"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-stone-800">{crew?.title || "AI"}</span>
+                        {profile?.chatConfig?.model && <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{profile.chatConfig.model}</span>}
+                        {hasProject && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">📁 有專案</span>}
+                      </div>
+                      <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">{roleSummary}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Mode toggle */}
+                      <button onClick={() => setChatMode("agent")}
+                        className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
+                          chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                        🤖 Agent
+                      </button>
+                      <button onClick={() => setChatMode("chat")}
+                        className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
+                          chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                        💬 Chat
+                      </button>
+                      <span className="text-stone-200">|</span>
+                      <button onClick={() => setChatMode("spec")}
+                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                          chatMode === "spec" ? "bg-blue-50 text-blue-600 border-blue-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                        📋
+                      </button>
+                      <button onClick={() => setChatMode("test")}
+                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                          chatMode === "test" ? "bg-purple-50 text-purple-600 border-purple-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                        🧪
+                      </button>
+                      <button onClick={() => setChatMode("bug")}
+                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                          chatMode === "bug" ? "bg-red-50 text-red-600 border-red-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                        🐛
+                      </button>
+                      <button onClick={() => setChatMode("docs")}
+                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                          chatMode === "docs" ? "bg-amber-50 text-amber-600 border-amber-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                        📄
+                      </button>
+                      <button onClick={() => setChatMode("maintain")}
+                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
+                          chatMode === "maintain" ? "bg-teal-50 text-teal-600 border-teal-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
+                        🔧
+                      </button>
+                    </div>
+                    <ModelSelector value={codingModel} onChange={setCodingModel} />
                   </div>
-                  {agentRunning && <span className="text-xs text-purple-500 animate-pulse mr-2">⚡ Running...</span>}
-                  <ModelSelector value={codingModel} onChange={setCodingModel} />
                 </div>
 
                 {/* Chat messages */}
-                <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ scrollbarWidth: "thin" }}>
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
                   {chatMessages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400">
-                      <span className="text-3xl">🤖</span>
-                      <p className="text-xs">{activeCrew ? `${codingCrews.find(c => c.id === activeCrew)?.emoji} ${codingCrews.find(c => c.id === activeCrew)?.title} 已就緒` : "選擇 👥 人員或直接對話"}</p>
+                    <div className="flex flex-col items-center justify-center h-full gap-3">
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ backgroundColor: tk.accent + "15" }}>
+                        {crew?.emoji || "🤖"}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-stone-700">{crew?.title} 已就緒</p>
+                        <p className="text-xs text-stone-400 mt-1 max-w-xs">
+                          {chatMode === "agent" ? "Agent 模式：可直接執行指令、讀寫檔案" :
+                           chatMode === "chat" ? "Chat 模式：純對話討論" :
+                           `${chatMode.toUpperCase()} 模式`}
+                        </p>
+                      </div>
+                      {/* Quick actions */}
+                      <div className="flex flex-wrap gap-1.5 mt-2 justify-center max-w-md">
+                        {chatMode === "agent" && [
+                          { label: "分析架構", prompt: "請分析這個專案的架構，指出優點和可改進之處" },
+                          { label: "Code Review", prompt: "請 review 最近的程式碼變更" },
+                          { label: "重構建議", prompt: "請找出需要重構的程式碼並給建議" },
+                        ].map(a => (
+                          <button key={a.label} onClick={() => { setChatInput(a.prompt); }}
+                            className="text-[10px] px-2.5 py-1 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">
+                            {a.label}
+                          </button>
+                        ))}
+                        {chatMode === "chat" && [
+                          { label: "技術諮詢", prompt: "我有個技術問題想請教" },
+                          { label: "架構討論", prompt: "我想討論一下系統架構的方向" },
+                        ].map(a => (
+                          <button key={a.label} onClick={() => { setChatInput(a.prompt); }}
+                            className="text-[10px] px-2.5 py-1 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300 transition-colors">
+                            {a.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {chatMessages.map((msg, i) => (
-                    <div key={i} className={cn("rounded-lg px-3 py-2 text-sm",
-                      msg.role === "user" ? "bg-stone-50 text-stone-700" : msg.role === "assistant" ? "bg-blue-50 text-blue-800 whitespace-pre-wrap" : "bg-stone-100 text-stone-500 text-xs")}>
-                      {msg.role === "user" ? "🙋" : msg.role === "assistant" ? "🤖" : "⚙️"} {msg.content}
+                    <div key={i} className={cn("rounded-xl px-4 py-2.5 text-sm",
+                      msg.role === "user"
+                        ? "bg-stone-50 text-stone-700 ml-8"
+                        : msg.role === "assistant"
+                          ? "mr-8"
+                          : "bg-stone-100 text-stone-500 text-xs mx-4")}>
+                      <div className="flex items-start gap-2">
+                        {msg.role === "assistant" && <span className="text-base shrink-0 mt-0.5">{crew?.emoji || "🤖"}</span>}
+                        <div className={cn("flex-1 min-w-0",
+                          msg.role === "assistant" ? "rounded-xl px-3 py-2 text-sm whitespace-pre-wrap" : "")}
+                          style={msg.role === "assistant" ? { backgroundColor: tk.accentBg, color: "#1c1917" } : {}}>
+                          {msg.content}
+                        </div>
+                        {msg.role === "user" && <span className="text-base shrink-0 mt-0.5">🙋</span>}
+                      </div>
                     </div>
                   ))}
-                  {chatLoading && <div className="text-xs text-purple-500 animate-pulse">🤖 思考中...</div>}
+                  {chatLoading && <div className="flex items-center gap-2 px-4 text-xs" style={{ color: tk.accent }}>
+                    <span className="animate-pulse">●</span>
+                    <span className="animate-pulse">●</span>
+                    <span className="animate-pulse">●</span>
+                    <span className="ml-1">{crew?.title} 思考中...</span>
+                  </div>}
                 </div>
 
+                {/* Agent tool log */}
+                {agentRunning && agentToolLog.length > 0 && (
+                  <div className="shrink-0 max-h-32 overflow-y-auto border-t px-3 py-2 space-y-1" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
+                    <div className="text-[10px] font-semibold text-stone-400 mb-1">⚡ Tool Calls</div>
+                    {agentToolLog.slice(-8).map((t, i) => (
+                      <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                        <span className={t.result !== "..." ? "text-green-500" : "text-blue-400 animate-pulse"}>
+                          {t.result !== "..." ? "✓" : "⏳"}
+                        </span>
+                        <span className="font-mono text-stone-600">{t.name}</span>
+                        <span className="text-stone-400 truncate max-w-[200px]">{t.args}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Chat input */}
-                <div className="shrink-0 px-3 py-2" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
+                <div className="shrink-0 px-4 py-2.5" style={{ borderTop: `1px solid ${tk.borderLight}`, backgroundColor: tk.bgMuted }}>
                   <div className="flex items-end gap-2">
                     <textarea
                       ref={chatInputRef}
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
                       onKeyDown={handleChatKeyDown}
-                      placeholder={activeCrew ? `問 ${codingCrews.find(c => c.id === activeCrew)?.title}...` : "輸入訊息..."}
-                      className="flex-1 text-sm px-3 py-2 border rounded-lg resize-none outline-none focus:border-blue-400"
-                      style={{ borderColor: tk.borderInput }}
+                      placeholder={`問 ${crew?.title}...`}
+                      className="flex-1 text-sm px-3 py-2 rounded-lg resize-none outline-none border focus:border-blue-400"
+                      style={{ borderColor: tk.borderInput, backgroundColor: "white" }}
                       rows={2}
                     />
                     <button
-                      onClick={() => { if (!chatInput.trim()) return; const msg = chatInput.trim(); setChatInput(""); sendChatMessage(msg); }}
+                      onClick={() => { if (!chatInput.trim()) return; sendChat(); }}
                       disabled={chatLoading || !chatInput.trim()}
-                      className="px-3 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40"
+                      className="px-4 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40 transition-colors"
                       style={{ backgroundColor: tk.accent }}>
-                      {tt("vibe.send")}
+                      ↵
                     </button>
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* === PROJECT DASHBOARD === */}
             {activeMainTab?.type === "status" && (
