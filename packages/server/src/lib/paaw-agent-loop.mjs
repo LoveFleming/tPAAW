@@ -1045,6 +1045,7 @@ export async function runAgentLoopStream(config, res) {
   ];
 
   let turns = 0;
+  let contentEmitted = false;
 
   for (let i = 0; i < maxTurns; i++) {
     if (Date.now() - startTime > timeoutMs) {
@@ -1078,6 +1079,7 @@ export async function runAgentLoopStream(config, res) {
     // Final text response — stream it
     if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
       sendSSE("content", { content, done: true });
+      contentEmitted = true;
       break;
     }
 
@@ -1098,6 +1100,23 @@ export async function runAgentLoopStream(config, res) {
         tool_call_id: call.id,
         content: toolResult,
       });
+    }
+  }
+
+  // If we exhausted maxTurns without a final content response, force one
+  if (!contentEmitted) {
+    try {
+      messages.push({
+        role: "user",
+        content: "你已經收集了足夠的資訊。現在請根據你看到的內容，直接給出完整的回答。不要使用任何工具。",
+      });
+      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, []);
+      const finalContent = finalResponse.choices?.[0]?.message?.content || "";
+      if (finalContent) {
+        sendSSE("content", { content: finalContent, done: true });
+      }
+    } catch (err) {
+      sendSSE("error", { message: `Final summary failed: ${err.message}` });
     }
   }
 

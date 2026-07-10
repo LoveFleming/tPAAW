@@ -82,7 +82,7 @@ const DOMAIN_AGENTS = {
     description: "Architecture/Risk Agent — 分析架構、制定技術決策、規劃模組邊界",
     contextProviders: ["project", "decisions"],
     tools: null, // null = use default agent loop tools (read_file, write_file, etc.)
-    maxTurns: 3,
+    maxTurns: 8,
     skills: [
       {
         id: "architect-review",
