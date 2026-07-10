@@ -85,7 +85,7 @@ export default async function projectRoute(req, res) {
   const q = parseQuery(rawUrl);
 
   // All routes start with /api/coding-project
-  if (!url.startsWith("/api/coding-project")) return false;
+  if (!url.startsWith("/api/coding-project") && !url.startsWith("/api/coding-crew")) return false;
 
   const projectPath = q.path;
 
