@@ -827,7 +827,7 @@ export default function CodingIDE() {
   const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentToolLog, setAgentToolLog] = useState<Array<{name: string; args: string; result: string}>>([]);
-  const [codingModel, setVibeModel] = useState<string>("");
+  const [codingModel, setCodingModel] = useState<string>("");
 
 const sendChat = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
