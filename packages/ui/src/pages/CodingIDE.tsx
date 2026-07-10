@@ -428,8 +428,10 @@ export default function CodingIDE() {
   const codingCrews = [
     { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const },
     { id: "coding.developer", emoji: "💻", title: "普里亞 Developer", mode: "chat" as const },
+    { id: "coding.tester", emoji: "🧪", title: "迪維雅 Test Agent", mode: "chat" as const },
+    { id: "coding.doc-writer", emoji: "📝", title: "梅根 Document Agent", mode: "chat" as const },
     { id: "coding.helpdesk", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const },
-    { id: "coding.spec-writer", emoji: "📐", title: "規格師", mode: "spec" as const },
+    { id: "coding.engineering-manager", emoji: "🎖️", title: "武大安 EM", mode: "chat" as const },
     { id: "coding.unit-tester", emoji: "🧪", title: "Unit Test", mode: "test" as const },
     { id: "coding.e2e-tester", emoji: "🎭", title: "E2E Tester", mode: "test" as const },
     { id: "coding.doc-writer", emoji: "📝", title: "文件製作員", mode: "docs" as const },
@@ -939,6 +941,9 @@ const sendChat = useCallback(async () => {
           "coding.architect": "architect",
           "coding.helpdesk": "helpdesk",
           "coding.developer": "developer",
+          "coding.tester": "tester",
+          "coding.doc-writer": "doc-writer",
+          "coding.engineering-manager": "em",
         };
         const a2aAgentId = CREW_TO_AGENT[activeCrew || ""] || activeCrew?.replace(/^coding\./, "") || "architect";
         const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {

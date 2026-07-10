@@ -158,6 +158,78 @@ const DOMAIN_AGENTS = {
       },
     ],
   },
+
+  tester: {
+    agentId: "tester",
+    crewId: "coding.tester",
+    name: "迪維雅·雷迪 Test Agent",
+    description: "Test Agent — 撰寫測試、執行測試、回報結果",
+    contextProviders: ["project", "decisions"],
+    tools: null,
+    maxTurns: 20,
+    skills: [
+      {
+        id: "test-write",
+        name: "撰寫測試",
+        description: "根據功能邏輯撰寫單元測試、整合測試、E2E 測試",
+        tags: ["test", "unit", "integration", "e2e"],
+      },
+      {
+        id: "test-run",
+        name: "執行測試",
+        description: "跑測試套件、分析覆蓋率、回報失敗",
+        tags: ["test", "run", "coverage"],
+      },
+    ],
+  },
+
+  doc_writer: {
+    agentId: "doc-writer",
+    crewId: "coding.doc-writer",
+    name: "梅根·布魯克斯 Document Agent",
+    description: "Document Agent — 撰寫 README、API docs、changelog、架構文件",
+    contextProviders: ["project", "decisions"],
+    tools: null,
+    maxTurns: 20,
+    skills: [
+      {
+        id: "doc-readme",
+        name: "撰寫 README",
+        description: "撰寫和更新專案 README",
+        tags: ["doc", "readme"],
+      },
+      {
+        id: "doc-changelog",
+        name: "更新 Changelog",
+        description: "根據 git log 和 action log 更新 changelog",
+        tags: ["doc", "changelog"],
+      },
+    ],
+  },
+
+  em: {
+    agentId: "em",
+    crewId: "coding.engineering-manager",
+    name: "武大安 Engineering Manager",
+    description: "Engineering Manager — 協調 coding agent 團隊、規劃任務、A2A 調度",
+    contextProviders: ["project", "decisions"],
+    tools: null,
+    maxTurns: 40,
+    skills: [
+      {
+        id: "em-plan",
+        name: "規劃工作清單",
+        description: "讀取 action log 和專案狀態，規劃工作清單",
+        tags: ["manage", "plan", "orchestrate"],
+      },
+      {
+        id: "em-dispatch",
+        name: "A2A 調度",
+        description: "透過 A2A message/send 調度其他 agent 執行任務",
+        tags: ["manage", "dispatch", "a2a"],
+      },
+    ],
+  },
 };
 
 // ── Public API ──

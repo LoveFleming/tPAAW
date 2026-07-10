@@ -12,6 +12,11 @@ const COLORS: Record<string, { bg: string; fg: string; accent: string }> = {
     "ai.rca": { bg: "#FED7AA", fg: "#9A3412", accent: "#F97316" },
     "ai.gatekeeper": { bg: "#F3F4F6", fg: "#1F2937", accent: "#6B7280" },
     "coding.developer": { bg: "#CFFAFE", fg: "#155E75", accent: "#06B6D4" },
+    "coding.tester": { bg: "#FCE7F3", fg: "#9D174D", accent: "#EC4899" },
+    "coding.doc-writer": { bg: "#FEF3C7", fg: "#92400E", accent: "#F59E0B" },
+    "coding.helpdesk": { bg: "#D1FAE5", fg: "#065F46", accent: "#10B981" },
+    "coding.engineering-manager": { bg: "#E0E7FF", fg: "#3730A3", accent: "#6366F1" },
+    "coding.architect": { bg: "#FEE2E2", fg: "#991B1B", accent: "#EF4444" },
 };
 
 // SVG path-based icons (no emoji — works on all platforms including Linux)
