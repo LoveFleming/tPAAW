@@ -371,6 +371,9 @@ export default function CodingIDE() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const loadingFileRef = useRef(false);
+  const openTabsRef = useRef(openTabs);
+  openTabsRef.current = openTabs; // keep in sync
   // Crew profile data
   const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
 
@@ -671,16 +674,22 @@ export default function CodingIDE() {
   // File Operations
   // ═══════════════════════════════════════════════
   const openFile = useCallback(async (path: string) => {
-    const existing = openTabs.find(ot => ot.path === path);
+    if (loadingFileRef.current) return; // prevent double-click race
+    const existing = openTabsRef.current.find(ot => ot.path === path);
     if (existing) { setActiveTabId(existing.id); return; }
     setLoadingFile(true);
+    loadingFileRef.current = true;
     try {
       const res = await fetch(`${API_BASE}/api/vibe-fs/read?path=${encodeURIComponent(path)}`);
       const data = await res.json();
       if (data.content !== undefined) {
         const name = path.split(/[\\/]/).pop() || path;
         const tab: OpenTab = { id: path, name, path, content: data.content, originalContent: data.content, modified: false, language: getLanguage(name), hljsLang: getHljsLang(name), lastSaved: data.modified };
-        setOpenTabs(prev => [...prev, tab]);
+        setOpenTabs(prev => {
+          // Double-check not already added
+          if (prev.find(ot => ot.path === path)) return prev;
+          return [...prev, tab];
+        });
         setActiveTabId(path);
         setIsEditing(false);
         // Open as main tab too
@@ -689,7 +698,8 @@ export default function CodingIDE() {
       }
     } catch {}
     setLoadingFile(false);
-  }, [openTabs, logEvent]);
+    loadingFileRef.current = false;
+  }, [logEvent, openMainTab]);
 
   const closeTab = useCallback((id: string) => {
     setOpenTabs(prev => prev.filter(ot => ot.id !== id));
