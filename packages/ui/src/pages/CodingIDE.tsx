@@ -239,6 +239,13 @@ export default function CodingIDE() {
   const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
 
+  // Sync activeCrew when switching tabs (crew tabs have crewId)
+  useEffect(() => {
+    if (activeMainTab?.type === "ai-crew" && activeMainTab.crewId) {
+      setActiveCrew(activeMainTab.crewId);
+    }
+  }, [activeMainTab?.type, activeMainTab?.crewId]);
+
   const openMainTab = useCallback((tab: MainTab) => {
     setMainTabs(prev => {
       const existing = prev.find(t => t.id === tab.id);
