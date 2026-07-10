@@ -934,7 +934,13 @@ const sendChat = useCallback(async () => {
 
       try {
         // ── A2A JSON-RPC: message/stream ──
-        const a2aAgentId = (activeCrew || "coding.architect").replace(/^coding\./, "");
+        // Map crewId → A2A agentId
+        const CREW_TO_AGENT: Record<string, string> = {
+          "coding.architect": "architect",
+          "ai.skill-designer": "helpdesk",
+          "ai.node-dev": "developer",
+        };
+        const a2aAgentId = CREW_TO_AGENT[activeCrew || ""] || activeCrew?.replace(/^coding\./, "") || "architect";
         const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
