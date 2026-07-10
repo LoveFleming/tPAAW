@@ -94,7 +94,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const data = await res.json();
       setActionLog(data.entries || []);
     } catch {}
-    // Code status (AI Initialize scores)
+    // Code status (Code Understanding scores)
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`);
       const data = await res.json();
@@ -332,7 +332,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           </div>
         </div>
 
-        {/* ── Code Health (from AI Initialize) ── */}
+        {/* ── Code Health (from Code Understanding) ── */}
         <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
@@ -352,7 +352,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             )}
           </div>
           {!codeStatus ? (
-            <p className="text-sm text-stone-400 py-2">尚未 AI Initialize。點 🚀 產生健康度報告。</p>
+            <p className="text-sm text-stone-400 py-2">尚未 Code Understanding。點 🧠 產生健康度報告。</p>
           ) : !codeStatus.initialized ? (
             <p className="text-sm text-stone-400 py-2">尚未初始化。</p>
           ) : (

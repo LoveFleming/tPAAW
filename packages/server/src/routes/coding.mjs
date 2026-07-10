@@ -897,7 +897,7 @@ export default async function projectRoute(req, res) {
           }
         }
 
-        sendEvent("done", { message: "AI Initialize complete" });
+        sendEvent("done", { message: "Code Understanding complete" });
       } catch (err) {
         sendEvent("error", { error: err.message });
       }

@@ -459,7 +459,7 @@ export default function CodingIDE() {
     try { localStorage.removeItem("paaw.vibeide.rootPath"); } catch {}
   }, [rootPath]);
 
-  // ── AI Initialize State ──
+  // ── Code Understanding State ──
   const [aiInitializing, setAiInitializing] = useState(false);
   const [aiInitSteps, setAiInitSteps] = useState<Array<{ id: string; name: string; status: "pending" | "running" | "done" | "error" | "skip"; size?: number; error?: string }>>([]);
   const [showAiInitPanel, setShowAiInitPanel] = useState(false);
@@ -525,7 +525,7 @@ export default function CodingIDE() {
                     setAiInitSteps(prev => prev.map(s => s.id === data.step ? { ...s, status: "running" as const } : s));
                   }
                 }
-                if (data.message === "AI Initialize complete") {
+                if (data.message === "Code Understanding complete") {
                   setAiInitializing(false);
                   // Refresh status after Code Understanding
                   fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {});
@@ -1507,7 +1507,7 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* 🤖 AI dropdown (AI Init + AI Crew unified) */}
+        {/* 🤖 AI dropdown (AI Crew menu) */}
         <div className="relative ml-1">
           <button onClick={() => setShowCrewMenu(!showCrewMenu)}
             className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-sm px-2 py-1 rounded font-semibold transition-colors")}
@@ -2411,7 +2411,7 @@ const sendChat = useCallback(async () => {
             {/* === CODE DASHBOARD (legacy) === */}
             {activeMainTab?.type === "status" && (
               <div key={activeMainTab.id} className="flex-1 flex min-w-0 overflow-hidden">
-                {/* Left: Code Status (AI Initial scores) */}
+                {/* Left: Code Status (Code Understanding scores) */}
                 <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
                   <div className="px-5 py-3 border-b" style={{ borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
                     <div className="flex items-center gap-2">
