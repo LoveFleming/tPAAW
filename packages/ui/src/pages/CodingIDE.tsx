@@ -413,7 +413,7 @@ export default function CodingIDE() {
 
   // ── Coding Crew Definitions ──
   const codingCrews = [
-    { id: "coding.architect", emoji: "🏛️", title: "架構師", mode: "chat" as const },
+    { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const },
     { id: "coding.spec-writer", emoji: "📐", title: "規格師", mode: "spec" as const },
     { id: "coding.developer", emoji: "💻", title: "開發人員", mode: "agent" as const },
     { id: "coding.unit-tester", emoji: "🧪", title: "Unit Test", mode: "test" as const },
@@ -1500,7 +1500,7 @@ const sendChat = useCallback(async () => {
                   // Fetch crew profile
                   fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => setCrewProfile(prev => ({ ...prev, [crew.id]: data }))).catch(() => {});
                   // Open as main tab
-                  openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: `${crew.emoji} ${crew.title}`, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
+                  openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
                 }}
                   className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
                     activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
@@ -2197,55 +2197,20 @@ const sendChat = useCallback(async () => {
                 {/* Profile header */}
                 <div className="shrink-0 px-4 py-3" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: `linear-gradient(135deg, ${tk.accent}11 0%, ${tk.accentBg} 100%)` }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: tk.accent + "22", border: `2px solid ${tk.accent}44` }}>
-                      {crew?.emoji || "🤖"}
-                    </div>
+                    {profile?.imageUrl ? (
+                      <img src={`${API_BASE}${profile.imageUrl}`} className="w-10 h-10 rounded-full object-cover" style={{ border: `2px solid ${tk.accent}44` }} />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: tk.accent + "22", border: `2px solid ${tk.accent}44` }}>
+                        {crew?.emoji || "🤖"}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-stone-800">{crew?.title || "AI"}</span>
+                        <span className="text-sm font-bold text-stone-800">{profile?.codename || crew?.title || "AI"}</span>
                         {profile?.chatConfig?.model && <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{profile.chatConfig.model}</span>}
                         {hasProject && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">📁 有專案</span>}
                       </div>
-                      <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">{roleSummary}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Mode toggle */}
-                      <button onClick={() => setChatMode("agent")}
-                        className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
-                          chatMode === "agent" ? "bg-purple-100 text-purple-700 border-purple-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                        🤖 Agent
-                      </button>
-                      <button onClick={() => setChatMode("chat")}
-                        className={cn("text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors",
-                          chatMode === "chat" ? "bg-blue-100 text-blue-700 border-blue-300" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                        💬 Chat
-                      </button>
-                      <span className="text-stone-200">|</span>
-                      <button onClick={() => setChatMode("spec")}
-                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                          chatMode === "spec" ? "bg-blue-50 text-blue-600 border-blue-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                        📋
-                      </button>
-                      <button onClick={() => setChatMode("test")}
-                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                          chatMode === "test" ? "bg-purple-50 text-purple-600 border-purple-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                        🧪
-                      </button>
-                      <button onClick={() => setChatMode("bug")}
-                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                          chatMode === "bug" ? "bg-red-50 text-red-600 border-red-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                        🐛
-                      </button>
-                      <button onClick={() => setChatMode("docs")}
-                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                          chatMode === "docs" ? "bg-amber-50 text-amber-600 border-amber-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                        📄
-                      </button>
-                      <button onClick={() => setChatMode("maintain")}
-                        className={cn("text-[10px] px-1.5 py-1 rounded-full border font-semibold transition-colors",
-                          chatMode === "maintain" ? "bg-teal-50 text-teal-600 border-teal-200" : "text-stone-400 border-stone-200 hover:bg-stone-50")}>
-                        🔧
-                      </button>
+                      <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">{profile?.description || roleSummary}</p>
                     </div>
                     <ModelSelector value={codingModel} onChange={setCodingModel} />
                   </div>
@@ -2255,13 +2220,18 @@ const sendChat = useCallback(async () => {
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>
                   {chatMessages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full gap-3">
-                      <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ backgroundColor: tk.accent + "15" }}>
-                        {crew?.emoji || "🤖"}
-                      </div>
+                      {profile?.imageUrl ? (
+                        <img src={`${API_BASE}${profile.imageUrl}`} className="w-16 h-16 rounded-full object-cover" style={{ border: `2px solid ${tk.accent}33` }} />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ backgroundColor: tk.accent + "15" }}>
+                          {crew?.emoji || "🤖"}
+                        </div>
+                      )}
                       <div className="text-center">
-                        <p className="text-sm font-semibold text-stone-700">{crew?.title} 已就緒</p>
+                        <p className="text-sm font-semibold text-stone-700">{profile?.codename || crew?.title} 已就緒</p>
                         <p className="text-xs text-stone-400 mt-1 max-w-xs">
-                          {chatMode === "agent" ? "Agent 模式：可直接執行指令、讀寫檔案" :
+                          {profile?.chatConfig?.greeting ? profile.chatConfig.greeting.split('\n')[0] :
+                           chatMode === "agent" ? "Agent 模式：可直接執行指令、讀寫檔案" :
                            chatMode === "chat" ? "Chat 模式：純對話討論" :
                            `${chatMode.toUpperCase()} 模式`}
                         </p>
@@ -2298,7 +2268,10 @@ const sendChat = useCallback(async () => {
                           ? "mr-8"
                           : "bg-stone-100 text-stone-500 text-xs mx-4")}>
                       <div className="flex items-start gap-2">
-                        {msg.role === "assistant" && <span className="text-base shrink-0 mt-0.5">{crew?.emoji || "🤖"}</span>}
+                        {msg.role === "assistant" && (profile?.imageUrl ?
+                          <img src={`${API_BASE}${profile.imageUrl}`} className="w-5 h-5 rounded-full object-cover shrink-0 mt-0.5" /> :
+                          <span className="text-base shrink-0 mt-0.5">{crew?.emoji || "🤖"}</span>
+                        )}
                         <div className={cn("flex-1 min-w-0",
                           msg.role === "assistant" ? "rounded-xl px-3 py-2 text-sm whitespace-pre-wrap" : "")}
                           style={msg.role === "assistant" ? { backgroundColor: tk.accentBg, color: "#1c1917" } : {}}>
