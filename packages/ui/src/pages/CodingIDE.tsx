@@ -246,6 +246,7 @@ export default function CodingIDE() {
       // Ensure dashboard tab stays first
       return [DASHBOARD_TAB, ...prev.filter(t => t.id !== DASHBOARD_TAB_ID), tab];
     });
+    // Always activate the tab (existing or new)
     setActiveMainTabId(tab.id);
   }, []);
 
