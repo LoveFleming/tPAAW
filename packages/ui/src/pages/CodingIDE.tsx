@@ -76,6 +76,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   ts: string;
+  _thinking?: boolean; // internal flag for intermediate thinking bubbles
 }
 
 interface CodingEvent {
@@ -915,11 +916,12 @@ const sendChat = useCallback(async () => {
         setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${chatMode.toUpperCase()} AI error: ${err.message}`, ts: new Date().toISOString() }]);
       }
       setChatLoading(false);
-    } else if (chatMode === "agent") {
-      // ── Agent mode: A2A domain agent dispatch (with tools) ──
+    } else {
+      // ── Both agent + chat mode: A2A domain agent dispatch ──
+      const isAgentMode = chatMode === "agent";
       setChatLoading(true);
-      setAgentRunning(true);
-      setAgentToolLog([]);
+      if (isAgentMode) { setAgentRunning(true); setAgentToolLog([]); }
+
       try {
         const res = await fetch(`${API_BASE}/api/coding-crew/chat`, {
           method: "POST",
@@ -939,12 +941,13 @@ const sendChat = useCallback(async () => {
         if (!res.ok) {
           const errText = await res.text();
           setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Agent error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
-          setChatLoading(false); setAgentRunning(false); return;
+          setChatLoading(false); if (isAgentMode) setAgentRunning(false); return;
         }
 
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
-        let assistantContent = "";
+        let finalContent = "";
+        let thinkingText = "";
         let buffer = "";
 
         while (reader) {
@@ -954,92 +957,94 @@ const sendChat = useCallback(async () => {
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
           for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.content && data.done) {
-                  assistantContent = data.content;
-                  setChatMessages(prev => [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]);
-                } else if (data.name && data.args !== undefined) {
-                  setAgentToolLog(prev => [...prev, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args), result: data.result || "..." }]);
-                } else if (data.content) {
-                  assistantContent = data.content;
-                  setChatMessages(prev => {
-                    const last = prev[prev.length - 1];
-                    return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: `💭 ${assistantContent}` }] : prev;
-                  });
-                }
-              } catch {}
+            if (line.startsWith("event: ") || line.startsWith("data: ")) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+
+                  // thinking — LLM intermediate text ("讓我先看看...")
+                  if (data.content && !data.done && !data.name) {
+                    thinkingText = data.content;
+                    // Show as temporary thinking bubble
+                    setChatMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant" && last?._thinking) {
+                        return [...prev.slice(0, -1), { ...last, content: `💭 ${data.content}` }];
+                      }
+                      return [...prev, { role: "assistant" as const, content: `💭 ${data.content}`, _thinking: true, ts: new Date().toISOString() }];
+                    });
+                  }
+
+                  // tool call
+                  if (data.name && data.args !== undefined) {
+                    if (isAgentMode) {
+                      setAgentToolLog(prev => [...prev, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args), result: "..." }]);
+                    }
+                  }
+
+                  // tool result
+                  if (data.name && data.result !== undefined && data.result !== "...") {
+                    if (isAgentMode) {
+                      setAgentToolLog(prev => {
+                        const updated = [...prev];
+                        const idx = updated.length - 1;
+                        if (idx >= 0 && updated[idx].name === data.name) {
+                          updated[idx] = { ...updated[idx], result: data.result };
+                        }
+                        return updated;
+                      });
+                    }
+                  }
+
+                  // final content — the actual answer
+                  if (data.content && data.done) {
+                    finalContent = data.content;
+                    // Replace thinking bubble with real answer
+                    setChatMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant" && last?._thinking) {
+                        return [...prev.slice(0, -1), { role: "assistant" as const, content: finalContent, ts: new Date().toISOString() }];
+                      }
+                      return [...prev, { role: "assistant" as const, content: finalContent, ts: new Date().toISOString() }];
+                    });
+                  }
+
+                  // error
+                  if (data.error) {
+                    setChatMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant" && last?._thinking) {
+                        return [...prev.slice(0, -1), { role: "assistant" as const, content: `❌ Error: ${data.error}`, ts: new Date().toISOString() }];
+                      }
+                      return [...prev, { role: "assistant" as const, content: `❌ Error: ${data.error}`, ts: new Date().toISOString() }];
+                    });
+                  }
+                } catch {}
+              }
             }
           }
         }
-        if (!assistantContent) {
-          setChatMessages(prev => [...prev, { role: "assistant", content: "(agent completed with no output)", ts: new Date().toISOString() }]);
-        }
-      } catch (err: any) {
-        setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Agent error: ${err.message}`, ts: new Date().toISOString() }]);
-      }
-      setChatLoading(false);
-      setAgentRunning(false);
-    } else {
-      // ── Chat mode: A2A domain agent dispatch (same endpoint, crew handles it) ──
-      setChatLoading(true);
-      try {
-        const res = await fetch(`${API_BASE}/api/coding-crew/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            crewId: activeCrew || "coding.architect",
-            message: userMsg.content,
-            model: codingModel || undefined,
-            cwd: rootPath || undefined,
-            context: activeTab ? {
-              activeFile: activeTab.path,
-              activeFileContent: activeTab.content.slice(0, 3000),
-            } : undefined,
-          }),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
-          setChatLoading(false); return;
-        }
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        let assistantContent = "";
-        let buffer = "";
-        while (reader) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (line.startsWith("data: ") && line !== "data: [DONE]") {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.content !== undefined) {
-                  assistantContent = data.content;
-                  setChatMessages(prev => {
-                    const last = prev[prev.length - 1];
-                    return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, content: assistantContent }] : [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }];
-                  });
-                }
-                if (data.error) {
-                  assistantContent = `❌ Error: ${data.error}`;
-                  setChatMessages(prev => [...prev, { role: "assistant", content: assistantContent, ts: new Date().toISOString() }]);
-                }
-              } catch {}
-            }
+
+        // If stream ended without final content, keep thinking as answer or show fallback
+        if (!finalContent) {
+          if (thinkingText) {
+            // Upgrade thinking to final if no separate final answer
+            setChatMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant" && last?._thinking) {
+                return [...prev.slice(0, -1), { role: "assistant" as const, content: thinkingText, ts: new Date().toISOString() }];
+              }
+              return prev;
+            });
+          } else {
+            setChatMessages(prev => [...prev, { role: "assistant" as const, content: "(Agent completed with no output)", ts: new Date().toISOString() }]);
           }
         }
-        if (!assistantContent) {
-          setChatMessages(prev => [...prev, { role: "assistant", content: "(Agent completed with no output)", ts: new Date().toISOString() }]);
-        }
       } catch (err: any) {
-        setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
+        setChatMessages(prev => [...prev, { role: "assistant" as const, content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
       }
       setChatLoading(false);
+      if (isAgentMode) setAgentRunning(false);
     }
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
 
