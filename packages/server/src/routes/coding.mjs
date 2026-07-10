@@ -117,6 +117,78 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-crew/chat — Chat via A2A domain agent dispatch ──
+  if (url === "/api/coding-crew/chat" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { crewId, message, model, cwd, context } = body;
+    if (!crewId || !message) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing crewId or message" }));
+      return true;
+    }
+
+    // Resolve agentId from crewId
+    const { getAgentByCrewId, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
+    const agent = getAgentByCrewId(crewId);
+    if (!agent) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `No domain agent for crewId: ${crewId}` }));
+      return true;
+    }
+
+    try {
+      // Build system prompt from crew + context providers
+      const systemPrompt = await buildSystemPrompt(agent.agentId, {
+        cwd: cwd || undefined,
+        clientContext: context || {},
+      });
+
+      // SSE streaming
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+        "X-Accel-Buffering": "no",
+      });
+      res.flushHeaders();
+      if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+      const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+      await runAgentLoopStream({
+        prompt: message,
+        systemPrompt,
+        model: model || undefined,
+        cwd: cwd || undefined,
+        maxTurns: agent.maxTurns,
+        timeout: 120,
+        rootDir: cwd || PAAW_ROOT,
+        onEvent: (event) => {
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+          if (typeof res.flush === "function") res.flush();
+        },
+      }, res);
+
+      res.end();
+      console.log(`[CodingCrew:chat] ${agent.agentId} stream completed`);
+    } catch (err) {
+      console.error(`[CodingCrew:chat] error:`, err);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+        res.end();
+      } else {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    }
+    return true;
+  }
+
   if (!projectPath) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));

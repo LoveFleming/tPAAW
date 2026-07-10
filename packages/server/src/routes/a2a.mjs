@@ -513,7 +513,173 @@ export default async function a2aRoutes(req, res) {
   }
 
   // ════════════════════════════════════════
-  // POST /a2a — JSON-RPC 2.0 endpoint
+  // Domain Agent routes: /a2a/:agentId/*
+  // ════════════════════════════════════════
+  {
+    // Match /a2a/:agentId or /a2a/:agentId/.well-known/agent.json
+    const agentMatch = path.match(/^\/a2a\/([^/]+)(\/.*)?$/);
+    if (agentMatch) {
+      const { getAgent, buildAgentCard, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
+      const agentId = agentMatch[1];
+      const subPath = agentMatch[2];
+      const agent = getAgent(agentId);
+
+      if (!agent) {
+        sendJSON(res, 404, { error: `Unknown domain agent: ${agentId}` });
+        return true;
+      }
+
+      // GET /a2a/:agentId/.well-known/agent.json — Domain Agent Card
+      if (req.method === "GET" && subPath && subPath.includes(".well-known/agent")) {
+        const card = buildAgentCard(agentId, req);
+        sendJSON(res, 200, card);
+        return true;
+      }
+
+      // POST /a2a/:agentId — Domain Agent JSON-RPC
+      if (req.method === "POST" && !subPath) {
+        let body;
+        try {
+          body = JSON.parse(await readBody(req));
+        } catch {
+          sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32700, message: "Parse error" }, id: null });
+          return true;
+        }
+
+        const { jsonrpc, method, params, id } = body;
+        if (jsonrpc !== "2.0") {
+          sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32600, message: "Invalid Request" }, id: id || null });
+          return true;
+        }
+
+        console.log(`[A2A:${agentId}] RPC ${method} id=${id}`);
+
+        // message/stream — SSE streaming
+        if (method === "message/stream") {
+          try {
+            const userText = extractText(params?.message);
+            if (!userText) {
+              sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32602, message: "Empty message" }, id });
+              return true;
+            }
+
+            const clientContext = params?.context || {};
+            const modelOverride = params?.metadata?.model;
+
+            // Build system prompt from crew + context providers
+            const systemPrompt = await buildSystemPrompt(agentId, {
+              cwd: clientContext.cwd,
+              clientContext,
+            });
+
+            // SSE headers
+            res.writeHead(200, {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive",
+              "Access-Control-Allow-Origin": "*",
+              "X-Accel-Buffering": "no",
+            });
+            res.flushHeaders();
+            if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+            // Run agent loop with streaming
+            const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+            const rootDir = clientContext.cwd || PAAW_ROOT;
+
+            await runAgentLoopStream({
+              prompt: userText,
+              systemPrompt,
+              model: modelOverride,
+              cwd: clientContext.cwd,
+              maxTurns: agent.maxTurns,
+              timeout: 120,
+              rootDir,
+              onEvent: (event) => {
+                // Forward events as SSE data
+                res.write(`data: ${JSON.stringify(event)}\n\n`);
+                if (typeof res.flush === "function") res.flush();
+              },
+            }, res);
+
+            res.end();
+            console.log(`[A2A:${agentId}] stream completed`);
+          } catch (err) {
+            console.error(`[A2A:${agentId}] stream error:`, err);
+            if (res.headersSent) {
+              res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+              res.end();
+            } else {
+              sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: err.message }, id });
+            }
+          }
+          return true;
+        }
+
+        // message/send — sync response
+        if (method === "message/send") {
+          try {
+            const userText = extractText(params?.message);
+            if (!userText) {
+              sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32602, message: "Empty message" }, id });
+              return true;
+            }
+
+            const clientContext = params?.context || {};
+            const modelOverride = params?.metadata?.model;
+
+            const systemPrompt = await buildSystemPrompt(agentId, {
+              cwd: clientContext.cwd,
+              clientContext,
+            });
+
+            const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
+            const rootDir = clientContext.cwd || PAAW_ROOT;
+
+            const result = await runAgentLoop({
+              prompt: userText,
+              systemPrompt,
+              model: modelOverride,
+              cwd: clientContext.cwd,
+              maxTurns: agent.maxTurns,
+              timeout: 120,
+              rootDir,
+            });
+
+            sendJSON(res, 200, {
+              jsonrpc: "2.0",
+              result: {
+                artifacts: [{
+                  artifactId: `art-${Date.now()}`,
+                  name: "Response",
+                  parts: [{ type: "text", text: result.content }],
+                }],
+                metadata: { turns: result.turns, toolCalls: result.toolCalls?.length || 0 },
+              },
+              id,
+            });
+          } catch (err) {
+            sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: err.message }, id });
+          }
+          return true;
+        }
+
+        // Unknown method for domain agent
+        sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32601, message: `Method not found: ${method}` }, id });
+        return true;
+      }
+
+      // GET /a2a/:agentId — return agent card as default
+      if (req.method === "GET" && !subPath) {
+        const card = buildAgentCard(agentId, req);
+        sendJSON(res, 200, card);
+        return true;
+      }
+    }
+  }
+
+  // ════════════════════════════════════════
+  // POST /a2a — JSON-RPC 2.0 endpoint (PAAW default agent)
   // ════════════════════════════════════════
   if (req.method === "POST" && path === "/a2a") {
     let body;

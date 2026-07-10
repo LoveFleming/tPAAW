@@ -915,40 +915,23 @@ const sendChat = useCallback(async () => {
       }
       setChatLoading(false);
     } else if (chatMode === "agent") {
-      // ── PAAW Agent Loop (self-owned runtime, no external CLI) ──
+      // ── Agent mode: A2A domain agent dispatch (with tools) ──
       setChatLoading(true);
       setAgentRunning(true);
       setAgentToolLog([]);
       try {
-        const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
-        // Fetch system context from API for CodingIDE
-        let vibeSystemPrompt = "";
-        try {
-          const ctxRes = await fetch(`${API_BASE}/api/context/vibe-coding`);
-          if (ctxRes.ok) { const ctx = await ctxRes.json(); vibeSystemPrompt = ctx.systemPrompt || ""; }
-        } catch {}
-
-        let crewSystemAdd = "";
-        if (activeCrew) {
-          try {
-            const crewRes = await fetch(`${API_BASE}/api/coding-crew/${activeCrew}`);
-            if (crewRes.ok) {
-              const crewData = await crewRes.json();
-              crewSystemAdd = `\n\n[AI 人員角色]\n${crewData.rolePrompt || ""}\n`;
-            }
-          } catch {}
-        }
-
-        const res = await fetch(`${API_BASE}/api/agent-run/stream`, {
+        const res = await fetch(`${API_BASE}/api/coding-crew/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: userMsg.content + context,
-            systemPrompt: vibeSystemPrompt + crewSystemAdd,
+            crewId: activeCrew || "coding.architect",
+            message: userMsg.content,
             model: codingModel || undefined,
             cwd: rootPath || undefined,
-            maxTurns: 15,
-            timeout: 90,
+            context: activeTab ? {
+              activeFile: activeTab.path,
+              activeFileContent: activeTab.content.slice(0, 3000),
+            } : undefined,
           }),
         });
 
@@ -998,37 +981,26 @@ const sendChat = useCallback(async () => {
       setChatLoading(false);
       setAgentRunning(false);
     } else {
-      // ── Chat mode = Agent Loop (coding agent, not paaw chat) ──
+      // ── Chat mode: A2A domain agent dispatch (same endpoint, crew handles it) ──
       setChatLoading(true);
       try {
-        // Fetch crew role prompt
-        let crewSystemAdd = "";
-        if (activeCrew) {
-          try {
-            const crewRes = await fetch(`${API_BASE}/api/coding-crew/${activeCrew}`);
-            if (crewRes.ok) {
-              const crewData = await crewRes.json();
-              crewSystemAdd = crewData.rolePrompt || "";
-            }
-          } catch {}
-        }
-        // Chat mode: only use crew rolePrompt, NOT vibe-coding context
-        // (vibe-coding context has few-shot examples with exercise reminders)
-        const res = await fetch(`${API_BASE}/api/agent-run/stream`, {
+        const res = await fetch(`${API_BASE}/api/coding-crew/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: userMsg.content,
-            systemPrompt: crewSystemAdd || undefined,
+            crewId: activeCrew || "coding.architect",
+            message: userMsg.content,
             model: codingModel || undefined,
             cwd: rootPath || undefined,
-            maxTurns: 1,
-            timeout: 60,
+            context: activeTab ? {
+              activeFile: activeTab.path,
+              activeFileContent: activeTab.content.slice(0, 3000),
+            } : undefined,
           }),
         });
         if (!res.ok) {
           const errText = await res.text();
-          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Agent error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
+          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
           setChatLoading(false); return;
         }
         const reader = res.body?.getReader();
