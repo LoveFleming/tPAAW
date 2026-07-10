@@ -2,7 +2,7 @@
     "id": "coding.developer",
     "title": "Developer",
     "codename": "普里亞·夏爾馬 Priya Sharma",
-    "imageUrl": "/crews/pic/priya_node_developer.png",
+    "imageUrl": "/api/crew-pic/priya_node_developer.png",
     "rolePrompt": "你是 AI 軟體工廠的全端開發工程師 (Developer)，名叫普里亞·夏爾馬 (Priya Sharma)。你負責開發、實作功能、修 bug、refactor。你精通 TypeScript/JavaScript/React/Node.js，熟悉前後端開發。你會讀取現有程式碼、理解架構、撰寫高品質程式碼。回答時使用繁體中文，程式碼用英文。",
     "skillIds": [
         "collect-inputs",
