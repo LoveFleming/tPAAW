@@ -1467,7 +1467,13 @@ const sendChat = useCallback(async () => {
               <div className="border-t border-stone-100 my-1" />
               <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
               {codingCrews.map(crew => (
-                <button key={crew.id} onClick={() => { setShowCrewMenu(false); setActiveCrew(crew.id); setChatMode(crew.mode); setShowAiPanel(true); setRightTab("chat"); }}
+                <button key={crew.id} onClick={() => {
+                  setShowCrewMenu(false);
+                  setActiveCrew(crew.id);
+                  setChatMode(crew.mode);
+                  // Open as main tab (not right panel)
+                  openMainTab({ id: activeCrew ? `crew:${crew.id}` : `crew:${crew.id}`, type: "ai-crew", label: `${crew.emoji} ${crew.title}`, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
+                }}
                   className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
                     activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
                   <span>{crew.emoji}</span> <span>{crew.title}</span>
