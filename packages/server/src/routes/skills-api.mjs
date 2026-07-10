@@ -384,11 +384,13 @@ export default async function skillsApiRoute(req, res) {
         const pCfg = JSON.parse(readSync(providerConfigPath, "utf-8"));
         let providerId = pCfg.active;
         let llmModel = model || pCfg.defaultModel || "glm-5.1";
-        // Parse "providerId/modelId" format
+        // Parse "providerId/modelId" format — but only use hint if provider exists in config
         if (model && model.includes("/")) {
           const idx = model.indexOf("/");
-          providerId = model.slice(0, idx);
+          const hint = model.slice(0, idx);
           llmModel = model.slice(idx + 1);
+          // Use hint only if it's a known provider, otherwise stick with active
+          if (pCfg.providers[hint]) providerId = hint;
         } else if (llmModel.includes("/")) {
           // Strip provider prefix from default model if present
           llmModel = llmModel.split("/").pop();

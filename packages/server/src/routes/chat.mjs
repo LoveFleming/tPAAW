@@ -115,8 +115,12 @@ export default async function chatRoutes(req, res) {
       let model = requestedModel || providerConfig.defaultModel || "glm-5.1";
       if (model.includes("/")) {
         const idx = model.indexOf("/");
-        resolvedProviderId = model.slice(0, idx);
+        const modelProviderHint = model.slice(0, idx);
         model = model.slice(idx + 1);
+        // Only use model's provider hint if client did NOT explicitly specify a provider
+        if (!requestedProvider) {
+          resolvedProviderId = modelProviderHint;
+        }
       }
       const resolvedProvider = providerConfig.providers[resolvedProviderId];
       if (!resolvedProvider) {
