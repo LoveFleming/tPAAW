@@ -848,6 +848,27 @@ async function callLLM(apiUrl, headers, model, messages, tools, stream = false) 
     stream,
   };
 
+  // ── LLM Request Logging ──
+  try {
+    const { appendFile: af } = await import("fs/promises");
+    const { join: j } = await import("path");
+    const logDir = j(cwd, ".paaw", "coding-memory");
+    const { mkdirSync: ms } = await import("fs");
+    ms(logDir, { recursive: true });
+    const logPath = j(logDir, "llm-log.jsonl");
+    const logEntry = {
+      ts: new Date().toISOString(),
+      agentId: agentId || "unknown",
+      model: body.model,
+      stream,
+      messageCount: body.messages?.length,
+      messagesPreview: body.messages?.map(m => ({ role: m.role, len: m.content?.length || 0, preview: (m.content || "").slice(0, 200) })),
+      toolsCount: body.tools?.length,
+      toolNames: body.tools?.map(t => t.function?.name),
+    };
+    await af(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
+  } catch (_logErr) {}
+
   if (stream) {
     // 串流模式：用 fetchStreamWithRetry 取得連線，回傳 raw response
     const { fetchStreamWithRetry } = await import("./llm-utils.mjs");

@@ -19,7 +19,7 @@
  *   POST   /api/coding-project/generate-overview?path=... — Auto-generate PROJECT.md
  */
 
-import { readFile, writeFile, readdir, mkdir, unlink } from "fs/promises";
+import { readFile, writeFile, readdir, mkdir, unlink, appendFile } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -177,6 +177,30 @@ export default async function projectRoute(req, res) {
 
       // Add current user message
       messages.push({ role: "user", content: message });
+
+      // ── Dispatch Logging ──
+      // Write full dispatch context to .paaw/coding-memory/dispatch-log.jsonl
+      try {
+        const logPath = join(cwd || PAAW_ROOT, ".paaw", "coding-memory", "dispatch-log.jsonl");
+        const logEntry = {
+          ts: new Date().toISOString(),
+          agentId: agent.agentId,
+          crewId,
+          model: model || "default",
+          systemPromptLength: fullSystemPrompt.length,
+          systemPromptPreview: fullSystemPrompt.slice(0, 500),
+          actionLogInjected: actionLogText ? actionLogText.slice(0, 300) : "(none)",
+          agentMemoryInjected: agentMemoryText ? agentMemoryText.slice(0, 300) : "(none)",
+          conversationHistoryCount: conversationHistory?.length || 0,
+          cleanHistoryCount: conversationHistory?.filter(m => m.role === "user" || m.role === "assistant").filter(m => !m._thinking).length || 0,
+          currentMessage: message,
+          totalMessages: messages.length,
+          messagesSummary: messages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
+        };
+        await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
+      } catch (logErr) {
+        console.error("[dispatch-log] write failed:", logErr.message);
+      }
 
       // SSE streaming
       res.writeHead(200, {
