@@ -324,12 +324,17 @@ const PAAW_TOOLS = [
 
 const IS_WIN = process.platform === "win32";
 
+// Module-level agent config defaults (used by runShell + executeTool)
+const _agentCfgDefaults = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+let _agentCfg = { ..._agentCfgDefaults };
+export function setAgentConfig(cfg) { _agentCfg = { ..._agentCfgDefaults, ...cfg }; }
+
 function runShell(command, cwd, timeoutMs = 30_000) {
   return new Promise((resolve) => {
     const shellOpt = IS_WIN ? "powershell.exe" : true;
     const child = execCb(command, {
       cwd,
-      timeout: Math.min(timeoutMs, agentCfg.shellTimeoutMs || 600_000),
+      timeout: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
       maxBuffer: 5 * 1024 * 1024,
       shell: shellOpt,
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
@@ -589,7 +594,7 @@ async function executeTool(call, cwd, rootDir, onEvent) {
       // ══════════════════════════════════════════
 
       case "bash": {
-        const timeoutSec = Math.min(args.timeout || 30, agentCfg.bashTimeoutSeconds || 300);
+        const timeoutSec = Math.min(args.timeout || 30, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
         // Truncate large output
@@ -837,10 +842,10 @@ export async function runAgentLoop(config) {
   } = config;
 
   // Load agent config for defaults (with fallback)
-  let agentCfg = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+  let agentCfg = { ..._agentCfgDefaults };
   try {
     const { loadAgentConfig } = await import("../routes/context.mjs");
-    agentCfg = await loadAgentConfig();
+    agentCfg = await loadAgentConfig(); setAgentConfig(agentCfg);
   } catch {}
 
   const effectiveMaxTurns = maxTurns ?? agentCfg.maxTurns;
@@ -1002,10 +1007,10 @@ export async function runAgentLoopStream(config, res) {
     rootDir = cwd,
   } = config;
 
-  let agentCfg = { maxTurns: 20, timeoutSeconds: 120, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+  let agentCfg = { ..._agentCfgDefaults };
   try {
     const { loadAgentConfig } = await import("../routes/context.mjs");
-    agentCfg = await loadAgentConfig();
+    agentCfg = await loadAgentConfig(); setAgentConfig(agentCfg);
   } catch {}
 
   const effectiveMaxTurns = maxTurns ?? agentCfg.maxTurns;
