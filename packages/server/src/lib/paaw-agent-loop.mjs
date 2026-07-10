@@ -83,7 +83,7 @@ function resolveLLMConfig(rootDir, modelOverride) {
   const provider = config.providers[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
 
-  const baseURL = provider.baseURL.replace(//+$/, "");
+  const baseURL = provider.baseURL.replace(/\/+$/, "");
   const apiUrl = `${baseURL}/chat/completions`;
 
   const headers = {
