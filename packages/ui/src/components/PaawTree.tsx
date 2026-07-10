@@ -64,15 +64,15 @@ function TreeItem({
     return (
       <div>
         <div
-          className="flex items-center gap-1 px-1 py-0.5 cursor-pointer hover:bg-stone-100 rounded text-xs select-none"
+          className="flex items-center gap-1 px-1 py-0.5 cursor-pointer hover:bg-stone-100 rounded text-sm select-none"
           style={{ paddingLeft: indent }}
           onClick={() => onToggle(node.path)}
         >
-          <span className="text-[10px] text-stone-400">{isExpanded ? "▼" : "▶"}</span>
-          <span className="text-xs">{isExpanded ? "📂" : "📁"}</span>
+          <span className="text-xs text-stone-400">{isExpanded ? "▼" : "▶"}</span>
+          <span className="text-sm">{isExpanded ? "📂" : "📁"}</span>
           <span className="truncate text-stone-700">{node.name}</span>
           {node.children && (
-            <span className="text-[10px] text-stone-300 ml-auto">{node.children.length}</span>
+            <span className="text-xs text-stone-300 ml-auto">{node.children.length}</span>
           )}
         </div>
         {isExpanded && node.children?.map(child => (
@@ -91,12 +91,12 @@ function TreeItem({
 
   return (
     <div
-      className="flex items-center gap-1 px-1 py-0.5 cursor-pointer hover:bg-blue-50 rounded text-xs select-none group"
+      className="flex items-center gap-1 px-1 py-0.5 cursor-pointer hover:bg-blue-50 rounded text-sm select-none group"
       style={{ paddingLeft: indent + 14 }}
       onClick={() => onOpenFile(node.path, node.name)}
       title={node.path}
     >
-      <span className="text-xs">{paawFileIcon(node.name)}</span>
+      <span className="text-sm">{paawFileIcon(node.name)}</span>
       <span className="truncate text-stone-700">{node.name}</span>
       {node.size != null && node.size > 0 && (
         <span className="text-[9px] text-stone-300 ml-auto group-hover:hidden">
@@ -191,7 +191,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
   if (initialized === false) {
     return (
       <div className="flex flex-col gap-2 px-3 py-3">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-stone-500">
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-stone-500">
           <span>🤖</span>
           <span>.paaw/</span>
         </div>
@@ -200,7 +200,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
         </p>
         <button
           onClick={handleInit}
-          className="text-xs px-2 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-semibold transition-colors"
+          className="text-sm px-2 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-semibold transition-colors"
         >
           ⚡ Initialize .paaw/
         </button>
@@ -211,7 +211,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
   // ── Loading state ──
   if (loading && !tree) {
     return (
-      <div className="px-3 py-2 text-xs text-stone-400 animate-pulse">Loading .paaw/...</div>
+      <div className="px-3 py-2 text-sm text-stone-400 animate-pulse">Loading .paaw/...</div>
     );
   }
 
@@ -227,18 +227,18 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
         className="flex items-center gap-1.5 px-2 py-1 select-none"
         style={{ borderTop: "1px solid #e5e5e5", backgroundColor: "#fafafa" }}
       >
-        <span className="text-[10px]">🤖</span>
+        <span className="text-xs">🤖</span>
         <span className="text-[11px] font-semibold text-stone-500">Project Knowledge</span>
         <button
           onClick={handleGenerate}
-          className="ml-auto text-[10px] text-blue-500 hover:text-blue-700 font-medium opacity-60 hover:opacity-100"
+          className="ml-auto text-xs text-blue-500 hover:text-blue-700 font-medium opacity-60 hover:opacity-100"
           title="Auto-generate PROJECT.md from codebase"
         >
           ✨
         </button>
         <button
           onClick={loadTree}
-          className="text-[10px] text-stone-400 hover:text-stone-600 opacity-60 hover:opacity-100"
+          className="text-xs text-stone-400 hover:text-stone-600 opacity-60 hover:opacity-100"
           title="Refresh"
         >
           ↻
