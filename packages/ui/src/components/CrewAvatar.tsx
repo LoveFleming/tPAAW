@@ -15,7 +15,7 @@ const COLORS: Record<string, { bg: string; fg: string; accent: string }> = {
     "coding.tester": { bg: "#FCE7F3", fg: "#9D174D", accent: "#EC4899" },
     "coding.doc-writer": { bg: "#FEF3C7", fg: "#92400E", accent: "#F59E0B" },
     "coding.helpdesk": { bg: "#D1FAE5", fg: "#065F46", accent: "#10B981" },
-    "coding.engineering-manager": { bg: "#E0E7FF", fg: "#3730A3", accent: "#6366F1" },
+    "coding.qa": { bg: "#E0E7FF", fg: "#3730A3", accent: "#6366F1" },
     "coding.architect": { bg: "#FEE2E2", fg: "#991B1B", accent: "#EF4444" },
 };
 

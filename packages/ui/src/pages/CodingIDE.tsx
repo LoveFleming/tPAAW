@@ -431,7 +431,7 @@ export default function CodingIDE() {
     { id: "coding.tester", emoji: "🧪", title: "迪維雅 Test Agent", mode: "chat" as const },
     { id: "coding.doc-writer", emoji: "📝", title: "梅根 Document Agent", mode: "chat" as const },
     { id: "coding.helpdesk", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const },
-    { id: "coding.engineering-manager", emoji: "🎖️", title: "武大安 EM", mode: "chat" as const },
+    { id: "coding.qa", emoji: "🩺", title: "武大安 QA Agent", mode: "chat" as const },
   ];
 
   // ── EM Orchestration State ──
@@ -944,7 +944,7 @@ const sendChat = useCallback(async () => {
           "coding.developer": "developer",
           "coding.tester": "tester",
           "coding.doc-writer": "doc-writer",
-          "coding.engineering-manager": "em",
+          "coding.qa": "qa",
         };
         const a2aAgentId = CREW_TO_AGENT[activeCrew || ""] || activeCrew?.replace(/^coding\./, "") || "architect";
         const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
