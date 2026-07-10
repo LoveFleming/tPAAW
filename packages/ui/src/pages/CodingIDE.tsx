@@ -349,6 +349,7 @@ export default function CodingIDE() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   // ── Right Panel Tab State ──
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
@@ -1006,6 +1007,20 @@ const sendChat = useCallback(async () => {
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+
+  // Alias for inline usage in AI crew tab
+  const sendChatMessage = useCallback((msg: string) => {
+    setChatInput(msg);
+    // Use micro-task to ensure state is set before sendChat reads it
+    setTimeout(() => sendChat(), 0);
+  }, [sendChat]);
+
+  const handleChatKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      sendChat();
+    }
+  }, [sendChat]);
 
   // Handle domain AI auto-prompt from Dashboard
   useEffect(() => {
