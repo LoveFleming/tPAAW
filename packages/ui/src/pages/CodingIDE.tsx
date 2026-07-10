@@ -427,9 +427,9 @@ export default function CodingIDE() {
   // ── Coding Crew Definitions ──
   const codingCrews = [
     { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const },
+    { id: "ai.node-dev", emoji: "💻", title: "普里亞 Developer", mode: "chat" as const },
     { id: "ai.skill-designer", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const },
     { id: "coding.spec-writer", emoji: "📐", title: "規格師", mode: "spec" as const },
-    { id: "coding.developer", emoji: "💻", title: "開發人員", mode: "agent" as const },
     { id: "coding.unit-tester", emoji: "🧪", title: "Unit Test", mode: "test" as const },
     { id: "coding.e2e-tester", emoji: "🎭", title: "E2E Tester", mode: "test" as const },
     { id: "coding.doc-writer", emoji: "📝", title: "文件製作員", mode: "docs" as const },

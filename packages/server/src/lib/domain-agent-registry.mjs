@@ -128,6 +128,36 @@ const DOMAIN_AGENTS = {
       },
     ],
   },
+
+  developer: {
+    agentId: "developer",
+    crewId: "ai.node-dev",
+    name: "普里亞·夏爾馬 Developer",
+    description: "Coding Agent — 實作功能、修 bug、refactor、全端開發",
+    contextProviders: ["project", "decisions"],
+    tools: null,
+    maxTurns: 30,
+    skills: [
+      {
+        id: "dev-implement",
+        name: "功能實作",
+        description: "根據需求實作新功能、API、UI組件",
+        tags: ["coding", "implementation", "feature"],
+      },
+      {
+        id: "dev-fix",
+        name: "Bug 修復",
+        description: "排查、定位、修復程式 bug",
+        tags: ["coding", "bugfix", "debug"],
+      },
+      {
+        id: "dev-refactor",
+        name: "重構",
+        description: "改善程式碼結構、可讀性、效能",
+        tags: ["coding", "refactor", "quality"],
+      },
+    ],
+  },
 };
 
 // ── Public API ──
