@@ -21,7 +21,7 @@
         "maxTokens": 4096,
         "temperature": 0.4,
         "engine": "paaw-agent",
-        "model": "moonshotai/kimi-k2.6",
+        "model": "zai/glm-5.1",
         "approvalMode": "yolo"
     }
 }
