@@ -82,7 +82,7 @@ const DOMAIN_AGENTS = {
     description: "Architecture/Risk Agent — 分析架構、制定技術決策、規劃模組邊界",
     contextProviders: ["project", "decisions"],
     tools: null, // null = use default agent loop tools (read_file, write_file, etc.)
-    maxTurns: 8,
+    maxTurns: 30,
     skills: [
       {
         id: "architect-review",
@@ -112,7 +112,7 @@ const DOMAIN_AGENTS = {
     description: "Helpdesk/Support Agent — 解決技術問題、排查 bug、操作指引",
     contextProviders: ["helpdesk"],
     tools: null,
-    maxTurns: 5,
+    maxTurns: 20,
     skills: [
       {
         id: "helpdesk-support",
