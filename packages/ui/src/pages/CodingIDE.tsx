@@ -31,6 +31,7 @@ import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
 import PaawTree from "../components/PaawTree";
+import EMDashboard from "../components/EMDashboard";
 import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
 import BrowserPreview from "../components/BrowserPreview";
@@ -61,7 +62,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "status" | "prompts";
+type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "status" | "em-dashboard" | "prompts";
 
 interface MainTab {
   id: string;
@@ -236,7 +237,7 @@ export default function CodingIDE() {
   // ── Main Tabs (unified: editor files + tools + AI crew) ──
   // Code Dashboard is always the first tab (landing page, not closable)
   const DASHBOARD_TAB_ID = "tool:code-dashboard";
-  const DASHBOARD_TAB: MainTab = { id: DASHBOARD_TAB_ID, type: "status", label: "Code Dashboard", icon: "📊", closable: false };
+  const DASHBOARD_TAB: MainTab = { id: DASHBOARD_TAB_ID, type: "em-dashboard", label: "EM 大總管", icon: "🎖️", closable: false };
   const [mainTabs, setMainTabs] = useState<MainTab[]>([DASHBOARD_TAB]);
   const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
@@ -2454,6 +2455,16 @@ const sendChat = useCallback(async () => {
             })()}
 
             {/* === PROJECT DASHBOARD === */}
+            {/* === EM DASHBOARD (Landing Page) === */}
+            {activeMainTab?.type === "em-dashboard" && (
+              <EMDashboard
+                rootPath={rootPath}
+                theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                onOpenFile={openFile}
+              />
+            )}
+
+            {/* === CODE DASHBOARD (legacy) === */}
             {activeMainTab?.type === "status" && (
               <div key={activeMainTab.id} className="flex-1 flex min-w-0 overflow-hidden">
                 {/* Left: Code Status (AI Initial scores) */}
