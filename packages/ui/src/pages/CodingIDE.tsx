@@ -1758,10 +1758,10 @@ const sendChat = useCallback(async () => {
       <div className="flex-1 flex min-h-0">
         {/* ── File Explorer ── */}
         <div className="flex flex-col shrink-0 select-none" style={{ width: sidebarWidth, backgroundColor: "#fff" }}>
-          <div className="px-2 py-1.5" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
+          <div className="px-2 py-0" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
             {/* Git branch indicator */}
             {gitStatus?.branch && (
-              <div className="flex items-center gap-1 mt-1">
+              <div className="flex items-center gap-1 py-1">
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold border border-emerald-200">🔀 {gitStatus.branch}</span>
                 {(gitStatus.staged.length + gitStatus.unstaged.length + gitStatus.untracked.length) > 0 && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-semibold">
