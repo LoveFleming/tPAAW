@@ -633,286 +633,252 @@ export class PaawProject {
     if (!this.exists) return null;
 
     const scores = {
-      spec: { score: 0, items: [] },
+      architecture: { score: 0, items: [] },
+      api: { score: 0, items: [] },
       test: { score: 0, items: [] },
-      bug: { score: 0, items: [] },
       docs: { score: 0, items: [] },
-      maintain: { score: 0, items: [] },
+      maintainability: { score: 0, items: [] },
     };
 
-    // ── Spec Score ──
-    const specItems = [];
-    let specPoints = 0;
+    // ════════ 🏗️ Architecture Health ════════
+    const archItems = [];
+    let archPoints = 0;
 
-    // API Contract
-    const apiSpec = await this.readFile("specs/api-contract.md");
-    if (apiSpec && apiSpec.length > 50) {
-      specPoints += 30;
-      specItems.push({ name: "API Contract", status: "ok", detail: `${apiSpec.length} chars` });
+    const projectMd = await this.readFile("PROJECT.md");
+    if (projectMd && !projectMd.includes("(auto-detect)") && projectMd.length > 100) {
+      archPoints += 25;
+      archItems.push({ name: "PROJECT.md", status: "ok", detail: "Filled" });
+    } else if (projectMd) {
+      archPoints += 10;
+      archItems.push({ name: "PROJECT.md", status: "warn", detail: "Template only" });
     } else {
-      specItems.push({ name: "API Contract", status: "missing", detail: "Run AI Init to generate" });
+      archItems.push({ name: "PROJECT.md", status: "missing", detail: "Missing" });
     }
 
-    // Error Mapping
-    const errorMapping = await this.readFile("specs/error-codes.md");
-    if (errorMapping && errorMapping.length > 50) {
-      specPoints += 25;
-      specItems.push({ name: "Error Mapping", status: "ok", detail: `${errorMapping.length} chars` });
+    const architectureMd = await this.readFile("ARCHITECTURE.md");
+    if (architectureMd && architectureMd.length > 200) {
+      archPoints += 35;
+      archItems.push({ name: "Architecture Map", status: "ok", detail: `${architectureMd.length} chars` });
     } else {
-      specItems.push({ name: "Error Mapping", status: "missing", detail: "Run AI Init to generate" });
+      archItems.push({ name: "Architecture Map", status: "missing", detail: "Run Code Understanding" });
     }
 
-    // Node / Component Contract
-    const nodeContract = await this.readFile("specs/node-contract.md");
-    if (nodeContract && nodeContract.length > 50) {
-      specPoints += 20;
-      specItems.push({ name: "Node Contract", status: "ok", detail: `${nodeContract.length} chars` });
+    const decisionsMd = await this.readFile("DECISIONS.md");
+    const adrCount = (decisionsMd || "").match(/## ADR-\d+/g)?.length || 0;
+    if (adrCount >= 3) {
+      archPoints += 25;
+      archItems.push({ name: "Decision Records", status: "ok", detail: `${adrCount} ADRs` });
+    } else if (adrCount > 0) {
+      archPoints += 15;
+      archItems.push({ name: "Decision Records", status: "warn", detail: `Only ${adrCount} ADRs` });
     } else {
-      specItems.push({ name: "Node Contract", status: "missing", detail: "Optional" });
+      archItems.push({ name: "Decision Records", status: "missing", detail: "No ADRs" });
     }
 
-    // Flow Spec
-    const flowSpec = await this.readFile("specs/flow-spec.md");
-    if (flowSpec && flowSpec.length > 50) {
-      specPoints += 15;
-      specItems.push({ name: "Flow Spec", status: "ok", detail: `${flowSpec.length} chars` });
-    } else {
-      specItems.push({ name: "Flow Spec", status: "missing", detail: "Optional" });
-    }
-
-    // API route count (try to detect from source)
-    let apiCount = 0;
+    // Entry point clarity
     try {
-      const routeFiles = await runShell("grep -rl 'url.startsWith\\|if (url' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | head -20", this.root, 5000);
-      if (routeFiles.trim()) {
-        const routeCount = await runShell("grep -c 'url.startsWith\\|if (url' --include='*.mjs' --include='*.js' --include='*.ts' -r packages/server/src/ 2>/dev/null | awk -F: '{s+=$2} END {print s}'", this.root, 5000);
-        apiCount = parseInt(routeCount.trim()) || 0;
+      const pkgExists = existsSync(join(this.root, "package.json"));
+      if (pkgExists) {
+        archPoints += 15;
+        archItems.push({ name: "Entry Points", status: "ok", detail: "package.json found" });
+      } else {
+        archItems.push({ name: "Entry Points", status: "warn", detail: "No package.json" });
       }
     } catch {}
-    specItems.push({ name: "API Endpoints", status: "info", detail: apiCount > 0 ? `~${apiCount} detected` : "Unknown" });
-    specPoints += 10; // base score for having routes
 
-    scores.spec = { score: specPoints, items: specItems };
+    scores.architecture = { score: archPoints, items: archItems };
 
-    // ── Test Score ──
+    // ════════ 📡 API Completeness ════════
+    const apiItems = [];
+    let apiPoints = 0;
+
+    const apiSpec = await this.readFile("specs/api-contract.md");
+    if (apiSpec && apiSpec.length > 100) {
+      apiPoints += 35;
+      apiItems.push({ name: "API Contract", status: "ok", detail: `${apiSpec.length} chars` });
+    } else {
+      apiItems.push({ name: "API Contract", status: "missing", detail: "Missing" });
+    }
+
+    const errorMapping = await this.readFile("specs/error-codes.md");
+    if (errorMapping && errorMapping.length > 50) {
+      apiPoints += 30;
+      apiItems.push({ name: "Error Mapping", status: "ok", detail: "Defined" });
+    } else {
+      apiItems.push({ name: "Error Mapping", status: "missing", detail: "Missing" });
+    }
+
+    // Runbooks
+    const rbDir = join(this.paawDir, "runbook");
+    let rbCount = 0;
+    if (existsSync(rbDir)) {
+      try { const rbFiles = await readdir(rbDir); rbCount = rbFiles.filter(f => f.endsWith(".md")).length; } catch {}
+    }
+    if (rbCount > 0) {
+      apiPoints += 20;
+      apiItems.push({ name: "Runbooks", status: "ok", detail: `${rbCount} file(s)` });
+    } else {
+      apiItems.push({ name: "Runbooks", status: "missing", detail: "None" });
+    }
+
+    // API count
+    let apiCount = 0;
+    try {
+      const routeCount = await runShell("grep -rc 'url.startsWith\\|if (url' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | awk -F: '{s+=$2} END {print s}'", this.root, 5000);
+      apiCount = parseInt(routeCount.trim()) || 0;
+    } catch {}
+    apiItems.push({ name: "API Endpoints", status: "info", detail: apiCount > 0 ? `~${apiCount} detected` : "Unknown" });
+    apiPoints += 15;
+    scores.api = { score: apiPoints, items: apiItems };
+
+    // ════════ 🧪 Test Coverage ════════
     const testItems = [];
     let testPoints = 0;
 
-    // API Test Payloads
     const tpDir = join(this.paawDir, "test-payloads");
     let tpCount = 0;
     if (existsSync(tpDir)) {
-      try {
-        const tpFiles = await readdir(tpDir);
-        tpCount = tpFiles.filter(f => f.endsWith(".json")).length;
-      } catch {}
+      try { const tpFiles = await readdir(tpDir); tpCount = tpFiles.filter(f => f.endsWith(".json")).length; } catch {}
     }
     if (tpCount > 0) {
       testPoints += 40;
       testItems.push({ name: "API Test Payloads", status: "ok", detail: `${tpCount} file(s)` });
     } else {
-      testItems.push({ name: "API Test Payloads", status: "missing", detail: "Run AI Init to generate" });
+      testItems.push({ name: "API Test Payloads", status: "missing", detail: "Missing" });
     }
 
-    // Unit test coverage
     let hasTests = false;
+    let testFileCount = 0;
     try {
-      const testCheck = await runShell("find . -name '*.test.*' -o -name '*.spec.*' | head -5", this.root, 5000);
-      hasTests = testCheck.trim().length > 0;
+      const testCheck = await runShell("find . -name '*.test.*' -o -name '*.spec.*' 2>/dev/null | wc -l", this.root, 5000);
+      testFileCount = parseInt(testCheck.trim()) || 0;
+      hasTests = testFileCount > 0;
     } catch {}
     if (hasTests) {
-      testPoints += 30;
-      testItems.push({ name: "Unit Tests", status: "ok", detail: "Found test files" });
+      testPoints += 35;
+      testItems.push({ name: "Unit Tests", status: "ok", detail: `${testFileCount} test file(s)` });
     } else {
-      testItems.push({ name: "Unit Tests", status: "missing", detail: "No test files found" });
+      testItems.push({ name: "Unit Tests", status: "missing", detail: "None found" });
     }
 
-    // E2E config
     let hasE2E = false;
     try {
       const e2eCheck = await runShell("find . -maxdepth 1 -name 'playwright.config.*' -o -name 'cypress.config.*' 2>/dev/null", this.root, 3000);
       hasE2E = e2eCheck.trim().length > 0;
     } catch {}
     if (hasE2E) {
-      testPoints += 20;
+      testPoints += 25;
       testItems.push({ name: "E2E Tests", status: "ok", detail: "Configured" });
     } else {
       testItems.push({ name: "E2E Tests", status: "missing", detail: "Not configured" });
     }
-
-    testPoints += 10; // base
     scores.test = { score: testPoints, items: testItems };
 
-    // ── Bug/Error Score ──
-    const bugItems = [];
-    let bugPoints = 0;
-
-    // Runbooks
-    const rbDir = join(this.paawDir, "runbook");
-    let rbCount = 0;
-    if (existsSync(rbDir)) {
-      try {
-        const rbFiles = await readdir(rbDir);
-        rbCount = rbFiles.filter(f => f.endsWith(".md")).length;
-      } catch {}
-    }
-    if (rbCount > 0) {
-      bugPoints += 40;
-      bugItems.push({ name: "Runbooks", status: "ok", detail: `${rbCount} runbook(s)` });
-    } else {
-      bugItems.push({ name: "Runbooks", status: "missing", detail: "Run AI Init to generate" });
-    }
-
-    // Error handling check
-    let errorHandlingFiles = 0;
-    try {
-      const ehCheck = await runShell("grep -rl 'try {' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | head -10", this.root, 5000);
-      errorHandlingFiles = ehCheck.trim().split("\n").filter(Boolean).length;
-    } catch {}
-    if (errorHandlingFiles > 0) {
-      bugPoints += 30;
-      bugItems.push({ name: "Error Handling", status: "ok", detail: `${errorHandlingFiles} file(s) with try/catch` });
-    } else {
-      bugItems.push({ name: "Error Handling", status: "warn", detail: "No error handling detected" });
-    }
-
-    // Error mapping completeness
-    if (errorMapping && errorMapping.length > 50) {
-      bugPoints += 20;
-      bugItems.push({ name: "Error Mapping", status: "ok", detail: "Defined" });
-    } else {
-      bugItems.push({ name: "Error Mapping", status: "missing", detail: "Missing" });
-    }
-
-    bugPoints += 10; // base
-    scores.bug = { score: bugPoints, items: bugItems };
-
-    // ── Docs Score ──
+    // ════════ 📝 Documentation Quality ════════
     const docsItems = [];
     let docsPoints = 0;
 
-    // PROJECT.md
-    const projectMd = await this.readFile("PROJECT.md");
-    if (projectMd && !projectMd.includes("(auto-detect)")) {
-      docsPoints += 25;
-      docsItems.push({ name: "PROJECT.md", status: "ok", detail: "Exists and filled" });
-    } else if (projectMd) {
-      docsPoints += 10;
-      docsItems.push({ name: "PROJECT.md", status: "warn", detail: "Exists but not filled" });
-    } else {
-      docsItems.push({ name: "PROJECT.md", status: "missing", detail: "Missing" });
-    }
-
-    // README
     let readmeStatus = "missing";
     let readmeDetail = "Missing";
     try {
-      const readmeCheck = await runShell("test -f README.md && echo yes || (test -f readme.md && echo yes || echo no)", this.root, 3000);
-      if (readmeCheck.trim()) {
+      const readmeCheck = await runShell("test -f README.md && echo yes || echo no", this.root, 3000);
+      if (readmeCheck.trim() === "yes") {
         readmeStatus = "ok";
-        docsPoints += 20;
-        // Check age
+        docsPoints += 30;
         try {
           const readmeAge = await runShell("git log -1 --format='%ci' -- README.md 2>/dev/null", this.root, 3000);
           if (readmeAge.trim()) {
             const daysSince = Math.floor((Date.now() - new Date(readmeAge.trim()).getTime()) / 86400000);
-            readmeDetail = daysSince > 90 ? `Outdated (${daysSince} days)` : `Updated ${daysSince} days ago`;
-            if (daysSince > 90) {
-              docsPoints -= 10;
-              readmeStatus = "warn";
-            }
-          } else {
-            readmeDetail = "Exists";
-          }
+            readmeDetail = daysSince > 90 ? `Outdated (${daysSince}d)` : `${daysSince}d ago`;
+            if (daysSince > 90) { docsPoints -= 10; readmeStatus = "warn"; }
+          } else { readmeDetail = "Exists"; }
         } catch { readmeDetail = "Exists"; }
       }
     } catch {}
     docsItems.push({ name: "README", status: readmeStatus, detail: readmeDetail });
 
-    // HelpDesk FAQ
     const faq = await this.readFile("helpdesk/faq.md");
     if (faq && faq.length > 50) {
-      docsPoints += 25;
-      docsItems.push({ name: "HelpDesk FAQ", status: "ok", detail: `${faq.length} chars` });
+      docsPoints += 30;
+      docsItems.push({ name: "FAQ", status: "ok", detail: `${faq.length} chars` });
     } else {
-      docsItems.push({ name: "HelpDesk FAQ", status: "missing", detail: "Run AI Init to generate" });
+      docsItems.push({ name: "FAQ", status: "missing", detail: "Missing" });
     }
 
-    // Changelog
     const changelog = await this.readFile("CHANGELOG.md");
     if (changelog && changelog.length > 100 && !changelog.includes("(自動生成)")) {
-      docsPoints += 20;
+      docsPoints += 25;
       docsItems.push({ name: "Changelog", status: "ok", detail: "Has entries" });
     } else if (changelog) {
-      docsPoints += 5;
-      docsItems.push({ name: "Changelog", status: "warn", detail: "Empty or template" });
+      docsPoints += 10;
+      docsItems.push({ name: "Changelog", status: "warn", detail: "Template only" });
     } else {
       docsItems.push({ name: "Changelog", status: "missing", detail: "Missing" });
     }
 
-    docsPoints += 10; // base
+    // Code stats (languages)
+    try {
+      const gitFiles = (await runShell("git ls-files 2>/dev/null | wc -l", this.root, 5000)).trim();
+      const fileCount = parseInt(gitFiles) || 0;
+      docsItems.push({ name: "Tracked Files", status: "info", detail: `${fileCount} files` });
+      docsPoints += 15;
+    } catch {}
     scores.docs = { score: docsPoints, items: docsItems };
 
-    // ── Maintainability Score ──
+    // ════════ 🔧 Maintainability ════════
     const maintainItems = [];
     let maintainPoints = 0;
 
-    // Standards
-    const standards = await this.readFile("CODING-STANDARDS.md");
+    const standards = await this.readFile("standards/coding-style.md");
     const standardsDir = join(this.paawDir, "standards");
     let stdCount = 0;
     if (existsSync(standardsDir)) {
-      try {
-        const stdFiles = await readdir(standardsDir);
-        stdCount = stdFiles.filter(f => f.endsWith(".md")).length;
-      } catch {}
+      try { const stdFiles = await readdir(standardsDir); stdCount = stdFiles.filter(f => f.endsWith(".md")).length; } catch {}
     }
     if ((standards && standards.length > 100) || stdCount > 0) {
-      maintainPoints += 25;
-      maintainItems.push({ name: "Coding Standards", status: "ok", detail: stdCount > 0 ? `${stdCount} standard file(s)` : "Main file exists" });
+      maintainPoints += 30;
+      maintainItems.push({ name: "Coding Standards", status: "ok", detail: stdCount > 0 ? `${stdCount} file(s)` : "Main exists" });
     } else {
-      maintainItems.push({ name: "Coding Standards", status: "missing", detail: "Run AI Init to generate" });
-    }
-
-    // Decisions
-    const decisions = await this.readFile("DECISIONS.md");
-    const adrCount = (decisions || "").match(/## ADR-\d+/g)?.length || 0;
-    if (adrCount > 0) {
-      maintainPoints += 25;
-      maintainItems.push({ name: "Decision Records", status: "ok", detail: `${adrCount} ADR(s)` });
-    } else {
-      maintainItems.push({ name: "Decision Records", status: "missing", detail: "No ADRs recorded" });
+      maintainItems.push({ name: "Coding Standards", status: "missing", detail: "Missing" });
     }
 
     // Git hygiene
-    let gitClean = false;
     try {
       const gitStatus = await runShell("git status --porcelain", this.root, 5000);
-      gitClean = gitStatus.trim().length === 0;
+      const dirtyCount = gitStatus.trim().split("\n").filter(Boolean).length;
+      if (dirtyCount === 0) {
+        maintainPoints += 25;
+        maintainItems.push({ name: "Git Status", status: "ok", detail: "Clean" });
+      } else {
+        maintainPoints += 10;
+        maintainItems.push({ name: "Git Status", status: "warn", detail: `${dirtyCount} uncommitted` });
+      }
     } catch {}
-    if (gitClean) {
-      maintainPoints += 20;
-      maintainItems.push({ name: "Git Status", status: "ok", detail: "Clean working tree" });
-    } else {
-      maintainPoints += 5;
-      maintainItems.push({ name: "Git Status", status: "warn", detail: "Uncommitted changes" });
-    }
 
-    // Dependency audit
-    let hasAudit = false;
+    // Error handling quality
+    let errorHandlingFiles = 0;
     try {
-      const auditCheck = await runShell("test -f .paaw/dependency-audit.md && echo yes || (test -f npm-audit-report.json && echo yes || echo no)", this.root, 3000);
-      hasAudit = auditCheck.trim().length > 0;
+      const ehCheck = await runShell("grep -rl 'try {' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | wc -l", this.root, 5000);
+      errorHandlingFiles = parseInt(ehCheck.trim()) || 0;
     } catch {}
-    if (hasAudit) {
-      maintainPoints += 20;
-      maintainItems.push({ name: "Dependency Audit", status: "ok", detail: "Audited" });
+    if (errorHandlingFiles > 3) {
+      maintainPoints += 25;
+      maintainItems.push({ name: "Error Handling", status: "ok", detail: `${errorHandlingFiles} files` });
     } else {
-      maintainItems.push({ name: "Dependency Audit", status: "missing", detail: "Not done" });
+      maintainItems.push({ name: "Error Handling", status: "warn", detail: "Limited try/catch" });
     }
 
-    maintainPoints += 10; // base
-    scores.maintain = { score: maintainPoints, items: maintainItems };
+    // Dependency count
+    try {
+      const pkgPath = join(this.root, "package.json");
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readSync(pkgPath, "utf-8"));
+        const depCount = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).length;
+        maintainItems.push({ name: "Dependencies", status: "info", detail: `${depCount} packages` });
+        maintainPoints += 20;
+      }
+    } catch {}
+    scores.maintainability = { score: maintainPoints, items: maintainItems };
 
     return scores;
   }
