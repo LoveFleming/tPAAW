@@ -232,24 +232,29 @@ export default function CodingIDE() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // ── Main Tabs (unified: editor files + tools + AI crew) ──
-  const [mainTabs, setMainTabs] = useState<MainTab[]>([]);
-  const [activeMainTabId, setActiveMainTabId] = useState<string | null>(null);
+  // Code Dashboard is always the first tab (landing page, not closable)
+  const DASHBOARD_TAB_ID = "tool:code-dashboard";
+  const DASHBOARD_TAB: MainTab = { id: DASHBOARD_TAB_ID, type: "status", label: "Code Dashboard", icon: "📊", closable: false };
+  const [mainTabs, setMainTabs] = useState<MainTab[]>([DASHBOARD_TAB]);
+  const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
 
   const openMainTab = useCallback((tab: MainTab) => {
     setMainTabs(prev => {
       const existing = prev.find(t => t.id === tab.id);
       if (existing) return prev;
-      return [...prev, tab];
+      // Ensure dashboard tab stays first
+      return [DASHBOARD_TAB, ...prev.filter(t => t.id !== DASHBOARD_TAB_ID), tab];
     });
     setActiveMainTabId(tab.id);
   }, []);
 
   const closeMainTab = useCallback((id: string) => {
+    if (id === DASHBOARD_TAB_ID) return; // Dashboard cannot be closed
     setMainTabs(prev => {
       const remaining = prev.filter(t => t.id !== id);
       if (activeMainTabId === id) {
-        setActiveMainTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
+        setActiveMainTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : DASHBOARD_TAB_ID);
       }
       return remaining;
     });
@@ -493,8 +498,8 @@ export default function CodingIDE() {
                   setAiInitializing(false);
                   // Refresh status after AI Init
                   fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {});
-                  // Auto-open Dashboard to show results
-                  openMainTab({ id: "tool:dashboard", type: "status", label: "Dashboard", icon: "📊", closable: true });
+                  // Auto-switch to Code Dashboard to show results
+                  setActiveMainTabId(DASHBOARD_TAB_ID);
                   setShowAiInitPanel(false);
                 }
               }
@@ -1423,15 +1428,6 @@ const sendChat = useCallback(async () => {
                   <span>✕</span> {tt("vibe.closeProject")}
                 </button>
               )}
-              {rootPath && (
-                <>
-                  <div className="border-t border-stone-100 my-1" />
-                  <button onClick={() => { setShowProjectMenu(false); openMainTab({ id: "tool:dashboard", type: "status", label: "Dashboard", icon: "📊", closable: true }); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
-                    <span>📊</span> Project Dashboard
-                  </button>
-                </>
-              )}
               {recentProjects.length > 0 && (
                 <>
                   <div className="border-t border-stone-100 my-1" />
@@ -1688,7 +1684,8 @@ const sendChat = useCallback(async () => {
                 </div>
               );
             })}
-            {mainTabs.length === 0 && <div className="px-4 py-1.5 text-xs text-stone-300">{tt("vibe.noFilesOpen")}</div>}
+            {/* Show hint only when dashboard is the sole tab */}
+            {mainTabs.length === 1 && mainTabs[0].id === DASHBOARD_TAB_ID && <div className="px-4 py-1.5 text-xs text-stone-300">{tt("vibe.noFilesOpen")}</div>}
           </div>
           {/* ── Content Area ── */}
           <div className="flex-1 flex min-h-0 overflow-hidden relative">
@@ -2259,7 +2256,7 @@ const sendChat = useCallback(async () => {
                   <div className="px-5 py-3 border-b" style={{ borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
                     <div className="flex items-center gap-2">
                       <span className="text-lg">📊</span>
-                      <span className="text-sm font-bold text-stone-700">Project Dashboard</span>
+                      <span className="text-sm font-bold text-stone-700">Code Dashboard</span>
                       {!codeStatus && rootPath && (
                         <button
                           onClick={() => { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
@@ -2275,7 +2272,17 @@ const sendChat = useCallback(async () => {
                     </div>
                   </div>
 
-                  {!codeStatus ? (
+                  {!rootPath ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+                      <span className="text-5xl opacity-40">📂</span>
+                      <p className="text-sm text-stone-400">開啟專案後即可查看 Code Dashboard</p>
+                      <button
+                        onClick={() => setShowProjectMenu(true)}
+                        className="px-4 py-2 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
+                        ⚡ 開啟專案
+                      </button>
+                    </div>
+                  ) : !codeStatus ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
                       <span className="text-5xl opacity-40">📊</span>
                       <p className="text-sm text-stone-400">{tt("vibe.aiInitialize", "AI Initialize")} 專案後會產生健康度報告</p>
