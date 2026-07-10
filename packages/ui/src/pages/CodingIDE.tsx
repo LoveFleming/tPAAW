@@ -432,9 +432,6 @@ export default function CodingIDE() {
     { id: "coding.doc-writer", emoji: "📝", title: "梅根 Document Agent", mode: "chat" as const },
     { id: "coding.helpdesk", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const },
     { id: "coding.engineering-manager", emoji: "🎖️", title: "武大安 EM", mode: "chat" as const },
-    { id: "coding.unit-tester", emoji: "🧪", title: "Unit Test", mode: "test" as const },
-    { id: "coding.e2e-tester", emoji: "🎭", title: "E2E Tester", mode: "test" as const },
-    { id: "coding.doc-writer", emoji: "📝", title: "文件製作員", mode: "docs" as const },
   ];
 
   // Close / unload project
