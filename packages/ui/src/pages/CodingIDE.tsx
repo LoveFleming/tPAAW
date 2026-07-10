@@ -269,6 +269,12 @@ export default function CodingIDE() {
     openMainTab({ id: tabId, type: "terminal", label: `Terminal ${count + 1}`, icon: "\u2328\uFE0F", closable: true });
   }, [openMainTab, rootPath]);
 
+  // ── Dashboard states (must be before startAiFix callback) ──
+  const [codeStatus, setCodeStatus] = useState<{ initialized: boolean; scores: Record<string, { score: number; items: Array<{ name: string; status: string; detail: string }> }> } | null>(null);
+  const [expandedArea, setExpandedArea] = useState<string | null>(null);
+  const [fixingArea, setFixingArea] = useState<string | null>(null);
+  const [fixProgress, setFixProgress] = useState<Array<{ step: string; name?: string; status: "running" | "done" | "error" | "skip" }>>([]);
+
   // ── AI Fix handler for Dashboard ──
   const startAiFix = useCallback(async (area: string) => {
     if (!rootPath) return;
@@ -430,10 +436,6 @@ export default function CodingIDE() {
   const [promptSaving, setPromptSaving] = useState(false);
 
   // ── Code Status Dashboard State ──
-  const [codeStatus, setCodeStatus] = useState<{ initialized: boolean; scores: Record<string, { score: number; items: Array<{ name: string; status: string; detail: string }> }> } | null>(null);
-  const [expandedArea, setExpandedArea] = useState<string | null>(null);
-  const [fixingArea, setFixingArea] = useState<string | null>(null);
-  const [fixProgress, setFixProgress] = useState<Array<{ step: string; name?: string; status: "running" | "done" | "error" | "skip" }>>([]);
   const [domainAutoPrompt, setDomainAutoPrompt] = useState<{ mode: string; prompt: string } | null>(null);
 
   const startAiInitialize = useCallback(async () => {
