@@ -386,8 +386,8 @@ export default function CodingIDE() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // If click is outside any toolbar dropdown trigger, close all menus
-      if (!target.closest(".toolbar-dropdown-trigger")) {
+      // If click is outside any toolbar dropdown trigger AND outside dropdown panels, close all menus
+      if (!target.closest(".toolbar-dropdown-trigger") && !target.closest(".toolbar-dropdown-panel")) {
         setShowProjectMenu(false);
         setShowSearchMenu(false);
         setShowCrewMenu(false);
@@ -395,8 +395,8 @@ export default function CodingIDE() {
         setShowTerminalMenu(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
   }, []);
 
   // ── Coding Crew Definitions ──
@@ -1413,7 +1413,7 @@ const sendChat = useCallback(async () => {
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showProjectMenu && (
-            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+            <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowProjectMenu(false); setNewProjectParent(rootPath ? rootPath.split("/").slice(0, -1).join("/") || rootPath : ""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
                 <span>➕</span> {tt("vibe.newProject", "New Project")}
@@ -1455,7 +1455,7 @@ const sendChat = useCallback(async () => {
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showCrewMenu && (
-            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+            <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               {/* AI Initialize */}
               {rootPath && (
                 <button onClick={() => { setShowCrewMenu(false); startAiInitialize(); }}
@@ -1486,7 +1486,7 @@ const sendChat = useCallback(async () => {
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showSearchMenu && (
-            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+            <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowSearchMenu(false); setShowQuickOpen(true); setQuickOpenQuery(""); setQuickOpenResults([]); setQuickOpenIndex(0); }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>📄</span> Quick Open <span className="ml-auto text-[10px] text-stone-400">⌘P</span>
@@ -1509,7 +1509,7 @@ const sendChat = useCallback(async () => {
             👁️ Browser <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showBrowserMenu && (
-            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+            <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowBrowserMenu(false); openNewBrowser(); }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>➕</span> New Browser
@@ -1544,7 +1544,7 @@ const sendChat = useCallback(async () => {
             ⌨️ Terminal <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showTerminalMenu && rootPath && (
-            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
+            <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowTerminalMenu(false); openNewTerminal(); }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>➕</span> New Terminal
