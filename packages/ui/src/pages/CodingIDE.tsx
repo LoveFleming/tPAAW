@@ -1476,33 +1476,33 @@ const sendChat = useCallback(async () => {
         {/* ⚡ Project */}
         <div className="relative">
           <button onClick={() => setShowProjectMenu(!showProjectMenu)}
-            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
+            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-sm px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
             <span className="text-sm">⚡</span> {tt("vibe.projectMenu", "Project")}
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showProjectMenu && (
             <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowProjectMenu(false); setNewProjectParent(rootPath ? rootPath.split("/").slice(0, -1).join("/") || rootPath : ""); setNewProjectName(""); setNewProjectError(""); setShowNewProject(true); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
+                className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 text-stone-700 flex items-center gap-2">
                 <span>➕</span> {tt("vibe.newProject", "New Project")}
               </button>
               <button onClick={() => { setShowProjectMenu(false); setShowDirExplorer(true); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>📂</span> {tt("vibe.importProject", "Import Project")}
               </button>
               {rootPath && (
                 <button onClick={() => { setShowProjectMenu(false); closeProject(); }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2">
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2">
                   <span>✕</span> {tt("vibe.closeProject")}
                 </button>
               )}
               {recentProjects.length > 0 && (
                 <>
                   <div className="border-t border-stone-100 my-1" />
-                  <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.recentProjects", "Recent Projects")}</div>
+                  <div className="px-3 py-1 text-xs font-semibold text-stone-400">{tt("vibe.recentProjects", "Recent Projects")}</div>
                   {recentProjects.slice(0, 8).map(rp => (
                     <button key={rp.path} onClick={() => { setShowProjectMenu(false); setRootPath(rp.path); setExpandedDirs(new Set()); setDirContents({}); dirContentsRef.current = {}; expandDir(rp.path); }}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 flex items-center gap-2 truncate">
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 flex items-center gap-2 truncate">
                       <span className="shrink-0">{rp.hasPaaw ? "🤖" : "📁"}</span> <span className="truncate">{rp.name}</span>
                     </button>
                   ))}
@@ -1515,7 +1515,7 @@ const sendChat = useCallback(async () => {
         {/* 🤖 AI dropdown (AI Init + AI Crew unified) */}
         <div className="relative ml-1">
           <button onClick={() => setShowCrewMenu(!showCrewMenu)}
-            className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors")}
+            className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-sm px-2 py-1 rounded font-semibold transition-colors")}
             style={{ backgroundColor: (activeCrew || aiInitializing) ? tk.accent + "33" : "transparent", color: (activeCrew || aiInitializing) ? tk.accent : tk.toolbarText }}
             onMouseEnter={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
             onMouseLeave={e => { if (!activeCrew && !aiInitializing) e.currentTarget.style.backgroundColor = activeCrew ? tk.accent + "33" : "transparent"; }}>
@@ -1528,12 +1528,12 @@ const sendChat = useCallback(async () => {
               {rootPath && (
                 <button onClick={() => { setShowCrewMenu(false); startAiInitialize(); }}
                   disabled={aiInitializing}
-                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2", aiInitializing && "opacity-60")}>
+                  className={cn("w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2", aiInitializing && "opacity-60")}>
                   <span>🚀</span> {aiInitializing ? "AI Init ⏳" : "AI Initialize"}
                 </button>
               )}
               <div className="border-t border-stone-100 my-1" />
-              <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
+              <div className="px-3 py-1 text-xs font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
               {codingCrews.map(crew => (
                 <button key={crew.id} onClick={() => {
                   setShowCrewMenu(false);
@@ -1551,7 +1551,7 @@ const sendChat = useCallback(async () => {
                     }
                   }).catch(() => {});
                 }}
-                  className={cn("w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex items-center gap-2 truncate",
+                  className={cn("w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 truncate",
                     activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
                   <span>{crew.emoji}</span> <span>{crew.title}</span>
                   {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
@@ -1564,18 +1564,18 @@ const sendChat = useCallback(async () => {
         {/* 搜尋 dropdown — 移除重複 🔍 icon，只保留名稱 */}
         <div className="relative ml-1">
           <button onClick={() => setShowSearchMenu(!showSearchMenu)}
-            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
+            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-sm px-2 py-1 rounded font-semibold transition-colors" style={{ color: tk.toolbarText }} onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover} onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
             {tt("vibe.search", "搜尋")}
             <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
           </button>
           {showSearchMenu && (
             <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowSearchMenu(false); setShowQuickOpen(true); setQuickOpenQuery(""); setQuickOpenResults([]); setQuickOpenIndex(0); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>📄</span> Quick Open <span className="ml-auto text-[10px] text-stone-400">⌘P</span>
               </button>
               <button onClick={() => { setShowSearchMenu(false); setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>📋</span> Find & Replace <span className="ml-auto text-[10px] text-stone-400">⇧⌘F</span>
               </button>
             </div>
@@ -1585,7 +1585,7 @@ const sendChat = useCallback(async () => {
         {/* 👁️ Browser dropdown — multi-instance */}
         <div className="relative ml-1">
           <button onClick={() => setShowBrowserMenu(!showBrowserMenu)}
-            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors"
+            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-sm px-2 py-1 rounded font-semibold transition-colors"
             style={{ backgroundColor: mainTabs.some(t => t.type === "browser") ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.type === "browser") ? tk.toolbarText : tk.toolbarTextMuted }}
             onMouseEnter={e => { if (!mainTabs.some(t => t.type === "browser")) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = mainTabs.some(t => t.type === "browser") ? tk.toolbarActive : "transparent"; }}>
@@ -1594,16 +1594,16 @@ const sendChat = useCallback(async () => {
           {showBrowserMenu && (
             <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowBrowserMenu(false); openNewBrowser(); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>➕</span> New Browser
               </button>
               {mainTabs.filter(t => t.type === "browser").length > 0 && (
                 <>
                   <div className="border-t border-stone-100 my-1" />
-                  <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">Open Browsers</div>
+                  <div className="px-3 py-1 text-xs font-semibold text-stone-400">Open Browsers</div>
                   {mainTabs.filter(t => t.type === "browser").map(tab => (
                     <button key={tab.id} onClick={() => { setShowBrowserMenu(false); setActiveMainTabId(tab.id); }}
-                      className={cn("w-full text-left px-3 py-2 text-xs hover:bg-blue-50 flex items-center gap-2 truncate",
+                      className={cn("w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 truncate",
                         activeMainTabId === tab.id && "bg-blue-50 text-blue-700 font-semibold")}>
                       <span>{tab.icon}</span> <span>{tab.label}</span>
                       {activeMainTabId === tab.id && <span className="ml-auto text-blue-500">●</span>}
@@ -1619,7 +1619,7 @@ const sendChat = useCallback(async () => {
         <div className="relative ml-1">
           <button onClick={() => { if (rootPath) setShowTerminalMenu(!showTerminalMenu); }}
             disabled={!rootPath}
-            className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded font-semibold transition-colors",
+            className={cn("toolbar-dropdown-trigger flex items-center gap-1.5 text-sm px-2 py-1 rounded font-semibold transition-colors",
               !rootPath && "opacity-20 cursor-not-allowed")}
             style={{ backgroundColor: mainTabs.some(t => t.type === "terminal") ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.type === "terminal") ? tk.toolbarText : tk.toolbarTextMuted }}
             onMouseEnter={e => { if (rootPath && !mainTabs.some(t => t.type === "terminal")) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
@@ -1629,16 +1629,16 @@ const sendChat = useCallback(async () => {
           {showTerminalMenu && rootPath && (
             <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => { setShowTerminalMenu(false); openNewTerminal(); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 text-stone-700 flex items-center gap-2">
+                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
                 <span>➕</span> New Terminal
               </button>
               {mainTabs.filter(t => t.type === "terminal").length > 0 && (
                 <>
                   <div className="border-t border-stone-100 my-1" />
-                  <div className="px-3 py-1 text-[10px] font-semibold text-stone-400">Open Terminals</div>
+                  <div className="px-3 py-1 text-xs font-semibold text-stone-400">Open Terminals</div>
                   {mainTabs.filter(t => t.type === "terminal").map(tab => (
                     <button key={tab.id} onClick={() => { setShowTerminalMenu(false); setActiveMainTabId(tab.id); }}
-                      className={cn("w-full text-left px-3 py-2 text-xs hover:bg-blue-50 flex items-center gap-2 truncate",
+                      className={cn("w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 truncate",
                         activeMainTabId === tab.id && "bg-blue-50 text-blue-700 font-semibold")}>
                       <span>{tab.icon}</span> <span>{tab.label}</span>
                       {activeMainTabId === tab.id && <span className="ml-auto text-blue-500">●</span>}
@@ -1757,7 +1757,7 @@ const sendChat = useCallback(async () => {
                     isActive ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
                   style={isActive ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
                   onClick={() => { setActiveMainTabId(tab.id); if (isEditorFile && fileTab) setActiveTabId(fileTab.id); }}>
-                  <span className="text-xs shrink-0">{tab.icon}</span>
+                  <span className="text-sm shrink-0">{tab.icon}</span>
                   <span className="truncate max-w-[120px]">{tab.label}</span>
                   {isEditorFile && fileTab?.modified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
                   {tab.closable && (
@@ -2256,7 +2256,7 @@ const sendChat = useCallback(async () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-stone-800">{profile?.codename || crew?.title || "AI"}</span>
-                        {profile?.chatConfig?.model && <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{profile.chatConfig.model}</span>}
+                        {profile?.chatConfig?.model && <span className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{profile.chatConfig.model}</span>}
                         {hasProject && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">📁 有專案</span>}
                       </div>
                       <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">{profile?.description || roleSummary}</p>
@@ -2326,7 +2326,7 @@ const sendChat = useCallback(async () => {
                 {/* Agent tool log */}
                 {agentRunning && agentToolLog.length > 0 && (
                   <div className="shrink-0 max-h-32 overflow-y-auto border-t px-3 py-2 space-y-1" style={{ borderColor: tk.borderLight, scrollbarWidth: "thin" }}>
-                    <div className="text-[10px] font-semibold text-stone-400 mb-1">⚡ Tool Calls</div>
+                    <div className="text-xs font-semibold text-stone-400 mb-1">⚡ Tool Calls</div>
                     {agentToolLog.slice(-8).map((t, i) => (
                       <div key={i} className="flex items-center gap-1.5 text-[10px]">
                         <span className={t.result !== "..." ? "text-green-500" : "text-blue-400 animate-pulse"}>

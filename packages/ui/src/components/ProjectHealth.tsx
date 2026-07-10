@@ -83,7 +83,7 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-stone-400 text-xs animate-pulse">
+      <div className="flex items-center justify-center h-full text-stone-400 text-sm animate-pulse">
         Analyzing project health...
       </div>
     );
@@ -91,7 +91,7 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
 
   if (!health) {
     return (
-      <div className="flex items-center justify-center h-full text-stone-400 text-xs">
+      <div className="flex items-center justify-center h-full text-stone-400 text-sm">
         Unable to load health data.
       </div>
     );
@@ -120,24 +120,24 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
           </div>
           <div>
             <div className="text-sm font-bold text-stone-700">Project Health</div>
-            <div className="text-xs text-stone-400">
+            <div className="text-sm text-stone-400">
               {paawCompleteness.score >= 80 ? "🟢 Healthy" : paawCompleteness.score >= 50 ? "🟡 Needs attention" : "🔴 At risk"}
             </div>
           </div>
           <div className="flex-1" />
-          <button onClick={loadHealth} className="text-xs text-stone-400 hover:text-stone-600">↻</button>
+          <button onClick={loadHealth} className="text-sm text-stone-400 hover:text-stone-600">↻</button>
         </div>
       </div>
 
       {/* .paaw/ Completeness */}
       <div className="px-4 py-3 border-b border-stone-100">
-        <div className="text-xs font-semibold text-stone-600 mb-2">📁 .paaw/ Knowledge</div>
+        <div className="text-sm font-semibold text-stone-600 mb-2">📁 .paaw/ Knowledge</div>
         {paawCompleteness.files.map(f => (
           <div key={f.name} className="flex items-center gap-2 py-0.5">
-            <span className="text-xs">{f.exists ? "✅" : "⚪"}</span>
-            <span className={`text-xs ${f.exists ? "text-stone-600" : "text-stone-300"}`}>{f.name}</span>
+            <span className="text-sm">{f.exists ? "✅" : "⚪"}</span>
+            <span className={`text-sm ${f.exists ? "text-stone-600" : "text-stone-300"}`}>{f.name}</span>
             {f.exists && f.size != null && (
-              <span className="text-[10px] text-stone-300 ml-auto">
+              <span className="text-xs text-stone-300 ml-auto">
                 {f.size > 1024 ? `${Math.round(f.size / 1024)}K` : `${f.size}B`}
               </span>
             )}
@@ -147,8 +147,8 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
 
       {/* Git Health */}
       <div className="px-4 py-3 border-b border-stone-100">
-        <div className="text-xs font-semibold text-stone-600 mb-2">🌿 Git</div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div className="text-sm font-semibold text-stone-600 mb-2">🌿 Git</div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
           <div className="text-stone-400">Branch</div>
           <div className="text-stone-600 font-mono">{git.branch || "—"}</div>
 
@@ -180,8 +180,8 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
 
       {/* Code Stats */}
       <div className="px-4 py-3 border-b border-stone-100">
-        <div className="text-xs font-semibold text-stone-600 mb-2">📊 Code Stats</div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-2">
+        <div className="text-sm font-semibold text-stone-600 mb-2">📊 Code Stats</div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm mb-2">
           <div className="text-stone-400">Total files</div>
           <div className="text-stone-600">{codeStats.totalFiles}</div>
           <div className="text-stone-400">Total lines</div>
@@ -190,7 +190,7 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
         {codeStats.languages.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {codeStats.languages.slice(0, 6).map(lang => (
-              <span key={lang.lang} className="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">
+              <span key={lang.lang} className="text-xs px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">
                 {lang.lang} {lang.percent}%
               </span>
             ))}
@@ -200,8 +200,8 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
 
       {/* AI Session Activity */}
       <div className="px-4 py-3 border-b border-stone-100">
-        <div className="text-xs font-semibold text-stone-600 mb-2">🤖 AI Activity</div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div className="text-sm font-semibold text-stone-600 mb-2">🤖 AI Activity</div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
           <div className="text-stone-400">Total sessions</div>
           <div className="text-stone-600">{sessions.total}</div>
           <div className="text-stone-400">Recent (7d)</div>
@@ -216,8 +216,8 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
       {/* Dependencies */}
       {dependencies && (
         <div className="px-4 py-3 border-b border-stone-100">
-          <div className="text-xs font-semibold text-stone-600 mb-2">📦 Dependencies</div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <div className="text-sm font-semibold text-stone-600 mb-2">📦 Dependencies</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
             <div className="text-stone-400">Total</div>
             <div className="text-stone-600">{dependencies.total}</div>
             {dependencies.outdated != null && (
@@ -233,7 +233,7 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
       )}
 
       <div className="flex-1" />
-      <div className="px-4 py-2 text-[10px] text-stone-300 text-center shrink-0">
+      <div className="px-4 py-2 text-xs text-stone-300 text-center shrink-0">
         Health data is cached. Click ↻ to refresh.
       </div>
     </div>

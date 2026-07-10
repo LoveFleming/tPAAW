@@ -33,7 +33,7 @@ function RenameInput({ defaultValue, onConfirm, onCancel }: {
         if (e.key === "Escape") onCancel();
       }}
       onBlur={() => { if (value.trim() && value.trim() !== defaultValue) onConfirm(value.trim()); else onCancel(); }}
-      className="w-full px-1 py-0 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+      className="w-full px-1 py-0 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
       onClick={e => e.stopPropagation()}
     />
   );
@@ -61,7 +61,7 @@ function NewItemInput({ parentPath, depth, type, onConfirm, onCancel }: {
   return (
     <div className="flex items-center gap-1 py-[2px]" style={{ paddingLeft: `${indent}px` }}>
       <span className="flex items-center shrink-0" style={{ width: `${DEPTH_STEP}px`, justifyContent: "center" }}>
-        {type === "folder" ? <span className="text-xs">📁</span> : <span className="text-xs">📄</span>}
+        {type === "folder" ? <span className="text-sm">📁</span> : <span className="text-sm">📄</span>}
       </span>
       <input
         ref={ref}
@@ -70,7 +70,7 @@ function NewItemInput({ parentPath, depth, type, onConfirm, onCancel }: {
         onKeyDown={e => { if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") onCancel(); }}
         onBlur={() => { if (value.trim()) handleConfirm(); else onCancel(); }}
         placeholder={type === "folder" ? "資料夾名稱" : "檔案名稱"}
-        className="flex-1 px-1 py-0 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white mr-4"
+        className="flex-1 px-1 py-0 text-sm border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white mr-4"
       />
     </div>
   );
@@ -238,7 +238,7 @@ function relativePath(p: string, prefix: string): string {
 
 function fileIconElement(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return <span className="text-xs shrink-0">{fileEmoji(ext)}</span>;
+  return <span className="text-sm shrink-0">{fileEmoji(ext)}</span>;
 }
 
 function findNode(root: TreeNode, path: string): TreeNode | null {
@@ -327,7 +327,7 @@ const TreeNodeView = React.memo(function TreeNodeView({
               >
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
               </svg>
-              <span className="text-xs shrink-0">📁</span>
+              <span className="text-sm shrink-0">📁</span>
             </>
           ) : (
             <span className="ml-3.5">{fileIconElement(node.name)}</span>
@@ -678,7 +678,7 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-4 text-stone-400 text-xs gap-1.5">
+      <div className="flex items-center justify-center py-4 text-stone-400 text-sm gap-1.5">
         <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
