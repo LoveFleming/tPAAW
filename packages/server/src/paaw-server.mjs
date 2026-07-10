@@ -40,7 +40,7 @@ const ROUTE_MODULES = [
   "./routes/projects.mjs",
   "./routes/a2a.mjs",
   "./routes/helpdesk.mjs",
-  "./routes/project.mjs",
+  "./routes/coding.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)
