@@ -11,7 +11,7 @@ const COLORS: Record<string, { bg: string; fg: string; accent: string }> = {
     "ai.flow": { bg: "#E9D5FF", fg: "#6B21A8", accent: "#A855F7" },
     "ai.rca": { bg: "#FED7AA", fg: "#9A3412", accent: "#F97316" },
     "ai.gatekeeper": { bg: "#F3F4F6", fg: "#1F2937", accent: "#6B7280" },
-    "ai.node-dev": { bg: "#CFFAFE", fg: "#155E75", accent: "#06B6D4" },
+    "coding.developer": { bg: "#CFFAFE", fg: "#155E75", accent: "#06B6D4" },
 };
 
 // SVG path-based icons (no emoji — works on all platforms including Linux)
@@ -26,7 +26,7 @@ const SVG_ICONS: Record<string, { path: string; viewBox?: string }> = {
     "ai.flow": { path: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" },
     "ai.rca": { path: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" },
     "ai.gatekeeper": { path: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" },
-    "ai.node-dev": { path: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" },
+    "coding.developer": { path: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" },
 };
 
 const DEFAULT_ICON = { path: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" };

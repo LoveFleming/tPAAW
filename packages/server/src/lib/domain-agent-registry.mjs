@@ -107,7 +107,7 @@ const DOMAIN_AGENTS = {
 
   helpdesk: {
     agentId: "helpdesk",
-    crewId: "ai.skill-designer",
+    crewId: "coding.helpdesk",
     name: "小春 林 Helpdesk",
     description: "Helpdesk/Support Agent — 解決技術問題、排查 bug、操作指引",
     contextProviders: ["helpdesk"],
@@ -131,7 +131,7 @@ const DOMAIN_AGENTS = {
 
   developer: {
     agentId: "developer",
-    crewId: "ai.node-dev",
+    crewId: "coding.developer",
     name: "普里亞·夏爾馬 Developer",
     description: "Coding Agent — 實作功能、修 bug、refactor、全端開發",
     contextProviders: ["project", "decisions"],

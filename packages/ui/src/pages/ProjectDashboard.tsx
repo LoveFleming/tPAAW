@@ -120,7 +120,7 @@ export default function ProjectDashboard({ projectRoot, openEmployee }: { projec
                   Run the <span className="font-mono px-1 py-0.5 rounded" style={{ backgroundColor: t.accentLight, color: t.accentText }}>Dashboard Setup</span> skill to initialize dashboard structure.
                 </p>
                 <button
-                  onClick={() => openEmployee?.("ai.skill-designer")}
+                  onClick={() => openEmployee?.("coding.helpdesk")}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: t.accent }}
                 >
