@@ -38,6 +38,7 @@ import BrowserDevTools, { type ConsoleEntry } from "../components/BrowserDevTool
 import DecisionLog from "../components/DecisionLog";
 import ProjectHealth from "../components/ProjectHealth";
 import ModelSelector from "../components/ModelSelector";
+import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 
 // ── Types ──
 interface FsItem {
@@ -2292,62 +2293,18 @@ const sendChat = useCallback(async () => {
                       </div>
                     </div>
                   )}
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} className="flex justify-start">
-                      <div className="flex gap-2.5 max-w-[95%]">
-                        {/* Avatar */}
-                        <div className="flex-shrink-0 mt-1">
-                          {msg.role === "assistant" ? (
-                            profile?.imageUrl ?
-                              <img src={`${API_BASE}${profile.imageUrl}`} className="w-8 h-8 rounded-full object-cover" /> :
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: tk.accent + "22", border: `1px solid ${tk.accent}33` }}>
-                                {crew?.emoji || "🤖"}
-                              </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${tk.accent}, ${tk.accentHover || tk.accent})` }}>
-                              你
-                            </div>
-                          )}
-                        </div>
-                        {/* Bubble */}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-xs font-medium text-stone-600">{msg.role === "assistant" ? (profile?.codename || crew?.title || "AI") : "你"}</span>
-                            {msg.ts && <span className="text-[10px] text-stone-300">{new Date(msg.ts).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}</span>}
-                          </div>
-                          <div className={cn("px-4 py-3 text-sm leading-relaxed rounded-2xl",
-                            msg.role === "assistant"
-                              ? "bg-white shadow-sm border border-stone-100 text-stone-700"
-                              : "bg-stone-50 text-stone-700")}>
-                            {msg.content}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {chatLoading && <div className="flex justify-start">
-                    <div className="flex gap-2.5">
-                      <div className="flex-shrink-0 mt-1">
-                        {profile?.imageUrl ?
-                          <img src={`${API_BASE}${profile.imageUrl}`} className="w-8 h-8 rounded-full object-cover" /> :
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: tk.accent + "22" }}>
-                            {crew?.emoji || "🤖"}
-                          </div>
-                        }
-                      </div>
-                      <div>
-                        <span className="text-xs font-medium text-stone-600">{profile?.codename || crew?.title || "AI"}</span>
-                        <div className="flex items-center gap-2 py-2">
-                          <div className="flex gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: tk.accent, animationDelay: "0ms" }} />
-                            <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: tk.accent, animationDelay: "150ms" }} />
-                            <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: tk.accent, animationDelay: "300ms" }} />
-                          </div>
-                          <span className="text-xs font-medium" style={{ color: tk.accent }}>思考中</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>}
+                  <ChatMessages
+                    messages={chatMessages}
+                    accent={tk.accent}
+                    accentHover={tk.accentHover || tk.accent}
+                    assistantName={profile?.codename || crew?.title || "AI"}
+                    userName="你"
+                    assistantAvatar={profile?.imageUrl ? `${API_BASE}${profile.imageUrl}` : undefined}
+                    assistantEmoji={crew?.emoji || "🤖"}
+                    loading={chatLoading}
+                    activeTools={agentToolLog.map(t => ({ name: t.name, status: t.result !== "..." ? "done" as const : "running" as const }))}
+                    endRef={chatEndRef}
+                  />
                 </div>
 
                 {/* Agent tool log */}
