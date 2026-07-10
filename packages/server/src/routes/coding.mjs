@@ -125,7 +125,7 @@ export default async function projectRoute(req, res) {
       res.end(JSON.stringify({ error: "Invalid JSON" }));
       return true;
     }
-    const { crewId, message, model, cwd, context } = body;
+    const { crewId, message, model, cwd, context, conversationHistory } = body;
     if (!crewId || !message) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing crewId or message" }));
@@ -134,6 +134,7 @@ export default async function projectRoute(req, res) {
 
     // Resolve agentId from crewId
     const { getAgentByCrewId, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
+    const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
     const agent = getAgentByCrewId(crewId);
     if (!agent) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -142,11 +143,40 @@ export default async function projectRoute(req, res) {
     }
 
     try {
-      // Build system prompt from crew + context providers
+      // Build system prompt from crew + context providers + action log + agent memory
+      const actionLogText = (await listActionLog({ cwd, limit: 10 })).text;
+      const agentMemoryText = await loadAgentMemory(agent.agentId, cwd);
       const systemPrompt = await buildSystemPrompt(agent.agentId, {
         cwd: cwd || undefined,
         clientContext: context || {},
       });
+
+      // Inject action log and agent memory into system prompt
+      const extraContext = [];
+      if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
+      if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
+      // Tell agent to use action_log_add after completing tasks
+      extraContext.push(`\n## 重要規則\n完成任務後，你必須使用 action_log_add 工具記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。`);
+      const fullSystemPrompt = systemPrompt + extraContext.join("");
+
+      // Build messages array with conversation history
+      const messages = [];
+      if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
+
+      // Inject conversation history (from frontend crewConversations)
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        // Only include user/assistant messages, skip thinking bubbles
+        const cleanHistory = conversationHistory
+          .filter(m => m.role === "user" || m.role === "assistant")
+          .filter(m => !m._thinking) // skip intermediate thinking
+          .slice(-20); // last 20 messages max
+        for (const m of cleanHistory) {
+          messages.push({ role: m.role, content: m.content.replace(/^💭 /, "") });
+        }
+      }
+
+      // Add current user message
+      messages.push({ role: "user", content: message });
 
       // SSE streaming
       res.writeHead(200, {
@@ -161,13 +191,15 @@ export default async function projectRoute(req, res) {
 
       const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
       await runAgentLoopStream({
-        prompt: message,
-        systemPrompt,
+        prompt: "", // handled by messages array
+        systemPrompt: "", // handled by messages array
+        messages, // pre-built with conversation history + action log + context
         model: model || undefined,
         cwd: cwd || undefined,
         maxTurns: agent.maxTurns,
         timeout: 120,
         rootDir: cwd || PAAW_ROOT,
+        agentId: agent.agentId,
       }, res);
 
       res.end();
@@ -182,6 +214,17 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ error: err.message }));
       }
     }
+    return true;
+  }
+
+  // ── GET /api/coding-crew/action-log — Read action log ──
+  if (url.startsWith("/api/coding-crew/action-log") && method === "GET") {
+    const { listActionLog } = await import("../lib/action-log.mjs");
+    const params = new URL(url, `http://localhost`).searchParams;
+    const agent = params.get("agent") || undefined;
+    const limit = parseInt(params.get("limit") || "20");
+    const { entries, text } = await listActionLog({ cwd: projectPath || PAAW_ROOT, agent, limit });
+    sendJSON(res, 200, { entries, text });
     return true;
   }
 

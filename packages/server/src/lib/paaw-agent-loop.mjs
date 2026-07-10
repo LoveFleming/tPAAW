@@ -328,6 +328,68 @@ const PAAW_TOOLS = [
         },
       },
     },
+
+  // ── Action Log (Agent Memory / Handoff) ──
+  {
+    type: "function",
+    function: {
+      name: "action_log_add",
+      description: "Record your action to the project action log. This is the handoff log between agents — write after completing a task so other agents know what you did.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["review", "fix", "decide", "support", "create", "refactor"], description: "Action type" },
+          summary: { type: "string", description: "One-line summary of what you did" },
+          details: { type: "string", description: "Detailed description (optional)" },
+          affectedFiles: { type: "array", items: { type: "string" }, description: "Files that were affected" },
+          result: { type: "string", enum: ["fixed", "suggestions", "adr", "clarified", "created"], description: "Result type" },
+          priority: { type: "string", enum: ["high", "medium", "low"], description: "Priority level" },
+        },
+        required: ["action", "summary", "result"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "action_log_list",
+      description: "Read recent action log entries. This shows what other agents (and you) have done recently — the project handoff log.",
+      parameters: {
+        type: "object",
+        properties: {
+          agent: { type: "string", description: "Filter by agent ID (e.g. 'architect', 'helpdesk')" },
+          limit: { type: "number", description: "Max entries to return (default 15)" },
+        },
+      },
+    },
+  },
+
+  // ── Agent Long-term Memory ──
+  {
+    type: "function",
+    function: {
+      name: "agent_memory_save",
+      description: "Save important insights or decisions to your long-term memory file. This persists across conversations.",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "Markdown content to save (will replace existing memory)" },
+        },
+        required: ["content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "agent_memory_load",
+      description: "Load your long-term memory. Returns insights and decisions saved from previous conversations.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
 ];
 
 // ── Shell Execution Helper ──
@@ -364,10 +426,14 @@ function runShell(command, cwd, timeoutMs = 30_000) {
  * Execute a tool call and return the result string.
  * All paths are resolved relative to cwd for safety.
  */
-async function executeTool(call, cwd, rootDir, onEvent) {
+async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   const { name, arguments: argsStr } = call.function;
   let args;
   try { args = JSON.parse(argsStr); } catch { return `Error: invalid JSON arguments`; }
+  // Inject agentId for action log / memory tools
+  if (agentId && ["action_log_add", "action_log_list", "agent_memory_save", "agent_memory_load"].includes(name)) {
+    args._agentId = agentId;
+  }
 
   // Resolve relative paths against cwd
   const resolvePath = (p) => {
@@ -726,6 +792,39 @@ async function executeTool(call, cwd, rootDir, onEvent) {
         return `✅ Documentation updated: .paaw/${docFile}`;
       }
 
+      // ── Action Log Tools ──
+      case "action_log_add": {
+        const { addActionLog } = await import("./action-log.mjs");
+        const entry = { ...args, agent: args._agentId || rootDir?.split("/").pop() || "agent" };
+        const record = await addActionLog(entry, cwd);
+        if (onEvent) onEvent({ type: "tool_end", name, result: record.summary });
+        return `✅ Action logged: ${record.agent}/${record.action}: ${record.summary}`;
+      }
+
+      case "action_log_list": {
+        const { listActionLog } = await import("./action-log.mjs");
+        const { entries, text } = await listActionLog({ cwd, agent: args.agent, limit: args.limit || 15 });
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${entries.length} entries` });
+        return text || "(No action log entries yet)";
+      }
+
+      // ── Agent Memory Tools ──
+      case "agent_memory_save": {
+        const { saveAgentMemory } = await import("./action-log.mjs");
+        const agentId = args._agentId || rootDir?.split("/").pop() || "agent";
+        await saveAgentMemory(agentId, args.content, cwd);
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${agentId}.md` });
+        return `✅ Memory saved for ${agentId}`;
+      }
+
+      case "agent_memory_load": {
+        const { loadAgentMemory } = await import("./action-log.mjs");
+        const agentId = args._agentId || rootDir?.split("/").pop() || "agent";
+        const content = await loadAgentMemory(agentId, cwd);
+        if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
+        return content || "(No saved memory yet)";
+      }
+
       default:
         return `Error: unknown tool '${name}'`;
     }
@@ -849,6 +948,7 @@ export async function runAgentLoop(config) {
     params = {},
     onEvent = null,
     rootDir = cwd,
+    agentId = null,
   } = config;
 
   // Load agent config for defaults (with fallback)
@@ -949,7 +1049,7 @@ export async function runAgentLoop(config) {
 
     // Execute each tool call
     for (const call of toolCalls) {
-      const toolResult = await executeTool(call, cwd, rootDir, onEvent);
+      const toolResult = await executeTool(call, cwd, rootDir, onEvent, agentId);
       toolCallLog.push({
         turn: i + 1,
         name: call.function.name,
@@ -1015,6 +1115,7 @@ export async function runAgentLoopStream(config, res) {
     timeout,
     params = {},
     rootDir = cwd,
+    agentId = null,
   } = config;
 
   let agentCfg = { ..._agentCfgDefaults };
@@ -1049,7 +1150,9 @@ export async function runAgentLoopStream(config, res) {
     }
   } catch {}
   const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
-  const messages = [
+  // Allow pre-built messages (for conversation history injection)
+  // If provided, use them directly; otherwise build from prompt + systemPrompt
+  const messages = config.messages || [
     { role: "system", content: systemPrompt },
     { role: "user", content: prompt },
   ];
@@ -1123,7 +1226,7 @@ export async function runAgentLoopStream(config, res) {
       try { args = JSON.parse(call.function.arguments); } catch { args = {}; }
       sendSSE("tool", { name: call.function.name, args });
 
-      const toolResult = await executeTool(call, cwd, rootDir, null);
+      const toolResult = await executeTool(call, cwd, rootDir, null, agentId);
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 
       messages.push({

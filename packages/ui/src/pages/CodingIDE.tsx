@@ -945,6 +945,7 @@ const sendChat = useCallback(async () => {
               activeFile: activeTab.path,
               activeFileContent: activeTab.content.slice(0, 3000),
             } : undefined,
+            conversationHistory: crewConversations[activeCrew || "coding.architect"] || [],
           }),
         });
 
