@@ -991,11 +991,28 @@ const sendChat = useCallback(async () => {
       setChatLoading(false);
       setAgentRunning(false);
     } else {
-      // ── Legacy Chat SSE mode ──
+      // ── Chat SSE mode (with crew role prompt) ──
       setChatLoading(true);
       try {
+        // Fetch crew role prompt for chat context
+        let crewSystemAdd = "";
+        if (activeCrew) {
+          try {
+            const crewRes = await fetch(`${API_BASE}/api/coding-crew/${activeCrew}`);
+            if (crewRes.ok) {
+              const crewData = await crewRes.json();
+              crewSystemAdd = crewData.rolePrompt || "";
+            }
+          } catch {}
+        }
         const context = activeTab ? `\n\n[Current file: ${activeTab.path}]\n\`\`\`${activeTab.hljsLang}\n${activeTab.content.slice(0, 3000)}\n\`\`\`` : "";
-        const res = await fetch(`${API_BASE}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: userMsg.content + context }], providerId: "default", appId: "vibe-coding" }) });
+        const systemMessage = crewSystemAdd ? { role: "system", content: crewSystemAdd } : null;
+        const messages = [
+          ...(systemMessage ? [systemMessage] : []),
+          ...chatMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+          { role: "user", content: userMsg.content + context },
+        ];
+        const res = await fetch(`${API_BASE}/api/paaw/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages, providerId: "openrouter", appId: "vibe-coding" }) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
