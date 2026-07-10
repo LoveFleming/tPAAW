@@ -636,8 +636,8 @@ export default async function a2aRoutes(req, res) {
             const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
 
             await runAgentLoopStream({
-              prompt: "", , // handled by messages array
-              systemPrompt: "", , // handled by messages array
+              prompt: "", // handled by messages array
+              systemPrompt: "", // handled by messages array
               messages,
               model: modelOverride,
               cwd: clientContext.cwd,
