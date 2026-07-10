@@ -42,13 +42,24 @@ interface CodeStatus {
   scores: Record<string, { score: number; items: CodeScoreItem[] }>;
 }
 
+interface CodeUnderstandingStep {
+  id: string;
+  name: string;
+  status: "pending" | "running" | "done" | "error" | "skip";
+  size?: number;
+  error?: string;
+}
+
 interface EMDashboardProps {
   rootPath: string;
   theme: { bg: string; bgMuted: string; borderLight: string; accent: string; accentBg: string; text: string };
   onOpenFile?: (path: string) => void;
+  // Code Understanding (was AI Initialize)
+  onStartCodeUnderstanding?: () => void;
+  codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding }: EMDashboardProps) {
   // ── Chat State ──
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() },
@@ -66,6 +77,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
   const [emLog, setEmLog] = useState<string[]>([]);
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
+  const [showCUModal, setShowCUModal] = useState(false);
 
   // ── Fetch data when rootPath changes ──
   const refreshData = useCallback(async () => {
@@ -241,6 +253,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
   }
 
   return (
+    <>
     <div className="flex-1 flex min-w-0 overflow-hidden">
       {/* ════════ LEFT: EM Chat (60%) ════════ */}
       <div className="flex-1 flex flex-col min-w-0 border-r" style={{ borderColor: tk.borderLight }}>
@@ -327,12 +340,15 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
             </h3>
             {!codeStatus && rootPath && (
               <button
-                onClick={() => { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
+                onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(); setShowCUModal(true); } else { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); } }}
                 className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
-              >🚀 AI Init</button>
+              >🧠 Code Understanding</button>
             )}
             {codeStatus && (
-              <button onClick={refreshData} className="text-sm text-stone-400 hover:text-stone-600">↻</button>
+              <button
+                onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(); setShowCUModal(true); } }}
+                className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
+              >🔄 重新掃描</button>
             )}
           </div>
           {!codeStatus ? (
@@ -447,6 +463,58 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile }: EMDashb
         </div>
       </div>
     </div>
+
+    {/* ══ Code Understanding Progress Modal ══ */}
+    {showCUModal && codeUnderstanding && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!codeUnderstanding.running) setShowCUModal(false); }}>
+        <div className="bg-white rounded-2xl shadow-2xl border flex flex-col" style={{ width: "min(520px, 90vw)", maxHeight: "70vh" }} onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-2xl" style={{ backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
+            <h3 className="text-base font-bold text-emerald-700">🧠 Code Understanding</h3>
+            {!codeUnderstanding.running && (
+              <button onClick={() => setShowCUModal(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
+            )}
+          </div>
+          {/* Steps */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+            {codeUnderstanding.steps.map((step) => (
+              <div key={step.id} className="flex items-center gap-3 py-2">
+                <span className="text-lg shrink-0">
+                  {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : step.status === "skip" ? "⏭️" : "⬜"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className={cn("text-sm font-medium", step.status === "running" ? "text-emerald-700" : step.status === "done" ? "text-stone-600" : step.status === "error" ? "text-red-500" : "text-stone-400")}>
+                    {step.name}
+                    {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
+                  </div>
+                  {step.status === "done" && step.size && (
+                    <div className="text-xs text-stone-300">{step.size.toLocaleString()} chars</div>
+                  )}
+                  {step.status === "error" && step.error && (
+                    <div className="text-xs text-red-400">{step.error}</div>
+                  )}
+                  {step.status === "skip" && (
+                    <div className="text-xs text-stone-300">Skipped</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Footer */}
+          <div className="px-5 py-3 border-t flex items-center justify-between" style={{ borderColor: "#f0f0f0" }}>
+            <span className="text-sm text-stone-400">
+              {codeUnderstanding.running ? "AI 正在分析專案..." : `${codeUnderstanding.steps.filter(s => s.status === "done").length}/${codeUnderstanding.steps.length} 完成`}
+            </span>
+            {!codeUnderstanding.running && codeUnderstanding.steps.some(s => s.status === "done") && (
+              <button onClick={() => { setShowCUModal(false); refreshData(); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
+                完成 ✅
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

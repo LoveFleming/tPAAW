@@ -476,7 +476,6 @@ export default function CodingIDE() {
   const startAiInitialize = useCallback(async () => {
     if (!rootPath || aiInitializing) return;
     setAiInitializing(true);
-    setShowAiInitPanel(true);
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
       { id: "api-spec", name: "📝 產出 API Spec" },
@@ -526,11 +525,8 @@ export default function CodingIDE() {
                 }
                 if (data.message === "AI Initialize complete") {
                   setAiInitializing(false);
-                  // Refresh status after AI Init
+                  // Refresh status after Code Understanding
                   fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {});
-                  // Auto-switch to Code Dashboard to show results
-                  setActiveMainTabId(DASHBOARD_TAB_ID);
-                  setShowAiInitPanel(false);
                 }
               }
             } catch {}
@@ -1466,53 +1462,6 @@ const sendChat = useCallback(async () => {
       </div>
     )}
 
-    {/* AI Initialize Progress Panel */}
-    {showAiInitPanel && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!aiInitializing) setShowAiInitPanel(false); }}>
-        <div className="bg-white rounded-2xl shadow-2xl border flex flex-col" style={{ width: "min(520px, 90vw)", maxHeight: "70vh" }} onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-2xl" style={{ backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
-            <h3 className="text-base font-bold text-emerald-700">🚀 AI Initialize</h3>
-            {!aiInitializing && (
-              <button onClick={() => setShowAiInitPanel(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
-            )}
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
-            {aiInitSteps.map((step, i) => (
-              <div key={step.id} className="flex items-center gap-3 py-2">
-                <span className="text-lg shrink-0">
-                  {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : step.status === "skip" ? "⏭️" : "⬜"}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className={cn("text-sm font-medium", step.status === "running" ? "text-emerald-700" : step.status === "done" ? "text-stone-600" : step.status === "error" ? "text-red-500" : "text-stone-400")}>
-                    {step.name}
-                    {step.status === "running" && <span className="ml-2 inline-block animate-pulse">●</span>}
-                  </div>
-                  {step.status === "done" && step.size && (
-                    <div className="text-[10px] text-stone-300">{step.size.toLocaleString()} chars</div>
-                  )}
-                  {step.status === "error" && step.error && (
-                    <div className="text-[10px] text-red-400">{step.error}</div>
-                  )}
-                  {step.status === "skip" && (
-                    <div className="text-[10px] text-stone-300">Skipped</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="px-5 py-3 border-t flex items-center justify-between" style={{ borderColor: "#f0f0f0" }}>
-            <span className="text-xs text-stone-400">
-              {aiInitializing ? "AI 正在分析專案..." : `${aiInitSteps.filter(s => s.status === "done").length}/${aiInitSteps.length} 完成`}
-            </span>
-            {!aiInitializing && aiInitSteps.some(s => s.status === "done") && (
-              <button onClick={() => setShowAiInitPanel(false)} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
-                完成 ✅
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
     <div className="h-full flex flex-col w-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* ── Top Bar ── */}
       <div className="flex items-center h-9 px-2 border-b shrink-0 select-none" style={{ backgroundColor: tk.toolbarBg, borderColor: tk.toolbarBorder }}>
@@ -1568,15 +1517,6 @@ const sendChat = useCallback(async () => {
           </button>
           {showCrewMenu && (
             <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
-              {/* AI Initialize */}
-              {rootPath && (
-                <button onClick={() => { setShowCrewMenu(false); startAiInitialize(); }}
-                  disabled={aiInitializing}
-                  className={cn("w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2", aiInitializing && "opacity-60")}>
-                  <span>🚀</span> {aiInitializing ? "AI Init ⏳" : "AI Initialize"}
-                </button>
-              )}
-              <div className="border-t border-stone-100 my-1" />
               <div className="px-3 py-1 text-xs font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
               {codingCrews.map(crew => (
                 <button key={crew.id} onClick={() => {
@@ -2096,8 +2036,8 @@ const sendChat = useCallback(async () => {
                                   setApiUrl(payloads.endpoint.split(" ").pop() || payloads.request?.path || "");
                                 }
                               } catch { alert("AI test payload 格式有誤，請在 .paaw/test-payloads/ 檢查"); }
-                            } else { alert("尚未產出 API Test Payload。先點 🚀 AI Initialize"); }
-                          } else { alert("尚未產出 API Test Payload。先點 🚀 AI Initialize"); }
+                            } else { alert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
+                          } else { alert("尚未產出 API Test Payload。先點 🧠 Code Understanding"); }
                         } catch { alert("載入失敗"); }
                       }} className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 font-bold" title="載入 AI 產出的 test payload">
                         🧪 AI
@@ -2461,6 +2401,8 @@ const sendChat = useCallback(async () => {
                 rootPath={rootPath}
                 theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                 onOpenFile={openFile}
+                onStartCodeUnderstanding={startAiInitialize}
+                codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
               />
             )}
 
@@ -2477,7 +2419,7 @@ const sendChat = useCallback(async () => {
                         <button
                           onClick={() => { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); }}
                           className="ml-auto text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-semibold">
-                          🚀 AI Initialize
+                          🧠 Code Understanding
                         </button>
                       )}
                       {codeStatus && (
@@ -2501,17 +2443,17 @@ const sendChat = useCallback(async () => {
                   ) : !codeStatus ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
                       <span className="text-5xl opacity-40">📊</span>
-                      <p className="text-sm text-stone-400">{tt("vibe.aiInitialize", "AI Initialize")} 專案後會產生健康度報告</p>
+                      <p className="text-sm text-stone-400">{tt("vibe.aiInitialize", "Code Understanding")} 專案後會產生健康度報告</p>
                       <p className="text-xs text-stone-300">包含 API Spec、Error Mapping、Test Coverage、Coding Standards 等指標</p>
                     </div>
                   ) : !codeStatus.initialized ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
                       <span className="text-5xl opacity-40">📊</span>
-                      <p className="text-sm text-stone-400">尚未進行 AI Initialize</p>
+                      <p className="text-sm text-stone-400">尚未進行 Code Understanding</p>
                       <button
                         onClick={() => startAiInitialize()}
                         className="px-4 py-2 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
-                        🚀 開始 AI Initialize
+                        🧠 開始 Code Understanding
                       </button>
                     </div>
                   ) : (
