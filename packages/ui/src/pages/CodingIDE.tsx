@@ -996,6 +996,17 @@ const sendChat = useCallback(async () => {
                     }
                   }
 
+                  // info events (e.g. provider fallback messages)
+                  if (data.message && !data.name) {
+                    setChatMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant" && last?._thinking) {
+                        return [...prev.slice(0, -1), { ...last, content: `💭 ${data.message}` }];
+                      }
+                      return [...prev, { role: "assistant" as const, content: `⏳ ${data.message}`, _thinking: true, ts: new Date().toISOString() }];
+                    });
+                  }
+
                   // final content — the actual answer
                   if (data.content && data.done) {
                     finalContent = data.content;

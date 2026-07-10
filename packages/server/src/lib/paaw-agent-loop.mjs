@@ -72,11 +72,9 @@ function resolveLLMConfig(rootDir, modelOverride) {
   if (!config) throw new Error("No provider config found");
 
   // Parse "providerId/modelId" format (from ModelSelector)
-  // Model ID may contain "/" (e.g. "deepseek/deepseek-v4-flash")
   let providerId = config.active;
   let model = modelOverride || config.defaultModel || "glm-5.1";
   if (modelOverride && modelOverride.includes("/")) {
-    // First segment = providerId, rest = modelId
     const firstSlash = modelOverride.indexOf("/");
     providerId = modelOverride.slice(0, firstSlash);
     model = modelOverride.slice(firstSlash + 1);
@@ -85,7 +83,7 @@ function resolveLLMConfig(rootDir, modelOverride) {
   const provider = config.providers[providerId];
   if (!provider) throw new Error(`Provider '${providerId}' not found`);
 
-  const baseURL = provider.baseURL.replace(/\/+$/, "");
+  const baseURL = provider.baseURL.replace(//+$/, "");
   const apiUrl = `${baseURL}/chat/completions`;
 
   const headers = {
@@ -99,7 +97,19 @@ function resolveLLMConfig(rootDir, modelOverride) {
     headers["X-Title"] = "PAAW";
   }
 
-  return { apiUrl, headers, model, providerId };
+  // Build fallback chain: zai → openrouter → deepseek
+  const fallbacks = [];
+  if (providerId !== "openrouter" && config.providers.openrouter) {
+    const orP = config.providers.openrouter;
+    const orHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${orP.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" };
+    fallbacks.push({ providerId: "openrouter", apiUrl: `${orP.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: orHeaders, model: `z-ai/${model}` });
+  }
+  if (providerId !== "deepseek" && config.providers.openrouter) {
+    // Use openrouter deepseek as last fallback
+    fallbacks.push({ providerId: "openrouter", apiUrl: `${config.providers.openrouter.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.providers.openrouter.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }, model: "deepseek/deepseek-v4-flash" });
+  }
+
+  return { apiUrl, headers, model, providerId, fallbacks };
 }
 
 // ── Tool Definitions (OpenAI function-calling format) ──
@@ -1049,24 +1059,45 @@ export async function runAgentLoopStream(config, res) {
 
   for (let i = 0; i < maxTurns; i++) {
     if (Date.now() - startTime > timeoutMs) {
-      sendSSE("error", { message: "Agent loop timed out" });
+      sendSSE("error", { error: "Agent loop timed out" });
       break;
     }
 
     turns++;
     sendSSE("turn", { turn: i + 1 });
 
-    // Call LLM (non-streaming for now — tool calling needs complete response)
+    // Call LLM with fallback chain on 429/rate-limit
     let response;
+    let usedLlm = llm;
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, PAAW_TOOLS);
     } catch (err) {
-      sendSSE("error", { message: err.message });
-      break;
+      const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
+      if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
+        for (const fb of llm.fallbacks) {
+          console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
+          sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
+          try {
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, messages, PAAW_TOOLS);
+            usedLlm = fb;
+            break;
+          } catch (fbErr) {
+            console.log(`[callLLM] fallback ${fb.providerId} also failed:`, fbErr.message);
+            continue;
+          }
+        }
+        if (!response) {
+          sendSSE("error", { error: `All providers failed: ${err.message}` });
+          break;
+        }
+      } else {
+        sendSSE("error", { error: err.message });
+        break;
+      }
     }
 
     const choice = response.choices?.[0];
-    if (!choice) { sendSSE("error", { message: "Empty LLM response" }); break; }
+    if (!choice) { sendSSE("error", { error: "Empty LLM response" }); break; }
 
     const assistantMsg = choice.message;
     const content = assistantMsg.content || "";
@@ -1116,7 +1147,7 @@ export async function runAgentLoopStream(config, res) {
         sendSSE("content", { content: finalContent, done: true });
       }
     } catch (err) {
-      sendSSE("error", { message: `Final summary failed: ${err.message}` });
+      sendSSE("error", { error: `Final summary failed: ${err.message}` });
     }
   }
 
