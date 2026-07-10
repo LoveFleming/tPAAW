@@ -16,9 +16,9 @@
  * Task 存儲：data/a2a-tasks/*.json
  */
 
-import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, unlink, appendFile } from "fs/promises";
 import { existsSync } from "fs";
-import { resolve } from "path";
+import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
@@ -554,7 +554,7 @@ export default async function a2aRoutes(req, res) {
 
         console.log(`[A2A:${agentId}] RPC ${method} id=${id}`);
 
-        // message/stream — SSE streaming
+        // message/stream — SSE streaming (前端聊天 + EM 調度都用這條)
         if (method === "message/stream") {
           try {
             const userText = extractText(params?.message);
@@ -565,12 +565,61 @@ export default async function a2aRoutes(req, res) {
 
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
+            const conversationHistory = params?.conversationHistory || null;
+            const rootDir = clientContext.cwd || PAAW_ROOT;
 
-            // Build system prompt from crew + context providers
+            // Build system prompt from crew + context providers + action log + agent memory
+            const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+            const actionLogText = (await listActionLog({ cwd: rootDir, limit: 10 })).text;
+            const agentMemoryText = await loadAgentMemory(agentId, rootDir);
+
             const systemPrompt = await buildSystemPrompt(agentId, {
               cwd: clientContext.cwd,
               clientContext,
             });
+
+            // Inject action log and agent memory into system prompt
+            const extraContext = [];
+            if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
+            if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
+            extraContext.push(`\n## 重要規則\n完成任務後，你必須使用 action_log_add 工具記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。`);
+            const fullSystemPrompt = systemPrompt + extraContext.join("");
+
+            // Build messages array with conversation history
+            const messages = [];
+            if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
+
+            if (conversationHistory && Array.isArray(conversationHistory)) {
+              const cleanHistory = conversationHistory
+                .filter(m => m.role === "user" || m.role === "assistant")
+                .filter(m => !m._thinking)
+                .slice(-20);
+              for (const m of cleanHistory) {
+                messages.push({ role: m.role, content: m.content.replace(/^💭 /, "") });
+              }
+            }
+            messages.push({ role: "user", content: userText });
+
+            // ── Dispatch Logging ──
+            try {
+              const logPath = join(rootDir, ".paaw", "coding-memory", "dispatch-log.jsonl");
+              const logEntry = {
+                ts: new Date().toISOString(),
+                route: "A2A message/stream",
+                agentId,
+                model: modelOverride || "default",
+                systemPromptLength: fullSystemPrompt.length,
+                systemPromptPreview: fullSystemPrompt.slice(0, 500),
+                actionLogInjected: actionLogText ? actionLogText.slice(0, 300) : "(none)",
+                agentMemoryInjected: agentMemoryText ? agentMemoryText.slice(0, 300) : "(none)",
+                conversationHistoryCount: conversationHistory?.length || 0,
+                cleanHistoryCount: conversationHistory?.filter(m => m.role === "user" || m.role === "assistant").filter(m => !m._thinking).length || 0,
+                currentMessage: userText,
+                totalMessages: messages.length,
+                messagesSummary: messages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
+              };
+              await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
+            } catch (_logErr) {}
 
             // SSE headers
             res.writeHead(200, {
@@ -585,16 +634,17 @@ export default async function a2aRoutes(req, res) {
 
             // Run agent loop with streaming
             const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
-            const rootDir = clientContext.cwd || PAAW_ROOT;
 
             await runAgentLoopStream({
-              prompt: userText,
-              systemPrompt,
+              prompt: "", , // handled by messages array
+              systemPrompt: "", , // handled by messages array
+              messages,
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
               timeout: 120,
               rootDir,
+              agentId,
             }, res);
 
             res.end();
@@ -611,7 +661,7 @@ export default async function a2aRoutes(req, res) {
           return true;
         }
 
-        // message/send — sync response
+        // message/send — sync response (EM 調度用這條)
         if (method === "message/send") {
           try {
             const userText = extractText(params?.message);
@@ -622,23 +672,51 @@ export default async function a2aRoutes(req, res) {
 
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
+            const conversationHistory = params?.conversationHistory || null;
+            const rootDir = clientContext.cwd || PAAW_ROOT;
+
+            // Build system prompt from crew + context providers + action log + agent memory
+            const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+            const actionLogText = (await listActionLog({ cwd: rootDir, limit: 10 })).text;
+            const agentMemoryText = await loadAgentMemory(agentId, rootDir);
 
             const systemPrompt = await buildSystemPrompt(agentId, {
               cwd: clientContext.cwd,
               clientContext,
             });
 
+            const extraContext = [];
+            if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
+            if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
+            extraContext.push(`\n## 重要規則\n完成任務後，你必須使用 action_log_add 工具記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。`);
+            const fullSystemPrompt = systemPrompt + extraContext.join("");
+
+            // Build messages array with conversation history
+            const messages = [];
+            if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
+            if (conversationHistory && Array.isArray(conversationHistory)) {
+              const cleanHistory = conversationHistory
+                .filter(m => m.role === "user" || m.role === "assistant")
+                .filter(m => !m._thinking)
+                .slice(-20);
+              for (const m of cleanHistory) {
+                messages.push({ role: m.role, content: m.content.replace(/^💭 /, "") });
+              }
+            }
+            messages.push({ role: "user", content: userText });
+
             const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
-            const rootDir = clientContext.cwd || PAAW_ROOT;
 
             const result = await runAgentLoop({
-              prompt: userText,
-              systemPrompt,
+              prompt: "", // handled by messages array
+              systemPrompt: "", // handled by messages array
+              messages,
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
               timeout: 120,
               rootDir,
+              agentId,
             });
 
             sendJSON(res, 200, {

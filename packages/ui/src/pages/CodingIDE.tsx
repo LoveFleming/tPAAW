@@ -933,19 +933,23 @@ const sendChat = useCallback(async () => {
       if (isAgentMode) { setAgentRunning(true); setAgentToolLog([]); }
 
       try {
-        const res = await fetch(`${API_BASE}/api/coding-crew/chat`, {
+        // ── A2A JSON-RPC: message/stream ──
+        const a2aAgentId = (activeCrew || "coding.architect").replace(/^coding\./, "");
+        const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            crewId: activeCrew || "coding.architect",
-            message: userMsg.content,
-            model: codingModel || undefined,
-            cwd: rootPath || undefined,
-            context: activeTab ? {
-              activeFile: activeTab.path,
-              activeFileContent: activeTab.content.slice(0, 3000),
-            } : undefined,
-            conversationHistory: crewConversations[activeCrew || "coding.architect"] || [],
+            jsonrpc: "2.0",
+            method: "message/stream",
+            params: {
+              message: { role: "user", parts: [{ type: "text", text: userMsg.content }] },
+              context: {
+                cwd: rootPath || undefined,
+                ...(activeTab ? { activeFile: activeTab.path, activeFileContent: activeTab.content.slice(0, 3000) } : {}),
+              },
+              conversationHistory: crewConversations[activeCrew || "coding.architect"] || [],
+            },
+            id: `msg-${Date.now()}`,
           }),
         });
 

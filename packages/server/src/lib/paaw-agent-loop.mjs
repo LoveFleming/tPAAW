@@ -1004,8 +1004,8 @@ export async function runAgentLoop(config) {
 
   const systemPrompt = buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext });
 
-  // Initialize messages
-  const messages = [
+  // Allow pre-built messages (for A2A conversation history injection)
+  const messages = config.messages || [
     { role: "system", content: systemPrompt },
     { role: "user", content: prompt },
   ];
