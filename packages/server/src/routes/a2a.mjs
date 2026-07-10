@@ -635,36 +635,6 @@ export default async function a2aRoutes(req, res) {
             // Run agent loop with streaming
             const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
 
-            // Run agent loop with streaming — wrap res.write to capture final answer
-            let _finalAnswer = "";
-            const _origWrite = res.write.bind(res);
-            res.write = (chunk, ...args) => {
-              try {
-                const text = typeof chunk === "string" ? chunk : chunk.toString();
-                // Capture content events with done:true (final answer)
-                if (text.startsWith("event: content")) {
-                  const dataLine = text.split("\n").find(l => l.startsWith("data: "));
-                  if (dataLine) {
-                    const parsed = JSON.parse(dataLine.slice(6));
-                    if (parsed.done && parsed.content) _finalAnswer = parsed.content;
-                  }
-                }
-              } catch {}
-              return _origWrite(chunk, ...args);
-            };
-
-            // Auto-log user request
-            const { addActionLog: _addLog } = await import("../lib/action-log.mjs");
-            await _addLog({
-              agent: agentId,
-              action: "support",
-              summary: `[User] ${userText.slice(0, 120)}`,
-              details: userText,
-              affectedFiles: [],
-              result: "clarified",
-              priority: "medium",
-            }, rootDir);
-
             await runAgentLoopStream({
               prompt: "", // handled by messages array
               systemPrompt: "", // handled by messages array
@@ -676,22 +646,6 @@ export default async function a2aRoutes(req, res) {
               rootDir,
               agentId,
             }, res);
-
-            // Auto-log agent response
-            if (_finalAnswer) {
-              await _addLog({
-                agent: agentId,
-                action: "support",
-                summary: `[${agentId}] ${_finalAnswer.slice(0, 120)}`,
-                details: _finalAnswer.slice(0, 1000),
-                affectedFiles: [],
-                result: "clarified",
-                priority: "medium",
-              }, rootDir);
-            }
-
-            // Restore original write
-            res.write = _origWrite;
 
             res.end();
             console.log(`[A2A:${agentId}] stream completed`);
@@ -764,29 +718,6 @@ export default async function a2aRoutes(req, res) {
               rootDir,
               agentId,
             });
-
-            // Auto-log user request + agent response for EM dispatch
-            const { addActionLog: _addLog } = await import("../lib/action-log.mjs");
-            await _addLog({
-              agent: agentId,
-              action: "support",
-              summary: `[EM→${agentId}] ${userText.slice(0, 120)}`,
-              details: userText,
-              affectedFiles: [],
-              result: "clarified",
-              priority: "medium",
-            }, rootDir);
-            if (result.content) {
-              await _addLog({
-                agent: agentId,
-                action: "support",
-                summary: `[${agentId}] ${result.content.slice(0, 120)}`,
-                details: result.content.slice(0, 1000),
-                affectedFiles: [],
-                result: "clarified",
-                priority: "medium",
-              }, rootDir);
-            }
 
             sendJSON(res, 200, {
               jsonrpc: "2.0",

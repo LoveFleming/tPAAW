@@ -1,34 +1,25 @@
 /**
  * Overnight Manager — Engineering Manager 自動調度
  *
+ * 設計原則：
+ *   收集和執行用決定性程式，規劃用 LLM prompt
+ *
  * 流程：
- *   1. 收集 context（action log + git status + .paaw/ context）
- *   2. LLM 規劃工作清單
- *   3. 逐一 A2A message/send 調用 agent
- *   4. 收集結果
- *   5. 寫隔天報告到 .paaw/overnight-reports/YYYY-MM-DD.md
+ *   1. 【決定性】收集 context（git diff, action log, .paaw/ TODO）
+ *   2. 【決定性】整理成「現況摘要」
+ *   3. 【LLM】讀摘要 → 規劃工作清單
+ *   4. 【決定性】逐一 A2A message/send → agent 執行
+ *   5. 【決定性】收集結果 → 寫報告
  */
 
-import { listActionLog, loadAgentMemory, addActionLog } from "./action-log.mjs";
-import { writeFileSync, mkdirSync, existsSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { listActionLog, addActionLog } from "./action-log.mjs";
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
+import { join } from "path";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// ── A2A Client ──
 
-// ── A2A Client — EM 調用其他 agent ──
-
-/**
- * Call a domain agent via A2A message/send (sync)
- * @param {string} baseUrl - e.g. "http://127.0.0.1:4097"
- * @param {string} agentId - e.g. "developer", "tester", "doc-writer"
- * @param {string} message - task description
- * @param {Object} opts - { cwd, conversationHistory, model, timeout }
- * @returns {Promise<{ success: boolean, content: string, error?: string }>}
- */
 export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
-  const { cwd, conversationHistory, model, timeout = 120000 } = opts;
+  const { cwd, timeout = 120000 } = opts;
 
   const body = {
     jsonrpc: "2.0",
@@ -36,8 +27,6 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
     params: {
       message: { role: "user", parts: [{ type: "text", text: message }] },
       context: { cwd },
-      ...(conversationHistory ? { conversationHistory } : {}),
-      ...(model ? { metadata: { model } } : {}),
     },
     id: `em-${agentId}-${Date.now()}`,
   };
@@ -45,126 +34,171 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
-
     const res = await fetch(`${baseUrl}/a2a/${agentId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-
     clearTimeout(timer);
     const data = await res.json();
 
-    if (data.error) {
-      return { success: false, content: "", error: data.error.message || "Unknown A2A error" };
-    }
-
-    // Extract text from artifacts
+    if (data.error) return { success: false, content: "", error: data.error.message };
     const artifacts = data.result?.artifacts || [];
-    const texts = artifacts
-      .flatMap(a => a.parts || [])
-      .filter(p => p.type === "text" || p.kind === "text")
-      .map(p => p.text);
-
+    const texts = artifacts.flatMap(a => a.parts || []).filter(p => p.type === "text" || p.kind === "text").map(p => p.text);
     return { success: true, content: texts.join("\n") || "(no output)" };
   } catch (err) {
     return { success: false, content: "", error: err.message };
   }
 }
 
-// ── Context Gathering ──
+// ── Layer 1: Deterministic Context Gathering ──
 
-/**
- * Gather all context EM needs to plan work
- */
 async function gatherContext(rootDir) {
-  // Action log
-  const actionLog = await listActionLog({ cwd: rootDir, limit: 20 });
+  const { execSync } = await import("child_process");
+  const safeDir = JSON.stringify(rootDir);
+  const summary = {};
 
-  // Git status
-  let gitStatus = "";
+  // 1. Git status (what changed, what's uncommitted)
   try {
-    const { execSync } = await import("child_process");
-    gitStatus = execSync("cd " + JSON.stringify(rootDir) + " && git status --short && echo '---' && git log --oneline -10", { encoding: "utf-8", timeout: 10000 });
-  } catch { gitStatus = "(unable to get git status)"; }
+    summary.gitStatus = execSync(`cd ${safeDir} && git status --short`, { encoding: "utf-8", timeout: 10000 }).trim();
+  } catch { summary.gitStatus = ""; }
 
-  // .paaw/ context
-  let paawContext = "";
+  // 2. Git diff stat (what files changed, how much)
   try {
-    const { readFile } = await import("fs/promises");
-    const files = ["PROJECT.md", "DECISIONS.md", "TODO.md"];
-    for (const f of files) {
-      const fp = join(rootDir, ".paaw", f);
-      if (existsSync(fp)) {
-        const content = await readFile(fp, "utf-8");
-        paawContext += `\n### ${f}\n${content.slice(0, 2000)}\n`;
-      }
+    summary.gitDiffStat = execSync(`cd ${safeDir} && git diff --stat HEAD~5`, { encoding: "utf-8", timeout: 10000 }).trim();
+  } catch { summary.gitDiffStat = ""; }
+
+  // 3. Recent commits
+  try {
+    summary.recentCommits = execSync(`cd ${safeDir} && git log --oneline -10`, { encoding: "utf-8", timeout: 10000 }).trim();
+  } catch { summary.recentCommits = ""; }
+
+  // 4. Unpushed commits
+  try {
+    summary.unpushed = execSync(`cd ${safeDir} && git log --oneline origin/dev..HEAD 2>/dev/null || echo ""`, { encoding: "utf-8", timeout: 10000 }).trim();
+  } catch { summary.unpushed = ""; }
+
+  // 5. Action log (change water level — only real changes)
+  const actionLog = await listActionLog({ cwd: rootDir, limit: 20, maxChars: 3000 });
+  summary.actionLog = actionLog.text;
+
+  // 6. .paaw/ context files
+  summary.paawContext = "";
+  for (const f of ["PROJECT.md", "TODO.md", "DECISIONS.md", "CODING-STANDARDS.md"]) {
+    const fp = join(rootDir, ".paaw", f);
+    if (existsSync(fp)) {
+      const content = readFileSync(fp, "utf-8").slice(0, 2000);
+      summary.paawContext += `\n### ${f}\n${content}\n`;
     }
-  } catch {}
+  }
 
-  return { actionLog: actionLog.text, gitStatus, paawContext };
+  // 7. Build health (quick check)
+  try {
+    execSync(`cd ${safeDir} && node -e "require('./packages/server/src/paaw-server.mjs')" 2>&1 || true`, { encoding: "utf-8", timeout: 15000 });
+    summary.buildHealth = "OK (server module loads)";
+  } catch {
+    summary.buildHealth = "Check needed";
+  }
+
+  return summary;
 }
 
-// ── Work Planning ──
+// ── Layer 1: Build "現況摘要" (deterministic) ──
 
-/**
- * Use LLM to plan work list from context
- * @returns {Promise<Array<{ agent: string, task: string, priority: string }>>}
- */
-async function planWorkList(context, rootDir) {
+function buildSituationReport(ctx) {
+  let report = `## 專案現況摘要\n\n`;
+
+  if (ctx.gitStatus) {
+    report += `### Git Status（未提交變更）\n\`\`\`\n${ctx.gitStatus}\n\`\`\`\n\n`;
+  } else {
+    report += `### Git Status\n工作目錄乾淨，沒有未提交變更。\n\n`;
+  }
+
+  if (ctx.gitDiffStat) {
+    report += `### 最近 5 commit 的 diff stat\n\`\`\`\n${ctx.gitDiffStat}\n\`\`\`\n\n`;
+  }
+
+  if (ctx.recentCommits) {
+    report += `### 最近 10 個 commit\n\`\`\`\n${ctx.recentCommits}\n\`\`\`\n\n`;
+  }
+
+  if (ctx.unpushed) {
+    report += `### ⚠️ 未 Push 的 commit\n\`\`\`\n${ctx.unpushed}\n\`\`\`\n\n`;
+  }
+
+  if (ctx.actionLog) {
+    report += `### Action Log（Change 水位 — 最近 20 條 agent 變更紀錄）\n${ctx.actionLog}\n\n`;
+  } else {
+    report += `### Action Log\n目前沒有 agent 變更紀錄。\n\n`;
+  }
+
+  if (ctx.paawContext) {
+    report += `### 專案知識\n${ctx.paawContext}\n`;
+  }
+
+  return report;
+}
+
+// ── Layer 2: LLM Work Planning ──
+
+async function planWorkList(situationReport, rootDir) {
   const { resolveLLMConfig, callLLM } = await import("./paaw-agent-loop.mjs");
   const llm = resolveLLMConfig(rootDir);
 
-  const planPrompt = `你是 Engineering Manager，負責規劃 coding agent 的工作。
+  const EM_PROMPT = `你是 AI Coding Factory 的 Engineering Manager (武大安)。
 
-  const planPrompt = `你是 Engineering Manager，負責規劃 coding agent 的工作。
+## 你的角色
+你是技術主管，不是執行者。你讀現況摘要，判斷什麼需要做，分配給合適的 agent。
+你不寫程式、不跑測試。你規劃、分配、追蹤。
 
-## 目前專案狀態
+## 可調度的 Agent 及能力
+- **architect** — 架構審查、技術決策（ADR）、風險評估、模組邊界規劃
+- **developer** — 寫程式、修 bug、refactor、實作功能、全端開發
+- **tester** — 撰寫單元測試/整合測試/E2E、跑測試、覆蓋率分析
+- **doc-writer** — 寫 README、API docs、changelog、技術文件
+- **helpdesk** — 技術支援、排查問題、操作指引
 
-### Action Log（最近的 agent 交接紀錄）
-${context.actionLog || "(empty)"}
+## 規劃原則
+1. **從 change 水位出發** — 看 action log 裡最近的變更，找出未完成的工作或遺漏
+2. **有未 push 的 commit** → 優先指派 developer 確認 + push
+3. **有未提交的變更** → 評估是否需要 developer 補完
+4. **缺少測試** → 指派 tester 補測試
+5. **缺少文檔** → 指派 doc-writer 補文檔
+6. **架構有風險** → 指派 architect 審查
+7. 每項任務必須**具體、可執行** — agent 拿到就能直接做
+8. 3-5 項，不要太多。品質 > 數量
 
-### Git Status
-${context.gitStatus}
+## 任務描述規則
+- ❌ "改善程式碼品質"（太空泛）
+- ✅ "為 packages/ui/src/components/SidebarFileTree.tsx 的 openFile 函數寫單元測試"
+- ❌ "更新文檔"（太模糊）
+- ✅ "根據最近 5 個 commit 更新 .paaw/CHANGELOG.md"
 
-### 專案 Context
-${context.paawContext || "(none)"}
-
-## 可調度的 Agent
-- architect — 架構審查、技術決策、風險評估
-- developer — 寫程式、修 bug、refactor
-- tester — 寫測試、跑測試、回報結果
-- doc-writer — 寫文件、README、changelog
-- helpdesk — 技術支援、排查問題
-
-## 你的任務
-根據專案現狀，規劃 3-5 個具體的工作項目。每項必須：
-1. 指定一個 agent 負責
-2. 明確描述任務內容（agent 能直接執行的程度）
-3. 設定優先級（high/medium/low）
-
-如果沒有緊急工作，就規劃改善類的任務（文檔更新、測試補強、code review 等）。
-
-## 輸出格式（JSON array）
+## 輸出格式（嚴格 JSON array，不要其他文字）
 [
-  { "agent": "developer", "task": "修復 CodingIDE.tsx 的 tab race condition", "priority": "high" },
-  { "agent": "tester", "task": "為 SidebarFileTree 寫單元測試", "priority": "medium" },
-  { "agent": "doc-writer", "task": "更新 CHANGELOG.md", "priority": "low" }
-]
+  {
+    "agent": "developer",
+    "task": "具體任務描述，agent 拿到就能執行",
+    "priority": "high",
+    "reason": "為什麼需要這項工作（一句話）"
+  }
+]`;
 
-只輸出 JSON array，不要其他文字。`;
-
-  const messages = [{ role: "user", content: planPrompt }];
+  const messages = [
+    { role: "system", content: EM_PROMPT },
+    { role: "user", content: situationReport },
+  ];
 
   try {
     const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, []);
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content || "";
-    // Extract JSON array from response
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
-      return JSON.parse(match[0]);
+      const list = JSON.parse(match[0]);
+      // Validate
+      return list.filter(item => item.agent && item.task);
     }
     return [];
   } catch (err) {
@@ -175,32 +209,27 @@ ${context.paawContext || "(none)"}
 
 // ── Main: Run EM Session ──
 
-/**
- * Run a full EM orchestration session
- * @param {Object} opts
- * @param {string} opts.rootDir — project root
- * @param {string} [opts.baseUrl] — server base URL (default http://127.0.0.1:4097)
- * @param {Object} [opts.llmConfig] — LLM config override
- * @param {Object} [res] — Express response for SSE streaming (optional)
- * @returns {Promise<{ report: string, workList: Array, results: Array }>}
- */
 export async function runEMSession(opts = {}) {
-  const { rootDir, baseUrl = "http://127.0.0.1:4097", llmConfig } = opts;
+  const { rootDir, baseUrl = "http://127.0.0.1:4097" } = opts;
   const sendSSE = opts.sendSSE || (() => {});
 
+  // ── Phase 1: Deterministic gathering ──
   sendSSE("info", { message: "🎖️ EM 啟動，收集專案狀態..." });
+  const ctx = await gatherContext(rootDir);
+  const situationReport = buildSituationReport(ctx);
+  sendSSE("info", { message: `📊 現況摘要收集完成` });
 
-  // 1. Gather context
-  const context = await gatherContext(rootDir);
-  sendSSE("info", { message: `收集完成：${context.actionLog ? "Action Log ✓" : "Action Log ✗"} | Git ${context.gitStatus ? "✓" : "✗"}` });
+  if (ctx.unpushed) {
+    sendSSE("warning", { message: `⚠️ 發現 ${ctx.unpushed.split("\n").length} 個未 push 的 commit` });
+  }
 
-  // 2. Plan work
-  sendSSE("info", { message: "📋 規劃工作清單中..." });
-  const workList = await planWorkList(context, rootDir);
+  // ── Phase 2: LLM planning ──
+  sendSSE("info", { message: "🧠 規劃工作清單中..." });
+  const workList = await planWorkList(situationReport, rootDir);
 
   if (!workList.length) {
-    sendSSE("info", { message: "沒有需要調度的工作。" });
-    const report = `# EM Session Report\n\n## ${new Date().toISOString()}\n\n沒有需要調度的工作。\n`;
+    sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
+    const report = generateReport([], [], situationReport);
     await saveReport(rootDir, report);
     return { report, workList: [], results: [] };
   }
@@ -208,10 +237,10 @@ export async function runEMSession(opts = {}) {
   sendSSE("plan", { workList });
   sendSSE("info", { message: `📋 規劃了 ${workList.length} 項工作：` });
   for (const w of workList) {
-    sendSSE("info", { message: `  • [${w.priority}] ${w.agent}: ${w.task}` });
+    sendSSE("info", { message: `  • [${w.priority}] ${w.agent}: ${w.task}${w.reason ? ` — ${w.reason}` : ""}` });
   }
 
-  // 3. Execute each task via A2A
+  // ── Phase 3: Deterministic execution ──
   const results = [];
   for (let i = 0; i < workList.length; i++) {
     const task = workList[i];
@@ -222,55 +251,42 @@ export async function runEMSession(opts = {}) {
       timeout: 120000,
     });
 
-    results.push({ ...task, ...result, duration: 0 });
+    results.push({ ...task, ...result });
 
     if (result.success) {
       sendSSE("task_done", { index: i + 1, agent: task.agent, preview: result.content.slice(0, 200) });
     } else {
       sendSSE("task_error", { index: i + 1, agent: task.agent, error: result.error });
     }
-
-    // Log to action log
-    await addActionLog({
-      agent: "em",
-      action: "decide",
-      summary: `調度 ${task.agent}: ${task.task}`,
-      details: result.success ? result.content.slice(0, 500) : `Error: ${result.error}`,
-      affectedFiles: [],
-      result: result.success ? "fixed" : "suggestions",
-      priority: task.priority,
-    }, rootDir);
   }
 
-  // 4. Generate report
+  // ── Phase 4: Deterministic reporting ──
   sendSSE("info", { message: "📝 產生報告中..." });
-  const report = generateReport(workList, results);
+  const report = generateReport(workList, results, situationReport);
   await saveReport(rootDir, report);
   sendSSE("report", { report });
 
-  // 5. EM records its own action
+  // EM records a summary change
   await addActionLog({
     agent: "em",
-    action: "create",
-    summary: `完成 EM session：調度 ${workList.length} 項工作，成功 ${results.filter(r => r.success).length} 項`,
-    details: workList.map(w => `${w.agent}: ${w.task}`).join("\n"),
+    action: "decide",
+    summary: `EM session 完成：調度 ${workList.length} 項工作，成功 ${results.filter(r => r.success).length} 項`,
+    details: workList.map(w => `${w.priority}/${w.agent}: ${w.task}`).join("\n"),
     affectedFiles: [],
-    result: "created",
+    result: "adr",
     priority: "high",
   }, rootDir);
 
-  sendSSE("done", {
-    totalTasks: workList.length,
-    succeeded: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length,
-  });
+  const succeeded = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  sendSSE("done", { totalTasks: workList.length, succeeded, failed });
 
   return { report, workList, results };
 }
 
 // ── Report Generation ──
 
-function generateReport(workList, results) {
+function generateReport(workList, results, situationReport) {
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const succeeded = results.filter(r => r.success).length;
@@ -280,15 +296,17 @@ function generateReport(workList, results) {
   report += `**日期：** ${dateStr}\n`;
   report += `**時間：** ${now.toTimeString().slice(0, 8)}\n`;
   report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n\n`;
-  report += `---\n\n## 工作清單\n\n`;
+  report += `---\n\n## 📊 專案現況\n\n${situationReport}\n\n---\n\n## 📋 工作清單\n\n`;
 
   for (let i = 0; i < workList.length; i++) {
     const w = workList[i];
     const r = results[i];
     const icon = r.success ? "✅" : "❌";
-    report += `### ${i + 1}. ${icon} [${w.priority}] ${w.agent} — ${w.task}\n\n`;
+    report += `### ${i + 1}. ${icon} [${w.priority}] ${w.agent} — ${w.task}\n`;
+    if (w.reason) report += `> ${w.reason}\n`;
+    report += `\n`;
     if (r.success) {
-      report += `**結果：**\n\`\`\`\n${r.content.slice(0, 1000)}\n\`\`\`\n\n`;
+      report += `**結果：**\n\`\`\`\n${r.content.slice(0, 1500)}\n\`\`\`\n\n`;
     } else {
       report += `**錯誤：** ${r.error}\n\n`;
     }
@@ -302,7 +320,5 @@ async function saveReport(rootDir, report) {
   const dir = join(rootDir, ".paaw", "overnight-reports");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const dateStr = new Date().toISOString().slice(0, 10);
-  const filePath = join(dir, `${dateStr}.md`);
-  writeFileSync(filePath, report, "utf-8");
-  return filePath;
+  writeFileSync(join(dir, `${dateStr}.md`), report, "utf-8");
 }
