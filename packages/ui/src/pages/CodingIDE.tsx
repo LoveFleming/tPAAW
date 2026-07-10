@@ -1005,19 +1005,14 @@ const sendChat = useCallback(async () => {
             }
           } catch {}
         }
-        // Fetch vibe coding system context
-        let vibeSystemPrompt = "";
-        try {
-          const ctxRes = await fetch(`${API_BASE}/api/context/vibe-coding`);
-          if (ctxRes.ok) { const ctx = await ctxRes.json(); vibeSystemPrompt = ctx.systemPrompt || ""; }
-        } catch {}
-
+        // Chat mode: only use crew rolePrompt, NOT vibe-coding context
+        // (vibe-coding context has few-shot examples with exercise reminders)
         const res = await fetch(`${API_BASE}/api/agent-run/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: userMsg.content,
-            systemPrompt: vibeSystemPrompt + (crewSystemAdd ? `\n\n[AI 人員角色]\n${crewSystemAdd}` : ""),
+            systemPrompt: crewSystemAdd || undefined,
             model: codingModel || undefined,
             cwd: rootPath || undefined,
             maxTurns: 1,
