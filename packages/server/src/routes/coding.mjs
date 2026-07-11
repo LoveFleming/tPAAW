@@ -1178,41 +1178,46 @@ export default async function projectRoute(req, res) {
           }
 
           // Save output to .paaw/
-          if (step.id === "scan") {
-            await paaw.writeFile("scan.json", content);
-          } else if (step.id === "architecture") {
-            await paaw.writeFile("ARCHITECTURE.md", content);
-          } else if (step.id === "api-spec") {
-            await paaw.writeFile("specs/api-contract.md", content);
-          } else if (step.id === "error-mapping") {
-            await paaw.writeFile("specs/error-codes.md", content);
-            const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
-            for (const rm of runbookMatches) {
-              await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
-            }
-          } else if (step.id === "decisions") {
-            await paaw.writeFile("DECISIONS.md", content);
-          } else if (step.id === "test-payload") {
-            await paaw.writeFile("test-payloads/all-payloads.json", content);
-            try {
-              const payloads = JSON.parse(content);
-              if (Array.isArray(payloads)) {
-                for (const p of payloads) {
-                  const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
-                  await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
-                }
+          try {
+            if (step.id === "scan") {
+              await paaw.writeFile("scan.json", content);
+            } else if (step.id === "architecture") {
+              await paaw.writeFile("ARCHITECTURE.md", content);
+            } else if (step.id === "api-spec") {
+              await paaw.writeFile("specs/api-contract.md", content);
+            } else if (step.id === "error-mapping") {
+              await paaw.writeFile("specs/error-codes.md", content);
+              const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
+              for (const rm of runbookMatches) {
+                await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
               }
-            } catch {}
-          } else if (step.id === "standards") {
-            await paaw.writeFile("standards/coding-style.md", content);
-          } else if (step.id === "faq") {
-            await paaw.writeFile("helpdesk/faq.md", content);
-          } else if (step.id === "overview") {
-            await paaw.writeFile("PROJECT.md", content);
+            } else if (step.id === "decisions") {
+              await paaw.writeFile("DECISIONS.md", content);
+            } else if (step.id === "test-payload") {
+              await paaw.writeFile("test-payloads/all-payloads.json", content);
+              try {
+                const payloads = JSON.parse(content);
+                if (Array.isArray(payloads)) {
+                  for (const p of payloads) {
+                    const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
+                    await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
+                  }
+                }
+              } catch {}
+            } else if (step.id === "standards") {
+              await paaw.writeFile("standards/coding-style.md", content);
+            } else if (step.id === "faq") {
+              await paaw.writeFile("helpdesk/faq.md", content);
+            } else if (step.id === "overview") {
+              await paaw.writeFile("PROJECT.md", content);
+            }
+            console.log(`[CodeUnderstanding] step=${step.id} wrote file OK (${content.length} chars)`);
+          } catch (writeErr) {
+            console.error(`[CodeUnderstanding] step=${step.id} FAILED to write file:`, writeErr.message);
           }
 
           sendEvent("step_done", { step: step.id, name: step.name, size: content.length, preview: content.slice(0, 200) });
-          console.log(`[CodeUnderstanding] step=${step.id} DONE, wrote ${content.length} chars`);
+          console.log(`[CodeUnderstanding] step=${step.id} sendEvent step_done (${content.length} chars)`);
         } catch (err) {
           sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
         }
@@ -1332,56 +1337,50 @@ export default async function projectRoute(req, res) {
             const content = result.content || "";
 
             // Store results
-            if (step.id === "scan") {
-              scanResult = content;
-              await paaw.writeFile("scan.json", content);
-            } else if (step.id === "architecture") {
-              architectureResult = content;
-              await paaw.writeFile("ARCHITECTURE.md", content);
-            } else if (step.id === "api-spec") {
-              apiSpecResult = content;
-              await paaw.writeFile("specs/api-contract.md", content);
-            } else if (step.id === "error-mapping") {
-              errorMappingResult = content;
-              // Save error mapping table
-              const mappingMatch = content.match(/\|.*Code.*\|.*Type.*\|.*\n([\s\S]*?)(?=\n[^|]|$)/);
-              if (mappingMatch) {
+            try {
+              if (step.id === "scan") {
+                scanResult = content;
+                await paaw.writeFile("scan.json", content);
+              } else if (step.id === "architecture") {
+                architectureResult = content;
+                await paaw.writeFile("ARCHITECTURE.md", content);
+              } else if (step.id === "api-spec") {
+                apiSpecResult = content;
+                await paaw.writeFile("specs/api-contract.md", content);
+              } else if (step.id === "error-mapping") {
+                errorMappingResult = content;
                 await paaw.writeFile("specs/error-codes.md", content);
-              } else {
-                await paaw.writeFile("specs/error-codes.md", content);
-              }
-              // Extract individual runbooks from content
-              const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
-              for (const rm of runbookMatches) {
-                await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
-              }
-            } else if (step.id === "decisions") {
-              decisionsResult = content;
-              await paaw.writeFile("DECISIONS.md", content);
-            } else if (step.id === "test-payload") {
-              // Parse JSON test payloads and save individually
-              await paaw.writeFile("test-payloads/all-payloads.json", content);
-              // Try to parse and save individual payloads
-              try {
-                const payloads = JSON.parse(content);
-                if (Array.isArray(payloads)) {
-                  for (const p of payloads) {
-                    const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
-                    await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
-                  }
-                } else if (payloads.endpoint) {
-                  const slug = payloads.endpoint.replace(/[^a-zA-Z0-9-]/g, "-");
-                  await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(payloads, null, 2));
+                const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
+                for (const rm of runbookMatches) {
+                  await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
                 }
-              } catch {
-                // If LLM didn't return valid JSON, save raw content
+              } else if (step.id === "decisions") {
+                decisionsResult = content;
+                await paaw.writeFile("DECISIONS.md", content);
+              } else if (step.id === "test-payload") {
+                await paaw.writeFile("test-payloads/all-payloads.json", content);
+                try {
+                  const payloads = JSON.parse(content);
+                  if (Array.isArray(payloads)) {
+                    for (const p of payloads) {
+                      const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
+                      await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
+                    }
+                  } else if (payloads.endpoint) {
+                    const slug = payloads.endpoint.replace(/[^a-zA-Z0-9-]/g, "-");
+                    await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(payloads, null, 2));
+                  }
+                } catch {}
+              } else if (step.id === "standards") {
+                await paaw.writeFile("standards/coding-style.md", content);
+              } else if (step.id === "faq") {
+                await paaw.writeFile("helpdesk/faq.md", content);
+              } else if (step.id === "overview") {
+                await paaw.writeFile("PROJECT.md", content);
               }
-            } else if (step.id === "standards") {
-              await paaw.writeFile("standards/coding-style.md", content);
-            } else if (step.id === "faq") {
-              await paaw.writeFile("helpdesk/faq.md", content);
-            } else if (step.id === "overview") {
-              await paaw.writeFile("PROJECT.md", content);
+              console.log(`[CodeUnderstanding:bulk] step=${step.id} wrote file OK (${content.length} chars)`);
+            } catch (writeErr) {
+              console.error(`[CodeUnderstanding:bulk] step=${step.id} FAILED to write:`, writeErr.message);
             }
 
             sendEvent("step_done", {

@@ -156,8 +156,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     const wasRunning = prevRunningRef.current;
     const isRunning = codeUnderstanding?.running;
     if (wasRunning && !isRunning) {
-      // Bulk run just finished — reload persisted steps + refresh scores
-      loadPersistedSteps();
+      // Bulk run just finished — merge live step results into persistedSteps first
+      // (in case .paaw/ files aren't written yet, we still show what the frontend knows)
+      loadPersistedSteps().then(() => {
+        setPersistedSteps(prev => {
+          // If loadPersistedSteps returned all pending but we have live results, use live results
+          const liveSteps = codeUnderstanding?.steps || [];
+          const liveDone = liveSteps.filter(s => s.status === "done");
+          if (liveDone.length > 0 && prev.every(s => s.status === "pending")) {
+            return liveSteps.map(s => ({ id: s.id, name: s.name, status: s.status, size: s.size, error: s.error }));
+          }
+          return prev;
+        });
+      });
       refreshData();
     }
     prevRunningRef.current = !!isRunning;
