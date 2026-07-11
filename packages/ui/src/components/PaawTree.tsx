@@ -115,6 +115,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState<boolean | null>(null);
+  const [collapsed, setCollapsed] = useState(true); // default collapsed
 
   // Check if .paaw/ exists and load tree
   const loadTree = useCallback(async () => {
@@ -138,6 +139,11 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
       setLoading(false);
     }
   }, [projectRoot]);
+
+  // Load tree when uncollapsed
+  useEffect(() => {
+    if (!collapsed && !tree) loadTree();
+  }, [collapsed]);
 
   useEffect(() => {
     loadTree();
@@ -222,30 +228,19 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
 
   return (
     <div className="flex flex-col">
-      {/* Header */}
+      {/* Header — click to toggle collapse */}
       <div
-        className="flex items-center gap-1.5 px-2 py-1 select-none"
+        className="flex items-center gap-1.5 px-2 py-1 select-none cursor-pointer hover:bg-stone-100"
         style={{ borderTop: "1px solid #e5e5e5", backgroundColor: "#fafafa" }}
+        onClick={() => setCollapsed(!collapsed)}
       >
-        <span className="text-xs">🤖</span>
+        <span className="text-xs text-stone-400">{collapsed ? "▶" : "▼"}</span>
         <span className="text-[11px] font-semibold text-stone-500">Project Knowledge</span>
-        <button
-          onClick={handleGenerate}
-          className="ml-auto text-xs text-blue-500 hover:text-blue-700 font-medium opacity-60 hover:opacity-100"
-          title="Auto-generate PROJECT.md from codebase"
-        >
-          ✨
-        </button>
-        <button
-          onClick={loadTree}
-          className="text-xs text-stone-400 hover:text-stone-600 opacity-60 hover:opacity-100"
-          title="Refresh"
-        >
-          ↻
-        </button>
+        {tree?.children && <span className="text-[10px] text-stone-300 ml-auto">{tree.children.length} items</span>}
       </div>
 
-      {/* Tree */}
+      {/* Tree — only when expanded */}
+      {!collapsed && (
       <div className="py-1">
         {tree.children && tree.children.length > 0 ? (
           tree.children.map(child => (
@@ -262,6 +257,7 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
           <div className="px-3 py-2 text-[11px] text-stone-400">No files yet</div>
         )}
       </div>
+      )}{/* end collapsed condition */}
     </div>
   );
 }
