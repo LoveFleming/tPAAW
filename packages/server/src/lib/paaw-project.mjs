@@ -973,7 +973,7 @@ const DEFAULT_STANDARDS_MD = `# Coding Standards
 > 可透過 Coding IDE 的 Standards Editor 編輯，或點「Import」匯入範本。
 `;
 
-// ── Export singleton factory ──
+// ── Export singleton instance ──
 
 export function createPaawProject(projectRoot) {
   return new PaawProject(projectRoot);

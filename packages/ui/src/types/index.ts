@@ -117,7 +117,7 @@ export function buildSystemPrompt(
     skillDefinitions: Map<string, SkillDefinition>,
     selectedSkillIds: string[],
     formData?: Record<string, string>,
-    paths?: { paawRoot: string; projectRoot: string; factoryId?: string },
+    paths?: { paawRoot: string; projectRoot: string },
     workspaces?: string[],
     skillRules?: string
 ): string {

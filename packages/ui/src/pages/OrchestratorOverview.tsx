@@ -39,7 +39,7 @@ export default function OrchestratorOverview({ openApp }: { openApp: (id: string
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Orchestrator Registry</h1>
-                    <p className="text-sm text-zinc-500">Browse and manage domain orchestrators across the factory.</p>
+                    <p className="text-sm text-zinc-500">Browse and manage domain orchestrators across the workspace.</p>
                 </div>
 
                 <div className="flex items-center gap-2">

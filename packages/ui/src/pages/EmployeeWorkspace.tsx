@@ -29,7 +29,7 @@ interface Props {
     crew?: Crew[];
 }
 
-export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewProp, factoryId = "default" }: Props & { factoryId?: string }) {
+export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewProp }: Props) {
   const { t: tt } = useI18n();
     // Use crew from props (API-fetched) to avoid HMR reset when crew JSON files change
     const [apiEmployee, setApiEmployee] = useState<Crew | null>(null);
@@ -329,12 +329,12 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                 setSystemPrompt(baseSystem + "\n\n" + employeeParts.join("\n\n"));
             } else {
                 // Fallback: use frontend buildSystemPrompt (includes rolePrompt)
-                const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
+                const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", workspaces, skillRules });
                 setSystemPrompt(prompt);
             }
         } catch {
             // Fallback: use frontend buildSystemPrompt (includes rolePrompt)
-            const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", factoryId }, workspaces, skillRules);
+            const prompt = buildSystemPrompt(employee, skillDefinitions, selectedSkillIds, labeledData, { paawRoot, projectRoot: projectRoot || "", workspaces, skillRules });
             setSystemPrompt(prompt);
         }
 

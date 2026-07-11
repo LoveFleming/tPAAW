@@ -2,7 +2,7 @@
  * Apps CRUD + App Data + App Run + Reports
  * Routes: /api/apps, /api/app-data/*, /api/app-run/*, /api/app/*,
  *         /api/report-train, /api/report-preview, /api/report-publish,
- *         /api/report-templates, /api/factories
+ *         /api/report-templates
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";

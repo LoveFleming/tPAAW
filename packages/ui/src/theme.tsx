@@ -172,7 +172,7 @@ const ThemeContext = createContext<ThemeContextType>({
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeId] = useState<ThemeId>(() => {
     try {
-      const stored = localStorage.getItem("ai-factory-theme") as ThemeId;
+      const stored = localStorage.getItem("paaw-theme") as ThemeId;
       return (stored && THEMES[stored]) ? stored : "sunny";
     }
     catch { return "sunny"; }
@@ -180,7 +180,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = (id: ThemeId) => {
     setThemeId(id);
-    try { localStorage.setItem("ai-factory-theme", id); } catch {}
+    try { localStorage.setItem("paaw-theme", id); } catch {}
   };
 
   React.useEffect(() => {

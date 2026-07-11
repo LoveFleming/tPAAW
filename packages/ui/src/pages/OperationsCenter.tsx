@@ -42,7 +42,7 @@ export default function OperationsCenter({
             {/* Status Summary */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 <div className="bg-white p-4 shadow-sm border border-orange-200 lg:col-span-2">
-                    <div className="text-xs text-stone-400 font-bold uppercase tracking-wider">Factory Health</div>
+                    <div className="text-xs text-stone-400 font-bold uppercase tracking-wider">System Health</div>
                     <div className="mt-1 text-lg font-semibold">Healthy</div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-xl border border-orange-200 bg-amber-50/50 p-3">

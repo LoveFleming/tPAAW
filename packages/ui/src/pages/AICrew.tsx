@@ -10,10 +10,9 @@ import Icon from "../components/Icon";
 interface AICrewProps {
     openEmployee: (employeeId: string) => void;
     onCrewChanged?: () => void;
-    factoryId?: string;
 }
 
-export default function AICrew({ openEmployee, onCrewChanged, factoryId = "default" }: AICrewProps) {
+export default function AICrew({ openEmployee, onCrewChanged }: AICrewProps) {
   const { t: tt } = useI18n();
     const { info: t } = useTheme();
     const [crew, setCrew] = useState<Crew[]>([]);
@@ -24,7 +23,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
 
     const loadCrew = useCallback(async () => {
         try {
-            const resp = await fetch(`${API_BASE}/api/crew?factory=${factoryId}`);
+            const resp = await fetch(`${API_BASE}/api/crew`);
             if (resp.ok) {
                 const data = await resp.json();
                 setCrew(data);
@@ -37,7 +36,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
             } catch { /* */ }
         }
         setLoading(false);
-    }, [factoryId]);
+    }, []);
 
     // Fetch skill definitions
     useEffect(() => {
@@ -65,7 +64,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
 
     const handleSave = async (crewData: Crew) => {
         const isEdit = !!editingCrew;
-        const url = isEdit ? `${API_BASE}/api/crew/${crewData.id}?factory=${factoryId}` : `${API_BASE}/api/crew?factory=${factoryId}`;
+        const url = isEdit ? `${API_BASE}/api/crew/${crewData.id}` : `${API_BASE}/api/crew`;
         const method = isEdit ? "PUT" : "POST";
 
         const resp = await fetch(url, {
@@ -86,7 +85,7 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
     };
 
     const handleDelete = async (id: string) => {
-        const resp = await fetch(`${API_BASE}/api/crew/${id}?factory=${factoryId}`, { method: "DELETE" });
+        const resp = await fetch(`${API_BASE}/api/crew/${id}`, { method: "DELETE" });
         if (!resp.ok) {
             const err = await resp.json();
             throw new Error(err.error || `Delete failed (${resp.status})`);

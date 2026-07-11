@@ -115,7 +115,7 @@ function AppInner() {
   }, []);
 
   // ── UI State (server-side) ──
-  const uiStateRef = useRef<{ recentProjects: string[]; projectPaths: Record<string, string>; lastFactory: string } | null>(null);
+  const uiStateRef = useRef<{ recentProjects: string[]; projectPaths: Record<string, string> } | null>(null);
 
   const loadUiState = useCallback(async () => {
     try {
@@ -124,9 +124,7 @@ function AppInner() {
         const state = await resp.json();
         uiStateRef.current = state;
         // Apply to state
-        const lastFactory = state.lastFactory || "default";
-        const projectPath = state.projectPaths?.[lastFactory] || null;
-        setSelectedFactoryId(lastFactory);
+        const projectPath = state.projectPaths?.default || null;
         if (projectPath) setProjectRoot(normPath(projectPath));
       }
     } catch {}
@@ -146,10 +144,11 @@ function AppInner() {
   }, []);
 
   // ── Factory / Project state ──
-  const [showFactoryEntry, setShowFactoryEntry] = useState(false);
+
 
   const [projectRoot, setProjectRoot] = useState<string | null>(null);
-  const [selectedFactoryId, setSelectedFactoryId] = useState<string>("default");
+  // Factory concept removed — PAAW has single workspace
+  const selectedFactoryId = "default";
 
   const scopeStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
 
@@ -177,30 +176,25 @@ function AppInner() {
     return saved ? parseInt(saved, 10) : 260;
   });
 
-  const [factories, setFactories] = useState<{id: string; name: string; icon: string; description: string}[]>([]);
+
   const [crew, setCrew] = useState<Crew[]>([]);
-  const crewByFactoryRef = useRef<Record<string, Crew[]>>({});
+
   const [paawRoot, setPaawRoot] = useState("");
   const [skillApps, setSkillApps] = useState<{id: string; name: string}[]>([]);
   const [dataApps, setDataApps] = useState<{id: string; name: string}[]>([]);
 
-  const loadFactories = useCallback(async () => {
-    try {
-      const resp = await fetch(`${API_BASE}/api/factories`);
-      if (resp.ok) setFactories(await resp.json());
-    } catch {}
-  }, []);
+
 
   const loadCrew = useCallback(async () => {
     try {
-      const resp = await fetch(`${API_BASE}/api/crew?factory=${selectedFactoryId}`);
+      const resp = await fetch(`${API_BASE}/api/crew`);
       if (resp.ok) {
         const data = await resp.json();
         setCrew(data);
-        crewByFactoryRef.current[selectedFactoryId] = data;
+
       }
     } catch {}
-  }, [selectedFactoryId]);
+  }, []);
 
   const loadPaawRoot = useCallback(async () => {
     try {
@@ -230,7 +224,7 @@ function AppInner() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadFactories(); loadCrew(); loadPaawRoot(); loadSkillApps(); loadDataApps(); loadUiState(); }, [loadFactories, loadCrew, loadPaawRoot, loadSkillApps, loadDataApps, loadUiState]);
+  useEffect(() => { loadCrew(); loadPaawRoot(); loadSkillApps(); loadDataApps(); loadUiState(); }, [loadCrew, loadPaawRoot, loadSkillApps, loadDataApps, loadUiState]);
 
   // ── Navigation helpers ──
   const handleSelectProject = useCallback((path: string) => {
@@ -263,52 +257,13 @@ function AppInner() {
     }
     const normalized = normPath(path)!;
     // Save to server
-    const projectPaths = { ...(uiStateRef.current?.projectPaths || {}), [selectedFactoryId]: normalized };
+    const projectPaths = { ...(uiStateRef.current?.projectPaths || {}), default: normalized };
     try {
       const existing = uiStateRef.current?.recentProjects || [];
       const updated = [normalized, ...existing.filter((p: string) => p !== normalized)].slice(0, 10);
-      saveUiState({ projectPaths, recentProjects: updated, lastFactory: selectedFactoryId });
+      saveUiState({ projectPaths, recentProjects: updated });
     } catch {}
-  }, [openTabs, activePage, currentScope, projectRoot, selectedFactoryId]);
-
-  const enterFactory = (factoryId: string) => {
-    switchFactory(factoryId);
-    setShowFactoryEntry(false);
-  };
-
-  const goToFactoryEntry = () => {
-    setShowFactoryEntry(true);
-    loadFactories();
-  };
-
-  const switchFactory = (factoryId: string) => {
-    const currentPrefix = currentScope + ":";
-    const currentScopeTabs = openTabs.filter(t => t.startsWith(currentPrefix));
-    scopeStateRef.current[currentScope] = {
-      projectRoot,
-      activePage: currentScopeTabs.length > 0 ? activePage : currentPrefix + "crew",
-      openTabs: currentScopeTabs,
-    };
-    const savedRoot = normPath(uiStateRef.current?.projectPaths?.[factoryId] || null);
-    const newScope = makeScopeKey(factoryId, savedRoot);
-    const newPrefix = newScope + ":";
-    const saved = scopeStateRef.current[newScope];
-    const existingScopeTabs = openTabs.filter(t => t.startsWith(newPrefix));
-    if (existingScopeTabs.length > 0) {
-      const savedActive = saved?.activePage && openTabs.includes(saved.activePage) ? saved.activePage : existingScopeTabs[0];
-      setActivePage(savedActive);
-    } else {
-      const restoredTabs = saved?.openTabs ?? [`${newScope}:crew`];
-      const merged = [...openTabs, ...restoredTabs];
-      const seen = new Set<string>();
-      const unique = merged.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
-      setOpenTabs(unique);
-      setActivePage(saved?.activePage && unique.includes(saved.activePage) ? saved.activePage : `${newScope}:crew`);
-    }
-    if (savedRoot) { setProjectRoot(savedRoot); } else { setProjectRoot(null); }
-    setSelectedFactoryId(factoryId);
-    saveUiState({ lastFactory: factoryId });
-  };
+  }, [openTabs, activePage, currentScope, projectRoot]);
 
   const openApp = (id: string) => {
     const fullId = id.includes(":") ? id : `${currentScope}:${id}`;
@@ -385,7 +340,7 @@ function AppInner() {
     setShowDirExplorer(false);
   }, [handleSelectProject]);
 
-  const factoryNav = useMemo(() => {
+  const sidebarNav = useMemo(() => {
     const crewItem = { sortKey: `01-crew`, id: `${currentScope}:crew`, label: t("sidebar.aiCrew") };
     return [crewItem];
   }, [currentScope, t]);
@@ -539,7 +494,7 @@ function AppInner() {
     }
     if (pageType.startsWith("employee.")) {
       const empId = pageType.split("#")[0].slice(9);
-      const factoryCrew = crewByFactoryRef.current[factoryId] ?? crew;
+      const factoryCrew = crew;
       const emp = factoryCrew.find(s => s.id === empId);
       return emp ? emp.codename : empId;
     }
@@ -550,7 +505,7 @@ function AppInner() {
       return `✏️ ${pathBasename(pageType.slice(8))}`;
     }
     return pageType;
-  }, [factoryNav, crew, t, chatTitle]);
+  }, [sidebarNav, crew, t, chatTitle]);
 
   const openFilePaths = useMemo(() => new Set(
     openTabs.filter(t => { const { pageType } = parseTabId(t); return pageType.startsWith("wfile://"); })
@@ -618,7 +573,7 @@ function AppInner() {
     const { scopeKey, factoryId } = parsed;
 
     if (pageType === "crew") {
-      return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} factoryId={factoryId || selectedFactoryId} />;
+      return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;
     }
     if (pageType === "skills") {
       return <SkillsPage />;
@@ -691,18 +646,18 @@ function AppInner() {
     }
     if (pageType.startsWith("employee.")) {
       const employeeId = pageType.split("#")[0].slice(9);
-      const tabCrew = crewByFactoryRef.current[factoryId] ?? crew;
+      const tabCrew = crew;
       const tabProjectRoot = scopeStateRef.current[scopeKey]?.projectRoot
-        ?? normPath(uiStateRef.current?.projectPaths?.[factoryId] || null)
+        ?? normPath(uiStateRef.current?.projectPaths?.default || null)
         ?? projectRoot;
       return (
         <React.Suspense fallback={<div className="flex items-center justify-center h-full text-stone-400">Loading...</div>}>
-          <EmployeeWorkspaceLazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} factoryId={factoryId} />
+          <EmployeeWorkspaceLazy employeeId={employeeId} projectRoot={tabProjectRoot || undefined} crew={tabCrew} />
         </React.Suspense>
       );
     }
     return <div className="p-8 text-stone-400">Page not found: {pageType}</div>;
-  }, [projectRoot, paawRoot, crew, selectedFactoryId, profile, skillAppNav, briefingInitialDir, deepLinkNote]);
+  }, [projectRoot, paawRoot, crew, profile, skillAppNav, briefingInitialDir, deepLinkNote]);
 
   // ── Theme ──
   const { info: themeInfo, theme, setTheme } = useTheme();
@@ -722,19 +677,6 @@ function AppInner() {
 
   if (!profile) {
     return <OnboardingPage onComplete={(p) => setProfile(p)} />;
-  }
-
-  if (showFactoryEntry) {
-    return (
-      <FactoryEntryPage
-        factories={factories}
-        selectedFactoryId={selectedFactoryId}
-        onSelect={enterFactory}
-        onBack={() => setShowFactoryEntry(false)}
-        paawRoot={paawRoot}
-        onFactoriesChanged={loadFactories}
-      />
-    );
   }
 
   // ── Main Layout ──
@@ -833,7 +775,7 @@ function AppInner() {
             {/* ▶ Execution */}
             <SidebarSection title={t("sidebar.execution")}>
               <div>
-                {factoryNav.filter(item => item.id.includes(":crew")).map((item) => (
+                {sidebarNav.filter(item => item.id.includes(":crew")).map((item) => (
                   <NavItem key={item.id} active={activePage === item.id} label={item.label} onClick={() => openApp(item.id)} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 ))}
                 <NavItem active={activePage.endsWith(":reportapps")} label={t("sidebar.appPool")} onClick={openAppPool} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
@@ -1001,8 +943,7 @@ function AppInner() {
   );
 }
 
-// ── FactoryEntryPage import (kept from original) ──
-import FactoryEntryPage from "./pages/FactoryEntryPage";
+
 
 export default function App() {
   return (
