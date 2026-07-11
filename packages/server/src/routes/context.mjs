@@ -76,8 +76,8 @@ export function parseSkillFrontmatter(raw) {
   return { body };
 }
 
-/** Factory dir helper (PAAW has flat structure) */
-export function factoryDir(_factoryId, subdir) {
+/** Data dir helper (PAAW has flat structure) */
+export function resolveDataDir(_wsId, subdir) {
   if (subdir === "crews") return PATHS.CREWS_ROOT;
   if (subdir === "docs") return PATHS.DOCS_ROOT;
   return resolve(PATHS.PAAW_ROOT, subdir);

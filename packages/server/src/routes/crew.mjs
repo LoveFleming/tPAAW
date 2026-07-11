@@ -1,6 +1,6 @@
 /**
  * Crew CRUD, Conversations, Saved Inputs, Work Log, Skill Test, CLI Run,
- * File Browser / Tree, Factory Content, Project Dashboard, FS Watch SSE
+ * File Browser / Tree, Project Content, Project Dashboard, FS Watch SSE
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
@@ -10,7 +10,7 @@ import {
 } from "path";
 import {
   PAAW_ROOT, CONVERSATIONS_ROOT, CREWS_ROOT, DOCS_ROOT,
-  projectPathHash, getConvDir, readBody, factoryDir, getFactoryId, buildTree, startWatcher,
+  projectPathHash, getConvDir, readBody, resolveDataDir, getWorkspaceId, buildTree, startWatcher,
 } from "./shared.mjs";
 import { json } from "./context.mjs";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
@@ -231,7 +231,7 @@ export default async function crewRoute(req, res) {
 
   // ── Crew CRUD endpoints ──
 
-  function crewDirForRequest() { return factoryDir(getFactoryId(req.url), "crews"); }
+  function crewDirForRequest() { return resolveDataDir(getWorkspaceId(req.url), "crews"); }
 
   async function listCrewFiles() {
     const dir = crewDirForRequest();
@@ -578,7 +578,7 @@ export default async function crewRoute(req, res) {
     const root = u.searchParams.get("root");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(factoryDir(getFactoryId(req.url), "crews"), "conversation", employeeId);
+      : join(resolveDataDir(getWorkspaceId(req.url), "crews"), "conversation", employeeId);
     const filePath = join(dir, "work-log.json");
     try {
       const raw = await readFile(filePath, "utf-8");
@@ -599,7 +599,7 @@ export default async function crewRoute(req, res) {
     const root = u.searchParams.get("root");
     const dir = root
       ? join(CONVERSATIONS_ROOT, projectPathHash(root), employeeId)
-      : join(factoryDir(getFactoryId(req.url), "crews"), "conversation", employeeId);
+      : join(resolveDataDir(getWorkspaceId(req.url), "crews"), "conversation", employeeId);
     await mkdir(dir, { recursive: true });
     const filePath = join(dir, "work-log.json");
 
@@ -999,7 +999,7 @@ export default async function crewRoute(req, res) {
   }
 
   // ── Crew Photo endpoint ──
-  // Direct crew photo access (no factory wrapper)
+  // Direct crew photo access (no scoping wrapper)
   const crewPicMatch = req.method === "GET" && req.url?.match(/^\/api\/crew-pic\/(.+)$/);
   if (crewPicMatch) {
     const picName = crewPicMatch[1];

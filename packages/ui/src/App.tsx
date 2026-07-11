@@ -43,17 +43,17 @@ function simpleHash(s: string): string {
   return Math.abs(h).toString(36).slice(0, 6);
 }
 
-function makeScopeKey(factoryId: string, projectRoot: string | null): string {
-  if (!projectRoot) return `${factoryId}:_default`;
+function makeScopeKey(wsId: string, projectRoot: string | null): string {
+  if (!projectRoot) return `${wsId}:_default`;
   const normalized = projectRoot.replace(/\\/g, "/");
   const dirName = normalized.split("/").pop() || "root";
-  return `${factoryId}:${dirName}_${simpleHash(normalized)}`;
+  return `${wsId}:${dirName}_${simpleHash(normalized)}`;
 }
 
-function parseTabId(tabId: string): { scopeKey: string; factoryId: string; pageType: string } {
+function parseTabId(tabId: string): { scopeKey: string; wsId: string; pageType: string } {
   const firstColon = tabId.indexOf(":");
-  if (firstColon === -1) return { scopeKey: "", factoryId: "", pageType: tabId };
-  const factoryId = tabId.slice(0, firstColon);
+  if (firstColon === -1) return { scopeKey: "", wsId: "", pageType: tabId };
+  const wsId = tabId.slice(0, firstColon);
   const rest = tabId.slice(firstColon + 1);
 
   // For Windows paths like C:\..., the rest won't have a second colon.
@@ -61,11 +61,11 @@ function parseTabId(tabId: string): { scopeKey: string; factoryId: string; pageT
   const secondColon = rest.indexOf(":");
   if (secondColon === -1) {
     // No second colon — treat first part as scopeKey and rest as pageType
-    return { scopeKey: tabId, factoryId, pageType: rest };
+    return { scopeKey: tabId, wsId, pageType: rest };
   }
   const rootHash = rest.slice(0, secondColon);
   const pageType = rest.slice(secondColon + 1);
-  return { scopeKey: `${factoryId}:${rootHash}`, factoryId, pageType };
+  return { scopeKey: `${wsId}:${rootHash}`, wsId, pageType };
 }
 
 
@@ -79,7 +79,6 @@ interface UserProfile {
 
 function AppInner() {
   const { t } = useI18n();
-  const STORAGE_FACTORY_KEY = "***";
   const normPath = (p: string | null): string | null => p ? p.replace(/\\/g, "/") : null;
 
   // ── User Profile & Onboarding ──
@@ -143,12 +142,10 @@ function AppInner() {
     } catch {}
   }, []);
 
-  // ── Factory / Project state ──
+  // ── Project state ──
 
 
   const [projectRoot, setProjectRoot] = useState<string | null>(null);
-  // Factory concept removed — PAAW has single workspace
-  const selectedFactoryId = "default";
 
   const scopeStateRef = useRef<Record<string, { projectRoot: string | null; activePage: string; openTabs: string[] }>>({});
 
@@ -165,7 +162,7 @@ function AppInner() {
   }, []);
 
 
-  const currentScope = useMemo(() => makeScopeKey(selectedFactoryId, projectRoot), [selectedFactoryId, projectRoot]);
+  const currentScope = useMemo(() => makeScopeKey("default", projectRoot), [projectRoot]);
   const visibleTabs = useMemo(() => {
     return openTabs.filter(t => t === "_chat" || t === "_settings" || t.startsWith(currentScope + ":") || t.startsWith("workspace:"));
   }, [openTabs, currentScope]);
@@ -236,8 +233,7 @@ function AppInner() {
       openTabs: currentScopeTabs,
     };
     setProjectRoot(path);
-    setShowFactoryEntry(false);
-    const newScope = makeScopeKey(selectedFactoryId, path);
+    const newScope = makeScopeKey("default", path);
     const newPrefix = newScope + ":";
     const saved = scopeStateRef.current[newScope];
     const existingScopeTabs = openTabs.filter(t => t.startsWith(newPrefix));
@@ -472,7 +468,7 @@ function AppInner() {
   const labelFor = useCallback((fullId: string): string => {
     if (fullId === "_chat") return "💬 交談";
     if (fullId === "_settings") return t("sidebar.settings");
-    const { factoryId, pageType } = parseTabId(fullId);
+    const { wsId, pageType } = parseTabId(fullId);
     if (pageType === "crew") return t("sidebar.aiCrew");
     if (pageType === "skills") return t("sidebar.skillPool");
     if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
@@ -494,8 +490,8 @@ function AppInner() {
     }
     if (pageType.startsWith("employee.")) {
       const empId = pageType.split("#")[0].slice(9);
-      const factoryCrew = crew;
-      const emp = factoryCrew.find(s => s.id === empId);
+      const tabCrew = crew;
+      const emp = tabCrew.find(s => s.id === empId);
       return emp ? emp.codename : empId;
     }
     if (pageType.startsWith("wfile://")) {
@@ -570,7 +566,7 @@ function AppInner() {
     // ── A2A Playground (removed) ──
 
 
-    const { scopeKey, factoryId } = parsed;
+    const { scopeKey, wsId } = parsed;
 
     if (pageType === "crew") {
       return <AICrew openEmployee={openEmployee} onCrewChanged={loadCrew} />;

@@ -174,7 +174,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
   }
 }
 
-// ── Adapter Factory ──
+// ── Adapter Provider ──
 
 export function createProviderAdapter(config: ProviderConfig): ProviderAdapter {
   // 依 provider id 選擇 adapter

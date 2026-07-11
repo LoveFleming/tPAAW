@@ -146,7 +146,7 @@ async function planWorkList(situationReport, rootDir) {
   const { resolveLLMConfig, callLLM } = await import("./paaw-agent-loop.mjs");
   const llm = resolveLLMConfig(rootDir);
 
-  const EM_PROMPT = `你是 AI Coding Factory 的 Engineering Manager (武大安)。
+  const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (武大安)。
 
 ## 你的角色
 你是技術主管，不是執行者。你讀現況摘要，判斷什麼需要做，分配給合適的 agent。

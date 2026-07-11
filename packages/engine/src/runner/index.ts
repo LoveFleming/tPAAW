@@ -330,7 +330,7 @@ export class ScriptRunner implements SkillExecutor {
   }
 }
 
-// ── Runner Factory ──────────────────────────────────────
+// ── Runner ──────────────────────────────────────
 
 export function createRunner(type: RunnerType, deps?: { dataStoreRepo?: any }): SkillExecutor {
   switch (type) {

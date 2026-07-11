@@ -91,15 +91,15 @@ function json(res, code, data) {
   res.end(JSON.stringify(data));
 }
 
-/** Resolve factory sub-directory (PAAW has flat structure) */
-function factoryDir(_factoryId, subdir) {
+/** Resolve data sub-directory (PAAW has flat structure) */
+function resolveDataDir(_wsId, subdir) {
   if (subdir === "crews") return CREWS_ROOT;
   if (subdir === "docs") return DOCS_ROOT;
   return resolve(PAAW_ROOT, subdir);
 }
 
-/** Get factory ID from URL (always "default" in PAAW) */
-function getFactoryId(url) {
+/** Get workspace ID from URL (always "default" in PAAW) */
+function getWorkspaceId(url) {
   return "default";
 }
 
@@ -191,5 +191,5 @@ export {
   yaml, spawn,
   // Helpers
   projectPathHash, getConvDir, normalizePath, basename, readBody, json,
-  factoryDir, getFactoryId, extractHtml, buildTree, startWatcher,
+  resolveDataDir, getWorkspaceId, extractHtml, buildTree, startWatcher,
 };

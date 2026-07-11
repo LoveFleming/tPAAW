@@ -237,7 +237,7 @@ export class OpenAICompatibleAdapter {
   }
 }
 
-// ── Factory ──
+// ── Provider ──
 
 export function createProviderAdapter(config) {
   return new OpenAICompatibleAdapter(config)
