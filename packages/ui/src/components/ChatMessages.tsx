@@ -27,6 +27,8 @@ export interface ChatMessageItem {
   content: string;
   ts?: string;
   timestamp?: number;
+  _thinking?: boolean;
+  _thinkingHistory?: string[];
 }
 
 export interface ChatMessagesProps {
@@ -220,6 +222,22 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                     ? "bg-white shadow-sm border border-stone-100 text-stone-700"
                     : "bg-stone-50 text-stone-700"
                 }`}>
+                  {/* Thinking history — shown collapsed above the final answer */}
+                  {msg.role === "assistant" && msg._thinkingHistory && msg._thinkingHistory.length > 0 && !msg._thinking && (
+                    <details className="mb-2 group">
+                      <summary className="cursor-pointer text-xs text-stone-400 hover:text-stone-500 select-none flex items-center gap-1">
+                        <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                        <span>思考過程 ({msg._thinkingHistory.length} 段)</span>
+                      </summary>
+                      <div className="mt-1.5 pl-4 border-l-2 border-stone-100 space-y-1.5 max-h-60 overflow-y-auto">
+                        {msg._thinkingHistory.map((think, ti) => (
+                          <div key={ti} className="text-xs text-stone-400 italic whitespace-pre-wrap">
+                            {think.replace(/^💭\s*/, "")}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                   {msg.role === "assistant" ? (
                     <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
                       {msg.content ? (
