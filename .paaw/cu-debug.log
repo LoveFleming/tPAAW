@@ -1,0 +1,3 @@
+[2026-07-11T07:21:03.875Z] [CU] step=scan LLM response: contentLen=8854 finishReason=stop attempts=1
+[2026-07-11T07:21:03.878Z] [CU] step=scan wrote file OK (8854 chars)
+[2026-07-11T07:21:03.878Z] [CU] step=scan sendEvent step_done (8854 chars)

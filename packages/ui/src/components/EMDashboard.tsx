@@ -100,10 +100,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     const steps = [];
     for (const s of CU_STEPS) {
       try {
-        const res = await fetch(`${API_BASE}/api/vibe-file/read?path=${encodeURIComponent(rootPath + "/.paaw/" + s.file)}`);
+        const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(s.file)}`);
         if (res.ok) {
-          const data = await res.json();
-          const content = data.content || "";
+          const content = await res.text();
           if (content.trim() && content.length > 50 && !content.includes("(待補充)") && !content.includes("(auto-detect)")) {
             steps.push({ id: s.id, name: s.name, status: "done", size: content.length });
           } else {
