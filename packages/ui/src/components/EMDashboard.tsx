@@ -761,7 +761,7 @@ function HandoffStatusPanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk
       const results: Record<string, "ok" | "template" | "missing"> = {};
       for (const f of HANDOFF_FILES) {
         try {
-          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(f.path)}`);
+          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(f.path.replace(/^\.paaw\//, ""))}`);
           if (!res.ok) { results[f.path] = "missing"; continue; }
           const content = await res.text();
           if (!content.trim() || content.includes("(待補充)") || content.includes("(auto-detect)") || content.length < 50) {
