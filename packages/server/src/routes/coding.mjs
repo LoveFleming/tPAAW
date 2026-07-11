@@ -331,7 +331,7 @@ export default async function projectRoute(req, res) {
   }
 
   // GET /api/coding-crew/conversations/:crewId?cwd=... — load crew conversation
-  const convLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^?]+)/);
+  const convLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/?]+)(?:\?.*)?$/);
   if (convLoadMatch && method === "GET") {
     const crewId = decodeURIComponent(convLoadMatch[1]);
     const cwd = q.cwd || PAAW_ROOT;
