@@ -113,7 +113,7 @@ export default async function projectRoute(req, res) {
   const projectPath = q.path;
 
   // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
-  const crewMatch = url.match(/^\/api\/coding-crew\/([^?]+)/);
+  const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
   if (crewMatch && method === "GET") {
     const crewId = decodeURIComponent(crewMatch[1]);
     const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
