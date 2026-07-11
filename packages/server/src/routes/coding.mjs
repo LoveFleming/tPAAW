@@ -47,6 +47,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
+// Debug logger for Code Understanding — writes to .paaw/cu-debug.log
+import { appendFileSync, existsSync as existsSyncSync } from "fs";
+function cuLog(step, msg) {
+  const line = `[${new Date().toISOString()}] [CU] step=${step} ${msg}\n`;
+  console.log(line.trim());
+  try { appendFileSync(join(PAAW_ROOT, ".paaw", "cu-debug.log"), line); } catch {}
+}
+
 // Shared agent rules
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
 
@@ -1169,7 +1177,7 @@ export default async function projectRoute(req, res) {
           }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
-          console.log(`[CodeUnderstanding] step=${step.id} contentLen=${content.length} finishReason=${result.finishReason} attempts=${result.attempts}`);
+          cuLog(step.id, `LLM response: contentLen=${content.length} finishReason=${result.finishReason} attempts=${result.attempts}`);
           if (!content.trim()) {
             sendEvent("step_error", { step: step.id, name: step.name, error: "Empty response from LLM" });
             sendEvent("done", { message: "Step failed" });
@@ -1211,13 +1219,13 @@ export default async function projectRoute(req, res) {
             } else if (step.id === "overview") {
               await paaw.writeFile("PROJECT.md", content);
             }
-            console.log(`[CodeUnderstanding] step=${step.id} wrote file OK (${content.length} chars)`);
+            cuLog(step.id, `wrote file OK (${content.length} chars)`);
           } catch (writeErr) {
-            console.error(`[CodeUnderstanding] step=${step.id} FAILED to write file:`, writeErr.message);
+            cuLog(step.id, `FAILED to write file: ${writeErr.message}`);
           }
 
           sendEvent("step_done", { step: step.id, name: step.name, size: content.length, preview: content.slice(0, 200) });
-          console.log(`[CodeUnderstanding] step=${step.id} sendEvent step_done (${content.length} chars)`);
+          cuLog(step.id, `sendEvent step_done (${content.length} chars)`);
         } catch (err) {
           sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
         }
@@ -1378,9 +1386,9 @@ export default async function projectRoute(req, res) {
               } else if (step.id === "overview") {
                 await paaw.writeFile("PROJECT.md", content);
               }
-              console.log(`[CodeUnderstanding:bulk] step=${step.id} wrote file OK (${content.length} chars)`);
+              cuLog(step.id, `[bulk] wrote file OK (${content.length} chars)`);
             } catch (writeErr) {
-              console.error(`[CodeUnderstanding:bulk] step=${step.id} FAILED to write:`, writeErr.message);
+              cuLog(step.id, `[bulk] FAILED to write: ${writeErr.message}`);
             }
 
             sendEvent("step_done", {
