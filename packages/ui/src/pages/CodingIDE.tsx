@@ -379,6 +379,9 @@ export default function CodingIDE() {
   // Crew profile data
   const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
   const [loadedCrews, setLoadedCrews] = useState<Set<string>>(new Set()); // track which crew conversations have been loaded from server
+  const [archivedConversations, setArchivedConversations] = useState<Record<string, any[]>>({}); // crewId → list of archives
+  const [showArchivePanel, setShowArchivePanel] = useState(false);
+  const [viewingArchive, setViewingArchive] = useState<string | null>(null); // archiveId when viewing an archived conversation
 
   // ── Right Panel Tab State ──
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
@@ -696,7 +699,57 @@ export default function CodingIDE() {
   useEffect(() => {
     setLoadedCrews(new Set());
     setCrewConversations({});
+    setArchivedConversations({});
+    setViewingArchive(null);
+    setShowArchivePanel(false);
   }, [rootPath]);
+
+  // ═══════════════════════════════════════════════
+  // Conversation Archive Actions
+  // ═══════════════════════════════════════════════
+  // Start new conversation — archive current + clear
+  const startNewConversation = useCallback(async () => {
+    if (!activeCrew || !rootPath) return;
+    const current = crewConversations[activeCrew] || [];
+    if (current.length === 0) return; // nothing to archive
+    try {
+      await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/archive?cwd=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+      });
+      // Clear current conversation
+      setCrewConversations(prev => ({ ...prev, [activeCrew]: [] }));
+      setViewingArchive(null);
+      setShowArchivePanel(false);
+      // Refresh archive list
+      loadArchivedConversations(activeCrew, rootPath);
+    } catch {}
+  }, [activeCrew, rootPath, crewConversations]);
+
+  // Load archived conversations list for a crew
+  const loadArchivedConversations = useCallback(async (crewId: string, cwd: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(crewId)}/archives?cwd=${encodeURIComponent(cwd)}`);
+      const data = await res.json();
+      setArchivedConversations(prev => ({ ...prev, [crewId]: data.archives || [] }));
+    } catch {
+      setArchivedConversations(prev => ({ ...prev, [crewId]: [] }));
+    }
+  }, []);
+
+  // Load a specific archived conversation (view only, or continue in current)
+  const loadArchivedConversation = useCallback(async (archiveId: string) => {
+    if (!activeCrew || !rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/archives/${encodeURIComponent(archiveId)}?cwd=${encodeURIComponent(rootPath)}`);
+      const data = await res.json();
+      if (data.messages) {
+        // Load into current conversation (user can continue chatting)
+        setCrewConversations(prev => ({ ...prev, [activeCrew]: data.messages }));
+        setViewingArchive(archiveId);
+        setShowArchivePanel(false);
+      }
+    } catch {}
+  }, [activeCrew, rootPath]);
 
   // ═══════════════════════════════════════════════
   // File Explorer
@@ -923,6 +976,7 @@ const sendChat = useCallback(async () => {
     const userMsg: ChatMessage = { role: "user", content: chatInput.trim(), ts: new Date().toISOString() };
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput("");
+    setViewingArchive(null); // exit archive viewing when user sends a message
     logEvent("ai_chat", { prompt: chatInput.trim().slice(0, 200) });
 
     // ── Domain AI mode (spec, test, bug, docs, maintain) ──
@@ -2369,9 +2423,70 @@ const sendChat = useCallback(async () => {
                       </div>
                       <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">{profile?.description || roleSummary}</p>
                     </div>
-                    <ModelSelector value={codingModel} onChange={setCodingModel} />
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Conversation count badge */}
+                      {chatMessages.length > 0 && !viewingArchive && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-500">{chatMessages.length} 則</span>
+                      )}
+                      {viewingArchive && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歸檔</span>
+                      )}
+                      {/* History button */}
+                      <button
+                        onClick={() => {
+                          if (!showArchivePanel && activeCrew && rootPath) loadArchivedConversations(activeCrew, rootPath);
+                          setShowArchivePanel(!showArchivePanel);
+                        }}
+                        className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                        title="歷史對話"
+                      >
+                        📋
+                      </button>
+                      {/* New conversation button */}
+                      <button
+                        onClick={startNewConversation}
+                        disabled={chatMessages.length === 0}
+                        className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 transition-colors"
+                        title="開新對話"
+                      >
+                        ✨
+                      </button>
+                      <ModelSelector value={codingModel} onChange={setCodingModel} />
+                    </div>
                   </div>
                 </div>
+
+                {/* Archive panel overlay */}
+                {showArchivePanel && activeCrew && (
+                  <div className="absolute top-full left-0 right-0 z-40 bg-white border-b shadow-lg" style={{ borderColor: tk.borderLight, maxHeight: "60%" }}>
+                    <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: tk.borderLight }}>
+                      <span className="text-sm font-semibold text-stone-700">📜 歷史對話</span>
+                      <button onClick={() => setShowArchivePanel(false)} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+                    </div>
+                    <div className="overflow-y-auto" style={{ maxHeight: "calc(60vh - 40px)" }}>
+                      {(archivedConversations[activeCrew] || []).length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-stone-400">尚無歷史對話</div>
+                      ) : (
+                        (archivedConversations[activeCrew] || []).map((arc: any) => (
+                          <button
+                            key={arc.archiveId}
+                            onClick={() => loadArchivedConversation(arc.archiveId)}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b transition-colors"
+                            style={{ borderColor: tk.borderLight }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-stone-700 truncate">{arc.title || "對話"}</span>
+                              <span className="text-[10px] text-stone-400 shrink-0 ml-2">{arc.messageCount} 則</span>
+                            </div>
+                            <div className="text-[10px] text-stone-400 mt-0.5">
+                              {arc.archivedAt ? new Date(arc.archivedAt).toLocaleString("zh-TW", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Chat messages */}
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ scrollbarWidth: "thin" }}>

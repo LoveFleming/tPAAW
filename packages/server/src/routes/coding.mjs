@@ -24,6 +24,11 @@
  *   POST   /api/coding-crew/conversations/:crewId?cwd=...     — Save crew conversation
  *   DELETE /api/coding-crew/conversations/:crewId?cwd=...     — Clear crew conversation
  *   POST   /api/coding-crew/context-window                    — Build optimized context window
+ *
+ * Crew Conversation Archiving:
+ *   POST   /api/coding-crew/conversations/:crewId/archive?cwd=... — Archive current + start new
+ *   GET    /api/coding-crew/conversations/:crewId/archives?cwd=... — List archived conversations
+ *   GET    /api/coding-crew/conversations/:crewId/archives/:id?cwd=... — Load archived conversation
  */
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile } from "fs/promises";
@@ -379,6 +384,122 @@ export default async function projectRoute(req, res) {
       if (existsSync(convFile)) { await unlink(convFile); }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, crewId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/conversations/:crewId/archive?cwd=... — archive current + start new
+  const archiveMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/archive(?:\?.*)?$/);
+  if (archiveMatch && method === "POST") {
+    const crewId = decodeURIComponent(archiveMatch[1]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
+    const convFile = join(convDir, `${crewId}.json`);
+    const archiveDir = join(convDir, `${crewId}.archive`);
+    try {
+      // Read current conversation
+      if (!existsSync(convFile)) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, crewId, archived: false, message: "No active conversation to archive" }));
+        return true;
+      }
+      const data = JSON.parse(readSync(convFile, "utf-8"));
+      const messages = Array.isArray(data) ? data : (data.messages || []);
+      if (messages.length === 0) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, crewId, archived: false, message: "Empty conversation" }));
+        return true;
+      }
+      // Generate archive id: timestamp + first user message preview
+      const ts = new Date();
+      const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const firstUser = messages.find(m => m.role === "user");
+      const preview = firstUser ? firstUser.content.slice(0, 40).replace(/[^\w\u4e00-\u9fff -]/g, "").trim() : "conversation";
+      const archiveId = `${tsStr}-${preview}`;
+      const archiveFile = join(archiveDir, `${archiveId}.json`);
+      // Save archive
+      await mkdir(archiveDir, { recursive: true });
+      const archivePayload = {
+        _meta: {
+          crewId,
+          archivedAt: ts.toISOString(),
+          messageCount: messages.length,
+          archiveId,
+          title: firstUser ? firstUser.content.slice(0, 60) : "對話",
+        },
+        messages,
+      };
+      await writeFile(archiveFile, JSON.stringify(archivePayload, null, 2), "utf-8");
+      // Clear current conversation
+      await unlink(convFile);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId, archived: true, archiveId, messageCount: messages.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/coding-crew/conversations/:crewId/archives?cwd=... — list archived conversations
+  const archivesListMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/archives(?:\?.*)?$/);
+  if (archivesListMatch && method === "GET") {
+    const crewId = decodeURIComponent(archivesListMatch[1]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const archiveDir = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.archive`);
+    try {
+      if (!existsSync(archiveDir)) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ archives: [] }));
+        return true;
+      }
+      const files = await readdir(archiveDir);
+      const archives = [];
+      for (const f of files.filter(f => f.endsWith(".json"))) {
+        try {
+          const data = JSON.parse(readSync(join(archiveDir, f), "utf-8"));
+          archives.push({
+            archiveId: data._meta?.archiveId || f.replace(".json", ""),
+            title: data._meta?.title || "對話",
+            messageCount: data._meta?.messageCount || (data.messages?.length || 0),
+            archivedAt: data._meta?.archivedAt || null,
+          });
+        } catch {}
+      }
+      archives.sort((a, b) => new Date(b.archivedAt) - new Date(a.archivedAt));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ archives }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/coding-crew/conversations/:crewId/archives/:archiveId?cwd=... — load archived conversation
+  const archiveLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/archives\/([^?]+)/);
+  if (archiveLoadMatch && method === "GET") {
+    const crewId = decodeURIComponent(archiveLoadMatch[1]);
+    const archiveId = decodeURIComponent(archiveLoadMatch[2]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const archiveFile = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.archive`, `${archiveId}.json`);
+    try {
+      if (!existsSync(archiveFile)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Archive not found" }));
+        return true;
+      }
+      const data = JSON.parse(readSync(archiveFile, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        messages: data.messages || [],
+        meta: data._meta || {},
+        crewId,
+        archiveId,
+      }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
