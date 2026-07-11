@@ -452,16 +452,23 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   } catch {}
 
   // Security: check path is within allowed dirs
-  // Read:  rootDir + workspaceDirs
-  // Write: workspaceDirs only (rootDir is read-only, knowledge is API-only)
+  // Read:  cwd + rootDir + workspaceDirs
+  // Write: cwd + workspaceDirs (cwd = project root, AI must be able to write project code)
   const isPathAllowed = (p, write = false) => {
     const abs = resolvePath(p);
+    // Normalize for cross-platform: use split to compare path segments
+    const startsWith = (target, prefix) => {
+      const t = target.split(/[\\/]/);
+      const p = prefix.split(/[\\/]/);
+      if (p.length > t.length) return false;
+      return p.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
+    };
     if (write) {
-      // Write: only workspace directories
-      return workspaceDirs.some((d) => abs.startsWith(d));
+      // Write: cwd (project root) + workspace directories
+      return startsWith(abs, cwd) || workspaceDirs.some((d) => startsWith(abs, d));
     }
-    // Read: rootDir + workspace directories
-    return abs.startsWith(rootDir) || workspaceDirs.some((d) => abs.startsWith(d));
+    // Read: cwd + rootDir + workspace directories
+    return startsWith(abs, cwd) || startsWith(abs, rootDir) || workspaceDirs.some((d) => startsWith(abs, d));
   };
 
   // Emit tool event for SSE
