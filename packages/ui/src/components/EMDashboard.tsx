@@ -150,6 +150,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   useEffect(() => { refreshData(); }, [refreshData]);
 
+  // ── When bulk Code Understanding finishes (running false→true→false), refresh persisted steps + code status ──
+  const prevRunningRef = useRef(false);
+  useEffect(() => {
+    const wasRunning = prevRunningRef.current;
+    const isRunning = codeUnderstanding?.running;
+    if (wasRunning && !isRunning) {
+      // Bulk run just finished — reload persisted steps + refresh scores
+      loadPersistedSteps();
+      refreshData();
+    }
+    prevRunningRef.current = !!isRunning;
+  }, [codeUnderstanding?.running, loadPersistedSteps, refreshData]);
+
   // ── Auto scroll ──
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
