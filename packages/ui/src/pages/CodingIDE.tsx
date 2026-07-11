@@ -657,14 +657,16 @@ export default function CodingIDE() {
 
   // Load archived conversations list for a crew
   const loadArchivedConversations = useCallback(async (crewId: string, cwd: string) => {
+    const effectiveCwd = cwd || rootPath;
+    if (!effectiveCwd) return;
     try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(crewId)}/archives?cwd=${encodeURIComponent(cwd)}`);
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(crewId)}/archives?cwd=${encodeURIComponent(effectiveCwd)}`);
       const data = await res.json();
       setArchivedConversations(prev => ({ ...prev, [crewId]: data.archives || [] }));
     } catch {
       setArchivedConversations(prev => ({ ...prev, [crewId]: [] }));
     }
-  }, []);
+  }, [rootPath]);
 
   // Load a specific archived conversation (view only, or continue in current)
   const loadArchivedConversation = useCallback(async (archiveId: string) => {
@@ -673,7 +675,6 @@ export default function CodingIDE() {
       const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/archives/${encodeURIComponent(archiveId)}?cwd=${encodeURIComponent(rootPath)}`);
       const data = await res.json();
       if (data.messages) {
-        // Load into current conversation (user can continue chatting)
         setCrewConversations(prev => ({ ...prev, [activeCrew]: data.messages }));
         setViewingArchive(archiveId);
         setShowArchivePanel(false);
