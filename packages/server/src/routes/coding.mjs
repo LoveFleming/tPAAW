@@ -1161,7 +1161,7 @@ export default async function projectRoute(req, res) {
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0.2,
             maxTokens: 4000,
-          }, { timeoutMs: 120_000, maxRetries: 3 }); // 2 min timeout for single step
+          }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
           if (!content.trim()) {
