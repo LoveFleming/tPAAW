@@ -275,6 +275,26 @@ export async function buildSystemPrompt(agentId, opts = {}) {
   // 1. Crew rolePrompt
   if (crew.rolePrompt) parts.push(crew.rolePrompt);
 
+  // 1b. Expertise & Guardrails (if defined separately on crew JSON)
+  if (crew.expertise && crew.expertise.length > 0) {
+    parts.push(`\n## 專業範圍\n${crew.expertise.map(e => `- ${e}`).join("\n")}`);
+  }
+  if (crew.guardrails) {
+    const g = crew.guardrails;
+    const lines = [];
+    if (g.redirectRules && g.redirectRules.length > 0) {
+      lines.push("\n### 轉介規則");
+      lines.push(g.redirectRules.map(r => `- ${r}`).join("\n"));
+    }
+    if (g.refuseTopics && g.refuseTopics.length > 0) {
+      lines.push("\n### 拒絕主題");
+      lines.push(g.refuseTopics.map(r => `- ${r}`).join("\n"));
+    }
+    if (lines.length > 0) {
+      parts.push(`\n## 護欄\n${lines.join("\n")}`);
+    }
+  }
+
   // 2. Context from providers
   const { contextProviders = {} } = await import("./context-providers.mjs");
   for (const providerName of agent.contextProviders) {
