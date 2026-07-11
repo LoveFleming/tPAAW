@@ -587,9 +587,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b rounded-t-2xl" style={{ backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }}>
             <h3 className="text-base font-bold text-emerald-700">🧠 Code Understanding</h3>
-            {!codeUnderstanding?.running && !singleStepRunning && (
-              <button onClick={() => setShowCUModal(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
-            )}
+            {/* ✕ close always visible — disabled while running */}
+            <button
+              onClick={() => setShowCUModal(false)}
+              disabled={codeUnderstanding?.running || singleStepRunning !== null}
+              className={cn("text-lg transition-colors", (codeUnderstanding?.running || singleStepRunning !== null) ? "text-stone-200 cursor-not-allowed" : "text-stone-400 hover:text-stone-600")}
+            >✕</button>
           </div>
           {/* Use live steps if bulk running, otherwise use persisted steps */}
           {(() => {
@@ -665,9 +668,10 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   🚀 全部執行
                 </button>
               )}
-              {!isBulkRunning && !singleStepRunning && persistedSteps.some(s => s.status === "done") && (
+              {/* Close button — replaces 完成 ✅ */}
+              {!isBulkRunning && !singleStepRunning && (
                 <button onClick={() => { setShowCUModal(false); refreshData(); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
-                  完成 ✅
+                  關閉
                 </button>
               )}
             </div>
