@@ -1169,6 +1169,7 @@ export default async function projectRoute(req, res) {
           }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
+          console.log(`[CodeUnderstanding] step=${step.id} contentLen=${content.length} finishReason=${result.finishReason} attempts=${result.attempts}`);
           if (!content.trim()) {
             sendEvent("step_error", { step: step.id, name: step.name, error: "Empty response from LLM" });
             sendEvent("done", { message: "Step failed" });
@@ -1211,6 +1212,7 @@ export default async function projectRoute(req, res) {
           }
 
           sendEvent("step_done", { step: step.id, name: step.name, size: content.length, preview: content.slice(0, 200) });
+          console.log(`[CodeUnderstanding] step=${step.id} DONE, wrote ${content.length} chars`);
         } catch (err) {
           sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
         }
