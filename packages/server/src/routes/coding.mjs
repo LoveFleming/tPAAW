@@ -1128,7 +1128,7 @@ export default async function projectRoute(req, res) {
           return true;
         }
 
-        // Load accumulated context from existing .paaw/ files (unless skipContext)
+          // Load accumulated context from existing .paaw/ files (unless skipContext)
         let fullPrompt = promptTemplate;
         fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
         if (!skipContext) {
@@ -1140,7 +1140,10 @@ export default async function projectRoute(req, res) {
               }
             } catch {}
           };
-          // Load context that this step might need
+          // scan.json is always loaded as context for all steps (except scan itself)
+          if (step.id !== "scan") {
+            await loadCtx("scan.json", "SCAN RESULTS", 6000);
+          }
           if (step.id !== "scan" && step.id !== "architecture") {
             await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
           }
@@ -1172,7 +1175,9 @@ export default async function projectRoute(req, res) {
           }
 
           // Save output to .paaw/
-          if (step.id === "architecture") {
+          if (step.id === "scan") {
+            await paaw.writeFile("scan.json", content);
+          } else if (step.id === "architecture") {
             await paaw.writeFile("ARCHITECTURE.md", content);
           } else if (step.id === "api-spec") {
             await paaw.writeFile("specs/api-contract.md", content);
@@ -1325,6 +1330,7 @@ export default async function projectRoute(req, res) {
             // Store results
             if (step.id === "scan") {
               scanResult = content;
+              await paaw.writeFile("scan.json", content);
             } else if (step.id === "architecture") {
               architectureResult = content;
               await paaw.writeFile("ARCHITECTURE.md", content);

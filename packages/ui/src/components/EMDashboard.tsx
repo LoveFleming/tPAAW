@@ -82,7 +82,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   // ── CU step definitions (must match server) ──
   const CU_STEPS = [
-    { id: "scan", name: "🔍 掃描專案結構", file: "PROJECT.md" },
+    { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
     { id: "architecture", name: "🏗️ 產出 Architecture Map", file: "ARCHITECTURE.md" },
     { id: "api-spec", name: "📡 產出 API Contract", file: "specs/api-contract.md" },
     { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", file: "specs/error-codes.md" },
@@ -90,7 +90,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     { id: "test-payload", name: "🧪 產出 Test Payloads", file: "test-payloads/all-payloads.json" },
     { id: "standards", name: "📏 產出 Coding Standards", file: "standards/coding-style.md" },
     { id: "faq", name: "🤖 產出 HelpDesk FAQ", file: "helpdesk/faq.md" },
-    { id: "overview", name: "📊 產出 PROJECT.md", file: "PROJECT.md" },
+    { id: "overview", name: "📊 產出 PROJECT.md", file: "PROJECT.md", checkOnly: true },
   ];
 
   // ── Load persisted step statuses when opening Modal ──
