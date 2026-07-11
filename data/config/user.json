@@ -7,6 +7,7 @@
   "onboardedAt": "2026-06-04T12:04:27.355Z",
   "preferences": {
     "employee_ai.factory-assistant": "zai/glm-5",
-    "skillBuilder": "zai/glm-5.1"
+    "skillBuilder": "zai/glm-5.1",
+    "undefined": "openrouter/deepseek/deepseek-v4-flash"
   }
 }

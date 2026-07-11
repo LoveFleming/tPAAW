@@ -2336,7 +2336,7 @@ const sendChat = useCallback(async () => {
               return (
               <div key={activeCrew} className="flex-1 flex flex-col min-w-0 bg-white">
                 {/* Profile header */}
-                <div className="shrink-0 px-4 py-3" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: `linear-gradient(135deg, ${tk.accent}11 0%, ${tk.accentBg} 100%)` }}>
+                <div className="shrink-0 px-4 py-3 relative" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: `linear-gradient(135deg, ${tk.accent}11 0%, ${tk.accentBg} 100%)` }}>
                   <div className="flex items-center gap-3">
                     {profile?.imageUrl ? (
                       <img src={`${API_BASE}${profile.imageUrl}`} className="w-10 h-10 rounded-full object-cover" style={{ border: `2px solid ${tk.accent}44` }} />
