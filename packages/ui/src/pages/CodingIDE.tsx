@@ -2534,6 +2534,12 @@ const sendChat = useCallback(async () => {
                     setActiveCrew(crew.id);
                     setChatMode(crew.mode);
                     openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
+                    // Fetch crew profile if not already loaded
+                    if (!crewProfile[crew.id]) {
+                      fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => {
+                        setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
+                      });
+                    }
                     // Pre-fill the message
                     setChatInput(message);
                     setTimeout(() => chatInputRef.current?.focus(), 300);
