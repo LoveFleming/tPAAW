@@ -2387,17 +2387,16 @@ const sendChat = useCallback(async () => {
                   </div>
                 </div>
 
-                {/* Archive panel overlay */}
+                {/* Archive panel — rendered inline below header */}
                 {showArchivePanel && activeCrew && (
-                  <div className="absolute top-full left-0 right-0 z-40 bg-white border-b shadow-lg" style={{ borderColor: tk.borderLight, maxHeight: "60%" }}>
-                    <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: tk.borderLight }}>
+                  <div className="bg-white border-b shadow-sm" style={{ borderColor: tk.borderLight, maxHeight: "200px", overflowY: "auto" }}>
+                    <div className="flex items-center justify-between px-4 py-2 border-b sticky top-0 bg-white z-10" style={{ borderColor: tk.borderLight }}>
                       <span className="text-sm font-semibold text-stone-700">📜 歷史對話</span>
                       <button onClick={() => setShowArchivePanel(false)} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
                     </div>
-                    <div className="overflow-y-auto" style={{ maxHeight: "calc(60vh - 40px)" }}>
-                      {(archivedConversations[activeCrew] || []).length === 0 ? (
-                        <div className="px-4 py-8 text-center text-sm text-stone-400">尚無歷史對話</div>
-                      ) : (
+                    {(archivedConversations[activeCrew] || []).length === 0 ? (
+                      <div className="px-4 py-4 text-center text-sm text-stone-400">尚無歷史對話</div>
+                    ) : (
                         (archivedConversations[activeCrew] || []).map((arc: any) => (
                           <button
                             key={arc.archiveId}
@@ -2415,7 +2414,6 @@ const sendChat = useCallback(async () => {
                           </button>
                         ))
                       )}
-                    </div>
                   </div>
                 )}
 
