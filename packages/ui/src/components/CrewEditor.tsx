@@ -29,13 +29,10 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const [temperature, setTemperature] = useState(crew?.chatConfig?.temperature ?? 0.3);
     const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(crew?.skillIds || []);
 
-    // New fields: expertise + guardrails
-    const [expertise, setExpertise] = useState<string[]>(crew?.expertise || []);
-    const [expertiseInput, setExpertiseInput] = useState("");
-    const [redirectRules, setRedirectRules] = useState<string[]>(crew?.guardrails?.redirectRules || []);
-    const [redirectInput, setRedirectInput] = useState("");
-    const [refuseTopics, setRefuseTopics] = useState<string[]>(crew?.guardrails?.refuseTopics || []);
-    const [refuseInput, setRefuseInput] = useState("");
+    // New fields: expertise + guardrails (textarea, not tags)
+    const [expertise, setExpertise] = useState(crew?.expertise || "");
+    const [redirectRules, setRedirectRules] = useState(crew?.guardrails?.redirectRules || "");
+    const [refuseTopics, setRefuseTopics] = useState(crew?.guardrails?.refuseTopics || "");
 
     // Fetch all skill definitions from shared pool
     const [allSkills, setAllSkills] = useState<SkillDefinition[]>([]);
@@ -54,19 +51,6 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
         );
     };
 
-    const addExpertise = () => {
-        const v = expertiseInput.trim();
-        if (v && !expertise.includes(v)) { setExpertise([...expertise, v]); setExpertiseInput(""); }
-    };
-    const addRedirect = () => {
-        const v = redirectInput.trim();
-        if (v && !redirectRules.includes(v)) { setRedirectRules([...redirectRules, v]); setRedirectInput(""); }
-    };
-    const addRefuse = () => {
-        const v = refuseInput.trim();
-        if (v && !refuseTopics.includes(v)) { setRefuseTopics([...refuseTopics, v]); setRefuseInput(""); }
-    };
-
     const handleSave = async () => {
         setError("");
         if (!id.trim()) { setError("ID is required"); return; }
@@ -82,10 +66,10 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
             skillIds: selectedSkillIds,
             description: description.trim(),
             rolePrompt: rolePrompt.trim(),
-            expertise: expertise.length > 0 ? expertise : undefined,
-            guardrails: (redirectRules.length > 0 || refuseTopics.length > 0) ? {
-                redirectRules: redirectRules.length > 0 ? redirectRules : undefined,
-                refuseTopics: refuseTopics.length > 0 ? refuseTopics : undefined,
+            expertise: expertise.trim() || undefined,
+            guardrails: (redirectRules.trim() || refuseTopics.trim()) ? {
+                redirectRules: redirectRules.trim() || undefined,
+                refuseTopics: refuseTopics.trim() || undefined,
             } : undefined,
             chatConfig: {
                 greeting: greeting.trim() || undefined,
@@ -113,30 +97,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const inputCls = "w-full mt-1 px-3 py-2 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-1";
     const inputStyle = { borderColor: "#d6d3d1" };
 
-    // Tag input helper component
-    const TagInput = ({ label, items, setItems, input, setInput, onAdd, placeholder }: any) => (
-        <div>
-            <label className="text-sm font-semibold text-stone-500">{label}</label>
-            <div className="flex gap-1 mt-1">
-                <input value={input} onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onAdd(); } }}
-                    className={inputCls} style={inputStyle} placeholder={placeholder} />
-                <button type="button" onClick={onAdd}
-                    className="px-3 py-2 rounded-lg text-sm bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0">+</button>
-            </div>
-            {items.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                    {items.map((item: string, i: number) => (
-                        <span key={i} className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 flex items-center gap-1">
-                            {item}
-                            <button type="button" onClick={() => setItems(items.filter((_: any, j: number) => j !== i))}
-                                className="text-blue-400 hover:text-red-500">✕</button>
-                        </span>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
+    // Tag input helper removed — using textareas now
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-8">
@@ -162,7 +123,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                             <div className="text-sm text-stone-500">{codename || "Codename"}</div>
                             <div className="text-xs text-stone-400 mt-1">
                                 {selectedSkillIds.length === 0 ? '純 Prompt 模式' : `${selectedSkillIds.length} 個技能`}
-                                {expertise.length > 0 && ` • ${expertise.length} 項專業`}
+                                {expertise ? `${expertise.split('\n').filter(Boolean).length} 項專業` : ''}
                             </div>
                         </div>
                     </div>
@@ -213,18 +174,28 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                         <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5">
                             <Icon name="shield" size={16} /> 專業範圍與護欄
                         </legend>
-                        <TagInput label="專業範圍" items={expertise} setItems={setExpertise}
-                            input={expertiseInput} setInput={setExpertiseInput} onAdd={addExpertise}
-                            placeholder="e.g. 系統架構設計、技術選型..." />
+                        <div>
+                            <label className="text-sm font-semibold text-stone-500">專業範圍</label>
+                            <p className="text-xs text-stone-400 mt-0.5">列出此角色擅長的領域，每行一項或用逗號分隔</p>
+                            <textarea value={expertise} onChange={e => setExpertise(e.target.value)} rows={5}
+                                className={`${inputCls} font-mono`} style={inputStyle}
+                                placeholder={"系統架構設計\n模組化策略\n技術選型與評估\n架構模式 (MVC/DDD/CQRS/Event-Driven)\n非功能性需求分析"} />
+                        </div>
                         <div className="border-t pt-3" style={{ borderColor: t.accentBorder + "40" }}>
                             <p className="text-xs text-stone-400 mb-2">護欄 — 被問到超出範圍時的轉介和拒絕規則</p>
-                            <TagInput label="轉介規則（超出範圍 → 找誰）" items={redirectRules} setItems={setRedirectRules}
-                                input={redirectInput} setInput={setRedirectInput} onAdd={addRedirect}
-                                placeholder="e.g. 寫程式碼 → Developer (Priya)" />
+                            <div>
+                                <label className="text-sm font-semibold text-stone-500">轉介規則</label>
+                                <p className="text-xs text-stone-400 mt-0.5">格式：情境 → 目標角色。每行一條。</p>
+                                <textarea value={redirectRules} onChange={e => setRedirectRules(e.target.value)} rows={5}
+                                    className={`${inputCls} font-mono`} style={inputStyle}
+                                    placeholder={"實作程式碼 → Developer (Priya)\n寫測試 → Tester (Divya)\n架構決策 → Architect (曉薇)\n寫正式文件 → Doc Writer (Megan)\nCode Review → QA (大安)"} />
+                            </div>
                             <div className="mt-3">
-                                <TagInput label="拒絕主題（完全不回答）" items={refuseTopics} setItems={setRefuseTopics}
-                                    input={refuseInput} setInput={setRefuseInput} onAdd={addRefuse}
-                                    placeholder="e.g. 非技術問題、人事管理" />
+                                <label className="text-sm font-semibold text-stone-500">拒絕主題</label>
+                                <p className="text-xs text-stone-400 mt-0.5">完全不回答的主題，每行一項。</p>
+                                <textarea value={refuseTopics} onChange={e => setRefuseTopics(e.target.value)} rows={3}
+                                    className={`${inputCls} font-mono`} style={inputStyle}
+                                    placeholder={"非技術問題\n人事與流程管理\n具體 bug 修復"} />
                             </div>
                         </div>
                     </fieldset>

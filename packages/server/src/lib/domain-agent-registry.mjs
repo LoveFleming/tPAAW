@@ -276,19 +276,19 @@ export async function buildSystemPrompt(agentId, opts = {}) {
   if (crew.rolePrompt) parts.push(crew.rolePrompt);
 
   // 1b. Expertise & Guardrails (if defined separately on crew JSON)
-  if (crew.expertise && crew.expertise.length > 0) {
-    parts.push(`\n## 專業範圍\n${crew.expertise.map(e => `- ${e}`).join("\n")}`);
+  if (crew.expertise && crew.expertise.trim()) {
+    parts.push(`\n## 專業範圍\n${crew.expertise.trim()}`);
   }
   if (crew.guardrails) {
     const g = crew.guardrails;
     const lines = [];
-    if (g.redirectRules && g.redirectRules.length > 0) {
+    if (g.redirectRules && g.redirectRules.trim()) {
       lines.push("\n### 轉介規則");
-      lines.push(g.redirectRules.map(r => `- ${r}`).join("\n"));
+      lines.push(g.redirectRules.trim());
     }
-    if (g.refuseTopics && g.refuseTopics.length > 0) {
+    if (g.refuseTopics && g.refuseTopics.trim()) {
       lines.push("\n### 拒絕主題");
-      lines.push(g.refuseTopics.map(r => `- ${r}`).join("\n"));
+      lines.push(g.refuseTopics.trim());
     }
     if (lines.length > 0) {
       parts.push(`\n## 護欄\n${lines.join("\n")}`);

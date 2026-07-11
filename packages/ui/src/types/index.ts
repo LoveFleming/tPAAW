@@ -90,12 +90,12 @@ export interface Crew {
     imageUrl: string;
     rolePrompt: string;
     description: string;
-    /** 專業範圍清單 */
-    expertise?: string[];
-    /** 護欄規則 */
+    /** 專業範圍 — textarea 自由格式 */
+    expertise?: string;
+    /** 護欄規則 — textarea 自由格式 */
     guardrails?: {
-        redirectRules?: string[];
-        refuseTopics?: string[];
+        redirectRules?: string;
+        refuseTopics?: string;
     };
     /** 引用的技能 IDs（對應 skills/input-prompt/{id}/SKILL.md） */
     skillIds: string[];
@@ -189,7 +189,7 @@ export function migrateCrew(crew: any): Crew {
         imageUrl: crew.imageUrl || "",
         rolePrompt: crew.rolePrompt || "",
         description: crew.description || "",
-        expertise: crew.expertise || [],
+        expertise: crew.expertise || "",
         guardrails: crew.guardrails,
         skillIds: crew.skillIds || skillIds,
         chatConfig: crew.chatConfig,
