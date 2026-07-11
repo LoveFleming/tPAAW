@@ -1827,9 +1827,6 @@ const sendChat = useCallback(async () => {
               />
             </div>
           )}
-          <div className="px-2 py-1 flex items-center" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-            <span className="text-xs text-stone-400 truncate">{rootPath ? rootPath.split(/[\\/]/).pop() : "No project"}</span>
-          </div>
         </div>
 
         {/* Sidebar resize */}
