@@ -1325,7 +1325,7 @@ export default async function projectRoute(req, res) {
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
               maxTokens: 4000,
-            });
+            }, { timeoutMs: 600_000 }); // 10 min per step in bulk mode
 
             const content = result.content || "";
 
