@@ -277,7 +277,7 @@ export default async function projectRoute(req, res) {
         model: model || undefined,
         cwd: cwd || undefined,
         maxTurns: agent.maxTurns,
-        timeout: 120,
+        timeout: 1800,
         rootDir: cwd || PAAW_ROOT,
         agentId: agent.agentId,
       }, res);

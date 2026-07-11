@@ -19,7 +19,7 @@ import { join } from "path";
 // ── A2A Client ──
 
 export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
-  const { cwd, timeout = 600000 } = opts;
+  const { cwd, timeout = 1800000 } = opts;
 
   const body = {
     jsonrpc: "2.0",
@@ -248,7 +248,7 @@ export async function runEMSession(opts = {}) {
 
     const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
       cwd: rootDir,
-      timeout: 600000,
+      timeout: 1800000,
     });
 
     results.push({ ...task, ...result });

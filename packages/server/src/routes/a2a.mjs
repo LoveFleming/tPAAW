@@ -675,7 +675,7 @@ export default async function a2aRoutes(req, res) {
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
-              timeout: 120,
+              timeout: 1800,
               rootDir,
               agentId,
             }, res);
@@ -777,7 +777,7 @@ export default async function a2aRoutes(req, res) {
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
-              timeout: 600,
+              timeout: 1800,
               rootDir,
               agentId,
             });

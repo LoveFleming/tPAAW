@@ -397,7 +397,7 @@ const PAAW_TOOLS = [
 const IS_WIN = process.platform === "win32";
 
 // Module-level agent config defaults (used by runShell + executeTool)
-const _agentCfgDefaults = { maxTurns: 40, timeoutSeconds: 600, bashTimeoutSeconds: 300, shellTimeoutMs: 600000 };
+const _agentCfgDefaults = { maxTurns: 60, timeoutSeconds: 1800, bashTimeoutSeconds: 600, shellTimeoutMs: 1200000 };
 let _agentCfg = { ..._agentCfgDefaults };
 export function setAgentConfig(cfg) { _agentCfg = { ..._agentCfgDefaults, ...cfg }; }
 
@@ -1016,7 +1016,20 @@ export async function runAgentLoop(config) {
   for (let i = 0; i < maxTurns; i++) {
     // Check timeout
     if (Date.now() - startTime > timeoutMs) {
-      finalContent += "\n\n[Agent loop timed out]";
+      finalContent += `\n\n---\n⏱️ 任務超時 (${effectiveTimeout}s)，但已完成 ${turns} 個步驟。\n已修改的檔案已保存。\n你可以跟我說「繼續」來接著完成。\n---`;
+      // Save progress so we can resume
+      try {
+        const paaw2 = createPaawProject(cwd);
+        if (paaw2.exists) {
+          await paaw2.addActionLog({
+            agent: agentId || "unknown",
+            action: "timeout",
+            summary: `任務超時，已完成 ${turns}/${effectiveMaxTurns} 步。已部分完成，可續接。`,
+            result: "partial",
+          });
+        }
+      } catch {}
+      if (onEvent) onEvent({ type: "timeout", turns, maxTurns: effectiveMaxTurns });
       break;
     }
 
