@@ -73,8 +73,8 @@ export interface ChatConfig {
     temperature?: number;
     cli?: CliEngine; // legacy compat, always "paaw-agent"
     engine?: string; // "paaw-agent"
-    model?: string;
-    approvalMode?: string;
+    // model and approvalMode removed — model is handled by PAAW default/fallback or ModelSelector
+    // approvalMode is handled at the app/workspace level, not per-crew
 }
 
 /**
@@ -90,11 +90,19 @@ export interface Crew {
     imageUrl: string;
     rolePrompt: string;
     description: string;
-    risk: Risk;
+    /** 專業範圍清單 */
+    expertise?: string[];
+    /** 護欄規則 */
+    guardrails?: {
+        redirectRules?: string[];
+        refuseTopics?: string[];
+    };
     /** 引用的技能 IDs（對應 skills/input-prompt/{id}/SKILL.md） */
     skillIds: string[];
     chatConfig?: ChatConfig;
-    // --- Legacy compat ---
+    // --- Legacy compat (kept for old JSON round-trip, no longer used) ---
+    /** @deprecated */
+    risk?: Risk;
     /** @deprecated use skillIds */
     skills?: any[];
     /** @deprecated */
@@ -181,7 +189,8 @@ export function migrateCrew(crew: any): Crew {
         imageUrl: crew.imageUrl || "",
         rolePrompt: crew.rolePrompt || "",
         description: crew.description || "",
-        risk: crew.risk || "safe",
+        expertise: crew.expertise || [],
+        guardrails: crew.guardrails,
         skillIds: crew.skillIds || skillIds,
         chatConfig: crew.chatConfig,
         // Keep legacy for round-trip

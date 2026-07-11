@@ -83,10 +83,11 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
             .catch(() => {});
     }, []);
 
-    // "Running" config = what the active console is using (persisted in chatConfig)
-    // Fallback chain: employee.chatConfig → global engine config → "paaw-agent"
-    const savedModel = employee?.chatConfig?.model || "";
-    const savedApproval = employee?.chatConfig?.approvalMode || "yolo";
+    // "Running" config = what the active console is using
+    // Model is now handled by PAAW default/fallback chain or ModelSelector at runtime
+    // No longer persisted to crew chatConfig
+    const savedModel = ""; // always empty — use PAAW default
+    const savedApproval = "yolo";
     const [runningModel, setRunningModel] = useState(savedModel);
     const [runningApproval, setRunningApproval] = useState(savedApproval);
     // Sync running config when employee changes (different employee selected)
@@ -227,35 +228,19 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
     const initializedRef = useRef(false);
     useEffect(() => {
         if (!employee || initializedRef.current) return;
-        for (const id of selectedSkillIds) {
-            const sk = skillDefinitions.get(id);
-            // approval mode comes from employee chatConfig now
-            const approvalFromEmployee = employee?.chatConfig?.approvalMode;
-            if (approvalFromEmployee) {
-                setPermissionMode(approvalFromEmployee);
-                initializedRef.current = true;
-                return;
-            }
-        }
+        // approvalMode no longer read from crew chatConfig — always default to yolo
+        // User can override at runtime via the dropdown
+        initializedRef.current = true;
     }, [employee, selectedSkillIds]);
 
     // Runtime approval mode — user override always wins
     const effectiveApprovalMode = permissionMode;
 
-    // Save runtime setting changes back to crew JSON (all selected skills)
+    // Save runtime setting changes — no longer writes model/approvalMode to crew JSON
+    // Model is handled by PAAW default/fallback, approvalMode is runtime-only
     const saveSkillConfig = useCallback(async (field: 'model' | 'approvalMode', value: string) => {
-        if (!employee) return;
-        const updated = { ...employee, chatConfig: { ...employee.chatConfig, [field]: value } };
-        try {
-            await fetch(`${API_BASE}/api/crew/${employee.id}?factory=${factoryId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updated),
-            });
-        } catch (err) {
-            console.error("[PAAW] Failed to save skill config:", err);
-        }
-    }, [employee, selectedSkillIds]);
+        // No-op: model and approvalMode are no longer persisted to crew JSON
+    }, []);
 
     // Check if pending config differs from running config
     const configDirty = chatStarted && (
@@ -263,21 +248,9 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
         permissionMode !== runningApproval
     );
 
-    // Apply pending config: save to crew JSON, hot-restart console with same prompt
+    // Apply pending config: no longer saves to crew JSON, just updates running state
     const applyConfig = useCallback(async () => {
-        // Save cli and model to crew JSON chatConfig for persistence
-        if (!employee) return;
-        const updated = { ...employee, chatConfig: { ...employee.chatConfig, model: effectiveModel || "", approvalMode: permissionMode } };
-        try {
-            await fetch(`${API_BASE}/api/crew/${employee.id}?factory=${factoryId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updated),
-            });
-        } catch (err) {
-            console.error("[PAAW] Failed to save config:", err);
-        }
-        // Update running state
+        // Update running state only — model is runtime, not persisted
         setRunningModel(effectiveModel || "");
         setRunningApproval(permissionMode);
         // Hot-restart console
@@ -827,12 +800,7 @@ export default function EmployeeWorkspace({ employeeId, projectRoot, crew: crewP
                                     // Auto-apply: no need for manual Apply button
                                     if (chatStarted) {
                                         setRunningModel(v);
-                                        const updated = { ...employee, chatConfig: { ...employee.chatConfig, model: v, approvalMode: permissionMode } };
-                                        fetch(`${API_BASE}/api/paaw/crews/${employee.id}`, {
-                                            method: "PUT",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify(updated),
-                                        }).catch(() => {});
+                                        // No longer writes to crew JSON — model is runtime only
                                     }
                                 }}
                                 className={cn(

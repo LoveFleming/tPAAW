@@ -1,6 +1,6 @@
 import API_BASE from "../api";
 import React, { useState, useEffect, useCallback } from "react";
-import { Card, RiskBadge, cn } from "../components/ui/shared";
+import { Card, cn } from "../components/ui/shared";
 import { Crew, SkillDefinition } from "../types";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
@@ -156,7 +156,11 @@ export default function AICrew({ openEmployee, onCrewChanged, factoryId = "defau
                                     }}
                                 />
                                 <div className="absolute top-2 right-2 scale-75 origin-top-right">
-                                    <RiskBadge risk={s.risk} />
+                                    {s.expertise && s.expertise.length > 0 && (
+                                        <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs bg-blue-50 border-blue-300 text-blue-600">
+                                            🛡️ {s.expertise.length}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <div className="p-4 flex flex-col flex-1 border-t" style={{ borderColor: t.accentBorder + "60" }}>

@@ -1,10 +1,9 @@
-import ModelSelector from "./ModelSelector";
-import API_BASE from "../api";
 import React, { useState, useEffect } from "react";
-import { Crew, Risk, SkillDefinition } from "../types";
+import { Crew, SkillDefinition } from "../types";
 import CrewAvatar from "./CrewAvatar";
 import Icon from "./Icon";
 import { useTheme } from "../theme";
+import API_BASE from "../api";
 
 interface CrewEditorProps {
     crew?: Crew | null;
@@ -12,8 +11,6 @@ interface CrewEditorProps {
     onDelete?: (id: string) => Promise<void>;
     onCancel: () => void;
 }
-
-const RISK_OPTIONS: Risk[] = ["safe", "guarded", "external"];
 
 export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEditorProps) {
     const isEdit = !!crew;
@@ -26,19 +23,19 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
     const [codename, setCodename] = useState(crew?.codename || "");
     const [description, setDescription] = useState(crew?.description || "");
     const [rolePrompt, setRolePrompt] = useState(crew?.rolePrompt || "");
-    const [risk, setRisk] = useState<Risk>(crew?.risk || "safe");
     const [imageUrl, setImageUrl] = useState(crew?.imageUrl || "");
     const [greeting, setGreeting] = useState(crew?.chatConfig?.greeting || "");
     const [maxTokens, setMaxTokens] = useState(crew?.chatConfig?.maxTokens || 4096);
     const [temperature, setTemperature] = useState(crew?.chatConfig?.temperature ?? 0.3);
-    const [model, setModel] = useState(crew?.chatConfig?.model || "");
-    const [approvalMode, setApprovalMode] = useState(crew?.chatConfig?.approvalMode || "yolo");
     const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(crew?.skillIds || []);
 
-    // Load saved model preference when crew changes
-    useEffect(() => {
-        if (crew?.chatConfig?.model) setModel(crew.chatConfig.model);
-    }, [crew]);
+    // New fields: expertise + guardrails
+    const [expertise, setExpertise] = useState<string[]>(crew?.expertise || []);
+    const [expertiseInput, setExpertiseInput] = useState("");
+    const [redirectRules, setRedirectRules] = useState<string[]>(crew?.guardrails?.redirectRules || []);
+    const [redirectInput, setRedirectInput] = useState("");
+    const [refuseTopics, setRefuseTopics] = useState<string[]>(crew?.guardrails?.refuseTopics || []);
+    const [refuseInput, setRefuseInput] = useState("");
 
     // Fetch all skill definitions from shared pool
     const [allSkills, setAllSkills] = useState<SkillDefinition[]>([]);
@@ -57,6 +54,19 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
         );
     };
 
+    const addExpertise = () => {
+        const v = expertiseInput.trim();
+        if (v && !expertise.includes(v)) { setExpertise([...expertise, v]); setExpertiseInput(""); }
+    };
+    const addRedirect = () => {
+        const v = redirectInput.trim();
+        if (v && !redirectRules.includes(v)) { setRedirectRules([...redirectRules, v]); setRedirectInput(""); }
+    };
+    const addRefuse = () => {
+        const v = refuseInput.trim();
+        if (v && !refuseTopics.includes(v)) { setRefuseTopics([...refuseTopics, v]); setRefuseInput(""); }
+    };
+
     const handleSave = async () => {
         setError("");
         if (!id.trim()) { setError("ID is required"); return; }
@@ -70,16 +80,18 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
             codename: codename.trim(),
             imageUrl: imageUrl.trim() || "/crews/pic/default_crew.png",
             skillIds: selectedSkillIds,
-            risk,
             description: description.trim(),
             rolePrompt: rolePrompt.trim(),
+            expertise: expertise.length > 0 ? expertise : undefined,
+            guardrails: (redirectRules.length > 0 || refuseTopics.length > 0) ? {
+                redirectRules: redirectRules.length > 0 ? redirectRules : undefined,
+                refuseTopics: refuseTopics.length > 0 ? refuseTopics : undefined,
+            } : undefined,
             chatConfig: {
                 greeting: greeting.trim() || undefined,
                 maxTokens,
                 temperature,
                 engine: "paaw-agent" as const,
-                model: model.trim() || undefined,
-                approvalMode: approvalMode.trim() || undefined,
             },
         };
 
@@ -98,9 +110,33 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
         finally { setSaving(false); }
     };
 
-    // Shared input styles
     const inputCls = "w-full mt-1 px-3 py-2 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-1";
     const inputStyle = { borderColor: "#d6d3d1" };
+
+    // Tag input helper component
+    const TagInput = ({ label, items, setItems, input, setInput, onAdd, placeholder }: any) => (
+        <div>
+            <label className="text-sm font-semibold text-stone-500">{label}</label>
+            <div className="flex gap-1 mt-1">
+                <input value={input} onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onAdd(); } }}
+                    className={inputCls} style={inputStyle} placeholder={placeholder} />
+                <button type="button" onClick={onAdd}
+                    className="px-3 py-2 rounded-lg text-sm bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0">+</button>
+            </div>
+            {items.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                    {items.map((item: string, i: number) => (
+                        <span key={i} className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600 flex items-center gap-1">
+                            {item}
+                            <button type="button" onClick={() => setItems(items.filter((_: any, j: number) => j !== i))}
+                                className="text-blue-400 hover:text-red-500">✕</button>
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-8">
@@ -125,7 +161,8 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                             <div className="text-lg font-bold text-stone-800">{title || "Employee Name"}</div>
                             <div className="text-sm text-stone-500">{codename || "Codename"}</div>
                             <div className="text-xs text-stone-400 mt-1">
-                                {selectedSkillIds.length === 0 ? '純 Prompt 模式' : `${selectedSkillIds.length} 個技能`} • {approvalMode}
+                                {selectedSkillIds.length === 0 ? '純 Prompt 模式' : `${selectedSkillIds.length} 個技能`}
+                                {expertise.length > 0 && ` • ${expertise.length} 項專業`}
                             </div>
                         </div>
                     </div>
@@ -161,31 +198,35 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                             <input value={imageUrl} onChange={e => setImageUrl(e.target.value)}
                                 className={inputCls} style={inputStyle} placeholder="/crews/pic/my_avatar.png" />
                         </div>
-                        <div>
-                            <label className="text-sm font-semibold text-stone-500">Risk Level</label>
-                            <div className="flex gap-2 mt-1">
-                                {RISK_OPTIONS.map(r => (
-                                    <button key={r} type="button" onClick={() => setRisk(r)}
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors ${
-                                            risk === r
-                                                ? r === "safe" ? "bg-green-100 border-green-400 text-green-700"
-                                                  : r === "guarded" ? "bg-yellow-100 border-yellow-400 text-yellow-700"
-                                                  : "bg-red-100 border-red-400 text-red-700"
-                                                : "bg-white border-stone-300 text-stone-500 hover:bg-stone-50"
-                                        }`}>
-                                        {r}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
                     </fieldset>
 
                     {/* Role Prompt */}
                     <fieldset className="space-y-3">
                         <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5"><Icon name="brain" size={16} /> Role Prompt *</legend>
-                        <textarea value={rolePrompt} onChange={e => setRolePrompt(e.target.value)} rows={5}
+                        <textarea value={rolePrompt} onChange={e => setRolePrompt(e.target.value)} rows={6}
                             className={`${inputCls} font-mono`} style={inputStyle}
-                            placeholder="你是半導體工廠的...，名叫...。你的工作是..." />
+                            placeholder="你是...，名叫...。你的工作是...&#10;包含職責、專業範圍、護欄（不該做什麼）、輸出格式" />
+                    </fieldset>
+
+                    {/* Expertise & Guardrails */}
+                    <fieldset className="space-y-4">
+                        <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5">
+                            <Icon name="shield" size={16} /> 專業範圍與護欄
+                        </legend>
+                        <TagInput label="專業範圍" items={expertise} setItems={setExpertise}
+                            input={expertiseInput} setInput={setExpertiseInput} onAdd={addExpertise}
+                            placeholder="e.g. 系統架構設計、技術選型..." />
+                        <div className="border-t pt-3" style={{ borderColor: t.accentBorder + "40" }}>
+                            <p className="text-xs text-stone-400 mb-2">護欄 — 被問到超出範圍時的轉介和拒絕規則</p>
+                            <TagInput label="轉介規則（超出範圍 → 找誰）" items={redirectRules} setItems={setRedirectRules}
+                                input={redirectInput} setInput={setRedirectInput} onAdd={addRedirect}
+                                placeholder="e.g. 寫程式碼 → Developer (Priya)" />
+                            <div className="mt-3">
+                                <TagInput label="拒絕主題（完全不回答）" items={refuseTopics} setItems={setRefuseTopics}
+                                    input={refuseInput} setInput={setRefuseInput} onAdd={addRefuse}
+                                    placeholder="e.g. 非技術問題、人事管理" />
+                            </div>
+                        </div>
                     </fieldset>
 
                     {/* Skills — 選擇共享技能池 */}
@@ -221,20 +262,6 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                             </div>
                         )}
 
-                        {selectedSkillIds.length > 0 && (
-                            <div className="space-y-1.5 mt-2">
-                                {selectedSkillIds.map(sid => {
-                                    const sk = allSkills.find(s => s.id === sid);
-                                    return (
-                                        <div key={sid} className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg" style={{ backgroundColor: t.accentBg, color: t.accentText }}>
-                                            <span className="font-bold">{sk?.name || sid}</span>
-                                            {sk?.description && <span className="text-stone-400">— {sk.description}</span>}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
                         {selectedSkillIds.length === 0 && allSkills.length > 0 && (
                             <div className="text-xs text-stone-400 text-center py-2">
                                 未選技能 = 純 Prompt 模式，只使用 Role Prompt
@@ -242,25 +269,9 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                         )}
                     </fieldset>
 
-                    {/* Execution Config — 歸員工管 */}
+                    {/* Execution Config */}
                     <fieldset className="space-y-3">
-                        <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5"><Icon name="settings" size={16} /> 執行設定 <span className="text-stone-400 font-normal text-xs">（歸員工管）</span></legend>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-sm font-semibold text-stone-500">Model</label>
-                                <ModelSelector feature="crewChat" value={model} onChange={setModel} className={inputCls} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label className="text-sm font-semibold text-stone-500">Approval Mode</label>
-                                <select value={approvalMode} onChange={e => setApprovalMode(e.target.value)}
-                                    className={inputCls} style={inputStyle}>
-                                    <option value="default">Default</option>
-                                    <option value="auto-edit">Auto-Edit</option>
-                                    <option value="yolo">YOLO</option>
-                                    <option value="plan">Plan</option>
-                                </select>
-                            </div>
-                        </div>
+                        <legend className="text-sm font-bold text-stone-600 border-b border-stone-200 pb-1 w-full flex items-center gap-1.5"><Icon name="settings" size={16} /> 執行設定</legend>
                         <div>
                             <label className="text-sm font-semibold text-stone-500">Greeting Message</label>
                             <input value={greeting} onChange={e => setGreeting(e.target.value)}
@@ -278,6 +289,7 @@ export default function CrewEditor({ crew, onSave, onDelete, onCancel }: CrewEdi
                                     className={inputCls} style={inputStyle} min={0} max={2} step={0.1} />
                             </div>
                         </div>
+                        <p className="text-xs text-stone-400">Model 由 PAAW 預設 / fallback chain 或 ModelSelector 控制，不再 per-crew 設定。</p>
                     </fieldset>
                 </div>
 
