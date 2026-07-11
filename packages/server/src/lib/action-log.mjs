@@ -124,7 +124,7 @@ export async function saveAgentMemory(agentId, content, cwd) {
  * @param {number} [maxChars] - max chars to return (default 2000)
  * @returns {Promise<string>}
  */
-export async function loadAgentMemory(agentId, cwd, maxChars = 2000) {
+export async function loadAgentMemory(agentId, cwd, maxChars = 6000) {
   const dir = getAgentMemoryDir(cwd);
   const filePath = join(dir, `${agentId}.md`);
   if (!existsSync(filePath)) return "";

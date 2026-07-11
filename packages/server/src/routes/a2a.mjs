@@ -27,6 +27,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../..");
 const DATA_DIR = resolve(PAAW_ROOT, "data");
+
+// ── Agent Rules — injected into every crew's system prompt ──
+import { AGENT_RULES } from "../lib/agent-rules.mjs";
 const TASKS_DIR = resolve(DATA_DIR, "a2a-tasks");
 const CONFIG_DIR = resolve(DATA_DIR, "config");
 const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk", "tickets.json");
@@ -582,7 +585,7 @@ export default async function a2aRoutes(req, res) {
             const extraContext = [];
             if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
-            extraContext.push(`\n## 重要規則\n完成任務後，你必須使用 action_log_add 工具記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。`);
+            extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 
             // Build messages array with conversation history
@@ -718,7 +721,7 @@ export default async function a2aRoutes(req, res) {
             const extraContext = [];
             if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
-            extraContext.push(`\n## 重要規則\n完成任務後，你必須使用 action_log_add 工具記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。`);
+            extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 
             // Build messages array with conversation history

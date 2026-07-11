@@ -47,6 +47,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
+// Shared agent rules
+import { AGENT_RULES } from "../lib/agent-rules.mjs";
+
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
 async function callProjectLLM(body, opts = {}) {
@@ -167,8 +170,7 @@ export default async function projectRoute(req, res) {
       const extraContext = [];
       if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
       if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
-      // Tell agent to use action_log_add after completing tasks
-      extraContext.push(`\n## 重要規則\n完成任務後，你必須使用 action_log_add 工具記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。`);
+      extraContext.push(AGENT_RULES);
       const fullSystemPrompt = systemPrompt + extraContext.join("");
 
       // Build messages array with conversation history
