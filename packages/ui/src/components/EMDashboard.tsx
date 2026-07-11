@@ -430,13 +430,13 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             </h3>
             {!codeStatus && rootPath && (
               <button
-                onClick={() => { loadPersistedSteps(); setShowCUModal(true); if (onStartCodeUnderstanding) { onStartCodeUnderstanding(); } else { fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()).then(setCodeStatus).catch(() => {}); } }}
+                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
                 className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
               >🧠 Code Understanding</button>
             )}
             {codeStatus && (
               <button
-                onClick={() => { loadPersistedSteps(); setShowCUModal(true); if (onStartCodeUnderstanding) { onStartCodeUnderstanding(); } }}
+                onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
                 className="text-sm px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 font-bold"
               >🔄 重新掃描</button>
             )}
