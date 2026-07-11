@@ -57,9 +57,11 @@ interface EMDashboardProps {
   // Code Understanding (was AI Initialize)
   onStartCodeUnderstanding?: () => void;
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
+  // Dispatch to crew with pre-filled message
+  onDispatchToCrew?: (crewId: string, message: string) => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew }: EMDashboardProps) {
   // ── Chat State ──
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() },
@@ -92,6 +94,29 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     { id: "faq", name: "🤖 產出 HelpDesk FAQ", file: "helpdesk/faq.md" },
     { id: "overview", name: "📊 產出 PROJECT.md", file: "PROJECT.md", checkOnly: true },
   ];
+
+  // ── Code Health item → Crew + prompt mapping ──
+  // When user clicks 🔧 on a missing/warn item, dispatch to the right crew with a pre-filled prompt
+  const HEALTH_DISPATCH: Record<string, { crew: string; prompt: string }> = {
+    // Architecture
+    "Architecture Map": { crew: "coding.architect", prompt: "請根據目前專案程式碼，產出 ARCHITECTURE.md，包含系統架構圖、模組依賴關係、資料流動方向。" },
+    "Decision Records": { crew: "coding.architect", prompt: "請檢查近期的重要技術決策，用 ADR 格式補進 DECISIONS.md。" },
+    "PROJECT.md": { crew: "coding.doc-writer", prompt: "請根據目前專案狀態，更新 PROJECT.md，包含產品定位、技術棧、專案結構。" },
+    // API
+    "API Contract": { crew: "coding.architect", prompt: "請掃描所有 API routes，產出 specs/api-contract.md，列出每個 endpoint 的 method、path、request/response schema。" },
+    "Error Mapping": { crew: "coding.developer", prompt: "請掃描所有 error code 和 exception，產出 specs/error-codes.md，定義每個 error 的 HTTP status、類型、處理方式。" },
+    "Runbooks": { crew: "coding.helpdesk", prompt: "請根據已知的 error codes，為每個常見錯誤寫 runbook（診斷步驟 + 修復方式），存到 .paaw/runbook/。" },
+    // Test
+    "API Test Payloads": { crew: "coding.tester", prompt: "請根據 API contract，為每個 endpoint 產出 test payload JSON，存到 .paaw/test-payloads/。" },
+    "Unit Tests": { crew: "coding.tester", prompt: "請檢查目前缺少 unit test 的模組，列出優先級並開始補測試。" },
+    "E2E Tests": { crew: "coding.tester", prompt: "請評估是否需要 E2E 測試，如果需要，設定 playwright/cypress 並寫關鍵流程的 E2E 測試。" },
+    // Docs
+    "README": { crew: "coding.doc-writer", prompt: "請更新 README.md，確保包含：專案介紹、安裝步驟、使用方式、開發指南。" },
+    "FAQ": { crew: "coding.helpdesk", prompt: "請根據已知 issues 和 common questions，產出 helpdesk/faq.md。" },
+    "Changelog": { crew: "coding.doc-writer", prompt: "請根據最近的 git log，更新 CHANGELOG.md。" },
+    // Maintainability
+    "Coding Standards": { crew: "coding.qa", prompt: "請根據目前專案的 coding style，產出 standards/coding-style.md，包含命名規則、檔案結構、lint 規則。" },
+  };
 
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number }>>([]);
@@ -485,14 +510,27 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                   </div>
                   {expandedArea === area && (
                     <div className="ml-5 mt-1 space-y-0.5">
-                      {data.items.map((item, i) => (
+                      {data.items.map((item, i) => {
+                        const dispatch = (item.status === "missing" || item.status === "warn") ? HEALTH_DISPATCH[item.name] : null;
+                        return (
                         <div key={i} className="flex items-center gap-1.5 text-sm">
                           <span className={item.status === "done" ? "text-green-500" : item.status === "partial" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400"}>
                             {item.status === "done" ? "✅" : item.status === "partial" ? "🟡" : item.status === "missing" ? "❌" : "⚪"}
                           </span>
-                          <span className="text-stone-500">{item.name}</span>
+                          <span className="text-stone-500 flex-1">{item.name}</span>
+                          {item.detail && item.status !== "ok" && item.status !== "info" && (
+                            <span className="text-xs text-stone-300">{item.detail}</span>
+                          )}
+                          {dispatch && onDispatchToCrew && (
+                            <button
+                              onClick={() => onDispatchToCrew(dispatch.crew, dispatch.prompt)}
+                              className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-bold shrink-0 transition-colors"
+                              title={`派交 ${dispatch.crew}`}
+                            >🔧</button>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

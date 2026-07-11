@@ -2527,6 +2527,18 @@ const sendChat = useCallback(async () => {
                 onOpenFile={openFile}
                 onStartCodeUnderstanding={startAiInitialize}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
+                onDispatchToCrew={(crewId, message) => {
+                  // Switch to the crew tab and pre-fill the chat input
+                  const crew = codingCrews.find(c => c.id === crewId);
+                  if (crew) {
+                    setActiveCrew(crew.id);
+                    setChatMode(crew.mode);
+                    openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
+                    // Pre-fill the message
+                    setChatInput(message);
+                    setTimeout(() => chatInputRef.current?.focus(), 300);
+                  }
+                }}
               />
             )}
 
