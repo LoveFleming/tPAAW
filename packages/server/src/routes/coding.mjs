@@ -17,6 +17,13 @@
  *   GET    /api/coding-project/file?path=...&file=...  — Read any .paaw/ file
  *   PUT    /api/coding-project/file?path=...&file=...  — Write any .paaw/ file
  *   POST   /api/coding-project/generate-overview?path=... — Auto-generate PROJECT.md
+ *
+ * Crew Conversation Persistence:
+ *   GET    /api/coding-crew/conversations?cwd=...              — List all crew conversations
+ *   GET    /api/coding-crew/conversations/:crewId?cwd=...     — Load crew conversation
+ *   POST   /api/coding-crew/conversations/:crewId?cwd=...     — Save crew conversation
+ *   DELETE /api/coding-crew/conversations/:crewId?cwd=...     — Clear crew conversation
+ *   POST   /api/coding-crew/context-window                    — Build optimized context window
  */
 
 import { readFile, writeFile, readdir, mkdir, unlink, appendFile } from "fs/promises";
@@ -163,16 +170,50 @@ export default async function projectRoute(req, res) {
       const messages = [];
       if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
 
-      // Inject conversation history (from frontend crewConversations)
-      if (conversationHistory && Array.isArray(conversationHistory)) {
-        // Only include user/assistant messages, skip thinking bubbles
+      // Inject conversation history with smart context window management
+      if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+        // Filter: only user/assistant, skip thinking bubbles
         const cleanHistory = conversationHistory
           .filter(m => m.role === "user" || m.role === "assistant")
-          .filter(m => !m._thinking) // skip intermediate thinking
-          .slice(-20); // last 20 messages max
-        for (const m of cleanHistory) {
-          messages.push({ role: m.role, content: m.content.replace(/^💭 /, "") });
+          .filter(m => !m._thinking)
+          .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+
+        // Smart context window: token budget management
+        const estimateTokens = (text) => Math.ceil((text || "").length / 4);
+        const systemPromptTokens = estimateTokens(fullSystemPrompt);
+        const maxContextTokens = 12000; // GLM 5.1 context budget for history
+        const responseReserve = 2000;
+        const budget = maxContextTokens - systemPromptTokens - responseReserve;
+
+        // Greedy fill from most recent backwards
+        const selected = [];
+        let usedTokens = 0;
+        for (let i = cleanHistory.length - 1; i >= 0; i--) {
+          const msgTokens = estimateTokens(cleanHistory[i].content);
+          if (usedTokens + msgTokens > budget && selected.length > 0) break;
+          selected.unshift(cleanHistory[i]);
+          usedTokens += msgTokens;
         }
+
+        // If messages were trimmed, add a compact summary
+        const trimmedCount = cleanHistory.length - selected.length;
+        if (trimmedCount > 0) {
+          const trimmedMessages = cleanHistory.slice(0, trimmedCount);
+          const summaryParts = trimmedMessages.map(m => {
+            const role = m.role === "user" ? "👤" : "🤖";
+            return `${role} ${m.content.slice(0, 150)}`;
+          });
+          messages.push({
+            role: "system",
+            content: `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`,
+          });
+        }
+
+        for (const m of selected) {
+          messages.push({ role: m.role, content: m.content });
+        }
+
+        console.log(`[CodingCrew:chat] context window: ${selected.length}/${cleanHistory.length} messages, ~${usedTokens} tokens${trimmedCount > 0 ? `, trimmed ${trimmedCount} with summary` : ""}`);
       }
 
       // Add current user message
@@ -238,6 +279,173 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ error: err.message }));
       }
     }
+    return true;
+  }
+
+  // ── Crew Conversation Persistence ──
+  // GET /api/coding-crew/conversations?cwd=... — list all crew conversations
+  if (url === "/api/coding-crew/conversations" && method === "GET") {
+    const cwd = q.cwd || PAAW_ROOT;
+    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
+    try {
+      if (!existsSync(convDir)) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ conversations: [] }));
+        return true;
+      }
+      const files = await readdir(convDir);
+      const conversations = [];
+      for (const f of files.filter(f => f.endsWith(".json"))) {
+        try {
+          const data = JSON.parse(readSync(join(convDir, f), "utf-8"));
+          conversations.push({
+            crewId: f.replace(".json", ""),
+            messageCount: Array.isArray(data) ? data.length : (data.messages?.length || 0),
+            lastUpdated: data._meta?.lastUpdated || data[data.length - 1]?.ts || null,
+            preview: (Array.isArray(data) ? data : data.messages || []).slice(-1)[0]?.content?.slice(0, 100) || "",
+          });
+        } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ conversations }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/coding-crew/conversations/:crewId?cwd=... — load crew conversation
+  const convLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^?]+)/);
+  if (convLoadMatch && method === "GET") {
+    const crewId = decodeURIComponent(convLoadMatch[1]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const convFile = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.json`);
+    try {
+      if (existsSync(convFile)) {
+        const data = JSON.parse(readSync(convFile, "utf-8"));
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ messages: Array.isArray(data) ? data : (data.messages || []), crewId }));
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ messages: [], crewId }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/conversations/:crewId?cwd=... — save crew conversation
+  if (convLoadMatch && method === "POST") {
+    const crewId = decodeURIComponent(convLoadMatch[1]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
+    const convFile = join(convDir, `${crewId}.json`);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    try {
+      await mkdir(convDir, { recursive: true });
+      // Store messages with metadata
+      const payload = {
+        _meta: {
+          crewId,
+          lastUpdated: new Date().toISOString(),
+          messageCount: (body.messages || []).length,
+        },
+        messages: body.messages || [],
+      };
+      await writeFile(convFile, JSON.stringify(payload, null, 2), "utf-8");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId, messageCount: payload.messages.length }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/coding-crew/conversations/:crewId?cwd=... — clear crew conversation
+  if (convLoadMatch && method === "DELETE") {
+    const crewId = decodeURIComponent(convLoadMatch[1]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const convFile = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.json`);
+    try {
+      if (existsSync(convFile)) { await unlink(convFile); }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/context-window — build optimized context window
+  // Body: { messages, maxTokens, systemPromptLength }
+  // Returns: { messages, stats: { totalInput, trimmed, summaryCreated } }
+  if (url === "/api/coding-crew/context-window" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { messages = [], maxTokens = 8000, systemPromptLength = 0 } = body;
+    
+    // Filter: only user/assistant, skip thinking bubbles
+    const clean = messages
+      .filter(m => m.role === "user" || m.role === "assistant")
+      .filter(m => !m._thinking)
+      .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+    
+    // Rough token estimate: ~4 chars per token for mixed CJK/English
+    const estimateTokens = (text) => Math.ceil((text || "").length / 4);
+    
+    // Reserve tokens for system prompt + current message + response
+    const reservedTokens = systemPromptLength + 2000; // system + response budget
+    const budget = maxTokens - reservedTokens;
+    
+    // Greedy fill from most recent backwards
+    const selected = [];
+    let usedTokens = 0;
+    for (let i = clean.length - 1; i >= 0; i--) {
+      const msgTokens = estimateTokens(clean[i].content);
+      if (usedTokens + msgTokens > budget && selected.length > 0) break;
+      selected.unshift(clean[i]);
+      usedTokens += msgTokens;
+    }
+    
+    // If we trimmed messages, create a summary of what was cut
+    const trimmedCount = clean.length - selected.length;
+    let summary = null;
+    if (trimmedCount > 0) {
+      const trimmedMessages = clean.slice(0, trimmedCount);
+      // Build a compact summary of trimmed messages
+      const summaryParts = trimmedMessages.map(m => {
+        const role = m.role === "user" ? "👤" : "🤖";
+        return `${role} ${m.content.slice(0, 150)}`;
+      });
+      summary = `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`;
+    }
+    
+    const result = {
+      messages: summary ? [{ role: "system", content: summary }, ...selected] : selected,
+      stats: {
+        totalInput: clean.length,
+        included: selected.length,
+        trimmed: trimmedCount,
+        estimatedTokens: usedTokens + (summary ? estimateTokens(summary) : 0),
+        summaryCreated: summary !== null,
+      },
+    };
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result));
     return true;
   }
 

@@ -589,13 +589,43 @@ export default async function a2aRoutes(req, res) {
             const messages = [];
             if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
 
-            if (conversationHistory && Array.isArray(conversationHistory)) {
+            if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
               const cleanHistory = conversationHistory
                 .filter(m => m.role === "user" || m.role === "assistant")
                 .filter(m => !m._thinking)
-                .slice(-20);
-              for (const m of cleanHistory) {
-                messages.push({ role: m.role, content: m.content.replace(/^💭 /, "") });
+                .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+
+              // Smart context window: token budget management
+              const estimateTokens = (text) => Math.ceil((text || "").length / 4);
+              const systemPromptTokens = estimateTokens(fullSystemPrompt);
+              const maxContextTokens = 12000;
+              const responseReserve = 2000;
+              const budget = maxContextTokens - systemPromptTokens - responseReserve;
+
+              const selected = [];
+              let usedTokens = 0;
+              for (let i = cleanHistory.length - 1; i >= 0; i--) {
+                const msgTokens = estimateTokens(cleanHistory[i].content);
+                if (usedTokens + msgTokens > budget && selected.length > 0) break;
+                selected.unshift(cleanHistory[i]);
+                usedTokens += msgTokens;
+              }
+
+              const trimmedCount = cleanHistory.length - selected.length;
+              if (trimmedCount > 0) {
+                const trimmedMessages = cleanHistory.slice(0, trimmedCount);
+                const summaryParts = trimmedMessages.map(m => {
+                  const role = m.role === "user" ? "👤" : "🤖";
+                  return `${role} ${m.content.slice(0, 150)}`;
+                });
+                messages.push({
+                  role: "system",
+                  content: `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`,
+                });
+              }
+
+              for (const m of selected) {
+                messages.push({ role: m.role, content: m.content });
               }
             }
             messages.push({ role: "user", content: userText });
@@ -694,13 +724,43 @@ export default async function a2aRoutes(req, res) {
             // Build messages array with conversation history
             const messages = [];
             if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
-            if (conversationHistory && Array.isArray(conversationHistory)) {
+            if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
               const cleanHistory = conversationHistory
                 .filter(m => m.role === "user" || m.role === "assistant")
                 .filter(m => !m._thinking)
-                .slice(-20);
-              for (const m of cleanHistory) {
-                messages.push({ role: m.role, content: m.content.replace(/^💭 /, "") });
+                .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+
+              // Smart context window: token budget management
+              const estimateTokens = (text) => Math.ceil((text || "").length / 4);
+              const systemPromptTokens = estimateTokens(fullSystemPrompt);
+              const maxContextTokens = 12000;
+              const responseReserve = 2000;
+              const budget = maxContextTokens - systemPromptTokens - responseReserve;
+
+              const selected = [];
+              let usedTokens = 0;
+              for (let i = cleanHistory.length - 1; i >= 0; i--) {
+                const msgTokens = estimateTokens(cleanHistory[i].content);
+                if (usedTokens + msgTokens > budget && selected.length > 0) break;
+                selected.unshift(cleanHistory[i]);
+                usedTokens += msgTokens;
+              }
+
+              const trimmedCount = cleanHistory.length - selected.length;
+              if (trimmedCount > 0) {
+                const trimmedMessages = cleanHistory.slice(0, trimmedCount);
+                const summaryParts = trimmedMessages.map(m => {
+                  const role = m.role === "user" ? "👤" : "🤖";
+                  return `${role} ${m.content.slice(0, 150)}`;
+                });
+                messages.push({
+                  role: "system",
+                  content: `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`,
+                });
+              }
+
+              for (const m of selected) {
+                messages.push({ role: m.role, content: m.content });
               }
             }
             messages.push({ role: "user", content: userText });

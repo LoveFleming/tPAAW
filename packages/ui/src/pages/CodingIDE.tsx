@@ -377,6 +377,7 @@ export default function CodingIDE() {
   openTabsRef.current = openTabs; // keep in sync
   // Crew profile data
   const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
+  const [loadedCrews, setLoadedCrews] = useState<Set<string>>(new Set()); // track which crew conversations have been loaded from server
 
   // ── Right Panel Tab State ──
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
@@ -645,6 +646,58 @@ export default function CodingIDE() {
   }, [rootPath, openTabs]);
 
   // ═══════════════════════════════════════════════
+  // Crew Conversation Persistence — load on crew switch, save after each turn
+  // ═══════════════════════════════════════════════
+  // Load crew conversation from server when activeCrew changes
+  useEffect(() => {
+    if (!activeCrew || !rootPath) return;
+    if (loadedCrews.has(activeCrew)) return; // already loaded (or in-memory)
+    // If we already have messages in state (e.g. from greeting), don't overwrite
+    if (crewConversations[activeCrew] && crewConversations[activeCrew].length > 0) {
+      setLoadedCrews(prev => new Set(prev).add(activeCrew));
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}?cwd=${encodeURIComponent(rootPath)}`);
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          setCrewConversations(prev => ({ ...prev, [activeCrew]: data.messages }));
+        }
+        setLoadedCrews(prev => new Set(prev).add(activeCrew));
+      } catch {
+        setLoadedCrews(prev => new Set(prev).add(activeCrew));
+      }
+    })();
+  }, [activeCrew, rootPath, loadedCrews, crewConversations]);
+
+  // Save crew conversation to server (debounced)
+  const saveConversationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!activeCrew || !rootPath) return;
+    const messages = crewConversations[activeCrew];
+    if (!messages || messages.length === 0) return;
+    // Debounce: save 2 seconds after last change
+    if (saveConversationTimerRef.current) clearTimeout(saveConversationTimerRef.current);
+    saveConversationTimerRef.current = setTimeout(async () => {
+      try {
+        await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}?cwd=${encodeURIComponent(rootPath)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages }),
+        });
+      } catch {}
+    }, 2000);
+    return () => { if (saveConversationTimerRef.current) clearTimeout(saveConversationTimerRef.current); };
+  }, [crewConversations, activeCrew, rootPath]);
+
+  // Reset loaded crews when project changes
+  useEffect(() => {
+    setLoadedCrews(new Set());
+    setCrewConversations({});
+  }, [rootPath]);
+
+  // ═══════════════════════════════════════════════
   // File Explorer
   // ═══════════════════════════════════════════════
   const expandDir = useCallback(async (path: string) => {
@@ -881,7 +934,7 @@ const sendChat = useCallback(async () => {
           body: JSON.stringify({
             domain: chatMode,
             prompt: userMsg.content,
-            history: chatMessages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+            history: chatMessages.filter(m => !m._thinking).slice(-12).map(m => ({ role: m.role, content: m.content })),
             crewId: activeCrew || undefined,
           }),
         });
