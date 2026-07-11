@@ -85,7 +85,7 @@ async function gatherContext(rootDir) {
 
   // 6. .paaw/ context files
   summary.paawContext = "";
-  for (const f of ["PROJECT.md", "TODO.md", "DECISIONS.md", "CODING-STANDARDS.md"]) {
+  for (const f of ["PROJECT.md", "STATUS.md", "DECISIONS.md", "CODING-STANDARDS.md", "CHANGELOG.md", "KNOWN-ISSUES.md", "NEXT-ACTIONS.md", "AI-OPERATING-GUIDE.md"]) {
     const fp = join(rootDir, ".paaw", f);
     if (existsSync(fp)) {
       const content = readFileSync(fp, "utf-8").slice(0, 2000);
