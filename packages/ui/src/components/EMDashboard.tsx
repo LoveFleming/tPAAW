@@ -441,17 +441,20 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           )}
         </div>
 
+        {/* ── 交接狀態面板 (Handoff Status) ── */}
+        <HandoffStatusPanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} />
+
         {/* ── Quick Actions ── */}
         <div className="px-4 py-3 mt-auto">
           <h3 className="text-sm font-bold text-stone-700 mb-2 flex items-center gap-1.5">
             <span>🔗</span> 快速操作
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/PROJECT.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
-              📄 PROJECT.md
+            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/STATUS.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
+              📊 STATUS.md
             </button>
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/TODO.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
-              ✅ TODO.md
+            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/AI-OPERATING-GUIDE.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
+              🤖 操作手冊
             </button>
             <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/DECISIONS.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
               🏛️ DECISIONS.md
@@ -526,6 +529,91 @@ function StatusRow({ icon, label, value, ok }: { icon: string; label: string; va
       <span className="font-semibold text-stone-500 w-16 shrink-0">{label}</span>
       <span className={cn("truncate flex-1", ok ? "text-green-600" : "text-amber-600")} title={value}>{value}</span>
       <span className="shrink-0">{ok ? "✅" : "⚠️"}</span>
+    </div>
+  );
+}
+
+// ── 交接狀態面板 ──
+interface HandoffFile {
+  path: string;
+  icon: string;
+  label: string;
+}
+const HANDOFF_FILES: HandoffFile[] = [
+  { path: ".paaw/PROJECT.md", icon: "📄", label: "Project Brief" },
+  { path: ".paaw/STATUS.md", icon: "📊", label: "Current Status" },
+  { path: ".paaw/DECISIONS.md", icon: "🏛️", label: "Decision Log" },
+  { path: ".paaw/CHANGELOG.md", icon: "📝", label: "Change Memory" },
+  { path: ".paaw/TEST-EVIDENCE.md", icon: "🧪", label: "Test Evidence" },
+  { path: ".paaw/KNOWN-ISSUES.md", icon: "⚠️", label: "Known Issues" },
+  { path: ".paaw/NEXT-ACTIONS.md", icon: "📋", label: "Next Actions" },
+  { path: ".paaw/AI-OPERATING-GUIDE.md", icon: "🤖", label: "AI 操作手冊" },
+];
+
+function HandoffStatusPanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void }) {
+  const [fileStatuses, setFileStatuses] = useState<Record<string, "ok" | "template" | "missing">>({});
+
+  useEffect(() => {
+    if (!rootPath) return;
+    const checkFiles = async () => {
+      const results: Record<string, "ok" | "template" | "missing"> = {};
+      for (const f of HANDOFF_FILES) {
+        try {
+          const res = await fetch(`${API_BASE}/api/vibe-file/read?path=${encodeURIComponent(rootPath + "/" + f.path)}`);
+          if (!res.ok) { results[f.path] = "missing"; continue; }
+          const data = await res.json();
+          const content: string = data.content || "";
+          if (!content.trim() || content.includes("(待補充)") || content.includes("(auto-detect)") || content.length < 50) {
+            results[f.path] = "template";
+          } else {
+            results[f.path] = "ok";
+          }
+        } catch {
+          results[f.path] = "missing";
+        }
+      }
+      setFileStatuses(results);
+    };
+    checkFiles();
+  }, [rootPath]);
+
+  const okCount = Object.values(fileStatuses).filter(s => s === "ok").length;
+  const total = HANDOFF_FILES.length;
+const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
+
+  return (
+    <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
+          <span>📋</span> 交接狀態
+        </h3>
+        <span className={cn("text-xs font-bold", pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-500")}>
+          {okCount}/{total} ({pct}%)
+        </span>
+      </div>
+      {/* Progress bar */}
+      <div className="w-full h-1.5 rounded-full bg-stone-200 overflow-hidden mb-2">
+        <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${pct}%` }} />
+      </div>
+      {/* File list */}
+      <div className="space-y-1">
+        {HANDOFF_FILES.map(f => {
+          const st = fileStatuses[f.path] || "missing";
+          return (
+            <button
+              key={f.path}
+              onClick={() => onOpenFile?.(`${rootPath}/${f.path}`)}
+              className="flex items-center gap-2 text-sm w-full hover:bg-stone-50 rounded px-1.5 py-1 transition-colors"
+            >
+              <span className="shrink-0">{f.icon}</span>
+              <span className="text-stone-600 flex-1 text-left truncate">{f.label}</span>
+              <span className="shrink-0 text-xs">
+                {st === "ok" ? <span className="text-green-500">✅</span> : st === "template" ? <span className="text-amber-500">⚠️</span> : <span className="text-red-400">❌</span>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
