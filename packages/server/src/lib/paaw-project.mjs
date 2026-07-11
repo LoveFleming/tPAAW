@@ -749,26 +749,98 @@ export class PaawProject {
 
     let hasTests = false;
     let testFileCount = 0;
+    let unitCoverage = null; // e.g. "23%" or null
     try {
       const testCheck = await runShell("find . -name '*.test.*' -o -name '*.spec.*' 2>/dev/null | wc -l", this.root, 5000);
       testFileCount = parseInt(testCheck.trim()) || 0;
       hasTests = testFileCount > 0;
     } catch {}
+
+    // Try to run actual unit test coverage
+    if (hasTests) {
+      try {
+        const pkgExists = existsSync(join(this.root, "package.json"));
+        if (pkgExists) {
+          const pkgData = JSON.parse(readSync(join(this.root, "package.json"), "utf-8"));
+          const hasVitest = !!(pkgData.devDependencies?.vitest || pkgData.dependencies?.vitest);
+          const hasJest = !!(pkgData.devDependencies?.jest || pkgData.dependencies?.jest);
+          if (hasVitest) {
+            // Run vitest with coverage — timeout 60s
+            const covResult = await runShell(
+              "npx vitest run --coverage --reporter=json 2>/dev/null | tail -1",
+              this.root, 60000
+            );
+            try {
+              const covJson = JSON.parse(covResult.trim());
+              // Vitest JSON coverage: coverageMap or summary
+              const summary = covJson?.coverageMap || covJson?.coverage || covJson?.summary;
+              if (summary) {
+                const lines = summary?.lines?.percentage || summary?.lines?.pct;
+                if (typeof lines === "number") unitCoverage = `${Math.round(lines)}%`;
+                else if (typeof lines === "string") unitCoverage = lines;
+              }
+            } catch {
+              // Try parsing text output if JSON fails
+              const pctMatch = covResult.match(/(All|Total).*?\|(\s*\d+[.,]?\d*\s*)%/);
+              if (pctMatch) unitCoverage = pctMatch[2].trim() + "%";
+            }
+          } else if (hasJest) {
+            const covResult = await runShell(
+              "npx jest --coverage --coverageReporters=text-summary 2>/dev/null",
+              this.root, 60000
+            );
+            const pctMatch = covResult.match(/All files.*?\|(\s*\d+[.,]?\d*\s*)/);
+            if (pctMatch) unitCoverage = pctMatch[1].trim() + "%";
+          }
+        }
+      } catch {} // coverage is best-effort
+    }
+
     if (hasTests) {
       testPoints += 35;
-      testItems.push({ name: "Unit Tests", status: "ok", detail: `${testFileCount} test file(s)` });
+      testItems.push({ name: "Unit Tests", status: unitCoverage ? "ok" : "partial", detail: unitCoverage ? `Coverage: ${unitCoverage} (${testFileCount} files)` : `${testFileCount} test file(s)` });
     } else {
       testItems.push({ name: "Unit Tests", status: "missing", detail: "None found" });
     }
 
     let hasE2E = false;
+    let e2eResult = null; // e.g. "5 passed, 0 failed" or null
     try {
       const e2eCheck = await runShell("find . -maxdepth 1 -name 'playwright.config.*' -o -name 'cypress.config.*' 2>/dev/null", this.root, 3000);
       hasE2E = e2eCheck.trim().length > 0;
     } catch {}
+
+    // Try to run E2E tests if configured
+    if (hasE2E) {
+      try {
+        const pkgData = JSON.parse(readSync(join(this.root, "package.json"), "utf-8"));
+        const hasPlaywright = !!(pkgData.devDependencies?.["@playwright/test"] || pkgData.dependencies?.["@playwright/test"]);
+        const hasCypress = !!(pkgData.devDependencies?.cypress || pkgData.dependencies?.cypress);
+        if (hasPlaywright) {
+          const e2eOut = await runShell("npx playwright test --reporter=json 2>/dev/null | tail -1", this.root, 120000);
+          try {
+            const e2eJson = JSON.parse(e2eOut.trim());
+            const passed = e2eJson?.stats?.passed || e2eJson?.passed || 0;
+            const failed = e2eJson?.stats?.failed || e2eJson?.failed || 0;
+            const total = e2eJson?.stats?.total || e2eJson?.total || (passed + failed);
+            if (total > 0) {
+              e2eResult = `${passed} passed, ${failed} failed (${total} total)`;
+            }
+          } catch {
+            // Try text parse
+            const m = e2eOut.match(/(\d+) passed.*?(\d+) failed/);
+            if (m) e2eResult = `${m[1]} passed, ${m[2]} failed`;
+          }
+        } else if (hasCypress) {
+          // Cypress needs `cypress run` — heavier, skip auto-run for now
+          e2eResult = "Configured (run manually)";
+        }
+      } catch {} // E2E run is best-effort
+    }
+
     if (hasE2E) {
       testPoints += 25;
-      testItems.push({ name: "E2E Tests", status: "ok", detail: "Configured" });
+      testItems.push({ name: "E2E Tests", status: e2eResult ? "ok" : "partial", detail: e2eResult || "Configured" });
     } else {
       testItems.push({ name: "E2E Tests", status: "missing", detail: "Not configured" });
     }
