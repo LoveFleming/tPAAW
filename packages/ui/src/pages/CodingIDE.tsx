@@ -78,6 +78,7 @@ interface ChatMessage {
   content: string;
   ts: string;
   _thinking?: boolean; // internal flag for intermediate thinking bubbles
+  _thinkingHistory?: string[]; // preserved thinking texts before final answer replaces them
 }
 
 interface CodingEvent {
@@ -1048,7 +1049,10 @@ const sendChat = useCallback(async () => {
                     setChatMessages(prev => {
                       const last = prev[prev.length - 1];
                       if (last?.role === "assistant" && last?._thinking) {
-                        return [...prev.slice(0, -1), { ...last, content: `💭 ${data.content}` }];
+                        // Accumulate thinking history before replacing
+                        const prevThinking = last._thinkingHistory || [];
+                        const rawContent = last.content.replace(/^💭 /, "");
+                        return [...prev.slice(0, -1), { ...last, content: `💭 ${data.content}`, _thinkingHistory: rawContent !== data.content ? [...prevThinking, rawContent] : prevThinking }];
                       }
                       return [...prev, { role: "assistant" as const, content: `💭 ${data.content}`, _thinking: true, ts: new Date().toISOString() }];
                     });
@@ -1089,11 +1093,20 @@ const sendChat = useCallback(async () => {
                   // final content — the actual answer
                   if (data.content && data.done) {
                     finalContent = data.content;
-                    // Replace thinking bubble with real answer
+                    // Replace thinking bubble with real answer, preserve thinking history
                     setChatMessages(prev => {
                       const last = prev[prev.length - 1];
                       if (last?.role === "assistant" && last?._thinking) {
-                        return [...prev.slice(0, -1), { role: "assistant" as const, content: finalContent, ts: new Date().toISOString() }];
+                        // Save thinking history before replacing with final answer
+                        const thinkingHistory = last._thinkingHistory || [];
+                        // Include the last thinking content too
+                        const lastThinking = last.content.replace(/^💭 /, "");
+                        if (lastThinking && !thinkingHistory.includes(lastThinking)) {
+                          thinkingHistory.push(lastThinking);
+                        }
+                        const finalMsg: ChatMessage = { role: "assistant", content: finalContent, ts: new Date().toISOString() };
+                        if (thinkingHistory.length > 0) finalMsg._thinkingHistory = thinkingHistory;
+                        return [...prev.slice(0, -1), finalMsg];
                       }
                       return [...prev, { role: "assistant" as const, content: finalContent, ts: new Date().toISOString() }];
                     });
@@ -1104,7 +1117,12 @@ const sendChat = useCallback(async () => {
                     setChatMessages(prev => {
                       const last = prev[prev.length - 1];
                       if (last?.role === "assistant" && last?._thinking) {
-                        return [...prev.slice(0, -1), { role: "assistant" as const, content: `❌ Error: ${data.error}`, ts: new Date().toISOString() }];
+                        const thinkingHistory = last._thinkingHistory || [];
+                        const lastThinking = last.content.replace(/^💭 /, "");
+                        if (lastThinking) thinkingHistory.push(lastThinking);
+                        const errMsg: ChatMessage = { role: "assistant", content: `❌ Error: ${data.error}`, ts: new Date().toISOString() };
+                        if (thinkingHistory.length > 0) errMsg._thinkingHistory = thinkingHistory;
+                        return [...prev.slice(0, -1), errMsg];
                       }
                       return [...prev, { role: "assistant" as const, content: `❌ Error: ${data.error}`, ts: new Date().toISOString() }];
                     });
@@ -1122,7 +1140,13 @@ const sendChat = useCallback(async () => {
             setChatMessages(prev => {
               const last = prev[prev.length - 1];
               if (last?.role === "assistant" && last?._thinking) {
-                return [...prev.slice(0, -1), { role: "assistant" as const, content: thinkingText, ts: new Date().toISOString() }];
+                // Preserve thinking history when upgrading thinking to final
+                const thinkingHistory = last._thinkingHistory || [];
+                const lastThinking = last.content.replace(/^💭 /, "");
+                if (lastThinking && !thinkingHistory.includes(lastThinking)) thinkingHistory.push(lastThinking);
+                const finalMsg: ChatMessage = { role: "assistant", content: thinkingText, ts: new Date().toISOString() };
+                if (thinkingHistory.length > 0) finalMsg._thinkingHistory = thinkingHistory;
+                return [...prev.slice(0, -1), finalMsg];
               }
               return prev;
             });
