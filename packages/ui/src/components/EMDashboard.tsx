@@ -78,6 +78,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
   const [showCUModal, setShowCUModal] = useState(false);
+  const [singleStepRunning, setSingleStepRunning] = useState<string | null>(null); // step id being retried
 
   // ── Fetch data when rootPath changes ──
   const refreshData = useCallback(async () => {
@@ -242,6 +243,50 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     }
     setEmRunning(false);
   };
+
+  // ── Run a single Code Understanding step (retry) ──
+  const runSingleStep = useCallback(async (stepId: string) => {
+    if (!rootPath || singleStepRunning) return;
+    setSingleStepRunning(stepId);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial-step?path=${encodeURIComponent(rootPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: stepId }),
+      });
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const d = JSON.parse(line.slice(6));
+              if (d.step && d.preview !== undefined) {
+                // step_done — update parent steps via callback
+                console.log(`[CU] Step ${d.step} done: ${d.size} chars`);
+              }
+            } catch {}
+          }
+        }
+      }
+      // Refresh code status after single step
+      try {
+        const stRes = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`);
+        const stData = await stRes.json();
+        setCodeStatus(stData);
+      } catch {}
+    } catch (err) {
+      console.error("[CU] Single step error:", err);
+    }
+    setSingleStepRunning(null);
+  }, [rootPath, singleStepRunning]);
 
   if (!rootPath) {
     return (
@@ -484,6 +529,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               <div key={step.id} className="flex items-center gap-3 py-2">
                 <span className="text-lg shrink-0">
                   {step.status === "done" ? "✅" : step.status === "running" ? "⏳" : step.status === "error" ? "❌" : step.status === "skip" ? "⏭️" : "⬜"}
+                  {singleStepRunning === step.id && <span className="ml-1 inline-block animate-pulse">●</span>}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className={cn("text-sm font-medium", step.status === "running" ? "text-emerald-700" : step.status === "done" ? "text-stone-600" : step.status === "error" ? "text-red-500" : "text-stone-400")}>
@@ -500,19 +546,52 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                     <div className="text-xs text-stone-300">Skipped</div>
                   )}
                 </div>
+                {/* Retry button for error/skip/done steps (not during bulk run) */}
+                {!codeUnderstanding.running && (step.status === "error" || step.status === "skip" || step.status === "done" || step.status === "pending") && (
+                  <button
+                    onClick={() => runSingleStep(step.id)}
+                    disabled={singleStepRunning !== null}
+                    className={cn("text-xs px-2 py-1 rounded font-bold shrink-0 transition-colors",
+                      singleStepRunning === step.id
+                        ? "bg-emerald-100 text-emerald-400 cursor-wait"
+                        : singleStepRunning !== null
+                          ? "bg-stone-100 text-stone-300 cursor-not-allowed"
+                          : "bg-stone-100 text-stone-500 hover:bg-emerald-100 hover:text-emerald-600")}
+                    title={singleStepRunning === step.id ? "執行中..." : "單獨執行此步驟"}
+                  >
+                    {singleStepRunning === step.id ? "⏳" : "🔄"}
+                  </button>
+                )}
               </div>
             ))}
           </div>
           {/* Footer */}
           <div className="px-5 py-3 border-t flex items-center justify-between" style={{ borderColor: "#f0f0f0" }}>
             <span className="text-sm text-stone-400">
-              {codeUnderstanding.running ? "AI 正在分析專案..." : `${codeUnderstanding.steps.filter(s => s.status === "done").length}/${codeUnderstanding.steps.length} 完成`}
+              {codeUnderstanding.running
+                ? "AI 正在分析專案..."
+                : singleStepRunning
+                  ? `正在執行 ${singleStepRunning}...`
+                  : `${codeUnderstanding.steps.filter(s => s.status === "done").length}/${codeUnderstanding.steps.length} 完成`}
             </span>
-            {!codeUnderstanding.running && codeUnderstanding.steps.some(s => s.status === "done") && (
-              <button onClick={() => { setShowCUModal(false); refreshData(); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
-                完成 ✅
-              </button>
-            )}
+            <div className="flex gap-2">
+              {/* Run All button — always available when not running */}
+              {!codeUnderstanding.running && (
+                <button
+                  onClick={() => { if (onStartCodeUnderstanding) { onStartCodeUnderstanding(); } }}
+                  disabled={singleStepRunning !== null}
+                  className="px-4 py-1.5 text-sm font-bold rounded-lg border transition-colors disabled:opacity-50"
+                  style={{ borderColor: "##bbf7d0", color: "#059669", backgroundColor: "#f0fdf4" }}
+                >
+                  🚀 全部執行
+                </button>
+              )}
+              {!codeUnderstanding.running && !singleStepRunning && codeUnderstanding.steps.some(s => s.status === "done") && (
+                <button onClick={() => { setShowCUModal(false); refreshData(); }} className="px-4 py-1.5 text-sm font-bold text-white rounded-lg bg-emerald-600 hover:bg-emerald-700">
+                  完成 ✅
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

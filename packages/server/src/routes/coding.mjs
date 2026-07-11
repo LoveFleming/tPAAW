@@ -1056,6 +1056,165 @@ export default async function projectRoute(req, res) {
 
     // ── AI Initialize — multi-step project knowledge auto-fill ──
 
+    // POST /api/coding-project/ai-initial-step — run a single Code Understanding step
+    if (url.startsWith("/api/coding-project/ai-initial-step") && method === "POST") {
+      const body = JSON.parse(await readBody(req));
+      const stepId = body.step;
+      const skipContext = body.skipContext === true; // if true, don't load accumulated context
+
+      const ALL_STEPS = [
+        { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
+        { id: "architecture", name: "🏗️ 產出 Architecture Map", promptFile: "gen-architecture.md" },
+        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
+        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
+        { id: "decisions", name: "🏛️ 產出 Decision Records (ADR)", promptFile: "gen-decisions.md" },
+        { id: "test-payload", name: "🧪 產出 Test Payloads", promptFile: "gen-test-payload.md" },
+        { id: "standards", name: "📏 產出 Coding Standards", promptFile: "gen-standards.md" },
+        { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
+        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+      ];
+      const step = ALL_STEPS.find(s => s.id === stepId);
+      if (!step) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Unknown step: ${stepId}` }));
+        return true;
+      }
+
+      // SSE stream
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      const sendEvent = (event, data) => { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
+
+      try {
+        await paaw.init();
+
+        // Gather project context
+        let projectContext = `Project root: ${root}\n`;
+        try {
+          const pkg = JSON.parse(readSync(join(root, "package.json"), "utf-8"));
+          projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`;
+        } catch {}
+        try {
+          const treeOutput = await runShellCmd("find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -name '*.map' | head -200", root);
+          projectContext += `\nFile tree:\n${treeOutput}`;
+        } catch {}
+        try {
+          const gitLog = await runShellCmd("git log --oneline -20", root);
+          projectContext += `\nRecent git log:\n${gitLog}`;
+        } catch {}
+
+        // Load prompt
+        const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
+        const loadPrompt = (filename) => {
+          try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
+        };
+        const loadProjectPrompt = (filename) => {
+          const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
+          if (existsSync(overridePath)) { try { return readSync(overridePath, "utf-8"); } catch {} }
+          return loadPrompt(filename);
+        };
+
+        sendEvent("step_start", { step: step.id, name: step.name });
+
+        const promptTemplate = loadProjectPrompt(step.promptFile);
+        if (!promptTemplate) {
+          sendEvent("step_skip", { step: step.id, name: step.name, reason: "Prompt template not found" });
+          sendEvent("done", { message: "Step skipped" });
+          res.end();
+          return true;
+        }
+
+        // Load accumulated context from existing .paaw/ files (unless skipContext)
+        let fullPrompt = promptTemplate;
+        fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
+        if (!skipContext) {
+          const loadCtx = async (file, label, maxLen = 3000) => {
+            try {
+              const content = await paaw.readFile(file);
+              if (content && content.trim()) {
+                fullPrompt += `\n\n--- ${label} ---\n${content.slice(0, maxLen)}`;
+              }
+            } catch {}
+          };
+          // Load context that this step might need
+          if (step.id !== "scan" && step.id !== "architecture") {
+            await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
+          }
+          if (step.id === "test-payload" || step.id === "faq" || step.id === "overview") {
+            await loadCtx("specs/api-contract.md", "API SPEC");
+          }
+          if (step.id === "faq" || step.id === "overview") {
+            await loadCtx("specs/error-codes.md", "ERROR MAPPING");
+          }
+          if (step.id === "standards" || step.id === "faq" || step.id === "overview") {
+            await loadCtx("DECISIONS.md", "DECISIONS", 2000);
+          }
+        }
+
+        // Call LLM with longer timeout for single step
+        try {
+          const result = await callProjectLLM({
+            messages: [{ role: "user", content: fullPrompt }],
+            temperature: 0.2,
+            maxTokens: 4000,
+          }, { timeoutMs: 120_000, maxRetries: 3 }); // 2 min timeout for single step
+
+          const content = result.content || "";
+          if (!content.trim()) {
+            sendEvent("step_error", { step: step.id, name: step.name, error: "Empty response from LLM" });
+            sendEvent("done", { message: "Step failed" });
+            res.end();
+            return true;
+          }
+
+          // Save output to .paaw/
+          if (step.id === "architecture") {
+            await paaw.writeFile("ARCHITECTURE.md", content);
+          } else if (step.id === "api-spec") {
+            await paaw.writeFile("specs/api-contract.md", content);
+          } else if (step.id === "error-mapping") {
+            await paaw.writeFile("specs/error-codes.md", content);
+            const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
+            for (const rm of runbookMatches) {
+              await paaw.writeFile(`runbook/${rm[1]}.md`, `# Runbook: ${rm[1]}\n\n${rm[2].trim()}`);
+            }
+          } else if (step.id === "decisions") {
+            await paaw.writeFile("DECISIONS.md", content);
+          } else if (step.id === "test-payload") {
+            await paaw.writeFile("test-payloads/all-payloads.json", content);
+            try {
+              const payloads = JSON.parse(content);
+              if (Array.isArray(payloads)) {
+                for (const p of payloads) {
+                  const slug = (p.endpoint || p.name || "unknown").replace(/[^a-zA-Z0-9-]/g, "-");
+                  await paaw.writeFile(`test-payloads/${slug}.json`, JSON.stringify(p, null, 2));
+                }
+              }
+            } catch {}
+          } else if (step.id === "standards") {
+            await paaw.writeFile("standards/coding-style.md", content);
+          } else if (step.id === "faq") {
+            await paaw.writeFile("helpdesk/faq.md", content);
+          } else if (step.id === "overview") {
+            await paaw.writeFile("PROJECT.md", content);
+          }
+
+          sendEvent("step_done", { step: step.id, name: step.name, size: content.length, preview: content.slice(0, 200) });
+        } catch (err) {
+          sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+        }
+        sendEvent("done", { message: "Step complete" });
+      } catch (err) {
+        sendEvent("error", { error: err.message });
+      }
+      res.end();
+      return true;
+    }
+
     // POST /api/coding-project/ai-initial (Code Understanding)
     if (url.startsWith("/api/coding-project/ai-initial") && method === "POST") {
       const steps = [
