@@ -761,10 +761,9 @@ function HandoffStatusPanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk
       const results: Record<string, "ok" | "template" | "missing"> = {};
       for (const f of HANDOFF_FILES) {
         try {
-          const res = await fetch(`${API_BASE}/api/vibe-file/read?path=${encodeURIComponent(rootPath + "/" + f.path)}`);
+          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(f.path)}`);
           if (!res.ok) { results[f.path] = "missing"; continue; }
-          const data = await res.json();
-          const content: string = data.content || "";
+          const content = await res.text();
           if (!content.trim() || content.includes("(待補充)") || content.includes("(auto-detect)") || content.length < 50) {
             results[f.path] = "template";
           } else {
