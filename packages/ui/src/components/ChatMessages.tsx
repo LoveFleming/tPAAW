@@ -23,12 +23,13 @@ export interface ChatToolBadge {
 }
 
 export interface ChatMessageItem {
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | string;
   content: string;
   ts?: string;
   timestamp?: number;
   _thinking?: boolean;
   _thinkingHistory?: string[];
+  [k: string]: any;
 }
 
 export interface ChatMessagesProps {

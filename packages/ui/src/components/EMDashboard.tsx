@@ -119,7 +119,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   };
 
   // ── Load persisted step statuses when opening Modal ──
-  const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number }>>([]);
+  const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
   const loadPersistedSteps = useCallback(async () => {
     if (!rootPath) return;
     const steps = [];
@@ -423,7 +423,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
-          <ChatMessages messages={messages} loading={loading} theme={tk} />
+          <ChatMessages messages={messages} loading={loading} accent={tk.accent} />
           <div ref={chatEndRef} />
         </div>
 

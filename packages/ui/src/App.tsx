@@ -114,7 +114,7 @@ function AppInner() {
   }, []);
 
   // ── UI State (server-side) ──
-  const uiStateRef = useRef<{ recentProjects: string[]; projectPaths: Record<string, string> } | null>(null);
+  const uiStateRef = useRef<{ recentProjects: string[]; projectPaths: Record<string, string>; [k: string]: any } | null>(null);
 
   const loadUiState = useCallback(async () => {
     try {
