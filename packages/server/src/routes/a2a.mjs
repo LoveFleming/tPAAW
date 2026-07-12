@@ -30,6 +30,33 @@ const DATA_DIR = resolve(PAAW_ROOT, "data");
 
 // ── Agent Rules — injected into every crew's system prompt ──
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
+import { readFileSync as readSync } from "fs";
+
+// ── Feature Map Summary (injected into system prompt) ──
+async function getFeatureSummary(cwd) {
+  if (!cwd) return "";
+  const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+  if (!existsSync(featuresFile)) return "";
+  try {
+    const data = JSON.parse(readSync(featuresFile, "utf-8"));
+    const features = data.features || [];
+    if (features.length === 0) return "";
+    const lines = features.map(f => {
+      const parts = [`- [${f.id}] ${f.name} (${f.status})`];
+      if (f.description) parts.push(`— ${f.description}`);
+      const meta = [];
+      if (f.codeFiles?.length) meta.push(`${f.codeFiles.length} code files`);
+      if (f.apis?.length) meta.push(`${f.apis.length} APIs`);
+      if (f.tests?.length) meta.push(`${f.tests.length} tests`);
+      if (f.issues?.length) meta.push(`${f.issues.length} issues`);
+      if (meta.length) parts.push(`→ ${meta.join(", ")}`);
+      return parts.join(" ");
+    }).join("\n");
+    return `\n## Feature Map (${features.length} features)\nUse project_feature_detail for full info on any feature.\n${lines}`;
+  } catch {
+    return "";
+  }
+}
 const TASKS_DIR = resolve(DATA_DIR, "a2a-tasks");
 const CONFIG_DIR = resolve(DATA_DIR, "config");
 const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk", "tickets.json");
@@ -585,6 +612,8 @@ export default async function a2aRoutes(req, res) {
             const extraContext = [];
             if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
+            const featureSummary = getFeatureSummary(rootDir);
+            if (featureSummary) extraContext.push(featureSummary);
             extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 
@@ -721,6 +750,8 @@ export default async function a2aRoutes(req, res) {
             const extraContext = [];
             if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
+            const featureSummary2 = getFeatureSummary(rootDir);
+            if (featureSummary2) extraContext.push(featureSummary2);
             extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 

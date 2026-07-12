@@ -178,6 +178,27 @@ export default async function projectRoute(req, res) {
       const extraContext = [];
       if (actionLogText) extraContext.push(`\n## Recent Action Log (跨 Agent 交接紀錄)\n${actionLogText}`);
       if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
+      // Inject feature map summary
+      const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
+      if (existsSync(featuresFile)) {
+        try {
+          const fData = JSON.parse(readSync(featuresFile, "utf-8"));
+          const feats = fData.features || [];
+          if (feats.length > 0) {
+            const fLines = feats.map(f => {
+              const p = [`- [${f.id}] ${f.name} (${f.status})`];
+              if (f.description) p.push(`— ${f.description}`);
+              const m = [];
+              if (f.codeFiles?.length) m.push(`${f.codeFiles.length} code`);
+              if (f.apis?.length) m.push(`${f.apis.length} APIs`);
+              if (f.tests?.length) m.push(`${f.tests.length} tests`);
+              if (m.length) p.push(`→ ${m.join(", ")}`);
+              return p.join(" ");
+            }).join("\n");
+            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_feature_detail for full info.\n${fLines}`);
+          }
+        } catch {}
+      }
       extraContext.push(AGENT_RULES);
       const fullSystemPrompt = systemPrompt + extraContext.join("");
 
