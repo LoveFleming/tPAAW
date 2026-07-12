@@ -8,6 +8,6 @@
   "preferences": {
     "employee_ai.factory-assistant": "zai/glm-5",
     "skillBuilder": "zai/glm-5.1",
-    "undefined": "openrouter/deepseek/deepseek-v4-flash"
+    "undefined": "zai/glm-5.1"
   }
 }

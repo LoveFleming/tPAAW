@@ -404,6 +404,49 @@ const PAAW_TOOLS = [
     },
   },
 
+  {
+    type: "function",
+    function: {
+      name: "project_features",
+      description: "List all project features with their code files, APIs, tests, runbooks, and linked issues. Use this to understand what features exist and how they map to code. Do NOT read .paaw/features/ directly.",
+      parameters: {
+        type: "object",
+        properties: {
+          search: { type: "string", description: "Search features by name or description" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_feature_detail",
+      description: "Get full detail of a single feature including AI understanding, documentation, code files, APIs, tests, runbooks, and linked issues.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Feature ID (e.g. F-001)" },
+        },
+        required: ["id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_feature_update_docs",
+      description: "Update the documentation for a feature. Use this when you've made code changes and need to update the feature's docs to reflect the changes.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Feature ID (e.g. F-001)" },
+          documentation: { type: "string", description: "New documentation content in markdown" },
+        },
+        required: ["id", "documentation"],
+      },
+    },
+  },
+
   // ── Action Log (Agent Memory / Handoff) ──
   {
     type: "function",
@@ -917,6 +960,99 @@ ${summary}`;
 ${list || "(none)"}`;
       }
 
+      case "project_features": {
+        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+        if (!existsSync(featuresFile)) return "(No features registered yet. Use the Feature Map tab in Coding IDE to create features.)";
+        try {
+          const data = JSON.parse(readSync(featuresFile, "utf-8"));
+          let features = data.features || [];
+          if (args.search) {
+            const s = args.search.toLowerCase();
+            features = features.filter(f =>
+              f.name?.toLowerCase().includes(s) ||
+              f.description?.toLowerCase().includes(s)
+            );
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${features.length} features` });
+          if (features.length === 0) return "(No matching features found)";
+          const list = features.map(f => {
+            const parts = [`[${f.id}] ${f.name} (${f.status})`];
+            if (f.description) parts.push(`  ${f.description}`);
+            if (f.codeFiles?.length) parts.push(`  Code: ${f.codeFiles.join(", ")}`);
+            if (f.apis?.length) parts.push(`  API: ${f.apis.map(a => `${a.method} ${a.path}`).join(", ")}`);
+            if (f.tests?.length) parts.push(`  Tests: ${f.tests.join(", ")}`);
+            if (f.issues?.length) parts.push(`  Issues: ${f.issues.join(", ")}`);
+            if (f.aiUnderstanding) parts.push(`  AI Understanding: ✅ (${f.aiUnderstandingAt})`);
+            if (f.documentation) parts.push(`  Docs: ✅ (${f.docsUpdatedAt})`);
+            return parts.join("\n");
+          }).join("\n\n");
+          return `Features (${features.length}):\n\n${list}`;
+        } catch (err) {
+          return `Error reading features: ${err.message}`;
+        }
+      }
+
+      case "project_feature_detail": {
+        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+        if (!existsSync(featuresFile)) return "(No features registered)";
+        try {
+          const data = JSON.parse(readSync(featuresFile, "utf-8"));
+          const feature = (data.features || []).find(f => f.id === args.id);
+          if (!feature) return `Feature ${args.id} not found`;
+          if (onEvent) onEvent({ type: "tool_end", name, result: feature.name });
+          const parts = [
+            `# Feature: ${feature.name} (${feature.id})`,
+            `Status: ${feature.status}`,
+            ``,
+            `## Description`,
+            feature.description || "(no description)",
+          ];
+          if (feature.codeFiles?.length) {
+            parts.push(``, `## Code Files`, feature.codeFiles.map(f => `- ${f}`).join("\n"));
+          }
+          if (feature.apis?.length) {
+            parts.push(``, `## API Endpoints`, feature.apis.map(a => `- ${a.method} ${a.path} (${a.file})`).join("\n"));
+          }
+          if (feature.tests?.length) {
+            parts.push(``, `## Tests`, feature.tests.map(f => `- ${f}`).join("\n"));
+          }
+          if (feature.runbooks?.length) {
+            parts.push(``, `## Runbooks`, feature.runbooks.map(f => `- ${f}`).join("\n"));
+          }
+          if (feature.issues?.length) {
+            parts.push(``, `## Linked Issues`, feature.issues.join(", "));
+          }
+          if (feature.aiUnderstanding) {
+            parts.push(``, `## AI Understanding`, `*Generated: ${feature.aiUnderstandingAt}*`, feature.aiUnderstanding);
+          }
+          if (feature.documentation) {
+            parts.push(``, `## Documentation`, `*Updated: ${feature.docsUpdatedAt}*`, feature.documentation);
+          }
+          return parts.join("\n");
+        } catch (err) {
+          return `Error: ${err.message}`;
+        }
+      }
+
+      case "project_feature_update_docs": {
+        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+        if (!existsSync(featuresFile)) return "⚠️ No features registered.";
+        try {
+          const data = JSON.parse(readSync(featuresFile, "utf-8"));
+          const features = data.features || [];
+          const idx = features.findIndex(f => f.id === args.id);
+          if (idx < 0) return `Feature ${args.id} not found`;
+          features[idx].documentation = args.documentation;
+          features[idx].docsUpdatedAt = new Date().toISOString();
+          features[idx].updatedAt = new Date().toISOString();
+          await writeFile(featuresFile, JSON.stringify({ features, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `updated ${args.id}` });
+          return `✅ Documentation updated for feature ${features[idx].name} (${args.id})`;
+        } catch (err) {
+          return `Error updating docs: ${err.message}`;
+        }
+      }
+
       // ══════════════════════════════════════════
       // ── Project Knowledge Write Tools ──
       // ══════════════════════════════════════════
@@ -1108,7 +1244,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features with code/API/test/issue mapping\n- **project_feature_detail** — Get full detail of one feature (understanding, docs, all mappings)\n- **project_feature_update_docs** — Update a feature's documentation after code changes\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
