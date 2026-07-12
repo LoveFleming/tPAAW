@@ -40,6 +40,7 @@ import DecisionLog from "../components/DecisionLog";
 import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
+import AgentMemoryPanel from "../components/AgentMemoryPanel";
 
 // ── Types ──
 interface FsItem {
@@ -62,7 +63,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues";
+type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory";
 
 interface MainTab {
   id: string;
@@ -1763,6 +1764,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:issues") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:issues" ? tk.toolbarActive : "transparent"; }}
           title={tt("issue.title")}>📋 Issues</button>
+        <button onClick={() => openMainTab({ id: "tool:memory", type: "memory", label: "Memory", icon: "🧠", closable: true })}
+          className={cn("flex items-center gap-1.5 text-sm px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:memory" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:memory") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:memory") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:memory" ? tk.toolbarActive : "transparent"; }}
+          title={tt("memory.title")}>🧠 Memory</button>
       </div>
 
       {/* ── Main Content ── */}
@@ -2567,6 +2574,16 @@ const sendChat = useCallback(async () => {
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
+                />
+              </div>
+            )}
+
+            {/* === MEMORY TAB === */}
+            {activeMainTab?.type === "memory" && rootPath && (
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+                <AgentMemoryPanel
+                  rootPath={rootPath}
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                 />
               </div>
             )}

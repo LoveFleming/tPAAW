@@ -469,5 +469,17 @@
   "issue.statusLabel": "狀態",
   "issue.priorityLabel": "優先級",
   "issue.labelsLabel": "標籤",
-  "issue.labelsPlaceholder": "逗號分隔，例：bug, frontend, urgent"
+  "issue.labelsPlaceholder": "逗號分隔，例：bug, frontend, urgent",
+  "memory.title": "Agent 記憶",
+  "memory.new": "新增",
+  "memory.newAgent": "新增 Agent Memory",
+  "memory.loading": "Loading...",
+  "memory.empty": "尚無 memory 檔案",
+  "memory.emptyHint": "Agent 聊天時學到的東西會自動存到這裡",
+  "memory.selectPrompt": "選擇左側 Agent 查看 memory",
+  "memory.unsaved": "未儲存",
+  "memory.save": "儲存",
+  "memory.revert": "還原",
+  "memory.editorPlaceholder": "Agent memory 將顯示在這裡...",
+  "memory.hint": "Agent 聊天時學到的 lessons 和偏好會存在這裡"
 }
