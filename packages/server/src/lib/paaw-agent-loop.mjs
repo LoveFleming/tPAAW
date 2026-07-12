@@ -329,6 +329,81 @@ const PAAW_TOOLS = [
       },
     },
 
+  // ── Project Knowledge Read Tools (structured .paaw/ access) ──
+  {
+    type: "function",
+    function: {
+      name: "project_context",
+      description: "Get the full .paaw/ project context: PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md. Use this FIRST to understand the project before doing any work. Do NOT read_file these directly.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_decisions",
+      description: "Read architectural decisions (ADRs) from .paaw/DECISIONS.md. Returns structured decision records. Use this to understand why certain technical choices were made.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_standards",
+      description: "List and read coding standards from .paaw/standards/. Returns available standard names and their content. Use this to check project conventions before writing code.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Specific standard to read (e.g. 'coding-style'). If omitted, lists all available standards." },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_changelog",
+      description: "Read the project changelog from .paaw/CHANGELOG.md. Returns recent changes organized by type. Use this to understand what was recently changed.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_issues",
+      description: "List project issues from .paaw/issues/ISSUES.json. Supports filtering by status and priority. Use this to find known bugs and tasks instead of reading the JSON file directly.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", description: "Filter by status: open, in-progress, resolved, closed, wontfix (comma-separated for multiple)" },
+          priority: { type: "string", description: "Filter by priority: critical, high, medium, low (comma-separated)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_sessions",
+      description: "List recent coding sessions from .paaw/sessions/. Returns session filenames and dates. Use this to see what work was done previously.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Max sessions to return (default: 5)" },
+        },
+      },
+    },
+  },
+
   // ── Action Log (Agent Memory / Handoff) ──
   {
     type: "function",
@@ -756,6 +831,96 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         }
       }
 
+      // ══════════════════════════════════════════
+      // ── Project Knowledge Read Tools (structured .paaw/ access) ──
+      // ══════════════════════════════════════════
+
+      case "project_context": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) return "⚠️ .paaw/ not initialized for this project.";
+        const ctx = await paaw.loadContextText();
+        if (onEvent) onEvent({ type: "tool_end", name, result: ctx ? `${ctx.length} chars` : "empty" });
+        return ctx || "(No project context found)";
+      }
+
+      case "project_decisions": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+        try {
+          const content = await paaw.readFile("DECISIONS.md");
+          if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
+          return content || "(No decisions recorded yet)";
+        } catch {
+          return "(No DECISIONS.md found)";
+        }
+      }
+
+      case "project_standards": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+        if (args.name) {
+          const content = await paaw.readStandard(args.name);
+          if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "not found" });
+          return content || `Standard '${args.name}' not found.`;
+        }
+        const standards = await paaw.listStandards();
+        const list = standards.map(s => `- ${s.name} (${s.size} bytes)`).join("\n");
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${standards.length} standards` });
+        return `Available standards:\n${list || "(none)"}`;
+      }
+
+      case "project_changelog": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+        try {
+          const content = await paaw.readFile("CHANGELOG.md");
+          if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
+          return content || "(No changelog yet)";
+        } catch {
+          return "(No CHANGELOG.md found)";
+        }
+      }
+
+      case "project_issues": {
+        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+        if (!existsSync(issuesFile)) return "(No issues tracking initialized)";
+        try {
+          const data = JSON.parse(readSync(issuesFile, "utf-8"));
+          let issues = data.issues || [];
+          if (args.status) {
+            const statuses = args.status.split(",").map(s => s.trim());
+            issues = issues.filter(i => statuses.includes(i.status));
+          }
+          if (args.priority) {
+            const priorities = args.priority.split(",").map(p => p.trim());
+            issues = issues.filter(i => priorities.includes(i.priority));
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${issues.length} issues` });
+          if (issues.length === 0) return "(No matching issues found)";
+          const summary = issues.map(i => `[${i.id}] ${i.status} | ${i.priority} | ${i.title}${i.labels?.length ? ` [${i.labels.join(",")}]` : ""}`).join("\n");
+          return `Issues (${issues.length}):
+${summary}`;
+        } catch (err) {
+          return `Error reading issues: ${err.message}`;
+        }
+      }
+
+      case "project_sessions": {
+        const paaw = createPaawProject(cwd);
+        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+        const sessions = await paaw.listSessions();
+        const limit = args.limit || 5;
+        const recent = sessions.slice(0, limit);
+        const list = recent.map(s => `- ${s.filename || s.name} (${s.date || "unknown"})`).join("\n");
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${recent.length} sessions` });
+        return `Recent sessions (${recent.length} of ${sessions.length}):
+${list || "(none)"}`;
+      }
+
+      // ══════════════════════════════════════════
+      // ── Project Knowledge Write Tools ──
+      // ══════════════════════════════════════════
+
       case "record_decision": {
         const paaw = createPaawProject(cwd);
         if (!paaw.exists) {
@@ -943,7 +1108,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n- **read_file** — Read file contents\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n- **ask_user** — Ask for clarification`);
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

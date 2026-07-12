@@ -12,6 +12,20 @@
 export const AGENT_RULES = `
 ## 工作規則
 
+### 查詢專案資訊（重要！）
+你需要了解專案時，**必須優先使用 project_* tools**，不要用 read_file 去讀 .paaw/ 目錄下的檔案：
+- **project_context** — 取得 PROJECT.md、ARCHITECTURE.md、STATUS.md、CODING-STANDARDS.md
+- **project_decisions** — 讀取架構決策 (ADR)
+- **project_standards** — 列出/讀取 coding standards
+- **project_changelog** — 讀取近期變更
+- **project_issues** — 列出/篩選專案問題
+- **project_sessions** — 列出近期 coding sessions
+
+❌ 不要 read_file(".paaw/DECISIONS.md") → 用 project_decisions
+❌ 不要 read_file(".paaw/CODING-STANDARDS.md") → 用 project_context 或 project_standards
+❌ 不要 read_file(".paaw/issues/ISSUES.json") → 用 project_issues
+✅ read_file 只用來讀「原始碼」，不用來讀 .paaw/ 專案知識
+
 ### 動作記錄（必須）
 完成任務後，你**必須**用 action_log_add 記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。
 
@@ -42,4 +56,5 @@ export const AGENT_RULES = `
 - **agent_memory** = 你個人的長期記憶（教訓、偏好、慣例）
 - **action_log** = 這次操作的記錄（做了什麼、改了哪些檔）
 - **record_decision** = 架構決策（為什麼選 A 不選 B）→ 寫入 DECISIONS.md
+- **project_*** = 結構化讀取 .paaw/ 專案知識（不透過 read_file）
 `;
