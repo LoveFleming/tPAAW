@@ -503,5 +503,9 @@
   "feature.docsPlaceholder": "Markdownでドキュメントを書く...",
   "feature.noDocs": "ドキュメントなし、編集をクリックして追加",
   "feature.refreshMapping": "マッピング更新",
-  "feature.refreshed": "更新済み"
+  "feature.refreshed": "更新済み",
+  "feature.byFeature": "機能別",
+  "feature.byFile": "ファイル別",
+  "feature.noFiles": "マッピングされたファイルなし",
+  "feature.filesMapped": "マッピング済みファイル"
 }

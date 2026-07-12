@@ -52,7 +52,25 @@ async function getFeatureSummary(cwd) {
       if (meta.length) parts.push(`→ ${meta.join(", ")}`);
       return parts.join(" ");
     }).join("\n");
-    return `\n## Feature Map (${features.length} features)\nUse project_feature_detail for full info on any feature.\n${lines}`;
+
+    // Build file→feature reverse index
+    const fileMap = {};
+    for (const f of features) {
+      const allFiles = [
+        ...(f.codeFiles || []),
+        ...(f.tests || []),
+        ...(f.runbooks || []),
+        ...(f.apis || []).map(a => a.file).filter(Boolean),
+      ];
+      for (const file of allFiles) {
+        if (!fileMap[file]) fileMap[file] = [];
+        fileMap[file].push(`${f.id} ${f.name}`);
+      }
+    }
+    const sortedFiles = Object.keys(fileMap).sort();
+    const fileLines = sortedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
+
+    return `\n## Feature Map (${features.length} features)\nUse project_feature_detail for full info on any feature.\n${lines}\n\n## File → Feature Index (${sortedFiles.length} files)\nWhen you read or edit a file, check which feature it belongs to here.\n${fileLines}`;
   } catch {
     return "";
   }

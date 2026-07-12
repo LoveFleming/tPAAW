@@ -82,6 +82,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
   const [docsContent, setDocsContent] = useState("");
   const [savingDocs, setSavingDocs] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<"features" | "files">("features");
 
   const basePath = `${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`;
 
@@ -195,19 +196,38 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
       {/* === Left: Feature List === */}
       <div className="w-72 flex flex-col border-r shrink-0" style={{ borderColor: theme.borderLight }}>
         {/* Header */}
-        <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
-          <span className="text-sm font-semibold" style={{ color: theme.text }}>
-            🗺️ {t("feature.title")}
-          </span>
-          <div className="flex gap-1">
-            <button onClick={() => handleRefreshMapping()} disabled={refreshing} className="text-xs px-1.5 py-0.5 rounded" style={{ background: refreshing ? theme.bgMuted : theme.accentBg, color: refreshing ? theme.text : theme.accent, opacity: refreshing ? 0.5 : 1 }} title={t("feature.refreshMapping")}>
-              {refreshing ? "⏳" : "🔄"} {t("feature.refreshMapping")}
+        <div className="px-3 py-2 flex flex-col gap-1.5" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold" style={{ color: theme.text }}>
+              🗺️ {t("feature.title")}
+            </span>
+            <div className="flex gap-1">
+              <button onClick={() => handleRefreshMapping()} disabled={refreshing} className="text-xs px-1.5 py-0.5 rounded" style={{ background: refreshing ? theme.bgMuted : theme.accentBg, color: refreshing ? theme.text : theme.accent, opacity: refreshing ? 0.5 : 1 }} title={t("feature.refreshMapping")}>
+                {refreshing ? "⏳" : "🔄"}
+              </button>
+              <button onClick={() => setShowCreate(!showCreate)} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
+                +
+              </button>
+              <button onClick={() => fetchFeatures()} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.5 }}>
+                ↻
+              </button>
+            </div>
+          </div>
+          {/* View mode toggle */}
+          <div className="flex rounded overflow-hidden" style={{ border: `1px solid ${theme.borderLight}` }}>
+            <button
+              onClick={() => setViewMode("features")}
+              className="flex-1 text-xs py-0.5 transition-colors"
+              style={{ background: viewMode === "features" ? theme.accentBg : theme.bg, color: viewMode === "features" ? theme.accent : theme.text, opacity: viewMode === "features" ? 1 : 0.5 }}
+            >
+              🗺️ {t("feature.byFeature")}
             </button>
-            <button onClick={() => setShowCreate(!showCreate)} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-              + {t("feature.new")}
-            </button>
-            <button onClick={() => fetchFeatures()} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.bg, color: theme.text, opacity: 0.5 }}>
-              🔄
+            <button
+              onClick={() => setViewMode("files")}
+              className="flex-1 text-xs py-0.5 transition-colors"
+              style={{ background: viewMode === "files" ? theme.accentBg : theme.bg, color: viewMode === "files" ? theme.accent : theme.text, opacity: viewMode === "files" ? 1 : 0.5 }}
+            >
+              📄 {t("feature.byFile")}
             </button>
           </div>
         </div>
@@ -241,7 +261,8 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
               <div className="text-sm">{t("feature.empty")}</div>
               <div className="text-xs">{t("feature.emptyHint")}</div>
             </div>
-          ) : (
+          ) : viewMode === "features" ? (
+            /* Feature list (original) */
             features.map(f => {
               const st = STATUS_STYLES[f.status] || STATUS_STYLES.active;
               const isSelected = f.id === selectedId;
@@ -273,6 +294,9 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
                 </div>
               );
             })
+          ) : (
+            /* File → Feature list (reverse view) */
+            <FileToFeatureList features={features} theme={theme} t={t} searchQuery={searchQuery} onSelectFeature={(id) => { setSelectedId(id); setEditingDocs(false); }} onOpenFile={onOpenFile} />
           )}
         </div>
       </div>
@@ -495,6 +519,107 @@ function FeatureDetail({ feature, theme, t, onOpenFile, understanding, onUnderst
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── File → Feature reverse view ──
+function FileToFeatureList({ features, theme, t, searchQuery, onSelectFeature, onOpenFile }: {
+  features: Feature[];
+  theme: any;
+  t: (k: string) => string;
+  searchQuery: string;
+  onSelectFeature: (id: string) => void;
+  onOpenFile?: (p: string) => void;
+}) {
+  // Build file → [features] map
+  const fileMap: Record<string, { id: string; name: string; type: string }[]> = {};
+  for (const f of features) {
+    for (const file of f.codeFiles || []) {
+      if (!fileMap[file]) fileMap[file] = [];
+      fileMap[file].push({ id: f.id, name: f.name, type: "📄" });
+    }
+    for (const file of f.tests || []) {
+      if (!fileMap[file]) fileMap[file] = [];
+      fileMap[file].push({ id: f.id, name: f.name, type: "🧪" });
+    }
+    for (const file of f.runbooks || []) {
+      if (!fileMap[file]) fileMap[file] = [];
+      fileMap[file].push({ id: f.id, name: f.name, type: "📖" });
+    }
+    for (const a of f.apis || []) {
+      if (a.file && !fileMap[a.file]) fileMap[a.file] = [];
+      if (a.file) fileMap[a.file].push({ id: f.id, name: f.name, type: "🌐" });
+    }
+  }
+
+  const sortedFiles = Object.keys(fileMap).sort();
+  const filtered = searchQuery
+    ? sortedFiles.filter(f => f.toLowerCase().includes(searchQuery.toLowerCase()))
+    : sortedFiles;
+
+  // Group by directory
+  const grouped: Record<string, { file: string; features: { id: string; name: string; type: string }[] }[]> = {};
+  for (const file of filtered) {
+    const dir = file.split("/").slice(0, -1).join("/") || ".";
+    if (!grouped[dir]) grouped[dir] = [];
+    grouped[dir].push({ file, features: fileMap[file] });
+  }
+
+  if (filtered.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2 p-4 text-center" style={{ color: theme.text, opacity: 0.4 }}>
+        <div className="text-3xl">📄</div>
+        <div className="text-sm">{t("feature.noFiles")}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="px-3 py-1.5 text-[10px]" style={{ color: theme.text, opacity: 0.4, borderBottom: `1px solid ${theme.borderLight}` }}>
+        {filtered.length} {t("feature.filesMapped")}
+      </div>
+      {Object.entries(grouped).map(([dir, entries]) => (
+        <div key={dir}>
+          <div className="px-3 py-1 text-[10px] font-mono sticky top-0" style={{ color: theme.text, opacity: 0.3, background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
+            📁 {dir}/
+          </div>
+          {entries.map(({ file, features: feats }) => (
+            <div
+              key={file}
+              className="px-3 py-1.5 border-b flex items-center gap-2"
+              style={{ borderColor: theme.borderLight }}
+            >
+              <button
+                onClick={() => onOpenFile?.(file)}
+                className="text-xs font-mono truncate flex-1 text-left hover:underline"
+                style={{ color: theme.accent }}
+                title={file}
+              >
+                {file.split("/").pop()}
+              </button>
+              <div className="flex flex-wrap gap-1 shrink-0">
+                {feats.map((ft, i) => {
+                  const feat = features.find(f => f.id === ft.id);
+                  const st = feat ? STATUS_STYLES[feat.status] || STATUS_STYLES.active : null;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => onSelectFeature(ft.id)}
+                      className="text-[10px] px-1.5 py-0.5 rounded transition-opacity hover:opacity-100"
+                      style={{ background: st?.bg || theme.bgMuted, color: st?.text || theme.text, opacity: 0.7 }}
+                      title={`${ft.type} ${ft.name}`}
+                    >
+                      {ft.type} {ft.id}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

@@ -509,5 +509,9 @@
   "feature.docsPlaceholder": "用 Markdown 撰寫 feature 文件...",
   "feature.noDocs": "尚無文件，點 edit 新增",
   "feature.refreshMapping": "Refresh Mapping",
-  "feature.refreshed": "已更新"
+  "feature.refreshed": "已更新",
+  "feature.byFeature": "By Feature",
+  "feature.byFile": "By File",
+  "feature.noFiles": "沒有已映射的檔案",
+  "feature.filesMapped": "個已映射檔案"
 }

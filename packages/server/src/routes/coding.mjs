@@ -195,7 +195,23 @@ export default async function projectRoute(req, res) {
               if (m.length) p.push(`→ ${m.join(", ")}`);
               return p.join(" ");
             }).join("\n");
-            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_feature_detail for full info.\n${fLines}`);
+            // Build file→feature reverse index
+            const fileMap = {};
+            for (const f of feats) {
+              const allFiles = [
+                ...(f.codeFiles || []),
+                ...(f.tests || []),
+                ...(f.runbooks || []),
+                ...(f.apis || []).map(a => a.file).filter(Boolean),
+              ];
+              for (const file of allFiles) {
+                if (!fileMap[file]) fileMap[file] = [];
+                fileMap[file].push(`${f.id} ${f.name}`);
+              }
+            }
+            const sortedFiles = Object.keys(fileMap).sort();
+            const fileLines = sortedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
+            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_feature_detail for full info.\n${fLines}\n\n## File → Feature Index (${sortedFiles.length} files)\n${fileLines}`);
           }
         } catch {}
       }

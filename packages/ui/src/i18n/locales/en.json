@@ -503,5 +503,9 @@
   "feature.docsPlaceholder": "Write feature documentation in Markdown...",
   "feature.noDocs": "No documentation yet, click edit to add",
   "feature.refreshMapping": "Refresh Mapping",
-  "feature.refreshed": "Updated"
+  "feature.refreshed": "Updated",
+  "feature.byFeature": "By Feature",
+  "feature.byFile": "By File",
+  "feature.noFiles": "No mapped files",
+  "feature.filesMapped": "mapped files"
 }
