@@ -9,14 +9,49 @@
  *   POST   /api/coding-memory/:agentId/append?path=...    — Append to agent memory
  */
 
-import { readFile, writeFile, readdir, unlink, mkdir } from "fs/promises";
-import { existsSync } from "fs";
+import { readFile, writeFile, readdir, unlink, mkdir, stat } from "fs/promises";
+import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody } from "./shared.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// ── Crew metadata cache ──
+let _crewCache = null;
+let _crewCacheTime = 0;
+
+function loadCrewMetadata() {
+  const CREWS_DIR = resolve(__dirname, "..", "..", "..", "..", "data", "crews");
+  const now = Date.now();
+  if (_crewCache && now - _crewCacheTime < 10_000) return _crewCache;
+  _crewCache = {};
+  _crewCacheTime = now;
+  try {
+    const files = readdirSync(CREWS_DIR);
+    for (const f of files) {
+      if (f.startsWith("coding.") && f.endsWith(".json")) {
+        try {
+          const crew = JSON.parse(readSync(join(CREWS_DIR, f), "utf-8"));
+          const agentId = crew.id?.replace(/^coding\./, "");
+          if (agentId) {
+            _crewCache[agentId] = {
+              crewId: crew.id,
+              title: crew.title || agentId,
+              codename: crew.codename || "",
+              imageUrl: crew.imageUrl || "",
+              description: crew.description || "",
+            };
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return _crewCache;
+}
+
+import { readdirSync } from "fs";
 
 function parseQuery(rawUrl) {
   const qIdx = rawUrl.indexOf("?");
@@ -58,24 +93,43 @@ export default async function codingMemoryRoute(req, res) {
   // ── GET /api/coding-memory (list all) ──
   if (url === "/api/coding-memory" && method === "GET") {
     try {
-      const files = await readdir(memDir);
-      const mdFiles = files.filter(f => f.endsWith(".md"));
+      const crews = loadCrewMetadata();
+      const crewAgentIds = Object.keys(crews);
+      const memDir_ = memDir;
+      
+      // Merge: all crew agents + any extra .md files in AGENT-MEMORY/
+      const existingFiles = existsSync(memDir_) ? (await readdir(memDir_)).filter(f => f.endsWith(".md")) : [];
+      const existingAgentIds = new Set(existingFiles.map(f => f.replace(/\.md$/, "")));
+      const allAgentIds = new Set([...crewAgentIds, ...existingAgentIds]);
+
       const memories = [];
-      for (const f of mdFiles) {
-        const agentId = f.replace(/\.md$/, "");
-        try {
-          const content = await readFile(join(memDir, f), "utf-8");
-          memories.push({
-            agentId,
-            filename: f,
-            size: content.length,
-            preview: content.slice(0, 200),
-            lines: content.split("\n").length,
-            updatedAt: (await import("fs/promises")).then(({ stat }) => stat(join(memDir, f))).then(s => s.mtime.toISOString()).catch(() => null),
-          });
-        } catch {
-          memories.push({ agentId, filename: f, size: 0, preview: "", lines: 0, updatedAt: null });
+      for (const agentId of allAgentIds) {
+        const crew = crews[agentId] || null;
+        const filePath = join(memDir_, `${agentId}.md`);
+        const hasFile = existingAgentIds.has(agentId);
+        let size = 0, preview = "", lines = 0, updatedAt = null;
+        if (hasFile) {
+          try {
+            const content = await readFile(filePath, "utf-8");
+            size = content.length;
+            preview = content.slice(0, 300);
+            lines = content.split("\n").length;
+            try { updatedAt = (await stat(filePath)).mtime.toISOString(); } catch {}
+          } catch {}
         }
+        memories.push({
+          agentId,
+          crewId: crew?.crewId || null,
+          title: crew?.title || agentId,
+          codename: crew?.codename || "",
+          imageUrl: crew?.imageUrl || "",
+          description: crew?.description || "",
+          hasMemory: hasFile,
+          size,
+          preview,
+          lines,
+          updatedAt,
+        });
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ memories }));

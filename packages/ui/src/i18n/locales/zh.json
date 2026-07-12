@@ -474,5 +474,9 @@
   "memory.save": "儲存",
   "memory.revert": "還原",
   "memory.editorPlaceholder": "Agent 記憶將顯示在這裡...",
-  "memory.hint": "Agent 聊天時學到的教訓和偏好會存在這裡"
+  "memory.hint": "Agent 聊天時學到的教訓和偏好會存在這裡",
+  "memory.noMemory": "無記憶",
+  "memory.noMemoryYet": "還沒有記憶",
+  "memory.createTemplate": "建立記憶模板",
+  "memory.refresh": "重新整理"
 }

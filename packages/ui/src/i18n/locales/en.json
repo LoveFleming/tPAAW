@@ -474,5 +474,9 @@
   "memory.save": "Save",
   "memory.revert": "Revert",
   "memory.editorPlaceholder": "Agent memory will appear here...",
-  "memory.hint": "Lessons and preferences learned by agents are stored here"
+  "memory.hint": "Lessons and preferences learned by agents are stored here",
+  "memory.noMemory": "empty",
+  "memory.noMemoryYet": "has no memory yet",
+  "memory.createTemplate": "Create Memory Template",
+  "memory.refresh": "Refresh"
 }

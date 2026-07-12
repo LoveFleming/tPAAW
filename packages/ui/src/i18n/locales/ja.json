@@ -474,5 +474,9 @@
   "memory.save": "保存",
   "memory.revert": "元に戻す",
   "memory.editorPlaceholder": "エージェントのメモリがここに表示されます...",
-  "memory.hint": "エージェントが学んだ教訓や好みがここに保存されます"
+  "memory.hint": "エージェントが学んだ教訓や好みがここに保存されます",
+  "memory.noMemory": "メモリなし",
+  "memory.noMemoryYet": "まだメモリがありません",
+  "memory.createTemplate": "メモリテンプレートを作成",
+  "memory.refresh": "更新"
 }
