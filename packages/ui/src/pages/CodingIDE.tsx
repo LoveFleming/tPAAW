@@ -430,6 +430,7 @@ export default function CodingIDE() {
       { id: "standards", name: "📏 產出 Coding Standards" },
       { id: "faq", name: "🤖 產出 HelpDesk FAQ" },
       { id: "overview", name: "📊 產出 PROJECT.md" },
+      { id: "feature-map", name: "🗺️ 產出 Feature Map" },
     ];
     setAiInitSteps(steps.map(s => ({ ...s, status: "pending" as const })));
 

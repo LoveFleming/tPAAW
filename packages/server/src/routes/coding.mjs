@@ -1082,6 +1082,7 @@ export default async function projectRoute(req, res) {
         { id: "standards", name: "📏 產出 Coding Standards", promptFile: "gen-standards.md" },
         { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
         { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+        { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
       if (!step) {
@@ -1157,13 +1158,13 @@ export default async function projectRoute(req, res) {
           if (step.id !== "scan" && step.id !== "architecture") {
             await loadCtx("ARCHITECTURE.md", "ARCHITECTURE");
           }
-          if (step.id === "test-payload" || step.id === "faq" || step.id === "overview") {
+          if (step.id === "test-payload" || step.id === "faq" || step.id === "overview" || step.id === "feature-map") {
             await loadCtx("specs/api-contract.md", "API SPEC");
           }
-          if (step.id === "faq" || step.id === "overview") {
+          if (step.id === "faq" || step.id === "overview" || step.id === "feature-map") {
             await loadCtx("specs/error-codes.md", "ERROR MAPPING");
           }
-          if (step.id === "standards" || step.id === "faq" || step.id === "overview") {
+          if (step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map") {
             await loadCtx("DECISIONS.md", "DECISIONS", 2000);
           }
         }
@@ -1218,6 +1219,32 @@ export default async function projectRoute(req, res) {
               await paaw.writeFile("helpdesk/faq.md", content);
             } else if (step.id === "overview") {
               await paaw.writeFile("PROJECT.md", content);
+            } else if (step.id === "feature-map") {
+              // Parse AI output as JSON array and write to FEATURES.json
+              try {
+                const cleanJson = content.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
+                const features = JSON.parse(cleanJson);
+                if (Array.isArray(features)) {
+                  const featuresWithIds = features.map((f, i) => ({
+                    ...f,
+                    id: `F-${String(i + 1).padStart(3, "0")}`,
+                    issues: [],
+                    aiUnderstanding: "",
+                    aiUnderstandingAt: null,
+                    documentation: "",
+                    docsUpdatedAt: null,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }));
+                  const featuresDir = join(root, ".paaw", "features");
+                  if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                  await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                }
+              } catch (parseErr) {
+                cuLog(step.id, `Failed to parse feature JSON: ${parseErr.message}`);
+                // Save raw output as fallback
+                await paaw.writeFile("features/raw-feature-map.txt", content);
+              }
             }
             cuLog(step.id, `wrote file OK (${content.length} chars)`);
           } catch (writeErr) {
@@ -1249,6 +1276,7 @@ export default async function projectRoute(req, res) {
         { id: "standards", name: "📏 產出 Coding Standards", promptFile: "gen-standards.md" },
         { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
         { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+        { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
       ];
 
       // SSE stream — send progress as each step completes
@@ -1321,16 +1349,16 @@ export default async function projectRoute(req, res) {
           let fullPrompt = promptTemplate;
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
-          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "standards" || step.id === "faq" || step.id === "overview")) {
+          if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, 3000)}`;
           }
-          if (apiSpecResult && (step.id === "test-payload" || step.id === "faq" || step.id === "overview")) {
+          if (apiSpecResult && (step.id === "test-payload" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
           }
-          if (errorMappingResult && (step.id === "faq" || step.id === "overview")) {
+          if (errorMappingResult && (step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- ERROR MAPPING ---\n${errorMappingResult}`;
           }
-          if (decisionsResult && (step.id === "standards" || step.id === "faq" || step.id === "overview")) {
+          if (decisionsResult && (step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
           }
 
@@ -1385,6 +1413,31 @@ export default async function projectRoute(req, res) {
                 await paaw.writeFile("helpdesk/faq.md", content);
               } else if (step.id === "overview") {
                 await paaw.writeFile("PROJECT.md", content);
+              } else if (step.id === "feature-map") {
+                // Parse AI output as JSON array and write to FEATURES.json
+                try {
+                  const cleanJson = content.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
+                  const features = JSON.parse(cleanJson);
+                  if (Array.isArray(features)) {
+                    const featuresWithIds = features.map((f, i) => ({
+                      ...f,
+                      id: `F-${String(i + 1).padStart(3, "0")}`,
+                      issues: [],
+                      aiUnderstanding: "",
+                      aiUnderstandingAt: null,
+                      documentation: "",
+                      docsUpdatedAt: null,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    }));
+                    const featuresDir = join(root, ".paaw", "features");
+                    if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                    await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                  }
+                } catch (parseErr) {
+                  cuLog(step.id, `[bulk] Failed to parse feature JSON: ${parseErr.message}`);
+                  await paaw.writeFile("features/raw-feature-map.txt", content);
+                }
               }
               cuLog(step.id, `[bulk] wrote file OK (${content.length} chars)`);
             } catch (writeErr) {
