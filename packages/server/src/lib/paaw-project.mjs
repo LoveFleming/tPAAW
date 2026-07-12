@@ -74,7 +74,7 @@ export class PaawProject {
   // ── Initialization ──
 
   async init() {
-    const subDirs = ["sessions", "api-logs", "standards", "prompts", "snapshots", "specs", "test-payloads", "runbook", "helpdesk"];
+    const subDirs = ["sessions", "api-logs", "standards", "prompts", "snapshots", "specs", "test-payloads", "runbook", "helpdesk", "issues"];
     for (const sub of subDirs) {
       const dir = join(this.paawDir, sub);
       if (!existsSync(dir)) await mkdir(dir, { recursive: true });

@@ -41,6 +41,7 @@ const ROUTE_MODULES = [
   "./routes/a2a.mjs",
   "./routes/helpdesk.mjs",
   "./routes/coding.mjs",
+  "./routes/coding-issues.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)

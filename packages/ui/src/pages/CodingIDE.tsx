@@ -39,6 +39,7 @@ import BrowserDevTools, { type ConsoleEntry } from "../components/BrowserDevTool
 import DecisionLog from "../components/DecisionLog";
 import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
+import IssueTracker from "../components/IssueTracker";
 
 // ── Types ──
 interface FsItem {
@@ -61,7 +62,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts";
+type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues";
 
 interface MainTab {
   id: string;
@@ -1756,6 +1757,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:api") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:api" ? tk.toolbarActive : "transparent"; }}
           title={tt("vibe.api")}>🌐 API</button>
+        <button onClick={() => openMainTab({ id: "tool:issues", type: "issues", label: "Issues", icon: "📋", closable: true })}
+          className={cn("flex items-center gap-1.5 text-sm px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:issues" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:issues") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:issues") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:issues" ? tk.toolbarActive : "transparent"; }}
+          title={tt("issue.title")}>📋 Issues</button>
       </div>
 
       {/* ── Main Content ── */}
@@ -2550,6 +2557,17 @@ const sendChat = useCallback(async () => {
                 <div className="flex-1 min-h-0 bg-[#1e1717]">
                   <ShellTerminal cwd={rootPath || undefined} />
                 </div>
+              </div>
+            )}
+
+            {/* === ISSUES TAB === */}
+            {activeMainTab?.type === "issues" && rootPath && (
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+                <IssueTracker
+                  rootPath={rootPath}
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                  onOpenFile={openFile}
+                />
               </div>
             )}
 
