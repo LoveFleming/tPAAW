@@ -4,109 +4,134 @@
 
 ## System Overview
 
-This system is a single‑user web application (called **PAAW**) that manages AI agent crews for engineering tasks. An engineering manager (the primary user) can dispatch work items (e.g., code health analysis, handover status checks) to pre‑configured agent crews, review historical conversations, and inspect project files. The system is built as a monorepo with a React frontend, a Node.js/Express backend, and a file‑based data store. Key constraints: it runs locally on a developer’s machine, uses the filesystem as its primary storage, and communicates with external LLM APIs for agent reasoning.
+tPAAW is an AI agent management platform that provides a coding IDE with feature mapping, issue tracking, code health analysis, and multi-agent collaboration (including a "Night Shift" mode where an Engineering Manager leads a 6-agent team). Primary users are developers working with AI agents to manage and evolve a codebase. Key constraints include a file-based knowledge store (`.paaw/` directory), structured agent communication protocols, and tight integration between agent capabilities and UI panels.
 
 ## High-Level Diagram
 
 ```
-┌────────────────────────────────────────────┐
-│               Browser (React)              │
-│  ┌──────────┐ ┌──────────┐ ┌───────────┐  │
-│  │PaawTree  │ │EM Dashbrd│ │HistoryChat│  │
-│  └────┬─────┘ └────┬─────┘ └─────┬─────┘  │
-│       │             │             │         │
-└───────┼─────────────┼─────────────┼────────┘
-        │             │             │
-        ▼             ▼             ▼
-┌────────────────────────────────────────────┐
-│            Express API Server              │
-│  routes/handover, routes/code-health, etc. │
-└──────────────────┬─────────────────────────┘
-                   │
-                   ▼
-┌────────────────────────────────────────────┐
-│         Business Logic (lib/)              │
-│  AgentLoop  │  ToolExecutor  │  CrewConfig │
-└─────┬───────┴────────┬────────┴────────────┘
-      │                │
-      ▼                ▼
-┌──────────┐    ┌─────────────────┐
-│  LLM API │    │  File System    │
-│ (OpenAI) │    │  .paaw/ config │
-└──────────┘    │  project files  │
-                └─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Browser (React/Next.js)                   │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐  │
+│  │  Coding   │ │ Feature  │ │  Issue   │ │ Agent Memory │  │
+│  │   IDE     │ │ Mapping  │ │ Tracker  │ │    Panel     │  │
+│  └─────┬─────┘ └─────┬────┘ └────┬─────┘ └──────┬───────┘  │
+└────────┼──────────────┼───────────┼──────────────┼──────────┘
+         │              │           │              │
+         ▼              ▼           ▼              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    API Server (Node.js)                      │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐  │
+│  │  Routes  │ │  Tools   │ │  Skills  │ │ Agent Engine │  │
+│  └─────┬────┘ └─────┬────┘ └─────┬────┘ └──────┬───────┘  │
+└────────┼──────────────┼───────────┼──────────────┼──────────┘
+         │              │           │              │
+         ▼              ▼           ▼              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Data & Knowledge Layer                     │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐    │
+│  │  .paaw/      │ │  Project     │ │  LLM API         │    │
+│  │  Knowledge   │ │  Filesystem  │ │  (External)      │    │
+│  └──────────────┘ └──────────────┘ └──────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Module Dependency Graph
 
 ```
-packages/ui/src/          packages/server/src/
-  components/                 routes/
-    PaawTree.tsx                 handover.mjs
-    EMDashboard.tsx              code-health.mjs
-    HistoryChat.tsx              chat.mjs
-    CodeHealth.tsx               ──────────→ lib/
-    HandoverStatusPanel.tsx         AgentLoop.mjs
-        │                           tools/
-        │                             write-file.mjs
-        │                             read-file.mjs
-        │                           paaw-project.mjs
-        │                           llm-utils.mjs
-        │                           crew-config.mjs
-        │                           context-injector.mjs
-        └── (HTTP calls) ──────→ routes/ (API calls)
-                                 shared/ (types, constants)
+UI Panels (React) ──────→ API Server Routes ──────→ Tools/Skills
+      │                         │                         │
+      │                         ├──→ Agent Engine         │
+      │                         │     ├──→ Crew Manager  │
+      │                         │     └──→ LLM Utils     │
+      │                         │                         │
+      └─────────────────────────┼─────────────────────────┘
+                                │
+                          .paaw/ Knowledge Base
+                          (ARCHITECTURE.md, PROJECT.md,
+                           Feature Map, Issue Tracker)
 ```
 
 ## Layers
 
-### 1. Presentation Layer
-- **What:** React components for all UI panels (file tree, dashboard, history, code health, handover status)
-- **Key files:** `packages/ui/src/components/`
-- **Depends on:** API server (via HTTP fetch/axios)
+### 1. Presentation Layer (UI)
+- **What:** React/Next.js components for the coding IDE, feature mapping panel, issue tracker, agent memory panel, and EM dashboard
+- **Key files:** (inferred) `packages/ui/src/` or `app/` directory
+- **Depends on:** API Server (via HTTP/REST calls)
 
-### 2. API Layer
-- **What:** Express route handlers – request parsing, validation, response formatting
-- **Key files:** `packages/server/src/routes/`
-- **Depends on:** Business logic layer (`lib/`)
+### 2. API Layer (Routes)
+- **What:** Route handlers for agent communication, file operations, feature mapping, issue tracking, and code health analysis
+- **Key files:** (inferred) `packages/server/src/routes/`
+- **Depends on:** Tools, Skills, Agent Engine
 
-### 3. Business Logic Layer
-- **What:** Core domain logic – agent loop execution, tool dispatch, crew configuration
-- **Key files:** `packages/server/src/lib/` (AgentLoop.mjs, tools/, context-injector.mjs)
-- **Depends on:** Data layer, external LLM APIs
+### 3. Business Logic Layer (Tools & Skills)
+- **What:** Agent tools (read_file, write_file, paaw-tree operations), skill implementations, agent crew management
+- **Key files:** (inferred) `packages/server/src/tools/`, `packages/server/src/skills/`
+- **Depends on:** Agent Engine, LLM Utils, .paaw/ knowledge base
 
-### 4. Data Layer
-- **What:** Filesystem access, `.paaw/` knowledge base (PROJECT.md, code health results, chat history)
-- **Key files:** `packages/server/src/lib/paaw-project.mjs`, `packages/server/src/lib/context-injector.mjs`
-- **Depends on:** Node.js `fs` module
+### 4. Agent Engine Layer
+- **What:** Multi-agent orchestration, crew management, LLM API integration, system prompt injection
+- **Key files:** (inferred) `packages/server/src/lib/agent-engine.mjs`, `packages/server/src/lib/domain-agent-registry.mjs`
+- **Depends on:** LLM API (external), .paaw/ knowledge base
+
+### 5. Data Layer
+- **What:** File-based storage in `.paaw/` directory, project filesystem access, knowledge base management
+- **Key files:** (inferred) `packages/server/src/lib/paaw-project.mjs`
+- **Depends on:** Filesystem
 
 ## Data Flow
 
 ### Request Flow
-1. User interacts with a React component (e.g., clicks “run code health”)
-2. Component sends an HTTP request to a route (e.g., `POST /api/code-health`)
-3. Route handler parses the request and calls the corresponding business logic function
-4. Business logic may invoke the AgentLoop, which executes tools (read/write files) and calls the LLM API
-5. Response is formatted and sent back to the UI
+1. User interacts with UI panel (e.g., clicks "Refresh Feature Map")
+2. UI sends HTTP request to API server route
+3. Route handler validates and delegates to business logic
+4. Business logic may:
+   - Execute tools (read/write files)
+   - Invoke agent skills
+   - Call LLM API for AI operations
+   - Read/write .paaw/ knowledge base
+5. Response formatted and returned to UI
 
 ### Key Data Paths
-- **Chat → Agent → Tool → LLM** : User message → AgentLoop → tool execution (e.g., `write_file`) → LLM reasoning → final response
-- **Project files → PaawTree** : `paaw-project.mjs` reads the filesystem tree and returns it to the PaawTree component
-- **.paaw/ knowledge → Context injection** : `context-injector.mjs` reads `.paaw/PROJECT.md` and other files, compresses them into the agent’s system prompt
+- **Feature Mapping:** UI → Route → Feature Map Tool → .paaw/FEATURE_MAP.md → Response
+- **Agent Chat:** UI → Route → Agent Engine → LLM API → Tool Execution → Response
+- **Issue Tracking:** UI → Route → Issue Tracker → .paaw/ISSUES.md → Response
+- **Code Health:** UI → Route → Code Health Tool → Test Runner → Response
+- **Night Shift:** EM Dashboard → Agent Engine → Crew Manager → 6-agent team → LLM API → Results
+
+### Agent System Prompt Injection
+- .paaw/ knowledge → Context injection → Agent system prompt → LLM API
 
 ## Key Design Decisions
-- **Why monorepo:** Shared TypeScript types between frontend and backend simplify development and reduce duplication.
-- **Why file-based DB:** Simplicity for a single-user tool; avoids database setup and allows quick inspection of data as plain files.
-- **Why A2A protocol:** Standardized agent-to-agent communication (via `crew-config.mjs`) enables multiple specialized agents to cooperate on a task (e.g., one agent writes code, another reviews it).
-- **Why `.paaw/` as knowledge root:** Keeps project metadata co-located with source code, making it easy to version control and understand.
+- **Why file-based knowledge store:** Simplicity and transparency — all project state lives in `.paaw/` directory as markdown files, making it version-controllable and human-readable
+- **Why structured agent tools:** AI agents use `.paaw/` API tools (e.g., `paaw_read_file`, `paaw_write_file`) instead of raw filesystem access, enforcing boundaries and logging
+- **Why multi-agent architecture:** Enables specialized roles (EM, developers, reviewers) and "Night Shift" mode for overnight work
+- **Why monorepo:** Shared types and utilities between UI and server components
+- **Why feature-centric code understanding:** Feature-to-file mapping is auto-maintained and injected into agent prompts for context-aware code changes
 
 ## Extending the System
-- **Add new API route:** Create a new file in `packages/server/src/routes/`, export a Express Router, and register it in `packages/server/src/paaw-server.mjs`.
-- **Add new agent:** Add the agent’s definition to `packages/server/src/lib/crew-config.mjs` under the `crews` section. Optionally create a JSON crew file in `crews/` if dynamic loading is used.
-- **Add new tool:** Create a new tool function in `packages/server/src/lib/tools/` (e.g., `run-shell-command.mjs`), then register it in `tools/index.mjs`. Finally, add the tool name to the agent’s `tools` array in the crew configuration.
 
-## Known Issues
-- **Tight coupling between UI and backend routes:** Some components (e.g., `EMDashboard`) directly call route paths that are duplicated in both `handover.mjs` and `handover-status.mjs` (see git log: “交接狀態面板路徑重複”). Future refactoring should centralise route definitions.
-- **Circular dependency risk in `lib/`:** `AgentLoop.mjs` imports both `tools/` and `llm-utils.mjs`, while some tools may import `AgentLoop` for continuation logic. Keep these dependencies one-way by moving shared types into `shared/`.
-- **Cluttered `./temp/` directory:** Logs and payloads accumulate quickly; consider moving them to a dedicated `logs/` directory with a cleanup policy.
-- **Missing test infrastructure:** As noted in health gaps, unit and E2E test directories are not present. Adding `tests/` and a CI pipeline is recommended before adding more features.
+### Add New UI Panel
+1. Create React component in UI directory
+2. Add route handler in API server
+3. Register panel in IDE layout configuration
+
+### Add New Agent Tool
+1. Create tool implementation in `tools/` directory
+2. Register in `tools/index.mjs`
+3. Add to relevant agent's tool list in agent configuration
+
+### Add New Agent/Crew
+1. Add agent definition to `domain-agent-registry.mjs`
+2. Create crew JSON configuration
+3. Register crew in agent engine
+
+### Add New Knowledge File
+1. Create markdown file in `.paaw/` directory
+2. Update context injection logic to include new file in agent system prompts
+3. Add UI panel if needed for visualization
+
+## Known Technical Debt
+- **Source code structure not fully analyzed:** File tree only shows temp files and git log; actual source directories (src/, app/, packages/) need to be provided for complete analysis
+- **Missing API specifications:** No OpenAPI/Swagger specs detected
+- **Missing test coverage data:** Code Health feature exists but actual test files not visible in scan
+- **Potential circular dependency:** Agent Engine ↔ Tools (agents use tools, tools may invoke agents) — needs explicit dependency management

@@ -1211,7 +1211,7 @@ export default async function projectRoute(req, res) {
           const result = await callProjectLLM({
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0.2,
-            maxTokens: 4000,
+            maxTokens: step.id === "feature-map" ? 8000 : 4000,
           }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
@@ -1279,8 +1279,31 @@ export default async function projectRoute(req, res) {
                 }
               } catch (parseErr) {
                 cuLog(step.id, `Failed to parse feature JSON: ${parseErr.message}`);
-                // Save raw output as fallback
-                await paaw.writeFile("features/raw-feature-map.txt", content);
+                // Try recovery: find last complete object
+                try {
+                  let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+                  for (let i = 0; i < content.length; i++) {
+                    const c = content[i];
+                    if (esc) { esc = false; continue; }
+                    if (c === '\\') { esc = true; continue; }
+                    if (c === '"') { inStr = !inStr; continue; }
+                    if (inStr) continue;
+                    if (c === '{') braceCount++;
+                    if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+                  }
+                  const recovered = content.substring(0, lastComplete + 1).trim() + '\n]';
+                  const feats = JSON.parse(recovered);
+                  if (Array.isArray(feats) && feats.length > 0) {
+                    const featuresWithIds = feats.map((f, i) => ({ ...f, id: `F-${String(i+1).padStart(3,"0")}`, issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                    const featuresDir = join(root, ".paaw", "features");
+                    if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                    await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    cuLog(step.id, `Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
+                  } else throw new Error("empty");
+                } catch (recoverErr) {
+                  cuLog(step.id, `Recovery also failed: ${recoverErr.message}`);
+                  await paaw.writeFile("features/raw-feature-map.txt", content);
+                }
               }
             }
             cuLog(step.id, `wrote file OK (${content.length} chars)`);
@@ -1404,7 +1427,7 @@ export default async function projectRoute(req, res) {
             const result = await callProjectLLM({
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
-              maxTokens: 4000,
+              maxTokens: step.id === "feature-map" ? 8000 : 4000,
             }, { timeoutMs: 600_000 }); // 10 min per step in bulk mode
 
             const content = result.content || "";
@@ -1473,7 +1496,31 @@ export default async function projectRoute(req, res) {
                   }
                 } catch (parseErr) {
                   cuLog(step.id, `[bulk] Failed to parse feature JSON: ${parseErr.message}`);
-                  await paaw.writeFile("features/raw-feature-map.txt", content);
+                  // Try recovery: find last complete object
+                  try {
+                    let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+                    for (let i = 0; i < content.length; i++) {
+                      const c = content[i];
+                      if (esc) { esc = false; continue; }
+                      if (c === '\\') { esc = true; continue; }
+                      if (c === '"') { inStr = !inStr; continue; }
+                      if (inStr) continue;
+                      if (c === '{') braceCount++;
+                      if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+                    }
+                    const recovered = content.substring(0, lastComplete + 1).trim() + '\n]';
+                    const feats = JSON.parse(recovered);
+                    if (Array.isArray(feats) && feats.length > 0) {
+                      const featuresWithIds = feats.map((f, i) => ({ ...f, id: `F-${String(i+1).padStart(3,"0")}`, issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+                      const featuresDir = join(root, ".paaw", "features");
+                      if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
+                      await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                      cuLog(step.id, `[bulk] Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
+                    } else throw new Error("empty");
+                  } catch (recoverErr) {
+                    cuLog(step.id, `[bulk] Recovery also failed: ${recoverErr.message}`);
+                    await paaw.writeFile("features/raw-feature-map.txt", content);
+                  }
                 }
               }
               cuLog(step.id, `[bulk] wrote file OK (${content.length} chars)`);

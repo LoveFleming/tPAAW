@@ -1,237 +1,352 @@
+Based on the API contract provided, I'll generate comprehensive test payloads for all endpoints. Since no existing test payloads were found in the `.paaw/test-payloads/` directory, I'll create them from scratch following the API spec.
+
 ```json
 [
   {
-    "name": "Handover Status — list all",
-    "method": "GET",
-    "endpoint": "/api/handover/status",
-    "description": "Retrieve all handover status records",
-    "headers": { "Authorization": "Bearer test-token" },
-    "body": null,
-    "expectedStatus": 200,
-    "expectedFields": ["data.handovers", "data.handovers[0].id", "data.handovers[0].status"],
-    "tags": ["smoke", "handover"]
-  },
-  {
-    "name": "Handover Status — missing auth",
-    "method": "GET",
-    "endpoint": "/api/handover/status",
-    "description": "Should return 401 with AUTH_ERROR",
-    "headers": {},
-    "body": null,
-    "expectedStatus": 401,
-    "expectedError": { "code": "40101", "type": "AUTH_ERROR" },
-    "tags": ["error", "auth"]
-  },
-  {
-    "name": "Handover Status — update status",
+    "name": "Assign crew — happy path",
     "method": "POST",
-    "endpoint": "/api/handover/status",
-    "description": "Update handover status for a given handover ID",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "handoverId": "handover-001", "status": "completed", "notes": "All tasks done" },
+    "endpoint": "/api/v1/agents/crew/assign",
+    "description": "Valid request to assign a task to a 6-agent crew with high priority",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "taskId": "550e8400-e29b-41d4-a716-446655440000",
+      "crewSize": 6,
+      "taskDescription": "Implement user authentication module with JWT tokens, password hashing, and session management",
+      "priority": "high"
+    },
     "expectedStatus": 200,
-    "expectedFields": ["data.handoverId", "data.status"],
-    "tags": ["smoke", "handover"]
+    "expectedFields": ["data.assignmentId", "data.crewId", "data.status", "data.agents", "data.createdAt"],
+    "tags": ["happy", "smoke"]
   },
   {
-    "name": "Handover Status — missing required field",
+    "name": "Assign crew — missing required fields",
     "method": "POST",
-    "endpoint": "/api/handover/status",
-    "description": "Should return 400 with VALIDATION_ERROR when handoverId is missing",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "status": "completed" },
+    "endpoint": "/api/v1/agents/crew/assign",
+    "description": "Should return 400 when taskId and crewSize are missing",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "taskDescription": "Implement user authentication module"
+    },
     "expectedStatus": 400,
     "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
     "tags": ["error", "validation"]
   },
   {
-    "name": "Code Health — run analysis",
+    "name": "Assign crew — crewSize out of range",
     "method": "POST",
-    "endpoint": "/api/code-health/run",
-    "description": "Trigger a new code health analysis for the project",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "projectId": "paaw-main", "includeCoverage": true, "includeE2E": true },
-    "expectedStatus": 200,
-    "expectedFields": ["data.analysisId", "data.status"],
-    "tags": ["smoke", "code-health"]
-  },
-  {
-    "name": "Code Health — run with invalid projectId",
-    "method": "POST",
-    "endpoint": "/api/code-health/run",
-    "description": "Should return 400 with VALIDATION_ERROR for non-existent project",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "projectId": "nonexistent", "includeCoverage": true },
-    "expectedStatus": 400,
-    "expectedError": { "code": "40002", "type": "VALIDATION_ERROR" },
-    "tags": ["error", "validation"]
-  },
-  {
-    "name": "Code Health — get results",
-    "method": "GET",
-    "endpoint": "/api/code-health/results",
-    "description": "Retrieve latest code health results",
-    "headers": { "Authorization": "Bearer test-token" },
-    "body": null,
-    "expectedStatus": 200,
-    "expectedFields": ["data.analysisId", "data.coverage", "data.e2eResults"],
-    "tags": ["smoke", "code-health"]
-  },
-  {
-    "name": "Code Health — results with query param",
-    "method": "GET",
-    "endpoint": "/api/code-health/results",
-    "description": "Retrieve results for a specific analysis ID",
-    "headers": { "Authorization": "Bearer test-token" },
-    "body": null,
-    "queryParams": { "analysisId": "analysis-123" },
-    "expectedStatus": 200,
-    "expectedFields": ["data.analysisId", "data.coverage"],
-    "tags": ["smoke", "code-health"]
-  },
-  {
-    "name": "Chat History — get all",
-    "method": "GET",
-    "endpoint": "/api/chat/history",
-    "description": "Retrieve all historical chat sessions",
-    "headers": { "Authorization": "Bearer test-token" },
-    "body": null,
-    "expectedStatus": 200,
-    "expectedFields": ["data.sessions", "data.sessions[0].id", "data.sessions[0].title"],
-    "tags": ["smoke", "chat"]
-  },
-  {
-    "name": "Chat History — get with pagination",
-    "method": "GET",
-    "endpoint": "/api/chat/history",
-    "description": "Retrieve paginated chat history",
-    "headers": { "Authorization": "Bearer test-token" },
-    "body": null,
-    "queryParams": { "page": 1, "limit": 10 },
-    "expectedStatus": 200,
-    "expectedFields": ["data.sessions", "data.total", "data.page"],
-    "tags": ["smoke", "chat"]
-  },
-  {
-    "name": "Chat Message — send message",
-    "method": "POST",
-    "endpoint": "/api/chat/message",
-    "description": "Send a new message to the agent and get response",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "sessionId": "session-001", "content": "What is the current code health status?" },
-    "expectedStatus": 200,
-    "expectedFields": ["data.messageId", "data.response"],
-    "tags": ["smoke", "chat"]
-  },
-  {
-    "name": "Chat Message — missing sessionId",
-    "method": "POST",
-    "endpoint": "/api/chat/message",
-    "description": "Should return 400 with VALIDATION_ERROR",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "content": "Hello" },
+    "endpoint": "/api/v1/agents/crew/assign",
+    "description": "Should return 400 when crewSize is 0 (below minimum 1)",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "taskId": "550e8400-e29b-41d4-a716-446655440000",
+      "crewSize": 0,
+      "taskDescription": "Implement user authentication module"
+    },
     "expectedStatus": 400,
     "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
     "tags": ["error", "validation"]
   },
   {
-    "name": "Agent Loop — run agent",
+    "name": "Assign crew — task already assigned",
     "method": "POST",
-    "endpoint": "/api/agent/run",
-    "description": "Start a new agent execution loop",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "task": "Analyze code coverage", "maxTurns": 50, "timeout": 1200 },
-    "expectedStatus": 200,
-    "expectedFields": ["data.loopId", "data.status"],
-    "tags": ["smoke", "agent"]
+    "endpoint": "/api/v1/agents/crew/assign",
+    "description": "Should return 409 when the same taskId is assigned again",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "taskId": "550e8400-e29b-41d4-a716-446655440000",
+      "crewSize": 3,
+      "taskDescription": "Duplicate task assignment attempt"
+    },
+    "expectedStatus": 409,
+    "expectedError": { "code": "40901", "type": "CONFLICT" },
+    "tags": ["error", "conflict"]
   },
   {
-    "name": "Agent Loop — run with invalid timeout",
+    "name": "Assign crew — invalid priority value",
     "method": "POST",
-    "endpoint": "/api/agent/run",
-    "description": "Should return 400 with VALIDATION_ERROR for timeout out of range",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "task": "Test", "maxTurns": 50, "timeout": 100 },
-    "expectedStatus": 400,
-    "expectedError": { "code": "40003", "type": "VALIDATION_ERROR" },
-    "tags": ["error", "validation"]
-  },
-  {
-    "name": "Agent Loop — continue agent",
-    "method": "POST",
-    "endpoint": "/api/agent/continue",
-    "description": "Continue an existing agent loop",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "loopId": "loop-abc", "additionalContext": "New data available" },
-    "expectedStatus": 200,
-    "expectedFields": ["data.loopId", "data.status"],
-    "tags": ["smoke", "agent"]
-  },
-  {
-    "name": "Agent Loop — continue missing loopId",
-    "method": "POST",
-    "endpoint": "/api/agent/continue",
-    "description": "Should return 400 with VALIDATION_ERROR",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "additionalContext": "test" },
+    "endpoint": "/api/v1/agents/crew/assign",
+    "description": "Should return 400 when priority is not one of the allowed values",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "taskId": "550e8400-e29b-41d4-a716-446655440001",
+      "crewSize": 4,
+      "taskDescription": "Test task with invalid priority",
+      "priority": "urgent"
+    },
     "expectedStatus": 400,
     "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
     "tags": ["error", "validation"]
   },
   {
-    "name": "Dashboard — get tasks",
+    "name": "Get crew status — happy path",
     "method": "GET",
-    "endpoint": "/api/dashboard/tasks",
-    "description": "Retrieve all EM dashboard tasks",
-    "headers": { "Authorization": "Bearer test-token" },
+    "endpoint": "/api/v1/agents/crew/550e8400-e29b-41d4-a716-446655440000/status",
+    "description": "Valid request to get status of an existing crew",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
     "body": null,
     "expectedStatus": 200,
-    "expectedFields": ["data.tasks", "data.tasks[0].id", "data.tasks[0].status"],
-    "tags": ["smoke", "dashboard"]
+    "expectedFields": ["data.crewId", "data.status", "data.progress", "data.agents", "data.currentTask", "data.startedAt"],
+    "tags": ["happy", "smoke"]
   },
   {
-    "name": "Dashboard — dispatch task",
-    "method": "POST",
-    "endpoint": "/api/dashboard/dispatch",
-    "description": "Dispatch a task to an AI crew",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "taskId": "task-001", "crewId": "crew-alpha", "priority": "high" },
-    "expectedStatus": 200,
-    "expectedFields": ["data.dispatchId", "data.status"],
-    "tags": ["smoke", "dashboard"]
+    "name": "Get crew status — crew not found",
+    "method": "GET",
+    "endpoint": "/api/v1/agents/crew/00000000-0000-0000-0000-000000000000/status",
+    "description": "Should return 404 when crewId does not exist",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 404,
+    "expectedError": { "code": "40401", "type": "NOT_FOUND" },
+    "tags": ["error", "not-found"]
   },
   {
-    "name": "Dashboard — dispatch missing crewId",
-    "method": "POST",
-    "endpoint": "/api/dashboard/dispatch",
-    "description": "Should return 400 with VALIDATION_ERROR",
-    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token" },
-    "body": { "taskId": "task-001" },
+    "name": "Get crew status — invalid crewId format",
+    "method": "GET",
+    "endpoint": "/api/v1/agents/crew/invalid-uuid/status",
+    "description": "Should return 400 when crewId is not a valid UUID",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
     "expectedStatus": 400,
     "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
     "tags": ["error", "validation"]
   },
   {
-    "name": "Auth — login",
+    "name": "Cancel crew — happy path",
     "method": "POST",
-    "endpoint": "/api/auth/login",
-    "description": "Authenticate user and receive token",
-    "headers": { "Content-Type": "application/json" },
-    "body": { "username": "admin", "password": "securePassword123" },
+    "endpoint": "/api/v1/agents/crew/550e8400-e29b-41d4-a716-446655440000/cancel",
+    "description": "Valid request to cancel a running crew",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {},
     "expectedStatus": 200,
-    "expectedFields": ["data.token", "data.user"],
-    "tags": ["smoke", "auth"]
+    "expectedFields": ["data.crewId", "data.status", "data.cancelledAt"],
+    "tags": ["happy", "smoke"]
   },
   {
-    "name": "Auth — login wrong password",
+    "name": "Cancel crew — crew not found",
     "method": "POST",
-    "endpoint": "/api/auth/login",
-    "description": "Should return 401 with AUTH_ERROR",
-    "headers": { "Content-Type": "application/json" },
-    "body": { "username": "admin", "password": "wrong" },
-    "expectedStatus": 401,
-    "expectedError": { "code": "40102", "type": "AUTH_ERROR" },
-    "tags": ["error", "auth"]
-  }
-]
-```
+    "endpoint": "/api/v1/agents/crew/00000000-0000-0000-0000-000000000000/cancel",
+    "description": "Should return 404 when crewId does not exist",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {},
+    "expectedStatus": 404,
+    "expectedError": { "code": "40401", "type": "NOT_FOUND" },
+    "tags": ["error", "not-found"]
+  },
+  {
+    "name": "Cancel crew — crew not in running state",
+    "method": "POST",
+    "endpoint": "/api/v1/agents/crew/550e8400-e29b-41d4-a716-446655440001/cancel",
+    "description": "Should return 409 when crew is not currently running",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {},
+    "expectedStatus": 409,
+    "expectedError": { "code": "40902", "type": "CONFLICT" },
+    "tags": ["error", "conflict"]
+  },
+  {
+    "name": "Get agent memory — happy path with defaults",
+    "method": "GET",
+    "endpoint": "/api/v1/agents/memory",
+    "description": "Valid request to retrieve agent memory with default pagination",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 200,
+    "expectedFields": ["data.entries", "data.pagination"],
+    "tags": ["happy", "smoke"]
+  },
+  {
+    "name": "Get agent memory — with pagination params",
+    "method": "GET",
+    "endpoint": "/api/v1/agents/memory?limit=10&offset=20",
+    "description": "Valid request with custom pagination parameters",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 200,
+    "expectedFields": ["data.entries", "data.pagination"],
+    "tags": ["happy", "pagination"]
+  },
+  {
+    "name": "Get agent memory — invalid limit",
+    "method": "GET",
+    "endpoint": "/api/v1/agents/memory?limit=200",
+    "description": "Should return 400 when limit exceeds maximum of 100",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 400,
+    "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
+    "tags": ["error", "validation"]
+  },
+  {
+    "name": "Get agent memory — negative offset",
+    "method": "GET",
+    "endpoint": "/api/v1/agents/memory?offset=-5",
+    "description": "Should return 400 when offset is negative",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 400,
+    "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
+    "tags": ["error", "validation"]
+  },
+  {
+    "name": "Get features — happy path without unmapped",
+    "method": "GET",
+    "endpoint": "/api/v1/features",
+    "description": "Valid request to retrieve feature map without unmapped files",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 200,
+    "expectedFields": ["data.features", "data.lastSynced"],
+    "tags": ["happy", "smoke"]
+  },
+  {
+    "name": "Get features — with unmapped files",
+    "method": "GET",
+    "endpoint": "/api/v1/features?includeUnmapped=true",
+    "description": "Valid request to retrieve feature map including unmapped files",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 200,
+    "expectedFields": ["data.features", "data.unmappedFiles", "data.lastSynced"],
+    "tags": ["happy", "filter"]
+  },
+  {
+    "name": "Sync features — happy path",
+    "method": "POST",
+    "endpoint": "/api/v1/features/sync",
+    "description": "Valid request to trigger feature map synchronization",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {},
+    "expectedStatus": 200,
+    "expectedFields": ["data.status", "data.startedAt", "data.estimatedDuration"],
+    "tags": ["happy", "smoke"]
+  },
+  {
+    "name": "Sync features — sync already in progress",
+    "method": "POST",
+    "endpoint": "/api/v1/features/sync",
+    "description": "Should return 409 when a sync is already running",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {},
+    "expectedStatus": 409,
+    "expectedError": { "code": "40903", "type": "CONFLICT" },
+    "tags": ["error", "conflict"]
+  },
+  {
+    "name": "Get issues — happy path with defaults",
+    "method": "GET",
+    "endpoint": "/api/v1/issues",
+    "description": "Valid request to retrieve all issues with default pagination",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 200,
+    "expectedFields": ["data.issues", "data.pagination"],
+    "tags": ["happy", "smoke"]
+  },
+  {
+    "name": "Get issues — filtered by status and severity",
+    "method": "GET",
+    "endpoint": "/api/v1/issues?status=open&severity=high&limit=10",
+    "description": "Valid request with status and severity filters",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 200,
+    "expectedFields": ["data.issues", "data.pagination"],
+    "tags": ["happy", "filter"]
+  },
+  {
+    "name": "Get issues — invalid status filter",
+    "method": "GET",
+    "endpoint": "/api/v1/issues?status=invalid_status",
+    "description": "Should return 400 when status filter is not valid",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 400,
+    "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
+    "tags": ["error", "validation"]
+  },
+  {
+    "name": "Get issues — invalid severity filter",
+    "method": "GET",
+    "endpoint": "/api/v1/issues?severity=critical_high",
+    "description": "Should return 400 when severity filter is not valid",
+    "headers": { "Authorization": "Bearer test-token-abc123" },
+    "body": null,
+    "expectedStatus": 400,
+    "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
+    "tags": ["error", "validation"]
+  },
+  {
+    "name": "Create issue — happy path",
+    "method": "POST",
+    "endpoint": "/api/v1/issues",
+    "description": "Valid request to create a new high severity issue",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "title": "Login page not rendering",
+      "description": "Users report blank screen on /login page after recent deployment. Console shows JavaScript errors related to authentication module.",
+      "severity": "high"
+    },
+    "expectedStatus": 201,
+    "expectedFields": ["data.id", "data.title", "data.status", "data.severity", "data.createdAt"],
+    "tags": ["happy", "smoke"]
+  },
+  {
+    "name": "Create issue — with assignment",
+    "method": "POST",
+    "endpoint": "/api/v1/issues",
+    "description": "Valid request to create an issue assigned to a specific agent",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "title": "Database connection timeout",
+      "description": "Production database connections are timing out after 30 seconds during peak hours. Need to optimize connection pooling.",
+      "severity": "critical",
+      "assignedTo": "agent-456-def-789"
+    },
+    "expectedStatus": 201,
+    "expectedFields": ["data.id", "data.title", "data.status", "data.severity", "data.createdAt"],
+    "tags": ["happy", "assignment"]
+  },
+  {
+    "name": "Create issue — missing required fields",
+    "method": "POST",
+    "endpoint": "/api/v1/issues",
+    "description": "Should return 400 when title and description are missing",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "severity": "medium"
+    },
+    "expectedStatus": 400,
+    "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
+    "tags": ["error", "validation"]
+  },
+  {
+    "name": "Create issue — title too short",
+    "method": "POST",
+    "endpoint": "/api/v1/issues",
+    "description": "Should return 400 when title is empty",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "title": "",
+      "description": "This is a test issue with an empty title",
+      "severity": "low"
+    },
+    "expectedStatus": 400,
+    "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
+    "tags": ["error", "validation"]
+  },
+  {
+    "name": "Create issue — description too short",
+    "method": "POST",
+    "endpoint": "/api/v1/issues",
+    "description": "Should return 400 when description is less than 10 characters",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer test-token-abc123" },
+    "body": {
+      "title": "Minor bug",
+      "description": "Short",
+      "severity": "low"
+    },
+    "expectedStatus": 400,
+    "expectedError": { "code": "40001", "type": "VALIDATION_ERROR" },
+    "tags": ["error", "validation"]
+  },
+  {

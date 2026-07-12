@@ -2,10 +2,10 @@
 {
   "projectName": "paaw",
   "projectType": "web-app",
-  "language": "TypeScript",
-  "framework": "React",
-  "runtime": "Node.js / browser",
-  "summary": "Internal web application for managing AI agent crews, including code health analysis, handover dashboards, and historical chat.",
+  "language": "TypeScript (inferred from git log)",
+  "framework": "React/Next.js (inferred)",
+  "runtime": "Node.js",
+  "summary": "An AI agent management platform with a coding IDE for feature mapping, issue tracking, and code health analysis. Analysis based solely on git log; no source code files were provided in the file tree.",
   "entryPoints": [],
   "keyDirectories": {
     "source": null,
@@ -13,68 +13,15 @@
     "config": null,
     "docs": null
   },
-  "modules": [
-    {
-      "name": "PaawTree",
-      "path": "unknown",
-      "responsibility": "File tree UI component with collapsible nodes, likely part of a code understanding modal.",
-      "dependsOn": [],
-      "exports": []
-    },
-    {
-      "name": "EM Dashboard",
-      "path": "unknown",
-      "responsibility": "Engineering management dashboard for dispatching tasks to AI crews and displaying results (e.g., photos).",
-      "dependsOn": [],
-      "exports": []
-    },
-    {
-      "name": "HistoryChat",
-      "path": "unknown",
-      "responsibility": "Historical conversation panel rendered inline, allowing users to review past agent interactions.",
-      "dependsOn": [],
-      "exports": []
-    },
-    {
-      "name": "CodeHealth",
-      "path": "unknown",
-      "responsibility": "Runs unit test coverage and E2E tests, displays results, and provides a one‑click dispatch button.",
-      "dependsOn": [],
-      "exports": []
-    },
-    {
-      "name": "AgentLoop",
-      "path": "unknown",
-      "responsibility": "Agent execution loop with configurable timeout (600‑1800s) and max turns (40‑60), supporting continuation.",
-      "dependsOn": [],
-      "exports": []
-    },
-    {
-      "name": "HandoverStatusPanel",
-      "path": "unknown",
-      "responsibility": "Panel showing handover status, previously had path duplication issues.",
-      "dependsOn": [],
-      "exports": []
-    }
-  ],
+  "modules": [],
   "apis": [],
   "errorCodes": [],
   "dataModels": [],
   "techDebt": [
     {
-      "area": "Source code not visible in file tree",
+      "area": "Source code not provided in file tree",
       "severity": "high",
-      "suggestion": "Ensure the project root includes all source files (src/, test/, etc.) so automated analysis can proceed."
-    },
-    {
-      "area": "Temporary file clutter",
-      "severity": "low",
-      "suggestion": "Clean up or move ./temp/ payload and log files to a dedicated output directory to reduce noise."
-    },
-    {
-      "area": "Missing configuration and documentation directories",
-      "severity": "medium",
-      "suggestion": "Add standard directories for config, docs, and tests to improve project maintainability."
+      "suggestion": "Provide full file tree including source directories (e.g., src/, app/, etc.) to enable accurate analysis."
     }
   ],
   "healthGaps": {
