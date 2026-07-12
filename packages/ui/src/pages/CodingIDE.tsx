@@ -42,6 +42,7 @@ import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
 import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
+import NightShiftPanel from "../components/NightShiftPanel";
 
 // ── Types ──
 interface FsItem {
@@ -64,7 +65,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features";
+type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift";
 
 interface MainTab {
   id: string;
@@ -1778,6 +1779,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:features") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:features" ? tk.toolbarActive : "transparent"; }}
           title={tt("feature.title")}>🗺️ Features</button>
+          <button onClick={() => openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Night Shift", icon: "🌙", closable: true })}
+          className={cn("flex items-center gap-1.5 text-sm px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:nightshift" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:nightshift") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:nightshift") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:nightshift" ? tk.toolbarActive : "transparent"; }}
+          title={tt("nightShift.title")}>🌙 Night Shift</button>
       </div>
 
       {/* ── Main Content ── */}
@@ -2603,6 +2610,15 @@ const sendChat = useCallback(async () => {
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
+                />
+              </div>
+            )}
+
+            {/* === Night Shift === */}
+            {activeMainTab?.type === "nightshift" && (
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+                <NightShiftPanel
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                 />
               </div>
             )}

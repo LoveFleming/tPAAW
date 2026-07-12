@@ -507,5 +507,11 @@
   "feature.byFeature": "By Feature",
   "feature.byFile": "By File",
   "feature.noFiles": "No mapped files",
-  "feature.filesMapped": "mapped files"
+  "feature.filesMapped": "mapped files",
+  "nightShift.title": "Night Shift",
+  "nightShift.start": "Start Night Shift",
+  "nightShift.description": "EM leads 6-agent team to review changes, run builds, write tests, update docs",
+  "nightShift.lastRun": "Last run",
+  "nightShift.noReport": "No report yet",
+  "nightShift.noReportHint": "Click the button above to start"
 }

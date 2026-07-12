@@ -513,5 +513,11 @@
   "feature.byFeature": "By Feature",
   "feature.byFile": "By File",
   "feature.noFiles": "沒有已映射的檔案",
-  "feature.filesMapped": "個已映射檔案"
+  "feature.filesMapped": "個已映射檔案",
+  "nightShift.title": "Night Shift 夜班",
+  "nightShift.start": "Start Night Shift",
+  "nightShift.description": "EM 帶領 6 人團隊 review 今天變更、跑 build、寫測試、更新文件",
+  "nightShift.lastRun": "上次執行",
+  "nightShift.noReport": "尚無報告",
+  "nightShift.noReportHint": "點上方按鈕開始"
 }
