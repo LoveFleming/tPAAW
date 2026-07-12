@@ -81,6 +81,7 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
   const [editingDocs, setEditingDocs] = useState(false);
   const [docsContent, setDocsContent] = useState("");
   const [savingDocs, setSavingDocs] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const basePath = `${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`;
 
@@ -100,6 +101,24 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
   useEffect(() => { fetchFeatures(); }, [fetchFeatures]);
 
   const selected = features.find(f => f.id === selectedId);
+
+  // ── Refresh all feature mappings (AI re-scan) ──
+  const handleRefreshMapping = async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-features/refresh-mapping?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        await fetchFeatures();
+        alert(`✅ ${t("feature.refreshed")} ${data.updated}/${data.total}`);
+      } else {
+        alert(`❌ ${data.error}`);
+      }
+    } catch (err) {
+      alert("Refresh failed: " + err.message);
+    }
+    setRefreshing(false);
+  };
 
   // ── Generate AI Understanding ──
   const handleUnderstand = async () => {
@@ -181,6 +200,9 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
             🗺️ {t("feature.title")}
           </span>
           <div className="flex gap-1">
+            <button onClick={() => handleRefreshMapping()} disabled={refreshing} className="text-xs px-1.5 py-0.5 rounded" style={{ background: refreshing ? theme.bgMuted : theme.accentBg, color: refreshing ? theme.text : theme.accent, opacity: refreshing ? 0.5 : 1 }} title={t("feature.refreshMapping")}>
+              {refreshing ? "⏳" : "🔄"} {t("feature.refreshMapping")}
+            </button>
             <button onClick={() => setShowCreate(!showCreate)} className="text-xs px-1.5 py-0.5 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
               + {t("feature.new")}
             </button>

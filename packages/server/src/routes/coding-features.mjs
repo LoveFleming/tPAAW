@@ -460,5 +460,119 @@ export default async function codingFeaturesRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-features/refresh-mapping — AI re-scan & update all feature mappings ──
+  if (url === "/api/coding-features/refresh-mapping" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const features = await loadFeatures(projRoot);
+    if (features.length === 0) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "No features to update. Run Code Understanding first." }));
+      return true;
+    }
+
+    // Load provider config
+    let providerConfig;
+    try { providerConfig = JSON.parse(readSync(providersFile, "utf-8")); } catch {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Provider config not found" }));
+      return true;
+    }
+    const providerId = providerConfig.active || "zai";
+    const model = providerConfig.defaultModel || "glm-5.1";
+    const provider = providerConfig.providers?.[providerId];
+    if (!provider?.apiKey || provider.apiKey === "na") {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "No AI provider configured" }));
+      return true;
+    }
+
+    // Scan codebase: list all source files
+    const { exec: execCb } = await import("child_process");
+    const scanFiles = () => new Promise((resolve) => {
+      execCb("find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*' | head -200", { cwd: projRoot, maxBuffer: 2*1024*1024 }, (err, stdout) => {
+        resolve(stdout.trim().split("\n").filter(Boolean));
+      });
+    });
+    const allFiles = await scanFiles();
+
+    // Read API contract if exists
+    let apiContract = "";
+    const apiSpecFile = join(projRoot, ".paaw", "specs", "api-contract.md");
+    if (existsSync(apiSpecFile)) {
+      try { apiContract = (await readFile(apiSpecFile, "utf-8")).slice(0, 3000); } catch {}
+    }
+
+    const prompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
+
+## Current Features
+${JSON.stringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })), null, 2)}
+
+## All Source Files in Codebase
+${allFiles.join("\n")}
+
+## API Contract
+${apiContract || "(not available)"}
+
+## Task
+For EACH feature, review its current file mappings and update them based on what files actually exist now.
+
+Rules:
+1. If files were renamed/moved, update the paths
+2. If new files belong to this feature, add them
+3. If mapped files no longer exist, remove them
+4. Check API endpoints — add new ones, remove deleted ones
+5. Check test files — add new ones, remove deleted ones
+6. Check runbooks — same
+7. Do NOT change feature id, name, description, or status
+8. Do NOT invent files that don't exist in the file list above
+
+Output a JSON array with updated mappings. Each element:
+{ "id": "F-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
+
+Output ONLY the JSON array, no markdown fences.`;
+
+    const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${provider.apiKey}`,
+      ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+    };
+
+    try {
+      const llmRes = await fetch(apiUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: 3000 }),
+      });
+      const llmData = await llmRes.json();
+      const content = llmData.choices?.[0]?.message?.content || "";
+      const cleanJson = content.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
+      const updates = JSON.parse(cleanJson);
+
+      if (!Array.isArray(updates)) throw new Error("AI did not return an array");
+
+      // Apply updates
+      let updatedCount = 0;
+      for (const upd of updates) {
+        const idx = features.findIndex(f => f.id === upd.id);
+        if (idx < 0) continue;
+        if (upd.codeFiles) features[idx].codeFiles = upd.codeFiles;
+        if (upd.apis) features[idx].apis = upd.apis;
+        if (upd.tests) features[idx].tests = upd.tests;
+        if (upd.runbooks) features[idx].runbooks = upd.runbooks;
+        features[idx].updatedAt = now();
+        updatedCount++;
+      }
+      await saveFeatures(projRoot, features);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, updated: updatedCount, total: features.length, features }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `AI refresh failed: ${err.message}` }));
+    }
+    return true;
+  }
+
   return false;
 }

@@ -10,9 +10,9 @@
  */
 
 export const AGENT_RULES = `
-## 工作規則
+## 工作规则
 
-### 查詢專案資訊（重要！）
+### 查询專案資訊（重要！）
 你需要了解專案時，**必須優先使用 project_* tools**，不要用 read_file 去讀 .paaw/ 目錄下的檔案：
 - **project_context** — 取得 PROJECT.md、ARCHITECTURE.md、STATUS.md、CODING-STANDARDS.md
 - **project_decisions** — 讀取架構決策 (ADR)
@@ -20,11 +20,24 @@ export const AGENT_RULES = `
 - **project_changelog** — 讀取近期變更
 - **project_issues** — 列出/篩選專案問題
 - **project_sessions** — 列出近期 coding sessions
+- **project_features** — 列出所有 feature（每次對話 system prompt 已注入最新 summary）
+- **project_feature_detail** — 查單一 feature 完整 detail
 
 ❌ 不要 read_file(".paaw/DECISIONS.md") → 用 project_decisions
 ❌ 不要 read_file(".paaw/CODING-STANDARDS.md") → 用 project_context 或 project_standards
 ❌ 不要 read_file(".paaw/issues/ISSUES.json") → 用 project_issues
+❌ 不要 read_file(".paaw/features/FEATURES.json") → 用 project_features 或 project_feature_detail
 ✅ read_file 只用來讀「原始碼」，不用來讀 .paaw/ 專案知識
+
+### Feature Mapping 維護（必須！）
+每次你的程式碼變更影響到 feature 的結構時，**必須用 tool 更新 mapping**：
+- 新增/刪除/重命名檔案 → **project_feature_update_mapping**
+- 新增/刪除 API endpoint → **project_feature_update_mapping**
+- 新增/刪除測試檔案 → **project_feature_update_mapping**
+- 更新 feature 文件 → **project_feature_update_docs**
+
+System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取），
+你改完 mapping 後，下次對話自動反映。
 
 ### 動作記錄（必須）
 完成任務後，你**必須**用 action_log_add 記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。

@@ -501,5 +501,7 @@
   "feature.generateUnderstanding": "理解を生成",
   "feature.documentation": "ドキュメント",
   "feature.docsPlaceholder": "Markdownでドキュメントを書く...",
-  "feature.noDocs": "ドキュメントなし、編集をクリックして追加"
+  "feature.noDocs": "ドキュメントなし、編集をクリックして追加",
+  "feature.refreshMapping": "マッピング更新",
+  "feature.refreshed": "更新済み"
 }

@@ -501,5 +501,7 @@
   "feature.generateUnderstanding": "Generate Understanding",
   "feature.documentation": "Documentation",
   "feature.docsPlaceholder": "Write feature documentation in Markdown...",
-  "feature.noDocs": "No documentation yet, click edit to add"
+  "feature.noDocs": "No documentation yet, click edit to add",
+  "feature.refreshMapping": "Refresh Mapping",
+  "feature.refreshed": "Updated"
 }

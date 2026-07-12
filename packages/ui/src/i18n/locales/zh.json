@@ -501,5 +501,7 @@
   "feature.generateUnderstanding": "生成理解",
   "feature.documentation": "文件",
   "feature.docsPlaceholder": "用 Markdown 撰寫功能文件...",
-  "feature.noDocs": "尚無文件，點編輯新增"
+  "feature.noDocs": "尚無文件，點編輯新增",
+  "feature.refreshMapping": "更新映射",
+  "feature.refreshed": "已更新"
 }
