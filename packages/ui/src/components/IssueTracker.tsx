@@ -74,7 +74,7 @@ const STATUS_FILTERS = ["all", "open", "in-progress", "resolved", "closed", "won
 
 // ── Component ──
 export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [stats, setStats] = useState<IssueStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,22 +203,22 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
         {stats && (
           <div className="flex items-center gap-2 px-3 py-2 text-xs flex-wrap" style={{ background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
             <span style={{ color: theme.text, opacity: 0.6 }}>
-              {tt("issue.total")}: <b>{stats.total}</b>
+              {t("issue.total")}: <b>{stats.total}</b>
             </span>
             <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.open.bg, color: STATUS_STYLES.open.text }}>
-              {tt("issue.open")}: {stats.open}
+              {t("issue.open")}: {stats.open}
             </span>
             {stats.inProgress > 0 && (
               <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES["in-progress"].bg, color: STATUS_STYLES["in-progress"].text }}>
-                {tt("issue.inProgress")}: {stats.inProgress}
+                {t("issue.inProgress")}: {stats.inProgress}
               </span>
             )}
             <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.resolved.bg, color: STATUS_STYLES.resolved.text }}>
-              {tt("issue.resolved")}: {stats.resolved}
+              {t("issue.resolved")}: {stats.resolved}
             </span>
             {stats.byPriority.critical > 0 && (
               <span className="px-1.5 py-0.5 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>
-                🔴 {stats.byPriority.critical} {tt("issue.critical")}
+                🔴 {stats.byPriority.critical} {t("issue.critical")}
               </span>
             )}
           </div>
@@ -234,7 +234,7 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
           >
             {STATUS_FILTERS.map(s => (
               <option key={s} value={s}>
-                {s === "all" ? tt("issue.allStatus") : tt(`issue.${s === "in-progress" ? "inProgress" : s}`) || s}
+                {s === "all" ? t("issue.allStatus") : t(`issue.${s === "in-progress" ? "inProgress" : s}`) || s}
               </option>
             ))}
           </select>
@@ -242,7 +242,7 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder={tt("issue.searchPlaceholder")}
+            placeholder={t("issue.searchPlaceholder")}
             className="flex-1 text-xs px-2 py-1 rounded border outline-none"
             style={{ borderColor: theme.borderLight, background: theme.bg, color: theme.text }}
           />
@@ -251,13 +251,13 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
             className="text-xs px-2 py-1 rounded font-medium"
             style={{ background: theme.accentBg, color: theme.accent }}
           >
-            + {tt("issue.new")}
+            + {t("issue.new")}
           </button>
           <button
             onClick={handleImport}
             className="text-xs px-2 py-1 rounded"
             style={{ background: theme.bgMuted, color: theme.text }}
-            title={tt("issue.importKnown")}
+            title={t("issue.importKnown")}
           >
             ⬆️
           </button>
@@ -265,7 +265,7 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
             onClick={() => { fetchIssues(); fetchStats(); }}
             className="text-xs px-2 py-1 rounded"
             style={{ background: theme.bgMuted, color: theme.text }}
-            title={tt("issue.refresh")}
+            title={t("issue.refresh")}
           >
             🔄
           </button>
@@ -275,12 +275,12 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-full text-sm" style={{ color: theme.text, opacity: 0.4 }}>
-              {tt("issue.loading")}
+              {t("issue.loading")}
             </div>
           ) : issues.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-sm" style={{ color: theme.text, opacity: 0.4 }}>
               <div className="text-3xl">📋</div>
-              <div>{tt("issue.empty")}</div>
+              <div>{t("issue.empty")}</div>
             </div>
           ) : (
             issues.map(issue => {
@@ -343,12 +343,12 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
             onSubmit={() => handleCreate(editForm)}
             onCancel={() => setShowCreate(false)}
             theme={theme}
-            tt={tt}
+            t={t}
           />
         ) : !selected ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2" style={{ color: theme.text, opacity: 0.4 }}>
             <div className="text-4xl">🐛</div>
-            <div className="text-sm">{tt("issue.selectPrompt")}</div>
+            <div className="text-sm">{t("issue.selectPrompt")}</div>
           </div>
         ) : editing ? (
           <IssueForm
@@ -358,13 +358,13 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
             onSubmit={() => handleUpdate(selected.id, editForm)}
             onCancel={() => setEditing(false)}
             theme={theme}
-            tt={tt}
+            t={t}
           />
         ) : (
           <IssueDetail
             issue={selected}
             theme={theme}
-            tt={tt}
+            t={t}
             onEdit={() => startEdit(selected)}
             onDelete={() => handleDelete(selected.id)}
             onOpenFile={onOpenFile}
@@ -376,10 +376,10 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
 }
 
 // ── Issue Detail View ──
-function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
+function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
   issue: Issue;
   theme: any;
-  tt: (k: string) => string;
+  t: (k: string) => string;
   onEdit: () => void;
   onDelete: () => void;
   onOpenFile?: (p: string) => void;
@@ -404,7 +404,7 @@ function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
         </div>
         <div className="flex gap-1 shrink-0">
           <button onClick={onEdit} className="text-xs px-2 py-1 rounded" style={{ background: theme.accentBg, color: theme.accent }}>
-            ✏️ {tt("issue.edit")}
+            ✏️ {t("issue.edit")}
           </button>
           <button onClick={onDelete} className="text-xs px-2 py-1 rounded" style={{ background: "#fef2f2", color: "#dc2626" }}>
             🗑️
@@ -414,9 +414,9 @@ function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
 
       {/* Meta */}
       <div className="flex gap-4 text-xs mb-4" style={{ color: theme.text, opacity: 0.5 }}>
-        <span>📅 {tt("issue.created")}: {new Date(issue.createdAt).toLocaleString()}</span>
-        <span>🔄 {tt("issue.updated")}: {new Date(issue.updatedAt).toLocaleString()}</span>
-        {issue.resolvedAt && <span>✅ {tt("issue.resolved")}: {new Date(issue.resolvedAt).toLocaleString()}</span>}
+        <span>📅 {t("issue.created")}: {new Date(issue.createdAt).toLocaleString()}</span>
+        <span>🔄 {t("issue.updated")}: {new Date(issue.updatedAt).toLocaleString()}</span>
+        {issue.resolvedAt && <span>✅ {t("issue.resolved")}: {new Date(issue.resolvedAt).toLocaleString()}</span>}
       </div>
 
       {/* Labels */}
@@ -433,7 +433,7 @@ function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
       {/* Description */}
       {issue.description && (
         <div className="mb-4">
-          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{tt("issue.description")}</h3>
+          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.description")}</h3>
           <p className="text-sm" style={{ color: theme.text }}>{issue.description}</p>
         </div>
       )}
@@ -441,7 +441,7 @@ function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
       {/* Reproduction */}
       {issue.reproduction && (
         <div className="mb-4">
-          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{tt("issue.reproduction")}</h3>
+          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.reproduction")}</h3>
           <pre className="text-sm p-2 rounded whitespace-pre-wrap" style={{ background: theme.bgMuted, color: theme.text }}>{issue.reproduction}</pre>
         </div>
       )}
@@ -449,7 +449,7 @@ function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
       {/* Solution */}
       {issue.solution && (
         <div className="mb-4">
-          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{tt("issue.solution")}</h3>
+          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.solution")}</h3>
           <p className="text-sm" style={{ color: theme.text }}>{issue.solution}</p>
         </div>
       )}
@@ -457,7 +457,7 @@ function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
       {/* Related files */}
       {issue.relatedFiles.length > 0 && (
         <div className="mb-4">
-          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{tt("issue.relatedFiles")}</h3>
+          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.relatedFiles")}</h3>
           <div className="flex flex-col gap-1">
             {issue.relatedFiles.map(f => (
               <button
@@ -477,14 +477,14 @@ function IssueDetail({ issue, theme, tt, onEdit, onDelete, onOpenFile }: {
 }
 
 // ── Issue Form (create / edit) ──
-function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, tt }: {
+function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, t }: {
   mode: "create" | "edit";
   form: Partial<Issue>;
   onChange: (f: Partial<Issue>) => void;
   onSubmit: () => void;
   onCancel: () => void;
   theme: any;
-  tt: (k: string) => string;
+  t: (k: string) => string;
 }) {
   const set = (key: string, val: any) => onChange({ ...form, [key]: val });
 
@@ -497,71 +497,71 @@ function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, tt }: {
   return (
     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
       <h2 className="text-lg font-bold" style={{ color: theme.text }}>
-        {mode === "create" ? tt("issue.newTitle") : tt("issue.editTitle")}
+        {mode === "create" ? t("issue.newTitle") : t("issue.editTitle")}
       </h2>
 
       {/* Title */}
       <div>
-        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.titleLabel")}</label>
+        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.titleLabel")}</label>
         <input
           type="text"
           value={form.title || ""}
           onChange={e => set("title", e.target.value)}
           className="w-full text-sm px-2 py-1.5 rounded border outline-none"
           style={inputStyle}
-          placeholder={tt("issue.titlePlaceholder")}
+          placeholder={t("issue.titlePlaceholder")}
         />
       </div>
 
       {/* Status & Priority */}
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.statusLabel")}</label>
+          <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.statusLabel")}</label>
           <select
             value={form.status || "open"}
             onChange={e => set("status", e.target.value)}
             className="w-full text-sm px-2 py-1.5 rounded border"
             style={inputStyle}
           >
-            <option value="open">{tt("issue.open")}</option>
-            <option value="in-progress">{tt("issue.inProgress")}</option>
-            <option value="resolved">{tt("issue.resolved")}</option>
-            <option value="closed">{tt("issue.closed")}</option>
-            <option value="wontfix">{tt("issue.wontfix")}</option>
+            <option value="open">{t("issue.open")}</option>
+            <option value="in-progress">{t("issue.inProgress")}</option>
+            <option value="resolved">{t("issue.resolved")}</option>
+            <option value="closed">{t("issue.closed")}</option>
+            <option value="wontfix">{t("issue.wontfix")}</option>
           </select>
         </div>
         <div className="flex-1">
-          <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.priorityLabel")}</label>
+          <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.priorityLabel")}</label>
           <select
             value={form.priority || "medium"}
             onChange={e => set("priority", e.target.value)}
             className="w-full text-sm px-2 py-1.5 rounded border"
             style={inputStyle}
           >
-            <option value="critical">{tt("issue.critical")}</option>
-            <option value="high">{tt("issue.high")}</option>
-            <option value="medium">{tt("issue.medium")}</option>
-            <option value="low">{tt("issue.low")}</option>
+            <option value="critical">{t("issue.critical")}</option>
+            <option value="high">{t("issue.high")}</option>
+            <option value="medium">{t("issue.medium")}</option>
+            <option value="low">{t("issue.low")}</option>
           </select>
         </div>
       </div>
 
       {/* Labels */}
       <div>
-        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.labelsLabel")}</label>
+        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.labelsLabel")}</label>
         <input
           type="text"
           value={(form.labels || []).join(", ")}
           onChange={e => set("labels", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
           className="w-full text-sm px-2 py-1.5 rounded border outline-none"
           style={inputStyle}
-          placeholder={tt("issue.labelsPlaceholder")}
+          placeholder={t("issue.labelsPlaceholder")}
         />
       </div>
 
       {/* Description */}
       <div>
-        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.description")}</label>
+        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.description")}</label>
         <textarea
           value={form.description || ""}
           onChange={e => set("description", e.target.value)}
@@ -573,7 +573,7 @@ function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, tt }: {
 
       {/* Reproduction */}
       <div>
-        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.reproduction")}</label>
+        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.reproduction")}</label>
         <textarea
           value={form.reproduction || ""}
           onChange={e => set("reproduction", e.target.value)}
@@ -585,7 +585,7 @@ function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, tt }: {
 
       {/* Solution */}
       <div>
-        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.solution")}</label>
+        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.solution")}</label>
         <textarea
           value={form.solution || ""}
           onChange={e => set("solution", e.target.value)}
@@ -597,14 +597,14 @@ function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, tt }: {
 
       {/* Related files */}
       <div>
-        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{tt("issue.relatedFiles")}</label>
+        <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.relatedFiles")}</label>
         <input
           type="text"
           value={(form.relatedFiles || []).join(", ")}
           onChange={e => set("relatedFiles", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
           className="w-full text-sm px-2 py-1.5 rounded border outline-none"
           style={inputStyle}
-          placeholder={tt("issue.relatedFilesPlaceholder")}
+          placeholder={t("issue.relatedFilesPlaceholder")}
         />
       </div>
 
@@ -615,14 +615,14 @@ function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, tt }: {
           className="text-sm px-4 py-1.5 rounded font-medium"
           style={{ background: theme.accentBg, color: theme.accent }}
         >
-          ✅ {mode === "create" ? tt("issue.create") : tt("issue.save")}
+          ✅ {mode === "create" ? t("issue.create") : t("issue.save")}
         </button>
         <button
           onClick={onCancel}
           className="text-sm px-4 py-1.5 rounded"
           style={{ background: theme.bgMuted, color: theme.text }}
         >
-          {tt("issue.cancel")}
+          {t("issue.cancel")}
         </button>
       </div>
     </div>
