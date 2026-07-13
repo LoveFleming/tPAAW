@@ -552,6 +552,11 @@ Output ONLY the JSON array, no markdown fences.`;
       const llmData = await llmRes.json();
       const content = llmData.choices?.[0]?.message?.content || "";
       const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+      if (!cleanJson) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "AI 回應為空，無法更新 Feature Map。請重新執行。" }));
+        return true;
+      }
       let updates;
       try {
         updates = JSON.parse(cleanJson);
@@ -566,6 +571,11 @@ Output ONLY the JSON array, no markdown fences.`;
           if (inStr) continue;
           if (c === '{') braceCount++;
           if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+        }
+        if (lastComplete === 0) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `AI refresh failed: no valid JSON in response (${parseErr.message})` }));
+          return true;
         }
         const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
         try {
