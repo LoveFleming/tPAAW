@@ -48,7 +48,7 @@ System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取
 這三個 tool 是 AI 維運的「體檢」步驟，不要跳過。
 
 ### CU 維護（改完 code 後）
-改完 code 後不要重跑整個 CU，用 `cu_refresh` 增量更新：
+改完 code 後不要重跑整個 CU，用 cu_refresh 增量更新：
 - **cu_refresh** — 預設只跑確定性步驟（code-intelligence, test-intelligence, change-intelligence），秒級完成
 - 只有架構或 API 大改才需要加 LLM 步驟（feature-map, api-spec, error-mapping 等）
 - 絕對不要全跑全 overwrite，那是初次設定才做的事
