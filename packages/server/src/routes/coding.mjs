@@ -1335,6 +1335,7 @@ export default async function projectRoute(req, res) {
               summary: `${scanResult.stats.total} findings (${JSON.stringify(scanResult.stats.bySeverity)})`,
               stats: scanResult.stats,
             });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${scanResult.stats.total} findings` }); } catch {}
           } catch (err) {
             cuLog(step.id, `Semgrep failed: ${err.message}`);
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
@@ -1356,6 +1357,7 @@ export default async function projectRoute(req, res) {
               summary: `${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls, ${summary.symbolIndex.total} symbols`,
               stats: summary,
             });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.callGraph.totalFunctions} functions` }); } catch {}
           } catch (err) {
             cuLog(step.id, `Code intelligence failed: ${err.message}`);
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
@@ -1377,6 +1379,7 @@ export default async function projectRoute(req, res) {
               summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`,
               stats: summary,
             });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
           } catch (err) {
             cuLog(step.id, `Test intelligence failed: ${err.message}`);
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
@@ -1398,6 +1401,7 @@ export default async function projectRoute(req, res) {
               summary: `${summary.totalCommits} commits, ${summary.totalFilesChanged} files, ${summary.highImpactChanges} high-impact`,
               stats: summary,
             });
+            try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalCommits} commits` }); } catch {}
           } catch (err) {
             cuLog(step.id, `Change intelligence failed: ${err.message}`);
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
@@ -1612,8 +1616,10 @@ export default async function projectRoute(req, res) {
 
           sendEvent("step_done", { step: step.id, name: step.name, size: content.length, preview: content.slice(0, 200) });
           cuLog(step.id, `sendEvent step_done (${content.length} chars)`);
+          try { await paaw.setCuStepStatus(step.id, "done", { size: content.length }); } catch {}
         } catch (err) {
           sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
         }
         sendEvent("done", { message: "Step complete" });
       } catch (err) {
@@ -1717,9 +1723,11 @@ export default async function projectRoute(req, res) {
               await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
               cuLog(step.id, `[bulk] Semgrep done: ${scanResult.stats.total} findings`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${scanResult.stats.total} findings`, stats: scanResult.stats });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${scanResult.stats.total} findings` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] Semgrep failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }
             continue;
           }
@@ -1731,9 +1739,11 @@ export default async function projectRoute(req, res) {
               const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
               cuLog(step.id, `[bulk] Code intelligence done: ${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.callGraph.totalFunctions} functions, ${summary.symbolIndex.total} symbols`, stats: summary });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.callGraph.totalFunctions} functions` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] Code intelligence failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }
             continue;
           }
@@ -1745,9 +1755,11 @@ export default async function projectRoute(req, res) {
               const { summary } = await buildTestIntelligence(root, PAAW_ROOT);
               cuLog(step.id, `[bulk] Test intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`, stats: summary });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] Test intelligence failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }
             continue;
           }
@@ -1759,9 +1771,11 @@ export default async function projectRoute(req, res) {
               const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 });
               cuLog(step.id, `[bulk] Change intelligence: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files`);
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalCommits} commits, ${summary.totalFilesChanged} files`, stats: summary });
+              try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalCommits} commits` }); } catch {}
             } catch (err) {
               cuLog(step.id, `[bulk] Change intelligence failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+              try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
             }
             continue;
           }
@@ -1965,8 +1979,10 @@ export default async function projectRoute(req, res) {
               size: content.length,
               preview: content.slice(0, 200),
             });
+            try { await paaw.setCuStepStatus(step.id, "done", { size: content.length }); } catch {}
           } catch (err) {
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
           }
         }
 
@@ -2109,6 +2125,19 @@ export default async function projectRoute(req, res) {
         sendEvent("error", { error: err.message });
       }
       res.end();
+      return true;
+    }
+
+    // GET /api/coding-project/cu-status — CU step statuses
+    if (url.startsWith("/api/coding-project/cu-status") && method === "GET") {
+      try {
+        const cuStatus = await paaw.getCuStatus();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(cuStatus));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return true;
     }
 

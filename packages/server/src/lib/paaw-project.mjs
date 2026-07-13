@@ -627,6 +627,49 @@ export class PaawProject {
     return content;
   }
 
+  // ── CU Step Status Tracking ──
+
+  async getCuStatus() {
+    if (!this.exists) return { steps: {} };
+    try {
+      const raw = await readFile(join(this.paawDir, "cu-status.json"), "utf-8");
+      return JSON.parse(raw);
+    } catch {
+      // Fallback: infer from file existence
+      const steps = {};
+      const checks = [
+        { id: "scan", file: "scan.json" },
+        { id: "architecture", file: "ARCHITECTURE.md" },
+        { id: "feature-map", file: "features/FEATURES.json" },
+        { id: "api-spec", file: "specs/api-contract.md" },
+        { id: "code-intelligence", file: "code-intelligence/summary.json" },
+        { id: "test-intelligence", file: "code-intelligence/test-intelligence.json" },
+        { id: "error-mapping", file: "specs/error-codes.md" },
+        { id: "security-scan", file: "security/scan-results.json" },
+        { id: "standards", file: "standards/coding-style.md" },
+        { id: "overview", file: "PROJECT.md" },
+        { id: "change-intelligence", file: "changes/change-intelligence.json" },
+      ];
+      for (const c of checks) {
+        const content = await this.readFile(c.file);
+        if (content && content.length > 50 && !content.includes("(待補充)") && !content.includes("(auto-detect)")) {
+          steps[c.id] = { status: "done", size: content.length, updatedAt: null };
+        } else {
+          steps[c.id] = { status: "pending" };
+        }
+      }
+      return { steps };
+    }
+  }
+
+  async setCuStepStatus(stepId, status, extra = {}) {
+    if (!this.exists) return;
+    let cuStatus = await this.getCuStatus();
+    cuStatus.steps = cuStatus.steps || {};
+    cuStatus.steps[stepId] = { status, ...extra, updatedAt: new Date().toISOString() };
+    await writeFile(join(this.paawDir, "cu-status.json"), JSON.stringify(cuStatus, null, 2), "utf-8");
+  }
+
   // ── Code Status Dashboard Scores ──
 
   async computeStatus() {

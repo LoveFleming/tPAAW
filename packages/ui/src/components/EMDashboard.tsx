@@ -124,6 +124,25 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
   const loadPersistedSteps = useCallback(async () => {
     if (!rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const steps = CU_STEPS.map(s => {
+          const st = data.steps?.[s.id];
+          if (st?.status === "done") {
+            return { id: s.id, name: s.name, status: "done", size: st.size };
+          } else if (st?.status === "error") {
+            return { id: s.id, name: s.name, status: "error", error: st.error };
+          } else {
+            return { id: s.id, name: s.name, status: "pending" };
+          }
+        });
+        setPersistedSteps(steps);
+        return;
+      }
+    } catch {}
+    // Fallback: check file existence
     const steps = [];
     for (const s of CU_STEPS) {
       try {
