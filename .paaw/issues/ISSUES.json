@@ -1,0 +1,112 @@
+{
+  "issues": [
+    {
+      "id": "ISS-001",
+      "title": "AGENT-MEMORY 目錄為空",
+      "status": "open",
+      "priority": "medium",
+      "labels": [],
+      "description": "AI 沒有跨對話記憶，每次新對話從零開始",
+      "reproduction": "",
+      "solution": "對話持久化可 partially 彌補（載入舊對話繼續）",
+      "relatedFiles": [
+        "`agent_memory_save` / `agent_memory_load` tool 已存在但未被使用"
+      ],
+      "createdAt": "2026-07-12T01:56:44.249Z",
+      "updatedAt": "2026-07-12T01:56:44.249Z",
+      "resolvedAt": null,
+      "createdBy": "import",
+      "originalId": "KI-001"
+    },
+    {
+      "id": "ISS-002",
+      "title": "無自動化測試",
+      "status": "open",
+      "priority": "high",
+      "labels": [],
+      "description": "改完碼只能手動驗證，regression 風險高",
+      "reproduction": "",
+      "solution": "每次改完跑 `vite build` 當 smoke test",
+      "relatedFiles": [
+        "TEST-EVIDENCE.md 待整合 section"
+      ],
+      "createdAt": "2026-07-12T01:56:44.249Z",
+      "updatedAt": "2026-07-12T01:56:44.249Z",
+      "resolvedAt": null,
+      "createdBy": "import",
+      "originalId": "KI-002"
+    },
+    {
+      "id": "ISS-003",
+      "title": "Token budget 估算不精確",
+      "status": "open",
+      "priority": "low",
+      "labels": [],
+      "description": "CJK 內容實際 token 數偏高（每字 ~2-3 token，估算用 4 chars/token）",
+      "reproduction": "",
+      "solution": "12000 budget 偏保守，安全側誤差",
+      "relatedFiles": [
+        "ADR-001"
+      ],
+      "createdAt": "2026-07-12T01:56:44.249Z",
+      "updatedAt": "2026-07-12T01:56:44.249Z",
+      "resolvedAt": null,
+      "createdBy": "import",
+      "originalId": "KI-003"
+    },
+    {
+      "id": "ISS-004",
+      "title": "跨平台路徑問題歷史債",
+      "status": "open",
+      "priority": "medium",
+      "labels": [],
+      "description": "Windows 上路徑處理容易出錯（`new URL().pathname` → `/C:/path`）",
+      "reproduction": "",
+      "solution": "已建立 CODING-STANDARDS.md 規範，但舊 code 可能殘留",
+      "relatedFiles": [
+        "CODING-STANDARDS.md",
+        "MEMORY.md 跨平台路徑紀律"
+      ],
+      "createdAt": "2026-07-12T01:56:44.249Z",
+      "updatedAt": "2026-07-12T01:56:44.249Z",
+      "resolvedAt": null,
+      "createdBy": "import",
+      "originalId": "KI-004"
+    },
+    {
+      "id": "ISS-005",
+      "title": "i18n 可能有硬編碼字串",
+      "status": "open",
+      "priority": "low",
+      "labels": [],
+      "description": "部分舊 UI code 可能有中文硬編碼，未走 `t()`",
+      "reproduction": "",
+      "solution": "2026-07-01 已做一次完整 i18n 補全",
+      "relatedFiles": [
+        "CODING-STANDARDS.md i18n section"
+      ],
+      "createdAt": "2026-07-12T01:56:44.249Z",
+      "updatedAt": "2026-07-12T01:56:44.249Z",
+      "resolvedAt": null,
+      "createdBy": "import",
+      "originalId": "KI-005"
+    },
+    {
+      "id": "ISS-000",
+      "title": "slice(-20) 上下文截斷",
+      "status": "closed",
+      "priority": "medium",
+      "labels": [],
+      "description": "",
+      "reproduction": "",
+      "solution": "",
+      "relatedFiles": [],
+      "createdAt": "2026-07-12T01:56:44.249Z",
+      "updatedAt": "2026-07-12T01:56:44.249Z",
+      "resolvedAt": "2026-07-12T01:56:44.249Z",
+      "createdBy": "import",
+      "originalId": "KI-000"
+    }
+  ],
+  "updatedAt": "2026-07-12T01:56:44.250Z"
+}

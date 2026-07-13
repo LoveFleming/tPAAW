@@ -92,13 +92,6 @@
       "testCount": 0
     },
     {
-      "testFile": "packages/server/src/lib/test-intelligence.mjs",
-      "productionFile": "packages/server/src/lib/tree-sitter-parser.mjs",
-      "matchType": "import",
-      "testedFunctions": [],
-      "testCount": 3
-    },
-    {
       "testFile": "packages/server/src/lib/tool-engine/index.mjs",
       "productionFile": "packages/server/src/lib/tool-engine/provider.mjs",
       "matchType": "import",
@@ -779,8 +772,8 @@
     }
   ],
   "stats": {
-    "totalTestFiles": 10,
-    "matchedTests": 111,
+    "totalTestFiles": 9,
+    "matchedTests": 110,
     "totalTestedFunctions": 0
   }
 }

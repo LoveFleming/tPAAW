@@ -32,26 +32,28 @@
     },
     "error-mapping": {
       "status": "done",
-      "size": 12852,
-      "updatedAt": null
+      "size": 13798,
+      "updatedAt": "2026-07-13T13:57:29.152Z"
     },
     "security-scan": {
-      "status": "pending"
+      "status": "done",
+      "summary": "6 findings",
+      "updatedAt": "2026-07-13T13:57:36.140Z"
     },
     "standards": {
       "status": "done",
-      "size": 7447,
-      "updatedAt": null
+      "size": 11021,
+      "updatedAt": "2026-07-13T13:58:04.731Z"
     },
     "overview": {
       "status": "done",
-      "size": 6188,
-      "updatedAt": null
+      "size": 8443,
+      "updatedAt": "2026-07-13T13:58:30.228Z"
     },
     "change-intelligence": {
       "status": "done",
-      "size": 65088,
-      "updatedAt": null
+      "summary": "50 commits",
+      "updatedAt": "2026-07-13T13:58:30.625Z"
     }
   }
 }

@@ -988,68 +988,7 @@
       "exportCount": 0
     }
   ],
-  "featureToTests": [
-    {
-      "featureId": "F-003",
-      "featureName": "AI Settings",
-      "tests": [
-        "tests/unit/ai-settings.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-009",
-      "featureName": "Code Understanding (CU) Workflow",
-      "tests": [
-        "packages/server/src/lib/test-intelligence.mjs"
-      ]
-    },
-    {
-      "featureId": "F-013",
-      "featureName": "Context Engine",
-      "tests": [
-        "tests/unit/context-engine.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-018",
-      "featureName": "Notes & Notebooks",
-      "tests": [
-        "tests/e2e/03-notes.spec.ts"
-      ]
-    },
-    {
-      "featureId": "F-021",
-      "featureName": "Skills (CRUD & Build)",
-      "tests": [
-        "tests/unit/skill-format.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-026",
-      "featureName": "Tree-sitter Parser",
-      "tests": [
-        "packages/server/src/lib/test-intelligence.mjs"
-      ]
-    },
-    {
-      "featureId": "F-042",
-      "featureName": "Provider Setup & Configuration",
-      "tests": [
-        "tests/unit/providers.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-043",
-      "featureName": "E2E Test Suite",
-      "tests": [
-        "tests/e2e/01-smoke.spec.ts",
-        "tests/e2e/02-settings.spec.ts",
-        "tests/e2e/03-notes.spec.ts",
-        "tests/e2e/04-pages.spec.ts",
-        "tests/e2e/05-api.spec.ts"
-      ]
-    }
-  ],
+  "featureToTests": [],
   "stats": {
     "totalTestFiles": 10,
     "byType": {
@@ -1060,6 +999,6 @@
     "totalMappings": 3,
     "coverageGapFiles": 157,
     "coverageRate": "1.9%",
-    "featureTestCoverage": 8
+    "featureTestCoverage": 0
   }
 }

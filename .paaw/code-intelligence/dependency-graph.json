@@ -858,40 +858,6 @@
       "importedBy": [],
       "exports": []
     },
-    "packages/server/src/lib/change-intelligence.mjs": {
-      "path": "packages/server/src/lib/change-intelligence.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "util",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "buildChangeIntelligence"
-      ]
-    },
     "packages/server/src/lib/code-intelligence.mjs": {
       "path": "packages/server/src/lib/code-intelligence.mjs",
       "language": "javascript",
@@ -946,10 +912,6 @@
       "importedBy": [
         {
           "source": "packages/server/src/lib/code-intelligence.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/test-intelligence.mjs",
           "names": []
         }
       ],
@@ -1421,12 +1383,6 @@
           "resolved": false,
           "targetFile": null,
           "names": []
-        },
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
         }
       ],
       "importedBy": [],
@@ -1466,34 +1422,6 @@
       ],
       "exports": [
         "JsonTaskPersistence"
-      ]
-    },
-    "packages/server/src/lib/test-intelligence.mjs": {
-      "path": "packages/server/src/lib/test-intelligence.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./tree-sitter-parser.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [],
-      "exports": [
-        "buildTestIntelligence"
       ]
     },
     "packages/server/src/lib/tool-engine/index.mjs": {
@@ -7302,11 +7230,6 @@
       "names": []
     },
     {
-      "from": "packages/server/src/lib/test-intelligence.mjs",
-      "to": "packages/server/src/lib/tree-sitter-parser.mjs",
-      "names": []
-    },
-    {
       "from": "packages/server/src/lib/tool-engine/index.mjs",
       "to": "packages/server/src/lib/tool-engine/provider.mjs",
       "names": []
@@ -8608,9 +8531,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 170,
-    "totalEdges": 287,
-    "resolvedImports": 287,
-    "unresolvedImports": 390
+    "totalFiles": 168,
+    "totalEdges": 286,
+    "resolvedImports": 286,
+    "unresolvedImports": 383
   }
 }

@@ -1355,31 +1355,6 @@
     },
     {
       "type": "function",
-      "name": "git",
-      "file": "packages/server/src/lib/change-intelligence.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(projectRoot, args)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "buildChangeIntelligence",
-      "file": "packages/server/src/lib/change-intelligence.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(projectRoot, options = {})",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "buildChangeIntelligence",
-      "file": "packages/server/src/lib/change-intelligence.mjs",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "function",
       "name": "buildCallGraph",
       "file": "packages/server/src/lib/code-intelligence.mjs",
       "kind": "function",
@@ -2138,8 +2113,6 @@
         "addDecision",
         "logApiCall",
         "generateProjectOverview",
-        "getCuStatus",
-        "setCuStepStatus",
         "computeStatus",
         "listTree"
       ]
@@ -2309,7 +2282,7 @@
       "kind": "arrow",
       "async": false,
       "params": "(ext)",
-      "callCount": 1
+      "callCount": 2
     },
     {
       "type": "function",
@@ -2402,40 +2375,6 @@
       "name": "JsonTaskPersistence",
       "file": "packages/server/src/lib/task-persistence.mjs",
       "kind": "class",
-      "isDefault": false
-    },
-    {
-      "type": "function",
-      "name": "classifyTestType",
-      "file": "packages/server/src/lib/test-intelligence.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(fileName, filePath, content = \"\")",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "findTestedFunctions",
-      "file": "packages/server/src/lib/test-intelligence.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(testFile, productionFile)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "buildTestIntelligence",
-      "file": "packages/server/src/lib/test-intelligence.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(projectRoot, paawRoot)",
-      "callCount": 0
-    },
-    {
-      "type": "export",
-      "name": "buildTestIntelligence",
-      "file": "packages/server/src/lib/test-intelligence.mjs",
-      "kind": "function",
       "isDefault": false
     },
     {
@@ -6781,7 +6720,7 @@
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 12
+      "callCount": 9
     },
     {
       "type": "export",
@@ -13653,35 +13592,6 @@
         "path": "/api/update/status"
       }
     ],
-    "git": [
-      {
-        "type": "function",
-        "name": "git",
-        "file": "packages/server/src/lib/change-intelligence.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(projectRoot, args)",
-        "callCount": 0
-      }
-    ],
-    "buildChangeIntelligence": [
-      {
-        "type": "function",
-        "name": "buildChangeIntelligence",
-        "file": "packages/server/src/lib/change-intelligence.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(projectRoot, options = {})",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "buildChangeIntelligence",
-        "file": "packages/server/src/lib/change-intelligence.mjs",
-        "kind": "function",
-        "isDefault": false
-      }
-    ],
     "buildCallGraph": [
       {
         "type": "function",
@@ -14616,8 +14526,6 @@
           "addDecision",
           "logApiCall",
           "generateProjectOverview",
-          "getCuStatus",
-          "setCuStepStatus",
           "computeStatus",
           "listTree"
         ]
@@ -14787,7 +14695,7 @@
         "kind": "arrow",
         "async": false,
         "params": "(ext)",
-        "callCount": 1
+        "callCount": 2
       }
     ],
     "isSemgrepAvailable": [
@@ -14922,46 +14830,6 @@
         "name": "JsonTaskPersistence",
         "file": "packages/server/src/lib/task-persistence.mjs",
         "kind": "class",
-        "isDefault": false
-      }
-    ],
-    "classifyTestType": [
-      {
-        "type": "function",
-        "name": "classifyTestType",
-        "file": "packages/server/src/lib/test-intelligence.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(fileName, filePath, content = \"\")",
-        "callCount": 0
-      }
-    ],
-    "findTestedFunctions": [
-      {
-        "type": "function",
-        "name": "findTestedFunctions",
-        "file": "packages/server/src/lib/test-intelligence.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(testFile, productionFile)",
-        "callCount": 0
-      }
-    ],
-    "buildTestIntelligence": [
-      {
-        "type": "function",
-        "name": "buildTestIntelligence",
-        "file": "packages/server/src/lib/test-intelligence.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(projectRoot, paawRoot)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "buildTestIntelligence",
-        "file": "packages/server/src/lib/test-intelligence.mjs",
-        "kind": "function",
         "isDefault": false
       }
     ],
@@ -20149,7 +20017,7 @@
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 12
+        "callCount": 9
       }
     ],
     "FeatureMap": [
@@ -25406,10 +25274,10 @@
     ]
   },
   "stats": {
-    "total": 1449,
-    "functions": 823,
+    "total": 1442,
+    "functions": 818,
     "classes": 25,
-    "exports": 383,
+    "exports": 381,
     "routes": 86,
     "components": 132
   }
