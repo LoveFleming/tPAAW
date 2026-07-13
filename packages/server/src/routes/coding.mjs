@@ -17,6 +17,8 @@
  *   GET    /api/coding-project/file?path=...&file=...  — Read any .paaw/ file
  *   PUT    /api/coding-project/file?path=...&file=...  — Write any .paaw/ file
  *   POST   /api/coding-project/generate-overview?path=... — Auto-generate PROJECT.md
+ *   GET    /api/coding-project/security-scan?path=...   — Run Semgrep security scan
+ *   GET    /api/coding-project/security-scan/results?path=... — Load last scan results
  *
  * Crew Conversation Persistence:
  *   GET    /api/coding-crew/conversations?cwd=...              — List all crew conversations
@@ -40,6 +42,7 @@ import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
+import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable } from "../lib/semgrep-runner.mjs";
 
 // ── PAAW root directory (cross-platform safe) ──
 // fileURLToPath handles Windows drive-letter URLs correctly,
@@ -900,6 +903,49 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── GET /api/coding-project/security-scan ──
+    // Run Semgrep and return findings
+    if (url.startsWith("/api/coding-project/security-scan") && method === "GET") {
+      if (!isSemgrepAvailable()) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Semgrep is not installed. Install: pip install semgrep OR brew install semgrep" }));
+        return true;
+      }
+      try {
+        const scanResult = await runSemgrep(root, { timeoutMs: 120_000 });
+        // Save to .paaw/security/
+        const secDir = join(root, ".paaw", "security");
+        if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
+        await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(scanResult));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/security-scan/results ──
+    // Load last scan results (without re-running)
+    if (url.startsWith("/api/coding-project/security-scan/results") && method === "GET") {
+      const resultsFile = join(root, ".paaw", "security", "scan-results.json");
+      if (!existsSync(resultsFile)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No scan results found. Run a scan first." }));
+        return true;
+      }
+      try {
+        const data = await readFile(resultsFile, "utf-8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(data);
+      } catch {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Failed to read scan results" }));
+      }
+      return true;
+    }
+
     // ── POST /api/coding-project/generate-overview ──
     if (url.startsWith("/api/coding-project/generate-overview") && method === "POST") {
       // Ensure .paaw/ exists first
@@ -1122,6 +1168,7 @@ export default async function projectRoute(req, res) {
         { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
         { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
       if (!step) {
@@ -1173,6 +1220,37 @@ export default async function projectRoute(req, res) {
         };
 
         sendEvent("step_start", { step: step.id, name: step.name });
+
+        // Special handling: security-scan runs Semgrep (no LLM needed)
+        if (step.id === "security-scan") {
+          if (!isSemgrepAvailable()) {
+            sendEvent("step_error", { step: step.id, name: step.name, error: "Semgrep 未安裝。安裝方式: brew install semgrep (macOS) 或 pip install semgrep" });
+            sendEvent("done", { message: "Step skipped — semgrep not installed" });
+            res.end();
+            return true;
+          }
+          try {
+            cuLog(step.id, "Running Semgrep scan...");
+            const scanResult = await runSemgrep(root, { timeoutMs: 120_000 });
+            // Save results
+            const secDir = join(root, ".paaw", "security");
+            if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
+            await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+            cuLog(step.id, `Semgrep done: ${scanResult.stats.total} findings, ${scanResult.stats.filesAffected || 0} files affected`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${scanResult.stats.total} findings (${JSON.stringify(scanResult.stats.bySeverity)})`,
+              stats: scanResult.stats,
+            });
+          } catch (err) {
+            cuLog(step.id, `Semgrep failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Security scan complete" });
+          res.end();
+          return true;
+        }
 
         const promptTemplate = loadProjectPrompt(step.promptFile);
         if (!promptTemplate) {
@@ -1403,6 +1481,7 @@ export default async function projectRoute(req, res) {
         { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
         { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
       ];
 
       // SSE stream — send progress as each step completes
@@ -1468,6 +1547,27 @@ export default async function projectRoute(req, res) {
 
         for (const step of steps) {
           sendEvent("step_start", { step: step.id, name: step.name });
+
+          // Special handling: security-scan runs Semgrep (no LLM needed)
+          if (step.id === "security-scan") {
+            if (!isSemgrepAvailable()) {
+              sendEvent("step_skip", { step: step.id, name: step.name, reason: "Semgrep not installed" });
+              continue;
+            }
+            try {
+              cuLog(step.id, "[bulk] Running Semgrep scan...");
+              const scanResult = await runSemgrep(root, { timeoutMs: 120_000 });
+              const secDir = join(root, ".paaw", "security");
+              if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
+              await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+              cuLog(step.id, `[bulk] Semgrep done: ${scanResult.stats.total} findings`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${scanResult.stats.total} findings`, stats: scanResult.stats });
+            } catch (err) {
+              cuLog(step.id, `[bulk] Semgrep failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            }
+            continue;
+          }
 
           const promptTemplate = loadProjectPrompt(step.promptFile);
           if (!promptTemplate) {
