@@ -613,26 +613,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         {/* ── 交接狀態面板 (Handoff Status) ── */}
         <HandoffStatusPanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} />
 
-        {/* ── Quick Actions ── */}
-        <div className="px-4 py-3 mt-auto">
-          <h3 className="text-sm font-bold text-stone-700 mb-2 flex items-center gap-1.5">
-            <span>🔗</span> 快速操作
-          </h3>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/STATUS.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
-              📊 STATUS.md
-            </button>
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/AI-OPERATING-GUIDE.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
-              🤖 操作手冊
-            </button>
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/DECISIONS.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
-              🏛️ DECISIONS.md
-            </button>
-            <button onClick={() => onOpenFile?.(`${rootPath}/.paaw/CHANGELOG.md`)} className="text-sm px-3 py-2 rounded border hover:bg-stone-50 text-stone-600" style={{ borderColor: tk.borderLight }}>
-              📝 CHANGELOG.md
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 
