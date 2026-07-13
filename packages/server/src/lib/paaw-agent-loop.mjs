@@ -448,6 +448,37 @@ const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "project_runbook",
+      description: "Get runbooks for troubleshooting errors. Can list all runbooks, get a specific runbook by error code, or search by keyword. Use this when diagnosing errors or when Helpdesk agent needs troubleshooting steps.",
+      parameters: {
+        type: "object",
+        properties: {
+          code: { type: "string", description: "Specific error code to get runbook (e.g. 'ORD-001'). If omitted, lists all runbooks." },
+          search: { type: "string", description: "Search runbooks by keyword (matches title and content)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_faq",
+      description: "Get or update the Helpdesk FAQ. Can read the full FAQ, search by keyword, or add a new Q&A entry. Use this when answering common questions or when Helpdesk agent discovers a recurring issue worth documenting.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["read", "search", "add"], description: "read = get full FAQ, search = find by keyword, add = append new Q&A" },
+          keyword: { type: "string", description: "Search keyword (for action=search)" },
+          question: { type: "string", description: "New question (for action=add)" },
+          answer: { type: "string", description: "New answer (for action=add)" },
+          category: { type: "string", description: "Category for new Q&A (e.g. 'setup', 'debug', 'deployment')" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "project_sessions",
       description: "List recent coding sessions from .paaw/sessions/. Returns session filenames and dates. Use this to see what work was done previously.",
       parameters: {
@@ -1173,6 +1204,97 @@ ${summary}`;
         return `Recorded change ${id}: ${record.title} [${record.type}] — ${record.files.length} file(s)`;
       }
 
+      case "project_runbook": {
+        const rbDir = join(cwd, ".paaw", "runbook");
+        if (!existsSync(rbDir)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: "no runbooks" });
+          return "⚠️ No runbooks directory. Run Code Understanding → Error Mapping step first.";
+        }
+        try {
+          const { readdirSync, readFileSync: readSync2 } = await import("fs");
+          // Get specific runbook by code
+          if (args.code) {
+            const rbFile = join(rbDir, `${args.code}.md`);
+            if (!existsSync(rbFile)) return `Runbook ${args.code} not found.`;
+            const content = readSync2(rbFile, "utf-8");
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.code });
+            return content;
+          }
+          // Search by keyword
+          if (args.search) {
+            const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
+            const matches = [];
+            for (const f of files) {
+              const content = readSync2(join(rbDir, f), "utf-8");
+              if (content.toLowerCase().includes(args.search.toLowerCase())) {
+                const title = content.match(/^#\s+(.+)$/m)?.[1] || f;
+                matches.push(`- ${f}: ${title}`);
+              }
+            }
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${matches.length} matches` });
+            return matches.length > 0 ? `Runbook matches for '${args.search}':\n${matches.join("\n")}` : `No runbooks matching '${args.search}'.`;
+          }
+          // List all
+          const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
+          if (files.length === 0) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: "empty" });
+            return "No runbooks found. Run Code Understanding → Error Mapping to generate runbooks.";
+          }
+          const list = files.map(f => {
+            const content = readSync2(join(rbDir, f), "utf-8");
+            const title = content.match(/^#\s+(.+)$/m)?.[1] || f;
+            return `- ${f}: ${title}`;
+          });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${files.length} runbooks` });
+          return `Runbooks (${files.length}):\n${list.join("\n")}`;
+        } catch (err) {
+          return `Error reading runbooks: ${err.message}`;
+        }
+      }
+
+      case "project_faq": {
+        const faqFile = join(cwd, ".paaw", "helpdesk", "faq.md");
+        const action = args.action || "read";
+        try {
+          const { readFileSync: readSync2, writeFileSync: writeSync2, mkdirSync: mkSync } = await import("fs");
+          // Read or search
+          if (action === "read" || action === "search") {
+            if (!existsSync(faqFile)) {
+              if (onEvent) onEvent({ type: "tool_end", name, result: "no faq" });
+              return "⚠️ No FAQ found. Run Code Understanding → FAQ step, or add entries with action=add.";
+            }
+            const content = readSync2(faqFile, "utf-8");
+            if (action === "search" && args.keyword) {
+              const lower = content.toLowerCase();
+              const kw = args.keyword.toLowerCase();
+              const sections = lower.split(/^##\s+/m);
+              const matches = sections.filter(s => s.includes(kw));
+              if (onEvent) onEvent({ type: "tool_end", name, result: `${matches.length} matches` });
+              return matches.length > 0 ? `FAQ matches for '${args.keyword}':\n## ${matches.join("\n\n## ")}` : `No FAQ entries matching '${args.keyword}'.`;
+            }
+            if (onEvent) onEvent({ type: "tool_end", name, result: "read" });
+            return content;
+          }
+          // Add new Q&A
+          if (action === "add") {
+            if (!args.question || !args.answer) return "Both question and answer are required for action=add.";
+            const faqDir = join(cwd, ".paaw", "helpdesk");
+            if (!existsSync(faqDir)) mkSync(faqDir, { recursive: true });
+            let content = "";
+            if (existsSync(faqFile)) content = readSync2(faqFile, "utf-8");
+            const category = args.category || "General";
+            const entry = `\n## ${args.question}\n**Category:** ${category}\n\n${args.answer}\n`;
+            content += entry;
+            writeSync2(faqFile, content, "utf-8");
+            if (onEvent) onEvent({ type: "tool_end", name, result: "added" });
+            return `Added FAQ entry: ${args.question}`;
+          }
+          return "Invalid action. Use read, search, or add.";
+        } catch (err) {
+          return `Error with FAQ: ${err.message}`;
+        }
+      }
+
       case "project_sessions": {
         const paaw = createPaawProject(cwd);
         if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
@@ -1670,7 +1792,9 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)
 - **project_issue_create** — Create a new issue (bug, tech-debt, task you can't fix now)
 - **project_issue_update** — Update issue status/priority, add notes
-- **project_change_record** — Record what you changed, why, impact (for AI agent handover)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
+- **project_change_record** — Record what you changed, why, impact (for AI agent handover)
+- **project_runbook** — Get troubleshooting runbooks by error code or keyword (Helpdesk agent)
+- **project_faq** — Read/search/add Helpdesk FAQ entries\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
 ### CU Maintenance (after code changes)
 - **cu_refresh** — Refresh specific CU steps after code changes. Default: deterministic steps only (fast, no LLM). Add LLM steps only if architecture/APIs changed.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
