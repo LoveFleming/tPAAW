@@ -13,6 +13,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, json } from "./shared.mjs";
 import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -109,7 +110,7 @@ async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
   if (!provider?.apiKey || provider.apiKey === "na") {
     throw new Error(`No API key for provider: ${providerId}`);
   }
-  const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
+  const model = modelOverride || resolveDefaultModel(providerConfig);
 
   // Use cached tools
   const { ToolEngine, executors } = await getCachedTools();

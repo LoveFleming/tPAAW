@@ -144,12 +144,13 @@ export function recordCronExecution({ jobName, success, result, duration }) {
 
 // ── LLM Call Helper (with retry + sanitize) ──
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride) {
   try {
     const providerConfig = JSON.parse(readFileSync(PROVIDERS_FILE, "utf8"));
     let providerId = providerConfig.active;
-    let model = modelOverride || providerConfig.defaultModel || "glm-5.1";
+    let model = modelOverride || resolveDefaultModel(providerConfig);
     // Parse "providerId/modelId" format
     if (modelOverride && modelOverride.includes("/")) {
       const idx = modelOverride.indexOf("/");

@@ -57,6 +57,7 @@ function cuLog(step, msg) {
 
 // Shared agent rules
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
@@ -67,7 +68,7 @@ async function callProjectLLM(body, opts = {}) {
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf8")); } catch { return { content: null }; }
   const providerId = providerConfig.active || "zai";
-  const model = body.model || providerConfig.defaultModel || "glm-5.1";
+  const model = body.model || resolveDefaultModel(providerConfig);
   const provider = providerConfig.providers[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") { return { content: null }; }
   const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;

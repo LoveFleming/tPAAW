@@ -19,6 +19,7 @@ import { readFileSync, readdirSync, existsSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { resolveDefaultModel } from "./lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -116,7 +117,7 @@ function loadProviderConfig() {
   const providers = config.providers || {};
   const activeId = config.active || Object.keys(providers)[0] || "";
   const provider = providers[activeId] || {};
-  const model = config.defaultModel || provider.models?.[0]?.id || "glm-5.1";
+  const model = resolveDefaultModel(config);
   return { providerId: activeId, provider, model };
 }
 

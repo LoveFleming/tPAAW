@@ -27,6 +27,17 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// ── Resolve default model from provider config ──
+// Never hardcode a specific model. Chain: defaultModel → active provider's first model → "default"
+export function resolveDefaultModel(providerConfig) {
+  if (providerConfig?.defaultModel) return providerConfig.defaultModel;
+  const activeId = providerConfig?.active;
+  const active = providerConfig?.providers?.[activeId];
+  const firstModel = active?.models?.[0];
+  if (firstModel) return typeof firstModel === "string" ? firstModel : firstModel.id;
+  return "default"; // last resort — never a hardcoded model name
+}
+
 // 判定為 retryable 的 HTTP status
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 

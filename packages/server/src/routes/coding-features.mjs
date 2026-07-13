@@ -19,6 +19,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,7 +98,7 @@ async function generateUnderstanding(projectPath, feature, providersFile) {
   let providerConfig;
   try { providerConfig = JSON.parse(readSync(providersFile, "utf-8")); } catch { return null; }
   const providerId = providerConfig.active || "zai";
-  const model = providerConfig.defaultModel || "glm-5.1";
+  const model = resolveDefaultModel(providerConfig);
   const provider = providerConfig.providers?.[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") return null;
 
@@ -479,7 +480,7 @@ export default async function codingFeaturesRoute(req, res) {
       return true;
     }
     const providerId = providerConfig.active || "zai";
-    const model = providerConfig.defaultModel || "glm-5.1";
+    const model = resolveDefaultModel(providerConfig);
     const provider = providerConfig.providers?.[providerId];
     if (!provider?.apiKey || provider.apiKey === "na") {
       res.writeHead(500, { "Content-Type": "application/json" });

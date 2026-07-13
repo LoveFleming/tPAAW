@@ -17,6 +17,7 @@ import {
 // ── AI Settings paths ──
 const DISTILL_VIBE_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/distill/vibe.md");
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 async function readBodyStr(req) {
   return new Promise((ok) => {
@@ -198,7 +199,7 @@ export default async function vibeSessionsRoute(req, res) {
           const providerId = providerConfig.active;
           const provider = providerConfig.providers[providerId];
           if (provider?.apiKey && provider.apiKey !== "na") {
-            const model = providerConfig.defaultModel || "glm-5.1";
+            const model = resolveDefaultModel(providerConfig);
             const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
             const headers = {
               "Content-Type": "application/json",

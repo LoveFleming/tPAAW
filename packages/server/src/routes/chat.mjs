@@ -4,6 +4,7 @@
 import { readdir, readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── Paths (reuse from context.mjs) ──
 const PAAW_ROOT = PATHS.PAAW_ROOT;
@@ -112,7 +113,7 @@ export default async function chatRoutes(req, res) {
 
       // Parse model ID — may be "providerId/modelId" or "providerId/nested/model"
       let resolvedProviderId = requestedProvider || providerConfig.active;
-      let model = requestedModel || providerConfig.defaultModel || "glm-5.1";
+      let model = requestedModel || resolveDefaultModel(providerConfig);
       if (model.includes("/")) {
         const idx = model.indexOf("/");
         const modelProviderHint = model.slice(0, idx);

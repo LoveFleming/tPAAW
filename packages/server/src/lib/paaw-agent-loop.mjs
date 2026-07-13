@@ -29,6 +29,7 @@ const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
+import { resolveDefaultModel } from "./llm-utils.mjs";
 
 // ── Types ──
 
@@ -73,7 +74,7 @@ export function resolveLLMConfig(rootDir, modelOverride) {
 
   // Parse "providerId/modelId" format (from ModelSelector)
   let providerId = config.active;
-  let model = modelOverride || config.defaultModel || "glm-5.1";
+  let model = modelOverride || resolveDefaultModel(config);
   if (modelOverride && modelOverride.includes("/")) {
     const firstSlash = modelOverride.indexOf("/");
     providerId = modelOverride.slice(0, firstSlash);

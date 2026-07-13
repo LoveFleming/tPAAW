@@ -38,6 +38,7 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { readBody } from "./shared.mjs";
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -69,7 +70,7 @@ function resolveLLM(modelOverride) {
   const config = loadProviderConfig();
   if (!config) throw new Error("No provider config found");
   let providerId = config.active;
-  let modelId = modelOverride || config.defaultModel || "glm-5.1";
+  let modelId = modelOverride || resolveDefaultModel(config);
   if (modelOverride && modelOverride.includes("/")) {
     const idx = modelOverride.indexOf("/");
     providerId = modelOverride.slice(0, idx);

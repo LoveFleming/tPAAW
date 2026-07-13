@@ -7,6 +7,7 @@ import { readdir, readFile, writeFile, mkdir, rm, stat } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import {
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
   yaml,
   PAAW_ROOT, INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT,
   readBody,
@@ -383,7 +384,7 @@ export default async function skillsApiRoute(req, res) {
       try {
         const pCfg = JSON.parse(readSync(providerConfigPath, "utf-8"));
         let providerId = pCfg.active;
-        let llmModel = model || pCfg.defaultModel || "glm-5.1";
+        let llmModel = model || resolveDefaultModel(pCfg);
         // Parse "providerId/modelId" format — but only use hint if provider exists in config
         if (model && model.includes("/")) {
           const idx = model.indexOf("/");

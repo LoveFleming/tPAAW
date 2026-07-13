@@ -31,6 +31,7 @@ const DATA_DIR = resolve(PAAW_ROOT, "data");
 // ── Agent Rules — injected into every crew's system prompt ──
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
 import { readFileSync as readSync } from "fs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── Feature Map Summary (injected into system prompt) ──
 async function getFeatureSummary(cwd) {
@@ -343,7 +344,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   if (!provider?.apiKey || provider.apiKey === "na") {
     throw new Error(`No API key for provider: ${providerId}`);
   }
-  const model = providerConfig.defaultModel || "glm-5.1";
+  const model = resolveDefaultModel(providerConfig);
 
   // Build context (reuse chat context)
   const ctx = await contextEngine.build({ target: "chat" });
@@ -418,7 +419,7 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
   if (!provider?.apiKey || provider.apiKey === "na") {
     throw new Error(`No API key for provider: ${providerId}`);
   }
-  const model = modelOverride || providerConfig.defaultModel || "glm-5.1";
+  const model = modelOverride || resolveDefaultModel(providerConfig);
 
   // Load task memory if available
   let memoryContext = "";

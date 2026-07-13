@@ -13,6 +13,7 @@ import {
 } from "../routes/shared.mjs";
 import { runAgentLoop, runAgentLoopStream } from "../lib/paaw-agent-loop.mjs";
 import { callLLMWithRetry, isMeaningfulContent } from "../lib/llm-utils.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // Lazy-load distill module
 let _distillMod = null;
@@ -635,7 +636,7 @@ async function vibeSessionsApiHandler(req, res) {
         const providerId = providerConfig.active;
         const provider = providerConfig.providers[providerId];
         if (provider?.apiKey && provider.apiKey !== "na") {
-          const model = providerConfig.defaultModel || "glm-5.1";
+          const model = resolveDefaultModel(providerConfig);
           const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
           const headers = {
             "Content-Type": "application/json",

@@ -18,6 +18,7 @@ import { join, resolve, dirname } from "path";
 import { existsSync, statSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { readBody, json, urlPath } from "./context.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -270,7 +271,7 @@ export default async function aiSettingsRoutes(req, res) {
       try {
         const pCfg = JSON.parse(readFileSync(resolve(PAAW_ROOT, "data/config/providers.json"), "utf-8"));
         let pid = pCfg.active;
-        let mid = modelOverride || pCfg.defaultModel || "glm-5.1";
+        let mid = modelOverride || resolveDefaultModel(pCfg);
         if (mid && mid.includes("/")) { const idx = mid.indexOf("/"); pid = mid.slice(0, idx); mid = mid.slice(idx + 1); }
         modelInfo = `${pid}/${mid}`;
       } catch {}
