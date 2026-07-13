@@ -525,7 +525,7 @@ Languages: typescript(36), javascript(62), tsx(77)
     async arrow walk(dirPath, parentNode, depth = 0)
     function createPaawProject(projectRoot)
   Classes:
-    class PaawProject { constructor, exists, init, readFile, writeFile, loadContext, loadContextText, loadStandards, listStandards, readStandard, writeStandard, loadRecentSessions, listSessions, readSession, recordSession, _renderSessionMd, appendChangelog, generateChangelogFromSession, addDecision, logApiCall, generateProjectOverview, computeStatus, listTree }
+    class PaawProject { constructor, exists, init, readFile, writeFile, loadContext, loadContextText, loadStandards, listStandards, readStandard, writeStandard, loadRecentSessions, listSessions, readSession, recordSession, _renderSessionMd, appendChangelog, generateChangelogFromSession, addDecision, logApiCall, generateProjectOverview, getCuStatus, setCuStepStatus, computeStatus, listTree }
 
 ## packages/server/src/lib/paaw-snapshot.mjs [javascript]
   Imports:
@@ -592,6 +592,7 @@ Languages: typescript(36), javascript(62), tsx(77)
     * ← fs
     * ← path
     * ← util
+    * ← child_process
   Exports:
     function: isSemgrepAvailable
     function: runSemgrep

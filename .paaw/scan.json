@@ -3,21 +3,124 @@
   "projectName": "paaw",
   "projectType": "web-app",
   "language": "JavaScript",
-  "framework": "Unknown (likely React/Node.js)",
+  "framework": "React (frontend), Express (backend inferred)",
   "runtime": "Node.js",
-  "summary": "A coding assistant web application with code understanding, security scanning, and AI features. Source code not present in provided file tree; analysis based on git log only.",
-  "entryPoints": [],
+  "summary": "A code understanding and analysis platform with AI integration, security scanning (Semgrep), and workflow management for developers.",
+  "entryPoints": ["unknown (source code not present in provided file tree)"],
   "keyDirectories": {
-    "source": null,
-    "tests": null,
-    "config": null,
-    "docs": null
+    "source": "unknown",
+    "tests": "unknown",
+    "config": "unknown",
+    "docs": "unknown"
   },
-  "modules": [],
+  "modules": [
+    {
+      "name": "Code Understanding (CU)",
+      "path": "unknown",
+      "responsibility": "Manages the code understanding workflow with multiple steps, status persistence via cu-status.json, and incremental updates via cu_refresh tool.",
+      "dependsOn": ["Tree-sitter Parser", "Feature Map", "Test Intelligence", "Change Intelligence"],
+      "exports": ["cu_refresh", "CU status"]
+    },
+    {
+      "name": "Semgrep Integration",
+      "path": "unknown (semgrep-runner module)",
+      "responsibility": "Integrates Semgrep as a built-in SAST scanner for security analysis of code.",
+      "dependsOn": [],
+      "exports": ["semgrep-runner"]
+    },
+    {
+      "name": "Tree-sitter Parser",
+      "path": "unknown",
+      "responsibility": "Parses source code using Tree-sitter to extract features, supports Java and other languages.",
+      "dependsOn": [],
+      "exports": ["parseSource", "feature-map"]
+    },
+    {
+      "name": "AI Settings",
+      "path": "ai-settings/",
+      "responsibility": "Manages AI prompts and settings, including domain-specific prompts.",
+      "dependsOn": [],
+      "exports": ["AI prompts"]
+    },
+    {
+      "name": "Agent Loop",
+      "path": "unknown",
+      "responsibility": "Orchestrates multiple intelligence tools (Code, Test, Change) in an agent loop for automated analysis.",
+      "dependsOn": ["Code Intelligence", "Test Intelligence", "Change Intelligence"],
+      "exports": ["agentLoop"]
+    },
+    {
+      "name": "Dashboard (EMDashboard)",
+      "path": "unknown",
+      "responsibility": "Provides the main dashboard UI for monitoring code understanding status, security results, and quick actions.",
+      "dependsOn": ["Code Understanding", "Security Tab"],
+      "exports": ["EMDashboard", "PaawTree (removed)"]
+    },
+    {
+      "name": "Security Tab",
+      "path": "unknown",
+      "responsibility": "Displays security scan results from Semgrep in a user-friendly tab, with install prompt if not configured.",
+      "dependsOn": ["Semgrep Integration"],
+      "exports": ["SecurityTab"]
+    },
+    {
+      "name": "Knowledge Package",
+      "path": "unknown",
+      "responsibility": "Generates a knowledge package for AI agent handover, containing code intelligence context.",
+      "dependsOn": ["Code Intelligence"],
+      "exports": ["generateKnowledgePackage"]
+    },
+    {
+      "name": "Feature Map",
+      "path": "unknown",
+      "responsibility": "Produces a feature map from source analysis, providing larger context for code understanding.",
+      "dependsOn": ["Tree-sitter Parser"],
+      "exports": ["feature-map"]
+    },
+    {
+      "name": "Test Intelligence",
+      "path": "unknown",
+      "responsibility": "Analyzes test files and suggests improvements or generates tests.",
+      "dependsOn": [],
+      "exports": []
+    },
+    {
+      "name": "Change Intelligence",
+      "path": "unknown",
+      "responsibility": "Analyzes code changes to determine impact and relevance.",
+      "dependsOn": [],
+      "exports": []
+    },
+    {
+      "name": "Provider Module",
+      "path": "provider.mjs",
+      "responsibility": "Handles server-side import/export logic, possibly an API provider.",
+      "dependsOn": [],
+      "exports": ["provider"]
+    }
+  ],
   "apis": [],
   "errorCodes": [],
-  "dataModels": [],
-  "techDebt": [],
+  "dataModels": [
+    {
+      "name": "CUStatus",
+      "file": "cu-status.json",
+      "fields": ["step", "status", "timestamp"],
+      "persistence": "file"
+    }
+  ],
+  "techDebt": [
+    {
+      "area": "Source code visibility",
+      "severity": "high",
+      "suggestion": "The provided file tree only contains temp files; source code is missing from the inventory. Ensure the project root includes all source directories."
+    },
+    {
+      "area": "Module organization",
+      "severity": "medium",
+      "suggestion": "Based on git log, there are many features but no clear module structure visible. Consider organizing into well-defined modules with explicit dependencies."
+    }
+  ],
   "healthGaps": {
     "missingApiSpec": true,
     "missingErrorMap": true,

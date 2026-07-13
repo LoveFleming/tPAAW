@@ -1,0 +1,57 @@
+{
+  "steps": {
+    "scan": {
+      "status": "done",
+      "size": 4724,
+      "updatedAt": "2026-07-13T13:51:50.976Z"
+    },
+    "architecture": {
+      "status": "done",
+      "size": 4795,
+      "updatedAt": "2026-07-13T13:52:14.777Z"
+    },
+    "feature-map": {
+      "status": "done",
+      "size": 59052,
+      "updatedAt": null
+    },
+    "api-spec": {
+      "status": "done",
+      "size": 9002,
+      "updatedAt": null
+    },
+    "code-intelligence": {
+      "status": "done",
+      "size": 993,
+      "updatedAt": null
+    },
+    "test-intelligence": {
+      "status": "done",
+      "size": 25129,
+      "updatedAt": null
+    },
+    "error-mapping": {
+      "status": "done",
+      "size": 12852,
+      "updatedAt": null
+    },
+    "security-scan": {
+      "status": "pending"
+    },
+    "standards": {
+      "status": "done",
+      "size": 7447,
+      "updatedAt": null
+    },
+    "overview": {
+      "status": "done",
+      "size": 6188,
+      "updatedAt": null
+    },
+    "change-intelligence": {
+      "status": "done",
+      "size": 65088,
+      "updatedAt": null
+    }
+  }
+}

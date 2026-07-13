@@ -14,3 +14,7 @@
 [2026-07-13T12:16:36.013Z] [CU] step=overview [bulk] wrote file OK (6188 chars)
 [2026-07-13T12:16:36.013Z] [CU] step=change-intelligence [bulk] Building change intelligence...
 [2026-07-13T12:16:36.443Z] [CU] step=change-intelligence [bulk] Change intelligence: 50 commits, 132 files
+[2026-07-13T13:51:50.972Z] [CU] step=scan [bulk] wrote file OK (4724 chars)
+[2026-07-13T13:52:14.776Z] [CU] step=architecture [bulk] wrote file OK (4795 chars)
+[2026-07-13T13:52:14.778Z] [CU] step=feature-map Running Tree-sitter source analysis...
+[2026-07-13T13:52:15.413Z] [CU] step=feature-map Tree-sitter: 170/175 files parsed, 0 errors
