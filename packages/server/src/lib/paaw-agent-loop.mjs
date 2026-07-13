@@ -1367,6 +1367,7 @@ export async function runAgentLoop(config) {
 
   let finalContent = "";
   let turns = 0;
+  let emptyRetryCount = 0;
 
   for (let i = 0; i < maxTurns; i++) {
     // Check timeout
@@ -1424,9 +1425,18 @@ export async function runAgentLoop(config) {
 
     // If LLM just responded with text (no tool calls), we're done
     if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
-      // 防禦：如果 content 是空的或只有隱藏字元，標記為失敗
+      // 防禦：如果 content 是空的或只有隱藏字元，重試一次
       if (!isMeaningfulContent(content)) {
-        finalContent = "[LLM returned empty or whitespace-only response after retries]";
+        if (emptyRetryCount < 1) {
+          emptyRetryCount++;
+          console.warn(`[Agent Loop] LLM returned empty/whitespace response, retrying... (attempt ${emptyRetryCount})`);
+          if (onEvent) onEvent({ type: "info", message: "⚠️ AI 回應為空，重新呼叫中..." });
+          // 移除剛加的 assistant message
+          messages.pop();
+          i--; // retry same turn
+          continue;
+        }
+        finalContent = "[LLM 回應為空或僅含隱藏字元，重試後仍失敗]";
         if (onEvent) onEvent({ type: "assistant", content: finalContent });
       } else {
         finalContent = content;
@@ -1550,6 +1560,7 @@ export async function runAgentLoopStream(config, res) {
 
   let turns = 0;
   let contentEmitted = false;
+  let streamEmptyRetryCount = 0;
 
   for (let i = 0; i < maxTurns; i++) {
     if (Date.now() - startTime > timeoutMs) {
@@ -1594,15 +1605,28 @@ export async function runAgentLoopStream(config, res) {
     if (!choice) { sendSSE("error", { error: "Empty LLM response" }); break; }
 
     const assistantMsg = choice.message;
-    const content = assistantMsg.content || "";
+    const content = sanitizeContent(assistantMsg.content || "");
     const toolCalls = assistantMsg.tool_calls;
 
     const historyMsg = { role: "assistant", content };
     if (toolCalls) historyMsg.tool_calls = toolCalls;
     messages.push(historyMsg);
 
-    // Final text response — stream it
+    // Final text response — check for empty/whitespace, retry once
     if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === "stop") {
+      if (!isMeaningfulContent(content)) {
+        if (streamEmptyRetryCount < 1) {
+          streamEmptyRetryCount++;
+          console.warn(`[Agent Loop Streaming] LLM returned empty/whitespace response, retrying... (attempt ${streamEmptyRetryCount})`);
+          sendSSE("info", { message: "⚠️ AI 回應為空，重新呼叫中..." });
+          messages.pop();
+          i--;
+          continue;
+        }
+        sendSSE("content", { content: "[AI 回應為空或僅含隱藏字元，重試後仍失敗]", done: true });
+        contentEmitted = true;
+        break;
+      }
       sendSSE("content", { content, done: true });
       contentEmitted = true;
       break;
