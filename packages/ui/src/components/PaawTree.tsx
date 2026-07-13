@@ -145,7 +145,9 @@ export default function PaawTree({ projectRoot, onOpenFile, refreshKey = 0 }: Pa
     if (!collapsed && !tree) loadTree();
   }, [collapsed]);
 
+  // Initial load + reload when refreshKey changes (e.g. after Code Understanding completes)
   useEffect(() => {
+    if (refreshKey > 0) setInitialized(null); // reset so it re-checks existence
     loadTree();
   }, [loadTree, refreshKey]);
 

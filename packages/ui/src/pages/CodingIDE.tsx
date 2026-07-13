@@ -408,6 +408,7 @@ export default function CodingIDE() {
   // ── Code Understanding State ──
   const [aiInitializing, setAiInitializing] = useState(false);
   const [aiInitSteps, setAiInitSteps] = useState<Array<{ id: string; name: string; status: "pending" | "running" | "done" | "error" | "skip"; size?: number; error?: string }>>([]);
+  const [paawRefreshKey, setPaawRefreshKey] = useState(0);
   const [showAiInitPanel, setShowAiInitPanel] = useState(false);
 
   // ── AI Prompt Management State ──
@@ -474,6 +475,7 @@ export default function CodingIDE() {
                 }
                 if (data.message === "Code Understanding complete") {
                   setAiInitializing(false);
+                  setPaawRefreshKey(k => k + 1);
                   // Auto-open Features tab after Code Understanding completes
                   openMainTab({ id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true });
                 }
@@ -484,6 +486,7 @@ export default function CodingIDE() {
       }
     } catch (err: any) {
       setAiInitSteps(prev => prev.map(s => ({ ...s, status: "error" as const, error: err.message })));
+      setPaawRefreshKey(k => k + 1);
     }
     setAiInitializing(false);
   }, [rootPath, aiInitializing]);
@@ -1862,6 +1865,7 @@ const sendChat = useCallback(async () => {
               <PaawTree
                 projectRoot={rootPath}
                 onOpenFile={(path, name) => openFile(path)}
+                refreshKey={paawRefreshKey}
               />
             </div>
           )}
