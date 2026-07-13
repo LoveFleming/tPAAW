@@ -2219,7 +2219,7 @@ export async function runAgentLoopStream(config, res) {
         role: "user",
         content: "你已經收集了足夠的資訊。現在請根據你看到的內容，直接給出完整的回答。不要使用任何工具。",
       });
-      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, [], false, sendSSE);
+      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE);
       const finalContent = finalResponse.choices?.[0]?.message?.content || "";
       if (finalContent) {
         sendSSE("content", { content: finalContent, done: true });
