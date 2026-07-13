@@ -2005,18 +2005,34 @@ export default async function projectRoute(req, res) {
 
       try {
         // Load domain system prompt
-        const promptsBase = join(PAAW_ROOT, "data", "prompts");
-        const domainPromptDir = join(promptsBase, `${domain}-ai`);
-        const systemPromptFile = resolve(promptsBase, "domain-ai-system.md");
+        // Priority: .paaw/prompts/{domain}-ai/ → ai-settings/domain-ai/{domain}/ → prompts/{domain}-ai/
+        const aiSettingsBase = join(PAAW_ROOT, "data", "ai-settings", "domain-ai");
+        const legacyPromptsBase = join(PAAW_ROOT, "data", "prompts");
+        const domainPromptDir = join(legacyPromptsBase, `${domain}-ai`);
+        const aiSettingsDomainDir = join(aiSettingsBase, domain);
+        const systemPromptFile = resolve(aiSettingsBase, "system-prompt.md");
+        const legacySystemPromptFile = resolve(legacyPromptsBase, "domain-ai-system.md");
         let systemPrompt = "";
-        try { systemPrompt = readSync(systemPromptFile, "utf-8"); } catch {}
+        try { systemPrompt = readSync(systemPromptFile, "utf-8"); } catch {
+          try { systemPrompt = readSync(legacySystemPromptFile, "utf-8"); } catch {}
+        }
 
-        // Load all domain prompts
+        // Load all domain prompts (from ai-settings first, then legacy prompts/)
         let domainContext = "";
+        const loadedFiles = new Set();
+        try {
+          const aiFiles = await readdir(aiSettingsDomainDir);
+          for (const f of aiFiles.filter(f => f.endsWith(".md")).sort()) {
+            loadedFiles.add(f);
+            domainContext += `\n--- ${f} ---\n${readSync(resolve(aiSettingsDomainDir, f), "utf-8")}`;
+          }
+        } catch {}
         try {
           const domainFiles = await readdir(domainPromptDir);
           for (const f of domainFiles.filter(f => f.endsWith(".md")).sort()) {
-            domainContext += `\n--- ${f} ---\n${readSync(resolve(domainPromptDir, f), "utf-8")}`;
+            if (!loadedFiles.has(f)) {
+              domainContext += `\n--- ${f} ---\n${readSync(resolve(domainPromptDir, f), "utf-8")}`;
+            }
           }
         } catch {}
 

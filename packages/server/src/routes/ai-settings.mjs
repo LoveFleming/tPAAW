@@ -34,6 +34,7 @@ const CATEGORIES = [
   { id: "notes",         label: "Notes",         icon: "📝", desc: "AI 筆記 — 整理規則、格式規範" },
   { id: "mindmap",       label: "Mind Map",      icon: "🧠", desc: "AI 心智圖 — 分支策略、節點規則" },
   { id: "coding",         label: "Coding",         icon: "💻", desc: "AI Coding — 程式碼審查、Code Understanding 步驟提示（掃描、架構、Feature Map 等）" },
+  { id: "domain-ai",      label: "Domain AI",     icon: "🔬", desc: "領域 AI — Spec/Test/Bug/Docs/Maintain 分析提示", subcategories: ["spec", "test", "bug", "docs", "maintain"] },
   { id: "project",       label: "Project",       icon: "📋", desc: "專案管理 — 建專案、分析狀態、建議任務" },
   { id: "distill",       label: "Distill",       icon: "⚗️", desc: "蒸餾器 — 對話摘要規則" },
 ];
@@ -196,6 +197,7 @@ export default async function aiSettingsRoutes(req, res) {
         "notes": "notes",
         "project": "project",
         "coding": "coding",
+        "domain-ai": "domain-ai",
         "distill": "distill",
       };
       const engineTarget = targetMap[target] || "chat";
