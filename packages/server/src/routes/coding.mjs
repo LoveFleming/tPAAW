@@ -1148,7 +1148,7 @@ export default async function projectRoute(req, res) {
           projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`;
         } catch {}
         try {
-          const treeOutput = await scanProjectFiles(root, 200);
+          const treeOutput = await scanProjectFiles(root, 500);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
         try {
@@ -1212,7 +1212,7 @@ export default async function projectRoute(req, res) {
           const result = await callProjectLLM({
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0.2,
-            maxTokens: step.id === "feature-map" ? 8000 : 4000,
+            maxTokens: step.id === "feature-map" ? 16000 : 4000,
           }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
@@ -1373,7 +1373,7 @@ export default async function projectRoute(req, res) {
 
         // Get file tree
         try {
-          const treeOutput = await scanProjectFiles(root, 200);
+          const treeOutput = await scanProjectFiles(root, 500);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
@@ -1419,7 +1419,8 @@ export default async function projectRoute(req, res) {
           fullPrompt += `\n\n--- PROJECT CONTEXT ---\n${projectContext}`;
           if (scanResult) fullPrompt += `\n\n--- SCAN RESULTS ---\n${scanResult}`;
           if (architectureResult && (step.id === "decisions" || step.id === "api-spec" || step.id === "standards" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
-            fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, 3000)}`;
+            const archLimit = step.id === "feature-map" ? 8000 : 3000;
+            fullPrompt += `\n\n--- ARCHITECTURE ---\n${architectureResult.slice(0, archLimit)}`;
           }
           if (apiSpecResult && (step.id === "test-payload" || step.id === "faq" || step.id === "overview" || step.id === "feature-map")) {
             fullPrompt += `\n\n--- API SPEC ---\n${apiSpecResult}`;
@@ -1436,7 +1437,7 @@ export default async function projectRoute(req, res) {
             const result = await callProjectLLM({
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
-              maxTokens: step.id === "feature-map" ? 8000 : 4000,
+              maxTokens: step.id === "feature-map" ? 16000 : 4000,
             }, { timeoutMs: 600_000 }); // 10 min per step in bulk mode
 
             const content = result.content || "";
@@ -1744,7 +1745,7 @@ export default async function projectRoute(req, res) {
           projectContext += `Package: ${pkg.name || "unknown"}\n`;
         } catch {}
         try {
-          const treeOutput = await scanProjectFiles(root, 200);
+          const treeOutput = await scanProjectFiles(root, 500);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
