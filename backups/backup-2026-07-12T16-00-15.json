@@ -1,9 +1,9 @@
 {
-  "id": "bk_mrdp0sj4",
-  "filename": "backup-2026-07-09T16-00-20.tar.gz",
-  "path": "/Users/steward/App/tPAAW/backups/backup-2026-07-09T16-00-20.tar.gz",
-  "size": 15362388,
-  "createdAt": "2026-07-09T16:00:20.848Z",
+  "id": "bk_mrhzc8xp",
+  "filename": "backup-2026-07-12T16-00-15.tar.gz",
+  "path": "/Users/steward/App/tPAAW/backups/backup-2026-07-12T16-00-15.tar.gz",
+  "size": 13200618,
+  "createdAt": "2026-07-12T16:00:16.189Z",
   "dirs": [
     "ai-settings",
     "apps",

@@ -39,6 +39,7 @@ import { exec as execCb } from "child_process";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
+import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
 
 // ── PAAW root directory (cross-platform safe) ──
 // fileURLToPath handles Windows drive-letter URLs correctly,
@@ -1211,6 +1212,25 @@ export default async function projectRoute(req, res) {
           }
         }
 
+          // Tree-sitter source analysis for feature-map step
+          if (step.id === "feature-map") {
+            try {
+              cuLog(step.id, "Running Tree-sitter source analysis...");
+              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 500, maxBytes: 100_000 });
+              cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
+              // Add condensed format (compact, fits in context window)
+              const condensed = formatCondensed(tsResult);
+              if (condensed) {
+                fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
+              }
+              // Also save full analysis to .paaw/ for debugging
+              const fullAnalysis = formatForAI(tsResult);
+              await paaw.writeFile("features/tree-sitter-analysis.txt", fullAnalysis);
+            } catch (tsErr) {
+              cuLog(step.id, `Tree-sitter failed (non-fatal): ${tsErr.message}`);
+            }
+          }
+
         // Call LLM with longer timeout for single step
         try {
           const result = await callProjectLLM({
@@ -1282,6 +1302,28 @@ export default async function projectRoute(req, res) {
                   const featuresDir = join(root, ".paaw", "features");
                   if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                   await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                  // Generate file→features reverse mapping (FILE-FEATURES.json)
+                  const fileFeatureMap = {};
+                  for (const feat of featuresWithIds) {
+                    const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                    for (const f of allFiles) {
+                      const norm = f.replace(/\\/g, "/");
+                      if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                      fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                    }
+                    // Also map API files
+                    for (const api of (feat.apis || [])) {
+                      if (api.file) {
+                        const norm = api.file.replace(/\\/g, "/");
+                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                        if (!fileFeatureMap[norm].some(f => f.id === feat.id)) {
+                          fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                        }
+                      }
+                    }
+                  }
+                  await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                  cuLog(step.id, `Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
                 }
               } catch (parseErr) {
                 cuLog(step.id, `Failed to parse feature JSON: ${parseErr.message}`);
@@ -1307,7 +1349,18 @@ export default async function projectRoute(req, res) {
                     const featuresDir = join(root, ".paaw", "features");
                     if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                     await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
-                    cuLog(step.id, `Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
+                    // Generate file→features reverse mapping
+                    const fileFeatureMap = {};
+                    for (const feat of featuresWithIds) {
+                      const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                      for (const f of allFiles) {
+                        const norm = f.replace(/\\/g, "/");
+                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                        fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                      }
+                    }
+                    await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    cuLog(step.id, `Recovery: saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
                   } else throw new Error("recovered array is empty");
                 } catch (recoverErr) {
                   cuLog(step.id, `Recovery also failed: ${recoverErr.message}`);
@@ -1440,6 +1493,23 @@ export default async function projectRoute(req, res) {
             fullPrompt += `\n\n--- DECISIONS ---\n${decisionsResult.slice(0, 2000)}`;
           }
 
+          // Tree-sitter source analysis for feature-map step
+          if (step.id === "feature-map") {
+            try {
+              cuLog(step.id, "Running Tree-sitter source analysis...");
+              const tsResult = await parseProject(root, PAAW_ROOT, { maxFiles: 500, maxBytes: 100_000 });
+              cuLog(step.id, `Tree-sitter: ${tsResult.stats.parsedFiles}/${tsResult.stats.totalFiles} files parsed, ${tsResult.stats.errors} errors`);
+              const condensed = formatCondensed(tsResult);
+              if (condensed) {
+                fullPrompt += `\n\n--- SOURCE ANALYSIS (Tree-sitter) ---\n${condensed}`;
+              }
+              const fullAnalysis = formatForAI(tsResult);
+              await paaw.writeFile("features/tree-sitter-analysis.txt", fullAnalysis);
+            } catch (tsErr) {
+              cuLog(step.id, `Tree-sitter failed (non-fatal): ${tsErr.message}`);
+            }
+          }
+
           // Call LLM
           try {
             const result = await callProjectLLM({
@@ -1513,7 +1583,28 @@ export default async function projectRoute(req, res) {
                     const featuresDir = join(root, ".paaw", "features");
                     if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                     await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    // Generate file→features reverse mapping
+                    const fileFeatureMap = {};
+                    for (const feat of featuresWithIds) {
+                      const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                      for (const f of allFiles) {
+                        const norm = f.replace(/\\/g, "/");
+                        if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                        fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                      }
+                      for (const api of (feat.apis || [])) {
+                        if (api.file) {
+                          const norm = api.file.replace(/\\/g, "/");
+                          if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                          if (!fileFeatureMap[norm].some(f => f.id === feat.id)) {
+                            fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                          }
+                        }
+                      }
+                    }
+                    await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
                     featureMapOk = true;
+                    cuLog(step.id, `[bulk] Saved ${featuresWithIds.length} features + ${Object.keys(fileFeatureMap).length} file→feature mappings`);
                   }
                 } catch (parseErr) {
                   cuLog(step.id, `[bulk] Failed to parse feature JSON: ${parseErr.message}`);
@@ -1539,6 +1630,17 @@ export default async function projectRoute(req, res) {
                       const featuresDir = join(root, ".paaw", "features");
                       if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                       await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                      // Generate file→features reverse mapping
+                      const fileFeatureMap = {};
+                      for (const feat of featuresWithIds) {
+                        const allFiles = [...(feat.codeFiles || []), ...(feat.tests || []), ...(feat.runbooks || [])];
+                        for (const f of allFiles) {
+                          const norm = f.replace(/\\/g, "/");
+                          if (!fileFeatureMap[norm]) fileFeatureMap[norm] = [];
+                          fileFeatureMap[norm].push({ id: feat.id, name: feat.name, tags: feat.tags || [] });
+                        }
+                      }
+                      await writeFile(join(featuresDir, "FILE-FEATURES.json"), JSON.stringify({ files: fileFeatureMap, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
                       cuLog(step.id, `[bulk] Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
                       featureMapOk = true;
                     } else throw new Error("recovered array is empty");

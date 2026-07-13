@@ -213,6 +213,25 @@ export default async function codingFeaturesRoute(req, res) {
   const projRoot = resolve(projectPath);
   const providersFile = join(PAAW_ROOT, "data", "config", "providers.json");
 
+  // ── GET /api/coding-features/file-map ──
+  if (url === "/api/coding-features/file-map" && method === "GET") {
+    const fileMapPath = join(getFeaturesDir(projRoot), "FILE-FEATURES.json");
+    if (!existsSync(fileMapPath)) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "FILE-FEATURES.json not found — run Code Understanding first" }));
+      return true;
+    }
+    try {
+      const data = JSON.parse(await readFile(fileMapPath, "utf-8"));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Failed to parse FILE-FEATURES.json" }));
+    }
+    return true;
+  }
+
   // ── GET /api/coding-features/stats ──
   if (url === "/api/coding-features/stats" && method === "GET") {
     const features = await loadFeatures(projRoot);
