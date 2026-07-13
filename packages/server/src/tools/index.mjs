@@ -146,7 +146,7 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "notes_create",
-      description: "AI 幫忙寫筆記。提供原始內容，AI 會整理成結構化筆記並儲存。也可以從聊天中直接把內容整理成筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
+      description: "建立新筆記。AI 會把提供的內容整理成結構化筆記並儲存。可以用 notebook 和 section 參數指定存在哪裡（先呼叫 notes_list_notebooks 查看可用 ID）。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
       parameters: {
         type: "object",
         properties: {
@@ -158,6 +158,36 @@ async function buildToolDefinitions() {
           tags: { type: "array", items: { type: "string" }, description: "自訂標籤（選填，AI 會建議）" }
         },
         required: ["content"]
+      }
+    }
+  });
+
+  // notes_list_notebooks — list all notebooks
+  tools.push({
+    type: "function",
+    function: {
+      name: "notes_list_notebooks",
+      description: "列出所有筆記本（Notebook）和每個筆記本的分類（Section），讓你知道可以建立筆記到哪裡。建立筆記前可以先呼叫這個查看有哪些 notebook 和 section。",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    }
+  });
+
+  // notes_list_sections — list sections in a notebook
+  tools.push({
+    type: "function",
+    function: {
+      name: "notes_list_sections",
+      description: "列出指定筆記本內的所有分類（Section），包含分類 ID。建立筆記時可以用 section 參數指定分類。",
+      parameters: {
+        type: "object",
+        properties: {
+          notebook: { type: "string", description: "筆記本 ID（預設 default）" }
+        },
+        required: []
       }
     }
   });
@@ -1204,6 +1234,46 @@ function buildHandlers(apps) {
   };
 
   // ── Notes handlers (built-in) ──
+  handlers.notes_list_notebooks = async () => {
+    try {
+      const [nbResp] = await Promise.all([
+        fetch(`${API}/api/notes/notebooks`).then(r => r.json()),
+      ]);
+      const notebooks = nbResp.notebooks || [];
+      if (notebooks.length === 0) return { text: "沒有任何筆記本" };
+
+      // 同時載入每個 notebook 的 sections
+      const lines = [];
+      for (const nb of notebooks) {
+        const secResp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(nb.id)}`).then(r => r.json());
+        const secs = (secResp.sections || []).map(s => {
+          const name = s.id === "default" ? "未分類" : s.name;
+          return `    • ${s.id} — ${name}`;
+        });
+        lines.push(`📓 **${nb.name}** (id: ${nb.id})${nb.icon ? " " + nb.icon : ""}\n${secs.join("\n")}`);
+      }
+      return { text: `筆記本與分類列表：\n\n${lines.join("\n\n")}\n\n建立筆記時用 notebook 和 section ID 指定位置。`, notebooks };
+    } catch (err) {
+      return { text: `❌ 讀取失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.notes_list_sections = async ({ notebook = "default" } = {}) => {
+    try {
+      const resp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(notebook)}`);
+      const data = await resp.json();
+      const sections = data.sections || [];
+      if (sections.length === 0) return { text: `筆記本 ${notebook} 沒有任何分類` };
+      const lines = sections.map(s => {
+        const name = s.id === "default" ? "未分類" : s.name;
+        return `• **${name}** (id: \`${s.id}\`)${s.icon ? " " + s.icon : ""}`;
+      });
+      return { text: `筆記本 ${notebook} 的分類：\n${lines.join("\n")}`, sections };
+    } catch (err) {
+      return { text: `❌ 讀取失敗：${err.message}`, error: true };
+    }
+  };
+
   handlers.notes_search = async ({ q }) => {
     try {
       const resp = await fetch(`${API}/api/notes/search?q=${encodeURIComponent(q)}`);
@@ -1278,7 +1348,16 @@ function buildHandlers(apps) {
 
       const link = `#/notes?note=${createData.note.id}&notebook=${createData.note.notebookId}`;
       const preview = (aiData.content || "").replace(/<[^>]+>/g, "").slice(0, 200);
-      return { text: `✅ 已建立筆記！\n\n📝 **${createData.note.title}**\n${preview}...\n\n🔗 [開啟筆記](${link})`, note: createData.note };
+      // 查 section 名稱
+      let sectionLabel = "";
+      try {
+        const secResp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(notebook || "default")}`);
+        const secData = await secResp.json();
+        const sec = (secData.sections || []).find(s => s.id === (section || "default"));
+        sectionLabel = sec ? (sec.id === "default" ? "未分類" : sec.name) : "";
+      } catch {}
+      const locationInfo = sectionLabel ? `\n📁 分類：${sectionLabel}` : "";
+      return { text: `✅ 已建立筆記！\n\n📝 **${createData.note.title}**${locationInfo}\n${preview}...\n\n🔗 [開啟筆記](${link})`, note: createData.note };
     } catch (err) {
       return { text: `❌ 建立筆記失敗：${err.message}`, error: true };
     }
