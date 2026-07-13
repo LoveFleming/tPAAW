@@ -400,6 +400,7 @@ export default async function codingFeaturesRoute(req, res) {
   // ── GET /api/coding-features (list) ──
   if (url === "/api/coding-features" && method === "GET") {
     let features = await loadFeatures(projRoot);
+    console.log(`[coding-features] GET list: projRoot=${projRoot}, loaded=${features.length}, file=${getFeaturesFile(projRoot)}, exists=${existsSync(getFeaturesFile(projRoot))}`);
     // Filter
     if (q.status) {
       features = features.filter(f => f.status === q.status);
@@ -417,7 +418,7 @@ export default async function codingFeaturesRoute(req, res) {
       const issueSummaries = await loadIssueSummaries(projRoot, f.issues || []);
       return { ...f, _issueSummaries: issueSummaries };
     }));
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { "Content-Type": "application/json", "X-Features-Path": getFeaturesFile(projRoot), "X-Features-Count": String(enriched.length), "X-Features-Exists": String(existsSync(getFeaturesFile(projRoot))) });
     res.end(JSON.stringify({ features: enriched }));
     return true;
   }

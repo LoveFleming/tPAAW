@@ -83,18 +83,38 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
   const [savingDocs, setSavingDocs] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"features" | "files">("features");
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const basePath = `${API_BASE}/api/coding-features?path=${encodeURIComponent(rootPath)}`;
 
   const fetchFeatures = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : "";
-      const res = await fetch(`${basePath}${searchParam}`);
-      const data = await res.json();
-      setFeatures(data.features || []);
+      const url = `${basePath}${searchParam}`;
+      console.log("[FeatureMap] fetching:", url);
+      const res = await fetch(url);
+      const text = await res.text();
+      console.log("[FeatureMap] status:", res.status, "body length:", text.length, "first 200:", text.slice(0, 200));
+      console.log("[FeatureMap] headers: X-Features-Path=", res.headers.get("X-Features-Path"), "X-Features-Count=", res.headers.get("X-Features-Count"), "X-Features-Exists=", res.headers.get("X-Features-Exists"));
+      try {
+        const data = JSON.parse(text);
+        const loaded = data.features || [];
+        console.log("[FeatureMap] loaded features:", loaded.length, loaded.length > 0 ? loaded[0]?.id : "(empty)");
+        if (loaded.length === 0 && data.error) {
+          console.error("[FeatureMap] API returned error:", data.error);
+          setFetchError(data.error);
+        }
+        setFeatures(loaded);
+      } catch (parseErr) {
+        console.error("[FeatureMap] JSON parse error:", parseErr.message, "raw:", text.slice(0, 500));
+        setFetchError(`API 回應格式錯誤: ${parseErr.message}`);
+        setFeatures([]);
+      }
     } catch (err) {
       console.error("[FeatureMap] fetch error:", err);
+      setFetchError(`連線失敗: ${err.message}`);
     }
     setLoading(false);
   }, [basePath, searchQuery]);
@@ -258,8 +278,8 @@ export default function FeatureMap({ rootPath, theme, onOpenFile }: Props) {
           ) : features.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-2 p-4 text-center" style={{ color: theme.text, opacity: 0.4 }}>
               <div className="text-3xl">🗺️</div>
-              <div className="text-sm">{t("feature.empty")}</div>
-              <div className="text-xs">{t("feature.emptyHint")}</div>
+              <div className="text-sm">{fetchError ? `❌ ${fetchError}` : t("feature.empty")}</div>
+              <div className="text-xs">{fetchError ? "請檢查 AI provider 設定或重新執行 Code Understanding" : t("feature.emptyHint")}</div>
             </div>
           ) : viewMode === "features" ? (
             /* Feature list (original) */
