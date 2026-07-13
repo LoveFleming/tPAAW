@@ -30,7 +30,6 @@ import "highlight.js/styles/github.css";
 import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
-import PaawTree from "../components/PaawTree";
 import EMDashboard from "../components/EMDashboard";
 import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
@@ -1859,16 +1858,7 @@ const sendChat = useCallback(async () => {
               </div>
             )}
           </div>
-          {/* ── .paaw/ Project Knowledge ── */}
-          {rootPath && (
-            <div style={{ borderTop: `1px solid ${tk.borderLight}`, maxHeight: "40%", overflowY: "auto", scrollbarWidth: "thin" }}>
-              <PaawTree
-                projectRoot={rootPath}
-                onOpenFile={(path, name) => openFile(path)}
-                refreshKey={paawRefreshKey}
-              />
-            </div>
-          )}
+          {/* ── .paaw/ Project Knowledge removed (agents maintain via API) ── */}
         </div>
 
         {/* Sidebar resize */}

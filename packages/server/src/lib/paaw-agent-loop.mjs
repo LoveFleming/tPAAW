@@ -515,6 +515,25 @@ const PAAW_TOOLS = [
     },
   },
 
+  // ── CU Refresh ──
+  {
+    type: "function",
+    function: {
+      name: "cu_refresh",
+      description: "Refresh specific Code Understanding steps after code changes. Use this after making significant code changes instead of re-running the entire CU flow. Deterministic steps (code-intelligence, test-intelligence, security-scan, change-intelligence) are fast and safe to re-run. LLM steps (feature-map, api-spec, etc.) only re-run if you explicitly request them.",
+      parameters: {
+        type: "object",
+        properties: {
+          steps: {
+            type: "array",
+            items: { type: "string", enum: ["code-intelligence", "test-intelligence", "security-scan", "change-intelligence", "feature-map", "api-spec", "error-mapping", "standards", "architecture", "overview"] },
+            description: "Which steps to refresh. Default: deterministic steps only (code-intelligence, test-intelligence, change-intelligence). Add LLM steps only if architecture/APIs/features changed significantly.",
+          },
+        },
+      },
+    },
+  },
+
   // ── Action Log (Agent Memory / Handoff) ──
   {
     type: "function",
@@ -1261,6 +1280,60 @@ ${changedApis}`;
       }
 
       // ══════════════════════════════════════════
+      // ── CU Refresh (incremental, not full overwrite) ──
+      // ══════════════════════════════════════════
+
+      case "cu_refresh": {
+        const steps = Array.isArray(args.steps) ? args.steps : ["code-intelligence", "test-intelligence", "change-intelligence"];
+        const results = [];
+        const paawDir = join(cwd, ".paaw");
+        if (!existsSync(paawDir)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: "no .paaw" });
+          return "⚠️ .paaw/ not initialized. Run full Code Understanding first.";
+        }
+
+        // Deterministic steps — always safe to re-run, no LLM needed
+        if (steps.includes("code-intelligence")) {
+          try {
+            const { buildCodeIntelligence } = await import("./code-intelligence.mjs");
+            const { summary } = await buildCodeIntelligence(cwd, PAAW_ROOT);
+            results.push(`🧠 Code Intelligence: ${summary.totalFunctions} functions, ${summary.totalRoutes} routes, ${summary.totalDependencies} deps`);
+          } catch (err) { results.push(`🧠 Code Intelligence: failed — ${err.message}`); }
+        }
+        if (steps.includes("test-intelligence")) {
+          try {
+            const { buildTestIntelligence } = await import("./test-intelligence.mjs");
+            const { summary } = await buildTestIntelligence(cwd, PAAW_ROOT);
+            results.push(`🧪 Test Intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+          } catch (err) { results.push(`🧪 Test Intelligence: failed — ${err.message}`); }
+        }
+        if (steps.includes("security-scan")) {
+          try {
+            const { runSemgrep } = await import("./semgrep-runner.mjs");
+            const findings = await runSemgrep(cwd);
+            results.push(`🔒 Security: ${findings.length} findings`);
+          } catch (err) { results.push(`🔒 Security: failed — ${err.message}`); }
+        }
+        if (steps.includes("change-intelligence")) {
+          try {
+            const { buildChangeIntelligence } = await import("./change-intelligence.mjs");
+            const { summary } = await buildChangeIntelligence(cwd, { days: 30, maxCommits: 50 });
+            results.push(`🔄 Change Intelligence: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files`);
+          } catch (err) { results.push(`🔄 Change Intelligence: failed — ${err.message}`); }
+        }
+
+        // LLM steps — these re-run the CU step via API (requires server running)
+        const llmSteps = steps.filter(s => !["code-intelligence", "test-intelligence", "security-scan", "change-intelligence"].includes(s));
+        if (llmSteps.length > 0) {
+          results.push(`\n⚠️ LLM steps (${llmSteps.join(", ")}) require calling POST /api/coding-project/ai-initial-step — use from Coding IDE or night shift.`);
+        }
+
+        const output = results.length > 0 ? `CU Refresh Results:\n${results.join("\n")}` : "No steps to refresh.";
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} steps` });
+        return output;
+      }
+
+      // ══════════════════════════════════════════
       // ── Project Knowledge Write Tools ──
       // ══════════════════════════════════════════
 
@@ -1456,7 +1529,9 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
+### CU Maintenance (after code changes)
+- **cu_refresh** — Refresh specific CU steps after code changes. Default: deterministic steps only (fast, no LLM). Add LLM steps only if architecture/APIs changed.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
