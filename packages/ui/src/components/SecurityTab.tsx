@@ -77,6 +77,7 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
   const loadResults = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNotInstalled(false);
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/security-scan/results?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
@@ -84,6 +85,8 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
         setScanResult(data);
       } else if (res.status === 404) {
         setScanResult(null);
+      } else if (res.status === 503) {
+        setNotInstalled(true);
       } else {
         setError(`HTTP ${res.status}`);
       }
@@ -99,15 +102,19 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
   }, [loadResults]);
 
   // Run new scan
+  const [notInstalled, setNotInstalled] = useState(false);
   const runScan = useCallback(async () => {
     setScanning(true);
     setError(null);
+    setNotInstalled(false);
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/security-scan?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
         const data = await res.json();
         setScanResult(data);
         setSelectedFinding(null);
+      } else if (res.status === 503) {
+        setNotInstalled(true);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || `HTTP ${res.status}`);
@@ -184,6 +191,33 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
       {loading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-stone-400 text-sm">Loading scan results...</div>
+        </div>
+      )}
+
+      {/* ── Semgrep not installed ── */}
+      {notInstalled && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8">
+          <div className="text-5xl">📦</div>
+          <div className="text-center">
+            <div className="text-stone-600 font-semibold text-sm mb-1">Semgrep 未安裝</div>
+            <div className="text-stone-400 text-xs mb-4">Security scan 需要 Semgrep — 輕量級靜態分析工具（SAST）</div>
+            <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 text-left">
+              <div className="text-xs font-bold text-stone-500 mb-2">安裝方式：</div>
+              <div className="font-mono text-xs space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-xs font-bold shrink-0">pip</span>
+                  <span className="text-stone-700">pip install semgrep</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 text-xs font-bold shrink-0">brew</span>
+                  <span className="text-stone-700">brew install semgrep</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-stone-400 mt-3">
+              安裝後重啟 PAAW server 即可使用 🔒
+            </div>
+          </div>
         </div>
       )}
 
