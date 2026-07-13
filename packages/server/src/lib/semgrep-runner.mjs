@@ -22,9 +22,7 @@ const exec = promisify(execCb);
 function detectRulePacks(projectRoot) {
   const packs = [];
   const has = (ext) => {
-    // Quick check: does the project have any files with this extension?
     try {
-      const { execSync } = require("child_process");
       execSync(`find "${projectRoot}" -maxdepth 4 -name "*${ext}" -not -path "*/node_modules/*" -not -path "*/.git/*" | head -1`, { stdio: "pipe" });
       return true;
     } catch {
@@ -65,9 +63,11 @@ function detectRulePacks(projectRoot) {
 /**
  * Check if semgrep is installed
  */
+import { execSync } from "child_process";
+
 export function isSemgrepAvailable() {
   try {
-    require("child_process").execSync("semgrep --version", { stdio: "pipe", timeout: 5000 });
+    execSync("semgrep --version", { stdio: "pipe", timeout: 5000 });
     return true;
   } catch {
     return false;
