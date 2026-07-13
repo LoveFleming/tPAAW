@@ -215,17 +215,18 @@ export class OpenAICompatibleAdapter {
       // Stream ended naturally without finish_reason
       if (!doneEmitted) {
         if (pendingTools.size > 0) {
-        const toolCalls = []
-        for (const [, call] of pendingTools) {
-          toolCalls.push({
-            id: call.id,
-            type: 'function',
-            function: { name: call.name, arguments: call.args },
-          })
+          const toolCalls = []
+          for (const [, call] of pendingTools) {
+            toolCalls.push({
+              id: call.id,
+              type: 'function',
+              function: { name: call.name, arguments: call.args },
+            })
+          }
+          yield { type: 'done', finishReason: 'tool_calls', toolCalls }
+        } else {
+          yield { type: 'done', finishReason: 'stop', toolCalls: [] }
         }
-        yield { type: 'done', finishReason: 'tool_calls', toolCalls }
-      } else {
-        yield { type: 'done', finishReason: 'stop', toolCalls: [] }
       }
     } finally {
       // 寫 stream log 到 temp file
