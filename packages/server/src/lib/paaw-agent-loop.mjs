@@ -110,7 +110,11 @@ export function resolveLLMConfig(rootDir, modelOverride) {
     fallbacks.push({ providerId: "openrouter", apiUrl: `${config.providers.openrouter.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.providers.openrouter.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }, model: "deepseek/deepseek-v4-flash" });
   }
 
-  return { apiUrl, headers, model, providerId, fallbacks };
+  // Get model's context window
+  const modelDef = (provider.models || []).find(m => m.id === model);
+  const contextWindow = modelDef?.contextWindow || DEFAULT_CONTEXT_WINDOW;
+
+  return { apiUrl, headers, model, providerId, fallbacks, contextWindow };
 }
 
 // ── Tool Definitions (OpenAI function-calling format) ──
@@ -1683,6 +1687,55 @@ ${changedApis}`;
   }
 }
 
+// ── Context Window Management ──
+// Trims conversation history to fit within model's context window.
+// Strategy: keep system message + first user message + last N messages.
+// Middle messages are summarized into a compact note.
+
+const DEFAULT_CONTEXT_WINDOW = 262000; // 262k tokens default for company models
+const CONTEXT_SAFETY_MARGIN = 8000;   // reserve for system prompt + response
+
+function estimateTokens(text) {
+  // Rough estimate: ~4 chars per token for mixed CJK + English
+  return Math.ceil((text || "").length / 3.5);
+}
+
+function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WINDOW) {
+  if (messages.length <= 4) return messages;
+
+  // Always keep: messages[0] (system), messages[1] (first user), last 6 messages
+  const keepHead = 2;
+  const keepTail = 6;
+  let totalTokens = messages.reduce((s, m) => s + estimateTokens(m.content || ""), 0);
+
+  if (totalTokens <= contextWindow - CONTEXT_SAFETY_MARGIN) {
+    return messages; // fits, no trimming needed
+  }
+
+  const head = messages.slice(0, keepHead);
+  const tail = messages.slice(-keepTail);
+  const middle = messages.slice(keepHead, -keepTail);
+
+  // Summarize middle messages
+  const middleSummary = middle
+    .filter(m => m.role === "assistant" || m.role === "user")
+    .map(m => {
+      const content = (m.content || "").slice(0, 200);
+      const role = m.role === "assistant" ? "AI" : "User";
+      return `[${role}] ${content}`;
+    })
+    .join(" | ");
+
+  const summaryMsg = {
+    role: "system",
+    content: `[Context trimmed — earlier conversation summarized]\n${middleSummary}\n[End of summary — ${middle.length} messages trimmed to save context]`,
+  };
+
+  const trimmed = [...head, summaryMsg, ...tail];
+  console.log(`[context-trim] ${messages.length} msgs → ${trimmed.length} msgs (est. ${totalTokens} tokens → ~${trimmed.reduce((s,m) => s + estimateTokens(m.content||""), 0)} tokens)`);
+  return trimmed;
+}
+
 // ── LLM API Call ──
 
 export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null) {
@@ -1898,10 +1951,11 @@ export async function runAgentLoop(config) {
 
     if (onEvent) onEvent({ type: "turn_start", turn: i + 1 });
 
-    // Call LLM
+    // Call LLM (with context window trimming)
+    const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, PAAW_TOOLS, false, (evt, data) => {
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, PAAW_TOOLS, false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
       });
     } catch (err) {
@@ -2076,11 +2130,12 @@ export async function runAgentLoopStream(config, res) {
     turns++;
     sendSSE("turn", { turn: i + 1 });
 
-    // Call LLM with fallback chain on 429/rate-limit
+    // Call LLM with fallback chain on 429/rate-limit (with context window trimming)
+    const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     let usedLlm = llm;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, PAAW_TOOLS, false, sendSSE);
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, PAAW_TOOLS, false, sendSSE);
     } catch (err) {
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
@@ -2088,7 +2143,7 @@ export async function runAgentLoopStream(config, res) {
           console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
           sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
           try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, messages, PAAW_TOOLS, false, sendSSE);
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, PAAW_TOOLS, false, sendSSE);
             usedLlm = fb;
             break;
           } catch (fbErr) {
