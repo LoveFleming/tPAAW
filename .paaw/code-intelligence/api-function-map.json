@@ -1,0 +1,637 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/request",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/pending",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/diff//*",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/approve//*",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/reject//*",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/tool/proxy",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/tool/tokens",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/update//*",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/update/status",
+      "file": "packages/server/src/lib/bridge/paaw-bridge.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/agent-card.json",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/a2a",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/a2a/tasks",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/a2a/agent-card",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings/agent-config",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai-settings/agent-config",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings/providers",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai-settings/providers",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/preferences",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/user/preferences",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspaces",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/user",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/user",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/avatar",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/avatar/assistant",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/app-rules",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/paaw/app-rules",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/app-skills",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/apps/import",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/providers",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/paaw/providers",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/workspaces",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/workspaces",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/paaw/workspaces",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/knowledge-paths",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/ui-state",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/paaw/ui-state",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/paaw/ui-state",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/workflows",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/workflows",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/workflow-output-chat",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/file-write",
+      "file": "packages/server/src/routes/assistant.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/chats",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/chats//*",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/chats",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/paaw/chats//*",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/paaw/chats//*",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/chat",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/system-prompts",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/skill-config",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/skill-config",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent",
+      "callChain": [
+        {
+          "function": "res.write",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        },
+        {
+          "function": "JSON.stringify",
+          "depth": 5,
+          "file": "",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/tool-registry",
+      "file": "packages/server/src/routes/tools.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/tool-registry/skills",
+      "file": "packages/server/src/routes/tools.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/tool-registry/skills//*",
+      "file": "packages/server/src/routes/tools.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/tool-registry//*",
+      "file": "packages/server/src/routes/tools.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/tool-registry//*",
+      "file": "packages/server/src/routes/tools.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/tool-registry//*",
+      "file": "packages/server/src/routes/tools.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw-root",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/workflows",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/workflows",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/workflow-output-chat",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/file-write",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/skill-exec",
+      "file": "packages/server/src/routes/workflow.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/notebooks",
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/tags",
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/create",
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/notebooks",
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/sections",
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/notes/create",
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/notebooks",
+      "file": "packages/ui/src/pages/Notes.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "file": "packages/ui/src/pages/ProjectBoard.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects",
+      "file": "packages/ui/src/pages/ProjectBoard.tsx",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw-root",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/providers",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/preferences",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/chat",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/project",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/mindmap",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/context/notes",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/apps",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/mindmap/list",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/notes/notebooks",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings",
+      "file": "tests/e2e/05-api.spec.ts",
+      "handler": "",
+      "callChain": []
+    }
+  ],
+  "stats": {
+    "totalRoutes": 86,
+    "withHandler": 2,
+    "withoutHandler": 84
+  }
+}

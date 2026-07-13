@@ -44,6 +44,8 @@ import { normalizePath, readBody } from "./shared.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
 import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
+import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
+import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
 
 // ── PAAW root directory (cross-platform safe) ──
 // fileURLToPath handles Windows drive-letter URLs correctly,
@@ -947,6 +949,32 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── GET /api/coding-project/test-intelligence ──
+    if (url.startsWith("/api/coding-project/test-intelligence") && method === "GET") {
+      try {
+        const { summary } = await buildTestIntelligence(root, PAAW_ROOT);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(summary));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/change-intelligence ──
+    if (url.startsWith("/api/coding-project/change-intelligence") && method === "GET") {
+      try {
+        const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(summary));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
     // ── GET /api/coding-project/code-intelligence ──
     // Build and return full code intelligence (call graph, dependency graph, etc.)
     if (url.startsWith("/api/coding-project/code-intelligence") && method === "GET") {
@@ -1219,17 +1247,20 @@ export default async function projectRoute(req, res) {
 
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "architecture", name: "🏗️ 產出 Architecture Map", promptFile: "gen-architecture.md" },
-        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
-        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
-        { id: "decisions", name: "🏛️ 產出 Decision Records (ADR)", promptFile: "gen-decisions.md" },
-        { id: "test-payload", name: "🧪 產出 Test Payloads", promptFile: "gen-test-payload.md" },
-        { id: "standards", name: "📏 產出 Coding Standards", promptFile: "gen-standards.md" },
-        { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
-        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+        { id: "architecture", name: "📐 產出 Architecture Map", promptFile: "gen-architecture.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
-        { id: "code-intelligence", name: "🧠 Code Intelligence (Call Graph)", promptFile: null },
+        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
+        { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
+        { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
+        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
         { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
+        { id: "standards", name: "🏛️ 產出 Coding Standards", promptFile: "gen-standards.md" },
+        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+        { id: "change-intelligence", name: "🔄 Change Intelligence", promptFile: null },
+        // Optional steps (available but not in default bulk flow)
+        { id: "decisions", name: "📋 產出 Decision Records (ADR)", promptFile: "gen-decisions.md" },
+        { id: "test-payload", name: "🧪 產出 Test Payloads", promptFile: "gen-test-payload.md" },
+        { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
       if (!step) {
@@ -1330,6 +1361,48 @@ export default async function projectRoute(req, res) {
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
           }
           sendEvent("done", { message: "Code intelligence complete" });
+          res.end();
+          return true;
+        }
+
+        // Special handling: test-intelligence runs static analysis (no LLM needed)
+        if (step.id === "test-intelligence") {
+          try {
+            cuLog(step.id, "Building test intelligence...");
+            const { summary } = await buildTestIntelligence(root, PAAW_ROOT);
+            cuLog(step.id, `Test intelligence done: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`,
+              stats: summary,
+            });
+          } catch (err) {
+            cuLog(step.id, `Test intelligence failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Test intelligence complete" });
+          res.end();
+          return true;
+        }
+
+        // Special handling: change-intelligence runs git log analysis (no LLM needed)
+        if (step.id === "change-intelligence") {
+          try {
+            cuLog(step.id, "Building change intelligence...");
+            const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 });
+            cuLog(step.id, `Change intelligence done: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files changed`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${summary.totalCommits} commits, ${summary.totalFilesChanged} files, ${summary.highImpactChanges} high-impact`,
+              stats: summary,
+            });
+          } catch (err) {
+            cuLog(step.id, `Change intelligence failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Change intelligence complete" });
           res.end();
           return true;
         }
@@ -1554,17 +1627,16 @@ export default async function projectRoute(req, res) {
     if (url.startsWith("/api/coding-project/ai-initial") && method === "POST") {
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
-        { id: "architecture", name: "🏗️ 產出 Architecture Map", promptFile: "gen-architecture.md" },
-        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
-        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
-        { id: "decisions", name: "🏛️ 產出 Decision Records (ADR)", promptFile: "gen-decisions.md" },
-        { id: "test-payload", name: "🧪 產出 Test Payloads", promptFile: "gen-test-payload.md" },
-        { id: "standards", name: "📏 產出 Coding Standards", promptFile: "gen-standards.md" },
-        { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
-        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+        { id: "architecture", name: "📐 產出 Architecture Map", promptFile: "gen-architecture.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
-        { id: "code-intelligence", name: "🧠 Code Intelligence (Call Graph)", promptFile: null },
+        { id: "api-spec", name: "📡 產出 API Contract", promptFile: "gen-api-spec.md" },
+        { id: "code-intelligence", name: "🧠 Code Intelligence", promptFile: null },
+        { id: "test-intelligence", name: "🧪 Test Intelligence", promptFile: null },
+        { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", promptFile: "gen-error-mapping.md" },
         { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
+        { id: "standards", name: "🏛️ 產出 Coding Standards", promptFile: "gen-standards.md" },
+        { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
+        { id: "change-intelligence", name: "🔄 Change Intelligence", promptFile: null },
       ];
 
       // SSE stream — send progress as each step completes
@@ -1661,6 +1733,34 @@ export default async function projectRoute(req, res) {
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.callGraph.totalFunctions} functions, ${summary.symbolIndex.total} symbols`, stats: summary });
             } catch (err) {
               cuLog(step.id, `[bulk] Code intelligence failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            }
+            continue;
+          }
+
+          // Special handling: test-intelligence (no LLM)
+          if (step.id === "test-intelligence") {
+            try {
+              cuLog(step.id, "[bulk] Building test intelligence...");
+              const { summary } = await buildTestIntelligence(root, PAAW_ROOT);
+              cuLog(step.id, `[bulk] Test intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`, stats: summary });
+            } catch (err) {
+              cuLog(step.id, `[bulk] Test intelligence failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            }
+            continue;
+          }
+
+          // Special handling: change-intelligence (no LLM)
+          if (step.id === "change-intelligence") {
+            try {
+              cuLog(step.id, "[bulk] Building change intelligence...");
+              const { summary } = await buildChangeIntelligence(root, { days: 30, maxCommits: 50 });
+              cuLog(step.id, `[bulk] Change intelligence: ${summary.totalCommits} commits, ${summary.totalFilesChanged} files`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.totalCommits} commits, ${summary.totalFilesChanged} files`, stats: summary });
+            } catch (err) {
+              cuLog(step.id, `[bulk] Change intelligence failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
             }
             continue;

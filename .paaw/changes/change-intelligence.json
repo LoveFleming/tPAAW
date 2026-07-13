@@ -1,0 +1,1831 @@
+{
+  "generatedAt": "2026-07-13T11:22:07.759Z",
+  "period": "30 days",
+  "commits": [
+    {
+      "hash": "a1fe10f",
+      "author": "LoveFleming",
+      "date": "2026-07-13T11:01:58.000Z",
+      "subject": "feat: Code Intelligence + Knowledge Package for AI agent handover",
+      "fileCount": 10,
+      "files": [
+        ".paaw/changes/README.md",
+        ".paaw/product/architecture.md",
+        ".paaw/product/domain-glossary.md",
+        ".paaw/product/product-overview.md",
+        ".paaw/quality/quality-policy.yaml",
+        "data/config/recent-projects.json",
+        "packages/server/src/lib/code-intelligence.mjs",
+        "packages/server/src/lib/tree-sitter-parser.mjs",
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "bc24529",
+      "author": "LoveFleming",
+      "date": "2026-07-13T10:43:12.000Z",
+      "subject": "feat: Security tab UI for Coding app — Semgrep results panel",
+      "fileCount": 3,
+      "files": [
+        "packages/ui/src/components/EMDashboard.tsx",
+        "packages/ui/src/components/SecurityTab.tsx",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "eee895c",
+      "author": "LoveFleming",
+      "date": "2026-07-13T10:24:38.000Z",
+      "subject": "feat: integrate Semgrep as built-in SAST scanner for Coding app",
+      "fileCount": 2,
+      "files": [
+        "packages/server/src/lib/semgrep-runner.mjs",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "fe450fb",
+      "author": "LoveFleming",
+      "date": "2026-07-13T10:17:40.000Z",
+      "subject": "feat: add Java support to Tree-sitter parser",
+      "fileCount": 2,
+      "files": [
+        "packages/server/package.json",
+        "packages/server/src/lib/tree-sitter-parser.mjs"
+      ]
+    },
+    {
+      "hash": "032b220",
+      "author": "LoveFleming",
+      "date": "2026-07-13T09:43:55.000Z",
+      "subject": "feat: Tree-sitter source analysis for Code Understanding feature-map",
+      "fileCount": 11,
+      "files": [
+        "backups/backup-2026-07-12T16-00-15.json",
+        "backups/backup-2026-07-12T16-00-15.tar.gz",
+        "data/ai-settings/coding/gen-feature-map.md",
+        "data/config/backup.json",
+        "data/config/recent-projects.json",
+        "data/prompts/code-understanding/gen-feature-map.md",
+        "packages/server/package.json",
+        "packages/server/src/lib/tree-sitter-parser.mjs",
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "7e8b158",
+      "author": "LoveFleming",
+      "date": "2026-07-13T08:28:44.000Z",
+      "subject": "fix: provider.mjs syntax error — if block missing closing brace before } finally {",
+      "fileCount": 1,
+      "files": [
+        "packages/server/src/lib/tool-engine/provider.mjs"
+      ]
+    },
+    {
+      "hash": "71589ba",
+      "author": "LoveFleming",
+      "date": "2026-07-13T08:11:32.000Z",
+      "subject": "feat: Code Understanding prompts visible in AI Settings UI",
+      "fileCount": 12,
+      "files": [
+        "data/ai-settings/coding/gen-api-spec.md",
+        "data/ai-settings/coding/gen-architecture.md",
+        "data/ai-settings/coding/gen-decisions.md",
+        "data/ai-settings/coding/gen-error-mapping.md",
+        "data/ai-settings/coding/gen-faq.md",
+        "data/ai-settings/coding/gen-feature-map.md",
+        "data/ai-settings/coding/gen-overview.md",
+        "data/ai-settings/coding/gen-standards.md",
+        "data/ai-settings/coding/gen-test-payload.md",
+        "data/ai-settings/coding/scan-project.md"
+      ]
+    },
+    {
+      "hash": "f3b7013",
+      "author": "LoveFleming",
+      "date": "2026-07-13T08:04:07.000Z",
+      "subject": "feat: feature-map produces more features + larger context",
+      "fileCount": 2,
+      "files": [
+        "data/prompts/code-understanding/gen-feature-map.md",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "4921833",
+      "author": "LoveFleming",
+      "date": "2026-07-13T07:37:42.000Z",
+      "subject": "debug: add FeatureMap fetch debug logs + error display",
+      "fileCount": 2,
+      "files": [
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/ui/src/components/FeatureMap.tsx"
+      ]
+    },
+    {
+      "hash": "d3d5e27",
+      "author": "LoveFleming",
+      "date": "2026-07-13T06:34:58.000Z",
+      "subject": "style: Coding toolbar text-xs + remove font-semibold to match tab captions",
+      "fileCount": 1,
+      "files": [
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "04da2a0",
+      "author": "LoveFleming",
+      "date": "2026-07-13T06:29:05.000Z",
+      "subject": "fix: cannot set headers after they are sent to the client",
+      "fileCount": 3,
+      "files": [
+        "packages/server/src/lib/tool-engine/index.mjs",
+        "packages/server/src/lib/tool-engine/provider.mjs",
+        "packages/server/src/routes/chat.mjs"
+      ]
+    },
+    {
+      "hash": "90b5eca",
+      "author": "LoveFleming",
+      "date": "2026-07-13T06:22:16.000Z",
+      "subject": "fix: auto-retry when LLM returns empty/whitespace/invisible content",
+      "fileCount": 1,
+      "files": [
+        "packages/server/src/lib/paaw-agent-loop.mjs"
+      ]
+    },
+    {
+      "hash": "2906fd5",
+      "author": "LoveFleming",
+      "date": "2026-07-13T06:19:51.000Z",
+      "subject": "fix: reduce LLM retry counts + notify frontend during retries",
+      "fileCount": 2,
+      "files": [
+        "packages/server/src/lib/llm-utils.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs"
+      ]
+    },
+    {
+      "hash": "6a83f1a",
+      "author": "LoveFleming",
+      "date": "2026-07-13T06:09:32.000Z",
+      "subject": "fix: Feature Map step_done sent even when JSON parse fails + EMDashboard file path wrong",
+      "fileCount": 2,
+      "files": [
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "d77c5fb",
+      "author": "LoveFleming",
+      "date": "2026-07-13T06:01:03.000Z",
+      "subject": "feat: auto-open Features tab after Code Understanding completes",
+      "fileCount": 1,
+      "files": [
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "fc5009b",
+      "author": "LoveFleming",
+      "date": "2026-07-13T05:56:28.000Z",
+      "subject": "fix: remove all hardcoded 'glm-5.1' model fallbacks — use resolveDefaultModel()",
+      "fileCount": 15,
+      "files": [
+        "packages/server/src/context-engine.mjs",
+        "packages/server/src/lib/llm-utils.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/routes/a2a.mjs",
+        "packages/server/src/routes/ai-settings.mjs",
+        "packages/server/src/routes/chat.mjs",
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/server/src/routes/coding.mjs",
+        "packages/server/src/routes/distill.mjs",
+        "packages/server/src/routes/helpdesk.mjs"
+      ]
+    },
+    {
+      "hash": "73991e2",
+      "author": "LoveFleming",
+      "date": "2026-07-13T05:31:32.000Z",
+      "subject": "feat: auto-trigger Code Understanding on first project open",
+      "fileCount": 1,
+      "files": [
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "5520ba0",
+      "author": "LoveFleming",
+      "date": "2026-07-13T04:01:37.000Z",
+      "subject": "fix: remove HTTP request headers log from provider.mjs",
+      "fileCount": 1,
+      "files": [
+        "packages/server/src/lib/tool-engine/provider.mjs"
+      ]
+    },
+    {
+      "hash": "a548aae",
+      "author": "LoveFleming",
+      "date": "2026-07-13T03:41:09.000Z",
+      "subject": "fix: Windows feature-map scan — Unix 'find' doesn't exist on Windows",
+      "fileCount": 1,
+      "files": [
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "d9a80c3",
+      "author": "LoveFleming",
+      "date": "2026-07-13T03:35:46.000Z",
+      "subject": "fix: feature-map JSON parse — handle empty AI response, better error messages",
+      "fileCount": 2,
+      "files": [
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "a74db96",
+      "author": "LoveFleming",
+      "date": "2026-07-13T02:26:52.000Z",
+      "subject": "fix: feature map JSON parse — add recovery for refresh-mapping, fix markdown fence regex, use cleanJson in brace counter",
+      "fileCount": 2,
+      "files": [
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "7cd8b0a",
+      "author": "LoveFleming",
+      "date": "2026-07-12T14:14:51.000Z",
+      "subject": "fix: Windows compatibility for feature scan command",
+      "fileCount": 1,
+      "files": [
+        "packages/server/src/routes/coding-features.mjs"
+      ]
+    },
+    {
+      "hash": "7525513",
+      "author": "LoveFleming",
+      "date": "2026-07-12T13:59:03.000Z",
+      "subject": "fix: Feature Map JSON truncation recovery + max_tokens 8000",
+      "fileCount": 14,
+      "files": [
+        ".paaw/ARCHITECTURE.md",
+        ".paaw/DECISIONS.md",
+        ".paaw/PROJECT.md",
+        ".paaw/cu-debug.log",
+        ".paaw/features/FEATURES.json",
+        ".paaw/features/raw-feature-map.txt",
+        ".paaw/helpdesk/faq.md",
+        ".paaw/scan.json",
+        ".paaw/specs/api-contract.md",
+        ".paaw/specs/error-codes.md"
+      ]
+    },
+    {
+      "hash": "2bc67c8",
+      "author": "LoveFleming",
+      "date": "2026-07-12T10:20:39.000Z",
+      "subject": "feat: Night Shift — EM leads 6-agent team for overnight work",
+      "fileCount": 8,
+      "files": [
+        "packages/server/src/paaw-server.mjs",
+        "packages/server/src/routes/coding-night-shift.mjs",
+        "packages/ui/src/components/NightShiftPanel.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "0f5b849",
+      "author": "LoveFleming",
+      "date": "2026-07-12T08:07:52.000Z",
+      "subject": "feat: Bidirectional Feature↔File mapping (agent + UI)",
+      "fileCount": 7,
+      "files": [
+        "packages/server/src/routes/a2a.mjs",
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/components/FeatureMap.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json"
+      ]
+    },
+    {
+      "hash": "f598e40",
+      "author": "LoveFleming",
+      "date": "2026-07-12T07:36:53.000Z",
+      "subject": "feat: Feature Mapping auto-maintenance — A (manual refresh) + C (agent auto-update)",
+      "fileCount": 8,
+      "files": [
+        "packages/server/src/lib/agent-rules.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/ui/src/components/FeatureMap.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json"
+      ]
+    },
+    {
+      "hash": "605f5f7",
+      "author": "LoveFleming",
+      "date": "2026-07-12T07:04:44.000Z",
+      "subject": "feat: inject Feature Map summary into every agent system prompt",
+      "fileCount": 3,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/server/src/routes/a2a.mjs",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "34cd165",
+      "author": "LoveFleming",
+      "date": "2026-07-12T05:49:27.000Z",
+      "subject": "feat: Code Understanding now auto-generates Feature Map as step 10",
+      "fileCount": 4,
+      "files": [
+        "data/config/recent-projects.json",
+        "data/prompts/code-understanding/gen-feature-map.md",
+        "packages/server/src/routes/coding.mjs",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "1fd0e0e",
+      "author": "LoveFleming",
+      "date": "2026-07-12T05:37:24.000Z",
+      "subject": "feat: Feature-centric code understanding with doc update mechanism",
+      "fileCount": 15,
+      "files": [
+        ".paaw/coding-memory/conversations/coding.developer.json",
+        ".paaw/coding-memory/conversations/coding.tester.json",
+        ".paaw/coding-memory/dispatch-log.jsonl",
+        "data/config/recent-projects.json",
+        "data/config/user.json",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/lib/paaw-project.mjs",
+        "packages/server/src/paaw-server.mjs",
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/ui/src/components/FeatureMap.tsx"
+      ]
+    },
+    {
+      "hash": "d4c6caf",
+      "author": "LoveFleming",
+      "date": "2026-07-12T03:13:08.000Z",
+      "subject": "feat: AI agents use structured .paaw/ API tools instead of raw read_file",
+      "fileCount": 5,
+      "files": [
+        ".paaw/coding-memory/conversations/coding.developer.json",
+        ".paaw/coding-memory/dispatch-log.jsonl",
+        "data/config/recent-projects.json",
+        "packages/server/src/lib/agent-rules.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs"
+      ]
+    },
+    {
+      "hash": "6639153",
+      "author": "LoveFleming",
+      "date": "2026-07-12T02:02:44.000Z",
+      "subject": "feat: Agent Memory panel shows crew agents with avatars and names",
+      "fileCount": 8,
+      "files": [
+        ".paaw/issues/ISSUES.json",
+        "data/config/recent-projects.json",
+        "packages/server/src/routes/coding-memory.mjs",
+        "packages/ui/src/components/AgentMemoryPanel.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json"
+      ]
+    },
+    {
+      "hash": "7565038",
+      "author": "LoveFleming",
+      "date": "2026-07-12T01:52:02.000Z",
+      "subject": "feat: add Agent Memory panel to Coding IDE",
+      "fileCount": 8,
+      "files": [
+        "packages/server/src/paaw-server.mjs",
+        "packages/server/src/routes/coding-memory.mjs",
+        "packages/ui/src/components/AgentMemoryPanel.tsx",
+        "packages/ui/src/i18n/locales/en.json",
+        "packages/ui/src/i18n/locales/ja.json",
+        "packages/ui/src/i18n/locales/zh-mix.json",
+        "packages/ui/src/i18n/locales/zh.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "93e1d47",
+      "author": "LoveFleming",
+      "date": "2026-07-12T01:36:09.000Z",
+      "subject": "fix: IssueTracker — useI18n returns t not tt (recurring mistake)",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/components/IssueTracker.tsx"
+      ]
+    },
+    {
+      "hash": "5035343",
+      "author": "LoveFleming",
+      "date": "2026-07-12T00:23:15.000Z",
+      "subject": "feat: add lightweight Issue Tracking to Coding IDE",
+      "fileCount": 25,
+      "files": [
+        ".paaw/ARCHITECTURE.md",
+        ".paaw/DECISIONS.md",
+        ".paaw/PROJECT.md",
+        ".paaw/cu-debug.log",
+        ".paaw/helpdesk/faq.md",
+        ".paaw/scan.json",
+        ".paaw/specs/api-contract.md",
+        ".paaw/specs/error-codes.md",
+        ".paaw/standards/coding-style.md",
+        ".paaw/test-payloads/all-payloads.json"
+      ]
+    },
+    {
+      "hash": "5a7a2de",
+      "author": "LoveFleming",
+      "date": "2026-07-11T13:08:59.000Z",
+      "subject": "fix: 交接狀態面板路徑重複 — .paaw/.paaw/PROJECT.md",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "7b914d3",
+      "author": "LoveFleming",
+      "date": "2026-07-11T13:04:18.000Z",
+      "subject": "fix: 交接狀態面板全部 fail — 一樣用了不存在的 API",
+      "fileCount": 1,
+      "files": [
+        "packages/ui/src/components/EMDashboard.tsx"
+      ]
+    },
+    {
+      "hash": "dd1825d",
+      "author": "LoveFleming",
+      "date": "2026-07-11T13:00:13.000Z",
+      "subject": "feat: Code Health 實際跑 unit test coverage + E2E test 結果",
+      "fileCount": 1,
+      "files": [
+        "packages/server/src/lib/paaw-project.mjs"
+      ]
+    },
+    {
+      "hash": "93c09e4",
+      "author": "LoveFleming",
+      "date": "2026-07-11T12:50:10.000Z",
+      "subject": "fix: 移除 sidebar 底部專案名稱小 panel",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "7459cea",
+      "author": "LoveFleming",
+      "date": "2026-07-11T12:28:58.000Z",
+      "subject": "fix: 歷史對話面板改為 inline 渲染，不用 absolute",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "6c0adb3",
+      "author": "LoveFleming",
+      "date": "2026-07-11T10:42:06.000Z",
+      "subject": "fix: write_file 路徑限制太嚴 — AI 無法寫 project codebase",
+      "fileCount": 1,
+      "files": [
+        "packages/server/src/lib/paaw-agent-loop.mjs"
+      ]
+    },
+    {
+      "hash": "ffdc794",
+      "author": "LoveFleming",
+      "date": "2026-07-11T10:39:49.000Z",
+      "subject": "fix: PaawTree 預設收合，移除 refresh 和 AI icon",
+      "fileCount": 1,
+      "files": [
+        "packages/ui/src/components/PaawTree.tsx"
+      ]
+    },
+    {
+      "hash": "393b204",
+      "author": "LoveFleming",
+      "date": "2026-07-11T10:21:30.000Z",
+      "subject": "fix: 歷史對話功能修正",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "4bdc7d6",
+      "author": "LoveFleming",
+      "date": "2026-07-11T10:15:25.000Z",
+      "subject": "fix: EM Dashboard 派工到 AI Crew 後照片沒顯示",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "153bef4",
+      "author": "LoveFleming",
+      "date": "2026-07-11T10:11:07.000Z",
+      "subject": "fix: 歷史對話面板點不出來 — profile header 缺 relative",
+      "fileCount": 3,
+      "files": [
+        "data/config/recent-projects.json",
+        "data/config/user.json",
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "hash": "1ffe522",
+      "author": "LoveFleming",
+      "date": "2026-07-11T09:33:22.000Z",
+      "subject": "fix: 修清理 factory 後的 TS 型別錯誤",
+      "fileCount": 4,
+      "files": [
+        "packages/ui/src/App.tsx",
+        "packages/ui/src/components/ChatMessages.tsx",
+        "packages/ui/src/components/EMDashboard.tsx",
+        "packages/ui/src/types/index.ts"
+      ]
+    },
+    {
+      "hash": "f432e18",
+      "author": "LoveFleming",
+      "date": "2026-07-11T09:27:09.000Z",
+      "subject": "cleanup: 完全移除 factory 字眼",
+      "fileCount": 8,
+      "files": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tool-engine/provider.ts",
+        "packages/server/src/lib/overnight-manager.mjs",
+        "packages/server/src/lib/tool-engine/provider.mjs",
+        "packages/server/src/routes/context.mjs",
+        "packages/server/src/routes/crew.mjs",
+        "packages/server/src/routes/shared.mjs",
+        "packages/ui/src/App.tsx"
+      ]
+    },
+    {
+      "hash": "458086c",
+      "author": "LoveFleming",
+      "date": "2026-07-11T08:57:32.000Z",
+      "subject": "cleanup: 徹底移除 Factory 概念 — PAAW 不需要",
+      "fileCount": 16,
+      "files": [
+        "data/crews/00-ai.factory-assistant.json",
+        "data/crews/conversation/_default/ai.factory-assistant/saved-inputs.json",
+        "data/crews/conversation/ai.factory-assistant/work-log.json",
+        "data/crews/pic/sunny_factory_assistant.png",
+        "packages/server/src/lib/paaw-project.mjs",
+        "packages/server/src/routes/apps.mjs",
+        "packages/ui/src/App.tsx",
+        "packages/ui/src/components/Icon.tsx",
+        "packages/ui/src/pages/AICrew.tsx",
+        "packages/ui/src/pages/EmployeeWorkspace.tsx"
+      ]
+    },
+    {
+      "hash": "db59d2b",
+      "author": "LoveFleming",
+      "date": "2026-07-11T08:43:05.000Z",
+      "subject": "fix: 歷史對話真正修好 — crewMatch 正則也要改",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "b71c611",
+      "author": "LoveFleming",
+      "date": "2026-07-11T08:38:40.000Z",
+      "subject": "fix: 歷史對話點下去沒反應 — route 正則衝突",
+      "fileCount": 2,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    },
+    {
+      "hash": "9ee8cd5",
+      "author": "LoveFleming",
+      "date": "2026-07-11T08:32:04.000Z",
+      "subject": "fix: Agent loop timeout 600s→1800s, maxTurns 40→60, 支援續接",
+      "fileCount": 5,
+      "files": [
+        "data/config/recent-projects.json",
+        "packages/server/src/lib/overnight-manager.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/routes/a2a.mjs",
+        "packages/server/src/routes/coding.mjs"
+      ]
+    }
+  ],
+  "recentFiles": [
+    {
+      "file": ".paaw/changes/README.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f"
+      ]
+    },
+    {
+      "file": ".paaw/product/architecture.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f"
+      ]
+    },
+    {
+      "file": ".paaw/product/domain-glossary.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f"
+      ]
+    },
+    {
+      "file": ".paaw/product/product-overview.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f"
+      ]
+    },
+    {
+      "file": ".paaw/quality/quality-policy.yaml",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f"
+      ]
+    },
+    {
+      "file": "data/config/recent-projects.json",
+      "changeCount": 19,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f",
+        "032b220",
+        "7525513",
+        "605f5f7",
+        "34cd165",
+        "1fd0e0e",
+        "d4c6caf",
+        "6639153",
+        "93e1d47",
+        "5035343",
+        "5a7a2de",
+        "93c09e4",
+        "7459cea",
+        "393b204",
+        "4bdc7d6",
+        "153bef4",
+        "db59d2b",
+        "b71c611",
+        "9ee8cd5"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/code-intelligence.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "changeCount": 3,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f",
+        "fe450fb",
+        "032b220"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding.mjs",
+      "changeCount": 17,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f",
+        "eee895c",
+        "032b220",
+        "71589ba",
+        "f3b7013",
+        "6a83f1a",
+        "fc5009b",
+        "a548aae",
+        "d9a80c3",
+        "a74db96",
+        "7525513",
+        "0f5b849",
+        "605f5f7",
+        "34cd165",
+        "db59d2b",
+        "b71c611",
+        "9ee8cd5"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "changeCount": 7,
+      "lastChanged": "2026-07-13T11:01:58.000Z",
+      "commits": [
+        "a1fe10f",
+        "bc24529",
+        "6a83f1a",
+        "73991e2",
+        "5a7a2de",
+        "7b914d3",
+        "1ffe522"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/SecurityTab.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T10:43:12.000Z",
+      "commits": [
+        "bc24529"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/CodingIDE.tsx",
+      "changeCount": 13,
+      "lastChanged": "2026-07-13T10:43:12.000Z",
+      "commits": [
+        "bc24529",
+        "d3d5e27",
+        "d77c5fb",
+        "2bc67c8",
+        "34cd165",
+        "1fd0e0e",
+        "7565038",
+        "5035343",
+        "93c09e4",
+        "7459cea",
+        "393b204",
+        "4bdc7d6",
+        "153bef4"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T10:24:38.000Z",
+      "commits": [
+        "eee895c"
+      ]
+    },
+    {
+      "file": "packages/server/package.json",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T10:17:40.000Z",
+      "commits": [
+        "fe450fb",
+        "032b220"
+      ]
+    },
+    {
+      "file": "backups/backup-2026-07-12T16-00-15.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T09:43:55.000Z",
+      "commits": [
+        "032b220"
+      ]
+    },
+    {
+      "file": "backups/backup-2026-07-12T16-00-15.tar.gz",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T09:43:55.000Z",
+      "commits": [
+        "032b220"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-feature-map.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T09:43:55.000Z",
+      "commits": [
+        "032b220",
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/config/backup.json",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T09:43:55.000Z",
+      "commits": [
+        "032b220",
+        "5035343"
+      ]
+    },
+    {
+      "file": "data/prompts/code-understanding/gen-feature-map.md",
+      "changeCount": 3,
+      "lastChanged": "2026-07-13T09:43:55.000Z",
+      "commits": [
+        "032b220",
+        "f3b7013",
+        "34cd165"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding-features.mjs",
+      "changeCount": 8,
+      "lastChanged": "2026-07-13T09:43:55.000Z",
+      "commits": [
+        "032b220",
+        "4921833",
+        "fc5009b",
+        "d9a80c3",
+        "a74db96",
+        "7cd8b0a",
+        "f598e40",
+        "1fd0e0e"
+      ]
+    },
+    {
+      "file": "packages/ui/tsconfig.tsbuildinfo",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T09:43:55.000Z",
+      "commits": [
+        "032b220"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/tool-engine/provider.mjs",
+      "changeCount": 4,
+      "lastChanged": "2026-07-13T08:28:44.000Z",
+      "commits": [
+        "7e8b158",
+        "04da2a0",
+        "5520ba0",
+        "f432e18"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-api-spec.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-architecture.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-decisions.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-error-mapping.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-faq.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-overview.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-standards.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-test-payload.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/scan-project.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T08:11:32.000Z",
+      "commits": [
+        "71589ba",
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/FeatureMap.tsx",
+      "changeCount": 4,
+      "lastChanged": "2026-07-13T07:37:42.000Z",
+      "commits": [
+        "4921833",
+        "0f5b849",
+        "f598e40",
+        "1fd0e0e"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/tool-engine/index.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T06:29:05.000Z",
+      "commits": [
+        "04da2a0"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/chat.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T06:29:05.000Z",
+      "commits": [
+        "04da2a0",
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "changeCount": 8,
+      "lastChanged": "2026-07-13T06:22:16.000Z",
+      "commits": [
+        "90b5eca",
+        "2906fd5",
+        "fc5009b",
+        "f598e40",
+        "1fd0e0e",
+        "d4c6caf",
+        "6c0adb3",
+        "9ee8cd5"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/llm-utils.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T06:19:51.000Z",
+      "commits": [
+        "2906fd5",
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/context-engine.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/a2a.mjs",
+      "changeCount": 4,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b",
+        "0f5b849",
+        "605f5f7",
+        "9ee8cd5"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/distill.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/helpdesk.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/mindmap.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/notes.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/skills-api.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/vibe-sessions.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/scheduler/cron-jobs.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T05:56:28.000Z",
+      "commits": [
+        "fc5009b"
+      ]
+    },
+    {
+      "file": ".paaw/ARCHITECTURE.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/DECISIONS.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/PROJECT.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/cu-debug.log",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/features/FEATURES.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513"
+      ]
+    },
+    {
+      "file": ".paaw/features/raw-feature-map.txt",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513"
+      ]
+    },
+    {
+      "file": ".paaw/helpdesk/faq.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/scan.json",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/specs/api-contract.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/specs/error-codes.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/standards/coding-style.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": ".paaw/test-payloads/all-payloads.json",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T13:59:03.000Z",
+      "commits": [
+        "7525513",
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/server/src/paaw-server.mjs",
+      "changeCount": 4,
+      "lastChanged": "2026-07-12T10:20:39.000Z",
+      "commits": [
+        "2bc67c8",
+        "1fd0e0e",
+        "7565038",
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T10:20:39.000Z",
+      "commits": [
+        "2bc67c8"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/NightShiftPanel.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T10:20:39.000Z",
+      "commits": [
+        "2bc67c8"
+      ]
+    },
+    {
+      "file": "packages/ui/src/i18n/locales/en.json",
+      "changeCount": 7,
+      "lastChanged": "2026-07-12T10:20:39.000Z",
+      "commits": [
+        "2bc67c8",
+        "0f5b849",
+        "f598e40",
+        "1fd0e0e",
+        "6639153",
+        "7565038",
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/ui/src/i18n/locales/ja.json",
+      "changeCount": 7,
+      "lastChanged": "2026-07-12T10:20:39.000Z",
+      "commits": [
+        "2bc67c8",
+        "0f5b849",
+        "f598e40",
+        "1fd0e0e",
+        "6639153",
+        "7565038",
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/ui/src/i18n/locales/zh-mix.json",
+      "changeCount": 7,
+      "lastChanged": "2026-07-12T10:20:39.000Z",
+      "commits": [
+        "2bc67c8",
+        "0f5b849",
+        "f598e40",
+        "1fd0e0e",
+        "6639153",
+        "7565038",
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/ui/src/i18n/locales/zh.json",
+      "changeCount": 7,
+      "lastChanged": "2026-07-12T10:20:39.000Z",
+      "commits": [
+        "2bc67c8",
+        "0f5b849",
+        "f598e40",
+        "1fd0e0e",
+        "6639153",
+        "7565038",
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/agent-rules.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T07:36:53.000Z",
+      "commits": [
+        "f598e40",
+        "d4c6caf"
+      ]
+    },
+    {
+      "file": ".paaw/coding-memory/conversations/coding.developer.json",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T05:37:24.000Z",
+      "commits": [
+        "1fd0e0e",
+        "d4c6caf"
+      ]
+    },
+    {
+      "file": ".paaw/coding-memory/conversations/coding.tester.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T05:37:24.000Z",
+      "commits": [
+        "1fd0e0e"
+      ]
+    },
+    {
+      "file": ".paaw/coding-memory/dispatch-log.jsonl",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T05:37:24.000Z",
+      "commits": [
+        "1fd0e0e",
+        "d4c6caf"
+      ]
+    },
+    {
+      "file": "data/config/user.json",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T05:37:24.000Z",
+      "commits": [
+        "1fd0e0e",
+        "153bef4"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/paaw-project.mjs",
+      "changeCount": 4,
+      "lastChanged": "2026-07-12T05:37:24.000Z",
+      "commits": [
+        "1fd0e0e",
+        "5035343",
+        "dd1825d",
+        "458086c"
+      ]
+    },
+    {
+      "file": ".paaw/issues/ISSUES.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T02:02:44.000Z",
+      "commits": [
+        "6639153"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding-memory.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T02:02:44.000Z",
+      "commits": [
+        "6639153",
+        "7565038"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/AgentMemoryPanel.tsx",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T02:02:44.000Z",
+      "commits": [
+        "6639153",
+        "7565038"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/IssueTracker.tsx",
+      "changeCount": 2,
+      "lastChanged": "2026-07-12T01:36:09.000Z",
+      "commits": [
+        "93e1d47",
+        "5035343"
+      ]
+    },
+    {
+      "file": "backups/backup-2026-07-11T16-00-18.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T00:23:15.000Z",
+      "commits": [
+        "5035343"
+      ]
+    },
+    {
+      "file": "backups/backup-2026-07-11T16-00-18.tar.gz",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T00:23:15.000Z",
+      "commits": [
+        "5035343"
+      ]
+    },
+    {
+      "file": "data/config/distilled-memory/2026-07-12-030000-chat_1782553565770.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T00:23:15.000Z",
+      "commits": [
+        "5035343"
+      ]
+    },
+    {
+      "file": "data/config/distilled-memory/index.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T00:23:15.000Z",
+      "commits": [
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding-issues.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-12T00:23:15.000Z",
+      "commits": [
+        "5035343"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/PaawTree.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T10:39:49.000Z",
+      "commits": [
+        "ffdc794"
+      ]
+    },
+    {
+      "file": "packages/ui/src/App.tsx",
+      "changeCount": 3,
+      "lastChanged": "2026-07-11T09:33:22.000Z",
+      "commits": [
+        "1ffe522",
+        "f432e18",
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/ChatMessages.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T09:33:22.000Z",
+      "commits": [
+        "1ffe522"
+      ]
+    },
+    {
+      "file": "packages/ui/src/types/index.ts",
+      "changeCount": 2,
+      "lastChanged": "2026-07-11T09:33:22.000Z",
+      "commits": [
+        "1ffe522",
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/engine/src/runner/index.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T09:27:09.000Z",
+      "commits": [
+        "f432e18"
+      ]
+    },
+    {
+      "file": "packages/engine/src/tool-engine/provider.ts",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T09:27:09.000Z",
+      "commits": [
+        "f432e18"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/overnight-manager.mjs",
+      "changeCount": 2,
+      "lastChanged": "2026-07-11T09:27:09.000Z",
+      "commits": [
+        "f432e18",
+        "9ee8cd5"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/context.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T09:27:09.000Z",
+      "commits": [
+        "f432e18"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/crew.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T09:27:09.000Z",
+      "commits": [
+        "f432e18"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/shared.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T09:27:09.000Z",
+      "commits": [
+        "f432e18"
+      ]
+    },
+    {
+      "file": "data/crews/00-ai.factory-assistant.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "data/crews/conversation/_default/ai.factory-assistant/saved-inputs.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "data/crews/conversation/ai.factory-assistant/work-log.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "data/crews/pic/sunny_factory_assistant.png",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/apps.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/Icon.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/AICrew.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/EmployeeWorkspace.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/FactoryEntryPage.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/FactoryStandards.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/OperationsCenter.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/pages/OrchestratorOverview.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    },
+    {
+      "file": "packages/ui/src/theme.tsx",
+      "changeCount": 1,
+      "lastChanged": "2026-07-11T08:57:32.000Z",
+      "commits": [
+        "458086c"
+      ]
+    }
+  ],
+  "recentFeatures": [],
+  "recentApis": [
+    {
+      "method": "GET",
+      "path": "/.well-known/agent-card.json",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": ""
+    },
+    {
+      "method": "POST",
+      "path": "/a2a",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/a2a/tasks",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/a2a/agent-card",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings/agent-config",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai-settings/agent-config",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings/providers",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai-settings/providers",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/preferences",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/api/user/preferences",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-settings",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspaces",
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/chats",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/chats//*",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": ""
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/chats",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/api/paaw/chats//*",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/paaw/chats//*",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": ""
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/chat",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/system-prompts",
+      "file": "packages/server/src/routes/chat.mjs",
+      "handler": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/paaw/skill-config",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent"
+    },
+    {
+      "method": "POST",
+      "path": "/api/paaw/skill-config",
+      "file": "packages/server/src/routes/crew.mjs",
+      "handler": "sendEvent"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "ADR-001",
+      "title": "File-based Knowledge Store (.paaw/ directory)"
+    },
+    {
+      "id": "ADR-002",
+      "title": "Structured Agent Communication via .paaw/ API Tools"
+    },
+    {
+      "id": "ADR-003",
+      "title": "Multi-Agent Crew Architecture with EM Lead"
+    },
+    {
+      "id": "ADR-004",
+      "title": "Feature-Centric Code Understanding"
+    },
+    {
+      "id": "ADR-005",
+      "title": "Lightweight Issue Tracking Embedded in IDE"
+    },
+    {
+      "id": "ADR-006",
+      "title": "Code Health with Real Test Execution"
+    },
+    {
+      "id": "ADR-007",
+      "title": "IME Guard and fileURLToPath Conventions"
+    },
+    {
+      "id": "ADR-008",
+      "title": "Agent Memory Panel with Crew Visualization"
+    },
+    {
+      "id": "ADR-009",
+      "title": "Write File Path Restriction (and Subsequent Relaxation)"
+    },
+    {
+      "id": "ADR-009",
+      "title": "b: Relaxed Write File Path Restriction"
+    }
+  ],
+  "impactAnalysis": [
+    {
+      "changedFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "affectedFiles": [
+        "packages/server/src/lib/code-intelligence.mjs"
+      ],
+      "impactLevel": "low"
+    }
+  ],
+  "diffStat": ".paaw/ARCHITECTURE.md                              | 137 ++++\n .paaw/DECISIONS.md                                 | 219 ++++--\n .paaw/PROJECT.md                                   | 166 ++---\n .paaw/changes/README.md                            |  14 +\n .../conversations/coding.developer.json            |  41 ++\n .../coding-memory/conversations/coding.tester.json |  26 +\n .paaw/coding-memory/dispatch-log.jsonl             | 106 +++\n .paaw/cu-debug.log                                 |  29 +\n .paaw/features/FEATURES.json                       | 290 ++++++++\n .paaw/features/raw-feature-map.txt                 | 110 +++\n .paaw/helpdesk/faq.md                              | 107 +++\n .paaw/issues/ISSUES.json                           | 112 +++\n .paaw/product/architecture.md                      | 137 ++++\n .paaw/product/domain-glossary.md                   |  14 +\n .paaw/product/product-overview.md                  |  94 +++\n .paaw/quality/quality-policy.yaml                  |  38 +\n .paaw/scan.json                                    |  36 +\n .paaw/specs/api-contract.md                        | 581 +++++++++++++++\n .paaw/specs/error-codes.md                         | 110 +++\n .paaw/standards/coding-style.md                    |  93 +++\n .paaw/test-payloads/all-payloads.json              | 352 ++++++++++\n ...-00-11.json => backup-2026-07-11T16-00-18.json} |  10 +-\n ...20.tar.gz => backup-2026-07-11T16-00-18.tar.gz} | Bin 15362388 -> 13199573 bytes\n ...-00-20.json => backup-2026-07-12T16-00-15.json} |  10 +-\n ...11.tar.gz => backup-2026-07-12T16-00-15.tar.gz} | Bin 15360339 -> 13200618 bytes\n data/ai-settings/coding/gen-api-spec.md            |  61 ++\n data/ai-settings/coding/gen-architecture.md        |  96 +++\n data/ai-settings/coding/gen-decisions.md           |  67 ++\n data/ai-settings/coding/gen-error-mapping.md       |  76 ++\n data/ai-settings/coding/gen-faq.md                 |  69 ++\n data/ai-settings/coding/gen-feature-map.md         | 169 +++++\n data/ai-settings/c",
+  "summary": {
+    "period": "30 days",
+    "totalCommits": 50,
+    "totalFilesChanged": 103,
+    "totalFeaturesChanged": 0,
+    "totalApisChanged": 21,
+    "totalDecisions": 10,
+    "highImpactChanges": 0,
+    "topChangedFiles": [
+      {
+        "file": ".paaw/changes/README.md",
+        "changes": 1
+      },
+      {
+        "file": ".paaw/product/architecture.md",
+        "changes": 1
+      },
+      {
+        "file": ".paaw/product/domain-glossary.md",
+        "changes": 1
+      },
+      {
+        "file": ".paaw/product/product-overview.md",
+        "changes": 1
+      },
+      {
+        "file": ".paaw/quality/quality-policy.yaml",
+        "changes": 1
+      }
+    ]
+  }
+}

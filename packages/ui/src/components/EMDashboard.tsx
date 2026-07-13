@@ -85,17 +85,16 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── CU step definitions (must match server) ──
   const CU_STEPS = [
     { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
-    { id: "architecture", name: "🏗️ 產出 Architecture Map", file: "ARCHITECTURE.md" },
-    { id: "api-spec", name: "📡 產出 API Contract", file: "specs/api-contract.md" },
-    { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks", file: "specs/error-codes.md" },
-    { id: "decisions", name: "🏛️ 產出 Decision Records (ADR)", file: "DECISIONS.md" },
-    { id: "test-payload", name: "🧪 產出 Test Payloads", file: "test-payloads/all-payloads.json" },
-    { id: "standards", name: "📏 產出 Coding Standards", file: "standards/coding-style.md" },
-    { id: "faq", name: "🤖 產出 HelpDesk FAQ", file: "helpdesk/faq.md" },
-    { id: "overview", name: "📊 產出 PROJECT.md", file: "PROJECT.md", checkOnly: true },
-    { id: "feature-map", name: "🗺️ 產出 Feature Map", file: "features/FEATURES.json" },
+    { id: "architecture", name: "📐 Architecture Map", file: "ARCHITECTURE.md" },
+    { id: "feature-map", name: "🗺️ Feature Map", file: "features/FEATURES.json" },
+    { id: "api-spec", name: "📡 API Contract", file: "specs/api-contract.md" },
     { id: "code-intelligence", name: "🧠 Code Intelligence", file: "code-intelligence/summary.json" },
-    { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", file: "security/scan-results.json" },
+    { id: "test-intelligence", name: "🧪 Test Intelligence", file: "code-intelligence/test-intelligence.json" },
+    { id: "error-mapping", name: "🐛 Error Map + Runbooks", file: "specs/error-codes.md" },
+    { id: "security-scan", name: "🔒 Security Scan (Semgrep)", file: "security/scan-results.json" },
+    { id: "standards", name: "🏛️ Coding Standards", file: "standards/coding-style.md" },
+    { id: "overview", name: "📊 PROJECT.md", file: "PROJECT.md", checkOnly: true },
+    { id: "change-intelligence", name: "🔄 Change Intelligence", file: "changes/change-intelligence.json" },
   ];
 
   // ── Code Health item → Crew + prompt mapping ──

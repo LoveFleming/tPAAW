@@ -1,82 +1,71 @@
-# Code Understanding — Generate PROJECT.md Overview
+# Code Understanding — Generate PROJECT.md
 
-You are a project documentarian. Produce the project's front page — the first thing anyone reads.
+You are a technical writer. Create the project entry document that serves as the starting point for anyone (human or AI) reading this codebase.
 
 ## What You Receive
-- Project scan results (modules, APIs, data models)
-- package.json
-- Architecture map (already generated)
-- Existing .paaw/PROJECT.md (if any)
+- ALL previous Code Understanding outputs:
+  - Architecture Map
+  - Feature Map
+  - API Contract
+  - Code Intelligence summary
+  - Test Intelligence summary
+  - Error Mapping
+  - Security scan results
+  - Coding Standards
+- Project scan results
 
 ## What to Produce
 
-Save as `.paaw/PROJECT.md`:
+A single PROJECT.md file with these sections:
 
 ```markdown
-# {Project Name}
+# [Project Name]
 
-> {One sentence: what this is, who it's for}
+> One-sentence description of what this system does.
 
-## Quick Facts
-| | |
-|---|---|
-| Language | {language} |
-| Framework | {framework} |
-| Runtime | {runtime} |
-| Package Manager | {package manager} |
-| Last Updated | {date} |
+## Quick Links
+- [Architecture Map](ARCHITECTURE.md)
+- [Feature Map](features/FEATURES.json)
+- [API Contract](specs/api-contract.md)
+- [Error Codes](specs/error-codes.md)
+- [Coding Standards](standards/coding-style.md)
+- [Code Intelligence](code-intelligence/summary.json)
+- [Security Scan](security/scan-results.json)
 
-## What This Project Does
-2-3 sentences explaining the product. Not technical — explain the VALUE.
+## Tech Stack
+- Language: TypeScript, JavaScript
+- Framework: React, Node.js, Express
+- Database: SQLite
+- ...
 
-## Architecture at a Glance
-```
-{Simplified 5-10 box diagram — copy from ARCHITECTURE.md}
-```
+## Architecture Overview
+[1-2 paragraph summary from Architecture Map]
 
-Full architecture: → `ARCHITECTURE.md`
+## Features
+[Bulleted list from Feature Map — name + one-line description]
 
-## Key Entry Points
-| Entry | Path | Description |
-|-------|------|-------------|
-| Main | `src/index.mjs` | Server bootstrap |
-| API | `src/routes/` | HTTP endpoints |
-| UI | `packages/ui/` | Frontend |
+## Getting Started
+### Prerequisites
+### Installation
+### Running
+### Testing
 
-## API Summary
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | /api/resource | Create |
+## Project Structure
+[Key directories and their purposes]
 
-Full contract: → `specs/api-contract.md`
+## Development
+### Coding Standards
+### How to Add a New Feature
+### How to Add a New API Endpoint
+### How to Run Tests
 
-## Knowledge Base Index
-| Document | Path | What's Inside |
-|----------|------|---------------|
-| 🏗️ Architecture | `ARCHITECTURE.md` | Module graph, data flow, design decisions |
-| 📋 API Contract | `specs/api-contract.md` | All endpoints with schemas |
-| 🐛 Error Map | `specs/error-codes.md` | Error codes + runbooks |
-| 🧪 Test Payloads | `test-payloads/` | JSON test cases per endpoint |
-| 📏 Standards | `standards/coding-style.md` | Coding conventions |
-| 🏛️ Decisions | `DECISIONS.md` | ADR — why things are the way they are |
+## Operations
+### Error Codes
+### Runbooks
+### Monitoring
 
-## Quick Start
-```bash
-{install command}
-{dev command}
-{build command}
+## Recent Changes
+[Summary from Change Intelligence]
 ```
 
-## Project Health
-- Knowledge completeness: {X}% (based on which .paaw/ files exist)
-- Test coverage: {assessment}
-- Tech debt items: {count} (see scan results)
-```
-
-## Rules
-- This is a MAP, not a tutorial — link to detailed docs, don't duplicate
-- All internal links must point to real .paaw/ files
-- API table should list ALL endpoints (can group by domain if > 20)
-- The "Quick Facts" table makes it scannable
-- If the project has a README.md, don't duplicate it — PROJECT.md focuses on .paaw/ knowledge
-- Keep under 100 lines
+Output ONLY the markdown document.
