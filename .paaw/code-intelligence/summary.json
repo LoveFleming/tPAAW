@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-13T12:14:20.775Z",
+  "generatedAt": "2026-07-13T13:54:56.170Z",
   "filesParsed": 170,
   "totalFiles": 175,
   "languages": {
@@ -9,9 +9,9 @@
   },
   "callGraph": {
     "totalFunctions": 815,
-    "totalCalls": 1511,
+    "totalCalls": 1513,
     "resolvedCalls": 137,
-    "unresolvedCalls": 1374
+    "unresolvedCalls": 1376
   },
   "apiFunctionMap": {
     "totalRoutes": 86,
@@ -22,7 +22,7 @@
     "totalFiles": 170,
     "totalEdges": 287,
     "resolvedImports": 287,
-    "unresolvedImports": 389
+    "unresolvedImports": 390
   },
   "testCodeMap": {
     "totalTestFiles": 10,

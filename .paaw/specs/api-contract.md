@@ -1,241 +1,304 @@
-Based on the provided project context, scan results, and architecture map, I can produce a structured API contract. However, the source code files are not present in the file tree, and the scan results indicate "Source code not present in provided file tree." Therefore, I will infer the API endpoints from the architecture map, git log, and standard patterns for this type of application.
+```markdown
+## Code Understanding (CU) APIs
 
-Here is the API contract based on the available information:
-
-# PAAW API Contract
-
-## Project Management APIs
-
-### GET /api/projects
-- **Description:** Retrieve the current project details and status
-- **Feature:** Project Management
-- **File:** src/server/routes/projects.mjs (inferred)
-- **Handler:** getProject
-- **Auth:** Required (JWT)
-- **Response 200:**
-  | Field | Type | Description |
-  |-------|------|-------------|
-  | id | string | Project ID |
-  | name | string | Project name |
-  | language | string | Primary language |
-  | framework | string | Detected framework |
-  | lastOpened | string | ISO timestamp |
-- **Response 401:** Unauthorized
-- **Response 404:** Project not found
-- **Calls:** getProjectFromStorage()
-
-### POST /api/projects
-- **Description:** Create or open a new project for analysis
-- **Feature:** Project Management
-- **File:** src/server/routes/projects.mjs (inferred)
-- **Handler:** createProject
+### POST /api/cu/start
+- **Description:** Start a new Code Understanding workflow for a given project directory
+- **Feature:** Code Understanding
+- **File:** `src/routes/cu.mjs` (inferred)
+- **Handler:** `startCUFlow`
 - **Auth:** Required (JWT)
 - **Request Body:**
   | Field | Type | Required | Description |
   |-------|------|----------|-------------|
-  | path | string | Yes | Absolute path to project root |
-  | name | string | Yes | Project display name |
-- **Response 201:**
+  | projectDir | string | Yes | Absolute path to the project root |
+  | steps | array | No | List of steps to run (default: all) |
+- **Response 200:**
   | Field | Type | Description |
   |-------|------|-------------|
-  | id | string | Project ID |
-  | name | string | Project name |
-  | status | string | "initializing" |
-- **Response 400:** Invalid project path
+  | workflowId | string | Unique workflow identifier |
+  | status | string | `"started"` |
+- **Response 400:** Invalid project directory or missing required fields
 - **Response 401:** Unauthorized
-- **Calls:** validateProjectPath(), initializeProject()
+- **Calls:** `initializeCU()`, `persistStatus()`, `startSteps()`
 
-## Code Understanding APIs
-
-### POST /api/code-understanding/analyze
-- **Description:** Trigger full code analysis for the current project
+### GET /api/cu/status/:workflowId
+- **Description:** Retrieve the current status and progress of a CU workflow
 - **Feature:** Code Understanding
-- **File:** src/server/routes/code-understanding.mjs (inferred)
-- **Handler:** analyzeProject
+- **File:** `src/routes/cu.mjs` (inferred)
+- **Handler:** `getCUStatus`
+- **Auth:** Required (JWT)
+- **Parameters:**
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | workflowId | string | Yes | Workflow ID from start |
+- **Response 200:**
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | workflowId | string | Workflow ID |
+  | currentStep | string | Current step name |
+  | stepsCompleted | number | Number of completed steps |
+  | totalSteps | number | Total number of steps |
+  | status | string | `"running"`, `"completed"`, `"failed"` |
+  | error | string | Error message if failed |
+- **Response 401:** Unauthorized
+- **Response 404:** Workflow not found
+- **Calls:** `readCUStatus()`, `getProgress()`
+
+### POST /api/cu/refresh
+- **Description:** Refresh the CU workflow with incremental updates (cu_refresh tool)
+- **Feature:** Code Understanding
+- **File:** `src/routes/cu.mjs` (inferred)
+- **Handler:** `cuRefresh`
 - **Auth:** Required (JWT)
 - **Request Body:**
   | Field | Type | Required | Description |
   |-------|------|----------|-------------|
-  | projectId | string | Yes | Project ID to analyze |
-  | options | object | No | Analysis options |
-  | options.includeTests | boolean | No | Include test files |
-  | options.depth | string | No | "quick" or "deep" |
+  | workflowId | string | Yes | Existing workflow ID |
+  | changedFiles | array | Yes | List of files changed since last run |
 - **Response 200:**
   | Field | Type | Description |
   |-------|------|-------------|
-  | analysisId | string | Analysis session ID |
-  | status | string | "processing" |
-  | progress | number | 0-100 |
-- **Response 400:** Invalid project ID
+  | workflowId | string | Workflow ID |
+  | status | string | `"refreshing"` |
+- **Response 400:** Invalid input
 - **Response 401:** Unauthorized
-- **Response 429:** Rate limit exceeded
-- **Calls:** CodeUnderstandingService.analyze(), TreeSitterParser.parse(), LLMProvider.generate()
-
-### GET /api/code-understanding/status/:analysisId
-- **Description:** Poll the status of a code analysis session
-- **Feature:** Code Understanding
-- **File:** src/server/routes/code-understanding.mjs (inferred)
-- **Handler:** getAnalysisStatus
-- **Auth:** Required (JWT)
-- **Response 200:**
-  | Field | Type | Description |
-  |-------|------|-------------|
-  | analysisId | string | Analysis session ID |
-  | status | string | "processing" | "completed" | "failed" |
-  | progress | number | 0-100 |
-  | result | object | null if not completed |
-- **Response 401:** Unauthorized
-- **Response 404:** Analysis not found
-- **Calls:** CodeUnderstandingService.getStatus()
-
-### GET /api/code-understanding/result/:analysisId
-- **Description:** Retrieve the completed code analysis result
-- **Feature:** Code Understanding
-- **File:** src/server/routes/code-understanding.mjs (inferred)
-- **Handler:** getAnalysisResult
-- **Auth:** Required (JWT)
-- **Response 200:**
-  | Field | Type | Description |
-  |-------|------|-------------|
-  | analysisId | string | Analysis session ID |
-  | featureMap | object | Generated feature map |
-  | architecture | object | Architecture map |
-  | apiContract | object | API contract |
-  | summary | string | Analysis summary |
-- **Response 401:** Unauthorized
-- **Response 404:** Analysis not found or not completed
-- **Calls:** CodeUnderstandingService.getResult()
+- **Calls:** `updateCUStatus()`, `reanalyzeFiles()`, `persistStatus()`
 
 ## Feature Map APIs
 
-### POST /api/feature-map/generate
-- **Description:** Generate a feature map for the project
+### POST /api/feature-map
+- **Description:** Generate a feature map from source code analysis using Tree-sitter
 - **Feature:** Feature Map
-- **File:** src/server/routes/feature-map.mjs (inferred)
-- **Handler:** generateFeatureMap
+- **File:** `src/routes/featuremap.mjs` (inferred)
+- **Handler:** `generateFeatureMap`
 - **Auth:** Required (JWT)
 - **Request Body:**
   | Field | Type | Required | Description |
   |-------|------|----------|-------------|
-  | projectId | string | Yes | Project ID |
-  | scanResults | object | Yes | Tree-sitter scan results |
+  | projectDir | string | Yes | Project root directory |
+  | languages | array | No | Languages to parse (default: auto-detect) |
 - **Response 200:**
   | Field | Type | Description |
   |-------|------|-------------|
-  | features | array | List of detected features |
-  | files | array | Mapped files per feature |
-- **Response 400:** Invalid input
+  | features | array | List of feature objects |
+  | analysisTime | number | Milliseconds taken |
+- **Response 400:** Invalid project directory
 - **Response 401:** Unauthorized
-- **Calls:** FeatureMapService.generate(), LLMProvider.generate()
+- **Calls:** `parseSource()`, `buildFeatureMap()`, `aggregateResults()`
 
-### GET /api/feature-map/:projectId
-- **Description:** Retrieve the latest feature map for a project
-- **Feature:** Feature Map
-- **File:** src/server/routes/feature-map.mjs (inferred)
-- **Handler:** getFeatureMap
-- **Auth:** Required (JWT)
-- **Response 200:**
-  | Field | Type | Description |
-  |-------|------|-------------|
-  | projectId | string | Project ID |
-  | features | array | List of features |
-  | generatedAt | string | ISO timestamp |
-- **Response 401:** Unauthorized
-- **Response 404:** Feature map not found
-- **Calls:** FeatureMapService.getLatest()
-
-## Security Scanning APIs
+## Security (Semgrep) APIs
 
 ### POST /api/security/scan
-- **Description:** Trigger a security scan using Semgrep
-- **Feature:** Security Scanning
-- **File:** src/server/routes/security.mjs (inferred)
-- **Handler:** startSecurityScan
+- **Description:** Run a Semgrep security scan on the project
+- **Feature:** Security Tab
+- **File:** `src/routes/security.mjs` (inferred)
+- **Handler:** `runSemgrepScan`
 - **Auth:** Required (JWT)
 - **Request Body:**
   | Field | Type | Required | Description |
   |-------|------|----------|-------------|
-  | projectId | string | Yes | Project ID |
-  | rules | string | No | Semgrep rule set ("default", "all") |
+  | projectDir | string | Yes | Project root directory |
+  | rules | array | No | Custom rule paths (default: built-in rules) |
 - **Response 200:**
   | Field | Type | Description |
   |-------|------|-------------|
-  | scanId | string | Scan session ID |
-  | status | string | "scanning" |
-- **Response 400:** Invalid project ID
+  | scanId | string | Unique scan identifier |
+  | status | string | `"queued"`, `"running"`, `"completed"`, `"failed"` |
+  | findings | array | List of security findings (when completed) |
+- **Response 400:** Invalid input
 - **Response 401:** Unauthorized
-- **Calls:** SecurityScanService.scan(), SemgrepCLI.execute()
+- **Response 503:** Semgrep not installed (friendly install prompt returned)
+- **Calls:** `checkSemgrepInstall()`, `executeSemgrep()`, `parseResults()`
 
 ### GET /api/security/scan/:scanId
-- **Description:** Get the status and results of a security scan
-- **Feature:** Security Scanning
-- **File:** src/server/routes/security.mjs (inferred)
-- **Handler:** getScanResults
+- **Description:** Retrieve the status or results of a Semgrep scan
+- **Feature:** Security Tab
+- **File:** `src/routes/security.mjs` (inferred)
+- **Handler:** `getScanResult`
+- **Auth:** Required (JWT)
+- **Parameters:**
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | scanId | string | Yes | Scan ID from POST scan |
+- **Response 200:**
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | scanId | string | Scan ID |
+  | status | string | `"running"`, `"completed"`, `"failed"` |
+  | findings | array | List of findings (if completed) |
+  | error | string | Error message if failed |
+- **Response 401:** Unauthorized
+- **Response 404:** Scan not found
+- **Calls:** `getScanStatus()`, `formatFindings()`
+
+## Intelligence Tools APIs
+
+### POST /api/agent-loop
+- **Description:** Trigger the agent loop to run three intelligence tools (Code, Test, Change) sequentially
+- **Feature:** Agent Loop
+- **File:** `src/routes/agent.mjs` (inferred)
+- **Handler:** `runAgentLoop`
+- **Auth:** Required (JWT)
+- **Request Body:**
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | projectDir | string | Yes | Project root directory |
+  | tools | array | No | Which tools to run (default: all three) |
+  | context | object | No | Additional context for the analysis |
+- **Response 200:**
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | loopId | string | Unique loop identifier |
+  | status | string | `"started"` |
+- **Response 400:** Invalid input
+- **Response 401:** Unauthorized
+- **Calls:** `runCodeIntelligence()`, `runTestIntelligence()`, `runChangeIntelligence()`, `aggregateResults()`
+
+### GET /api/agent-loop/:loopId
+- **Description:** Retrieve the status and results of an agent loop execution
+- **Feature:** Agent Loop
+- **File:** `src/routes/agent.mjs` (inferred)
+- **Handler:** `getLoopResult`
+- **Auth:** Required (JWT)
+- **Parameters:**
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | loopId | string | Yes | Loop ID from POST |
+- **Response 200:**
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | loopId | string | Loop ID |
+  | status | string | `"running"`, `"completed"`, `"failed"` |
+  | codeIntelligence | object | Results from Code Intelligence tool |
+  | testIntelligence | object | Results from Test Intelligence tool |
+  | changeIntelligence | object | Results from Change Intelligence tool |
+  | error | string | Error message if failed |
+- **Response 401:** Unauthorized
+- **Response 404:** Loop not found
+- **Calls:** `fetchToolResults()`, `mergeOutputs()`
+
+## Knowledge Package APIs
+
+### POST /api/knowledge-package
+- **Description:** Generate a knowledge package for AI agent handover
+- **Feature:** Knowledge Package
+- **File:** `src/routes/knowledge.mjs` (inferred)
+- **Handler:** `generateKnowledgePackage`
+- **Auth:** Required (JWT)
+- **Request Body:**
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | projectDir | string | Yes | Project root directory |
+  | scope | string | No | `"full"` or `"incremental"` (default: `"full"`) |
+  | includeSecurity | boolean | No | Whether to include security findings (default: `true`) |
+- **Response 200:**
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | packageId | string | Unique package identifier |
+  | package | object | Knowledge package data |
+  | size | number | Size in bytes |
+- **Response 400:** Invalid input
+- **Response 401:** Unauthorized
+- **Calls:** `getCodeIntelligence()`, `getFeatureMap()`, `getSecurityResults()`, `assemblePackage()`
+
+## Provider (General) APIs
+
+### POST /api/import
+- **Description:** Import a file or module into the project workspace (used for loading external code)
+- **Feature:** Provider Module
+- **File:** `src/routes/provider.mjs` (inferred)
+- **Handler:** `importModule`
+- **Auth:** Required (JWT)
+- **Request Body:**
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | source | string | Yes | URL or file path to import |
+  | type | string | Yes | `"file"`, `"module"`, `"package"` |
+  | options | object | No | Additional import options |
+- **Response 200:**
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Imported item identifier |
+  | status | string | `"imported"` |
+- **Response 400:** Invalid input (e.g., backtick in template literal)
+- **Response 401:** Unauthorized
+- **Calls:** `validateImport()`, `parseSource()`, `saveToWorkspace()`
+
+### GET /api/provider/status
+- **Description:** Check the health and status of the provider module
+- **Feature:** Provider Module
+- **File:** `src/routes/provider.mjs` (inferred)
+- **Handler:** `getProviderStatus`
+- **Auth:** Optional (API key)
+- **Response 200:**
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | status | string | `"ok"` |
+  | version | string | Provider version |
+  | uptime | number | Seconds since last restart |
+- **Response 401:** Unauthorized (if API key required)
+- **Calls:** `checkHealth()`
+
+## Dashboard (EMDashboard) APIs
+
+### GET /api/dashboard/cu-summary
+- **Description:** Get a summary of the latest Code Understanding status for the dashboard
+- **Feature:** Dashboard (EMDashboard)
+- **File:** `src/routes/dashboard.mjs` (inferred)
+- **Handler:** `getCUSummary`
 - **Auth:** Required (JWT)
 - **Response 200:**
   | Field | Type | Description |
   |-------|------|-------------|
-  | scanId | string | Scan session ID |
-  | status | string | "scanning" | "completed" | "failed" |
-  | vulnerabilities | array | List of findings |
-  | summary | object | Severity counts |
+  | lastWorkflow | object | Details of the most recent CU workflow |
+  | securityAlerts | number | Count of open security findings |
+  | intelligenceAvailable | boolean | Whether intelligence tools are ready |
 - **Response 401:** Unauthorized
-- **Response 404:** Scan not found
-- **Calls:** SecurityScanService.getResults()
+- **Calls:** `readCUStatus()`, `getLatestSecurityScan()`, `checkToolAvailability()`
 
 ## AI Settings APIs
 
-### GET /api/ai/settings
-- **Description:** Retrieve current AI provider settings
+### GET /api/ai-settings/prompts
+- **Description:** Retrieve all AI prompts used by the system
 - **Feature:** AI Settings
-- **File:** src/server/routes/ai-settings.mjs (inferred)
-- **Handler:** getSettings
+- **File:** `src/routes/aisettings.mjs` (inferred)
+- **Handler:** `getPrompts`
 - **Auth:** Required (JWT)
 - **Response 200:**
   | Field | Type | Description |
   |-------|------|-------------|
-  | provider | string | Current LLM provider |
-  | model | string | Current model name |
-  | temperature | number | Model temperature |
-  | maxTokens | number | Max tokens per request |
+  | prompts | array | List of prompt objects (name, content, domain) |
 - **Response 401:** Unauthorized
-- **Calls:** provider.mjs.getConfig()
+- **Calls:** `loadPrompts()` (from `ai-settings/` directory)
 
-### PUT /api/ai/settings
-- **Description:** Update AI provider settings
+### PUT /api/ai-settings/prompts/:promptName
+- **Description:** Update a specific AI prompt
 - **Feature:** AI Settings
-- **File:** src/server/routes/ai-settings.mjs (inferred)
-- **Handler:** updateSettings
-- **Auth:** Required (JWT)
+- **File:** `src/routes/aisettings.mjs` (inferred)
+- **Handler:** `updatePrompt`
+- **Auth:** Required (JWT) + admin role
+- **Parameters:**
+  | Field | Type | Required | Description |
+  |-------|------|----------|-------------|
+  | promptName | string | Yes | Name of the prompt to update |
 - **Request Body:**
   | Field | Type | Required | Description |
   |-------|------|----------|-------------|
-  | provider | string | No | LLM provider name |
-  | model | string | No | Model name |
-  | temperature | number | No | 0-2 |
-  | maxTokens | number | No | 1-8192 |
+  | content | string | Yes | New prompt content |
 - **Response 200:**
   | Field | Type | Description |
   |-------|------|-------------|
-  | status | string | "updated" |
-  | settings | object | Updated settings |
-- **Response 400:** Invalid settings values
+  | status | string | `"updated"` |
+- **Response 400:** Invalid prompt name or content
 - **Response 401:** Unauthorized
-- **Calls:** provider.mjs.updateConfig()
+- **Response 403:** Forbidden (non-admin)
+- **Calls:** `validatePrompt()`, `savePrompt()`, `reloadPrompts()`
 
-## Change Intelligence APIs
+## Rate Limiting
 
-### POST /api/change-intelligence/analyze
-- **Description:** Analyze code changes for impact and intelligence
-- **Feature:** Change Intelligence
-- **File:** src/server/routes/change-intelligence.mjs (inferred)
-- **Handler:** analyzeChanges
-- **Auth:** Required (JWT)
-- **Request Body:**
-  | Field | Type | Required | Description |
-  |-------|------|----------|-------------|
-  | projectId | string | Yes | Project ID |
-  | diff | string | Yes | Git diff or patch content |
-- **Response 200:**
-  | Field | Type | Description |
-  |-------|
+All endpoints are rate-limited to 100 requests per minute per user (sliding window). Responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers. Exceeded requests return **429 Too Many Requests**.
+
+## Authentication
+
+All endpoints (except `/api/provider/status` with optional API key) require a valid JWT token in the `Authorization` header: `Bearer <token>`. Tokens are issued via a separate authentication service (not documented here). Roles are `user` and `admin`; admin role is required for modifying AI prompts.
+```

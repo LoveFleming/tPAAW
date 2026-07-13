@@ -6719,12 +6719,6 @@
     },
     {
       "caller": "packages/server/src/lib/semgrep-runner.mjs:has",
-      "callee": "require",
-      "type": "direct",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/semgrep-runner.mjs:has",
       "callee": "execSync",
       "type": "direct",
       "resolved": false
@@ -8414,6 +8408,12 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
+      "callee": "f.path.replace",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "callee": "fetch",
       "type": "direct",
       "resolved": false
@@ -8432,13 +8432,25 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
-      "callee": "f.path.replace",
+      "callee": "res.text",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
+      "callee": "f.path.endsWith",
       "type": "chained",
       "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
-      "callee": "res.text",
+      "callee": "JSON.parse",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
+      "callee": "JSON.stringify",
       "type": "method",
       "resolved": false
     },
@@ -15478,6 +15490,7 @@
       "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "packages/ui/src/components/FilePickerModal.tsx:findAndLoad",
       "packages/ui/src/components/KnowledgeTree.tsx:findAndLoad",
       "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
@@ -15556,6 +15569,7 @@
       "packages/ui/src/components/DecisionLog.tsx:handleAdd",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "packages/ui/src/components/FeatureMap.tsx:handleSaveDocs",
       "packages/ui/src/components/FeatureMap.tsx:handleCreate",
       "packages/ui/src/components/FilePickerModal.tsx:findAndLoad",
@@ -15623,9 +15637,6 @@
     ],
     "packages/server/src/lib/paaw-project.mjs:walk": [
       "packages/server/src/lib/paaw-project.mjs:walk"
-    ],
-    "require": [
-      "packages/server/src/lib/semgrep-runner.mjs:has"
     ],
     "execSync": [
       "packages/server/src/lib/semgrep-runner.mjs:has"
@@ -16453,6 +16464,9 @@
       "packages/ui/src/components/EMDashboard.tsx:checkFiles"
     ],
     "res.text": [
+      "packages/ui/src/components/EMDashboard.tsx:checkFiles"
+    ],
+    "f.path.endsWith": [
       "packages/ui/src/components/EMDashboard.tsx:checkFiles"
     ],
     "content.trim": [
@@ -18124,7 +18138,6 @@
       "packages/server/src/lib/paaw-project.mjs:walk"
     ],
     "packages/server/src/lib/semgrep-runner.mjs:has": [
-      "require",
       "execSync"
     ],
     "packages/server/src/routes/a2a.mjs:estimateTokens": [
@@ -18504,11 +18517,14 @@
       "setEmRunning"
     ],
     "packages/ui/src/components/EMDashboard.tsx:checkFiles": [
+      "f.path.replace",
       "fetch",
       "encodeURIComponent",
       "encodeURIComponent",
-      "f.path.replace",
       "res.text",
+      "f.path.endsWith",
+      "JSON.parse",
+      "JSON.stringify",
       "content.trim",
       "content.includes",
       "content.includes",
@@ -20046,8 +20062,8 @@
   },
   "stats": {
     "totalFunctions": 815,
-    "totalCalls": 1511,
+    "totalCalls": 1513,
     "resolvedCalls": 137,
-    "unresolvedCalls": 1374
+    "unresolvedCalls": 1376
   }
 }

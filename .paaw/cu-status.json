@@ -12,23 +12,23 @@
     },
     "feature-map": {
       "status": "done",
-      "size": 59052,
-      "updatedAt": null
+      "size": 36801,
+      "updatedAt": "2026-07-13T13:54:23.553Z"
     },
     "api-spec": {
       "status": "done",
-      "size": 9002,
-      "updatedAt": null
+      "size": 12244,
+      "updatedAt": "2026-07-13T13:54:55.535Z"
     },
     "code-intelligence": {
       "status": "done",
-      "size": 993,
-      "updatedAt": null
+      "summary": "815 functions",
+      "updatedAt": "2026-07-13T13:54:56.170Z"
     },
     "test-intelligence": {
       "status": "done",
-      "size": 25129,
-      "updatedAt": null
+      "summary": "10 tests",
+      "updatedAt": "2026-07-13T13:54:56.723Z"
     },
     "error-mapping": {
       "status": "done",

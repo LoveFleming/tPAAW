@@ -990,60 +990,63 @@
   ],
   "featureToTests": [
     {
-      "featureId": "F-002",
-      "featureName": "Chat",
-      "tests": [
-        "tests/e2e/05-api.spec.ts"
-      ]
-    },
-    {
       "featureId": "F-003",
       "featureName": "AI Settings",
       "tests": [
-        "tests/unit/ai-settings.test.mjs",
-        "tests/unit/providers.test.mjs"
+        "tests/unit/ai-settings.test.mjs"
       ]
     },
     {
-      "featureId": "F-004",
-      "featureName": "Assistant",
+      "featureId": "F-009",
+      "featureName": "Code Understanding (CU) Workflow",
       "tests": [
-        "tests/e2e/02-settings.spec.ts"
+        "packages/server/src/lib/test-intelligence.mjs"
       ]
     },
     {
-      "featureId": "F-014",
-      "featureName": "Notes",
-      "tests": [
-        "tests/e2e/03-notes.spec.ts"
-      ]
-    },
-    {
-      "featureId": "F-016",
-      "featureName": "Projects",
-      "tests": [
-        "tests/e2e/05-api.spec.ts"
-      ]
-    },
-    {
-      "featureId": "F-017",
-      "featureName": "Skills",
-      "tests": [
-        "tests/unit/skill-format.test.mjs"
-      ]
-    },
-    {
-      "featureId": "F-025",
+      "featureId": "F-013",
       "featureName": "Context Engine",
       "tests": [
         "tests/unit/context-engine.test.mjs"
       ]
     },
     {
-      "featureId": "F-030",
-      "featureName": "Code Intelligence",
+      "featureId": "F-018",
+      "featureName": "Notes & Notebooks",
+      "tests": [
+        "tests/e2e/03-notes.spec.ts"
+      ]
+    },
+    {
+      "featureId": "F-021",
+      "featureName": "Skills (CRUD & Build)",
+      "tests": [
+        "tests/unit/skill-format.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-026",
+      "featureName": "Tree-sitter Parser",
       "tests": [
         "packages/server/src/lib/test-intelligence.mjs"
+      ]
+    },
+    {
+      "featureId": "F-042",
+      "featureName": "Provider Setup & Configuration",
+      "tests": [
+        "tests/unit/providers.test.mjs"
+      ]
+    },
+    {
+      "featureId": "F-043",
+      "featureName": "E2E Test Suite",
+      "tests": [
+        "tests/e2e/01-smoke.spec.ts",
+        "tests/e2e/02-settings.spec.ts",
+        "tests/e2e/03-notes.spec.ts",
+        "tests/e2e/04-pages.spec.ts",
+        "tests/e2e/05-api.spec.ts"
       ]
     }
   ],

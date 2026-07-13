@@ -2138,6 +2138,8 @@
         "addDecision",
         "logApiCall",
         "generateProjectOverview",
+        "getCuStatus",
+        "setCuStepStatus",
         "computeStatus",
         "listTree"
       ]
@@ -2307,7 +2309,7 @@
       "kind": "arrow",
       "async": false,
       "params": "(ext)",
-      "callCount": 2
+      "callCount": 1
     },
     {
       "type": "function",
@@ -6779,7 +6781,7 @@
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 9
+      "callCount": 12
     },
     {
       "type": "export",
@@ -14614,6 +14616,8 @@
           "addDecision",
           "logApiCall",
           "generateProjectOverview",
+          "getCuStatus",
+          "setCuStepStatus",
           "computeStatus",
           "listTree"
         ]
@@ -14783,7 +14787,7 @@
         "kind": "arrow",
         "async": false,
         "params": "(ext)",
-        "callCount": 2
+        "callCount": 1
       }
     ],
     "isSemgrepAvailable": [
@@ -20145,7 +20149,7 @@
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 9
+        "callCount": 12
       }
     ],
     "FeatureMap": [

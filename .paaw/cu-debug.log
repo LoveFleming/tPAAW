@@ -18,3 +18,10 @@
 [2026-07-13T13:52:14.776Z] [CU] step=architecture [bulk] wrote file OK (4795 chars)
 [2026-07-13T13:52:14.778Z] [CU] step=feature-map Running Tree-sitter source analysis...
 [2026-07-13T13:52:15.413Z] [CU] step=feature-map Tree-sitter: 170/175 files parsed, 0 errors
+[2026-07-13T13:54:23.552Z] [CU] step=feature-map [bulk] Saved 49 features + 161 file→feature mappings
+[2026-07-13T13:54:23.552Z] [CU] step=feature-map [bulk] wrote file OK (36801 chars)
+[2026-07-13T13:54:55.535Z] [CU] step=api-spec [bulk] wrote file OK (12244 chars)
+[2026-07-13T13:54:55.536Z] [CU] step=code-intelligence [bulk] Building code intelligence...
+[2026-07-13T13:54:56.170Z] [CU] step=code-intelligence [bulk] Code intelligence done: 815 functions, 1513 calls
+[2026-07-13T13:54:56.171Z] [CU] step=test-intelligence [bulk] Building test intelligence...
+[2026-07-13T13:54:56.723Z] [CU] step=test-intelligence [bulk] Test intelligence: 10 tests, 1.9% coverage

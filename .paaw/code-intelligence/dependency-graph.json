@@ -1421,6 +1421,12 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
         }
       ],
       "importedBy": [],
@@ -8605,6 +8611,6 @@
     "totalFiles": 170,
     "totalEdges": 287,
     "resolvedImports": 287,
-    "unresolvedImports": 389
+    "unresolvedImports": 390
   }
 }

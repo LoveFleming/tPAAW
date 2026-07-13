@@ -2579,6 +2579,8 @@
             "addDecision",
             "logApiCall",
             "generateProjectOverview",
+            "getCuStatus",
+            "setCuStepStatus",
             "computeStatus",
             "listTree"
           ]
@@ -2883,6 +2885,10 @@
         {
           "source": "util",
           "names": []
+        },
+        {
+          "source": "child_process",
+          "names": []
         }
       ],
       "functions": [
@@ -2899,9 +2905,8 @@
           "kind": "arrow",
           "async": false,
           "params": "(ext)",
-          "callCount": 2,
+          "callCount": 1,
           "calls": [
-            "require",
             "execSync"
           ]
         },
@@ -8512,13 +8517,16 @@
           "kind": "arrow",
           "async": true,
           "params": "()",
-          "callCount": 9,
+          "callCount": 12,
           "calls": [
+            "f.path.replace",
             "fetch",
             "encodeURIComponent",
             "encodeURIComponent",
-            "f.path.replace",
             "res.text",
+            "f.path.endsWith",
+            "JSON.parse",
+            "JSON.stringify",
             "content.trim",
             "content.includes",
             "content.includes",
