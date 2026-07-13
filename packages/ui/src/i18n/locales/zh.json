@@ -513,5 +513,7 @@
   "nightShift.description": "EM 帶領 6 人團隊 review 今天變更、跑 build、寫測試、更新文件",
   "nightShift.lastRun": "上次執行",
   "nightShift.noReport": "尚無報告",
-  "nightShift.noReportHint": "點上方按鈕開始夜班"
+  "nightShift.noReportHint": "點上方按鈕開始夜班",
+  "notes.quickAddToSection": "在此分類新增筆記",
+  "notes.moveToSection": "切換分類"
 }

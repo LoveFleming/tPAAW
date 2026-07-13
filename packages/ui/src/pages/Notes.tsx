@@ -170,10 +170,17 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
   }, [saveNote]);
 
   // ── CRUD ──
-  const createNote = useCallback(async () => {
-    const data = await api.post("/api/notes/create", { notebookId: activeNotebook, sectionId: activeSection, title: tt("notes.newNote"), content: "" });
+  const createNote = useCallback(async (sectionOverride?: string) => {
+    const targetSection = sectionOverride || activeSection;
+    const data = await api.post("/api/notes/create", { notebookId: activeNotebook, sectionId: targetSection, title: tt("notes.newNote"), content: "" });
     if (data.ok) {
-      await loadNotes(activeNotebook, activeSection);
+      // 如果指定了別的 section，先切過去再載入
+      if (sectionOverride && sectionOverride !== activeSection) {
+        setActiveSection(sectionOverride);
+        setActiveNote(null);
+        setSearchQuery(""); setSearchResults(null); setActiveTag(null);
+      }
+      await loadNotes(activeNotebook, targetSection);
       await loadNote(data.note.id, activeNotebook);
       titleRef.current?.focus();
       titleRef.current?.select();
@@ -216,6 +223,14 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
     setActiveNote(prev => prev ? { ...prev, tags } : null);
     scheduleSave();
   }, [activeNote, tagsInput, scheduleSave]);
+
+  // ── Move note to another section ──
+  const moveNoteToSection = useCallback(async (targetSectionId: string) => {
+    if (!activeNote) return;
+    await api.put(`/api/notes/update?id=${activeNote.id}&notebook=${encodeURIComponent(activeNote.notebookId)}`, { sectionId: targetSectionId });
+    setActiveNote(prev => prev ? { ...prev, sectionId: targetSectionId } : null);
+    await loadNotes(activeNotebook, activeSection);
+  }, [activeNote, activeNotebook, activeSection, loadNotes]);
 
   // ── Notebook / Section ──
   const createNotebook = useCallback(async () => {
@@ -504,22 +519,33 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
         {/* Section Tabs */}
         <div className="flex items-center gap-0 flex-1 overflow-hidden">
           {sections.map(sec => (
-            <button
+            <div
               key={sec.id}
-              onClick={() => switchSection(sec.id)}
-              className="px-3 py-1.5 text-sm rounded-t-md transition-colors whitespace-nowrap flex items-center gap-1"
-              style={{
-                background: activeSection === sec.id ? tk.bg : "transparent",
-                color: activeSection === sec.id ? tk.textPrimary : tk.textMuted,
-                borderBottom: activeSection === sec.id ? `2px solid ${tk.accent}` : "2px solid transparent",
-                fontWeight: activeSection === sec.id ? 600 : 400,
-              }}
-              onMouseEnter={e => { if (activeSection !== sec.id) e.currentTarget.style.background = tk.bgHover; }}
-              onMouseLeave={e => { if (activeSection !== sec.id) e.currentTarget.style.background = "transparent"; }}
+              className="relative flex items-center group"
             >
-              <span>{sec.id === "default" ? "📋" : (sec.icon || "📁")}</span>
-              <span>{sec.id === "default" ? tt("notes.defaultSection") : sec.name}</span>
-            </button>
+              <button
+                onClick={() => switchSection(sec.id)}
+                className="px-3 py-1.5 text-sm rounded-t-md transition-colors whitespace-nowrap flex items-center gap-1"
+                style={{
+                  background: activeSection === sec.id ? tk.bg : "transparent",
+                  color: activeSection === sec.id ? tk.textPrimary : tk.textMuted,
+                  borderBottom: activeSection === sec.id ? `2px solid ${tk.accent}` : "2px solid transparent",
+                  fontWeight: activeSection === sec.id ? 600 : 400,
+                }}
+                onMouseEnter={e => { if (activeSection !== sec.id) e.currentTarget.style.background = tk.bgHover; }}
+                onMouseLeave={e => { if (activeSection !== sec.id) e.currentTarget.style.background = "transparent"; }}
+              >
+                <span>{sec.id === "default" ? "📋" : (sec.icon || "📁")}</span>
+                <span>{sec.id === "default" ? tt("notes.defaultSection") : sec.name}</span>
+              </button>
+              {/* Quick add note to this section */}
+              <button
+                onClick={(e) => { e.stopPropagation(); createNote(sec.id); }}
+                className="ml-0.5 text-xs rounded px-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ color: tk.accent, background: tk.accentBg }}
+                title={`在此分類新增筆記`}
+              >＋</button>
+            </div>
           ))}
 
           {/* New section input */}
@@ -604,7 +630,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
               <span className="text-xs font-semibold" style={{ color: tk.textMuted }}>
                 {searchResults ? `搜尋結果 (${displayNotes.length})` : `${displayNotes.length} 則筆記`}
               </span>
-              <button onClick={createNote} className="text-xs px-2 py-1 rounded font-medium text-white" style={{ background: tk.accent }}>＋ 新增</button>
+              <button onClick={() => createNote()} className="text-xs px-2 py-1 rounded font-medium text-white" style={{ background: tk.accent }}>＋ {tt("notes.newNote")}</button>
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -670,7 +696,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                 <div className="text-center">
                   <div className="text-6xl mb-4">📝</div>
                   <div className="text-lg" style={{ color: tk.textSecondary }}>選擇或建立筆記</div>
-                  <button onClick={createNote} className="mt-4 px-6 py-2.5 rounded-lg text-white font-medium" style={{ background: tk.accent }}>＋ 新建筆記</button>
+                  <button onClick={() => createNote()} className="mt-4 px-6 py-2.5 rounded-lg text-white font-medium" style={{ background: tk.accent }}>＋ {tt("notes.newNote")}</button>
                 </div>
               </div>
             ) : (
@@ -720,6 +746,22 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
                       {activeNote.tags.map(t => <span key={t} className="px-1.5 rounded" style={{ background: tk.accentBg, color: tk.accentText }}>#{t}</span>)}
                     </span>
                   )}
+                  {/* Section switcher */}
+                  <div className="flex items-center gap-1 ml-1">
+                    <span>📂</span>
+                    <select
+                      value={activeNote.sectionId || "default"}
+                      onChange={e => { e.preventDefault(); moveNoteToSection(e.target.value); }}
+                      className="text-xs rounded border-none outline-none cursor-pointer"
+                      style={{ background: tk.accentBg, color: tk.accentText, padding: "2px 6px", fontWeight: 500 }}
+                    >
+                      {sections.map(sec => (
+                        <option key={sec.id} value={sec.id}>
+                          {sec.id === "default" ? tt("notes.defaultSection") : sec.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <span className="ml-auto">滾輪縮放圖片 · 點擊放大</span>
                 </div>
 

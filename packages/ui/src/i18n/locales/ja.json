@@ -513,5 +513,7 @@
   "nightShift.description": "EM が6人チームを率いて変更レビュー、ビルド、テスト、ドキュメント更新",
   "nightShift.lastRun": "前回実行",
   "nightShift.noReport": "レポートなし",
-  "nightShift.noReportHint": "上のボタンをクリックして開始"
+  "nightShift.noReportHint": "上のボタンをクリックして開始",
+  "notes.quickAddToSection": "このセクションに追加",
+  "notes.moveToSection": "セクション変更"
 }
