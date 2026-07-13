@@ -1147,7 +1147,7 @@ export default async function projectRoute(req, res) {
           projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`;
         } catch {}
         try {
-          const treeOutput = await runShellCmd("find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -name '*.map' | head -200", root);
+          const treeOutput = await scanProjectFiles(root, 200);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
         try {
@@ -1372,7 +1372,7 @@ export default async function projectRoute(req, res) {
 
         // Get file tree
         try {
-          const treeOutput = await runShellCmd("find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -name '*.map' | head -200", root);
+          const treeOutput = await scanProjectFiles(root, 200);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
@@ -1734,7 +1734,7 @@ export default async function projectRoute(req, res) {
           projectContext += `Package: ${pkg.name || "unknown"}\n`;
         } catch {}
         try {
-          const treeOutput = await runShellCmd("find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -name '*.map' | head -200", root);
+          const treeOutput = await scanProjectFiles(root, 200);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
@@ -2044,6 +2044,15 @@ function runShellCmd(command, cwd, timeoutMs = 10_000) {
       resolve((stdout || "") + (stderr ? "\n" + stderr : ""));
     });
   });
+}
+
+// ── Cross-platform file tree scan (Windows has no Unix 'find') ──
+function scanProjectFiles(cwd, maxFiles = 200) {
+  const isWin = process.platform === "win32";
+  const cmd = isWin
+    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx|json|md)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.slice(0,${maxFiles}).join('\\n'))"`
+    : "find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -path '*/dist/*' -not -name '*.map' | head -" + maxFiles;
+  return runShellCmd(cmd, cwd, 15_000);
 }
 
 // ── Collect Project Health ──
