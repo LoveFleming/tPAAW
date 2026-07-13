@@ -19,6 +19,9 @@ export const AGENT_RULES = `
 - **project_standards** — 列出/讀取 coding standards
 - **project_changelog** — 讀取近期變更
 - **project_issues** — 列出/篩選專案問題
+- **project_issue_create** — 開新 issue（發現 bug 但不能馬上修時一定要開）
+- **project_issue_update** — 更新 issue 狀態/優先級/加備註
+- **project_change_record** — 記錄改了什麼、為什麼、影響範圍（給下一個 agent 看的交接記錄）
 - **project_sessions** — 列出近期 coding sessions
 - **project_features** — 列出所有 feature（每次對話 system prompt 已注入最新 summary）
 - **project_feature_detail** — 查單一 feature 完整 detail

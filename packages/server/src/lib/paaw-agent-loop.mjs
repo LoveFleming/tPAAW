@@ -394,6 +394,60 @@ const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "project_issue_create",
+      description: "Create a new issue in .paaw/issues/ISSUES.json. Use this when you discover a bug, technical debt, or task that needs tracking. Always create an issue for problems you find but cannot fix immediately.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Issue title (short, descriptive)" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority level" },
+          labels: { type: "array", items: { type: "string" }, description: "Labels: bug, feature, tech-debt, security, performance, etc." },
+          description: { type: "string", description: "Detailed description of the issue" },
+          featureId: { type: "string", description: "Related feature ID (e.g. F-001)" },
+        },
+        required: ["title", "priority"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_issue_update",
+      description: "Update an existing issue (change status, priority, add notes). Use this to close issues you've fixed, or escalate priority.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Issue ID (e.g. ISS-001)" },
+          status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "New status" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "New priority" },
+          note: { type: "string", description: "Add a note/comment to the issue" },
+        },
+        required: ["id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "project_change_record",
+      description: "Record a change to the project: what you changed, why, and impact. Use this AFTER making code changes to create a structured change record in .paaw/changes/. This is different from update_changelog (which is for users) — this is for AI agent handover.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short title of the change" },
+          type: { type: "string", enum: ["feature", "bugfix", "refactor", "security", "performance", "docs", "config"], description: "Type of change" },
+          description: { type: "string", description: "What was changed and why" },
+          files: { type: "array", items: { type: "string" }, description: "List of changed file paths" },
+          impact: { type: "string", description: "Potential impact or risks" },
+          testsRan: { type: "string", description: "Which tests were run to verify" },
+        },
+        required: ["title", "type", "description", "files"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "project_sessions",
       description: "List recent coding sessions from .paaw/sessions/. Returns session filenames and dates. Use this to see what work was done previously.",
       parameters: {
@@ -1035,6 +1089,90 @@ ${summary}`;
         }
       }
 
+      case "project_issue_create": {
+        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+        let data = { issues: [], updatedAt: new Date().toISOString() };
+        if (existsSync(issuesFile)) {
+          try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch {}
+        }
+        const num = (data.issues || []).length + 1;
+        const id = `ISS-${String(num).padStart(3, "0")}`;
+        const issue = {
+          id,
+          title: args.title,
+          priority: args.priority || "medium",
+          status: "open",
+          labels: args.labels || [],
+          description: args.description || "",
+          featureId: args.featureId || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notes: [],
+        };
+        data.issues = data.issues || [];
+        data.issues.push(issue);
+        data.updatedAt = new Date().toISOString();
+        const { writeFileSync: writeSync } = await import("fs");
+        const issuesDir = join(cwd, ".paaw", "issues");
+        if (!existsSync(issuesDir)) { const { mkdirSync } = await import("fs"); mkdirSync(issuesDir, { recursive: true }); }
+        writeSync(issuesFile, JSON.stringify(data, null, 2), "utf-8");
+        if (onEvent) onEvent({ type: "tool_end", name, result: id });
+        return `Created issue ${id}: ${issue.title} [${issue.priority}]`;
+      }
+
+      case "project_issue_update": {
+        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+        if (!existsSync(issuesFile)) return "⚠️ No issues tracking. Create issues first with project_issue_create.";
+        try {
+          const data = JSON.parse(readSync(issuesFile, "utf-8"));
+          const idx = (data.issues || []).findIndex(i => i.id === args.id);
+          if (idx === -1) return `Issue ${args.id} not found.`;
+          const issue = data.issues[idx];
+          if (args.status) issue.status = args.status;
+          if (args.priority) issue.priority = args.priority;
+          if (args.note) {
+            issue.notes = issue.notes || [];
+            issue.notes.push({ text: args.note, date: new Date().toISOString() });
+          }
+          issue.updatedAt = new Date().toISOString();
+          data.updatedAt = new Date().toISOString();
+          const { writeFileSync: writeSync } = await import("fs");
+          writeSync(issuesFile, JSON.stringify(data, null, 2), "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+          return `Updated ${args.id}: status=${issue.status}, priority=${issue.priority}${args.note ? ", note added" : ""}`;
+        } catch (err) {
+          return `Error updating issue: ${err.message}`;
+        }
+      }
+
+      case "project_change_record": {
+        const changesDir = join(cwd, ".paaw", "changes");
+        if (!existsSync(changesDir)) { const { mkdirSync } = await import("fs"); mkdirSync(changesDir, { recursive: true }); }
+        // Read existing records or create new
+        const recordsFile = join(changesDir, "change-records.json");
+        let records = [];
+        if (existsSync(recordsFile)) {
+          try { records = JSON.parse(readSync(recordsFile, "utf-8")); } catch {}
+        }
+        const num = records.length + 1;
+        const id = `CHG-${String(num).padStart(3, "0")}`;
+        const record = {
+          id,
+          title: args.title,
+          type: args.type,
+          description: args.description,
+          files: args.files || [],
+          impact: args.impact || "",
+          testsRan: args.testsRan || "",
+          createdAt: new Date().toISOString(),
+        };
+        records.push(record);
+        const { writeFileSync: writeSync } = await import("fs");
+        writeSync(recordsFile, JSON.stringify(records, null, 2), "utf-8");
+        if (onEvent) onEvent({ type: "tool_end", name, result: id });
+        return `Recorded change ${id}: ${record.title} [${record.type}] — ${record.files.length} file(s)`;
+      }
+
       case "project_sessions": {
         const paaw = createPaawProject(cwd);
         if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
@@ -1529,7 +1667,10 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)
+- **project_issue_create** — Create a new issue (bug, tech-debt, task you can't fix now)
+- **project_issue_update** — Update issue status/priority, add notes
+- **project_change_record** — Record what you changed, why, impact (for AI agent handover)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
 ### CU Maintenance (after code changes)
 - **cu_refresh** — Refresh specific CU steps after code changes. Default: deterministic steps only (fast, no LLM). Add LLM steps only if architecture/APIs changed.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
