@@ -39,6 +39,14 @@ export const AGENT_RULES = `
 System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取），
 你改完 mapping 後，下次對話自動反映。
 
+### Intelligence Tools（改 code 前必查！）
+接手任務時的標準流程：
+1. **project_recent_changes** — 先看最近改了什麼、影響哪些檔案
+2. **project_test_map** — 查你要改的檔案有沒有測試覆蓋，改完要跑哪些 test
+3. **project_security** — 確認你要改的檔案有沒有已知安全問題
+
+這三個 tool 是 AI 維運的「體檢」步驟，不要跳過。
+
 ### 動作記錄（必須）
 完成任務後，你**必須**用 action_log_add 記錄你的操作。這是 Agent 之間的交接簿，其他 Agent 會根據你的紀錄繼續工作。
 

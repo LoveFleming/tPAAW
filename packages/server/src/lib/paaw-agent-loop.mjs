@@ -467,6 +467,54 @@ const PAAW_TOOLS = [
     },
   },
 
+  // ── Test Intelligence ──
+  {
+    type: "function",
+    function: {
+      name: "project_test_map",
+      description: "Get test intelligence: which tests cover a given file, and what to run when you change a file. Use this BEFORE making code changes to know which tests will be affected.",
+      parameters: {
+        type: "object",
+        properties: {
+          file: { type: "string", description: "Production file path to check which tests cover it. If omitted, returns overall test stats." },
+          feature: { type: "string", description: "Feature ID (e.g. F-001) to list all tests for that feature." },
+        },
+      },
+    },
+  },
+
+  // ── Security Intelligence ──
+  {
+    type: "function",
+    function: {
+      name: "project_security",
+      description: "Get security scan results (Semgrep). Lists findings by severity, file, and CWE. Use this to check for known vulnerabilities before making security-sensitive changes.",
+      parameters: {
+        type: "object",
+        properties: {
+          severity: { type: "string", enum: ["error", "warning", "info"], description: "Filter by severity. If omitted, returns all." },
+          file: { type: "string", description: "Filter findings by file path." },
+        },
+      },
+    },
+  },
+
+  // ── Change Intelligence ──
+  {
+    type: "function",
+    function: {
+      name: "project_recent_changes",
+      description: "Get recent change intelligence: what was recently modified, which features/APIs were touched, and impact analysis. Use this FIRST when picking up a task to understand what recently happened.",
+      parameters: {
+        type: "object",
+        properties: {
+          file: { type: "string", description: "Check impact of a specific changed file — which other files depend on it." },
+          days: { type: "number", description: "How many days back to look (default: 30)." },
+        },
+      },
+    },
+  },
+
   // ── Action Log (Agent Memory / Handoff) ──
   {
     type: "function",
@@ -1096,6 +1144,123 @@ ${list || "(none)"}`;
       }
 
       // ══════════════════════════════════════════
+      // ── Test / Security / Change Intelligence ──
+      // ══════════════════════════════════════════
+
+      case "project_test_map": {
+        const tiFile = join(cwd, ".paaw", "code-intelligence", "test-intelligence.json");
+        if (!existsSync(tiFile)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: "not found" });
+          return "⚠️ Test Intelligence not found. Run Code Understanding → Test Intelligence step first.";
+        }
+        try {
+          const ti = JSON.parse(readSync(tiFile, "utf-8"));
+          if (args.file) {
+            const norm = args.file.replace(/\\\\/g, "/");
+            const entry = ti.codeToTest?.[norm];
+            if (!entry || entry.length === 0) {
+              if (onEvent) onEvent({ type: "tool_end", name, result: "no tests" });
+              return `No tests found covering \`${norm}\`. This file has NO test coverage — consider adding tests.`;
+            }
+            const lines = entry.map(t => `  - ${t.testFile} (${t.testType})${t.testedFunctions?.length ? " — covers: " + t.testedFunctions.join(", ") : ""}`);
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${entry.length} tests` });
+            return `Tests covering \`${norm}\`:\n${lines.join("\n")}`;
+          }
+          if (args.feature) {
+            const ft = ti.featureToTests?.find(f => f.featureId === args.feature);
+            if (!ft) {
+              if (onEvent) onEvent({ type: "tool_end", name, result: "no tests" });
+              return `No tests found for feature ${args.feature}.`;
+            }
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${ft.tests.length} tests` });
+            return `Tests for ${ft.featureName} (${ft.featureId}):\n${ft.tests.map(t => `  - ${t}`).join("\n")}`;
+          }
+          // Overall stats
+          const s = ti.stats;
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${s.totalTestFiles} tests` });
+          return `Test Intelligence Summary:\n- Total test files: ${s.totalTestFiles}\n- Unit: ${s.byType.unit}, Integration: ${s.byType.integration}, E2E: ${s.byType.e2e}\n- Test→Code mappings: ${s.totalMappings}\n- Coverage rate: ${s.coverageRate}\n- Files without tests: ${s.coverageGapFiles}\n- Features with tests: ${s.featureTestCoverage}`;
+        } catch (err) {
+          return `Error reading test intelligence: ${err.message}`;
+        }
+      }
+
+      case "project_security": {
+        const secFile = join(cwd, ".paaw", "security", "scan-results.json");
+        if (!existsSync(secFile)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: "not found" });
+          return "⚠️ Security scan results not found. Run Code Understanding → Security Scan step first.";
+        }
+        try {
+          const sec = JSON.parse(readSync(secFile, "utf-8"));
+          let findings = sec.findings || [];
+          if (args.severity) findings = findings.filter(f => f.severity === args.severity);
+          if (args.file) {
+            const norm = args.file.replace(/\\\\/g, "/");
+            findings = findings.filter(f => f.file?.replace(/\\\\/g, "/").includes(norm));
+          }
+          if (findings.length === 0) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: "clean" });
+            return args.file || args.severity
+              ? `No ${args.severity || ""} findings${args.file ? ` for \`${args.file}\`` : ""}. ✅ Clean!`
+              : "No security findings. ✅ All clean!";
+          }
+          const lines = findings.map(f => `- [${f.severity.toUpperCase()}] ${f.file}:${f.line || "?"} — ${f.message}\n  CWE: ${f.cwe || "N/A"} | Fix: ${f.fix || "See references"}`);
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${findings.length} findings` });
+          return `Security Findings (${findings.length}):\n${lines.join("\n")}`;
+        } catch (err) {
+          return `Error reading security results: ${err.message}`;
+        }
+      }
+
+      case "project_recent_changes": {
+        const ciFile = join(cwd, ".paaw", "changes", "change-intelligence.json");
+        if (!existsSync(ciFile)) {
+          // Try to build on-the-fly
+          try {
+            const { buildChangeIntelligence } = await import("./change-intelligence.mjs");
+            const days = args.days || 30;
+            await buildChangeIntelligence(cwd, { days, maxCommits: 50 });
+          } catch {
+            if (onEvent) onEvent({ type: "tool_end", name, result: "not found" });
+            return "⚠️ Change Intelligence not available. Ensure this is a git repository.";
+          }
+        }
+        try {
+          const ci = JSON.parse(readSync(ciFile, "utf-8"));
+          if (args.file) {
+            const norm = args.file.replace(/\\\\/g, "/");
+            const impact = ci.impactAnalysis?.find(i => i.changedFile === norm || i.changedFile?.includes(norm));
+            if (!impact) {
+              if (onEvent) onEvent({ type: "tool_end", name, result: "no impact data" });
+              return `No impact data for \`${norm}\`. It may not have been recently changed, or no other files depend on it.`;
+            }
+            if (onEvent) onEvent({ type: "tool_end", name, result: `${impact.affectedFiles.length} affected` });
+            return `Impact of changing \`${norm}\` (impact: ${impact.impactLevel}):\nAffected files (${impact.affectedFiles.length}):\n${impact.affectedFiles.map(f => `  - ${f}`).join("\n")}`;
+          }
+          const s = ci.summary;
+          const topFiles = ci.recentFiles?.slice(0, 10).map(f => `  - ${f.file} (${f.changeCount}x, last: ${f.lastChanged.slice(0,10)})`).join("\n") || "";
+          const topFeatures = ci.recentFeatures?.slice(0, 5).map(f => `  - ${f.name} (${f.changeCount} changes)`).join("\n") || "";
+          const changedApis = ci.recentApis?.slice(0, 10).map(a => `  - ${a.method} ${a.path} (${a.file})`).join("\n") || "";
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${s.totalCommits} commits` });
+          return `Recent Changes (${s.period}):
+- ${s.totalCommits} commits, ${s.totalFilesChanged} files changed
+- ${s.totalFeaturesChanged} features changed, ${s.totalApisChanged} APIs changed
+- ${s.highImpactChanges} high-impact changes
+
+Top Changed Files:
+${topFiles}
+
+Recently Changed Features:
+${topFeatures}
+
+Recently Changed APIs:
+${changedApis}`;
+        } catch (err) {
+          return `Error reading change intelligence: ${err.message}`;
+        }
+      }
+
+      // ══════════════════════════════════════════
       // ── Project Knowledge Write Tools ──
       // ══════════════════════════════════════════
 
@@ -1291,7 +1456,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);
