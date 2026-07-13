@@ -1,36 +1,27 @@
 {
   "features": [
     {
-      "name": "Agent Management",
-      "description": "Assign tasks to AI crews, track status, cancel execution, and retrieve agent memory",
+      "name": "Agent Loop",
+      "description": "Self-owned AI runtime with tool-calling loop for coding tasks, including LLM provider abstraction, security kernel, and snapshot management",
       "status": "active",
       "codeFiles": [
-        "packages/server/src/routes/agent-crew.mjs",
-        "packages/server/src/lib/agent-engine.mjs",
-        "packages/server/src/lib/crew-manager.mjs"
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/lib/llm-utils.mjs",
+        "packages/server/src/lib/paaw-project.mjs",
+        "packages/server/src/lib/paaw-snapshot.mjs",
+        "packages/server/src/lib/tool-engine/index.mjs",
+        "packages/server/src/lib/tool-engine/provider.mjs",
+        "packages/server/src/lib/tool-engine/tool-registry.mjs",
+        "packages/server/src/lib/security/index.mjs",
+        "packages/server/src/lib/security/approval.mjs",
+        "packages/server/src/lib/security/audit-log.mjs",
+        "packages/server/src/lib/security/policy-pipeline.mjs",
+        "packages/server/src/lib/security/secret-store.mjs",
+        "packages/server/src/lib/agent-rules.mjs",
+        "packages/server/src/lib/action-log.mjs",
+        "packages/server/src/lib/task-persistence.mjs"
       ],
-      "apis": [
-        {
-          "method": "POST",
-          "path": "/api/v1/agents/crew/assign",
-          "file": "packages/server/src/routes/agent-crew.mjs"
-        },
-        {
-          "method": "GET",
-          "path": "/api/v1/agents/crew/{crewId}/status",
-          "file": "packages/server/src/routes/agent-crew.mjs"
-        },
-        {
-          "method": "POST",
-          "path": "/api/v1/agents/crew/{crewId}/cancel",
-          "file": "packages/server/src/routes/agent-crew.mjs"
-        },
-        {
-          "method": "GET",
-          "path": "/api/v1/agents/memory",
-          "file": "packages/server/src/routes/agent-crew.mjs"
-        }
-      ],
+      "apis": [],
       "tests": [],
       "runbooks": [],
       "tags": [
@@ -43,35 +34,64 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": "Feature Mapping",
-      "description": "Bidirectional mapping between features and source files, auto-maintained by agents and manually refreshable",
+      "name": "Chat",
+      "description": "Chat interface with SSE streaming, message history, model selection, and system prompts",
       "status": "active",
       "codeFiles": [
-        "packages/server/src/routes/feature-mapping.mjs",
-        "packages/server/src/lib/feature-map.mjs",
-        "packages/ui/src/components/FeatureMap.tsx"
+        "packages/server/src/routes/chat.mjs",
+        "packages/ui/src/pages/ChatView.tsx",
+        "packages/ui/src/components/ChatMessages.tsx",
+        "packages/ui/src/components/ModelSelector.tsx"
       ],
       "apis": [
         {
           "method": "GET",
-          "path": "/api/v1/features",
-          "file": "packages/server/src/routes/feature-mapping.mjs"
+          "path": "/api/paaw/chats",
+          "file": "packages/server/src/routes/chat.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/chats/*",
+          "file": "packages/server/src/routes/chat.mjs"
         },
         {
           "method": "POST",
-          "path": "/api/v1/features/sync",
-          "file": "packages/server/src/routes/feature-mapping.mjs"
+          "path": "/api/paaw/chats",
+          "file": "packages/server/src/routes/chat.mjs"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/paaw/chats/*",
+          "file": "packages/server/src/routes/chat.mjs"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/paaw/chats/*",
+          "file": "packages/server/src/routes/chat.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/chat",
+          "file": "packages/server/src/routes/chat.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system-prompts",
+          "file": "packages/server/src/routes/chat.mjs"
         }
       ],
-      "tests": [],
+      "tests": [
+        "tests/e2e/05-api.spec.ts"
+      ],
       "runbooks": [],
       "tags": [
-        "core",
-        "tooling"
+        "ui",
+        "ai",
+        "core"
       ],
       "id": "F-002",
       "issues": [],
@@ -79,39 +99,69 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": "Issue Tracking",
-      "description": "Lightweight issue tracking stored in .paaw/ knowledge base with CRUD operations",
+      "name": "AI Settings",
+      "description": "Configuration of AI providers, models, agent config, user preferences, and workspaces",
       "status": "active",
       "codeFiles": [
-        "packages/server/src/routes/coding-issues.mjs",
-        "packages/ui/src/components/IssueTracker.tsx"
+        "packages/server/src/routes/ai-settings.mjs",
+        "packages/ui/src/pages/AISettingsPage.tsx",
+        "packages/ui/src/pages/ProviderSetupPage.tsx",
+        "packages/ui/src/pages/OnboardingPage.tsx"
       ],
       "apis": [
         {
           "method": "GET",
-          "path": "/api/v1/issues",
-          "file": "packages/server/src/routes/coding-issues.mjs"
+          "path": "/api/ai-settings/agent-config",
+          "file": "packages/server/src/routes/ai-settings.mjs"
         },
         {
-          "method": "POST",
-          "path": "/api/v1/issues",
-          "file": "packages/server/src/routes/coding-issues.mjs"
+          "method": "PUT",
+          "path": "/api/ai-settings/agent-config",
+          "file": "packages/server/src/routes/ai-settings.mjs"
         },
         {
-          "method": "PATCH",
-          "path": "/api/v1/issues/{issueId}",
-          "file": "packages/server/src/routes/coding-issues.mjs"
+          "method": "GET",
+          "path": "/api/ai-settings/providers",
+          "file": "packages/server/src/routes/ai-settings.mjs"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/ai-settings/providers",
+          "file": "packages/server/src/routes/ai-settings.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/user/preferences",
+          "file": "packages/server/src/routes/ai-settings.mjs"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/user/preferences",
+          "file": "packages/server/src/routes/ai-settings.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/ai-settings",
+          "file": "packages/server/src/routes/ai-settings.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/workspaces",
+          "file": "packages/server/src/routes/ai-settings.mjs"
         }
       ],
-      "tests": [],
+      "tests": [
+        "tests/unit/ai-settings.test.mjs",
+        "tests/unit/providers.test.mjs"
+      ],
       "runbooks": [],
       "tags": [
-        "coding-ide",
-        "tooling"
+        "settings",
+        "ai"
       ],
       "id": "F-003",
       "issues": [],
@@ -119,39 +169,132 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": "Code Health",
-      "description": "Unit test coverage and E2E test results analysis with async run capability",
+      "name": "Assistant",
+      "description": "User profile, app rules, skills, workspaces, knowledge paths, UI state, workflows, and file write operations",
       "status": "active",
       "codeFiles": [
-        "packages/server/src/routes/code-health.mjs",
-        "packages/server/src/lib/test-runner.mjs"
+        "packages/server/src/routes/assistant.mjs",
+        "packages/ui/src/pages/SettingsPage.tsx",
+        "packages/ui/src/pages/SystemPromptsPage.tsx"
       ],
       "apis": [
         {
           "method": "GET",
-          "path": "/api/v1/code-health",
-          "file": "packages/server/src/routes/code-health.mjs"
+          "path": "/api/paaw/user",
+          "file": "packages/server/src/routes/assistant.mjs"
         },
         {
           "method": "POST",
-          "path": "/api/v1/code-health/run",
-          "file": "packages/server/src/routes/code-health.mjs"
+          "path": "/api/paaw/user",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/avatar",
+          "file": "packages/server/src/routes/assistant.mjs"
         },
         {
           "method": "GET",
-          "path": "/api/v1/code-health/run/{runId}",
-          "file": "packages/server/src/routes/code-health.mjs"
+          "path": "/api/paaw/avatar/assistant",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/app-rules",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/paaw/app-rules",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/app-skills",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/apps/import",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/providers",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/paaw/providers",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/workspaces",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/workspaces",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/paaw/workspaces",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/knowledge-paths",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/ui-state",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/paaw/ui-state",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/paaw/ui-state",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/workflows",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/workflows",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/workflow-output-chat",
+          "file": "packages/server/src/routes/assistant.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/file-write",
+          "file": "packages/server/src/routes/assistant.mjs"
         }
       ],
-      "tests": [],
+      "tests": [
+        "tests/e2e/02-settings.spec.ts"
+      ],
       "runbooks": [],
       "tags": [
-        "quality",
-        "tooling"
+        "settings",
+        "user"
       ],
       "id": "F-004",
       "issues": [],
@@ -159,23 +302,23 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": "Agent Memory Panel",
-      "description": "UI panel showing crew agents with avatars, names, and memory entries",
+      "name": "Backup",
+      "description": "Backup and restore of project data with tar.gz archives",
       "status": "active",
       "codeFiles": [
-        "packages/ui/src/components/AgentMemoryPanel.tsx",
-        "packages/ui/src/components/AgentAvatar.tsx"
+        "packages/server/src/routes/backup.mjs",
+        "packages/ui/src/pages/BackupSettings.tsx"
       ],
       "apis": [],
       "tests": [],
       "runbooks": [],
       "tags": [
-        "ui",
-        "ai"
+        "data",
+        "maintenance"
       ],
       "id": "F-005",
       "issues": [],
@@ -183,24 +326,23 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": "Coding IDE",
-      "description": "Main coding interface with panels for feature mapping, issue tracking, agent memory, and code health",
+      "name": "Coding Issues",
+      "description": "Lightweight issue tracking stored in .paaw/issues/ISSUES.json",
       "status": "active",
       "codeFiles": [
-        "packages/ui/src/pages/CodingIDE.tsx",
-        "packages/ui/src/components/Sidebar.tsx",
-        "packages/ui/src/components/PaawTree.tsx"
+        "packages/server/src/routes/coding-issues.mjs",
+        "packages/ui/src/components/IssueTracker.tsx"
       ],
       "apis": [],
       "tests": [],
       "runbooks": [],
       "tags": [
-        "ui",
-        "core"
+        "coding-ide",
+        "tooling"
       ],
       "id": "F-006",
       "issues": [],
@@ -208,23 +350,23 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": "EM Dashboard",
-      "description": "Engineering Manager dashboard for dispatching tasks to AI crews and monitoring progress",
+      "name": "Coding Features",
+      "description": "Feature map generation and understanding for coding projects",
       "status": "active",
       "codeFiles": [
-        "packages/ui/src/components/EMDashboard.tsx",
-        "packages/server/src/routes/em-dashboard.mjs"
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/ui/src/components/FeatureMap.tsx"
       ],
       "apis": [],
       "tests": [],
       "runbooks": [],
       "tags": [
-        "ui",
-        "management"
+        "coding-ide",
+        "ai"
       ],
       "id": "F-007",
       "issues": [],
@@ -232,23 +374,22 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": "Night Shift",
-      "description": "Overnight mode where EM leads a 6-agent team for automated work",
+      "name": "Coding Memory",
+      "description": "Memory management for coding crew agents",
       "status": "active",
       "codeFiles": [
-        "packages/server/src/lib/night-shift.mjs",
-        "packages/server/src/lib/crew-manager.mjs"
+        "packages/server/src/routes/coding-memory.mjs"
       ],
       "apis": [],
       "tests": [],
       "runbooks": [],
       "tags": [
-        "ai",
-        "automation"
+        "coding-ide",
+        "memory"
       ],
       "id": "F-008",
       "issues": [],
@@ -256,25 +397,23 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
     },
     {
-      "name": ".paaw Knowledge Store",
-      "description": "File-based knowledge store for architecture, decisions, feature maps, and issues",
+      "name": "Coding Night Shift",
+      "description": "Automated nightly analysis and feature summary generation for coding projects",
       "status": "active",
       "codeFiles": [
-        ".paaw/ARCHITECTURE.md",
-        ".paaw/DECISIONS.md",
-        ".paaw/features.json",
-        ".paaw/issues.json"
+        "packages/server/src/routes/coding-night-shift.mjs",
+        "packages/ui/src/components/NightShiftPanel.tsx"
       ],
       "apis": [],
       "tests": [],
       "runbooks": [],
       "tags": [
-        "data",
-        "core"
+        "coding-ide",
+        "automation"
       ],
       "id": "F-009",
       "issues": [],
@@ -282,9 +421,1703 @@
       "aiUnderstandingAt": null,
       "documentation": "",
       "docsUpdatedAt": null,
-      "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Crew",
+      "description": "AI crew management with skill configuration and agent cards",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/crew.mjs",
+        "packages/ui/src/pages/AICrew.tsx",
+        "packages/ui/src/components/CrewEditor.tsx",
+        "packages/ui/src/components/CrewAvatar.tsx",
+        "packages/server/src/lib/domain-agent-registry.mjs"
+      ],
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/api/paaw/skill-config",
+          "file": "packages/server/src/routes/crew.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/skill-config",
+          "file": "packages/server/src/routes/crew.mjs"
+        }
+      ],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ai",
+        "team"
+      ],
+      "id": "F-010",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Distill",
+      "description": "Recording and distillation of AI interactions, chat interactions, vibe outputs, and cron executions",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/distill.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "data",
+        "analytics"
+      ],
+      "id": "F-011",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Helpdesk",
+      "description": "Helpdesk ticket management with A2A skill execution",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/helpdesk.mjs",
+        "packages/ui/src/pages/HelpDesk.tsx",
+        "packages/ui/src/components/AgentConsole.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "support",
+        "ai"
+      ],
+      "id": "F-012",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Mindmap",
+      "description": "AI-generated mind maps from project context",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/mindmap.mjs",
+        "packages/ui/src/pages/MindMapViewer.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "visualization",
+        "ai"
+      ],
+      "id": "F-013",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Notes",
+      "description": "Notebook and section-based note management with AI create",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/notes.mjs",
+        "packages/ui/src/pages/Notes.tsx"
+      ],
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/api/notes/notebooks",
+          "file": "packages/server/src/routes/notes.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/notes/tags",
+          "file": "packages/server/src/routes/notes.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notes/create",
+          "file": "packages/server/src/routes/notes.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notes/notebooks",
+          "file": "packages/server/src/routes/notes.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notes/sections",
+          "file": "packages/server/src/routes/notes.mjs"
+        }
+      ],
+      "tests": [
+        "tests/e2e/03-notes.spec.ts"
+      ],
+      "runbooks": [],
+      "tags": [
+        "app",
+        "productivity"
+      ],
+      "id": "F-014",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Pocket",
+      "description": "Quick note capture (pocket) functionality",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/pocket.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "app",
+        "productivity"
+      ],
+      "id": "F-015",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Projects",
+      "description": "Project management with tasks, milestones, categories, and AI panel",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/projects.mjs",
+        "packages/ui/src/pages/ProjectBoard.tsx",
+        "packages/ui/src/pages/ProjectDashboard.tsx",
+        "packages/ui/src/components/ProjectHealth.tsx",
+        "packages/ui/src/components/ProjectAiPanel.tsx"
+      ],
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/api/projects",
+          "file": "packages/server/src/routes/projects.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/projects",
+          "file": "packages/server/src/routes/projects.mjs"
+        }
+      ],
+      "tests": [
+        "tests/e2e/05-api.spec.ts"
+      ],
+      "runbooks": [],
+      "tags": [
+        "project",
+        "management"
+      ],
+      "id": "F-016",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Skills",
+      "description": "Skill management (CRUD, import/export, builder, and testing)",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/skill.mjs",
+        "packages/server/src/routes/skills-api.mjs",
+        "packages/ui/src/pages/SkillsPage.tsx",
+        "packages/ui/src/pages/SkillBuilder.tsx",
+        "packages/ui/src/components/AgentConsole.tsx"
+      ],
+      "apis": [],
+      "tests": [
+        "tests/unit/skill-format.test.mjs"
+      ],
+      "runbooks": [],
+      "tags": [
+        "ai",
+        "tooling"
+      ],
+      "id": "F-017",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Tools",
+      "description": "Tool registry for managing and generating tool definitions",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/tools.mjs",
+        "packages/server/src/lib/tool-engine/tool-registry.mjs"
+      ],
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/api/tool-registry",
+          "file": "packages/server/src/routes/tools.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/tool-registry/skills",
+          "file": "packages/server/src/routes/tools.mjs"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/tool-registry/skills/*",
+          "file": "packages/server/src/routes/tools.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/tool-registry/*",
+          "file": "packages/server/src/routes/tools.mjs"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/tool-registry/*",
+          "file": "packages/server/src/routes/tools.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/tool-registry/*",
+          "file": "packages/server/src/routes/tools.mjs"
+        }
+      ],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ai",
+        "tooling"
+      ],
+      "id": "F-018",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Vibe FS",
+      "description": "Vibe file system with git operations",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/vibe-fs.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "filesystem",
+        "git"
+      ],
+      "id": "F-019",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Vibe Sessions",
+      "description": "Vibe session management for collaborative coding",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/vibe-sessions.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "collaboration",
+        "coding"
+      ],
+      "id": "F-020",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Workflow",
+      "description": "Workflow definition and execution with visual editor",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/workflow.mjs",
+        "packages/ui/src/pages/WorkflowEditor.tsx",
+        "packages/ui/src/pages/WorkflowExec.tsx"
+      ],
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/api/paaw-root",
+          "file": "packages/server/src/routes/workflow.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/paaw/workflows",
+          "file": "packages/server/src/routes/workflow.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/workflows",
+          "file": "packages/server/src/routes/workflow.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/workflow-output-chat",
+          "file": "packages/server/src/routes/workflow.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/file-write",
+          "file": "packages/server/src/routes/workflow.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/paaw/skill-exec",
+          "file": "packages/server/src/routes/workflow.mjs"
+        }
+      ],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "automation",
+        "workflow"
+      ],
+      "id": "F-021",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "A2A",
+      "description": "Agent-to-Agent communication protocol with task management",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/a2a.mjs",
+        "packages/ui/src/pages/A2APlayground.tsx"
+      ],
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/.well-known/agent-card.json",
+          "file": "packages/server/src/routes/a2a.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/a2a",
+          "file": "packages/server/src/routes/a2a.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/a2a/tasks",
+          "file": "packages/server/src/routes/a2a.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/a2a/agent-card",
+          "file": "packages/server/src/routes/a2a.mjs"
+        }
+      ],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ai",
+        "protocol"
+      ],
+      "id": "F-022",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "API Tester",
+      "description": "API testing tool for debugging endpoints",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/api-tester.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "devtools",
+        "testing"
+      ],
+      "id": "F-023",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Apps",
+      "description": "App management (publish, unpublish, builder, pool)",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/apps.mjs",
+        "packages/ui/src/pages/AppBuilder.tsx",
+        "packages/ui/src/pages/AppPool.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "app",
+        "management"
+      ],
+      "id": "F-024",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Context Engine",
+      "description": "Context assembly for AI agents, including memory, workspace, and provider config",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/context-engine.mjs",
+        "packages/context/src/assembler.ts",
+        "packages/context/src/memory/memory-store.ts",
+        "packages/context/src/refinery/refinery.ts",
+        "packages/server/src/lib/context-providers.mjs"
+      ],
+      "apis": [],
+      "tests": [
+        "tests/unit/context-engine.test.mjs"
+      ],
+      "runbooks": [],
+      "tags": [
+        "core",
+        "ai"
+      ],
+      "id": "F-025",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Database",
+      "description": "SQLite database layer with migrations and repositories for runs, chats, and data store",
+      "status": "active",
+      "codeFiles": [
+        "packages/db/src/connection.ts",
+        "packages/db/src/migrate.ts",
+        "packages/db/src/paths.ts",
+        "packages/db/src/repositories/chats.ts",
+        "packages/db/src/repositories/data-store.ts",
+        "packages/db/src/repositories/runs.ts",
+        "packages/db/src/types.ts"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "core",
+        "data"
+      ],
+      "id": "F-026",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Engine",
+      "description": "Core engine for skill execution, workflow execution, and tool engine with provider adapters",
+      "status": "active",
+      "codeFiles": [
+        "packages/engine/src/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tool-engine/index.ts",
+        "packages/engine/src/tool-engine/provider.ts",
+        "packages/engine/src/tool-engine/tool-registry.ts",
+        "packages/engine/src/workflow/index.ts"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "core",
+        "engine"
+      ],
+      "id": "F-027",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Shared Schemas",
+      "description": "Shared TypeScript schemas and utilities for API contracts and data validation",
+      "status": "active",
+      "codeFiles": [
+        "packages/shared/src/schemas/index.ts",
+        "packages/shared/src/utils/index.ts"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "core",
+        "types"
+      ],
+      "id": "F-028",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Security Scanning",
+      "description": "Semgrep-based SAST security scanning for coding projects",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/lib/semgrep-runner.mjs",
+        "packages/ui/src/components/SecurityTab.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "security",
+        "coding-ide"
+      ],
+      "id": "F-029",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Code Intelligence",
+      "description": "Source code analysis using Tree-sitter: call graphs, dependency graphs, symbol index, API function map, test code map",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/lib/code-intelligence.mjs",
+        "packages/server/src/lib/tree-sitter-parser.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "code-analysis",
+        "ai"
+      ],
+      "id": "F-030",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Change Intelligence",
+      "description": "Git diff analysis for change intelligence",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/lib/change-intelligence.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "code-analysis",
+        "git"
+      ],
+      "id": "F-031",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Test Intelligence",
+      "description": "Test classification and mapping to tested functions",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/lib/test-intelligence.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "code-analysis",
+        "testing"
+      ],
+      "id": "F-032",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Code Understanding",
+      "description": "Orchestrates code intelligence, change intelligence, test intelligence, and feature map generation for comprehensive project understanding",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/ui/src/components/FeatureMap.tsx",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ai",
+        "code-analysis"
+      ],
+      "id": "F-033",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Knowledge Package",
+      "description": "Context package generation for AI agent handover",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/lib/code-intelligence.mjs",
+        "packages/server/src/lib/context-providers.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ai",
+        "knowledge"
+      ],
+      "id": "F-034",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Overnight Manager",
+      "description": "Engineering Manager session automation with situation reports and work plans",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/lib/overnight-manager.mjs",
+        "packages/ui/src/components/EMDashboard.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "automation",
+        "ai"
+      ],
+      "id": "F-035",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Cron Jobs",
+      "description": "Scheduled task execution with cron expressions and logging",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/scheduler/cron-jobs.mjs",
+        "packages/ui/src/pages/CronJobsPage.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "automation",
+        "scheduling"
+      ],
+      "id": "F-036",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "WebSocket",
+      "description": "Real-time communication via WebSocket for terminal and streaming",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/websocket/ws-handler.mjs"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "realtime",
+        "communication"
+      ],
+      "id": "F-037",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "UI Theme",
+      "description": "Theme management with multiple themes and groups",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/theme.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "styling"
+      ],
+      "id": "F-038",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Internationalization",
+      "description": "Multi-language support with Chinese, English, Japanese locales",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/i18n/index.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "i18n"
+      ],
+      "id": "F-039",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Onboarding",
+      "description": "First-time setup wizard for API keys and provider configuration",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/OnboardingPage.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "setup"
+      ],
+      "id": "F-040",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Welcome Page",
+      "description": "Landing page with project selection and folder picker",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/WelcomePage.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "landing"
+      ],
+      "id": "F-041",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "File Editor",
+      "description": "In-browser file editor for coding files",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/FileEditor.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "coding"
+      ],
+      "id": "F-042",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "File Viewer",
+      "description": "File viewer with syntax highlighting and image/markdown support",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/FileViewer.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "coding"
+      ],
+      "id": "F-043",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Release Unit Explorer",
+      "description": "File tree explorer for release units",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/ReleaseUnitExplorer.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "explorer"
+      ],
+      "id": "F-044",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Gantt Chart",
+      "description": "Gantt chart visualization for project timelines",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/GanttChart.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "visualization"
+      ],
+      "id": "F-045",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Gates",
+      "description": "Gates view for project governance (mock data)",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/Gates.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "mock"
+      ],
+      "id": "F-046",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Monitoring",
+      "description": "Monitoring dashboard (mock data)",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/Monitoring.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "mock"
+      ],
+      "id": "F-047",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Operations Center",
+      "description": "Operations center dashboard (mock data)",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/OperationsCenter.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "mock"
+      ],
+      "id": "F-048",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Orchestrator",
+      "description": "Orchestrator overview and workspace with mock data, including API spec, flow steps, decision rules, observability, node contracts, test targets",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/OrchestratorOverview.tsx",
+        "packages/ui/src/pages/OrchestratorWorkspace.tsx",
+        "packages/ui/src/components/orchestrator/ApiSpecSection.tsx",
+        "packages/ui/src/components/orchestrator/DecisionRuleTable.tsx",
+        "packages/ui/src/components/orchestrator/FlowStepList.tsx",
+        "packages/ui/src/components/orchestrator/JsonSchemaViewer.tsx",
+        "packages/ui/src/components/orchestrator/MarkdownSection.tsx",
+        "packages/ui/src/components/orchestrator/NodeContractPanel.tsx",
+        "packages/ui/src/components/orchestrator/ObservabilityPanel.tsx",
+        "packages/ui/src/components/orchestrator/OverviewCard.tsx",
+        "packages/ui/src/components/orchestrator/TestTargetsPanel.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "mock"
+      ],
+      "id": "F-049",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "RCA",
+      "description": "Root Cause Analysis view (mock data)",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/Rca.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "mock"
+      ],
+      "id": "F-050",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Employee Workspace",
+      "description": "Employee workspace with task launching and agent console",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/EmployeeWorkspace.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "workspace"
+      ],
+      "id": "F-051",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Briefing Player",
+      "description": "Interactive briefing player with markdown rendering and reference overlays",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/BriefingPlayer.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "presentation"
+      ],
+      "id": "F-052",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Provider Setup",
+      "description": "Provider configuration page for API keys and base URLs",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/ProviderSetupPage.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "settings"
+      ],
+      "id": "F-053",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "System Prompts",
+      "description": "System prompts management page",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/SystemPromptsPage.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "settings"
+      ],
+      "id": "F-054",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Standards Editor",
+      "description": "Editor for project standards and coding guidelines",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/StandardsEditor.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "standards"
+      ],
+      "id": "F-055",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Browser DevTools",
+      "description": "Browser developer tools panel",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/BrowserDevTools.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "devtools"
+      ],
+      "id": "F-056",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Browser Preview",
+      "description": "Browser preview component for web content",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/BrowserPreview.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "preview"
+      ],
+      "id": "F-057",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Decision Log",
+      "description": "Architecture Decision Record (ADR) log",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/DecisionLog.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "documentation"
+      ],
+      "id": "F-058",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Agent Memory Panel",
+      "description": "Panel for viewing and editing agent memory entries",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/AgentMemoryPanel.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "memory"
+      ],
+      "id": "F-059",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Session History",
+      "description": "Session history list with dates and sizes",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/SessionHistory.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "history"
+      ],
+      "id": "F-060",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Shell Terminal",
+      "description": "Terminal emulator component using xterm.js",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/ShellTerminal.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "terminal"
+      ],
+      "id": "F-061",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Knowledge Tree",
+      "description": "Tree view for knowledge base with rename, create, delete",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/KnowledgeTree.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "knowledge"
+      ],
+      "id": "F-062",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Directory Explorer",
+      "description": "Directory navigation component",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/DirectoryExplorer.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "navigation"
+      ],
+      "id": "F-063",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "Sidebar File Tree",
+      "description": "Sidebar file tree with context menu and file operations",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/SidebarFileTree.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "navigation"
+      ],
+      "id": "F-064",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "File Import Picker",
+      "description": "File import picker dialog",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/FileImportPicker.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "file"
+      ],
+      "id": "F-065",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.011Z",
+      "updatedAt": "2026-07-13T12:01:53.011Z"
+    },
+    {
+      "name": "File Picker Modal",
+      "description": "Modal file picker with tree navigation",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/FilePickerModal.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "file"
+      ],
+      "id": "F-066",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.012Z",
+      "updatedAt": "2026-07-13T12:01:53.012Z"
+    },
+    {
+      "name": "Move Folder Picker",
+      "description": "Folder picker for moving items",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/MoveFolderPicker.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "file"
+      ],
+      "id": "F-067",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.012Z",
+      "updatedAt": "2026-07-13T12:01:53.012Z"
+    },
+    {
+      "name": "Paaw Tree",
+      "description": "PAAW project tree component",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/PaawTree.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "tree"
+      ],
+      "id": "F-068",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.012Z",
+      "updatedAt": "2026-07-13T12:01:53.012Z"
+    },
+    {
+      "name": "Json Viewer",
+      "description": "JSON viewer with expand/collapse, search, and copy",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/JsonViewer.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "viewer"
+      ],
+      "id": "F-069",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.012Z",
+      "updatedAt": "2026-07-13T12:01:53.012Z"
+    },
+    {
+      "name": "Icon",
+      "description": "Icon component with various icon types",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/components/Icon.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "icons"
+      ],
+      "id": "F-070",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.012Z",
+      "updatedAt": "2026-07-13T12:01:53.012Z"
+    },
+    {
+      "name": "Coding IDE",
+      "description": "Coding IDE page with security tab, feature map, issues, memory, night shift, and code understanding",
+      "status": "active",
+      "codeFiles": [
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ],
+      "apis": [],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "ui",
+        "coding-ide"
+      ],
+      "id": "F-071",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.012Z",
+      "updatedAt": "2026-07-13T12:01:53.012Z"
+    },
+    {
+      "name": "Bridge",
+      "description": "PAAW bridge for container sync and tool proxy",
+      "status": "active",
+      "codeFiles": [
+        "packages/server/src/lib/bridge/paaw-bridge.mjs"
+      ],
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/health",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sync/request",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sync/pending",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/sync/diff/*",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sync/approve/*",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/sync/reject/*",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/tool/proxy",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/tool/tokens",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/update/*",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/update/status",
+          "file": "packages/server/src/lib/bridge/paaw-bridge.mjs"
+        }
+      ],
+      "tests": [],
+      "runbooks": [],
+      "tags": [
+        "infrastructure",
+        "sync"
+      ],
+      "id": "F-072",
+      "issues": [],
+      "aiUnderstanding": "",
+      "aiUnderstandingAt": null,
+      "documentation": "",
+      "docsUpdatedAt": null,
+      "createdAt": "2026-07-13T12:01:53.012Z",
+      "updatedAt": "2026-07-13T12:01:53.012Z"
     }
   ],
-  "updatedAt": "2026-07-12T13:57:02.576Z"
+  "updatedAt": "2026-07-13T12:01:53.012Z"
 }

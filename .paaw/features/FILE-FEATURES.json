@@ -1,0 +1,1598 @@
+{
+  "files": {
+    "packages/server/src/lib/paaw-agent-loop.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/llm-utils.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/paaw-project.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/paaw-snapshot.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-engine/index.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-engine/provider.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tool-engine/tool-registry.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-018",
+        "name": "Tools",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/index.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/approval.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/audit-log.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/policy-pipeline.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/security/secret-store.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/agent-rules.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/action-log.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/task-persistence.mjs": [
+      {
+        "id": "F-001",
+        "name": "Agent Loop",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/routes/chat.mjs": [
+      {
+        "id": "F-002",
+        "name": "Chat",
+        "tags": [
+          "ui",
+          "ai",
+          "core"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/ChatView.tsx": [
+      {
+        "id": "F-002",
+        "name": "Chat",
+        "tags": [
+          "ui",
+          "ai",
+          "core"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ChatMessages.tsx": [
+      {
+        "id": "F-002",
+        "name": "Chat",
+        "tags": [
+          "ui",
+          "ai",
+          "core"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ModelSelector.tsx": [
+      {
+        "id": "F-002",
+        "name": "Chat",
+        "tags": [
+          "ui",
+          "ai",
+          "core"
+        ]
+      }
+    ],
+    "tests/e2e/05-api.spec.ts": [
+      {
+        "id": "F-002",
+        "name": "Chat",
+        "tags": [
+          "ui",
+          "ai",
+          "core"
+        ]
+      },
+      {
+        "id": "F-016",
+        "name": "Projects",
+        "tags": [
+          "project",
+          "management"
+        ]
+      }
+    ],
+    "packages/server/src/routes/ai-settings.mjs": [
+      {
+        "id": "F-003",
+        "name": "AI Settings",
+        "tags": [
+          "settings",
+          "ai"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/AISettingsPage.tsx": [
+      {
+        "id": "F-003",
+        "name": "AI Settings",
+        "tags": [
+          "settings",
+          "ai"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/ProviderSetupPage.tsx": [
+      {
+        "id": "F-003",
+        "name": "AI Settings",
+        "tags": [
+          "settings",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-053",
+        "name": "Provider Setup",
+        "tags": [
+          "ui",
+          "settings"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/OnboardingPage.tsx": [
+      {
+        "id": "F-003",
+        "name": "AI Settings",
+        "tags": [
+          "settings",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-040",
+        "name": "Onboarding",
+        "tags": [
+          "ui",
+          "setup"
+        ]
+      }
+    ],
+    "tests/unit/ai-settings.test.mjs": [
+      {
+        "id": "F-003",
+        "name": "AI Settings",
+        "tags": [
+          "settings",
+          "ai"
+        ]
+      }
+    ],
+    "tests/unit/providers.test.mjs": [
+      {
+        "id": "F-003",
+        "name": "AI Settings",
+        "tags": [
+          "settings",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/routes/assistant.mjs": [
+      {
+        "id": "F-004",
+        "name": "Assistant",
+        "tags": [
+          "settings",
+          "user"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/SettingsPage.tsx": [
+      {
+        "id": "F-004",
+        "name": "Assistant",
+        "tags": [
+          "settings",
+          "user"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/SystemPromptsPage.tsx": [
+      {
+        "id": "F-004",
+        "name": "Assistant",
+        "tags": [
+          "settings",
+          "user"
+        ]
+      },
+      {
+        "id": "F-054",
+        "name": "System Prompts",
+        "tags": [
+          "ui",
+          "settings"
+        ]
+      }
+    ],
+    "tests/e2e/02-settings.spec.ts": [
+      {
+        "id": "F-004",
+        "name": "Assistant",
+        "tags": [
+          "settings",
+          "user"
+        ]
+      }
+    ],
+    "packages/server/src/routes/backup.mjs": [
+      {
+        "id": "F-005",
+        "name": "Backup",
+        "tags": [
+          "data",
+          "maintenance"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/BackupSettings.tsx": [
+      {
+        "id": "F-005",
+        "name": "Backup",
+        "tags": [
+          "data",
+          "maintenance"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-issues.mjs": [
+      {
+        "id": "F-006",
+        "name": "Coding Issues",
+        "tags": [
+          "coding-ide",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/ui/src/components/IssueTracker.tsx": [
+      {
+        "id": "F-006",
+        "name": "Coding Issues",
+        "tags": [
+          "coding-ide",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-features.mjs": [
+      {
+        "id": "F-007",
+        "name": "Coding Features",
+        "tags": [
+          "coding-ide",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-033",
+        "name": "Code Understanding",
+        "tags": [
+          "ai",
+          "code-analysis"
+        ]
+      }
+    ],
+    "packages/ui/src/components/FeatureMap.tsx": [
+      {
+        "id": "F-007",
+        "name": "Coding Features",
+        "tags": [
+          "coding-ide",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-033",
+        "name": "Code Understanding",
+        "tags": [
+          "ai",
+          "code-analysis"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-memory.mjs": [
+      {
+        "id": "F-008",
+        "name": "Coding Memory",
+        "tags": [
+          "coding-ide",
+          "memory"
+        ]
+      }
+    ],
+    "packages/server/src/routes/coding-night-shift.mjs": [
+      {
+        "id": "F-009",
+        "name": "Coding Night Shift",
+        "tags": [
+          "coding-ide",
+          "automation"
+        ]
+      }
+    ],
+    "packages/ui/src/components/NightShiftPanel.tsx": [
+      {
+        "id": "F-009",
+        "name": "Coding Night Shift",
+        "tags": [
+          "coding-ide",
+          "automation"
+        ]
+      }
+    ],
+    "packages/server/src/routes/crew.mjs": [
+      {
+        "id": "F-010",
+        "name": "Crew",
+        "tags": [
+          "ai",
+          "team"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/AICrew.tsx": [
+      {
+        "id": "F-010",
+        "name": "Crew",
+        "tags": [
+          "ai",
+          "team"
+        ]
+      }
+    ],
+    "packages/ui/src/components/CrewEditor.tsx": [
+      {
+        "id": "F-010",
+        "name": "Crew",
+        "tags": [
+          "ai",
+          "team"
+        ]
+      }
+    ],
+    "packages/ui/src/components/CrewAvatar.tsx": [
+      {
+        "id": "F-010",
+        "name": "Crew",
+        "tags": [
+          "ai",
+          "team"
+        ]
+      }
+    ],
+    "packages/server/src/lib/domain-agent-registry.mjs": [
+      {
+        "id": "F-010",
+        "name": "Crew",
+        "tags": [
+          "ai",
+          "team"
+        ]
+      }
+    ],
+    "packages/server/src/routes/distill.mjs": [
+      {
+        "id": "F-011",
+        "name": "Distill",
+        "tags": [
+          "data",
+          "analytics"
+        ]
+      }
+    ],
+    "packages/server/src/routes/helpdesk.mjs": [
+      {
+        "id": "F-012",
+        "name": "Helpdesk",
+        "tags": [
+          "support",
+          "ai"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/HelpDesk.tsx": [
+      {
+        "id": "F-012",
+        "name": "Helpdesk",
+        "tags": [
+          "support",
+          "ai"
+        ]
+      }
+    ],
+    "packages/ui/src/components/AgentConsole.tsx": [
+      {
+        "id": "F-012",
+        "name": "Helpdesk",
+        "tags": [
+          "support",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-017",
+        "name": "Skills",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/routes/mindmap.mjs": [
+      {
+        "id": "F-013",
+        "name": "Mindmap",
+        "tags": [
+          "visualization",
+          "ai"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/MindMapViewer.tsx": [
+      {
+        "id": "F-013",
+        "name": "Mindmap",
+        "tags": [
+          "visualization",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/routes/notes.mjs": [
+      {
+        "id": "F-014",
+        "name": "Notes",
+        "tags": [
+          "app",
+          "productivity"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/Notes.tsx": [
+      {
+        "id": "F-014",
+        "name": "Notes",
+        "tags": [
+          "app",
+          "productivity"
+        ]
+      }
+    ],
+    "tests/e2e/03-notes.spec.ts": [
+      {
+        "id": "F-014",
+        "name": "Notes",
+        "tags": [
+          "app",
+          "productivity"
+        ]
+      }
+    ],
+    "packages/server/src/routes/pocket.mjs": [
+      {
+        "id": "F-015",
+        "name": "Pocket",
+        "tags": [
+          "app",
+          "productivity"
+        ]
+      }
+    ],
+    "packages/server/src/routes/projects.mjs": [
+      {
+        "id": "F-016",
+        "name": "Projects",
+        "tags": [
+          "project",
+          "management"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/ProjectBoard.tsx": [
+      {
+        "id": "F-016",
+        "name": "Projects",
+        "tags": [
+          "project",
+          "management"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/ProjectDashboard.tsx": [
+      {
+        "id": "F-016",
+        "name": "Projects",
+        "tags": [
+          "project",
+          "management"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ProjectHealth.tsx": [
+      {
+        "id": "F-016",
+        "name": "Projects",
+        "tags": [
+          "project",
+          "management"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ProjectAiPanel.tsx": [
+      {
+        "id": "F-016",
+        "name": "Projects",
+        "tags": [
+          "project",
+          "management"
+        ]
+      }
+    ],
+    "packages/server/src/routes/skill.mjs": [
+      {
+        "id": "F-017",
+        "name": "Skills",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/routes/skills-api.mjs": [
+      {
+        "id": "F-017",
+        "name": "Skills",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/SkillsPage.tsx": [
+      {
+        "id": "F-017",
+        "name": "Skills",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/SkillBuilder.tsx": [
+      {
+        "id": "F-017",
+        "name": "Skills",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "tests/unit/skill-format.test.mjs": [
+      {
+        "id": "F-017",
+        "name": "Skills",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/routes/tools.mjs": [
+      {
+        "id": "F-018",
+        "name": "Tools",
+        "tags": [
+          "ai",
+          "tooling"
+        ]
+      }
+    ],
+    "packages/server/src/routes/vibe-fs.mjs": [
+      {
+        "id": "F-019",
+        "name": "Vibe FS",
+        "tags": [
+          "filesystem",
+          "git"
+        ]
+      }
+    ],
+    "packages/server/src/routes/vibe-sessions.mjs": [
+      {
+        "id": "F-020",
+        "name": "Vibe Sessions",
+        "tags": [
+          "collaboration",
+          "coding"
+        ]
+      }
+    ],
+    "packages/server/src/routes/workflow.mjs": [
+      {
+        "id": "F-021",
+        "name": "Workflow",
+        "tags": [
+          "automation",
+          "workflow"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/WorkflowEditor.tsx": [
+      {
+        "id": "F-021",
+        "name": "Workflow",
+        "tags": [
+          "automation",
+          "workflow"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/WorkflowExec.tsx": [
+      {
+        "id": "F-021",
+        "name": "Workflow",
+        "tags": [
+          "automation",
+          "workflow"
+        ]
+      }
+    ],
+    "packages/server/src/routes/a2a.mjs": [
+      {
+        "id": "F-022",
+        "name": "A2A",
+        "tags": [
+          "ai",
+          "protocol"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/A2APlayground.tsx": [
+      {
+        "id": "F-022",
+        "name": "A2A",
+        "tags": [
+          "ai",
+          "protocol"
+        ]
+      }
+    ],
+    "packages/server/src/routes/api-tester.mjs": [
+      {
+        "id": "F-023",
+        "name": "API Tester",
+        "tags": [
+          "devtools",
+          "testing"
+        ]
+      }
+    ],
+    "packages/server/src/routes/apps.mjs": [
+      {
+        "id": "F-024",
+        "name": "Apps",
+        "tags": [
+          "app",
+          "management"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/AppBuilder.tsx": [
+      {
+        "id": "F-024",
+        "name": "Apps",
+        "tags": [
+          "app",
+          "management"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/AppPool.tsx": [
+      {
+        "id": "F-024",
+        "name": "Apps",
+        "tags": [
+          "app",
+          "management"
+        ]
+      }
+    ],
+    "packages/server/src/context-engine.mjs": [
+      {
+        "id": "F-025",
+        "name": "Context Engine",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/context/src/assembler.ts": [
+      {
+        "id": "F-025",
+        "name": "Context Engine",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/context/src/memory/memory-store.ts": [
+      {
+        "id": "F-025",
+        "name": "Context Engine",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/context/src/refinery/refinery.ts": [
+      {
+        "id": "F-025",
+        "name": "Context Engine",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/context-providers.mjs": [
+      {
+        "id": "F-025",
+        "name": "Context Engine",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-034",
+        "name": "Knowledge Package",
+        "tags": [
+          "ai",
+          "knowledge"
+        ]
+      }
+    ],
+    "tests/unit/context-engine.test.mjs": [
+      {
+        "id": "F-025",
+        "name": "Context Engine",
+        "tags": [
+          "core",
+          "ai"
+        ]
+      }
+    ],
+    "packages/db/src/connection.ts": [
+      {
+        "id": "F-026",
+        "name": "Database",
+        "tags": [
+          "core",
+          "data"
+        ]
+      }
+    ],
+    "packages/db/src/migrate.ts": [
+      {
+        "id": "F-026",
+        "name": "Database",
+        "tags": [
+          "core",
+          "data"
+        ]
+      }
+    ],
+    "packages/db/src/paths.ts": [
+      {
+        "id": "F-026",
+        "name": "Database",
+        "tags": [
+          "core",
+          "data"
+        ]
+      }
+    ],
+    "packages/db/src/repositories/chats.ts": [
+      {
+        "id": "F-026",
+        "name": "Database",
+        "tags": [
+          "core",
+          "data"
+        ]
+      }
+    ],
+    "packages/db/src/repositories/data-store.ts": [
+      {
+        "id": "F-026",
+        "name": "Database",
+        "tags": [
+          "core",
+          "data"
+        ]
+      }
+    ],
+    "packages/db/src/repositories/runs.ts": [
+      {
+        "id": "F-026",
+        "name": "Database",
+        "tags": [
+          "core",
+          "data"
+        ]
+      }
+    ],
+    "packages/db/src/types.ts": [
+      {
+        "id": "F-026",
+        "name": "Database",
+        "tags": [
+          "core",
+          "data"
+        ]
+      }
+    ],
+    "packages/engine/src/index.ts": [
+      {
+        "id": "F-027",
+        "name": "Engine",
+        "tags": [
+          "core",
+          "engine"
+        ]
+      }
+    ],
+    "packages/engine/src/runner/index.ts": [
+      {
+        "id": "F-027",
+        "name": "Engine",
+        "tags": [
+          "core",
+          "engine"
+        ]
+      }
+    ],
+    "packages/engine/src/tool-engine/index.ts": [
+      {
+        "id": "F-027",
+        "name": "Engine",
+        "tags": [
+          "core",
+          "engine"
+        ]
+      }
+    ],
+    "packages/engine/src/tool-engine/provider.ts": [
+      {
+        "id": "F-027",
+        "name": "Engine",
+        "tags": [
+          "core",
+          "engine"
+        ]
+      }
+    ],
+    "packages/engine/src/tool-engine/tool-registry.ts": [
+      {
+        "id": "F-027",
+        "name": "Engine",
+        "tags": [
+          "core",
+          "engine"
+        ]
+      }
+    ],
+    "packages/engine/src/workflow/index.ts": [
+      {
+        "id": "F-027",
+        "name": "Engine",
+        "tags": [
+          "core",
+          "engine"
+        ]
+      }
+    ],
+    "packages/shared/src/schemas/index.ts": [
+      {
+        "id": "F-028",
+        "name": "Shared Schemas",
+        "tags": [
+          "core",
+          "types"
+        ]
+      }
+    ],
+    "packages/shared/src/utils/index.ts": [
+      {
+        "id": "F-028",
+        "name": "Shared Schemas",
+        "tags": [
+          "core",
+          "types"
+        ]
+      }
+    ],
+    "packages/server/src/lib/semgrep-runner.mjs": [
+      {
+        "id": "F-029",
+        "name": "Security Scanning",
+        "tags": [
+          "security",
+          "coding-ide"
+        ]
+      }
+    ],
+    "packages/ui/src/components/SecurityTab.tsx": [
+      {
+        "id": "F-029",
+        "name": "Security Scanning",
+        "tags": [
+          "security",
+          "coding-ide"
+        ]
+      }
+    ],
+    "packages/server/src/lib/code-intelligence.mjs": [
+      {
+        "id": "F-030",
+        "name": "Code Intelligence",
+        "tags": [
+          "code-analysis",
+          "ai"
+        ]
+      },
+      {
+        "id": "F-034",
+        "name": "Knowledge Package",
+        "tags": [
+          "ai",
+          "knowledge"
+        ]
+      }
+    ],
+    "packages/server/src/lib/tree-sitter-parser.mjs": [
+      {
+        "id": "F-030",
+        "name": "Code Intelligence",
+        "tags": [
+          "code-analysis",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/change-intelligence.mjs": [
+      {
+        "id": "F-031",
+        "name": "Change Intelligence",
+        "tags": [
+          "code-analysis",
+          "git"
+        ]
+      }
+    ],
+    "packages/server/src/lib/test-intelligence.mjs": [
+      {
+        "id": "F-032",
+        "name": "Test Intelligence",
+        "tags": [
+          "code-analysis",
+          "testing"
+        ]
+      }
+    ],
+    "packages/ui/src/components/EMDashboard.tsx": [
+      {
+        "id": "F-033",
+        "name": "Code Understanding",
+        "tags": [
+          "ai",
+          "code-analysis"
+        ]
+      },
+      {
+        "id": "F-035",
+        "name": "Overnight Manager",
+        "tags": [
+          "automation",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/lib/overnight-manager.mjs": [
+      {
+        "id": "F-035",
+        "name": "Overnight Manager",
+        "tags": [
+          "automation",
+          "ai"
+        ]
+      }
+    ],
+    "packages/server/src/scheduler/cron-jobs.mjs": [
+      {
+        "id": "F-036",
+        "name": "Cron Jobs",
+        "tags": [
+          "automation",
+          "scheduling"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/CronJobsPage.tsx": [
+      {
+        "id": "F-036",
+        "name": "Cron Jobs",
+        "tags": [
+          "automation",
+          "scheduling"
+        ]
+      }
+    ],
+    "packages/server/src/websocket/ws-handler.mjs": [
+      {
+        "id": "F-037",
+        "name": "WebSocket",
+        "tags": [
+          "realtime",
+          "communication"
+        ]
+      }
+    ],
+    "packages/ui/src/theme.tsx": [
+      {
+        "id": "F-038",
+        "name": "UI Theme",
+        "tags": [
+          "ui",
+          "styling"
+        ]
+      }
+    ],
+    "packages/ui/src/i18n/index.tsx": [
+      {
+        "id": "F-039",
+        "name": "Internationalization",
+        "tags": [
+          "ui",
+          "i18n"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/WelcomePage.tsx": [
+      {
+        "id": "F-041",
+        "name": "Welcome Page",
+        "tags": [
+          "ui",
+          "landing"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/FileEditor.tsx": [
+      {
+        "id": "F-042",
+        "name": "File Editor",
+        "tags": [
+          "ui",
+          "coding"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/FileViewer.tsx": [
+      {
+        "id": "F-043",
+        "name": "File Viewer",
+        "tags": [
+          "ui",
+          "coding"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/ReleaseUnitExplorer.tsx": [
+      {
+        "id": "F-044",
+        "name": "Release Unit Explorer",
+        "tags": [
+          "ui",
+          "explorer"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/GanttChart.tsx": [
+      {
+        "id": "F-045",
+        "name": "Gantt Chart",
+        "tags": [
+          "ui",
+          "visualization"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/Gates.tsx": [
+      {
+        "id": "F-046",
+        "name": "Gates",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/Monitoring.tsx": [
+      {
+        "id": "F-047",
+        "name": "Monitoring",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/OperationsCenter.tsx": [
+      {
+        "id": "F-048",
+        "name": "Operations Center",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/OrchestratorOverview.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/OrchestratorWorkspace.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/ApiSpecSection.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/DecisionRuleTable.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/FlowStepList.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/JsonSchemaViewer.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/MarkdownSection.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/NodeContractPanel.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/ObservabilityPanel.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/OverviewCard.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/components/orchestrator/TestTargetsPanel.tsx": [
+      {
+        "id": "F-049",
+        "name": "Orchestrator",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/Rca.tsx": [
+      {
+        "id": "F-050",
+        "name": "RCA",
+        "tags": [
+          "ui",
+          "mock"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/EmployeeWorkspace.tsx": [
+      {
+        "id": "F-051",
+        "name": "Employee Workspace",
+        "tags": [
+          "ui",
+          "workspace"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/BriefingPlayer.tsx": [
+      {
+        "id": "F-052",
+        "name": "Briefing Player",
+        "tags": [
+          "ui",
+          "presentation"
+        ]
+      }
+    ],
+    "packages/ui/src/components/StandardsEditor.tsx": [
+      {
+        "id": "F-055",
+        "name": "Standards Editor",
+        "tags": [
+          "ui",
+          "standards"
+        ]
+      }
+    ],
+    "packages/ui/src/components/BrowserDevTools.tsx": [
+      {
+        "id": "F-056",
+        "name": "Browser DevTools",
+        "tags": [
+          "ui",
+          "devtools"
+        ]
+      }
+    ],
+    "packages/ui/src/components/BrowserPreview.tsx": [
+      {
+        "id": "F-057",
+        "name": "Browser Preview",
+        "tags": [
+          "ui",
+          "preview"
+        ]
+      }
+    ],
+    "packages/ui/src/components/DecisionLog.tsx": [
+      {
+        "id": "F-058",
+        "name": "Decision Log",
+        "tags": [
+          "ui",
+          "documentation"
+        ]
+      }
+    ],
+    "packages/ui/src/components/AgentMemoryPanel.tsx": [
+      {
+        "id": "F-059",
+        "name": "Agent Memory Panel",
+        "tags": [
+          "ui",
+          "memory"
+        ]
+      }
+    ],
+    "packages/ui/src/components/SessionHistory.tsx": [
+      {
+        "id": "F-060",
+        "name": "Session History",
+        "tags": [
+          "ui",
+          "history"
+        ]
+      }
+    ],
+    "packages/ui/src/components/ShellTerminal.tsx": [
+      {
+        "id": "F-061",
+        "name": "Shell Terminal",
+        "tags": [
+          "ui",
+          "terminal"
+        ]
+      }
+    ],
+    "packages/ui/src/components/KnowledgeTree.tsx": [
+      {
+        "id": "F-062",
+        "name": "Knowledge Tree",
+        "tags": [
+          "ui",
+          "knowledge"
+        ]
+      }
+    ],
+    "packages/ui/src/components/DirectoryExplorer.tsx": [
+      {
+        "id": "F-063",
+        "name": "Directory Explorer",
+        "tags": [
+          "ui",
+          "navigation"
+        ]
+      }
+    ],
+    "packages/ui/src/components/SidebarFileTree.tsx": [
+      {
+        "id": "F-064",
+        "name": "Sidebar File Tree",
+        "tags": [
+          "ui",
+          "navigation"
+        ]
+      }
+    ],
+    "packages/ui/src/components/FileImportPicker.tsx": [
+      {
+        "id": "F-065",
+        "name": "File Import Picker",
+        "tags": [
+          "ui",
+          "file"
+        ]
+      }
+    ],
+    "packages/ui/src/components/FilePickerModal.tsx": [
+      {
+        "id": "F-066",
+        "name": "File Picker Modal",
+        "tags": [
+          "ui",
+          "file"
+        ]
+      }
+    ],
+    "packages/ui/src/components/MoveFolderPicker.tsx": [
+      {
+        "id": "F-067",
+        "name": "Move Folder Picker",
+        "tags": [
+          "ui",
+          "file"
+        ]
+      }
+    ],
+    "packages/ui/src/components/PaawTree.tsx": [
+      {
+        "id": "F-068",
+        "name": "Paaw Tree",
+        "tags": [
+          "ui",
+          "tree"
+        ]
+      }
+    ],
+    "packages/ui/src/components/JsonViewer.tsx": [
+      {
+        "id": "F-069",
+        "name": "Json Viewer",
+        "tags": [
+          "ui",
+          "viewer"
+        ]
+      }
+    ],
+    "packages/ui/src/components/Icon.tsx": [
+      {
+        "id": "F-070",
+        "name": "Icon",
+        "tags": [
+          "ui",
+          "icons"
+        ]
+      }
+    ],
+    "packages/ui/src/pages/CodingIDE.tsx": [
+      {
+        "id": "F-071",
+        "name": "Coding IDE",
+        "tags": [
+          "ui",
+          "coding-ide"
+        ]
+      }
+    ],
+    "packages/server/src/lib/bridge/paaw-bridge.mjs": [
+      {
+        "id": "F-072",
+        "name": "Bridge",
+        "tags": [
+          "infrastructure",
+          "sync"
+        ]
+      }
+    ]
+  },
+  "updatedAt": "2026-07-13T12:01:53.013Z"
+}

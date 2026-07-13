@@ -441,6 +441,22 @@
       "async": true
     },
     {
+      "id": "packages/server/src/lib/change-intelligence.mjs:git",
+      "name": "git",
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/change-intelligence.mjs:buildChangeIntelligence",
+      "name": "buildChangeIntelligence",
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
       "id": "packages/server/src/lib/code-intelligence.mjs:buildCallGraph",
       "name": "buildCallGraph",
       "file": "packages/server/src/lib/code-intelligence.mjs",
@@ -967,6 +983,30 @@
       "line": 0,
       "kind": "function",
       "async": false
+    },
+    {
+      "id": "packages/server/src/lib/test-intelligence.mjs:classifyTestType",
+      "name": "classifyTestType",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/test-intelligence.mjs:findTestedFunctions",
+      "name": "findTestedFunctions",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/test-intelligence.mjs:buildTestIntelligence",
+      "name": "buildTestIntelligence",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
     },
     {
       "id": "packages/server/src/lib/tool-engine/index.mjs:looksLikeFakeToolCall",
@@ -20005,7 +20045,7 @@
     ]
   },
   "stats": {
-    "totalFunctions": 810,
+    "totalFunctions": 815,
     "totalCalls": 1511,
     "resolvedCalls": 137,
     "unresolvedCalls": 1374

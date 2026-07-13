@@ -2,10 +2,10 @@
 {
   "projectName": "paaw",
   "projectType": "web-app",
-  "language": "TypeScript (inferred from git log)",
-  "framework": "React/Next.js (inferred)",
+  "language": "JavaScript",
+  "framework": "Unknown (likely React/Node.js)",
   "runtime": "Node.js",
-  "summary": "An AI agent management platform with a coding IDE for feature mapping, issue tracking, and code health analysis. Analysis based solely on git log; no source code files were provided in the file tree.",
+  "summary": "A coding assistant web application with code understanding, security scanning, and AI features. Source code not present in provided file tree; analysis based on git log only.",
   "entryPoints": [],
   "keyDirectories": {
     "source": null,
@@ -17,13 +17,7 @@
   "apis": [],
   "errorCodes": [],
   "dataModels": [],
-  "techDebt": [
-    {
-      "area": "Source code not provided in file tree",
-      "severity": "high",
-      "suggestion": "Provide full file tree including source directories (e.g., src/, app/, etc.) to enable accurate analysis."
-    }
-  ],
+  "techDebt": [],
   "healthGaps": {
     "missingApiSpec": true,
     "missingErrorMap": true,

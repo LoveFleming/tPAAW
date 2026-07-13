@@ -1622,6 +1622,56 @@
       "components": []
     },
     {
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "buildChangeIntelligence",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "child_process",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "util",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "git",
+          "kind": "function",
+          "async": true,
+          "params": "(projectRoot, args)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "buildChangeIntelligence",
+          "kind": "function",
+          "async": true,
+          "params": "(projectRoot, options = {})",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
+      "routes": [],
+      "components": []
+    },
+    {
       "file": "packages/server/src/lib/code-intelligence.mjs",
       "language": "javascript",
       "exports": [
@@ -2935,6 +2985,60 @@
           ]
         }
       ],
+      "routes": [],
+      "components": []
+    },
+    {
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "language": "javascript",
+      "exports": [
+        {
+          "kind": "function",
+          "name": "buildTestIntelligence",
+          "isDefault": false
+        }
+      ],
+      "imports": [
+        {
+          "source": "path",
+          "names": []
+        },
+        {
+          "source": "fs",
+          "names": []
+        },
+        {
+          "source": "./tree-sitter-parser.mjs",
+          "names": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "classifyTestType",
+          "kind": "function",
+          "async": false,
+          "params": "(fileName, filePath, content = \"\")",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "findTestedFunctions",
+          "kind": "function",
+          "async": false,
+          "params": "(testFile, productionFile)",
+          "callCount": 0,
+          "calls": []
+        },
+        {
+          "name": "buildTestIntelligence",
+          "kind": "function",
+          "async": true,
+          "params": "(projectRoot, paawRoot)",
+          "callCount": 0,
+          "calls": []
+        }
+      ],
+      "classes": [],
       "routes": [],
       "components": []
     },
@@ -16357,12 +16461,12 @@
     }
   ],
   "stats": {
-    "totalFiles": 173,
-    "parsedFiles": 168,
+    "totalFiles": 175,
+    "parsedFiles": 170,
     "errors": 0,
     "languages": {
       "typescript": 36,
-      "javascript": 60,
+      "javascript": 62,
       "tsx": 77
     }
   }

@@ -1,7 +1,56 @@
 {
-  "generatedAt": "2026-07-13T11:22:07.759Z",
+  "generatedAt": "2026-07-13T12:16:36.442Z",
   "period": "30 days",
   "commits": [
+    {
+      "hash": "c16d48a",
+      "author": "LoveFleming",
+      "date": "2026-07-13T12:10:11.000Z",
+      "subject": "feat: Add 3 intelligence tools to Agent Loop",
+      "fileCount": 2,
+      "files": [
+        "packages/server/src/lib/agent-rules.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs"
+      ]
+    },
+    {
+      "hash": "429489e",
+      "author": "LoveFleming",
+      "date": "2026-07-13T12:05:25.000Z",
+      "subject": "refactor: Move Domain AI prompts to ai-settings/ + delete dead ai-initial/",
+      "fileCount": 15,
+      "files": [
+        "data/ai-settings/domain-ai/bug/analyze-errors.md",
+        "data/ai-settings/domain-ai/docs/analyze-docs.md",
+        "data/ai-settings/domain-ai/maintain/analyze-maintain.md",
+        "data/ai-settings/domain-ai/spec/analyze-gaps.md",
+        "data/ai-settings/domain-ai/system-prompt.md",
+        "data/ai-settings/domain-ai/test/analyze-coverage.md",
+        "data/prompts/ai-initial/gen-api-spec.md",
+        "data/prompts/ai-initial/gen-error-mapping.md",
+        "data/prompts/ai-initial/gen-faq.md",
+        "data/prompts/ai-initial/gen-overview.md"
+      ]
+    },
+    {
+      "hash": "c609d39",
+      "author": "LoveFleming",
+      "date": "2026-07-13T11:22:24.000Z",
+      "subject": "feat: Reorder CU flow + add Test Intelligence & Change Intelligence",
+      "fileCount": 23,
+      "files": [
+        ".paaw/changes/change-intelligence.json",
+        ".paaw/code-intelligence/api-function-map.json",
+        ".paaw/code-intelligence/call-graph.json",
+        ".paaw/code-intelligence/dependency-graph.json",
+        ".paaw/code-intelligence/file-map.json",
+        ".paaw/code-intelligence/summary.json",
+        ".paaw/code-intelligence/symbol-index.json",
+        ".paaw/code-intelligence/test-code-map.json",
+        ".paaw/code-intelligence/test-intelligence.json",
+        "data/ai-settings/coding/gen-api-spec.md"
+      ]
+    },
     {
       "hash": "a1fe10f",
       "author": "LoveFleming",
@@ -616,45 +665,359 @@
         "packages/ui/src/pages/AICrew.tsx",
         "packages/ui/src/pages/EmployeeWorkspace.tsx"
       ]
-    },
-    {
-      "hash": "db59d2b",
-      "author": "LoveFleming",
-      "date": "2026-07-11T08:43:05.000Z",
-      "subject": "fix: 歷史對話真正修好 — crewMatch 正則也要改",
-      "fileCount": 2,
-      "files": [
-        "data/config/recent-projects.json",
-        "packages/server/src/routes/coding.mjs"
-      ]
-    },
-    {
-      "hash": "b71c611",
-      "author": "LoveFleming",
-      "date": "2026-07-11T08:38:40.000Z",
-      "subject": "fix: 歷史對話點下去沒反應 — route 正則衝突",
-      "fileCount": 2,
-      "files": [
-        "data/config/recent-projects.json",
-        "packages/server/src/routes/coding.mjs"
-      ]
-    },
-    {
-      "hash": "9ee8cd5",
-      "author": "LoveFleming",
-      "date": "2026-07-11T08:32:04.000Z",
-      "subject": "fix: Agent loop timeout 600s→1800s, maxTurns 40→60, 支援續接",
-      "fileCount": 5,
-      "files": [
-        "data/config/recent-projects.json",
-        "packages/server/src/lib/overnight-manager.mjs",
-        "packages/server/src/lib/paaw-agent-loop.mjs",
-        "packages/server/src/routes/a2a.mjs",
-        "packages/server/src/routes/coding.mjs"
-      ]
     }
   ],
   "recentFiles": [
+    {
+      "file": "packages/server/src/lib/agent-rules.mjs",
+      "changeCount": 3,
+      "lastChanged": "2026-07-13T12:10:11.000Z",
+      "commits": [
+        "c16d48a",
+        "f598e40",
+        "d4c6caf"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "changeCount": 8,
+      "lastChanged": "2026-07-13T12:10:11.000Z",
+      "commits": [
+        "c16d48a",
+        "90b5eca",
+        "2906fd5",
+        "fc5009b",
+        "f598e40",
+        "1fd0e0e",
+        "d4c6caf",
+        "6c0adb3"
+      ]
+    },
+    {
+      "file": "data/ai-settings/domain-ai/bug/analyze-errors.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/ai-settings/domain-ai/docs/analyze-docs.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/ai-settings/domain-ai/maintain/analyze-maintain.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/ai-settings/domain-ai/spec/analyze-gaps.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/ai-settings/domain-ai/system-prompt.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/ai-settings/domain-ai/test/analyze-coverage.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/prompts/ai-initial/gen-api-spec.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/prompts/ai-initial/gen-error-mapping.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/prompts/ai-initial/gen-faq.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/prompts/ai-initial/gen-overview.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/prompts/ai-initial/gen-standards.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/prompts/ai-initial/gen-test-payload.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "data/prompts/ai-initial/scan-project.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/ai-settings.mjs",
+      "changeCount": 3,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e",
+        "71589ba",
+        "fc5009b"
+      ]
+    },
+    {
+      "file": "packages/server/src/routes/coding.mjs",
+      "changeCount": 16,
+      "lastChanged": "2026-07-13T12:05:25.000Z",
+      "commits": [
+        "429489e",
+        "c609d39",
+        "a1fe10f",
+        "eee895c",
+        "032b220",
+        "71589ba",
+        "f3b7013",
+        "6a83f1a",
+        "fc5009b",
+        "a548aae",
+        "d9a80c3",
+        "a74db96",
+        "7525513",
+        "0f5b849",
+        "605f5f7",
+        "34cd165"
+      ]
+    },
+    {
+      "file": ".paaw/changes/change-intelligence.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/api-function-map.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/call-graph.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/dependency-graph.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/file-map.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/summary.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/symbol-index.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/test-code-map.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": ".paaw/code-intelligence/test-intelligence.json",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-api-spec.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39",
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-architecture.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39",
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-error-mapping.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39",
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-overview.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39",
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/ai-settings/coding/gen-standards.md",
+      "changeCount": 2,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39",
+        "71589ba"
+      ]
+    },
+    {
+      "file": "data/prompts/code-understanding/gen-api-spec.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "data/prompts/code-understanding/gen-architecture.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "data/prompts/code-understanding/gen-error-mapping.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "data/prompts/code-understanding/gen-overview.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "data/prompts/code-understanding/gen-standards.md",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "changeCount": 1,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39"
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "changeCount": 8,
+      "lastChanged": "2026-07-13T11:22:24.000Z",
+      "commits": [
+        "c609d39",
+        "a1fe10f",
+        "bc24529",
+        "6a83f1a",
+        "73991e2",
+        "5a7a2de",
+        "7b914d3",
+        "1ffe522"
+      ]
+    },
     {
       "file": ".paaw/changes/README.md",
       "changeCount": 1,
@@ -697,7 +1060,7 @@
     },
     {
       "file": "data/config/recent-projects.json",
-      "changeCount": 19,
+      "changeCount": 16,
       "lastChanged": "2026-07-13T11:01:58.000Z",
       "commits": [
         "a1fe10f",
@@ -715,10 +1078,7 @@
         "7459cea",
         "393b204",
         "4bdc7d6",
-        "153bef4",
-        "db59d2b",
-        "b71c611",
-        "9ee8cd5"
+        "153bef4"
       ]
     },
     {
@@ -737,44 +1097,6 @@
         "a1fe10f",
         "fe450fb",
         "032b220"
-      ]
-    },
-    {
-      "file": "packages/server/src/routes/coding.mjs",
-      "changeCount": 17,
-      "lastChanged": "2026-07-13T11:01:58.000Z",
-      "commits": [
-        "a1fe10f",
-        "eee895c",
-        "032b220",
-        "71589ba",
-        "f3b7013",
-        "6a83f1a",
-        "fc5009b",
-        "a548aae",
-        "d9a80c3",
-        "a74db96",
-        "7525513",
-        "0f5b849",
-        "605f5f7",
-        "34cd165",
-        "db59d2b",
-        "b71c611",
-        "9ee8cd5"
-      ]
-    },
-    {
-      "file": "packages/ui/src/components/EMDashboard.tsx",
-      "changeCount": 7,
-      "lastChanged": "2026-07-13T11:01:58.000Z",
-      "commits": [
-        "a1fe10f",
-        "bc24529",
-        "6a83f1a",
-        "73991e2",
-        "5a7a2de",
-        "7b914d3",
-        "1ffe522"
       ]
     },
     {
@@ -901,22 +1223,6 @@
       ]
     },
     {
-      "file": "data/ai-settings/coding/gen-api-spec.md",
-      "changeCount": 1,
-      "lastChanged": "2026-07-13T08:11:32.000Z",
-      "commits": [
-        "71589ba"
-      ]
-    },
-    {
-      "file": "data/ai-settings/coding/gen-architecture.md",
-      "changeCount": 1,
-      "lastChanged": "2026-07-13T08:11:32.000Z",
-      "commits": [
-        "71589ba"
-      ]
-    },
-    {
       "file": "data/ai-settings/coding/gen-decisions.md",
       "changeCount": 1,
       "lastChanged": "2026-07-13T08:11:32.000Z",
@@ -925,31 +1231,7 @@
       ]
     },
     {
-      "file": "data/ai-settings/coding/gen-error-mapping.md",
-      "changeCount": 1,
-      "lastChanged": "2026-07-13T08:11:32.000Z",
-      "commits": [
-        "71589ba"
-      ]
-    },
-    {
       "file": "data/ai-settings/coding/gen-faq.md",
-      "changeCount": 1,
-      "lastChanged": "2026-07-13T08:11:32.000Z",
-      "commits": [
-        "71589ba"
-      ]
-    },
-    {
-      "file": "data/ai-settings/coding/gen-overview.md",
-      "changeCount": 1,
-      "lastChanged": "2026-07-13T08:11:32.000Z",
-      "commits": [
-        "71589ba"
-      ]
-    },
-    {
-      "file": "data/ai-settings/coding/gen-standards.md",
       "changeCount": 1,
       "lastChanged": "2026-07-13T08:11:32.000Z",
       "commits": [
@@ -970,15 +1252,6 @@
       "lastChanged": "2026-07-13T08:11:32.000Z",
       "commits": [
         "71589ba"
-      ]
-    },
-    {
-      "file": "packages/server/src/routes/ai-settings.mjs",
-      "changeCount": 2,
-      "lastChanged": "2026-07-13T08:11:32.000Z",
-      "commits": [
-        "71589ba",
-        "fc5009b"
       ]
     },
     {
@@ -1010,21 +1283,6 @@
       ]
     },
     {
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "changeCount": 8,
-      "lastChanged": "2026-07-13T06:22:16.000Z",
-      "commits": [
-        "90b5eca",
-        "2906fd5",
-        "fc5009b",
-        "f598e40",
-        "1fd0e0e",
-        "d4c6caf",
-        "6c0adb3",
-        "9ee8cd5"
-      ]
-    },
-    {
       "file": "packages/server/src/lib/llm-utils.mjs",
       "changeCount": 2,
       "lastChanged": "2026-07-13T06:19:51.000Z",
@@ -1043,13 +1301,12 @@
     },
     {
       "file": "packages/server/src/routes/a2a.mjs",
-      "changeCount": 4,
+      "changeCount": 3,
       "lastChanged": "2026-07-13T05:56:28.000Z",
       "commits": [
         "fc5009b",
         "0f5b849",
-        "605f5f7",
-        "9ee8cd5"
+        "605f5f7"
       ]
     },
     {
@@ -1298,15 +1555,6 @@
       ]
     },
     {
-      "file": "packages/server/src/lib/agent-rules.mjs",
-      "changeCount": 2,
-      "lastChanged": "2026-07-12T07:36:53.000Z",
-      "commits": [
-        "f598e40",
-        "d4c6caf"
-      ]
-    },
-    {
       "file": ".paaw/coding-memory/conversations/coding.developer.json",
       "changeCount": 2,
       "lastChanged": "2026-07-12T05:37:24.000Z",
@@ -1480,11 +1728,10 @@
     },
     {
       "file": "packages/server/src/lib/overnight-manager.mjs",
-      "changeCount": 2,
+      "changeCount": 1,
       "lastChanged": "2026-07-11T09:27:09.000Z",
       "commits": [
-        "f432e18",
-        "9ee8cd5"
+        "f432e18"
       ]
     },
     {
@@ -1616,7 +1863,433 @@
       ]
     }
   ],
-  "recentFeatures": [],
+  "recentFeatures": [
+    {
+      "id": "F-001",
+      "name": "Agent Loop",
+      "tags": [
+        "core",
+        "ai"
+      ],
+      "changeCount": 6,
+      "files": [
+        "packages/server/src/lib/agent-rules.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/lib/tool-engine/provider.mjs",
+        "packages/server/src/lib/tool-engine/index.mjs",
+        "packages/server/src/lib/llm-utils.mjs",
+        "packages/server/src/lib/paaw-project.mjs"
+      ]
+    },
+    {
+      "id": "F-033",
+      "name": "Code Understanding",
+      "tags": [
+        "ai",
+        "code-analysis"
+      ],
+      "changeCount": 3,
+      "files": [
+        "packages/ui/src/components/EMDashboard.tsx",
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/ui/src/components/FeatureMap.tsx"
+      ]
+    },
+    {
+      "id": "F-035",
+      "name": "Overnight Manager",
+      "tags": [
+        "automation",
+        "ai"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/ui/src/components/EMDashboard.tsx",
+        "packages/server/src/lib/overnight-manager.mjs"
+      ]
+    },
+    {
+      "id": "F-030",
+      "name": "Code Intelligence",
+      "tags": [
+        "code-analysis",
+        "ai"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/server/src/lib/code-intelligence.mjs",
+        "packages/server/src/lib/tree-sitter-parser.mjs"
+      ]
+    },
+    {
+      "id": "F-029",
+      "name": "Security Scanning",
+      "tags": [
+        "security",
+        "coding-ide"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/ui/src/components/SecurityTab.tsx",
+        "packages/server/src/lib/semgrep-runner.mjs"
+      ]
+    },
+    {
+      "id": "F-007",
+      "name": "Coding Features",
+      "tags": [
+        "coding-ide",
+        "ai"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/server/src/routes/coding-features.mjs",
+        "packages/ui/src/components/FeatureMap.tsx"
+      ]
+    },
+    {
+      "id": "F-002",
+      "name": "Chat",
+      "tags": [
+        "ui",
+        "ai",
+        "core"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/server/src/routes/chat.mjs",
+        "packages/ui/src/components/ChatMessages.tsx"
+      ]
+    },
+    {
+      "id": "F-009",
+      "name": "Coding Night Shift",
+      "tags": [
+        "coding-ide",
+        "automation"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/server/src/routes/coding-night-shift.mjs",
+        "packages/ui/src/components/NightShiftPanel.tsx"
+      ]
+    },
+    {
+      "id": "F-006",
+      "name": "Coding Issues",
+      "tags": [
+        "coding-ide",
+        "tooling"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/ui/src/components/IssueTracker.tsx",
+        "packages/server/src/routes/coding-issues.mjs"
+      ]
+    },
+    {
+      "id": "F-027",
+      "name": "Engine",
+      "tags": [
+        "core",
+        "engine"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tool-engine/provider.ts"
+      ]
+    },
+    {
+      "id": "F-010",
+      "name": "Crew",
+      "tags": [
+        "ai",
+        "team"
+      ],
+      "changeCount": 2,
+      "files": [
+        "packages/server/src/routes/crew.mjs",
+        "packages/ui/src/pages/AICrew.tsx"
+      ]
+    },
+    {
+      "id": "F-003",
+      "name": "AI Settings",
+      "tags": [
+        "settings",
+        "ai"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/ai-settings.mjs"
+      ]
+    },
+    {
+      "id": "F-031",
+      "name": "Change Intelligence",
+      "tags": [
+        "code-analysis",
+        "git"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/lib/change-intelligence.mjs"
+      ]
+    },
+    {
+      "id": "F-032",
+      "name": "Test Intelligence",
+      "tags": [
+        "code-analysis",
+        "testing"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/lib/test-intelligence.mjs"
+      ]
+    },
+    {
+      "id": "F-034",
+      "name": "Knowledge Package",
+      "tags": [
+        "ai",
+        "knowledge"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/lib/code-intelligence.mjs"
+      ]
+    },
+    {
+      "id": "F-071",
+      "name": "Coding IDE",
+      "tags": [
+        "ui",
+        "coding-ide"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/pages/CodingIDE.tsx"
+      ]
+    },
+    {
+      "id": "F-025",
+      "name": "Context Engine",
+      "tags": [
+        "core",
+        "ai"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/context-engine.mjs"
+      ]
+    },
+    {
+      "id": "F-022",
+      "name": "A2A",
+      "tags": [
+        "ai",
+        "protocol"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/a2a.mjs"
+      ]
+    },
+    {
+      "id": "F-011",
+      "name": "Distill",
+      "tags": [
+        "data",
+        "analytics"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/distill.mjs"
+      ]
+    },
+    {
+      "id": "F-012",
+      "name": "Helpdesk",
+      "tags": [
+        "support",
+        "ai"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/helpdesk.mjs"
+      ]
+    },
+    {
+      "id": "F-013",
+      "name": "Mindmap",
+      "tags": [
+        "visualization",
+        "ai"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/mindmap.mjs"
+      ]
+    },
+    {
+      "id": "F-014",
+      "name": "Notes",
+      "tags": [
+        "app",
+        "productivity"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/notes.mjs"
+      ]
+    },
+    {
+      "id": "F-017",
+      "name": "Skills",
+      "tags": [
+        "ai",
+        "tooling"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/skills-api.mjs"
+      ]
+    },
+    {
+      "id": "F-020",
+      "name": "Vibe Sessions",
+      "tags": [
+        "collaboration",
+        "coding"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/vibe-sessions.mjs"
+      ]
+    },
+    {
+      "id": "F-036",
+      "name": "Cron Jobs",
+      "tags": [
+        "automation",
+        "scheduling"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/scheduler/cron-jobs.mjs"
+      ]
+    },
+    {
+      "id": "F-008",
+      "name": "Coding Memory",
+      "tags": [
+        "coding-ide",
+        "memory"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/coding-memory.mjs"
+      ]
+    },
+    {
+      "id": "F-059",
+      "name": "Agent Memory Panel",
+      "tags": [
+        "ui",
+        "memory"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/components/AgentMemoryPanel.tsx"
+      ]
+    },
+    {
+      "id": "F-068",
+      "name": "Paaw Tree",
+      "tags": [
+        "ui",
+        "tree"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/components/PaawTree.tsx"
+      ]
+    },
+    {
+      "id": "F-024",
+      "name": "Apps",
+      "tags": [
+        "app",
+        "management"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/server/src/routes/apps.mjs"
+      ]
+    },
+    {
+      "id": "F-070",
+      "name": "Icon",
+      "tags": [
+        "ui",
+        "icons"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/components/Icon.tsx"
+      ]
+    },
+    {
+      "id": "F-051",
+      "name": "Employee Workspace",
+      "tags": [
+        "ui",
+        "workspace"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/pages/EmployeeWorkspace.tsx"
+      ]
+    },
+    {
+      "id": "F-048",
+      "name": "Operations Center",
+      "tags": [
+        "ui",
+        "mock"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/pages/OperationsCenter.tsx"
+      ]
+    },
+    {
+      "id": "F-049",
+      "name": "Orchestrator",
+      "tags": [
+        "ui",
+        "mock"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/pages/OrchestratorOverview.tsx"
+      ]
+    },
+    {
+      "id": "F-038",
+      "name": "UI Theme",
+      "tags": [
+        "ui",
+        "styling"
+      ],
+      "changeCount": 1,
+      "files": [
+        "packages/ui/src/theme.tsx"
+      ]
+    }
+  ],
   "recentApis": [
     {
       "method": "GET",
@@ -1745,85 +2418,55 @@
       "handler": "sendEvent"
     }
   ],
-  "decisions": [
-    {
-      "id": "ADR-001",
-      "title": "File-based Knowledge Store (.paaw/ directory)"
-    },
-    {
-      "id": "ADR-002",
-      "title": "Structured Agent Communication via .paaw/ API Tools"
-    },
-    {
-      "id": "ADR-003",
-      "title": "Multi-Agent Crew Architecture with EM Lead"
-    },
-    {
-      "id": "ADR-004",
-      "title": "Feature-Centric Code Understanding"
-    },
-    {
-      "id": "ADR-005",
-      "title": "Lightweight Issue Tracking Embedded in IDE"
-    },
-    {
-      "id": "ADR-006",
-      "title": "Code Health with Real Test Execution"
-    },
-    {
-      "id": "ADR-007",
-      "title": "IME Guard and fileURLToPath Conventions"
-    },
-    {
-      "id": "ADR-008",
-      "title": "Agent Memory Panel with Crew Visualization"
-    },
-    {
-      "id": "ADR-009",
-      "title": "Write File Path Restriction (and Subsequent Relaxation)"
-    },
-    {
-      "id": "ADR-009",
-      "title": "b: Relaxed Write File Path Restriction"
-    }
-  ],
+  "decisions": [],
   "impactAnalysis": [
     {
-      "changedFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "changedFile": "packages/server/src/lib/agent-rules.mjs",
       "affectedFiles": [
-        "packages/server/src/lib/code-intelligence.mjs"
+        "packages/server/src/routes/a2a.mjs"
       ],
       "impactLevel": "low"
+    },
+    {
+      "changedFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "affectedFiles": [
+        "packages/server/src/routes/apps.mjs",
+        "packages/server/src/routes/crew.mjs",
+        "packages/server/src/routes/workflow.mjs",
+        "packages/server/src/scheduler/cron-jobs.mjs",
+        "packages/server/src/websocket/ws-handler.mjs"
+      ],
+      "impactLevel": "medium"
     }
   ],
-  "diffStat": ".paaw/ARCHITECTURE.md                              | 137 ++++\n .paaw/DECISIONS.md                                 | 219 ++++--\n .paaw/PROJECT.md                                   | 166 ++---\n .paaw/changes/README.md                            |  14 +\n .../conversations/coding.developer.json            |  41 ++\n .../coding-memory/conversations/coding.tester.json |  26 +\n .paaw/coding-memory/dispatch-log.jsonl             | 106 +++\n .paaw/cu-debug.log                                 |  29 +\n .paaw/features/FEATURES.json                       | 290 ++++++++\n .paaw/features/raw-feature-map.txt                 | 110 +++\n .paaw/helpdesk/faq.md                              | 107 +++\n .paaw/issues/ISSUES.json                           | 112 +++\n .paaw/product/architecture.md                      | 137 ++++\n .paaw/product/domain-glossary.md                   |  14 +\n .paaw/product/product-overview.md                  |  94 +++\n .paaw/quality/quality-policy.yaml                  |  38 +\n .paaw/scan.json                                    |  36 +\n .paaw/specs/api-contract.md                        | 581 +++++++++++++++\n .paaw/specs/error-codes.md                         | 110 +++\n .paaw/standards/coding-style.md                    |  93 +++\n .paaw/test-payloads/all-payloads.json              | 352 ++++++++++\n ...-00-11.json => backup-2026-07-11T16-00-18.json} |  10 +-\n ...20.tar.gz => backup-2026-07-11T16-00-18.tar.gz} | Bin 15362388 -> 13199573 bytes\n ...-00-20.json => backup-2026-07-12T16-00-15.json} |  10 +-\n ...11.tar.gz => backup-2026-07-12T16-00-15.tar.gz} | Bin 15360339 -> 13200618 bytes\n data/ai-settings/coding/gen-api-spec.md            |  61 ++\n data/ai-settings/coding/gen-architecture.md        |  96 +++\n data/ai-settings/coding/gen-decisions.md           |  67 ++\n data/ai-settings/coding/gen-error-mapping.md       |  76 ++\n data/ai-settings/coding/gen-faq.md                 |  69 ++\n data/ai-settings/coding/gen-feature-map.md         | 169 +++++\n data/ai-settings/c",
+  "diffStat": ".paaw/ARCHITECTURE.md                              |   137 +\n .paaw/DECISIONS.md                                 |   219 +-\n .paaw/PROJECT.md                                   |   166 +-\n .paaw/changes/README.md                            |    14 +\n .paaw/changes/change-intelligence.json             |  1831 ++\n .paaw/code-intelligence/api-function-map.json      |   637 +\n .paaw/code-intelligence/call-graph.json            | 20013 +++++++++++++++\n .paaw/code-intelligence/dependency-graph.json      |  8539 +++++++\n .paaw/code-intelligence/file-map.json              | 16369 ++++++++++++\n .paaw/code-intelligence/summary.json               |    49 +\n .paaw/code-intelligence/symbol-index.json          | 25284 +++++++++++++++++++\n .paaw/code-intelligence/test-code-map.json         |   779 +\n .paaw/code-intelligence/test-intelligence.json     |  1004 +\n .../conversations/coding.developer.json            |    41 +\n .../coding-memory/conversations/coding.tester.json |    26 +\n .paaw/coding-memory/dispatch-log.jsonl             |   106 +\n .paaw/cu-debug.log                                 |    29 +\n .paaw/features/FEATURES.json                       |   290 +\n .paaw/features/raw-feature-map.txt                 |   110 +\n .paaw/helpdesk/faq.md                              |   107 +\n .paaw/issues/ISSUES.json                           |   112 +\n .paaw/product/architecture.md                      |   137 +\n .paaw/product/domain-glossary.md                   |    14 +\n .paaw/product/product-overview.md                  |    94 +\n .paaw/quality/quality-policy.yaml                  |    38 +\n .paaw/scan.json                                    |    36 +\n .paaw/specs/api-contract.md                        |   581 +\n .paaw/specs/error-codes.md                         |   110 +\n .paaw/standards/coding-style.md                    |    93 +\n .paaw/test-payloads/all-payloads.json              |   352 +\n ...-00-11.json => backup-2026-07-11T16-00-18.json} |    10 +-\n ...20.tar.gz => backup-20",
   "summary": {
     "period": "30 days",
     "totalCommits": 50,
-    "totalFilesChanged": 103,
-    "totalFeaturesChanged": 0,
+    "totalFilesChanged": 132,
+    "totalFeaturesChanged": 34,
     "totalApisChanged": 21,
-    "totalDecisions": 10,
+    "totalDecisions": 0,
     "highImpactChanges": 0,
     "topChangedFiles": [
       {
-        "file": ".paaw/changes/README.md",
+        "file": "packages/server/src/lib/agent-rules.mjs",
+        "changes": 3
+      },
+      {
+        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "changes": 8
+      },
+      {
+        "file": "data/ai-settings/domain-ai/bug/analyze-errors.md",
         "changes": 1
       },
       {
-        "file": ".paaw/product/architecture.md",
+        "file": "data/ai-settings/domain-ai/docs/analyze-docs.md",
         "changes": 1
       },
       {
-        "file": ".paaw/product/domain-glossary.md",
-        "changes": 1
-      },
-      {
-        "file": ".paaw/product/product-overview.md",
-        "changes": 1
-      },
-      {
-        "file": ".paaw/quality/quality-policy.yaml",
+        "file": "data/ai-settings/domain-ai/maintain/analyze-maintain.md",
         "changes": 1
       }
     ]
