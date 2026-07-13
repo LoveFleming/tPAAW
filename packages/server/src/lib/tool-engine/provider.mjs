@@ -103,6 +103,7 @@ export class OpenAICompatibleAdapter {
 
     // 累積 tool calls（index → { id, name, args }）
     const pendingTools = new Map()
+    let doneEmitted = false
 
     // ★ 寫 streaming result 到 temp
     const streamLogPath = nodePath.join(tempDir, `stream-${Date.now()}.log`)
@@ -193,6 +194,7 @@ export class OpenAICompatibleAdapter {
                 })
               }
               yield { type: 'done', finishReason, toolCalls }
+              doneEmitted = true
               pendingTools.clear()
               break
             }
@@ -201,6 +203,7 @@ export class OpenAICompatibleAdapter {
               logStream(`FINISH: stop`)
               console.log(`[Provider] finishReason=stop`)
               yield { type: 'done', finishReason, toolCalls: [] }
+              doneEmitted = true
               break
             }
           } catch (parseErr) {
@@ -210,7 +213,8 @@ export class OpenAICompatibleAdapter {
       }
 
       // Stream ended naturally without finish_reason
-      if (pendingTools.size > 0) {
+      if (!doneEmitted) {
+        if (pendingTools.size > 0) {
         const toolCalls = []
         for (const [, call] of pendingTools) {
           toolCalls.push({

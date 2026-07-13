@@ -212,7 +212,10 @@ export default async function chatRoutes(req, res) {
 
       console.log(`[${chatReqId}] ToolEngine.run() starting...`);
 
+      let sseEnded = false;
+
       for await (const chunk of engine.run(ctx.systemPrompt, messages || [], model)) {
+        if (sseEnded) break; // 防止 done/error 之後又收到 chunk
         chunkCount++
         const elapsed = Date.now() - streamStart
         switch (chunk.type) {
@@ -240,6 +243,7 @@ export default async function chatRoutes(req, res) {
             res.write('data: [DONE]\n\n')
             if (typeof res.flush === 'function') res.flush()
             res.end()
+            sseEnded = true
             console.log(`[${chatReqId}] DONE ${elapsed}ms chunks=${chunkCount} tools=${toolsUsed.join(',')} textLen=${fullText.length}`)
             break
 
@@ -247,6 +251,7 @@ export default async function chatRoutes(req, res) {
             res.write(`data: ${JSON.stringify({ error: true, message: chunk.message })}\n\n`)
             if (typeof res.flush === 'function') res.flush()
             res.end()
+            sseEnded = true
             console.log(`[${chatReqId}] ERROR: ${chunk.message} ${elapsed}ms`)
             break
         }

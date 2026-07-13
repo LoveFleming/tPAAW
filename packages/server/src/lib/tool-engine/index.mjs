@@ -147,6 +147,7 @@ export class ToolEngine {
     if (this.security) await this.security.init()
 
     let totalText = ''
+    let doneYielded = false
     const toolNames = this.registry.listNames()
 
     try {
@@ -295,11 +296,15 @@ export class ToolEngine {
         }
 
         // 正常結束
+        doneYielded = true
         yield { type: 'done', fullText: totalText }
         return
       }
 
-      yield { type: 'done', fullText: totalText }
+      // Fallback：所有 rounds 耗盡但沒有正常結束
+      if (!doneYielded) {
+        yield { type: 'done', fullText: totalText }
+      }
     } finally {
       if (this.security) await this.security.dispose()
     }
