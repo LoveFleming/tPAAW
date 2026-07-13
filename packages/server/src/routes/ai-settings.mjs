@@ -33,12 +33,43 @@ const CATEGORIES = [
   { id: "app-builder",   label: "App Builder",   icon: "📦", desc: "App 建構器 — App 產出規則" },
   { id: "notes",         label: "Notes",         icon: "📝", desc: "AI 筆記 — 整理規則、格式規範" },
   { id: "mindmap",       label: "Mind Map",      icon: "🧠", desc: "AI 心智圖 — 分支策略、節點規則" },
+  { id: "coding",         label: "Coding",         icon: "💻", desc: "AI Coding — 程式碼審查、Code Understanding 步驟提示（掃描、架構、Feature Map 等）" },
   { id: "project",       label: "Project",       icon: "📋", desc: "專案管理 — 建專案、分析狀態、建議任務" },
   { id: "distill",       label: "Distill",       icon: "⚗️", desc: "蒸餾器 — 對話摘要規則" },
 ];
 
 // Default icon for unknown file types
 const DEFAULT_FILE_ICON = "📄";
+
+// Special icons for known Code Understanding prompts
+const CU_FILE_ICONS = {
+  "scan-project": "🔍",
+  "gen-architecture": "🏗️",
+  "gen-api-spec": "📡",
+  "gen-error-mapping": "🐛",
+  "gen-decisions": "🏛️",
+  "gen-test-payload": "🧪",
+  "gen-standards": "📏",
+  "gen-faq": "🤖",
+  "gen-overview": "📊",
+  "gen-feature-map": "🗺️",
+  "code-review": "👀",
+};
+
+// Better labels for CU prompts
+const CU_FILE_LABELS = {
+  "scan-project": "掃描專案結構",
+  "gen-architecture": "產出 Architecture Map",
+  "gen-api-spec": "產出 API Contract",
+  "gen-error-mapping": "產出 Error Map + Runbooks",
+  "gen-decisions": "產出 Decision Records",
+  "gen-test-payload": "產出 Test Payloads",
+  "gen-standards": "產出 Coding Standards",
+  "gen-faq": "產出 HelpDesk FAQ",
+  "gen-overview": "產出 PROJECT.md",
+  "gen-feature-map": "產出 Feature Map",
+  "code-review": "Code Review 規則",
+};
 
 function categoryDir(categoryId) {
   return join(AI_SETTINGS_ROOT, categoryId);
@@ -85,8 +116,8 @@ async function scanCategoryFiles(categoryId) {
       .sort()
       .map(f => ({
         file: f,
-        label: f.replace(/\.md$/, "").replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-        icon: DEFAULT_FILE_ICON,
+        label: CU_FILE_LABELS[f.replace(/\.md$/, "")] || f.replace(/\.md$/, "").replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        icon: CU_FILE_ICONS[f.replace(/\.md$/, "")] || DEFAULT_FILE_ICON,
       }));
   } catch {
     return [];

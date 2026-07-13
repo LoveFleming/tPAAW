@@ -1158,10 +1158,14 @@ export default async function projectRoute(req, res) {
 
         // Load prompt
         const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
+        const aiSettingsDir = join(PAAW_ROOT, "data", "ai-settings", "coding");
         const loadPrompt = (filename) => {
+          // Priority: ai-settings/coding/ > prompts/code-understanding/
+          try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
           try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
         };
         const loadProjectPrompt = (filename) => {
+          // Priority: .paaw/prompts/ > ai-settings/coding/ > prompts/code-understanding/
           const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
           if (existsSync(overridePath)) { try { return readSync(overridePath, "utf-8"); } catch {} }
           return loadPrompt(filename);
@@ -1385,12 +1389,16 @@ export default async function projectRoute(req, res) {
 
         // Load prompt templates
         const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
+        const aiSettingsDir = join(PAAW_ROOT, "data", "ai-settings", "coding");
         const loadPrompt = (filename) => {
+          // Priority: ai-settings/coding/ > prompts/code-understanding/
+          try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
           try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
         };
 
         // Check project-level overrides in .paaw/prompts/code-understanding/
         const loadProjectPrompt = (filename) => {
+          // Priority: .paaw/prompts/ > ai-settings/coding/ > prompts/code-understanding/
           const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
           if (existsSync(overridePath)) {
             try { return readSync(overridePath, "utf-8"); } catch {}
@@ -1750,11 +1758,13 @@ export default async function projectRoute(req, res) {
         } catch {}
 
         const promptsDir = join(PAAW_ROOT, "data", "prompts", "code-understanding");
+        const aiSettingsDir = join(PAAW_ROOT, "data", "ai-settings", "coding");
         const loadPrompt = (filename) => {
           const overridePath = join(root, ".paaw", "prompts", "code-understanding", filename);
           if (existsSync(overridePath)) {
             try { return readSync(overridePath, "utf-8"); } catch {}
           }
+          try { return readSync(resolve(aiSettingsDir, filename), "utf-8"); } catch {}
           try { return readSync(resolve(promptsDir, filename), "utf-8"); } catch { return ""; }
         };
 
