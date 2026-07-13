@@ -174,6 +174,22 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   useEffect(() => { refreshData(); }, [refreshData]);
 
+  // ── Auto-trigger Code Understanding on first project open ──
+  const autoCUTriggered = useRef(false);
+  useEffect(() => {
+    // Only trigger once per mount, and only if code status says not initialized
+    if (autoCUTriggered.current) return;
+    if (!rootPath) return;
+    if (codeStatus && !codeStatus.initialized && onStartCodeUnderstanding) {
+      autoCUTriggered.current = true;
+      loadPersistedSteps().then(() => {
+        setShowCUModal(true);
+        // Auto-start after a brief moment so the modal renders first
+        setTimeout(() => onStartCodeUnderstanding!(), 300);
+      });
+    }
+  }, [rootPath, codeStatus, onStartCodeUnderstanding, loadPersistedSteps]);
+
   // ── When bulk Code Understanding finishes (running false→true→false), refresh persisted steps + code status ──
   const prevRunningRef = useRef(false);
   useEffect(() => {
