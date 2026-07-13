@@ -551,8 +551,31 @@ Output ONLY the JSON array, no markdown fences.`;
       });
       const llmData = await llmRes.json();
       const content = llmData.choices?.[0]?.message?.content || "";
-      const cleanJson = content.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
-      const updates = JSON.parse(cleanJson);
+      const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+      let updates;
+      try {
+        updates = JSON.parse(cleanJson);
+      } catch (parseErr) {
+        // Recovery: find last complete object (AI output may be truncated)
+        let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+        for (let i = 0; i < cleanJson.length; i++) {
+          const c = cleanJson[i];
+          if (esc) { esc = false; continue; }
+          if (c === '\\') { esc = true; continue; }
+          if (c === '"') { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (c === '{') braceCount++;
+          if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+        }
+        const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
+        try {
+          updates = JSON.parse(recovered);
+        } catch (recoverErr) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `AI refresh failed: truncated JSON (parse: ${parseErr.message}, recovery: ${recoverErr.message})` }));
+          return true;
+        }
+      }
 
       if (!Array.isArray(updates)) throw new Error("AI did not return an array");
 

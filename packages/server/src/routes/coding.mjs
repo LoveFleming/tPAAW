@@ -1259,7 +1259,7 @@ export default async function projectRoute(req, res) {
             } else if (step.id === "feature-map") {
               // Parse AI output as JSON array and write to FEATURES.json
               try {
-                const cleanJson = content.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
+                const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                 const features = JSON.parse(cleanJson);
                 if (Array.isArray(features)) {
                   const featuresWithIds = features.map((f, i) => ({
@@ -1282,8 +1282,8 @@ export default async function projectRoute(req, res) {
                 // Try recovery: find last complete object
                 try {
                   let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
-                  for (let i = 0; i < content.length; i++) {
-                    const c = content[i];
+                  for (let i = 0; i < cleanJson.length; i++) {
+                    const c = cleanJson[i];
                     if (esc) { esc = false; continue; }
                     if (c === '\\') { esc = true; continue; }
                     if (c === '"') { inStr = !inStr; continue; }
@@ -1291,7 +1291,7 @@ export default async function projectRoute(req, res) {
                     if (c === '{') braceCount++;
                     if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
                   }
-                  const recovered = content.substring(0, lastComplete + 1).trim() + '\n]';
+                  const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
                   const feats = JSON.parse(recovered);
                   if (Array.isArray(feats) && feats.length > 0) {
                     const featuresWithIds = feats.map((f, i) => ({ ...f, id: `F-${String(i+1).padStart(3,"0")}`, issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
@@ -1476,7 +1476,7 @@ export default async function projectRoute(req, res) {
               } else if (step.id === "feature-map") {
                 // Parse AI output as JSON array and write to FEATURES.json
                 try {
-                  const cleanJson = content.replace(/^```json?\n?/m, "").replace(/\n?```$/m, "").trim();
+                  const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                   const features = JSON.parse(cleanJson);
                   if (Array.isArray(features)) {
                     const featuresWithIds = features.map((f, i) => ({
@@ -1499,8 +1499,8 @@ export default async function projectRoute(req, res) {
                   // Try recovery: find last complete object
                   try {
                     let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
-                    for (let i = 0; i < content.length; i++) {
-                      const c = content[i];
+                    for (let i = 0; i < cleanJson.length; i++) {
+                      const c = cleanJson[i];
                       if (esc) { esc = false; continue; }
                       if (c === '\\') { esc = true; continue; }
                       if (c === '"') { inStr = !inStr; continue; }
@@ -1508,7 +1508,7 @@ export default async function projectRoute(req, res) {
                       if (c === '{') braceCount++;
                       if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
                     }
-                    const recovered = content.substring(0, lastComplete + 1).trim() + '\n]';
+                    const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
                     const feats = JSON.parse(recovered);
                     if (Array.isArray(feats) && feats.length > 0) {
                       const featuresWithIds = feats.map((f, i) => ({ ...f, id: `F-${String(i+1).padStart(3,"0")}`, issues: [], aiUnderstanding: "", aiUnderstandingAt: null, documentation: "", docsUpdatedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
