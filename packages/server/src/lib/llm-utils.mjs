@@ -15,9 +15,9 @@
 
 // ── 配置 ──
 
-const DEFAULT_MAX_RETRIES = 5;           // 3 → 5 (zai GLM 429 needs more retries)
-const DEFAULT_BASE_DELAY_MS = 2000;     // 1s → 2s (first retry wait longer)
-const DEFAULT_MAX_DELAY_MS = 30000;     // 15s → 30s (zai 429 can need 20s+)
+const DEFAULT_MAX_RETRIES = 2;           // reduced from 5 — most providers handle 429 internally now, no need to retry 5 times
+const DEFAULT_BASE_DELAY_MS = 1000;     // first retry wait 1s (was 2s — most providers don't need long waits)
+const DEFAULT_MAX_DELAY_MS = 10000;     // max 10s between retries (was 30s — too long for non-rate-limited providers)
 const DEFAULT_TIMEOUT_MS = 60_000;    // API call timeout 60s
 
 // ── AI Call Logging ──
@@ -276,7 +276,7 @@ export async function fetchWithRetry(url, options = {}, opts = {}) {
  */
 export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
   const {
-    maxRetries = DEFAULT_MAX_RETRIES,
+    maxRetries = 2,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     validateContent = true,
     sanitize = true,
@@ -386,7 +386,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
  */
 export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
   const {
-    maxRetries = DEFAULT_MAX_RETRIES,
+    maxRetries = 2,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     onRetry = null,
   } = opts;
