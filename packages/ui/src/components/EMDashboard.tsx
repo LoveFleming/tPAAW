@@ -758,16 +758,23 @@ interface HandoffFile {
   path: string;
   icon: string;
   label: string;
+  cuStep?: string; // which CU step produces this file
 }
 const HANDOFF_FILES: HandoffFile[] = [
-  { path: ".paaw/PROJECT.md", icon: "📄", label: "Project Brief" },
-  { path: ".paaw/STATUS.md", icon: "📊", label: "Current Status" },
-  { path: ".paaw/DECISIONS.md", icon: "🏛️", label: "Decision Log" },
+  // CU 產出的核心檔案
+  { path: ".paaw/PROJECT.md", icon: "📋", label: "PROJECT.md", cuStep: "overview" },
+  { path: ".paaw/ARCHITECTURE.md", icon: "📐", label: "Architecture Map", cuStep: "architecture" },
+  { path: ".paaw/features/FEATURES.json", icon: "🗺️", label: "Feature Map", cuStep: "feature-map" },
+  { path: ".paaw/specs/api-contract.md", icon: "📡", label: "API Contract", cuStep: "api-spec" },
+  { path: ".paaw/specs/error-codes.md", icon: "🐛", label: "Error Mapping", cuStep: "error-mapping" },
+  { path: ".paaw/standards/coding-style.md", icon: "🏛️", label: "Coding Standards", cuStep: "standards" },
+  { path: ".paaw/code-intelligence/summary.json", icon: "🧠", label: "Code Intelligence", cuStep: "code-intelligence" },
+  { path: ".paaw/code-intelligence/test-intelligence.json", icon: "🧪", label: "Test Intelligence", cuStep: "test-intelligence" },
+  { path: ".paaw/security/scan-results.json", icon: "🔒", label: "Security Scan", cuStep: "security-scan" },
+  { path: ".paaw/changes/change-intelligence.json", icon: "🔄", label: "Change Intelligence", cuStep: "change-intelligence" },
+  // Agent 維護的檔案（非 CU 產出，但重要）
+  { path: ".paaw/DECISIONS.md", icon: "🧠", label: "Decision Log" },
   { path: ".paaw/CHANGELOG.md", icon: "📝", label: "Change Memory" },
-  { path: ".paaw/TEST-EVIDENCE.md", icon: "🧪", label: "Test Evidence" },
-  { path: ".paaw/KNOWN-ISSUES.md", icon: "⚠️", label: "Known Issues" },
-  { path: ".paaw/NEXT-ACTIONS.md", icon: "📋", label: "Next Actions" },
-  { path: ".paaw/AI-OPERATING-GUIDE.md", icon: "🤖", label: "AI 操作手冊" },
 ];
 
 function HandoffStatusPanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void }) {
@@ -779,9 +786,22 @@ function HandoffStatusPanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk
       const results: Record<string, "ok" | "template" | "missing"> = {};
       for (const f of HANDOFF_FILES) {
         try {
-          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(f.path.replace(/^\.paaw\//, ""))}`);
+          const filePath = f.path.replace(/^\.paaw\//, "");
+          const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(filePath)}`);
           if (!res.ok) { results[f.path] = "missing"; continue; }
           const content = await res.text();
+          // JSON files: check if valid JSON with content
+          if (f.path.endsWith(".json")) {
+            try {
+              const parsed = JSON.parse(content);
+              const hasContent = JSON.stringify(parsed).length > 20;
+              results[f.path] = hasContent ? "ok" : "template";
+            } catch {
+              results[f.path] = "template";
+            }
+            continue;
+          }
+          // Markdown files: check for real content
           if (!content.trim() || content.includes("(待補充)") || content.includes("(auto-detect)") || content.length < 50) {
             results[f.path] = "template";
           } else {
