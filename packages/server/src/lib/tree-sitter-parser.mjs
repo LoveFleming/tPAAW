@@ -71,6 +71,54 @@ function walkNode(node, visitor, depth = 0, maxDepth = 20) {
 }
 
 /**
+ * Extract calls made within a function body
+ * Returns array of { callee, args, type }
+ */
+function extractCalls(funcNode) {
+  const calls = [];
+  const body = funcNode.childForFieldName("body") || funcNode;
+  if (!body) return calls;
+
+  walkNode(body, (node) => {
+    if (node.type === "call_expression") {
+      const fn = node.childForFieldName("function");
+      if (!fn) return;
+
+      let callee = "";
+      let callType = "direct"; // direct, method, chained
+
+      if (fn.type === "identifier") {
+        // foo() — direct call
+        callee = fn.text;
+        callType = "direct";
+      } else if (fn.type === "member_expression") {
+        // obj.method() or obj.foo.bar()
+        const obj = fn.childForFieldName("object");
+        const prop = fn.childForFieldName("property");
+        const objText = obj ? obj.text : "";
+        const propText = prop ? prop.text : "";
+        if (objText && propText) {
+          callee = `${objText}.${propText}`;
+          callType = objText.includes(".") ? "chained" : "method";
+        }
+      } else if (fn.type === "call_expression") {
+        // foo()() — nested call
+        callee = fn.text.slice(0, 60);
+        callType = "nested";
+      }
+
+      if (callee) {
+        const args = node.childForFieldName("arguments");
+        const argCount = args ? args.children.filter(c => c.type !== "," && c.type !== "(" && c.type !== ")").length : 0;
+        calls.push({ callee, type: callType, argCount });
+      }
+    }
+  }, 0, 30); // deeper walk for call extraction
+
+  return calls;
+}
+
+/**
  * Extract structured info from a single file's AST
  */
 function extractFileInfo(tree, filePath, language) {
@@ -198,7 +246,8 @@ function extractFileInfo(tree, filePath, language) {
           if (value && value.type === "arrow_function") {
             const asyncKw = value.children.find(c => c.type === "async");
             const params = value.childForFieldName("parameters")?.text || "";
-            info.functions.push({ name, kind: "arrow", async: !!asyncKw, params });
+            const calls = extractCalls(value);
+            info.functions.push({ name, kind: "arrow", async: !!asyncKw, params, calls });
           }
         }
       }

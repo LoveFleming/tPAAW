@@ -43,6 +43,7 @@ import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
 import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable } from "../lib/semgrep-runner.mjs";
+import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
 
 // ── PAAW root directory (cross-platform safe) ──
 // fileURLToPath handles Windows drive-letter URLs correctly,
@@ -946,6 +947,65 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── GET /api/coding-project/code-intelligence ──
+    // Build and return full code intelligence (call graph, dependency graph, etc.)
+    if (url.startsWith("/api/coding-project/code-intelligence") && method === "GET") {
+      try {
+        const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(summary));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/code-intelligence/context-package ──
+    // Build a Code Context Package for a specific query (file, function, route, feature)
+    if (url.startsWith("/api/coding-project/code-intelligence/context-package") && method === "GET") {
+      try {
+        const queryParams = new URLSearchParams(url.split("?")[1] || "");
+        const query = {};
+        if (queryParams.get("file")) query.filePath = queryParams.get("file");
+        if (queryParams.get("function")) query.functionName = queryParams.get("function");
+        if (queryParams.get("route")) query.routePath = queryParams.get("route");
+        if (queryParams.get("feature")) query.featureName = queryParams.get("feature");
+        const contextPkg = await buildContextPackage(root, PAAW_ROOT, query);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(contextPkg));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/code-intelligence/:type ──
+    // Load a specific intelligence file (call-graph, dependency-graph, etc.)
+    const ciMatch = url.match(/^\/api\/coding-project\/code-intelligence\/([a-z-]+)\??/);
+    if (ciMatch && method === "GET") {
+      const ciType = ciMatch[1];
+      const validTypes = ["call-graph", "api-function-map", "dependency-graph", "test-code-map", "symbol-index", "file-map", "summary"];
+      if (validTypes.includes(ciType)) {
+        const ciFile = join(root, ".paaw", "code-intelligence", `${ciType}.json`);
+        if (!existsSync(ciFile)) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `${ciType}.json not found. Run code intelligence first.` }));
+          return true;
+        }
+        try {
+          const data = await readFile(ciFile, "utf-8");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(data);
+        } catch {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `Failed to read ${ciType}.json` }));
+        }
+        return true;
+      }
+    }
+
     // ── POST /api/coding-project/generate-overview ──
     if (url.startsWith("/api/coding-project/generate-overview") && method === "POST") {
       // Ensure .paaw/ exists first
@@ -1168,6 +1228,7 @@ export default async function projectRoute(req, res) {
         { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
         { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "code-intelligence", name: "🧠 Code Intelligence (Call Graph)", promptFile: null },
         { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
       ];
       const step = ALL_STEPS.find(s => s.id === stepId);
@@ -1248,6 +1309,27 @@ export default async function projectRoute(req, res) {
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
           }
           sendEvent("done", { message: "Security scan complete" });
+          res.end();
+          return true;
+        }
+
+        // Special handling: code-intelligence runs Tree-sitter analysis (no LLM needed)
+        if (step.id === "code-intelligence") {
+          try {
+            cuLog(step.id, "Building code intelligence (call graph, dependency graph, etc.)...");
+            const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+            cuLog(step.id, `Code intelligence done: ${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls, ${summary.dependencyGraph.totalEdges} dependencies`);
+            sendEvent("step_done", {
+              step: step.id,
+              name: step.name,
+              summary: `${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls, ${summary.symbolIndex.total} symbols`,
+              stats: summary,
+            });
+          } catch (err) {
+            cuLog(step.id, `Code intelligence failed: ${err.message}`);
+            sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+          }
+          sendEvent("done", { message: "Code intelligence complete" });
           res.end();
           return true;
         }
@@ -1481,6 +1563,7 @@ export default async function projectRoute(req, res) {
         { id: "faq", name: "🤖 產出 HelpDesk FAQ", promptFile: "gen-faq.md" },
         { id: "overview", name: "📊 產出 PROJECT.md", promptFile: "gen-overview.md" },
         { id: "feature-map", name: "🗺️ 產出 Feature Map", promptFile: "gen-feature-map.md" },
+        { id: "code-intelligence", name: "🧠 Code Intelligence (Call Graph)", promptFile: null },
         { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", promptFile: null },
       ];
 
@@ -1564,6 +1647,20 @@ export default async function projectRoute(req, res) {
               sendEvent("step_done", { step: step.id, name: step.name, summary: `${scanResult.stats.total} findings`, stats: scanResult.stats });
             } catch (err) {
               cuLog(step.id, `[bulk] Semgrep failed: ${err.message}`);
+              sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            }
+            continue;
+          }
+
+          // Special handling: code-intelligence runs Tree-sitter analysis (no LLM needed)
+          if (step.id === "code-intelligence") {
+            try {
+              cuLog(step.id, "[bulk] Building code intelligence...");
+              const { summary } = await buildCodeIntelligence(root, PAAW_ROOT);
+              cuLog(step.id, `[bulk] Code intelligence done: ${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls`);
+              sendEvent("step_done", { step: step.id, name: step.name, summary: `${summary.callGraph.totalFunctions} functions, ${summary.symbolIndex.total} symbols`, stats: summary });
+            } catch (err) {
+              cuLog(step.id, `[bulk] Code intelligence failed: ${err.message}`);
               sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
             }
             continue;

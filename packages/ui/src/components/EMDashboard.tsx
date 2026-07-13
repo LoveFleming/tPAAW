@@ -94,6 +94,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     { id: "faq", name: "🤖 產出 HelpDesk FAQ", file: "helpdesk/faq.md" },
     { id: "overview", name: "📊 產出 PROJECT.md", file: "PROJECT.md", checkOnly: true },
     { id: "feature-map", name: "🗺️ 產出 Feature Map", file: "features/FEATURES.json" },
+    { id: "code-intelligence", name: "🧠 Code Intelligence", file: "code-intelligence/summary.json" },
     { id: "security-scan", name: "🔒 安全掃描 (Semgrep)", file: "security/scan-results.json" },
   ];
 
