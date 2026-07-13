@@ -64,7 +64,6 @@ export class OpenAICompatibleAdapter {
     const payloadPath = nodePath.join(tempDir, `payload-${Date.now()}.json`)
     fs.writeFileSync(payloadPath, JSON.stringify(body, null, 2))
     console.log(`[Provider] Payload: ${payloadPath}`)
-    console.log(`[Provider] Headers:`, JSON.stringify({ ...headers, Authorization: headers.Authorization?.slice(0, 15) + '...' }, null, 2))
     console.log(`[Provider] URL: ${url}`)
 
     let response
