@@ -21,6 +21,7 @@ const LANG_MAP = {
   ".ts": "typescript",
   ".tsx": "tsx",
   ".py": "python",
+  ".java": "java",
 };
 
 // ── Grammar WASM paths (resolved relative to PAAW_ROOT) ──
@@ -32,6 +33,7 @@ function getGrammarWasmPath(lang, paawRoot) {
     typescript: join(paawRoot, "node_modules", "tree-sitter-typescript", "tree-sitter-typescript.wasm"),
     tsx: join(paawRoot, "node_modules", "tree-sitter-typescript", "tree-sitter-tsx.wasm"),
     python: join(paawRoot, "node_modules", "tree-sitter-python", "tree-sitter-python.wasm"),
+    java: join(paawRoot, "node_modules", "tree-sitter-java", "tree-sitter-java.wasm"),
   };
   return paths[lang] || null;
 }
@@ -86,7 +88,28 @@ function extractFileInfo(tree, filePath, language) {
   const root = tree.rootNode;
 
   walkNode(root, (node) => {
-    // ── Imports ──
+    // ── Imports (Java) ──
+    if (node.type === "import_declaration" && language === "java") {
+      // import java.util.List;  or  import java.util.*;
+      const scopedId = node.children.find(c => c.type === "scoped_identifier" || c.type === "wildcard_import");
+      if (scopedId) {
+        const source = scopedId.text;
+        const parts = source.split(".");
+        const lastName = parts[parts.length - 1];
+        info.imports.push({ source, names: [lastName] });
+      }
+    }
+
+    // ── Java method declarations ──
+    if (node.type === "method_declaration" && language === "java") {
+      const name = node.childForFieldName("name")?.text || "";
+      const params = node.childForFieldName("parameters")?.text || "";
+      if (name) {
+        info.functions.push({ name, kind: "method", async: false, params });
+      }
+    }
+
+    // ── Imports (JS/TS) ──
     if (node.type === "import_statement") {
       const sourceNode = node.childForFieldName("source");
       const source = sourceNode ? sourceNode.text.replace(/^['"]|['"]$/g, "") : "";
@@ -192,9 +215,23 @@ function extractFileInfo(tree, filePath, language) {
             const mname = n.childForFieldName("name")?.text || "";
             if (mname) methods.push(mname);
           }
+          // Java methods: method_declaration
+          if (n.type === "method_declaration") {
+            const mname = n.childForFieldName("name")?.text || "";
+            if (mname) methods.push(mname);
+          }
         }, 0, 3);
       }
       info.classes.push({ name, methods });
+
+      // For Java, classes are also exports (public class = file's export)
+      if (language === "java") {
+        const modifiers = node.childForFieldName("modifiers");
+        const isPublic = modifiers && modifiers.text.includes("public");
+        if (isPublic) {
+          info.exports.push({ kind: "class", name, isDefault: false });
+        }
+      }
     }
 
     // ── Route patterns: router.get('/path', ...), app.post('/path', ...) ──
