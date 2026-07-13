@@ -93,6 +93,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     { id: "standards", name: "📏 產出 Coding Standards", file: "standards/coding-style.md" },
     { id: "faq", name: "🤖 產出 HelpDesk FAQ", file: "helpdesk/faq.md" },
     { id: "overview", name: "📊 產出 PROJECT.md", file: "PROJECT.md", checkOnly: true },
+    { id: "feature-map", name: "🗺️ 產出 Feature Map", file: "features/FEATURES.json" },
   ];
 
   // ── Code Health item → Crew + prompt mapping ──

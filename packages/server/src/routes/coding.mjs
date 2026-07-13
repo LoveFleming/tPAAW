@@ -1484,6 +1484,7 @@ export default async function projectRoute(req, res) {
                 await paaw.writeFile("PROJECT.md", content);
               } else if (step.id === "feature-map") {
                 // Parse AI output as JSON array and write to FEATURES.json
+                let featureMapOk = false;
                 try {
                   const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
                   if (!cleanJson) throw new Error("AI 回應為空，無法產生 Feature Map");
@@ -1503,6 +1504,7 @@ export default async function projectRoute(req, res) {
                     const featuresDir = join(root, ".paaw", "features");
                     if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                     await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+                    featureMapOk = true;
                   }
                 } catch (parseErr) {
                   cuLog(step.id, `[bulk] Failed to parse feature JSON: ${parseErr.message}`);
@@ -1529,12 +1531,19 @@ export default async function projectRoute(req, res) {
                       if (!existsSync(featuresDir)) await mkdir(featuresDir, { recursive: true });
                       await writeFile(join(featuresDir, "FEATURES.json"), JSON.stringify({ features: featuresWithIds, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
                       cuLog(step.id, `[bulk] Recovery: saved ${featuresWithIds.length} features from truncated JSON`);
+                      featureMapOk = true;
                     } else throw new Error("recovered array is empty");
                   } catch (recoverErr) {
                     cuLog(step.id, `[bulk] Recovery also failed: ${recoverErr.message}`);
                     await paaw.writeFile("features/raw-feature-map.txt", content);
                     failedSteps.push({ step: step.id, name: step.name, error: `Feature Map 產生失敗：${parseErr.message}` });
                   }
+                }
+                if (!featureMapOk) {
+                  // Feature Map failed — send step_error instead of step_done
+                  sendEvent("step_error", { step: step.id, name: step.name, error: `Feature Map 產生失敗：AI 回應無法解析為 JSON。已儲存原始內容到 raw-feature-map.txt，請重新執行此步驟。` });
+                  // Skip step_done for this step
+                  continue;
                 }
               }
               cuLog(step.id, `[bulk] wrote file OK (${content.length} chars)`);
