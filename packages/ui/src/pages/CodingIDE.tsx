@@ -473,6 +473,8 @@ export default function CodingIDE() {
                 }
                 if (data.message === "Code Understanding complete") {
                   setAiInitializing(false);
+                  // Auto-open Features tab after Code Understanding completes
+                  openMainTab({ id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true });
                 }
               }
             } catch {}
