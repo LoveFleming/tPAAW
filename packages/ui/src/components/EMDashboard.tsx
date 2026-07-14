@@ -277,6 +277,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       let buffer = "";
       let fullText = "";
       let lastAssistantId: string | null = null;
+      let currentEvent = ""; // Track SSE event name
       const toolLog: string[] = [];
 
       while (reader) {
@@ -287,84 +288,66 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         buffer = lines.pop() || "";
 
         for (const line of lines) {
+          // Track SSE event name
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+            continue;
+          }
           if (!line.startsWith("data: ")) continue;
           try {
             const d = JSON.parse(line.slice(6));
 
-            // A2A JSON-RPC format
-            if (d.result) {
+            // ── Agent Loop SSE format (event: content, event: thinking, event: tool) ──
+            if (currentEvent === "content" && d.content) {
+              fullText = d.content;
+              setMessages(prev => [...prev.filter(m => !m._thinking)]);
+              setMessages(prev => [...prev, { role: "assistant", content: d.content, ts: new Date().toISOString() }]);
+            } else if (currentEvent === "thinking" && d.content) {
+              setMessages(prev => [...prev, { role: "assistant", content: `💭 ${d.content.slice(0, 200)}`, ts: new Date().toISOString(), _thinking: true }]);
+            } else if (currentEvent === "tool" && d.name) {
+              toolLog.push(d.name);
+              setMessages(prev => [...prev.filter(m => !m._thinking)]);
+              setMessages(prev => [...prev, { role: "assistant", content: `🔧 執行: ${d.name}`, ts: new Date().toISOString(), _thinking: true }]);
+            } else if (currentEvent === "error" && d.error) {
+              setMessages(prev => [...prev.filter(m => !m._thinking)]);
+              setMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${typeof d.error === "string" ? d.error : d.error.error || d.error.message || "unknown"}`, ts: new Date().toISOString() }]);
+              fullText = "__error__";
+            } else if (currentEvent === "info" && d.message) {
+              setMessages(prev => [...prev, { role: "assistant", content: d.message, ts: new Date().toISOString(), _thinking: true }]);
+            }
+            // ── A2A JSON-RPC format (message/send non-streaming) ──
+            else if (d.result) {
               const r = d.result;
-
-              // Streaming text chunks (artifact-update + append)
-              if (r.kind === "artifact-update" && r.append) {
-                const part = r.artifact?.parts?.[0];
-                if (part?.text) {
-                  fullText += part.text;
-                  // Update the last assistant message in-place for streaming effect
-                  setMessages(prev => {
-                    const filtered = prev.filter(m => !m._thinking);
-                    const last = filtered[filtered.length - 1];
-                    if (last && last.role === "assistant" && last._streamId === lastAssistantId) {
-                      return [...filtered.slice(0, -1), { ...last, content: fullText }];
-                    }
-                    // First chunk — create new assistant message
-                    const streamId = `stream-${Date.now()}`;
-                    lastAssistantId = streamId;
-                    return [...filtered, { role: "assistant", content: fullText, ts: new Date().toISOString(), _streamId: streamId }];
-                  });
-                }
-              }
-
-              // Tool usage status
-              if (r.kind === "status-update" && r.status?.message?.parts?.[0]?.text) {
-                const toolText = r.status.message.parts[0].text;
-                if (toolText.startsWith("🔧 ")) {
-                  toolLog.push(toolText);
-                }
-              }
-
-              // Final completion
-              if (r.kind === "status-update" && r.final) {
-                // If we never got streaming chunks but have a final result with text
-                if (!fullText && r.status?.state === "completed") {
-                  // Try to get text from the task artifacts in subsequent tasks/get
-                }
+              if (r.artifacts?.[0]?.parts?.[0]?.text) {
+                fullText = r.artifacts[0].parts[0].text;
+                setMessages(prev => [...prev.filter(m => !m._thinking)]);
+                setMessages(prev => [...prev, { role: "assistant", content: fullText, ts: new Date().toISOString() }]);
               }
             }
-
-            // Error
-            if (d.error) {
+            // ── JSON-RPC error ──
+            else if (d.error) {
               setMessages(prev => [...prev.filter(m => !m._thinking)]);
               setMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${d.error.message || "unknown"}`, ts: new Date().toISOString() }]);
               fullText = "__error__";
             }
 
-            // Legacy simple format (direct type field)
-            if (d.type === "content" && d.content) {
-              fullText = d.content;
-              setMessages(prev => [...prev.filter(m => !m._thinking)]);
-              setMessages(prev => [...prev, { role: "assistant", content: d.content, ts: new Date().toISOString() }]);
-            }
+            currentEvent = ""; // Reset after processing data
           } catch {}
         }
       }
 
-      // If stream ended with content, ensure it's in messages
+      // If stream ended with content but not yet added as message, add it now
       if (fullText && fullText !== "__error__") {
         setMessages(prev => {
           const filtered = prev.filter(m => !m._thinking);
-          const last = filtered[filtered.length - 1];
-          if (last && last.role === "assistant" && last._streamId) {
-            // Already streaming, just make sure content is final
-            if (last.content === fullText) return filtered;
-            return [...filtered.slice(0, -1), { ...last, content: fullText, _streamId: undefined }];
-          }
-          // Not yet added as a message — add it now
-          if (!filtered.some(m => m.role === "assistant" && m.content === fullText)) {
-            return [...filtered, { role: "assistant", content: fullText, ts: new Date().toISOString() }];
-          }
-          return filtered;
+          // Check if content already exists
+          if (filtered.some(m => m.role === "assistant" && m.content === fullText)) return filtered;
+          return [...filtered, { role: "assistant", content: fullText, ts: new Date().toISOString() }];
         });
+      } else if (!fullText && !toolLog.length) {
+        // No content at all — show fallback
+        setMessages(prev => [...prev.filter(m => !m._thinking)]);
+        setMessages(prev => [...prev, { role: "assistant", content: "（AI 回應完成但無文字內容）", ts: new Date().toISOString() }]);
       }
 
       // Refresh action log after EM responds
