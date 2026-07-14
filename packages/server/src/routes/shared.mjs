@@ -25,7 +25,6 @@ const PAAW_ROOT = resolve(SERVER_SRC, "../../../");
 const CONVERSATIONS_ROOT = resolve(PAAW_ROOT, "data/crews/conversation");
 const CREWS_ROOT = resolve(PAAW_ROOT, "data/crews");
 const SKILLS_ROOT = resolve(PAAW_ROOT, "data/skills");
-const DOCS_ROOT = resolve(PAAW_ROOT, "docs");
 const INPUT_PROMPT_ROOT = resolve(SKILLS_ROOT, "input-prompt");
 const PHYSICAL_SKILL_ROOT = resolve(SKILLS_ROOT, "physical-skill");
 const SKILL_POOL_ROOT = resolve(SKILLS_ROOT, "pool");
@@ -94,7 +93,6 @@ function json(res, code, data) {
 /** Resolve data sub-directory (PAAW has flat structure) */
 function resolveDataDir(_wsId, subdir) {
   if (subdir === "crews") return CREWS_ROOT;
-  if (subdir === "docs") return DOCS_ROOT;
   return resolve(PAAW_ROOT, subdir);
 }
 
@@ -174,7 +172,7 @@ function startWatcher(root, sseRes) {
 export {
   // Path constants
   __dirname, SERVER_SRC, DASHBOARD_ROOT, PAAW_ROOT, CONVERSATIONS_ROOT, CREWS_ROOT,
-  SKILLS_ROOT, DOCS_ROOT, INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT,
+  SKILLS_ROOT, INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT,
   APPS_ROOT, WORKFLOWS_ROOT, DATA_ROOT,
   PAAW_DATA_DIR, PAAW_USER_FILE, PAAW_CHAT_DIR, PAAW_WORKSPACES_FILE,
   PAAW_KNOWLEDGE_DIR, UI_STATE_FILE, APP_RULES_PATH,

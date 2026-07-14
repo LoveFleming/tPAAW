@@ -9,7 +9,7 @@ import {
   join, resolve, dirname,
 } from "path";
 import {
-  PAAW_ROOT, CONVERSATIONS_ROOT, CREWS_ROOT, DOCS_ROOT,
+  PAAW_ROOT, CONVERSATIONS_ROOT, CREWS_ROOT,
   projectPathHash, getConvDir, readBody, resolveDataDir, getWorkspaceId, buildTree, startWatcher,
 } from "./shared.mjs";
 import { json } from "./context.mjs";

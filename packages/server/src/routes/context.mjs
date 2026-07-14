@@ -28,7 +28,6 @@ export const PATHS = {
   BUILDING_ROOT:   resolve(PAAW_ROOT, "data/skills/building"),
   APPS_ROOT:       resolve(PAAW_ROOT, "data/apps"),
   WORKFLOWS_ROOT:  resolve(PAAW_ROOT, "data/workflows"),
-  DOCS_ROOT:       resolve(PAAW_ROOT, "docs"),
   CONFIG_ROOT:     resolve(PAAW_ROOT, "data/config"),
   CHAT_DIR:        resolve(PAAW_ROOT, "data/chats"),
   SYSTEM_DIR:      resolve(PAAW_ROOT, "data/ai-settings/_base"), // legacy name kept, now points to ai-settings/_base
@@ -79,7 +78,6 @@ export function parseSkillFrontmatter(raw) {
 /** Data dir helper (PAAW has flat structure) */
 export function resolveDataDir(_wsId, subdir) {
   if (subdir === "crews") return PATHS.CREWS_ROOT;
-  if (subdir === "docs") return PATHS.DOCS_ROOT;
   return resolve(PATHS.PAAW_ROOT, subdir);
 }
 
