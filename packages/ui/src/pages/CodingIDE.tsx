@@ -2704,6 +2704,7 @@ const sendChat = useCallback(async () => {
               <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
                 <NightShiftPanel
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                  rootPath={rootPath}
                 />
               </div>
             )}

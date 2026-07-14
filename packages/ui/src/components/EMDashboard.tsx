@@ -66,6 +66,44 @@ interface EMDashboardProps {
 }
 
 export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, model, onModelChange }: EMDashboardProps) {
+  // ── Night Shift State ──
+  const [nsRunning, setNsRunning] = useState(false);
+  const [nsStatus, setNsStatus] = useState<string>("");
+
+  const startNightShift = async () => {
+    setNsRunning(true);
+    setNsStatus("啟動中...");
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setNsStatus("🌙 Night Shift 已啟動！6 個 agent 平行工作中...");
+      } else {
+        setNsStatus("❌ 啟動失敗: " + (data.error || "unknown"));
+      }
+    } catch (err: any) {
+      setNsStatus("❌ " + err.message);
+    }
+    // Don't set nsRunning false immediately — poll status
+    const poll = setInterval(async () => {
+      try {
+        const sr = await fetch(`${API_BASE}/api/coding-night-shift/status${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
+        const sd = await sr.json();
+        if (sd.status === "completed") {
+          clearInterval(poll);
+          setNsRunning(false);
+          const done = sd.completedAgents || 0;
+          const total = sd.totalAgents || 6;
+          setNsStatus(`✅ Night Shift 完成！${done}/${total} agents 完成，耗時 ${Math.round((sd.duration || 0) / 1000)}s`);
+          // Refresh data to show overnight report
+          setTimeout(() => window.location.reload(), 2000);
+        } else if (sd.status === "running") {
+          setNsStatus(`⏳ ${sd.completedAgents}/${sd.totalAgents} agents 完成...`);
+        }
+      } catch {}
+    }, 5000);
+  };
+
   // ── Chat State ──
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() },
@@ -484,6 +522,16 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           >
             {emRunning ? "⏳ 執行中..." : "🚀 EM 自動調度"}
           </button>
+          <button
+            onClick={startNightShift}
+            disabled={nsRunning}
+            className={cn("text-sm px-3 py-1 rounded-md font-bold flex items-center gap-1",
+              nsRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700")}
+            title="掃描今天的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review"
+          >
+            {nsRunning ? `⏳ ${nsStatus}` : "🌙 Night Shift"}
+          </button>
+          {!nsRunning && nsStatus && <span className="text-xs text-indigo-600">{nsStatus}</span>}
         </div>
 
         {/* EM running progress */}

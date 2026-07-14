@@ -193,9 +193,9 @@ function getFeatureSummaryText(cwd) {
   }
 }
 
-// ── Helper: load crew member ──
-function loadCrewMember(cwd, crewId) {
-  const crewFile = join(cwd, "data", "crews", `${crewId}.json`);
+// ── Helper: load crew member (always from PAAW_ROOT) ──
+function loadCrewMember(crewId) {
+  const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
   if (!existsSync(crewFile)) return null;
   try {
     return JSON.parse(readSync(crewFile, "utf-8"));
@@ -207,7 +207,6 @@ function loadCrewMember(cwd, crewId) {
 export default async function codingNightShiftRoute(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
   const method = req.method;
-  const projRoot = PAAW_ROOT;
 
   // Helper: read body
   const readBody = (req) => new Promise((resolve) => {
@@ -221,6 +220,9 @@ export default async function codingNightShiftRoute(req, res) {
     res.writeHead(code, { "Content-Type": "application/json" });
     res.end(JSON.stringify(data));
   };
+
+  // Resolve code project root from query param or body, fallback to PAAW_ROOT
+  let projRoot = urlObj.searchParams.get("path") || PAAW_ROOT;
 
   // ── POST /api/coding-night-shift/start ──
   if (urlObj.pathname === "/api/coding-night-shift/start" && method === "POST") {
@@ -256,37 +258,36 @@ export default async function codingNightShiftRoute(req, res) {
       return true;
     }
 
-    // Run agents
+    // Run agents in parallel for speed
     const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
     const { loadAgentMemory, listActionLog } = await import("../lib/action-log.mjs");
 
-    for (const [role, config] of Object.entries(AGENT_TASKS)) {
-      const crew = loadCrewMember(projRoot, config.crewId);
+    const agentRoles = Object.entries(AGENT_TASKS);
+
+    const results = await Promise.allSettled(agentRoles.map(async ([role, config]) => {
+      const crew = loadCrewMember(config.crewId);
       if (!crew) {
-        status.agents[role] = { status: "skipped", reason: "crew member not found" };
-        status.completedAgents++;
-        writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(status, null, 2));
-        continue;
+        return { role, status: "skipped", reason: "crew member not found" };
       }
 
       const agentId = config.crewId;
       const taskPrompt = config.task(gitLog, changedFiles, featuresSummary);
 
+      // Load agent memory + action log for context
+      let memoryText = "";
+      try { memoryText = await loadAgentMemory(projRoot, agentId) || ""; } catch {}
+      let actionLogText = "";
+      try { actionLogText = (await listActionLog(projRoot, 5)).map(e => `- ${e.agentId}: ${e.action}`).join("\n"); } catch {}
+
+      const systemPrompt = (crew.rolePrompt || "") +
+        (memoryText ? `\n\n## Your Long-term Memory\n${memoryText}` : "") +
+        (actionLogText ? `\n\n## Recent Action Log\n${actionLogText}` : "");
+
       try {
-        // Load agent memory + action log for context
-        let memoryText = "";
-        try { memoryText = await loadAgentMemory(projRoot, agentId) || ""; } catch {}
-        let actionLogText = "";
-        try { actionLogText = (await listActionLog(projRoot, 5)).map(e => `- ${e.agentId}: ${e.action}`).join("\n"); } catch {}
-
-        const systemPrompt = (crew.rolePrompt || "") +
-          (memoryText ? `\n\n## Your Long-term Memory\n${memoryText}` : "") +
-          (actionLogText ? `\n\n## Recent Action Log\n${actionLogText}` : "");
-
         const result = await runAgentLoop({
           prompt: taskPrompt,
           cwd: projRoot,
-          rootDir: projRoot,
+          rootDir: PAAW_ROOT,  // providers.json is in PAAW_ROOT
           systemPrompt,
           agentId,
           maxTurns: 15,
@@ -299,13 +300,14 @@ export default async function codingNightShiftRoute(req, res) {
         });
 
         // Read agent's report file if it wrote one
-        const reportFile = join(nsDir, `${role}-report.md`);
+        const reportFile = join(projRoot, NIGHT_SHIFT_DIR, `${role}-report.md`);
         let agentReport = "";
         if (existsSync(reportFile)) {
           agentReport = readSync(reportFile, "utf-8");
         }
 
-        status.agents[role] = {
+        return {
+          role,
           status: "completed",
           codename: crew.codename,
           result: typeof result === "string" ? result.slice(-500) : "ok",
@@ -313,13 +315,19 @@ export default async function codingNightShiftRoute(req, res) {
         };
       } catch (err) {
         console.error(`[NightShift:${role}] failed:`, err.message);
-        status.agents[role] = {
+        return {
+          role,
           status: "failed",
           codename: crew.codename,
           error: err.message,
         };
       }
+    }));
 
+    // Collect results
+    for (const r of results) {
+      const data = r.status === "fulfilled" ? r.value : { role: "unknown", status: "failed", error: r.reason?.message };
+      status.agents[data.role] = data;
       status.completedAgents++;
       writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(status, null, 2));
     }

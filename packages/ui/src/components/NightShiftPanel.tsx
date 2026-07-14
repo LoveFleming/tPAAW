@@ -36,7 +36,7 @@ const AGENT_INFO: Record<string, { icon: string; label: string }> = {
   helpdesk: { icon: "🎫", label: "Helpdesk" },
 };
 
-export default function NightShiftPanel({ theme }: { theme: any }) {
+export default function NightShiftPanel({ theme, rootPath }: { theme: any; rootPath?: string }) {
   const { t } = useI18n();
   const [nsStatus, setNsStatus] = useState<NightShiftStatus | null>(null);
   const [report, setReport] = useState<string>("");
@@ -45,12 +45,12 @@ export default function NightShiftPanel({ theme }: { theme: any }) {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/status`);
+      const res = await fetch(`${API_BASE}/api/coding-night-shift/status${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
       const data = await res.json();
       setNsStatus(data);
 
       if (data.status === "completed" && !report) {
-        const repRes = await fetch(`${API_BASE}/api/coding-night-shift/report`);
+        const repRes = await fetch(`${API_BASE}/api/coding-night-shift/report${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
         const repText = await repRes.text();
         setReport(repText);
       }
@@ -76,7 +76,7 @@ export default function NightShiftPanel({ theme }: { theme: any }) {
   // Fetch report when completed
   useEffect(() => {
     if (nsStatus?.status === "completed") {
-      fetch(`${API_BASE}/api/coding-night-shift/report`).then(r => r.text()).then(setReport).catch(() => {});
+      fetch(`${API_BASE}/api/coding-night-shift/report${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`).then(r => r.text()).then(setReport).catch(() => {});
     }
   }, [nsStatus?.status, nsStatus?.completedAt]);
 
@@ -84,7 +84,7 @@ export default function NightShiftPanel({ theme }: { theme: any }) {
     setStarting(true);
     setReport("");
     try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/start`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, { method: "POST" });
       const data = await res.json();
       if (data.ok) {
         await fetchStatus();
