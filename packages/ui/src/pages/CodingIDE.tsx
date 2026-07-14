@@ -2635,6 +2635,8 @@ const sendChat = useCallback(async () => {
                 onOpenFile={openFile}
                 onStartCodeUnderstanding={startAiInitialize}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
+                model={codingModel}
+                onModelChange={setCodingModel}
                 onDispatchToCrew={(crewId, message) => {
                   // Switch to the crew tab and pre-fill the chat input
                   const crew = codingCrews.find(c => c.id === crewId);

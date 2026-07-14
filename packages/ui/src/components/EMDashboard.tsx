@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import API_BASE from "../api";
 import ChatMessages from "./ChatMessages";
+import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
 
 interface ChatMessage {
@@ -60,9 +61,11 @@ interface EMDashboardProps {
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
   // Dispatch to crew with pre-filled message
   onDispatchToCrew?: (crewId: string, message: string) => void;
+  model?: string;
+  onModelChange?: (m: string) => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, model, onModelChange }: EMDashboardProps) {
   // ── Chat State ──
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() },
@@ -254,6 +257,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             message: { role: "user", parts: [{ type: "text", text }] },
             context: { cwd: rootPath },
             conversationHistory: messages.filter(m => !m._thinking).slice(-20),
+            ...(model ? { metadata: { model } } : {}),
           },
           id: `em-chat-${thinkId}`,
         }),
@@ -469,6 +473,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           <span className="text-sm font-bold text-stone-700">EM 大總管</span>
           <span className="text-sm text-stone-400">Engineering Manager</span>
           <div className="flex-1" />
+          {onModelChange && (
+            <ModelSelector feature="codingIDE" value={model || ""} onChange={onModelChange} />
+          )}
           <button
             onClick={runEM}
             disabled={emRunning}
