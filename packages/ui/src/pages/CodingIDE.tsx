@@ -521,6 +521,7 @@ export default function CodingIDE() {
   const [apiStreamContent, setApiStreamContent] = useState("");
   const [apiStreamInfo, setApiStreamInfo] = useState<{ status: number; statusText: string; contentType: string } | null>(null);
   const [projectApis, setProjectApis] = useState<{ method: string; path: string; file: string }[]>([]);
+  const [projectApiExamples, setProjectApiExamples] = useState<{ method: string; endpoint: string; description: string; request: any; response: any }[]>([]);
   const apiStreamAbortRef = useRef<AbortController | null>(null);
 
   // ── Coding Behavior Tracking ──
@@ -561,8 +562,11 @@ export default function CodingIDE() {
     if (!rootPath) { setProjectApis([]); return; }
     fetch(`${API_BASE}/api/api-tester/project-apis?root=${encodeURIComponent(rootPath)}`)
       .then(r => r.json())
-      .then(data => setProjectApis(data.routes || []))
-      .catch(() => setProjectApis([]));
+      .then(data => {
+        setProjectApis(data.routes || []);
+        setProjectApiExamples(data.examples || []);
+      })
+      .catch(() => { setProjectApis([]); setProjectApiExamples([]); });
   }, [rootPath]);
 
   useEffect(() => {
@@ -2202,8 +2206,34 @@ const sendChat = useCallback(async () => {
                   </div>
                   {/* Quick URLs */}
                   <div className="flex flex-wrap gap-1 mb-1">
-                    {/* Project APIs (from .paaw/code-intelligence/api-function-map.json) */}
-                    {projectApis.length > 0 && projectApis.slice(0, 20).map((api, i) => (
+                    {/* Project APIs with payload examples */}
+                    {projectApiExamples.length > 0 && projectApiExamples.slice(0, 20).map((ex, i) => (
+                      <button key={`ex-${i}`} onClick={() => {
+                        const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
+                        let url = `${base}${ex.endpoint}`;
+                        // Replace path params like {id} with example values
+                        if (ex.request?.params) {
+                          for (const [k, v] of Object.entries(ex.request.params)) {
+                            url = url.replace(`{${k}}`, String(v));
+                          }
+                        }
+                        setApiUrl(url);
+                        setApiMethod(ex.method || "GET");
+                        setApiStreamMode(false);
+                        if (ex.request?.headers) {
+                          setApiHeaders(Object.entries(ex.request.headers).map(([key, value]) => ({ key, value: String(value), enabled: true })));
+                        }
+                        if (ex.request?.body) {
+                          setApiBody(JSON.stringify(ex.request.body, null, 2));
+                        }
+                      }}
+                        className="text-xs px-2 py-0.5 rounded-full border border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                        title={`${ex.description}\n${JSON.stringify(ex.request?.body || {}, null, 2).slice(0, 200)}`}>
+                        {ex.method} {ex.endpoint.length > 22 ? `…${ex.endpoint.slice(-19)}` : ex.endpoint}
+                      </button>
+                    ))}
+                    {/* Fallback: project API routes (no examples) */}
+                    {projectApiExamples.length === 0 && projectApis.length > 0 && projectApis.slice(0, 15).map((api, i) => (
                       <button key={`proj-${i}`} onClick={() => {
                         const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
                         setApiUrl(`${base}${api.path}`);
@@ -2216,7 +2246,7 @@ const sendChat = useCallback(async () => {
                       </button>
                     ))}
                     {/* Generic test endpoints */}
-                    {projectApis.length === 0 && (
+                    {projectApiExamples.length === 0 && projectApis.length === 0 && (
                       <span className="text-xs text-stone-400 italic">No project APIs found — run CU init first</span>
                     )}
                     <div className="w-px h-4 bg-stone-200 mx-1" />

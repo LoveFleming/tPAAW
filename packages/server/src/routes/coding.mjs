@@ -1493,6 +1493,19 @@ export default async function projectRoute(req, res) {
               await paaw.writeFile("ARCHITECTURE.md", content);
             } else if (step.id === "api-spec") {
               await paaw.writeFile("specs/api-contract.md", content);
+              // Extract api-examples from ```json-examples block
+              const examplesMatch = content.match(/```json-examples\s*\n([\s\S]*?)\n```/);
+              if (examplesMatch) {
+                try {
+                  const examples = JSON.parse(examplesMatch[1].trim());
+                  if (Array.isArray(examples)) {
+                    await paaw.writeFile("code-intelligence/api-examples.json", JSON.stringify(examples, null, 2));
+                    cuLog(step.id, `Saved ${examples.length} API examples`);
+                  }
+                } catch (e) {
+                  cuLog(step.id, `Failed to parse api-examples: ${e.message}`);
+                }
+              }
             } else if (step.id === "error-mapping") {
               await paaw.writeFile("specs/error-codes.md", content);
               const runbookMatches = [...content.matchAll(/## Runbook[:\s]+(\d+).*?\n([\s\S]*?)(?=\n## Runbook|\n---|$)/g)];
