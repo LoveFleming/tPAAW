@@ -2594,8 +2594,11 @@ const sendChat = useCallback(async () => {
             })()}
 
             {/* === EM DASHBOARD (Landing Page) === */}
-            {/* Always mounted, hidden with display:none to preserve chat state */}
-            <div style={{ display: activeMainTab?.type === "em-dashboard" ? undefined : "none", flex: activeMainTab?.type === "em-dashboard" ? 1 : undefined, flexDirection: "column", overflow: "hidden" }}>
+            {/* Always mounted, hidden with CSS to preserve chat state across tab switches */}
+            <div
+              className={activeMainTab?.type === "em-dashboard" ? "contents" : ""}
+              style={activeMainTab?.type !== "em-dashboard" ? { display: "none" } : undefined}
+            >
               <EMDashboard
                 rootPath={rootPath}
                 theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
