@@ -43,6 +43,7 @@ import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
 import NightShiftPanel from "../components/NightShiftPanel";
 import SecurityTab from "../components/SecurityTab";
+import FileViewer from "../pages/FileViewer";
 
 // ── Types ──
 interface FsItem {
@@ -65,7 +66,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
 
 interface MainTab {
   id: string;
@@ -74,6 +75,7 @@ interface MainTab {
   icon: string;
   closable: boolean;
   crewId?: string;
+  filePath?: string;
 }
 
 interface ChatMessage {
@@ -728,13 +730,24 @@ export default function CodingIDE() {
     if (loadingFileRef.current) return; // prevent double-click race
     const existing = openTabsRef.current.find(ot => ot.path === path);
     if (existing) { setActiveTabId(existing.id); return; }
+
+    // Decide viewer vs editor based on file type
+    const name = path.split(/[\\/]/).pop() || path;
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    const useViewer = ["md", "markdown", "json"].includes(ext);
+
+    if (useViewer) {
+      // Open as viewer tab (FileViewer handles md/json rendering)
+      openMainTab({ id: `file:${path}`, type: "viewer", label: name, icon: getFileIcon(name), closable: true, filePath: path });
+      return;
+    }
+
     setLoadingFile(true);
     loadingFileRef.current = true;
     try {
       const res = await fetch(`${API_BASE}/api/vibe-fs/read?path=${encodeURIComponent(path)}`);
       const data = await res.json();
       if (data.content !== undefined) {
-        const name = path.split(/[\\/]/).pop() || path;
         const tab: OpenTab = { id: path, name, path, content: data.content, originalContent: data.content, modified: false, language: getLanguage(name), hljsLang: getHljsLang(name), lastSaved: data.modified };
         setOpenTabs(prev => {
           // Double-check not already added
@@ -1925,6 +1938,13 @@ const sendChat = useCallback(async () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* === FILE VIEWER (Markdown / JSON rendered) === */}
+            {activeMainTab?.type === "viewer" && activeMainTab.filePath && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <FileViewer filePath={activeMainTab.filePath} projectRoot={rootPath} active={true} />
               </div>
             )}
 
