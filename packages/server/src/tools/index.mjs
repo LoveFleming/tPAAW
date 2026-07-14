@@ -192,6 +192,24 @@ async function buildToolDefinitions() {
     }
   });
 
+  // notes_create_section — create a new section in a notebook
+  tools.push({
+    type: "function",
+    function: {
+      name: "notes_create_section",
+      description: "在筆記本中建立新的分類（Section）。當使用者想要分類管理筆記但現有分類不夠用時呼叫。",
+      parameters: {
+        type: "object",
+        properties: {
+          notebook: { type: "string", description: "筆記本 ID" },
+          name: { type: "string", description: "新分類名稱（例如：會議記錄、學習筆記）" },
+          icon: { type: "string", description: "Optional emoji icon（預設 📁）" }
+        },
+        required: ["notebook", "name"]
+      }
+    }
+  });
+
   // app_list — list all available apps
   tools.push({
     type: "function",
@@ -1271,6 +1289,26 @@ function buildHandlers(apps) {
       return { text: `筆記本 ${notebook} 的分類：\n${lines.join("\n")}`, sections };
     } catch (err) {
       return { text: `❌ 讀取失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.notes_create_section = async ({ notebook, name, icon }) => {
+    if (!notebook) return { text: "❌ 需要指定筆記本 (notebook)" };
+    if (!name) return { text: "❌ 需要指定分類名稱 (name)" };
+    try {
+      const resp = await fetch(`${API}/api/notes/sections`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notebookId: notebook, name, icon })
+      });
+      const data = await resp.json();
+      if (!resp.ok) return { text: `❌ 建立失敗：${data.error || resp.statusText}` };
+      return {
+        text: `✅ 已在筆記本「${notebook}」建立新分類「${name}」${icon ? " " + icon : ""}\n分類 ID: \`${data.section?.id || name}\``,
+        section: data.section
+      };
+    } catch (err) {
+      return { text: `❌ 建立失敗：${err.message}`, error: true };
     }
   };
 
