@@ -169,32 +169,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Fetch data when rootPath changes ──
   const refreshData = useCallback(async () => {
     if (!rootPath) return;
-    // Git status
-    try {
-      const res = await fetch(`${API_BASE}/api/vibe-git/status?path=${encodeURIComponent(rootPath)}`);
-      const data = await res.json();
-      setStatus(prev => ({ ...prev, gitStatus: data.summary || "clean", recentCommits: "", unpushed: "" }));
-    } catch {}
-    // Action log
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/action-log?limit=15`);
-      const data = await res.json();
-      setActionLog(data.entries || []);
-    } catch {}
-    // Code status (Code Understanding scores)
     setCodeStatusLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`);
-      const data = await res.json();
-      setCodeStatus(data);
-    } catch {}
+    // Fire all requests in parallel
+    const [gitRes, logRes, codeRes, reportRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/api/vibe-git/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
+      fetch(`${API_BASE}/api/coding-crew/action-log?limit=15`).then(r => r.json()),
+      fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
+      fetch(`${API_BASE}/api/coding-crew/overnight-report?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
+    ]);
+    if (gitRes.status === "fulfilled") setStatus(prev => ({ ...prev, gitStatus: gitRes.value.summary || "clean", recentCommits: "", unpushed: "" }));
+    if (logRes.status === "fulfilled") setActionLog(logRes.value.entries || []);
+    if (codeRes.status === "fulfilled") setCodeStatus(codeRes.value);
     setCodeStatusLoading(false);
-    // Overnight report
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/overnight-report?path=${encodeURIComponent(rootPath)}`);
-      const data = await res.json();
-      setReport(data.exists ? data.report : null);
-    } catch {}
+    if (reportRes.status === "fulfilled") setReport(reportRes.value.exists ? reportRes.value.report : null);
   }, [rootPath]);
 
   useEffect(() => { refreshData(); }, [refreshData]);
