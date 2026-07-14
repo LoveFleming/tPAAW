@@ -733,6 +733,22 @@ const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "notes_create_section",
+      description: "Create a new section (分類) in a notebook. Use when user wants to organize notes into a new category.",
+      parameters: {
+        type: "object",
+        properties: {
+          notebookId: { type: "string", description: "Notebook ID" },
+          name: { type: "string", description: "Section name (e.g. 'ideas', 'meetings')" },
+          icon: { type: "string", description: "Optional emoji icon" },
+        },
+        required: ["notebookId", "name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "notes_search",
       description: "Search notes by keyword across all notebooks.",
       parameters: {
@@ -1834,6 +1850,30 @@ ${changedApis}`;
           return `✅ 筆記已建立\n標題: ${title}\n分類: ${notebookId} / ${secName}\n內容: ${content.length} 字`; 
         } catch (err) {
           return `Error creating note: ${err.message}`;
+        }
+      }
+
+      case "notes_create_section": {
+        const { notebookId, name, icon } = args;
+        if (!notebookId) return "Error: notebookId is required";
+        if (!name) return "Error: name is required";
+        const sectionsFile = resolve(rootDir || cwd, "data", "notes", "sections.json");
+        try {
+          let allSecs = {};
+          try { allSecs = JSON.parse(await readFile(sectionsFile, "utf-8")); } catch {}
+          if (!allSecs[notebookId]) allSecs[notebookId] = [{ id: "default", name: "Default" }];
+          // Check duplicate
+          const exists = allSecs[notebookId].find(s => s.name === name || s.id === name.toLowerCase().replace(/\s+/g, "-"));
+          if (exists) {
+            return `Section '${name}' already exists in notebook '${notebookId}'.`;
+          }
+          const secId = name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || `sec-${Date.now()}`;
+          allSecs[notebookId].push({ id: secId, name, icon: icon || "📁" });
+          await writeFile(sectionsFile, JSON.stringify(allSecs, null, 2), "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Created section '${name}' in ${notebookId}` });
+          return `✅ 分類已建立\n名稱: ${name}\n筆記本: ${notebookId}\nID: ${secId}`;
+        } catch (err) {
+          return `Error creating section: ${err.message}`;
         }
       }
 
