@@ -615,7 +615,7 @@ export default async function a2aRoutes(req, res) {
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
             const conversationHistory = params?.conversationHistory || null;
-            const rootDir = clientContext.cwd || PAAW_ROOT;
+            const rootDir = PAAW_ROOT;
 
             // Build system prompt from crew + context providers + action log + agent memory
             const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
@@ -754,7 +754,7 @@ export default async function a2aRoutes(req, res) {
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
             const conversationHistory = params?.conversationHistory || null;
-            const rootDir = clientContext.cwd || PAAW_ROOT;
+            const rootDir = PAAW_ROOT;
 
             // Build system prompt from crew + context providers + action log + agent memory
             const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");

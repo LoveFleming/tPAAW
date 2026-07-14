@@ -323,7 +323,7 @@ export default async function projectRoute(req, res) {
         cwd: cwd || undefined,
         maxTurns: agent.maxTurns,
         timeout: 1800,
-        rootDir: cwd || PAAW_ROOT,
+        rootDir: PAAW_ROOT,
         agentId: agent.agentId,
       }, res);
 

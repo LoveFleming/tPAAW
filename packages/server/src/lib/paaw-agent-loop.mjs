@@ -1886,7 +1886,7 @@ export async function runAgentLoop(config) {
     timeout,
     params = {},
     onEvent = null,
-    rootDir = cwd,
+    rootDir = _PAAW_ROOT,
     agentId = null,
   } = config;
 
@@ -2079,7 +2079,7 @@ export async function runAgentLoopStream(config, res) {
     maxTurns,
     timeout,
     params = {},
-    rootDir = cwd,
+    rootDir = _PAAW_ROOT,
     agentId = null,
   } = config;
 
