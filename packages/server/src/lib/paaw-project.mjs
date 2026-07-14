@@ -96,6 +96,18 @@ export class PaawProject {
     return { ok: true, dir: this.paawDir };
   }
 
+  // ── Async file scanner (Windows-safe, no find/grep) ──
+  async *_scanFiles(dir, ext) {
+    let entries;
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name === "node_modules" || e.name === "dist" || e.name.startsWith(".")) continue;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { yield* this._scanFiles(full, ext); }
+      else if (e.isFile() && e.name.endsWith(ext)) { yield full; }
+    }
+  }
+
   // ── Read single file ──
 
   async readFile(name) {
@@ -675,6 +687,17 @@ export class PaawProject {
   async computeStatus() {
     if (!this.exists) return null;
 
+    // ════════ CACHE: results cached for 5 minutes ════════
+    const cacheFile = join(this.paawDir, "code-intelligence", "status-cache.json");
+    try {
+      if (existsSync(cacheFile)) {
+        const cached = JSON.parse(readSync(cacheFile, "utf-8"));
+        if (cached.timestamp && Date.now() - cached.timestamp < 5 * 60 * 1000) {
+          return cached.data;
+        }
+      }
+    } catch {}
+
     const scores = {
       architecture: { score: 0, items: [] },
       api: { score: 0, items: [] },
@@ -765,10 +788,19 @@ export class PaawProject {
     }
 
     // API count
+    // API count — quick Node.js scan instead of grep
     let apiCount = 0;
     try {
-      const routeCount = await runShell("grep -rc 'url.startsWith\\|if (url' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | awk -F: '{s+=$2} END {print s}'", this.root, 5000);
-      apiCount = parseInt(routeCount.trim()) || 0;
+      const serverSrc = join(this.root, "packages", "server", "src");
+      if (existsSync(serverSrc)) {
+        for await (const file of this._scanFiles(serverSrc, ".mjs")) {
+          try {
+            const content = readSync(file, "utf-8");
+            const matches = content.match(/url\.startsWith|if\s*\(url/g);
+            if (matches) apiCount += matches.length;
+          } catch {}
+        }
+      }
     } catch {}
     apiItems.push({ name: "API Endpoints", status: "info", detail: apiCount > 0 ? `~${apiCount} detected` : "Unknown" });
     apiPoints += 15;
@@ -792,52 +824,30 @@ export class PaawProject {
 
     let hasTests = false;
     let testFileCount = 0;
-    let unitCoverage = null; // e.g. "23%" or null
+    let unitCoverage = null;
+    // Use Node readdir instead of shell find (faster + Windows safe)
     try {
-      const testCheck = await runShell("find . -name '*.test.*' -o -name '*.spec.*' 2>/dev/null | wc -l", this.root, 5000);
-      testFileCount = parseInt(testCheck.trim()) || 0;
-      hasTests = testFileCount > 0;
-    } catch {}
-
-    // Try to run actual unit test coverage
-    if (hasTests) {
-      try {
-        const pkgExists = existsSync(join(this.root, "package.json"));
-        if (pkgExists) {
-          const pkgData = JSON.parse(readSync(join(this.root, "package.json"), "utf-8"));
-          const hasVitest = !!(pkgData.devDependencies?.vitest || pkgData.dependencies?.vitest);
-          const hasJest = !!(pkgData.devDependencies?.jest || pkgData.dependencies?.jest);
-          if (hasVitest) {
-            // Run vitest with coverage — timeout 60s
-            const covResult = await runShell(
-              "npx vitest run --coverage --reporter=json 2>/dev/null | tail -1",
-              this.root, 60000
-            );
+      const { scanProjectFiles } = await import("../routes/coding.mjs");
+      // Quick check: just count test files, don't actually run them
+      const pkgExists = existsSync(join(this.root, "package.json"));
+      if (pkgExists) {
+        // Check common test dirs
+        for (const dir of ["test", "tests", "__tests__", "packages/server/test", "packages/ui/src"]) {
+          const absDir = join(this.root, dir);
+          if (existsSync(absDir)) {
             try {
-              const covJson = JSON.parse(covResult.trim());
-              // Vitest JSON coverage: coverageMap or summary
-              const summary = covJson?.coverageMap || covJson?.coverage || covJson?.summary;
-              if (summary) {
-                const lines = summary?.lines?.percentage || summary?.lines?.pct;
-                if (typeof lines === "number") unitCoverage = `${Math.round(lines)}%`;
-                else if (typeof lines === "string") unitCoverage = lines;
+              const entries = await readdir(absDir, { recursive: true });
+              for (const e of entries) {
+                if (typeof e === "string" && (/\.test\./.test(e) || /\.spec\./.test(e))) testFileCount++;
               }
-            } catch {
-              // Try parsing text output if JSON fails
-              const pctMatch = covResult.match(/(All|Total).*?\|(\s*\d+[.,]?\d*\s*)%/);
-              if (pctMatch) unitCoverage = pctMatch[2].trim() + "%";
-            }
-          } else if (hasJest) {
-            const covResult = await runShell(
-              "npx jest --coverage --coverageReporters=text-summary 2>/dev/null",
-              this.root, 60000
-            );
-            const pctMatch = covResult.match(/All files.*?\|(\s*\d+[.,]?\d*\s*)/);
-            if (pctMatch) unitCoverage = pctMatch[1].trim() + "%";
+            } catch {}
           }
         }
-      } catch {} // coverage is best-effort
-    }
+      }
+    } catch {}
+    hasTests = testFileCount > 0;
+    // Skip running actual vitest/jest — too slow for status check
+    // Coverage shown as "N files" instead of actual percentage
 
     if (hasTests) {
       testPoints += 35;
@@ -847,39 +857,11 @@ export class PaawProject {
     }
 
     let hasE2E = false;
-    let e2eResult = null; // e.g. "5 passed, 0 failed" or null
-    try {
-      const e2eCheck = await runShell("find . -maxdepth 1 -name 'playwright.config.*' -o -name 'cypress.config.*' 2>/dev/null", this.root, 3000);
-      hasE2E = e2eCheck.trim().length > 0;
-    } catch {}
-
-    // Try to run E2E tests if configured
-    if (hasE2E) {
-      try {
-        const pkgData = JSON.parse(readSync(join(this.root, "package.json"), "utf-8"));
-        const hasPlaywright = !!(pkgData.devDependencies?.["@playwright/test"] || pkgData.dependencies?.["@playwright/test"]);
-        const hasCypress = !!(pkgData.devDependencies?.cypress || pkgData.dependencies?.cypress);
-        if (hasPlaywright) {
-          const e2eOut = await runShell("npx playwright test --reporter=json 2>/dev/null | tail -1", this.root, 120000);
-          try {
-            const e2eJson = JSON.parse(e2eOut.trim());
-            const passed = e2eJson?.stats?.passed || e2eJson?.passed || 0;
-            const failed = e2eJson?.stats?.failed || e2eJson?.failed || 0;
-            const total = e2eJson?.stats?.total || e2eJson?.total || (passed + failed);
-            if (total > 0) {
-              e2eResult = `${passed} passed, ${failed} failed (${total} total)`;
-            }
-          } catch {
-            // Try text parse
-            const m = e2eOut.match(/(\d+) passed.*?(\d+) failed/);
-            if (m) e2eResult = `${m[1]} passed, ${m[2]} failed`;
-          }
-        } else if (hasCypress) {
-          // Cypress needs `cypress run` — heavier, skip auto-run for now
-          e2eResult = "Configured (run manually)";
-        }
-      } catch {} // E2E run is best-effort
-    }
+    let e2eResult = null;
+    // Just check if config exists, don't run tests
+    hasE2E = existsSync(join(this.root, "playwright.config.ts")) || existsSync(join(this.root, "playwright.config.js")) || existsSync(join(this.root, "cypress.config.ts")) || existsSync(join(this.root, "cypress.config.js"));
+    if (hasE2E) e2eResult = "Configured";
+    // Skip running actual playwright/cypress — too slow
 
     if (hasE2E) {
       testPoints += 25;
@@ -932,9 +914,20 @@ export class PaawProject {
     }
 
     // Code stats (languages)
+    // Tracked files count — use Node.js readdir
     try {
-      const gitFiles = (await runShell("git ls-files 2>/dev/null | wc -l", this.root, 5000)).trim();
-      const fileCount = parseInt(gitFiles) || 0;
+      let fileCount = 0;
+      const countFiles = async (dir) => {
+        try {
+          const entries = await readdir(dir, { withFileTypes: true });
+          for (const e of entries) {
+            if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "dist" || e.name === "build") continue;
+            if (e.isDirectory()) await countFiles(join(dir, e.name));
+            else if (e.isFile()) fileCount++;
+          }
+        } catch {}
+      };
+      await countFiles(this.root);
       docsItems.push({ name: "Tracked Files", status: "info", detail: `${fileCount} files` });
       docsPoints += 15;
     } catch {}
@@ -970,11 +963,18 @@ export class PaawProject {
       }
     } catch {}
 
-    // Error handling quality
+    // Error handling quality — quick Node.js scan
     let errorHandlingFiles = 0;
     try {
-      const ehCheck = await runShell("grep -rl 'try {' --include='*.mjs' --include='*.js' --include='*.ts' packages/server/src/ 2>/dev/null | wc -l", this.root, 5000);
-      errorHandlingFiles = parseInt(ehCheck.trim()) || 0;
+      const serverSrc = join(this.root, "packages", "server", "src");
+      if (existsSync(serverSrc)) {
+        for await (const file of this._scanFiles(serverSrc, ".mjs")) {
+          try {
+            const content = readSync(file, "utf-8");
+            if (content.includes("try {")) errorHandlingFiles++;
+          } catch {}
+        }
+      }
     } catch {}
     if (errorHandlingFiles > 3) {
       maintainPoints += 25;
@@ -994,6 +994,13 @@ export class PaawProject {
       }
     } catch {}
     scores.maintainability = { score: maintainPoints, items: maintainItems };
+
+    // ════════ Write cache ════════
+    try {
+      const cacheDir = join(this.paawDir, "code-intelligence");
+      await mkdir(cacheDir, { recursive: true });
+      await writeFile(cacheFile, JSON.stringify({ timestamp: Date.now(), data: scores }, null, 2), "utf-8");
+    } catch {}
 
     return scores;
   }

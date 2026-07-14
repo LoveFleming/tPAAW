@@ -1,0 +1,125 @@
+{
+  "timestamp": 1784033271541,
+  "data": {
+    "architecture": {
+      "score": 100,
+      "items": [
+        {
+          "name": "PROJECT.md",
+          "status": "ok",
+          "detail": "Filled"
+        },
+        {
+          "name": "Architecture Map",
+          "status": "ok",
+          "detail": "7057 chars"
+        },
+        {
+          "name": "Decision Records",
+          "status": "ok",
+          "detail": "10 ADRs"
+        },
+        {
+          "name": "Entry Points",
+          "status": "ok",
+          "detail": "package.json found"
+        }
+      ]
+    },
+    "api": {
+      "score": 80,
+      "items": [
+        {
+          "name": "API Contract",
+          "status": "ok",
+          "detail": "14678 chars"
+        },
+        {
+          "name": "Error Mapping",
+          "status": "ok",
+          "detail": "Defined"
+        },
+        {
+          "name": "Runbooks",
+          "status": "missing",
+          "detail": "None"
+        },
+        {
+          "name": "API Endpoints",
+          "status": "info",
+          "detail": "~68 detected"
+        }
+      ]
+    },
+    "test": {
+      "score": 100,
+      "items": [
+        {
+          "name": "API Test Payloads",
+          "status": "ok",
+          "detail": "1 file(s)"
+        },
+        {
+          "name": "Unit Tests",
+          "status": "partial",
+          "detail": "9 test file(s)"
+        },
+        {
+          "name": "E2E Tests",
+          "status": "ok",
+          "detail": "Configured"
+        }
+      ]
+    },
+    "docs": {
+      "score": 100,
+      "items": [
+        {
+          "name": "README",
+          "status": "ok",
+          "detail": "36d ago"
+        },
+        {
+          "name": "FAQ",
+          "status": "ok",
+          "detail": "5486 chars"
+        },
+        {
+          "name": "Changelog",
+          "status": "ok",
+          "detail": "Has entries"
+        },
+        {
+          "name": "Tracked Files",
+          "status": "info",
+          "detail": "1718 files"
+        }
+      ]
+    },
+    "maintainability": {
+      "score": 85,
+      "items": [
+        {
+          "name": "Coding Standards",
+          "status": "ok",
+          "detail": "1 file(s)"
+        },
+        {
+          "name": "Git Status",
+          "status": "warn",
+          "detail": "3 uncommitted"
+        },
+        {
+          "name": "Error Handling",
+          "status": "ok",
+          "detail": "51 files"
+        },
+        {
+          "name": "Dependencies",
+          "status": "info",
+          "detail": "4 packages"
+        }
+      ]
+    }
+  }
+}
