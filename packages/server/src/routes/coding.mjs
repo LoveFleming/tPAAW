@@ -911,7 +911,7 @@ export default async function projectRoute(req, res) {
     if (url.startsWith("/api/coding-project/security-scan") && method === "GET") {
       if (!isSemgrepAvailable()) {
         res.writeHead(503, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Semgrep is not installed. Install: pip install semgrep OR brew install semgrep" }));
+        res.end(JSON.stringify({ error: "Semgrep is not installed or not in PATH. Install: pip install semgrep (Windows) or brew install semgrep (macOS). After install, restart PAAW server." }));
         return true;
       }
       try {

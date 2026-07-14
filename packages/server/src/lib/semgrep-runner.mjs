@@ -7,51 +7,83 @@
  * - Best practice violations
  * 
  * Output: JSON findings → stored in .paaw/security/scan-results.json
+ * 
+ * ⚠️ Cross-platform: uses Node.js fs for file detection (no Unix `find`),
+ *    and shell:true for exec so Windows pip-installed semgrep is found.
  */
 
-import { exec as execCb } from "child_process";
+import { exec as execCb, execSync as execSyncCb } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
-import { join, resolve } from "path";
+import { readdirSync, statSync } from "fs";
+import { join, resolve, extname } from "path";
 import { promisify } from "util";
 
 const exec = promisify(execCb);
+const isWin = process.platform === "win32";
+
+// ── Cross-platform file scanning (replaces Unix `find`) ──
+
+/**
+ * Recursively scan for source files, returning matched extensions.
+ * Uses Node.js fs — works identically on Windows, macOS, Linux.
+ */
+function scanSourceExtensions(projectRoot, maxDepth = 4) {
+  const found = new Set();
+  const excludeDirs = new Set(["node_modules", ".git", "dist", "build", "coverage", ".paaw"]);
+  const targetExts = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java"]);
+
+  function walk(dir, depth) {
+    if (depth > maxDepth) return;
+    let entries;
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const name of entries) {
+      const full = join(dir, name);
+      let st;
+      try {
+        st = statSync(full);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        if (!excludeDirs.has(name)) {
+          walk(full, depth + 1);
+        }
+      } else if (st.isFile()) {
+        const ext = extname(name).toLowerCase();
+        if (targetExts.has(ext)) {
+          found.add(ext);
+        }
+      }
+    }
+  }
+
+  walk(projectRoot, 0);
+  return found;
+}
 
 /**
  * Detect which language rule packs to use based on project files
  */
 function detectRulePacks(projectRoot) {
   const packs = [];
-  const has = (ext) => {
-    try {
-      execSync(`find "${projectRoot}" -maxdepth 4 -name "*${ext}" -not -path "*/node_modules/*" -not -path "*/.git/*" | head -1`, { stdio: "pipe" });
-      return true;
-    } catch {
-      return false;
-    }
-  };
+  const exts = scanSourceExtensions(projectRoot);
 
-  // Use file extension detection via shell
-  const langs = new Set();
-  try {
-    const { execSync } = require("child_process");
-    const out = execSync(
-      `find "${projectRoot}" -maxdepth 4 -type f \\( -name "*.js" -o -name "*.mjs" -o -name "*.cjs" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" -o -name "*.py" -o -name "*.java" \\) -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/build/*" 2>/dev/null | head -5`,
-      { encoding: "utf-8", stdio: "pipe" }
-    ).trim();
-    if (out) {
-      for (const line of out.split("\n")) {
-        if (line.endsWith(".js") || line.endsWith(".mjs") || line.endsWith(".cjs") || line.endsWith(".jsx")) langs.add("javascript");
-        if (line.endsWith(".ts") || line.endsWith(".tsx")) langs.add("typescript");
-        if (line.endsWith(".py")) langs.add("python");
-        if (line.endsWith(".java")) langs.add("java");
-      }
-    }
-  } catch {}
-
-  if (langs.has("javascript")) packs.push("p/javascript");
-  if (langs.has("typescript")) packs.push("p/typescript");
-  if (langs.has("python")) packs.push("p/python");
-  if (langs.has("java")) packs.push("p/java");
+  if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) {
+    packs.push("p/javascript");
+  }
+  if (exts.has(".ts") || exts.has(".tsx")) {
+    packs.push("p/typescript");
+  }
+  if (exts.has(".py")) {
+    packs.push("p/python");
+  }
+  if (exts.has(".java")) {
+    packs.push("p/java");
+  }
 
   // Always include these security-focused packs
   packs.push("p/owasp-top-ten");
@@ -61,17 +93,36 @@ function detectRulePacks(projectRoot) {
 }
 
 /**
- * Check if semgrep is installed
+ * Build the semgrep command for the current platform.
+ * On Windows, use `shell: true` so pip-installed semgrep is found.
  */
-import { execSync } from "child_process";
+function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
+  const configArgs = rulePacks.map(p => `--config "${p}"`).join(" ");
+  return `semgrep --json ${configArgs} ${excludeArgs} --metrics off --quiet "${projectRoot}"`;
+}
 
+/**
+ * Check if semgrep is installed (cross-platform)
+ */
 export function isSemgrepAvailable() {
-  try {
-    execSync("semgrep --version", { stdio: "pipe", timeout: 5000 });
-    return true;
-  } catch {
-    return false;
+  const candidates = isWin
+    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version"]
+    : ["semgrep --version"];
+
+  for (const cmd of candidates) {
+    try {
+      execSyncCb(cmd, {
+        stdio: "pipe",
+        timeout: 8000,
+        shell: true,       // ← critical for Windows PATH resolution
+        env: { ...process.env },
+      });
+      return true;
+    } catch {
+      // try next candidate
+    }
   }
+  return false;
 }
 
 /**
@@ -95,20 +146,26 @@ export async function runSemgrep(projectRoot, options = {}) {
     };
   }
 
-  // Build command
-  const configArgs = rulePacks.map(p => `--config "${p}"`).join(" ");
-  const cmd = `semgrep --json ${configArgs} --metrics off --quiet "${projectRoot}"`;
+  const excludeArgs = [
+    "--exclude node_modules",
+    "--exclude .git",
+    "--exclude .paaw",
+    "--exclude dist",
+    "--exclude build",
+    "--exclude coverage",
+    "--exclude '*.min.js'",
+    "--exclude '*.map'",
+  ].join(" ");
 
-  // Exclude common dirs
-  const excludeArg = "--exclude node_modules --exclude .git --exclude .paaw --exclude dist --exclude build --exclude coverage --exclude '*.min.js' --exclude '*.map'";
-
-  const fullCmd = `semgrep --json ${configArgs} ${excludeArg} --metrics off --quiet "${projectRoot}"`;
+  const fullCmd = buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
 
   try {
     const { stdout } = await exec(fullCmd, {
       cwd: projectRoot,
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024, // 50MB
+      shell: true,       // ← critical for Windows PATH resolution
+      env: { ...process.env },
     });
 
     const raw = JSON.parse(stdout);
