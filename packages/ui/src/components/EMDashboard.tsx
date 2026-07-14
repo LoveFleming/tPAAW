@@ -79,6 +79,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [emRunning, setEmRunning] = useState(false);
   const [emLog, setEmLog] = useState<string[]>([]);
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
+  const [codeStatusLoading, setCodeStatusLoading] = useState(true);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
   const [showCUModal, setShowCUModal] = useState(false);
   const [singleStepRunning, setSingleStepRunning] = useState<string | null>(null); // step id being retried
@@ -181,11 +182,13 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       setActionLog(data.entries || []);
     } catch {}
     // Code status (Code Understanding scores)
+    setCodeStatusLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`);
       const data = await res.json();
       setCodeStatus(data);
     } catch {}
+    setCodeStatusLoading(false);
     // Overnight report
     try {
       const res = await fetch(`${API_BASE}/api/coding-crew/overnight-report?path=${encodeURIComponent(rootPath)}`);
@@ -554,7 +557,10 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
               <span>📊</span> Code Health
             </h3>
-            {!codeStatus && rootPath && (
+            {!codeStatus && codeStatusLoading && rootPath && (
+              <button disabled className="text-sm px-2 py-1 rounded bg-stone-200 text-stone-400 font-bold cursor-wait">⚡ 載入中...</button>
+            )}
+            {!codeStatus && !codeStatusLoading && rootPath && (
               <button
                 onClick={() => { loadPersistedSteps(); setShowCUModal(true); }}
                 className="text-sm px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold"
@@ -567,7 +573,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               >🔄 重新掃描</button>
             )}
           </div>
-          {!codeStatus ? (
+          {!codeStatus && codeStatusLoading ? (
+            <p className="text-sm text-stone-400 py-2">⚡ 載入中...</p>
+          ) : !codeStatus ? (
             <p className="text-sm text-stone-400 py-2">尚未 Code Understanding。點 🧠 產生健康度報告。</p>
           ) : !codeStatus.initialized ? (
             <p className="text-sm text-stone-400 py-2">尚未初始化。</p>
