@@ -58,9 +58,14 @@ import { resolveDefaultModel } from "./llm-utils.mjs";
  */
 
 // ── Provider Resolution ──
+// providers.json is a PAAW server config file — always read from PAAW_ROOT,
+// never from an arbitrary project cwd. The bug was that rootDir (which
+// could be any project path) was used to find providers.json.
 
-function loadProviderConfig(rootDir) {
-  const configPath = resolve(rootDir, "data/config/providers.json");
+const _PAAW_ROOT = resolve(__dirname, "../../../../");
+
+function loadProviderConfig() {
+  const configPath = resolve(_PAAW_ROOT, "data/config/providers.json");
   try {
     return JSON.parse(readSync(configPath, "utf-8"));
   } catch {
@@ -68,9 +73,9 @@ function loadProviderConfig(rootDir) {
   }
 }
 
-export function resolveLLMConfig(rootDir, modelOverride) {
-  const config = loadProviderConfig(rootDir);
-  if (!config) throw new Error("No provider config found");
+export function resolveLLMConfig(_rootDir, modelOverride) {
+  const config = loadProviderConfig();
+  if (!config) throw new Error("No provider config found — checked: " + resolve(_PAAW_ROOT, "data/config/providers.json"));
 
   // Parse "providerId/modelId" format (from ModelSelector)
   let providerId = config.active;
@@ -1819,7 +1824,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
     parts.push(customPrompt);
   } else {
     // Load agent loop system prompt from ai-settings
-    const AGENT_LOOP_PROMPT_PATH = resolve(__dirname, "../../../data/ai-settings/agent-loop/system-prompt.md");
+    const AGENT_LOOP_PROMPT_PATH = resolve(_PAAW_ROOT, "data/ai-settings/agent-loop/system-prompt.md");
     let agentBase = "";
     try { agentBase = readSync(AGENT_LOOP_PROMPT_PATH, "utf-8").trim(); } catch {}
     if (agentBase) {
@@ -1830,7 +1835,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Inject base context: knowledge + workspace paths (required for every AI request)
-  const PAAW_R = resolve(__dirname, "../../../");
+  const PAAW_R = _PAAW_ROOT;
   try {
     const ws = JSON.parse(readSync(resolve(PAAW_R, "data/config/workspaces.json"), "utf-8"));
     if (ws.directories?.length) {
