@@ -670,8 +670,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           )}
         </div>
 
-        {/* ── 交接狀態面板 (Handoff Status) ── */}
-        <HandoffStatusPanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} />
+        {/* ── 專案知識面板 (Project Knowledge) ── */}
+        <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} />
 
       </div>
     </div>
@@ -793,14 +793,14 @@ function StatusRow({ icon, label, value, ok }: { icon: string; label: string; va
   );
 }
 
-// ── 交接狀態面板 ──
-interface HandoffFile {
+// ── 專案知識面板 (Project Knowledge) ──
+interface KnowledgeFile {
   path: string;
   icon: string;
   label: string;
   cuStep?: string; // which CU step produces this file
 }
-const HANDOFF_FILES: HandoffFile[] = [
+const KNOWLEDGE_FILES: KnowledgeFile[] = [
   // CU 產出的核心檔案
   { path: ".paaw/PROJECT.md", icon: "📋", label: "PROJECT.md", cuStep: "overview" },
   { path: ".paaw/ARCHITECTURE.md", icon: "📐", label: "Architecture Map", cuStep: "architecture" },
@@ -817,14 +817,14 @@ const HANDOFF_FILES: HandoffFile[] = [
   { path: ".paaw/CHANGELOG.md", icon: "📝", label: "Change Memory" },
 ];
 
-function HandoffStatusPanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void }) {
-  const [fileStatuses, setFileStatuses] = useState<Record<string, "ok" | "template" | "missing">>({});
+function ProjectKnowledgePanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void }) {
+  const [knowledgeStatuses, setFileStatuses] = useState<Record<string, "ok" | "template" | "missing">>({});
 
   useEffect(() => {
     if (!rootPath) return;
     const checkFiles = async () => {
       const results: Record<string, "ok" | "template" | "missing"> = {};
-      for (const f of HANDOFF_FILES) {
+      for (const f of KNOWLEDGE_FILES) {
         try {
           const filePath = f.path.replace(/^\.paaw\//, "");
           const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(filePath)}`);
@@ -856,15 +856,15 @@ function HandoffStatusPanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk
     checkFiles();
   }, [rootPath]);
 
-  const okCount = Object.values(fileStatuses).filter(s => s === "ok").length;
-  const total = HANDOFF_FILES.length;
+  const okCount = Object.values(knowledgeStatuses).filter(s => s === "ok").length;
+  const total = KNOWLEDGE_FILES.length;
 const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
 
   return (
     <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
-          <span>📋</span> 交接狀態
+          <span>📚</span> 專案知識
         </h3>
         <span className={cn("text-xs font-bold", pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-500")}>
           {okCount}/{total} ({pct}%)
@@ -876,8 +876,8 @@ const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
       </div>
       {/* File list */}
       <div className="space-y-1">
-        {HANDOFF_FILES.map(f => {
-          const st = fileStatuses[f.path] || "missing";
+        {KNOWLEDGE_FILES.map(f => {
+          const st = knowledgeStatuses[f.path] || "missing";
           return (
             <button
               key={f.path}
