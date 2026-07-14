@@ -592,8 +592,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                         const dispatch = (item.status === "missing" || item.status === "warn") ? HEALTH_DISPATCH[item.name] : null;
                         return (
                         <div key={i} className="flex items-center gap-1.5 text-sm">
-                          <span className={item.status === "done" ? "text-green-500" : item.status === "partial" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400"}>
-                            {item.status === "done" ? "✅" : item.status === "partial" ? "🟡" : item.status === "missing" ? "❌" : "⚪"}
+                          <span className={item.status === "done" || item.status === "ok" ? "text-green-500" : item.status === "partial" || item.status === "warn" ? "text-amber-500" : item.status === "missing" ? "text-red-400" : "text-stone-400"}>
+                            {item.status === "done" || item.status === "ok" ? "✅" : item.status === "partial" || item.status === "warn" ? "🟡" : item.status === "missing" ? "❌" : "ℹ️"}
                           </span>
                           <span className="text-stone-500 flex-1">{item.name}</span>
                           {item.detail && item.status !== "ok" && item.status !== "info" && (
