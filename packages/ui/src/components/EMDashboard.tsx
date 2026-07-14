@@ -15,6 +15,7 @@ interface ChatMessage {
   content: string;
   ts?: string;
   _thinking?: boolean;
+  _streamId?: string | null;
 }
 
 interface ActionLogEntry {
@@ -274,7 +275,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let finalContent = "";
+      let fullText = "";
+      let lastAssistantId: string | null = null;
       const toolLog: string[] = [];
 
       while (reader) {
@@ -288,25 +290,81 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           if (!line.startsWith("data: ")) continue;
           try {
             const d = JSON.parse(line.slice(6));
-            if (d.type === "thinking" && d.content) {
-              setMessages(prev => [...prev, { role: "assistant", content: `💭 ${d.content.slice(0, 200)}`, ts: new Date().toISOString(), _thinking: true }]);
-            } else if ((d.type === "tool" || d.type === "tool_result") && d.name) {
-              toolLog.push(d.name);
-            } else if (d.type === "content" && d.content) {
-              // Remove thinking bubbles, add final answer
+
+            // A2A JSON-RPC format
+            if (d.result) {
+              const r = d.result;
+
+              // Streaming text chunks (artifact-update + append)
+              if (r.kind === "artifact-update" && r.append) {
+                const part = r.artifact?.parts?.[0];
+                if (part?.text) {
+                  fullText += part.text;
+                  // Update the last assistant message in-place for streaming effect
+                  setMessages(prev => {
+                    const filtered = prev.filter(m => !m._thinking);
+                    const last = filtered[filtered.length - 1];
+                    if (last && last.role === "assistant" && last._streamId === lastAssistantId) {
+                      return [...filtered.slice(0, -1), { ...last, content: fullText }];
+                    }
+                    // First chunk — create new assistant message
+                    const streamId = `stream-${Date.now()}`;
+                    lastAssistantId = streamId;
+                    return [...filtered, { role: "assistant", content: fullText, ts: new Date().toISOString(), _streamId: streamId }];
+                  });
+                }
+              }
+
+              // Tool usage status
+              if (r.kind === "status-update" && r.status?.message?.parts?.[0]?.text) {
+                const toolText = r.status.message.parts[0].text;
+                if (toolText.startsWith("🔧 ")) {
+                  toolLog.push(toolText);
+                }
+              }
+
+              // Final completion
+              if (r.kind === "status-update" && r.final) {
+                // If we never got streaming chunks but have a final result with text
+                if (!fullText && r.status?.state === "completed") {
+                  // Try to get text from the task artifacts in subsequent tasks/get
+                }
+              }
+            }
+
+            // Error
+            if (d.error) {
               setMessages(prev => [...prev.filter(m => !m._thinking)]);
-              finalContent = d.content;
-            } else if (d.type === "error") {
+              setMessages(prev => [...prev, { role: "assistant", content: `❌ Error: ${d.error.message || "unknown"}`, ts: new Date().toISOString() }]);
+              fullText = "__error__";
+            }
+
+            // Legacy simple format (direct type field)
+            if (d.type === "content" && d.content) {
+              fullText = d.content;
               setMessages(prev => [...prev.filter(m => !m._thinking)]);
-              finalContent = `❌ Error: ${d.error || d.message || "unknown"}`;
+              setMessages(prev => [...prev, { role: "assistant", content: d.content, ts: new Date().toISOString() }]);
             }
           } catch {}
         }
       }
 
-      if (finalContent) {
-        setMessages(prev => [...prev.filter(m => !m._thinking)]);
-        setMessages(prev => [...prev, { role: "assistant", content: finalContent, ts: new Date().toISOString() }]);
+      // If stream ended with content, ensure it's in messages
+      if (fullText && fullText !== "__error__") {
+        setMessages(prev => {
+          const filtered = prev.filter(m => !m._thinking);
+          const last = filtered[filtered.length - 1];
+          if (last && last.role === "assistant" && last._streamId) {
+            // Already streaming, just make sure content is final
+            if (last.content === fullText) return filtered;
+            return [...filtered.slice(0, -1), { ...last, content: fullText, _streamId: undefined }];
+          }
+          // Not yet added as a message — add it now
+          if (!filtered.some(m => m.role === "assistant" && m.content === fullText)) {
+            return [...filtered, { role: "assistant", content: fullText, ts: new Date().toISOString() }];
+          }
+          return filtered;
+        });
       }
 
       // Refresh action log after EM responds

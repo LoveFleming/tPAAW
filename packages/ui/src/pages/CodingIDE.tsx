@@ -2593,9 +2593,9 @@ const sendChat = useCallback(async () => {
               );
             })()}
 
-            {/* === PROJECT DASHBOARD === */}
             {/* === EM DASHBOARD (Landing Page) === */}
-            {activeMainTab?.type === "em-dashboard" && (
+            {/* Always mounted, hidden with display:none to preserve chat state */}
+            <div style={{ display: activeMainTab?.type === "em-dashboard" ? undefined : "none", flex: activeMainTab?.type === "em-dashboard" ? 1 : undefined, flexDirection: "column", overflow: "hidden" }}>
               <EMDashboard
                 rootPath={rootPath}
                 theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
@@ -2621,7 +2621,7 @@ const sendChat = useCallback(async () => {
                   }
                 }}
               />
-            )}
+            </div>
 
             {/* === TERMINAL TAB === */}
             {activeMainTab?.type === "terminal" && (
