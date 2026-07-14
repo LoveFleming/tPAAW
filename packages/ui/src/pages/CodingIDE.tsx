@@ -520,6 +520,7 @@ export default function CodingIDE() {
   const [apiStreamMode, setApiStreamMode] = useState(false);
   const [apiStreamContent, setApiStreamContent] = useState("");
   const [apiStreamInfo, setApiStreamInfo] = useState<{ status: number; statusText: string; contentType: string } | null>(null);
+  const [projectApis, setProjectApis] = useState<{ method: string; path: string; file: string }[]>([]);
   const apiStreamAbortRef = useRef<AbortController | null>(null);
 
   // ── Coding Behavior Tracking ──
@@ -554,6 +555,15 @@ export default function CodingIDE() {
       } catch {}
     })();
   }, []);
+
+  // Load project APIs when rootPath changes
+  useEffect(() => {
+    if (!rootPath) { setProjectApis([]); return; }
+    fetch(`${API_BASE}/api/api-tester/project-apis?root=${encodeURIComponent(rootPath)}`)
+      .then(r => r.json())
+      .then(data => setProjectApis(data.routes || []))
+      .catch(() => setProjectApis([]));
+  }, [rootPath]);
 
   useEffect(() => {
     try { localStorage.setItem("paaw.vibeide.rootPath", rootPath); } catch {}
@@ -2192,11 +2202,25 @@ const sendChat = useCallback(async () => {
                   </div>
                   {/* Quick URLs */}
                   <div className="flex flex-wrap gap-1 mb-1">
+                    {/* Project APIs (from .paaw/code-intelligence/api-function-map.json) */}
+                    {projectApis.length > 0 && projectApis.slice(0, 20).map((api, i) => (
+                      <button key={`proj-${i}`} onClick={() => {
+                        const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
+                        setApiUrl(`${base}${api.path}`);
+                        setApiMethod(api.method || "GET");
+                        setApiStreamMode(false);
+                      }}
+                        className="text-xs px-2 py-0.5 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50"
+                        title={api.file || api.path}>
+                        {api.method} {api.path.length > 25 ? `…${api.path.slice(-22)}` : api.path}
+                      </button>
+                    ))}
+                    {/* Generic test endpoints */}
+                    {projectApis.length === 0 && (
+                      <span className="text-xs text-stone-400 italic">No project APIs found — run CU init first</span>
+                    )}
+                    <div className="w-px h-4 bg-stone-200 mx-1" />
                     {[
-                      { label: "PAAW Chat", url: `${API_BASE}/api/chat`, method: "POST" },
-                      { label: "PAAW Status", url: `${API_BASE}/api/vibe-git/status`, method: "GET" },
-                      { label: "PAAW FS", url: `${API_BASE}/api/vibe-fs/list`, method: "GET" },
-                      { label: "Distill Config", url: `${API_BASE}/api/distill/config`, method: "GET" },
                       { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1", method: "GET" },
                       { label: "HTTPBin", url: "https://httpbin.org/get", method: "GET" },
                       { label: "⚡ LLM Stream", url: "", method: "POST", stream: true },

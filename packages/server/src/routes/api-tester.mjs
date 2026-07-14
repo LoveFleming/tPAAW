@@ -8,6 +8,25 @@ import { resolve } from "path";
 import { DATA_ROOT } from "./shared.mjs";
 
 export default async function apiTesterRoute(req, res) {
+
+  // ── GET /api/api-tester/project-apis ──
+  // Returns the code project's own API routes from .paaw/code-intelligence/api-function-map.json
+  if (req.method === "GET" && req.url?.startsWith("/api/api-tester/project-apis")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const projectRoot = params.get("root") || DATA_ROOT;
+    const mapFile = resolve(projectRoot, ".paaw/code-intelligence/api-function-map.json");
+    try {
+      const data = JSON.parse(readFileSync(mapFile, "utf-8"));
+      const routes = (data.routes || []).map(r => ({ method: r.method, path: r.path, file: r.file }));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ routes }));
+    } catch {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ routes: [] }));
+    }
+    return true;
+  }
+
   // ── POST /api/api-tester/proxy ──
   if (req.method === "POST" && req.url === "/api/api-tester/proxy") {
     let body;
