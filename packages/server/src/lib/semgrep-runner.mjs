@@ -96,26 +96,57 @@ function detectRulePacks(projectRoot) {
  * Build the semgrep command for the current platform.
  * On Windows, use `shell: true` so pip-installed semgrep is found.
  */
-function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
+function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   const configArgs = rulePacks.map(p => `--config "${p}"`).join(" ");
-  return `semgrep --json ${configArgs} ${excludeArgs} --metrics off --quiet "${projectRoot}"`;
+  return `"${semgrepBin}" --json ${configArgs} ${excludeArgs} --metrics off --quiet "${projectRoot}"`;
 }
 
 /**
  * Check if semgrep is installed (cross-platform)
+ * Returns { available: boolean, path?: string, error?: string }
  */
 export function isSemgrepAvailable() {
-  try {
-    execSyncCb("semgrep --version", {
-      stdio: "pipe",
-      timeout: 8000,
-      shell: true,
-      env: { ...process.env },
-    });
-    return true;
-  } catch {
-    return false;
+  const candidates = isWin
+    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version", "python3 -m semgrep --version"]
+    : ["semgrep --version", "python3 -m semgrep --version", "python -m semgrep --version"];
+  for (const cmd of candidates) {
+    try {
+      const out = execSyncCb(cmd, {
+        stdio: "pipe",
+        timeout: 15000,
+        shell: true,
+        env: { ...process.env },
+      });
+      return true;
+    } catch {
+      // try next
+    }
   }
+  return false;
+}
+
+/**
+ * Find the actual semgrep command to use on this platform.
+ * Returns the command prefix string (e.g. "semgrep" or "python -m semgrep").
+ */
+function findSemgrepCmd() {
+  const candidates = isWin
+    ? ["semgrep", "semgrep.exe", "python -m semgrep", "python3 -m semgrep"]
+    : ["semgrep", "python3 -m semgrep", "python -m semgrep"];
+  for (const cmd of candidates) {
+    try {
+      execSyncCb(`${cmd} --version`, {
+        stdio: "pipe",
+        timeout: 15000,
+        shell: true,
+        env: { ...process.env },
+      });
+      return cmd;
+    } catch {
+      // try next
+    }
+  }
+  return null;
 }
 
 /**
@@ -128,6 +159,16 @@ export function isSemgrepAvailable() {
 export async function runSemgrep(projectRoot, options = {}) {
   const timeoutMs = options.timeoutMs || 120_000; // 2 min default
   const customPacks = options.rulePacks;
+
+  // Find the actual semgrep binary/command
+  const semgrepBin = findSemgrepCmd();
+  if (!semgrepBin) {
+    return {
+      findings: [],
+      stats: { total: 0, bySeverity: {}, byCategory: {} },
+      error: "Semgrep not found. Tried: semgrep, semgrep.exe, python -m semgrep. Install: pip install semgrep",
+    };
+  }
 
   // Detect rule packs
   const rulePacks = customPacks || detectRulePacks(projectRoot);
@@ -150,7 +191,7 @@ export async function runSemgrep(projectRoot, options = {}) {
     "--exclude '*.map'",
   ].join(" ");
 
-  const fullCmd = buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
+  const fullCmd = buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs);
 
   try {
     const { stdout } = await exec(fullCmd, {

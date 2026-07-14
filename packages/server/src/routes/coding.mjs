@@ -910,8 +910,9 @@ export default async function projectRoute(req, res) {
     // Run Semgrep and return findings
     if (url.startsWith("/api/coding-project/security-scan") && method === "GET") {
       if (!isSemgrepAvailable()) {
+        const tried = isWin ? "semgrep, semgrep.exe, python -m semgrep, python3 -m semgrep" : "semgrep, python3 -m semgrep";
         res.writeHead(503, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Semgrep is not installed or not in PATH. Install: pip install semgrep (Windows) or brew install semgrep (macOS). After install, restart PAAW server." }));
+        res.end(JSON.stringify({ error: `Semgrep not found. Tried: ${tried}. Install: pip install semgrep, then restart PAAW server.` }));
         return true;
       }
       try {
@@ -1316,7 +1317,10 @@ export default async function projectRoute(req, res) {
         // Special handling: security-scan runs Semgrep (no LLM needed)
         if (step.id === "security-scan") {
           if (!isSemgrepAvailable()) {
-            sendEvent("step_error", { step: step.id, name: step.name, error: "Semgrep 未安裝。安裝方式: brew install semgrep (macOS) 或 pip install semgrep" });
+            const tried = isWin
+              ? "semgrep, semgrep.exe, python -m semgrep, python3 -m semgrep"
+              : "semgrep, python3 -m semgrep";
+            sendEvent("step_error", { step: step.id, name: step.name, error: `Semgrep 未安裝或不在 PATH 中。嘗試過: ${tried}。安裝: pip install semgrep，然後重啟 PAAW server。` });
             sendEvent("done", { message: "Step skipped — semgrep not installed" });
             res.end();
             return true;
