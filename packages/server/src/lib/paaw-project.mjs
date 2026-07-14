@@ -144,6 +144,37 @@ export class PaawProject {
 
     const recentSessions = await this.loadRecentSessions(3);
 
+    // Feature Map + File-to-Feature mapping
+    let featureMap = null;
+    let fileFeatureMap = null;
+    try {
+      const fmRaw = await this.readFile("features/feature-map.json");
+      if (fmRaw) {
+        const fm = JSON.parse(fmRaw);
+        // Compact summary: feature name → key files
+        featureMap = (fm.features || []).map(f => ({
+          id: f.id,
+          name: f.name,
+          codeFiles: (f.codeFiles || []).slice(0, 8),
+          apis: (f.apis || []).slice(0, 5).map(a => `${a.method} ${a.path}`),
+        }));
+      }
+    } catch {}
+    // File → Feature mapping (reverse index from api-function-map)
+    try {
+      const apiMapRaw = await this.readFile("code-intelligence/api-function-map.json");
+      if (apiMapRaw) {
+        const apiMap = JSON.parse(apiMapRaw);
+        fileFeatureMap = (apiMap.routes || []).slice(0, 30).map(r => ({
+          file: r.file,
+          method: r.method,
+          path: r.path,
+          handler: r.handler || "",
+          feature: r.feature || "",
+        }));
+      }
+    } catch {}
+
     return {
       project,
       architecture,
@@ -151,6 +182,8 @@ export class PaawProject {
       changelog,
       standards,
       recentSessions,
+      featureMap,
+      fileFeatureMap,
     };
   }
 
@@ -167,6 +200,23 @@ export class PaawProject {
     }
     if (ctx.standards) {
       parts.push(`\n=== Coding Standards (.paaw/CODING-STANDARDS.md + standards/) ===\n${ctx.standards}`);
+    }
+    // Feature Map: feature → files
+    if (ctx.featureMap && ctx.featureMap.length > 0) {
+      const fmLines = ctx.featureMap.map(f => {
+        const files = f.codeFiles.length > 0 ? f.codeFiles.join(", ") : "(no files mapped)";
+        const apis = f.apis.length > 0 ? ` | APIs: ${f.apis.join(", ")}` : "";
+        return `- ${f.name} (${f.id}): ${files}${apis}`;
+      });
+      parts.push(`\n=== Feature Map (feature → files) ===\n${fmLines.join("\n")}`);
+    }
+    // File → Feature mapping (reverse)
+    if (ctx.fileFeatureMap && ctx.fileFeatureMap.length > 0) {
+      const ffLines = ctx.fileFeatureMap.map(r => {
+        const feat = r.feature ? `[${r.feature}] ` : "";
+        return `- ${r.file}: ${r.method} ${r.path} ${r.handler ? `→ ${r.handler}` : ""} ${feat}`;
+      });
+      parts.push(`\n=== File → Feature & API Map (file → endpoints) ===\n${ffLines.join("\n")}`);
     }
     if (ctx.decisions) {
       // Only include last ~2000 chars to keep prompt manageable
