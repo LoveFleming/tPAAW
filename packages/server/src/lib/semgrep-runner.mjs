@@ -105,24 +105,17 @@ function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
  * Check if semgrep is installed (cross-platform)
  */
 export function isSemgrepAvailable() {
-  const candidates = isWin
-    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version"]
-    : ["semgrep --version"];
-
-  for (const cmd of candidates) {
-    try {
-      execSyncCb(cmd, {
-        stdio: "pipe",
-        timeout: 8000,
-        shell: true,       // ← critical for Windows PATH resolution
-        env: { ...process.env },
-      });
-      return true;
-    } catch {
-      // try next candidate
-    }
+  try {
+    execSyncCb("semgrep --version", {
+      stdio: "pipe",
+      timeout: 8000,
+      shell: true,
+      env: { ...process.env },
+    });
+    return true;
+  } catch {
+    return false;
   }
-  return false;
 }
 
 /**
