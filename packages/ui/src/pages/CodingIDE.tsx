@@ -930,6 +930,7 @@ const sendChat = useCallback(async () => {
           body: JSON.stringify({
             domain: chatMode,
             prompt: userMsg.content,
+            model: codingModel || undefined,
             history: chatMessages.filter(m => !m._thinking).slice(-12).map(m => ({ role: m.role, content: m.content })),
             crewId: activeCrew || undefined,
           }),
@@ -1007,6 +1008,7 @@ const sendChat = useCallback(async () => {
                 cwd: rootPath || undefined,
                 ...(activeTab ? { activeFile: activeTab.path, activeFileContent: activeTab.content.slice(0, 3000) } : {}),
               },
+              metadata: codingModel ? { model: codingModel } : undefined,
               conversationHistory: crewConversations[activeCrew || "coding.architect"] || [],
             },
             id: `msg-${Date.now()}`,
@@ -2411,7 +2413,7 @@ const sendChat = useCallback(async () => {
                       >
                         ✨
                       </button>
-                      <ModelSelector value={codingModel} onChange={setCodingModel} />
+                      <ModelSelector feature="codingIDE" value={codingModel} onChange={setCodingModel} />
                     </div>
                   </div>
                 </div>

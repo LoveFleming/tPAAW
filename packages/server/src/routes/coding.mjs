@@ -1999,7 +1999,7 @@ export default async function projectRoute(req, res) {
 
     // POST /api/coding-project/domain-ai — run a domain AI
     if (url.startsWith("/api/coding-project/domain-ai") && method === "POST") {
-      const { domain, prompt, history } = JSON.parse(await readBody(req));
+      const { domain, prompt, history, model: modelOverride } = JSON.parse(await readBody(req));
       const validDomains = ["spec", "test", "bug", "docs", "maintain"];
       if (!validDomains.includes(domain)) {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -2115,6 +2115,7 @@ export default async function projectRoute(req, res) {
 
         // Call LLM
         const result = await callProjectLLM({
+          model: modelOverride || undefined,
           messages,
           temperature: 0.3,
           maxTokens: 4000,
