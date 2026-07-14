@@ -424,15 +424,16 @@ export default function CodingIDE() {
     setAiInitializing(true);
     const steps = [
       { id: "scan", name: "🔍 掃描專案結構" },
-      { id: "architecture", name: "🏗️ 產出 Architecture Map" },
-      { id: "api-spec", name: "📡 產出 API Contract" },
-      { id: "error-mapping", name: "🐛 產出 Error Map + Runbooks" },
-      { id: "decisions", name: "🏛️ 產出 Decision Records (ADR)" },
-      { id: "test-payload", name: "🧪 產出 Test Payloads" },
-      { id: "standards", name: "📏 產出 Coding Standards" },
-      { id: "faq", name: "🤖 產出 HelpDesk FAQ" },
-      { id: "overview", name: "📊 產出 PROJECT.md" },
-      { id: "feature-map", name: "🗺️ 產出 Feature Map" },
+      { id: "architecture", name: "📐 Architecture Map" },
+      { id: "feature-map", name: "🗺️ Feature Map" },
+      { id: "api-spec", name: "📡 API Contract" },
+      { id: "code-intelligence", name: "🧠 Code Intelligence" },
+      { id: "test-intelligence", name: "🧪 Test Intelligence" },
+      { id: "error-mapping", name: "🐛 Error Map + Runbooks" },
+      { id: "security-scan", name: "🔒 Security Scan" },
+      { id: "standards", name: "🏛️ Coding Standards" },
+      { id: "overview", name: "📊 PROJECT.md" },
+      { id: "change-intelligence", name: "🔄 Change Intelligence" },
     ];
     setAiInitSteps(steps.map(s => ({ ...s, status: "pending" as const })));
 
