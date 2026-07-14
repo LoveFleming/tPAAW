@@ -7,11 +7,11 @@ import { readdir, readFile, writeFile, mkdir, rm, stat } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import {
-import { resolveDefaultModel } from "../lib/llm-utils.mjs";
   yaml,
   PAAW_ROOT, INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT, SKILL_POOL_ROOT,
   readBody,
 } from "./shared.mjs";
+import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── Helper: parse YAML frontmatter from SKILL.md ──
 function parseSkillFrontmatter(raw) {
