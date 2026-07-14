@@ -517,7 +517,7 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
         </div>
 
         {/* Section Tabs */}
-        <div className="flex items-center gap-0 flex-1 overflow-hidden">
+        <div className="flex items-center gap-0 flex-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {sections.map(sec => (
             <div
               key={sec.id}
@@ -563,10 +563,13 @@ export default function Notes({ deepLinkNote, onDeepLinkConsumed }: NotesProps) 
           ) : (
             <button
               onClick={() => setShowNewSecInput(true)}
-              className="px-2 py-1.5 text-sm rounded-t-md shrink-0"
-              style={{ color: tk.textMuted }}
+              className="px-3 py-1.5 text-sm rounded-md shrink-0 flex items-center gap-1 transition-colors"
+              style={{ color: tk.accentText, background: tk.accentBg, border: `1px dashed ${tk.borderInput}` }}
               title={tt("notes.addSection")}
-            >＋</button>
+            >
+              <span className="text-xs">＋</span>
+              <span className="text-xs font-medium">{tt("notes.addSection")}</span>
+            </button>
           )}
         </div>
 
