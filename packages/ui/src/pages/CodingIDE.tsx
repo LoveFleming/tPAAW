@@ -664,46 +664,46 @@ export default function CodingIDE() {
   // ═══════════════════════════════════════════════
   // Conversation Archive Actions
   // ═══════════════════════════════════════════════
-  // Start new conversation — archive current + clear
+  // Start new conversation — archive active session + start fresh (like /new)
   const startNewConversation = useCallback(async () => {
     if (!activeCrew || !rootPath) return;
     const current = crewConversations[activeCrew] || [];
     if (current.length === 0) return; // nothing to archive
     try {
-      await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/archive?cwd=${encodeURIComponent(rootPath)}`, {
+      await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/new-session?cwd=${encodeURIComponent(rootPath)}`, {
         method: "POST",
       });
       // Clear current conversation
       setCrewConversations(prev => ({ ...prev, [activeCrew]: [] }));
       setViewingArchive(null);
       setShowArchivePanel(false);
-      // Refresh archive list
+      // Refresh session list
       loadArchivedConversations(activeCrew, rootPath);
     } catch {}
   }, [activeCrew, rootPath, crewConversations]);
 
-  // Load archived conversations list for a crew
+  // Load session list for a crew (active + history)
   const loadArchivedConversations = useCallback(async (crewId: string, cwd: string) => {
     const effectiveCwd = cwd || rootPath;
     if (!effectiveCwd) return;
     try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(crewId)}/archives?cwd=${encodeURIComponent(effectiveCwd)}`);
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(crewId)}/sessions?cwd=${encodeURIComponent(effectiveCwd)}`);
       const data = await res.json();
-      setArchivedConversations(prev => ({ ...prev, [crewId]: data.archives || [] }));
+      setArchivedConversations(prev => ({ ...prev, [crewId]: data.sessions || [] }));
     } catch {
       setArchivedConversations(prev => ({ ...prev, [crewId]: [] }));
     }
   }, [rootPath]);
 
-  // Load a specific archived conversation (view only, or continue in current)
-  const loadArchivedConversation = useCallback(async (archiveId: string) => {
+  // Load a specific session (view history, or continue in current)
+  const loadArchivedConversation = useCallback(async (sessionId: string) => {
     if (!activeCrew || !rootPath) return;
     try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/archives/${encodeURIComponent(archiveId)}?cwd=${encodeURIComponent(rootPath)}`);
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/sessions/${encodeURIComponent(sessionId)}?cwd=${encodeURIComponent(rootPath)}`);
       const data = await res.json();
       if (data.messages) {
         setCrewConversations(prev => ({ ...prev, [activeCrew]: data.messages }));
-        setViewingArchive(archiveId);
+        setViewingArchive(sessionId);
         setShowArchivePanel(false);
       }
     } catch {}
@@ -2463,7 +2463,7 @@ const sendChat = useCallback(async () => {
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-500">{chatMessages.length} 則</span>
                       )}
                       {viewingArchive && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歸檔</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歷史</span>
                       )}
                       {/* History button */}
                       <button
@@ -2490,29 +2490,32 @@ const sendChat = useCallback(async () => {
                   </div>
                 </div>
 
-                {/* Archive panel — rendered inline below header */}
+                {/* Session panel — rendered inline below header */}
                 {showArchivePanel && activeCrew && (
                   <div className="bg-white border-b shadow-sm" style={{ borderColor: tk.borderLight, maxHeight: "200px", overflowY: "auto" }}>
                     <div className="flex items-center justify-between px-4 py-2 border-b sticky top-0 bg-white z-10" style={{ borderColor: tk.borderLight }}>
-                      <span className="text-sm font-semibold text-stone-700">📜 歷史對話</span>
+                      <span className="text-sm font-semibold text-stone-700">📜 對話 Sessions</span>
                       <button onClick={() => setShowArchivePanel(false)} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
                     </div>
                     {(archivedConversations[activeCrew] || []).length === 0 ? (
-                      <div className="px-4 py-4 text-center text-sm text-stone-400">尚無歷史對話</div>
+                      <div className="px-4 py-4 text-center text-sm text-stone-400">尚無對話記錄</div>
                     ) : (
-                        (archivedConversations[activeCrew] || []).map((arc: any) => (
+                        (archivedConversations[activeCrew] || []).map((sess: any) => (
                           <button
-                            key={arc.archiveId}
-                            onClick={() => loadArchivedConversation(arc.archiveId)}
+                            key={sess.sessionId}
+                            onClick={() => !sess.isActive && loadArchivedConversation(sess.sessionId)}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b transition-colors"
-                            style={{ borderColor: tk.borderLight }}
+                            style={{ borderColor: tk.borderLight, opacity: sess.isActive ? 0.7 : 1 }}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-stone-700 truncate">{arc.title || "對話"}</span>
-                              <span className="text-[10px] text-stone-400 shrink-0 ml-2">{arc.messageCount} 則</span>
+                              <span className="text-sm font-medium text-stone-700 truncate">
+                                {sess.isActive && <span className="text-green-500 mr-1">●</span>}
+                                {sess.title || "對話"}
+                              </span>
+                              <span className="text-[10px] text-stone-400 shrink-0 ml-2">{sess.messageCount} 則</span>
                             </div>
                             <div className="text-[10px] text-stone-400 mt-0.5">
-                              {arc.archivedAt ? new Date(arc.archivedAt).toLocaleString("zh-TW", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                              {sess.lastUpdated ? new Date(sess.lastUpdated).toLocaleString("zh-TW", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
                             </div>
                           </button>
                         ))

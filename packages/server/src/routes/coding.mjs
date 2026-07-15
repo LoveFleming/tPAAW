@@ -326,7 +326,96 @@ export default async function projectRoute(req, res) {
   }
 
   // ── Crew Conversation Persistence ──
-  // GET /api/coding-crew/conversations?cwd=... — list all crew conversations
+  // ── Conversation / Session APIs ──
+  // New structure: .paaw/coding-memory/conversations/{agentId}/active.json + s-*.json history
+  //
+  // GET    /api/coding-crew/conversations?cwd=...                              — List all agents with conversations
+  // GET    /api/coding-crew/conversations/:crewId?cwd=...                     — Load active conversation
+  // POST   /api/coding-crew/conversations/:crewId?cwd=...                     — Save active conversation
+  // DELETE /api/coding-crew/conversations/:crewId?cwd=...                     — Clear active conversation
+  // POST   /api/coding-crew/conversations/:crewId/new-session?cwd=...         — Archive active + start new (like /new)
+  // GET    /api/coding-crew/conversations/:crewId/sessions?cwd=...            — List all sessions (active + history)
+  // GET    /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — Load specific session
+  // DELETE /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — Delete a session
+  // POST   /api/coding-crew/conversations/:crewId/switch/:sessionId?cwd=...  — Switch to a history session
+
+  // Helper: resolve conversation paths for an agent
+  function getConvPaths(cwd, crewId) {
+    const agentDir = join(cwd, ".paaw", "coding-memory", "conversations", crewId);
+    return {
+      agentDir,
+      activeFile: join(agentDir, "active.json"),
+    };
+  }
+
+  // Helper: read conversation from file (handles both old flat + new dir format)
+  async function readConvFile(filePath) {
+    if (!existsSync(filePath)) return { messages: [], _meta: {} };
+    try {
+      const data = JSON.parse(readSync(filePath, "utf-8"));
+      if (Array.isArray(data)) return { messages: data, _meta: {} };
+      return { messages: data.messages || [], _meta: data._meta || {} };
+    } catch {
+      return { messages: [], _meta: {} };
+    }
+  }
+
+  // ── Migrate old flat files → new directory structure ──
+  async function migrateFlatConversations(cwd) {
+    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
+    if (!existsSync(convDir)) return;
+    const entries = await readdir(convDir);
+    for (const entry of entries) {
+      const entryPath = join(convDir, entry);
+      const stat = await import("fs").then(fs => fs.statSync(entryPath));
+      // If it's a .json file (old flat format), move to {agentId}/active.json
+      if (entry.endsWith(".json") && stat.isFile()) {
+        const agentId = entry.replace(".json", "");
+        const agentDir = join(convDir, agentId);
+        const newFile = join(agentDir, "active.json");
+        if (!existsSync(agentDir)) await mkdir(agentDir, { recursive: true });
+        if (!existsSync(newFile)) {
+          const { rename } = await import("fs/promises");
+          await rename(entryPath, newFile);
+          console.log(`[conv-migrate] ${entry} → ${agentId}/active.json`);
+        } else {
+          await unlink(entryPath); // new file already exists, remove old
+        }
+      }
+      // If it's old .archive directory, move each archive .json to parent as s-*.json
+      if (entry.endsWith(".archive") && stat.isDirectory()) {
+        const agentId = entry.replace(".archive", "");
+        const agentDir = join(convDir, agentId);
+        if (!existsSync(agentDir)) await mkdir(agentDir, { recursive: true });
+        try {
+          const archiveFiles = await readdir(entryPath);
+          for (const af of archiveFiles.filter(f => f.endsWith(".json"))) {
+            const src = join(entryPath, af);
+            const data = JSON.parse(readSync(src, "utf-8"));
+            const archivedAt = data._meta?.archivedAt || new Date().toISOString();
+            const tsStr = archivedAt.replace(/[:.]/g, "-").slice(0, 19);
+            const dest = join(agentDir, `s-${tsStr}.json`);
+            if (!existsSync(dest)) {
+              const { rename } = await import("fs/promises");
+              await rename(src, dest);
+            } else {
+              await unlink(src);
+            }
+          }
+          // Remove empty .archive directory
+          const { rmdir } = await import("fs/promises");
+          try { await rmdir(entryPath); } catch {} // not empty = ok
+        } catch (e) {
+          console.error(`[conv-migrate] Failed to migrate archive ${entry}:`, e.message);
+        }
+      }
+    }
+  }
+
+  // Run migration on first request
+  await migrateFlatConversations(q.cwd || PAAW_ROOT);
+
+  // GET /api/coding-crew/conversations?cwd=... — list all agents with conversations
   if (url === "/api/coding-crew/conversations" && method === "GET") {
     const cwd = q.cwd || PAAW_ROOT;
     const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
@@ -336,16 +425,22 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ conversations: [] }));
         return true;
       }
-      const files = await readdir(convDir);
+      const entries = await readdir(convDir);
       const conversations = [];
-      for (const f of files.filter(f => f.endsWith(".json"))) {
+      for (const entry of entries) {
+        const entryPath = join(convDir, entry);
         try {
-          const data = JSON.parse(readSync(join(convDir, f), "utf-8"));
+          const stat = await import("fs").then(fs => fs.statSync(entryPath));
+          if (!stat.isDirectory()) continue;
+          const activePath = join(entryPath, "active.json");
+          const data = await readConvFile(activePath);
+          const sessions = (await readdir(entryPath)).filter(f => f.startsWith("s-") && f.endsWith(".json"));
           conversations.push({
-            crewId: f.replace(".json", ""),
-            messageCount: Array.isArray(data) ? data.length : (data.messages?.length || 0),
-            lastUpdated: data._meta?.lastUpdated || data[data.length - 1]?.ts || null,
-            preview: (Array.isArray(data) ? data : data.messages || []).slice(-1)[0]?.content?.slice(0, 100) || "",
+            crewId: entry,
+            messageCount: data.messages.length,
+            lastUpdated: data._meta?.lastUpdated || null,
+            preview: data.messages.slice(-1)[0]?.content?.slice(0, 100) || "",
+            sessionCount: sessions.length + (data.messages.length > 0 ? 1 : 0),
           });
         } catch {}
       }
@@ -358,21 +453,16 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // GET /api/coding-crew/conversations/:crewId?cwd=... — load crew conversation
+  // GET /api/coding-crew/conversations/:crewId?cwd=... — load active conversation
   const convLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/?]+)(?:\?.*)?$/);
   if (convLoadMatch && method === "GET") {
     const crewId = decodeURIComponent(convLoadMatch[1]);
     const cwd = q.cwd || PAAW_ROOT;
-    const convFile = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.json`);
+    const { activeFile } = getConvPaths(cwd, crewId);
     try {
-      if (existsSync(convFile)) {
-        const data = JSON.parse(readSync(convFile, "utf-8"));
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ messages: Array.isArray(data) ? data : (data.messages || []), crewId }));
-      } else {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ messages: [], crewId }));
-      }
+      const data = await readConvFile(activeFile);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: data.messages, crewId }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -380,12 +470,11 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // POST /api/coding-crew/conversations/:crewId?cwd=... — save crew conversation
+  // POST /api/coding-crew/conversations/:crewId?cwd=... — save active conversation
   if (convLoadMatch && method === "POST") {
     const crewId = decodeURIComponent(convLoadMatch[1]);
     const cwd = q.cwd || PAAW_ROOT;
-    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
-    const convFile = join(convDir, `${crewId}.json`);
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     let body;
     try { body = JSON.parse(await readBody(req)); } catch {
       res.writeHead(400, { "Content-Type": "application/json" });
@@ -393,8 +482,7 @@ export default async function projectRoute(req, res) {
       return true;
     }
     try {
-      await mkdir(convDir, { recursive: true });
-      // Store messages with metadata
+      await mkdir(agentDir, { recursive: true });
       const payload = {
         _meta: {
           crewId,
@@ -403,7 +491,7 @@ export default async function projectRoute(req, res) {
         },
         messages: body.messages || [],
       };
-      await writeFile(convFile, JSON.stringify(payload, null, 2), "utf-8");
+      await writeFile(activeFile, JSON.stringify(payload, null, 2), "utf-8");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, crewId, messageCount: payload.messages.length }));
     } catch (err) {
@@ -413,13 +501,13 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // DELETE /api/coding-crew/conversations/:crewId?cwd=... — clear crew conversation
+  // DELETE /api/coding-crew/conversations/:crewId?cwd=... — clear active conversation
   if (convLoadMatch && method === "DELETE") {
     const crewId = decodeURIComponent(convLoadMatch[1]);
     const cwd = q.cwd || PAAW_ROOT;
-    const convFile = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.json`);
+    const { activeFile } = getConvPaths(cwd, crewId);
     try {
-      if (existsSync(convFile)) { await unlink(convFile); }
+      if (existsSync(activeFile)) { await unlink(activeFile); }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, crewId }));
     } catch (err) {
@@ -429,52 +517,34 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // POST /api/coding-crew/conversations/:crewId/archive?cwd=... — archive current + start new
-  const archiveMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/archive(?:\?.*)?$/);
-  if (archiveMatch && method === "POST") {
-    const crewId = decodeURIComponent(archiveMatch[1]);
+  // POST /api/coding-crew/conversations/:crewId/new-session?cwd=... — archive active + start new (like /new)
+  const newSessionMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/new-session(?:\?.*)?$/);
+  if (newSessionMatch && method === "POST") {
+    const crewId = decodeURIComponent(newSessionMatch[1]);
     const cwd = q.cwd || PAAW_ROOT;
-    const convDir = join(cwd, ".paaw", "coding-memory", "conversations");
-    const convFile = join(convDir, `${crewId}.json`);
-    const archiveDir = join(convDir, `${crewId}.archive`);
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
-      // Read current conversation
-      if (!existsSync(convFile)) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, crewId, archived: false, message: "No active conversation to archive" }));
-        return true;
-      }
-      const data = JSON.parse(readSync(convFile, "utf-8"));
-      const messages = Array.isArray(data) ? data : (data.messages || []);
-      if (messages.length === 0) {
+      const data = await readConvFile(activeFile);
+      if (data.messages.length === 0) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, crewId, archived: false, message: "Empty conversation" }));
         return true;
       }
-      // Generate archive id: timestamp + first user message preview
+      // Move active.json → s-{timestamp}.json
       const ts = new Date();
       const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const firstUser = messages.find(m => m.role === "user");
+      const firstUser = data.messages.find(m => m.role === "user");
       const preview = firstUser ? firstUser.content.slice(0, 40).replace(/[^\w\u4e00-\u9fff -]/g, "").trim() : "conversation";
-      const archiveId = `${tsStr}-${preview}`;
-      const archiveFile = join(archiveDir, `${archiveId}.json`);
-      // Save archive
-      await mkdir(archiveDir, { recursive: true });
-      const archivePayload = {
-        _meta: {
-          crewId,
-          archivedAt: ts.toISOString(),
-          messageCount: messages.length,
-          archiveId,
-          title: firstUser ? firstUser.content.slice(0, 60) : "對話",
-        },
-        messages,
-      };
-      await writeFile(archiveFile, JSON.stringify(archivePayload, null, 2), "utf-8");
-      // Clear current conversation
-      await unlink(convFile);
+      const sessionFile = join(agentDir, `s-${tsStr}.json`);
+      // Update meta before saving as session
+      data._meta.archivedAt = ts.toISOString();
+      data._meta.title = firstUser ? firstUser.content.slice(0, 60) : "對話";
+      data._meta.sessionId = `s-${tsStr}`;
+      await writeFile(sessionFile, JSON.stringify(data, null, 2), "utf-8");
+      // Clear active
+      await unlink(activeFile);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, crewId, archived: true, archiveId, messageCount: messages.length }));
+      res.end(JSON.stringify({ ok: true, crewId, archived: true, sessionId: `s-${tsStr}`, messageCount: data.messages.length }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -482,62 +552,128 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // GET /api/coding-crew/conversations/:crewId/archives?cwd=... — list archived conversations
-  const archivesListMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/archives(?:\?.*)?$/);
-  if (archivesListMatch && method === "GET") {
-    const crewId = decodeURIComponent(archivesListMatch[1]);
+  // GET /api/coding-crew/conversations/:crewId/sessions?cwd=... — list all sessions
+  const sessionsListMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/sessions(?:\?.*)?$/);
+  if (sessionsListMatch && method === "GET") {
+    const crewId = decodeURIComponent(sessionsListMatch[1]);
     const cwd = q.cwd || PAAW_ROOT;
-    const archiveDir = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.archive`);
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
     try {
-      if (!existsSync(archiveDir)) {
+      const sessions = [];
+      // Active session
+      const activeData = await readConvFile(activeFile);
+      if (activeData.messages.length > 0) {
+        sessions.push({
+          sessionId: "active",
+          title: activeData._meta?.title || activeData.messages.find(m => m.role === "user")?.content.slice(0, 60) || "目前對話",
+          messageCount: activeData.messages.length,
+          lastUpdated: activeData._meta?.lastUpdated || null,
+          isActive: true,
+        });
+      }
+      // History sessions
+      if (existsSync(agentDir)) {
+        const files = await readdir(agentDir);
+        for (const f of files.filter(f => f.startsWith("s-") && f.endsWith(".json")).sort().reverse()) {
+          try {
+            const data = JSON.parse(readSync(join(agentDir, f), "utf-8"));
+            sessions.push({
+              sessionId: f.replace(".json", ""),
+              title: data._meta?.title || data.messages?.find(m => m.role === "user")?.content?.slice(0, 60) || "對話",
+              messageCount: data._meta?.messageCount || data.messages?.length || 0,
+              lastUpdated: data._meta?.archivedAt || data._meta?.lastUpdated || null,
+              isActive: false,
+            });
+          } catch {}
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ sessions }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // GET /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — load specific session
+  const sessionLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/sessions\/([^?]+)/);
+  if (sessionLoadMatch && method === "GET") {
+    const crewId = decodeURIComponent(sessionLoadMatch[1]);
+    const sessionId = decodeURIComponent(sessionLoadMatch[2]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    try {
+      const filePath = sessionId === "active" ? activeFile : join(agentDir, `${sessionId}.json`);
+      const data = await readConvFile(filePath);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ messages: data.messages, meta: data._meta, crewId, sessionId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/coding-crew/conversations/:crewId/sessions/:sessionId?cwd=... — delete a history session
+  if (sessionLoadMatch && method === "DELETE") {
+    const crewId = decodeURIComponent(sessionLoadMatch[1]);
+    const sessionId = decodeURIComponent(sessionLoadMatch[2]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const { agentDir } = getConvPaths(cwd, crewId);
+    try {
+      if (sessionId === "active") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Cannot delete active session, use DELETE /conversations/:crewId" }));
+        return true;
+      }
+      const filePath = join(agentDir, `${sessionId}.json`);
+      if (existsSync(filePath)) { await unlink(filePath); }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, crewId, sessionId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-crew/conversations/:crewId/switch/:sessionId?cwd=... — switch to a history session
+  const switchSessionMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/switch\/([^?]+)/);
+  if (switchSessionMatch && method === "POST") {
+    const crewId = decodeURIComponent(switchSessionMatch[1]);
+    const sessionId = decodeURIComponent(switchSessionMatch[2]);
+    const cwd = q.cwd || PAAW_ROOT;
+    const { agentDir, activeFile } = getConvPaths(cwd, crewId);
+    try {
+      if (sessionId === "active") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ archives: [] }));
+        res.end(JSON.stringify({ ok: true, message: "Already on active session" }));
         return true;
       }
-      const files = await readdir(archiveDir);
-      const archives = [];
-      for (const f of files.filter(f => f.endsWith(".json"))) {
-        try {
-          const data = JSON.parse(readSync(join(archiveDir, f), "utf-8"));
-          archives.push({
-            archiveId: data._meta?.archiveId || f.replace(".json", ""),
-            title: data._meta?.title || "對話",
-            messageCount: data._meta?.messageCount || (data.messages?.length || 0),
-            archivedAt: data._meta?.archivedAt || null,
-          });
-        } catch {}
+      // Archive current active if it has messages
+      const activeData = await readConvFile(activeFile);
+      if (activeData.messages.length > 0) {
+        const ts = new Date();
+        const tsStr = ts.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        activeData._meta.archivedAt = ts.toISOString();
+        activeData._meta.sessionId = `s-${tsStr}`;
+        const archiveFile = join(agentDir, `s-${tsStr}.json`);
+        await writeFile(archiveFile, JSON.stringify(activeData, null, 2), "utf-8");
+        await unlink(activeFile);
       }
-      archives.sort((a, b) => new Date(b.archivedAt) - new Date(a.archivedAt));
+      // Load target session → make it active
+      const srcFile = join(agentDir, `${sessionId}.json`);
+      const srcData = await readConvFile(srcFile);
+      // Write as active
+      srcData._meta.lastUpdated = new Date().toISOString();
+      delete srcData._meta.archivedAt;
+      srcData._meta.sessionId = "active";
+      await writeFile(activeFile, JSON.stringify(srcData, null, 2), "utf-8");
+      // Remove old session file
+      await unlink(srcFile);
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ archives }));
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return true;
-  }
-
-  // GET /api/coding-crew/conversations/:crewId/archives/:archiveId?cwd=... — load archived conversation
-  const archiveLoadMatch = url.match(/^\/api\/coding-crew\/conversations\/([^/]+)\/archives\/([^?]+)/);
-  if (archiveLoadMatch && method === "GET") {
-    const crewId = decodeURIComponent(archiveLoadMatch[1]);
-    const archiveId = decodeURIComponent(archiveLoadMatch[2]);
-    const cwd = q.cwd || PAAW_ROOT;
-    const archiveFile = join(cwd, ".paaw", "coding-memory", "conversations", `${crewId}.archive`, `${archiveId}.json`);
-    try {
-      if (!existsSync(archiveFile)) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Archive not found" }));
-        return true;
-      }
-      const data = JSON.parse(readSync(archiveFile, "utf-8"));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        messages: data.messages || [],
-        meta: data._meta || {},
-        crewId,
-        archiveId,
-      }));
+      res.end(JSON.stringify({ ok: true, crewId, switchedTo: "active", messageCount: srcData.messages.length }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
