@@ -548,12 +548,6 @@ export default function CodingIDE() {
       } catch {
         try { const hist = localStorage.getItem("paaw.api-tester.history"); if (hist) setApiHistory(JSON.parse(hist)); } catch {}
       }
-      // Load AI chat history from server
-      try {
-        const res = await fetch(`${API_BASE}/api/vibe-chat?sessionId=vibe-ide`);
-        const data = await res.json();
-        if (data.messages?.length) setChatMessages(data.messages);
-      } catch {}
     })();
   }, []);
 
