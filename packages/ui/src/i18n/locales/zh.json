@@ -515,5 +515,7 @@
   "nightShift.noReport": "尚無報告",
   "nightShift.noReportHint": "點上方按鈕開始夜班",
   "notes.quickAddToSection": "在此分類新增筆記",
-  "notes.moveToSection": "切換分類"
+  "notes.moveToSection": "切換分類",
+  "llmLog.title": "LLM 日誌",
+  "llmLog.description": "所有 LLM API 呼叫記錄"
 }

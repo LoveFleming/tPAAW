@@ -515,5 +515,7 @@
   "nightShift.noReport": "No report yet",
   "nightShift.noReportHint": "Click the button above to start",
   "notes.quickAddToSection": "Add note to this section",
-  "notes.moveToSection": "Change section"
+  "notes.moveToSection": "Change section",
+  "llmLog.title": "LLM Log",
+  "llmLog.description": "All LLM API call records"
 }

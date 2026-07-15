@@ -1981,26 +1981,63 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
     stream,
   };
 
-  // ── LLM Request Logging ──
-  try {
-    const { appendFile: af } = await import("fs/promises");
-    const { join: j } = await import("path");
-    const logDir = j(cwd, ".paaw", "coding-memory");
-    const { mkdirSync: ms } = await import("fs");
-    ms(logDir, { recursive: true });
-    const logPath = j(logDir, "llm-log.jsonl");
-    const logEntry = {
-      ts: new Date().toISOString(),
-      agentId: agentId || "unknown",
-      model: body.model,
-      stream,
-      messageCount: body.messages?.length,
-      messagesPreview: body.messages?.map(m => ({ role: m.role, len: m.content?.length || 0, preview: (m.content || "").slice(0, 200) })),
-      toolsCount: body.tools?.length,
-      toolNames: body.tools?.map(t => t.function?.name),
-    };
-    await af(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
-  } catch (_logErr) {}
+  const callStartTime = Date.now();
+  const callId = `llm-${callStartTime}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // ── LLM Request Logging (append to .paaw/llm-logs/) ──
+  const _logRequest = () => {
+    try {
+      const logDir = join(PAAW_ROOT, "data", "llm-logs");
+      mkdirSync(logDir, { recursive: true });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const logPath = join(logDir, `${dateStr}.jsonl`);
+      const logEntry = {
+        id: callId,
+        ts: new Date(callStartTime).toISOString(),
+        phase: "request",
+        agentId: agentId || null,
+        model: body.model,
+        stream,
+        apiUrl: apiUrl.replace(/\/v.*$/, "/..."), // don't log full URL with keys
+        messageCount: body.messages?.length,
+        messagesPreview: body.messages?.map(m => ({ role: m.role, len: (m.content || "").length, preview: (m.content || "").slice(0, 200) })),
+        toolsCount: body.tools?.length || 0,
+        toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
+        maxTokens: body.max_tokens,
+      };
+      appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
+    } catch (_e) {}
+  };
+  _logRequest();
+
+  // Helper to log response
+  const _logResponse = (response, error = null) => {
+    try {
+      const logDir = join(PAAW_ROOT, "data", "llm-logs");
+      mkdirSync(logDir, { recursive: true });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const logPath = join(logDir, `${dateStr}.jsonl`);
+      const durationMs = Date.now() - callStartTime;
+      const logEntry = {
+        id: callId,
+        ts: new Date().toISOString(),
+        phase: "response",
+        agentId: agentId || null,
+        model: body.model,
+        stream,
+        durationMs,
+        error: error || null,
+        ...(response ? {
+          finishReason: response.choices?.[0]?.finish_reason || null,
+          contentLen: (response.choices?.[0]?.message?.content || "").length,
+          contentPreview: (response.choices?.[0]?.message?.content || "").slice(0, 500),
+          toolCalls: response.choices?.[0]?.message?.tool_calls?.map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length })) || [],
+          usage: response.usage || null,
+        } : {}),
+      };
+      appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
+    } catch (_e) {}
+  };
 
   if (stream) {
     // 串流模式：用 fetchStreamWithRetry 取得連線，回傳 raw response
@@ -2015,8 +2052,13 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
+      _logResponse(null, `HTTP ${resp.status}: ${text.slice(0, 200)}`);
       throw new Error(`LLM API error ${resp.status}: ${text.slice(0, 500)}`);
     }
+    // Stream response — log metadata later in runAgentLoopStream
+    // Attach callId so the loop can log the response
+    resp._llmCallId = callId;
+    resp._llmCallStart = callStartTime;
     return resp; // Return raw response for SSE streaming
   }
 
@@ -2030,6 +2072,9 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
       if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
     },
   });
+
+  // Log response
+  _logResponse(result.raw);
 
   // 回傳跟原本一樣的 shape（把 result.raw 當 json 回傳）
   return result.raw;
@@ -2395,6 +2440,31 @@ export async function runAgentLoopStream(config, res) {
 
     const choice = response.choices?.[0];
     if (!choice) { sendSSE("error", { error: "Empty LLM response" }); break; }
+
+    // ── Log stream response ──
+    if (response._llmCallId) {
+      try {
+        const logDir = join(PAAW_ROOT, "data", "llm-logs");
+        mkdirSync(logDir, { recursive: true });
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const logPath = join(logDir, `${dateStr}.jsonl`);
+        const durationMs = Date.now() - (response._llmCallStart || Date.now());
+        appendFileSync(logPath, JSON.stringify({
+          id: response._llmCallId,
+          ts: new Date().toISOString(),
+          phase: "response",
+          agentId: agentId || null,
+          model: usedLlm.model,
+          stream: true,
+          durationMs,
+          finishReason: choice.finish_reason || null,
+          contentLen: (choice.message?.content || "").length,
+          contentPreview: (choice.message?.content || "").slice(0, 500),
+          toolCalls: (choice.message?.tool_calls || []).map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length })),
+          usage: response.usage || null,
+        }) + "\n");
+      } catch (_e) {}
+    }
 
     const assistantMsg = choice.message;
     const content = sanitizeContent(assistantMsg.content || "");

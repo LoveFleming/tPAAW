@@ -43,6 +43,7 @@ import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
 import NightShiftPanel from "../components/NightShiftPanel";
 import SecurityTab from "../components/SecurityTab";
+import LlmLogTab from "../components/LlmLogTab";
 import FileViewer from "../pages/FileViewer";
 
 // ── Types ──
@@ -66,7 +67,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security" | "llm-log";
 
 interface MainTab {
   id: string;
@@ -1858,6 +1859,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:security") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:security" ? tk.toolbarActive : "transparent"; }}
           title="Security Scan">🔒 Security</button>
+        <button onClick={() => openMainTab({ id: "tool:llm-log", type: "llm-log", label: "LLM Log", icon: "📡", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:llm-log" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:llm-log") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:llm-log") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:llm-log" ? tk.toolbarActive : "transparent"; }}
+          title="LLM API Call Log">📡 LLM Log</button>
       </div>
 
       {/* ── Main Content ── */}
@@ -2751,6 +2758,13 @@ const sendChat = useCallback(async () => {
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
                 />
+              </div>
+            )}
+
+            {/* === LLM LOG TAB === */}
+            {activeMainTab?.type === "llm-log" && (
+              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+                <LlmLogTab />
               </div>
             )}
 

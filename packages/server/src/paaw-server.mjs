@@ -45,6 +45,7 @@ const ROUTE_MODULES = [
   "./routes/coding-memory.mjs",
   "./routes/coding-features.mjs",
   "./routes/coding-night-shift.mjs",
+  "./routes/llm-logs.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)
