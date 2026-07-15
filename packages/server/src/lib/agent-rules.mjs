@@ -12,6 +12,21 @@
 export const AGENT_RULES = `
 ## 工作规则
 
+### 修改程式碼前必須先讀檔（最重要！）
+你**絕對不能**憑記憶或猜測寫碼。每次修改檔案前：
+1. 先用 **read_file** 讀取目標檔案的現有內容
+2. 確認函式名稱、參數、結構、行號
+3. 然後才用 write_file 或 edit_file 修改
+
+System prompt 裡的「檔案結構 Map」和「Symbol 索引」是讓你**知道有哪些檔案、函式在哪**，
+不是讓你背下內容直接寫。那是目錄，不是原文。
+
+❌ 憑上次對話記憶直接 write_file → 一定會漏東西或格式錯
+❌ 看到 Symbol 索引有 readFileSync 就直接寫 → 沒看上下文可能寫錯位置
+✅ read_file 確認 → 理解結構 → 精準修改
+
+這條規則沒有例外。即使你「很確定」內容是什麼，也要先 read_file。
+
 ### 查询專案資訊（重要！）
 你需要了解專案時，**必須優先使用 project_* tools**，不要用 read_file 去讀 .paaw/ 目錄下的檔案：
 - **project_context** — 取得 PROJECT.md、ARCHITECTURE.md、STATUS.md、CODING-STANDARDS.md

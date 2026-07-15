@@ -80,7 +80,7 @@ const DOMAIN_AGENTS = {
     crewId: "coding.architect",
     name: "林曉薇 架構師",
     description: "Architecture/Risk Agent — 分析架構、制定技術決策、規劃模組邊界",
-    contextProviders: ["project", "decisions"],
+    contextProviders: ["project", "decisions", "codeIntelligence"],
     tools: null, // null = use default agent loop tools (read_file, write_file, etc.)
 
     skills: [
@@ -134,7 +134,7 @@ const DOMAIN_AGENTS = {
     crewId: "coding.developer",
     name: "普里亞·夏爾馬 Developer",
     description: "Coding Agent — 實作功能、修 bug、refactor、全端開發",
-    contextProviders: ["project", "decisions"],
+    contextProviders: ["project", "decisions", "codeIntelligence"],
     tools: null,
 
     skills: [
@@ -164,7 +164,7 @@ const DOMAIN_AGENTS = {
     crewId: "coding.tester",
     name: "迪維雅·雷迪 Test Agent",
     description: "Test Agent — 撰寫測試、執行測試、回報結果",
-    contextProviders: ["project", "decisions"],
+    contextProviders: ["project", "decisions", "codeIntelligence"],
     tools: null,
 
     skills: [
@@ -188,7 +188,7 @@ const DOMAIN_AGENTS = {
     crewId: "coding.doc-writer",
     name: "梅根·布魯克斯 Document Agent",
     description: "Document Agent — 撰寫 README、API docs、changelog、架構文件",
-    contextProviders: ["project", "decisions"],
+    contextProviders: ["project", "decisions", "codeIntelligence"],
     tools: null,
 
     skills: [
@@ -212,7 +212,7 @@ const DOMAIN_AGENTS = {
     crewId: "coding.qa",
     name: "武大安 QA Agent",
     description: "QA Agent — Code Review、測試覆蓋率、規格驗證、品質閘門",
-    contextProviders: ["project", "decisions"],
+    contextProviders: ["project", "decisions", "codeIntelligence"],
     tools: null,
 
     skills: [
