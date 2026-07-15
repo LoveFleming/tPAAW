@@ -2653,13 +2653,15 @@ const sendChat = useCallback(async () => {
             </div>
 
             {/* === TERMINAL TAB === */}
-            {activeMainTab?.type === "terminal" && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
-                <div className="flex-1 min-h-0 bg-[#1e1717]">
-                  <ShellTerminal cwd={rootPath || undefined} />
-                </div>
+            {/* Terminal: always mount, hide with CSS to preserve WebSocket + PTY session */}
+            <div
+              className="flex-1 flex flex-col min-w-0"
+              style={{ display: activeMainTab?.type === "terminal" ? undefined : "none" }}
+            >
+              <div className="flex-1 min-h-0 bg-[#1e1717]">
+                {rootPath && <ShellTerminal cwd={rootPath} />}
               </div>
-            )}
+            </div>
 
             {/* === ISSUES TAB === */}
             {activeMainTab?.type === "issues" && rootPath && (

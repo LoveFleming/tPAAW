@@ -37,9 +37,40 @@ function safePath(p) {
 
 let _pathPatched = false;
 
-function patchWindowsPath() {
+export function patchWindowsPath() {
   if (!isWin || _pathPatched) return;
   _pathPatched = true;
+
+  // 0. Try to read user PATH from Windows registry (fast, <1s)
+  //    This ensures PTY terminal gets the same PATH as a real CMD window.
+  try {
+    const regResult = execSync(
+      'reg query "HKCU\\Environment" /v Path',
+      { encoding: "utf8", timeout: 5000, windowsHide: true }
+    );
+    // reg output: "    Path    REG_EXPAND_SZ    C:\Users\...;C:\Users\..."
+    const lines = regResult.split(/\r?\n/);
+    for (const line of lines) {
+      const m = line.match(/REG_(?:SZ|EXPAND_SZ)\s+(.+)/);
+      if (m) {
+        let userPath = m[1].trim();
+        // Expand %USERPROFILE% etc.
+        userPath = userPath.replace(/%([^%]+)%/g, (_, v) => process.env[v] || _);
+        const currentPath = process.env.PATH || "";
+        const currentSet = new Set(currentPath.toLowerCase().split(/;/).filter(Boolean));
+        const missingParts = userPath.split(/;/).filter(p =>
+          p && !currentSet.has(p.toLowerCase())
+        );
+        if (missingParts.length > 0) {
+          process.env.PATH = missingParts.join(";") + ";" + currentPath;
+          LOG("Patched PATH from registry — added", missingParts.length, "dirs:", missingParts);
+        }
+        break;
+      }
+    }
+  } catch (e) {
+    LOG("Could not read registry PATH:", e.message);
+  }
 
   const dirsToAdd = new Set();
   const home = process.env.USERPROFILE || homedir();

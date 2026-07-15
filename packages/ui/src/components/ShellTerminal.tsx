@@ -148,7 +148,7 @@ export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps
       ws.close();
       term.dispose();
     };
-  }, [cwd, fontSize]);
+  }, []); // mount once — never rebuild on cwd/fontSize change
 
   return (
     <div
