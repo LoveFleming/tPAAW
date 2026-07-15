@@ -220,7 +220,9 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                 {/* Content */}
                 <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${
                   msg.role === "assistant"
-                    ? "bg-white shadow-sm border border-stone-100 text-stone-700"
+                    ? msg._thinking
+                      ? "bg-stone-50 border border-stone-200 text-stone-500 italic"
+                      : "bg-white shadow-sm border border-stone-100 text-stone-700"
                     : "bg-stone-50 text-stone-700"
                 }`}>
                   {/* Thinking history — shown collapsed above the final answer */}
@@ -242,13 +244,24 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                   {msg.role === "assistant" ? (
                     <div className="prose prose-stone prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
                       {msg.content ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                          {msg.content}
-                        </ReactMarkdown>
+                        msg._thinking ? (
+                          // Thinking bubble: plain text, no markdown rendering, with subtle pulse
+                          <div className="text-xs text-stone-400 whitespace-pre-wrap">
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accent || "#10b981" }} />
+                              {msg.content.replace(/^💭\s*/, "")}
+                            </span>
+                          </div>
+                        ) : (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                            {msg.content}
+                          </ReactMarkdown>
+                        )
                       ) : (
                         <LoadingIndicator accent={accent} />
                       )}
-                      {loading && isLastAssistant && activeTools.length > 0 && (
+                      {/* Tool badges only on non-thinking messages */}
+                      {!msg._thinking && loading && isLastAssistant && activeTools.length > 0 && (
                         <ToolBadges tools={activeTools} />
                       )}
                     </div>
@@ -266,8 +279,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
         );
       })}
 
-      {/* Loading indicator (when no streaming content yet) */}
-      {loading && (
+      {/* Loading indicator (only when no streaming thinking bubble exists) */}
+      {loading && messages[messages.length - 1]?.role !== "assistant" && (
         <div className="flex justify-start">
           <div className="flex gap-2.5">
             <div className="flex-shrink-0 mt-1">

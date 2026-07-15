@@ -86,6 +86,7 @@ interface ChatMessage {
   _thinking?: boolean; // internal flag for intermediate thinking bubbles
   _thinkingHistory?: string[]; // preserved thinking texts before final answer replaces them
   _toolCalls?: { name: string; args?: string; result?: string }[]; // tool calls made in this turn
+  _streaming?: boolean; // true while content is being streamed in (OpenClaw style)
 }
 
 interface CodingEvent {
@@ -1066,19 +1067,22 @@ const sendChat = useCallback(async () => {
                 try {
                   const data = JSON.parse(line.slice(6));
 
-                  // thinking — LLM intermediate text ("讓我先看看...")
+                  // thinking — LLM intermediate text (accumulated, OpenClaw style)
+                  // Each thinking event APPENDS to the existing thinking bubble,
+                  // rather than overwriting it.
                   if (data.content && !data.done && !data.name) {
-                    thinkingText = data.content;
-                    // Show as temporary thinking bubble
                     setChatMessages(prev => {
                       const last = prev[prev.length - 1];
                       if (last?.role === "assistant" && last?._thinking) {
-                        // Accumulate thinking history before replacing
-                        const prevThinking = last._thinkingHistory || [];
-                        const rawContent = last.content.replace(/^💭 /, "");
-                        return [...prev.slice(0, -1), { ...last, content: `💭 ${data.content}`, _thinkingHistory: rawContent !== data.content ? [...prevThinking, rawContent] : prevThinking }];
+                        // Append new thinking text (don't overwrite)
+                        const prevContent = last.content.replace(/^💭 /, "");
+                        // If this thinking chunk is different from the tail of existing content, append it
+                        if (!prevContent.endsWith(data.content)) {
+                          return [...prev.slice(0, -1), { ...last, content: last.content + "\n" + data.content }];
+                        }
+                        return prev; // duplicate, skip
                       }
-                      return [...prev, { role: "assistant" as const, content: `💭 ${data.content}`, _thinking: true, ts: new Date().toISOString() }];
+                      return [...prev, { role: "assistant" as const, content: `💭 ${data.content}`, _thinking: true, _streaming: true, ts: new Date().toISOString() }];
                     });
                   }
 
@@ -1125,14 +1129,19 @@ const sendChat = useCallback(async () => {
                     });
                   }
 
-                  // info events (e.g. provider fallback messages)
+                  // info events (e.g. provider fallback messages) — append to thinking, don't overwrite
                   if (data.message && !data.name) {
                     setChatMessages(prev => {
                       const last = prev[prev.length - 1];
                       if (last?.role === "assistant" && last?._thinking) {
-                        return [...prev.slice(0, -1), { ...last, content: `💭 ${data.message}` }];
+                        // Append info as a new line in the thinking bubble
+                        const infoLine = `\n⏳ ${data.message}`;
+                        if (!last.content.includes(data.message)) {
+                          return [...prev.slice(0, -1), { ...last, content: last.content + infoLine }];
+                        }
+                        return prev;
                       }
-                      return [...prev, { role: "assistant" as const, content: `⏳ ${data.message}`, _thinking: true, ts: new Date().toISOString() }];
+                      return [...prev, { role: "assistant" as const, content: `⏳ ${data.message}`, _thinking: true, _streaming: true, ts: new Date().toISOString() }];
                     });
                   }
 
