@@ -1661,7 +1661,9 @@ export default async function projectRoute(req, res) {
     }
 
     // POST /api/coding-project/ai-initial (Code Understanding)
+    // ?force=1 to re-run all steps even if already done
     if (url.startsWith("/api/coding-project/ai-initial") && method === "POST") {
+      const forceRerun = q.force === "1" || q.force === "true";
       const steps = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
         { id: "architecture", name: "📐 產出 Architecture Map", promptFile: "gen-architecture.md" },
@@ -1730,6 +1732,10 @@ export default async function projectRoute(req, res) {
           return loadPrompt(filename);
         };
 
+        // ── Check which steps are already done — skip them ──
+        const cuStatus = await paaw.getCuStatus();
+        const cuSteps = cuStatus.steps || {};
+
         // Accumulate context from previous steps
         let scanResult = "";
         let architectureResult = "";
@@ -1738,6 +1744,13 @@ export default async function projectRoute(req, res) {
         let decisionsResult = "";
 
         for (const step of steps) {
+          // ── Skip if this step was already done (unless force rerun) ──
+          if (!forceRerun && cuSteps[step.id]?.status === "done") {
+            cuLog(step.id, `Skipping — already done`);
+            sendEvent("step_skip", { step: step.id, name: step.name, reason: "Already done" });
+            continue;
+          }
+
           sendEvent("step_start", { step: step.id, name: step.name });
 
           // Special handling: security-scan runs Semgrep (no LLM needed)
