@@ -16,6 +16,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
+import { PaawProject } from "../lib/paaw-project.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -172,7 +173,8 @@ export default async function codingIssuesRoute(req, res) {
 
   // ── POST /api/coding-issues/import-known ──
   if (url === "/api/coding-issues/import-known" && method === "POST") {
-    const knownFile = join(projRoot, ".paaw", "KNOWN-ISSUES.md");
+    const paaw = new PaawProject(projRoot);
+    const knownFile = paaw._resolvePath("KNOWN-ISSUES.md");
     if (!existsSync(knownFile)) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "KNOWN-ISSUES.md not found" }));

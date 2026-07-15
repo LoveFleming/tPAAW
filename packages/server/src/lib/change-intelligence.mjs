@@ -18,6 +18,7 @@ import { exec as execCb } from "child_process";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { promisify } from "util";
+import { PaawProject } from "./paaw-project.mjs";
 
 const exec = promisify(execCb);
 
@@ -146,7 +147,8 @@ export async function buildChangeIntelligence(projectRoot, options = {}) {
   }
 
   // ── 5. Decision log ──
-  const decisionsPath = join(projectRoot, ".paaw", "DECISIONS.md");
+  const paaw = new PaawProject(projectRoot);
+  const decisionsPath = paaw._resolvePath("DECISIONS.md");
   let decisions = [];
   if (existsSync(decisionsPath)) {
     const content = readFileSync(decisionsPath, "utf-8");

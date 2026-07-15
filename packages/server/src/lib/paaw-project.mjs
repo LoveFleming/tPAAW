@@ -74,11 +74,16 @@ export class PaawProject {
   // ── Initialization ──
 
   async init() {
-    const subDirs = ["features", "specs", "standards", "prompts", "issues", "runbook", "code-intelligence", "security", "changes", "operations", "quality", "api-logs", "test-payloads", "sessions"];
+    const subDirs = ["features", "specs", "standards", "prompts", "issues", "runbook", "code-intelligence", "security", "changes", "operations", "quality", "api-logs", "test-payloads", "sessions",
+      // New organized subdirectories
+      "project", "decisions", "changelog", "actions"];
     for (const sub of subDirs) {
       const dir = join(this.paawDir, sub);
       if (!existsSync(dir)) await mkdir(dir, { recursive: true });
     }
+
+    // ── Migrate flat md files into subdirectories ──
+    await this._migrateFlatFiles();
 
     // Create default files if they don't exist
     const defaults = [
@@ -89,11 +94,31 @@ export class PaawProject {
     ];
 
     for (const { file, content } of defaults) {
-      const filePath = join(this.paawDir, file);
-      if (!existsSync(filePath)) await writeFile(filePath, content, "utf-8");
+      // Use readFile which auto-resolves mapped paths (including fallback to flat)
+      const existing = await this.readFile(file);
+      if (!existing) await this.writeFile(file, content);
     }
 
     return { ok: true, dir: this.paawDir };
+  }
+
+  // ── Migrate flat .paaw/*.md files into organized subdirectories ──
+  async _migrateFlatFiles() {
+    const { rename } = await import("fs/promises");
+    for (const [flatName, mappedPath] of Object.entries(PaawProject.FILE_MAP)) {
+      const flatFilePath = join(this.paawDir, flatName);
+      const mappedFilePath = join(this.paawDir, mappedPath);
+      // Only migrate if flat file exists AND mapped file doesn't
+      if (existsSync(flatFilePath) && !existsSync(mappedFilePath)) {
+        try {
+          await mkdir(dirname(mappedFilePath), { recursive: true });
+          await rename(flatFilePath, mappedFilePath);
+          console.log(`[paaw-migrate] ${flatName} → ${mappedPath}`);
+        } catch (e) {
+          console.error(`[paaw-migrate] Failed to move ${flatName}:`, e.message);
+        }
+      }
+    }
   }
 
   // ── Async file scanner (Windows-safe, no find/grep) ──
@@ -110,8 +135,40 @@ export class PaawProject {
 
   // ── Read single file ──
 
+  // ── Path mapping: md files organized in subdirectories ──
+  // Old flat structure: .paaw/PROJECT.md
+  // New organized:      .paaw/project/PROJECT.md
+  // readFile/writeFile auto-resolve, so callers don't need to change.
+  static FILE_MAP = {
+    "PROJECT.md": "project/PROJECT.md",
+    "ARCHITECTURE.md": "project/ARCHITECTURE.md",
+    "STATUS.md": "project/STATUS.md",
+    "AI-OPERATING-GUIDE.md": "project/AI-OPERATING-GUIDE.md",
+    "CODING-STANDARDS.md": "project/CODING-STANDARDS.md",
+    "TEST-EVIDENCE.md": "project/TEST-EVIDENCE.md",
+    "DECISIONS.md": "decisions/DECISIONS.md",
+    "CHANGELOG.md": "changelog/CHANGELOG.md",
+    "KNOWN-ISSUES.md": "actions/KNOWN-ISSUES.md",
+    "NEXT-ACTIONS.md": "actions/NEXT-ACTIONS.md",
+  };
+
+  _resolvePath(name) {
+    // If mapped, use mapped path; otherwise use name as-is
+    const mapped = PaawProject.FILE_MAP[name];
+    if (mapped) {
+      const mappedPath = join(this.paawDir, mapped);
+      if (existsSync(mappedPath)) return mappedPath;
+      // Fall back to flat path if mapped doesn't exist yet (migration)
+      const flatPath = join(this.paawDir, name);
+      if (existsSync(flatPath)) return flatPath;
+      // Neither exists — return mapped path (for writes)
+      return mappedPath;
+    }
+    return join(this.paawDir, name);
+  }
+
   async readFile(name) {
-    const filePath = join(this.paawDir, name);
+    const filePath = this._resolvePath(name);
     if (!existsSync(filePath)) return null;
     try {
       return await readFile(filePath, "utf-8");
@@ -123,7 +180,7 @@ export class PaawProject {
   // ── Write single file ──
 
   async writeFile(name, content) {
-    const filePath = join(this.paawDir, name);
+    const filePath = this._resolvePath(name);
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, content, "utf-8");
     return { ok: true, path: filePath };

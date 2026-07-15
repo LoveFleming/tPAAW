@@ -15,6 +15,7 @@
 import { listActionLog, addActionLog } from "./action-log.mjs";
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
+import { PaawProject } from "./paaw-project.mjs";
 
 // ── A2A Client ──
 
@@ -84,9 +85,10 @@ async function gatherContext(rootDir) {
   summary.actionLog = actionLog.text;
 
   // 6. .paaw/ context files
+  const paaw = new PaawProject(rootDir);
   summary.paawContext = "";
   for (const f of ["PROJECT.md", "STATUS.md", "DECISIONS.md", "CODING-STANDARDS.md", "CHANGELOG.md", "KNOWN-ISSUES.md", "NEXT-ACTIONS.md", "AI-OPERATING-GUIDE.md"]) {
-    const fp = join(rootDir, ".paaw", f);
+    const fp = paaw._resolvePath(f);
     if (existsSync(fp)) {
       const content = readFileSync(fp, "utf-8").slice(0, 2000);
       summary.paawContext += `\n### ${f}\n${content}\n`;

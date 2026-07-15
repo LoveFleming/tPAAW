@@ -17,6 +17,7 @@ import { existsSync } from "fs";
 import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { PaawProject } from "./paaw-project.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,10 +49,9 @@ async function safeReadTruncated(filePath, maxLen = 8000) {
  */
 async function projectProvider({ cwd } = {}) {
   const projectRoot = cwd || PAAW_ROOT;
-  const paawDir = join(projectRoot, ".paaw");
-
-  const projectMd = await safeReadTruncated(join(paawDir, "PROJECT.md"));
-  const standardsMd = await safeReadTruncated(join(paawDir, "CODING-STANDARDS.md"));
+  const paaw = new PaawProject(projectRoot);
+  const projectMd = await paaw.readFile("PROJECT.md");
+  const standardsMd = await paaw.readFile("CODING-STANDARDS.md");
 
   const result = {};
   if (projectMd) result["專案概覽"] = projectMd;
@@ -65,9 +65,8 @@ async function projectProvider({ cwd } = {}) {
  */
 async function decisionsProvider({ cwd } = {}) {
   const projectRoot = cwd || PAAW_ROOT;
-  const paawDir = join(projectRoot, ".paaw");
-
-  const decisionsMd = await safeReadTruncated(join(paawDir, "DECISIONS.md"));
+  const paaw = new PaawProject(projectRoot);
+  const decisionsMd = await paaw.readFile("DECISIONS.md");
   if (!decisionsMd) return {};
   return { "技術決策記錄 (ADR)": decisionsMd };
 }
