@@ -491,6 +491,7 @@ function AppInner() {
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
     if (pageType === "helpdesk") return "HelpDesk";
+    if (pageType === "llm-log") return "📡 LLM Log";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
