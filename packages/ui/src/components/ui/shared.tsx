@@ -78,6 +78,7 @@ const NAV_EMOJI: Record<string, string> = {
     "Projects":       "📋",
     "🎧 HelpDesk":     "",
     "HelpDesk":        "🎧",
+    "LLM Log":         "📡",
 };
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {

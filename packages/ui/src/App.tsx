@@ -811,7 +811,7 @@ function AppInner() {
                 />
                 <NavItem
                   active={activePage.endsWith(":llm-log")}
-                  label={t("llmLog.title")}
+                  label="LLM Log"
                   onClick={openLlmLog}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
