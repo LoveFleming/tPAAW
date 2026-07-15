@@ -2,18 +2,13 @@
  * semgrep-runner.mjs — Run Semgrep static analysis on a project
  * 
  * Acts as PAAW's built-in SAST (like Fortify/SonarQube but lightweight)
- * - Security vulnerabilities (p/javascript, p/typescript, p/java, p/python)
- * - Code quality issues (p/owasp-top-ten, p/cwe-top-25)
- * - Best practice violations
- * 
- * Output: JSON findings → stored in .paaw/security/scan-results.json
  * 
  * ⚠️ Cross-platform: uses Node.js fs for file detection (no Unix `find`),
  *    and shell:true for exec so Windows pip-installed semgrep is found.
  * 
- * ⚠️ Windows PATH fix: Node.js child_process may not inherit the full
- *    user PATH. We use fs.existsSync to locate semgrep.exe and Python,
- *    then patch process.env.PATH before running any commands.
+ * ⚠️ Windows: Node.js child_process may not inherit full user PATH.
+ *    We use fs.existsSync to locate semgrep.exe and Python dirs,
+ *    patch process.env.PATH, then verify with exec.
  *    You can also set SEMGREP_PATH env var to the absolute path.
  */
 
@@ -29,20 +24,16 @@ const isWin = process.platform === "win32";
 const LOG = (...args) => console.log("[semgrep]", ...args);
 
 /**
- * Normalize a path for safe use in exec/execSync command strings.
- * On Windows, backslashes inside double-quoted args can be misinterpreted
- * by the shell. Converting to forward slashes works reliably with
- * shell:true on Windows (cmd.exe and PowerShell both accept /).
- * On non-Windows, returns the path unchanged.
+ * Normalize a path for safe use in shell command strings.
+ * On Windows, converts backslashes to forward slashes.
+ * cmd.exe and PowerShell both accept / in quoted paths.
  */
 function safePath(p) {
   if (!isWin || !p) return p;
   return p.replace(/\\/g, "/");
 }
 
-// ── Windows PATH patching ──
-// Node.js may not inherit full user PATH. We find Python/semgrep dirs
-// and add them to process.env.PATH so all exec calls can find them.
+// ── Windows PATH patching (pure fs — no exec) ──
 
 let _pathPatched = false;
 
@@ -53,75 +44,60 @@ function patchWindowsPath() {
   const dirsToAdd = new Set();
   const home = process.env.USERPROFILE || homedir();
 
-  // 1. SEMGREP_PATH env var — user can set this directly
+  // 1. SEMGREP_PATH env var
   if (process.env.SEMGREP_PATH) {
     const semgrepDir = dirname(process.env.SEMGREP_PATH);
     if (existsSync(semgrepDir)) dirsToAdd.add(semgrepDir);
   }
 
-  // 2. Common Python + semgrep directories
-  const candidates = [
+  // 2. Scan known Python directories (fs only, no exec)
+  const scanBases = [
     join(home, "AppData", "Local", "Programs", "Python"),
     join(home, "AppData", "Roaming", "Python"),
-    join(home, "AppData", "Local", "Microsoft", "WindowsApps"),
   ];
 
-  for (const base of candidates) {
+  for (const base of scanBases) {
     if (!existsSync(base)) continue;
     try {
-      const entries = readdirSync(base);
-      for (const entry of entries) {
-        const scriptsDir = join(base, entry, "Scripts");
+      for (const entry of readdirSync(base)) {
+        const subDir = join(base, entry);
+        try { if (!statSync(subDir).isDirectory()) continue; } catch { continue; }
+        // Add Python dir (python.exe)
+        if (existsSync(join(subDir, "python.exe")) || existsSync(join(subDir, "python3.exe"))) {
+          dirsToAdd.add(subDir);
+        }
+        // Add Scripts dir (semgrep.exe)
+        const scriptsDir = join(subDir, "Scripts");
         if (existsSync(scriptsDir)) {
           dirsToAdd.add(scriptsDir);
-          // Also add the Python dir itself (python.exe lives there)
-          const pyDir = join(base, entry);
-          if (existsSync(join(pyDir, "python.exe"))) dirsToAdd.add(pyDir);
         }
       }
     } catch {}
   }
 
-  // 3. Use `where` to find semgrep.exe and add its directory
-  try {
-    const out = execSyncCb('where semgrep.exe 2>nul', {
-      stdio: "pipe", timeout: 10000, shell: true, encoding: "utf-8",
-    });
-    const found = out.trim().split(/\r?\n/).filter(Boolean);
-    for (const p of found) {
-      const d = dirname(p.trim());
-      if (existsSync(d)) dirsToAdd.add(d);
-    }
-  } catch {}
-
-  // 4. Deep search AppData for semgrep.exe
-  try {
-    const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
-      stdio: "pipe", timeout: 30000, shell: true, encoding: "utf-8",
-    });
-    const found = out.trim().split(/\r?\n/).filter(Boolean);
-    for (const p of found) {
-      const d = dirname(p.trim());
-      if (existsSync(d)) dirsToAdd.add(d);
-    }
-  } catch {}
-
-  // 5. Python from Windows py launcher
-  try {
-    const out = execSyncCb('py -3 -c "import sys; print(sys.executable)" 2>nul', {
-      stdio: "pipe", timeout: 10000, shell: true, encoding: "utf-8",
-    });
-    const pyPath = out.trim();
-    if (pyPath && existsSync(pyPath)) {
-      dirsToAdd.add(dirname(pyPath));
-      const scriptsDir = join(dirname(pyPath), "Scripts");
-      if (existsSync(scriptsDir)) dirsToAdd.add(scriptsDir);
-    }
-  } catch {}
+  // 3. Windows Store Python packages
+  const packagesDir = join(home, "AppData", "Local", "Packages");
+  if (existsSync(packagesDir)) {
+    try {
+      for (const entry of readdirSync(packagesDir)) {
+        if (!entry.startsWith("PythonSoftwareFoundation")) continue;
+        const localPkg = join(packagesDir, entry, "local-packages");
+        if (!existsSync(localPkg)) continue;
+        try {
+          for (const sub of readdirSync(localPkg)) {
+            const scriptsDir = join(localPkg, sub, "Scripts");
+            if (existsSync(scriptsDir)) dirsToAdd.add(scriptsDir);
+          }
+        } catch {}
+      }
+    } catch {}
+  }
 
   if (dirsToAdd.size > 0) {
     const currentPath = process.env.PATH || "";
-    const newDirs = [...dirsToAdd].filter(d => !currentPath.toLowerCase().split(/;/).some(p => p.toLowerCase() === d.toLowerCase()));
+    const newDirs = [...dirsToAdd].filter(d =>
+      !currentPath.toLowerCase().split(/;/).some(p => p.toLowerCase() === d.toLowerCase())
+    );
     if (newDirs.length > 0) {
       process.env.PATH = newDirs.join(";") + ";" + currentPath;
       LOG("Patched PATH — added", newDirs.length, "dirs:", newDirs);
@@ -129,7 +105,7 @@ function patchWindowsPath() {
   }
 }
 
-// ── Cross-platform file scanning (replaces Unix `find`) ──
+// ── File scanning ──
 
 function scanSourceExtensions(projectRoot, maxDepth = 4) {
   const found = new Set();
@@ -152,7 +128,6 @@ function scanSourceExtensions(projectRoot, maxDepth = 4) {
       }
     }
   }
-
   walk(projectRoot, 0);
   return found;
 }
@@ -176,17 +151,17 @@ function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   return `"${bin}" --json ${configArgs} ${excludeArgs} --metrics off --quiet "${root}"`;
 }
 
-// ── Semgrep detection — uses fs first, then exec as fallback ──
+// ── Semgrep detection ──
 
 /**
- * Try to execute a command. Returns { ok, error, stdout }.
+ * Execute a command with timeout. Returns { ok, error?, stdout? }.
  */
-function tryExec(cmd) {
-  LOG("tryExec:", cmd);
+function tryExec(cmd, timeout = 60000) {
+  LOG("tryExec:", cmd, `(${timeout}ms)`);
   try {
     const result = execSyncCb(cmd, {
       stdio: "pipe",
-      timeout: 60000,
+      timeout,
       shell: true,
       env: { ...process.env },
       encoding: "utf-8",
@@ -201,46 +176,45 @@ function tryExec(cmd) {
 }
 
 /**
- * Find semgrep executable using fs.existsSync (no exec needed).
+ * Find semgrep.exe using ONLY fs.existsSync (zero exec calls).
  * Returns absolute path or null.
  */
-function findSemgrepExePath() {
-  LOG("findSemgrepExePath() — scanning known directories...");
+function findSemgrepExeFs() {
+  LOG("findSemgrepExeFs() — pure fs scan");
 
   // 1. SEMGREP_PATH env var
-  if (process.env.SEMGREP_PATH && existsSync(process.env.SEMGREP_PATH)) {
-    LOG("Found via SEMGREP_PATH:", process.env.SEMGREP_PATH);
-    return process.env.SEMGREP_PATH;
+  if (process.env.SEMGREP_PATH) {
+    if (existsSync(process.env.SEMGREP_PATH)) {
+      LOG("Found via SEMGREP_PATH:", process.env.SEMGREP_PATH);
+      return process.env.SEMGREP_PATH;
+    }
+    LOG("SEMGREP_PATH set but file not found:", process.env.SEMGREP_PATH);
   }
 
   if (!isWin) {
-    // macOS/Linux: just check if semgrep is on PATH
-    const r = tryExec("which semgrep");
-    if (r.ok && r.stdout) {
-      const p = r.stdout.trim();
-      if (existsSync(p)) { LOG("Found via which:", p); return p; }
+    // macOS/Linux: check common locations
+    const paths = ["/opt/homebrew/bin/semgrep", "/usr/local/bin/semgrep", "/usr/bin/semgrep"];
+    for (const p of paths) {
+      if (existsSync(p)) { LOG("Found:", p); return p; }
     }
     return null;
   }
 
-  // Windows: scan known Python install directories
+  // Windows: scan Python install directories
   const home = process.env.USERPROFILE || homedir();
-  const scanDirs = [
+  const scanBases = [
     join(home, "AppData", "Local", "Programs", "Python"),
     join(home, "AppData", "Roaming", "Python"),
-    join(home, "AppData", "Local", "Packages"),
   ];
 
-  for (const base of scanDirs) {
+  for (const base of scanBases) {
     if (!existsSync(base)) continue;
     try {
-      const entries = readdirSync(base);
-      for (const entry of entries) {
+      for (const entry of readdirSync(base)) {
         const scriptsDir = join(base, entry, "Scripts");
         if (!existsSync(scriptsDir)) continue;
         try {
-          const files = readdirSync(scriptsDir);
-          for (const f of files) {
+          for (const f of readdirSync(scriptsDir)) {
             if (f.toLowerCase() === "semgrep.exe" || f.toLowerCase() === "semgrep") {
               const fullPath = join(scriptsDir, f);
               LOG("Found via fs scan:", fullPath);
@@ -252,30 +226,34 @@ function findSemgrepExePath() {
     } catch {}
   }
 
-  // Also try where (might find paths we missed)
-  try {
-    const out = execSyncCb('where semgrep.exe 2>nul', {
-      stdio: "pipe", timeout: 10000, shell: true, encoding: "utf-8",
-    });
-    const found = out.trim().split(/\r?\n/).filter(Boolean);
-    if (found.length > 0 && existsSync(found[0].trim())) {
-      LOG("Found via where:", found[0].trim());
-      return found[0].trim();
-    }
-  } catch {}
+  // Windows Store Python
+  const packagesDir = join(home, "AppData", "Local", "Packages");
+  if (existsSync(packagesDir)) {
+    try {
+      for (const pkg of readdirSync(packagesDir)) {
+        if (!pkg.startsWith("PythonSoftwareFoundation")) continue;
+        const localPkg = join(packagesDir, pkg, "local-packages");
+        if (!existsSync(localPkg)) continue;
+        try {
+          for (const sub of readdirSync(localPkg)) {
+            const scriptsDir = join(localPkg, sub, "Scripts");
+            if (!existsSync(scriptsDir)) continue;
+            try {
+              for (const f of readdirSync(scriptsDir)) {
+                if (f.toLowerCase() === "semgrep.exe") {
+                  const fullPath = join(scriptsDir, f);
+                  LOG("Found via Windows Store:", fullPath);
+                  return fullPath;
+                }
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+    } catch {}
+  }
 
-  try {
-    const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
-      stdio: "pipe", timeout: 30000, shell: true, encoding: "utf-8",
-    });
-    const found = out.trim().split(/\r?\n/).filter(Boolean);
-    if (found.length > 0 && existsSync(found[0].trim())) {
-      LOG("Found via where /R AppData:", found[0].trim());
-      return found[0].trim();
-    }
-  } catch {}
-
-  LOG("findSemgrepExePath: nothing found");
+  LOG("findSemgrepExeFs: nothing found");
   return null;
 }
 
@@ -283,45 +261,43 @@ export function isSemgrepAvailable() {
   return diagnoseSemgrep().available;
 }
 
-/**
- * Full diagnostic check.
- */
 export function diagnoseSemgrep() {
   LOG("=== diagnoseSemgrep() START ===");
   LOG("platform:", process.platform, "isWin:", isWin);
-  LOG("PATH:", process.env.PATH?.slice(0, 300) || "(empty)");
 
-  // Patch PATH first (Windows)
+  // Patch PATH first (Windows) — pure fs, no exec
   patchWindowsPath();
 
   const tried = [];
 
-  // Method 1: fs-based detection (reliable)
-  const exePath = findSemgrepExePath();
+  // Step 1: Find exe via fs (zero exec)
+  const exePath = findSemgrepExeFs();
   if (exePath) {
     LOG("Found exe at:", exePath);
-    // Verify it actually runs
-    const escapedPath = safePath(exePath);
-    const r = tryExec(`"${escapedPath}" --version`);
-    tried.push({ cmd: `"${escapedPath}" --version`, ...r });
+    // Step 2: Verify it runs — this is the ONLY exec call for detection
+    const escaped = safePath(exePath);
+    const r = tryExec(`"${escaped}" --version`, 60000);
+    tried.push({ cmd: `"${escaped}" --version`, ...r });
     if (r.ok) {
-      LOG("=== FOUND via fs+exec:", exePath, "===");
+      LOG("=== FOUND ===");
       return { available: true, cmd: exePath, tried };
     }
-    // exe exists but won't run — might need Python on PATH
-    LOG("exe found but won't run, PATH may need Python dir");
+    // exe exists but won't run — PATH still missing Python deps?
+    LOG("exe found but won't run — trying python -m semgrep fallback");
+  } else {
+    LOG("No exe found via fs");
   }
 
-  // Method 2: command-based detection (fallback)
-  const cmds = isWin
-    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version", "python3 -m semgrep --version", "py -m semgrep --version", "py -3 -m semgrep --version"]
-    : ["semgrep --version", "python3 -m semgrep --version", "python -m semgrep --version"];
-  for (const cmd of cmds) {
-    const r = tryExec(cmd);
+  // Step 3: Fallback — try python -m semgrep (PATH was patched)
+  const fallbacks = isWin
+    ? ["python -m semgrep --version", "py -m semgrep --version", "py -3 -m semgrep --version", "semgrep --version", "semgrep.exe --version"]
+    : ["python3 -m semgrep --version", "python -m semgrep --version", "semgrep --version"];
+  for (const cmd of fallbacks) {
+    const r = tryExec(cmd, 60000);
     tried.push({ cmd, ...r });
     if (r.ok) {
-      LOG("=== FOUND via command:", cmd, "===");
-      return { available: true, cmd, tried };
+      LOG("=== FOUND via fallback:", cmd, "===");
+      return { available: true, cmd: cmd.replace(" --version", ""), tried };
     }
   }
 
@@ -329,51 +305,42 @@ export function diagnoseSemgrep() {
     platform: process.platform,
     PATH: process.env.PATH?.slice(0, 500) || '(empty)',
     USERPROFILE: process.env.USERPROFILE || '(not set)',
-    PYTHONHOME: process.env.PYTHONHOME || '(not set)',
-    VIRTUAL_ENV: process.env.VIRTUAL_ENV || '(not set)',
     SEMGREP_PATH: process.env.SEMGREP_PATH || '(not set)',
     exePathFound: exePath || '(not found)',
   };
 
   LOG("=== NOT AVAILABLE ===");
-  LOG("envInfo:", JSON.stringify(envInfo, null, 2));
   return { available: false, tried, envInfo };
 }
 
-/**
- * Find the command to run semgrep. Returns the string to use as the binary.
- */
 function findSemgrepCmd() {
   LOG("findSemgrepCmd() called");
-
-  // Patch PATH first
   patchWindowsPath();
 
-  // 1. Try SEMGREP_PATH env var
+  // 1. SEMGREP_PATH
   if (process.env.SEMGREP_PATH && existsSync(process.env.SEMGREP_PATH)) {
     LOG("Using SEMGREP_PATH:", process.env.SEMGREP_PATH);
     return process.env.SEMGREP_PATH;
   }
 
-  // 2. fs-based detection
-  const exePath = findSemgrepExePath();
+  // 2. fs-based
+  const exePath = findSemgrepExeFs();
   if (exePath) {
-    // Verify it runs
-    const escapedPath = safePath(exePath);
-    const r = tryExec(`"${escapedPath}" --version`);
+    const escaped = safePath(exePath);
+    const r = tryExec(`"${escaped}" --version`, 60000);
     if (r.ok) {
       LOG("findSemgrepCmd: using", exePath);
       return exePath;
     }
   }
 
-  // 3. command-based fallback
+  // 3. Fallback
   const cmds = isWin
-    ? ["semgrep", "semgrep.exe", "python -m semgrep", "python3 -m semgrep", "py -m semgrep", "py -3 -m semgrep"]
+    ? ["python -m semgrep", "py -m semgrep", "py -3 -m semgrep", "semgrep", "semgrep.exe"]
     : ["semgrep", "python3 -m semgrep", "python -m semgrep"];
   for (const cmd of cmds) {
-    if (tryExec(`${cmd} --version`).ok) {
-      LOG("findSemgrepCmd: found via command:", cmd);
+    if (tryExec(`${cmd} --version`, 60000).ok) {
+      LOG("findSemgrepCmd: found via fallback:", cmd);
       return cmd;
     }
   }
@@ -390,7 +357,6 @@ export async function runSemgrep(projectRoot, options = {}) {
   const customPacks = options.rulePacks;
 
   LOG("runSemgrep() called, projectRoot:", projectRoot, "timeout:", timeoutMs);
-
   patchWindowsPath();
 
   const semgrepBin = findSemgrepCmd();
@@ -517,14 +483,10 @@ export async function runSemgrep(projectRoot, options = {}) {
   }
 }
 
-/**
- * Format scan results for AI consumption
- */
 export function formatForAI(scanResult) {
   if (!scanResult.findings || scanResult.findings.length === 0) {
     return "No security or code quality issues found by Semgrep.";
   }
-
   const lines = [];
   lines.push(`# Security & Code Quality Scan (Semgrep)`);
   lines.push(`Total findings: ${scanResult.stats.total}`);
@@ -532,13 +494,11 @@ export function formatForAI(scanResult) {
   lines.push(`By category: ${JSON.stringify(scanResult.stats.byCategory)}`);
   lines.push(`Files affected: ${scanResult.stats.filesAffected || 0}`);
   lines.push("");
-
   const byFile = {};
   for (const f of scanResult.findings) {
     if (!byFile[f.file]) byFile[f.file] = [];
     byFile[f.file].push(f);
   }
-
   for (const [file, findings] of Object.entries(byFile)) {
     lines.push(`## ${file} (${findings.length} findings)`);
     for (const f of findings) {
@@ -549,17 +509,11 @@ export function formatForAI(scanResult) {
     }
     lines.push("");
   }
-
   return lines.join("\n");
 }
 
-/**
- * Format for UI display (condensed)
- */
 export function formatCondensed(scanResult) {
-  if (!scanResult.findings || scanResult.findings.length === 0) {
-    return "✅ No issues found";
-  }
+  if (!scanResult.findings || scanResult.findings.length === 0) return "✅ No issues found";
   const lines = [];
   for (const f of scanResult.findings) {
     const icon = f.severity === "ERROR" ? "🔴" : f.severity === "WARNING" ? "🟡" : "🔵";
