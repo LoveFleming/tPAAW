@@ -1975,8 +1975,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   const body = {
     model,
     messages,
-    tools,
-    tool_choice: "auto",
+    ...(tools && tools.length > 0 ? { tools, tool_choice: "auto" } : {}),
     max_tokens: 8192,
     stream,
   };
