@@ -131,7 +131,7 @@ function tryExec(cmd) {
   try {
     execSyncCb(cmd, {
       stdio: "pipe",
-      timeout: 15000,
+      timeout: 60000,  // 60s — semgrep on Windows can be slow on first run
       shell: true,
       env: { ...process.env },
     });
@@ -165,7 +165,7 @@ export function diagnoseSemgrep() {
     // Search entire PATH for semgrep
     try {
       const out = execSyncCb('where semgrep 2>nul', {
-        stdio: "pipe", timeout: 10000, shell: true, env: { ...process.env }, encoding: "utf-8",
+        stdio: "pipe", timeout: 30000, shell: true, env: { ...process.env }, encoding: "utf-8",
       });
       const found = out.trim().split(/\r?\n/).filter(Boolean);
       tried.push({ cmd: 'where semgrep', ok: true, output: found.join('; ') });
@@ -181,7 +181,7 @@ export function diagnoseSemgrep() {
     // Deep search in AppData
     try {
       const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
-        stdio: "pipe", timeout: 15000, shell: true, env: { ...process.env }, encoding: "utf-8",
+        stdio: "pipe", timeout: 60000, shell: true, env: { ...process.env }, encoding: "utf-8",
       });
       const found = out.trim().split(/\r?\n/).filter(Boolean);
       tried.push({ cmd: 'where /R AppData semgrep.exe', ok: true, output: found.join('; ') });
@@ -224,7 +224,7 @@ function findSemgrepCmd() {
     try {
       const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
         stdio: "pipe",
-        timeout: 10000,
+        timeout: 30000,
         shell: true,
         env: { ...process.env },
         encoding: "utf-8",
