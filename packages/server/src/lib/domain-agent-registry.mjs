@@ -183,7 +183,7 @@ const DOMAIN_AGENTS = {
     ],
   },
 
-  doc_writer: {
+  "doc-writer": {
     agentId: "doc-writer",
     crewId: "coding.doc-writer",
     name: "梅根·布魯克斯 Document Agent",
