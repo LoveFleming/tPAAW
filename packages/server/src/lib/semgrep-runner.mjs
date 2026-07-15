@@ -216,7 +216,7 @@ function findSemgrepCmd() {
     ? ["semgrep", "semgrep.exe", "python -m semgrep", "python3 -m semgrep", "py -m semgrep", "py -3 -m semgrep"]
     : ["semgrep", "python3 -m semgrep", "python -m semgrep"];
   for (const cmd of candidates) {
-    if (tryExec(`${cmd} --version`)) return cmd;
+    if (tryExec(`${cmd} --version`).ok) return cmd;
   }
 
   // Windows fallback: use `where` to find semgrep.exe
@@ -232,7 +232,7 @@ function findSemgrepCmd() {
       const found = out.trim().split(/\r?\n/).filter(Boolean);
       if (found.length > 0) {
         const fullCmd = `"${found[0]}"`;
-        if (tryExec(`${fullCmd} --version`)) return fullCmd;
+        if (tryExec(`${fullCmd} --version`).ok) return fullCmd;
       }
     } catch {
       // where found nothing
