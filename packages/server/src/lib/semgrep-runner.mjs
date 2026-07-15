@@ -105,23 +105,72 @@ function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
  * Check if semgrep is installed (cross-platform)
  * Returns { available: boolean, path?: string, error?: string }
  */
+/**
+ * On Windows, try to locate semgrep via common install paths.
+ * pip installs semgrep into Python's Scripts/ dir which may not be on
+ * the inherited PATH when PAAW server is launched outside a full shell.
+ */
+function findWindowsSemgrepPaths() {
+  const paths = [];
+  const env = process.env;
+  // USERPROFILE based paths (pip install --user)
+  if (env.USERPROFILE) {
+    paths.push(join(env.USERPROFILE, "AppData", "Local", "Programs", "Python", "Python*/Scripts/semgrep.exe"));
+    paths.push(join(env.USERPROFILE, "AppData", "Local", "Programs", "Python", "Python*/Scripts/semgrep.bat"));
+    paths.push(join(env.USERPROFILE, "AppData", "Roaming", "Python", "Python*/Scripts/semgrep.exe"));
+    paths.push(join(env.USERPROFILE, "AppData", "Roaming", "Python", "Python*/Scripts/semgrep.bat"));
+    paths.push(join(env.USERPROFILE, "AppData", "Local", "Packages", "PythonSoftwareFoundation.*", "local-packages", "*", "Scripts", "semgrep*"));
+  }
+  // PYTHONHOME / PYTHON_PATH
+  if (env.PYTHONHOME) paths.push(join(env.PYTHONHOME, "Scripts", "semgrep*"));
+  // Glob expand manually (execSync with dir /b)
+  return paths;
+}
+
+function tryExec(cmd) {
+  try {
+    execSyncCb(cmd, {
+      stdio: "pipe",
+      timeout: 15000,
+      shell: true,
+      env: { ...process.env },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function isSemgrepAvailable() {
   const candidates = isWin
-    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version", "python3 -m semgrep --version"]
+    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version", "python3 -m semgrep --version", "py -m semgrep --version"]
     : ["semgrep --version", "python3 -m semgrep --version", "python -m semgrep --version"];
   for (const cmd of candidates) {
+    if (tryExec(cmd)) return true;
+  }
+
+  // Windows fallback: search common install paths via `where`
+  if (isWin) {
     try {
-      const out = execSyncCb(cmd, {
+      const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
         stdio: "pipe",
-        timeout: 15000,
+        timeout: 10000,
         shell: true,
         env: { ...process.env },
+        encoding: "utf-8",
       });
-      return true;
+      const found = out.trim().split(/\r?\n/).filter(Boolean);
+      if (found.length > 0) {
+        // Verify it actually works
+        if (tryExec(`"${found[0]}" --version`)) return true;
+      }
     } catch {
-      // try next
+      // where found nothing
     }
+    // Also try py launcher (Windows Python Launcher)
+    if (tryExec('py -3 -m semgrep --version')) return true;
   }
+
   return false;
 }
 
@@ -131,21 +180,32 @@ export function isSemgrepAvailable() {
  */
 function findSemgrepCmd() {
   const candidates = isWin
-    ? ["semgrep", "semgrep.exe", "python -m semgrep", "python3 -m semgrep"]
+    ? ["semgrep", "semgrep.exe", "python -m semgrep", "python3 -m semgrep", "py -m semgrep", "py -3 -m semgrep"]
     : ["semgrep", "python3 -m semgrep", "python -m semgrep"];
   for (const cmd of candidates) {
+    if (tryExec(`${cmd} --version`)) return cmd;
+  }
+
+  // Windows fallback: use `where` to find semgrep.exe
+  if (isWin) {
     try {
-      execSyncCb(`${cmd} --version`, {
+      const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
         stdio: "pipe",
-        timeout: 15000,
+        timeout: 10000,
         shell: true,
         env: { ...process.env },
+        encoding: "utf-8",
       });
-      return cmd;
+      const found = out.trim().split(/\r?\n/).filter(Boolean);
+      if (found.length > 0) {
+        const fullCmd = `"${found[0]}"`;
+        if (tryExec(`${fullCmd} --version`)) return fullCmd;
+      }
     } catch {
-      // try next
+      // where found nothing
     }
   }
+
   return null;
 }
 
