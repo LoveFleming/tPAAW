@@ -28,6 +28,18 @@ const isWin = process.platform === "win32";
 
 const LOG = (...args) => console.log("[semgrep]", ...args);
 
+/**
+ * Normalize a path for safe use in exec/execSync command strings.
+ * On Windows, backslashes inside double-quoted args can be misinterpreted
+ * by the shell. Converting to forward slashes works reliably with
+ * shell:true on Windows (cmd.exe and PowerShell both accept /).
+ * On non-Windows, returns the path unchanged.
+ */
+function safePath(p) {
+  if (!isWin || !p) return p;
+  return p.replace(/\\/g, "/");
+}
+
 // ── Windows PATH patching ──
 // Node.js may not inherit full user PATH. We find Python/semgrep dirs
 // and add them to process.env.PATH so all exec calls can find them.
@@ -158,8 +170,10 @@ function detectRulePacks(projectRoot) {
 }
 
 function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
+  const bin = safePath(semgrepBin);
+  const root = safePath(projectRoot);
   const configArgs = rulePacks.map(p => `--config "${p}"`).join(" ");
-  return `"${semgrepBin}" --json ${configArgs} ${excludeArgs} --metrics off --quiet "${projectRoot}"`;
+  return `"${bin}" --json ${configArgs} ${excludeArgs} --metrics off --quiet "${root}"`;
 }
 
 // ── Semgrep detection — uses fs first, then exec as fallback ──
@@ -287,8 +301,9 @@ export function diagnoseSemgrep() {
   if (exePath) {
     LOG("Found exe at:", exePath);
     // Verify it actually runs
-    const r = tryExec(`"${exePath}" --version`);
-    tried.push({ cmd: `"${exePath}" --version`, ...r });
+    const escapedPath = safePath(exePath);
+    const r = tryExec(`"${escapedPath}" --version`);
+    tried.push({ cmd: `"${escapedPath}" --version`, ...r });
     if (r.ok) {
       LOG("=== FOUND via fs+exec:", exePath, "===");
       return { available: true, cmd: exePath, tried };
@@ -344,7 +359,8 @@ function findSemgrepCmd() {
   const exePath = findSemgrepExePath();
   if (exePath) {
     // Verify it runs
-    const r = tryExec(`"${exePath}" --version`);
+    const escapedPath = safePath(exePath);
+    const r = tryExec(`"${escapedPath}" --version`);
     if (r.ok) {
       LOG("findSemgrepCmd: using", exePath);
       return exePath;
