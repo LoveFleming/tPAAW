@@ -617,6 +617,9 @@ function AppInner() {
     if (pageType === "helpdesk") {
       return <HelpDesk active={!!active} />;
     }
+    if (pageType === "llm-log") {
+      return <LlmLogTab />;
+    }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
       return (
