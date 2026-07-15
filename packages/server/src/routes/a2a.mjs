@@ -18,6 +18,25 @@
 
 import { readdir, readFile, writeFile, mkdir, unlink, appendFile } from "fs/promises";
 import { existsSync } from "fs";
+
+// ── Helper: clean conversation history with tool call context ──
+function cleanConversationHistory(conversationHistory) {
+  return conversationHistory
+    .filter(m => m.role === "user" || m.role === "assistant")
+    .filter(m => !m._thinking)
+    .map(m => {
+      let content = (m.content || "").replace(/^💭 /, "");
+      // Append tool call info so LLM knows what it did before
+      if (m._toolCalls?.length) {
+        const toolLines = m._toolCalls.map(tc => {
+          if (tc.result) return `[tool:${tc.name}] result: ${tc.result.slice(0, 300)}`;
+          return `[tool:${tc.name}] args: ${typeof tc.args === "string" ? tc.args.slice(0, 200) : "..."}`;
+        });
+        content += "\n" + toolLines.join("\n");
+      }
+      return { role: m.role, content };
+    });
+}
 import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -641,10 +660,7 @@ export default async function a2aRoutes(req, res) {
             if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
 
             if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
-              const cleanHistory = conversationHistory
-                .filter(m => m.role === "user" || m.role === "assistant")
-                .filter(m => !m._thinking)
-                .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+              const cleanHistory = cleanConversationHistory(conversationHistory);
 
               // Smart context window: token budget management
               const estimateTokens = (text) => Math.ceil((text || "").length / 4);
@@ -778,10 +794,7 @@ export default async function a2aRoutes(req, res) {
             const messages = [];
             if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
             if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
-              const cleanHistory = conversationHistory
-                .filter(m => m.role === "user" || m.role === "assistant")
-                .filter(m => !m._thinking)
-                .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+              const cleanHistory = cleanConversationHistory(conversationHistory);
 
               // Smart context window: token budget management
               const estimateTokens = (text) => Math.ceil((text || "").length / 4);

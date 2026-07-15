@@ -233,11 +233,22 @@ export default async function projectRoute(req, res) {
 
       // Inject conversation history with smart context window management
       if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
-        // Filter: only user/assistant, skip thinking bubbles
+        // Filter: only user/assistant, skip thinking bubbles, include tool call context
         const cleanHistory = conversationHistory
           .filter(m => m.role === "user" || m.role === "assistant")
           .filter(m => !m._thinking)
-          .map(m => ({ role: m.role, content: (m.content || "").replace(/^💭 /, "") }));
+          .map(m => {
+            let content = (m.content || "").replace(/^💭 /, "");
+            // Append tool call info so LLM knows what it did before
+            if (m._toolCalls?.length) {
+              const toolLines = m._toolCalls.map(tc => {
+                if (tc.result) return `[tool:${tc.name}] result: ${tc.result.slice(0, 300)}`;
+                return `[tool:${tc.name}] args: ${typeof tc.args === "string" ? tc.args.slice(0, 200) : "..."}`;
+              });
+              content += "\n" + toolLines.join("\n");
+            }
+            return { role: m.role, content };
+          });
 
         // Smart context window: token budget management
         const estimateTokens = (text) => Math.ceil((text || "").length / 4);

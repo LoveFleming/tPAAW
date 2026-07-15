@@ -84,6 +84,7 @@ interface ChatMessage {
   ts: string;
   _thinking?: boolean; // internal flag for intermediate thinking bubbles
   _thinkingHistory?: string[]; // preserved thinking texts before final answer replaces them
+  _toolCalls?: { name: string; args?: string; result?: string }[]; // tool calls made in this turn
 }
 
 interface CodingEvent {
@@ -1082,6 +1083,15 @@ const sendChat = useCallback(async () => {
                     if (isAgentMode) {
                       setAgentToolLog(prev => [...prev, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args), result: "..." }]);
                     }
+                    // Track tool call in chat messages for conversation history
+                    setChatMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant") {
+                        const tc = last._toolCalls || [];
+                        return [...prev.slice(0, -1), { ...last, _toolCalls: [...tc, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args) }] }];
+                      }
+                      return prev;
+                    });
                   }
 
                   // tool result
@@ -1096,6 +1106,19 @@ const sendChat = useCallback(async () => {
                         return updated;
                       });
                     }
+                    // Track tool result in chat messages
+                    setChatMessages(prev => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant" && last._toolCalls) {
+                        const tc = [...last._toolCalls];
+                        const idx = tc.length - 1;
+                        if (idx >= 0 && tc[idx].name === data.name) {
+                          tc[idx] = { ...tc[idx], result: data.result };
+                        }
+                        return [...prev.slice(0, -1), { ...last, _toolCalls: tc }];
+                      }
+                      return prev;
+                    });
                   }
 
                   // info events (e.g. provider fallback messages)
@@ -1165,12 +1188,27 @@ const sendChat = useCallback(async () => {
                 if (lastThinking && !thinkingHistory.includes(lastThinking)) thinkingHistory.push(lastThinking);
                 const finalMsg: ChatMessage = { role: "assistant", content: thinkingText, ts: new Date().toISOString() };
                 if (thinkingHistory.length > 0) finalMsg._thinkingHistory = thinkingHistory;
+                if (last._toolCalls) finalMsg._toolCalls = last._toolCalls;
                 return [...prev.slice(0, -1), finalMsg];
               }
               return prev;
             });
           } else {
-            setChatMessages(prev => [...prev, { role: "assistant" as const, content: "(Agent completed with no output)", ts: new Date().toISOString() }]);
+            // No thinking text either — check if tool calls were made
+            setChatMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant" && last._toolCalls?.length) {
+                // Tool calls were made but no final answer — summarize what was done
+                const toolSummary = last._toolCalls.map(tc => {
+                  if (tc.result) return `🔧 ${tc.name}: ${tc.result.slice(0, 150)}`;
+                  return `🔧 ${tc.name}: ${typeof tc.args === "string" ? tc.args.slice(0, 100) : "..."}`;
+                }).join("\n");
+                const finalMsg: ChatMessage = { role: "assistant", content: `已執行以下操作：\n${toolSummary}`, ts: new Date().toISOString() };
+                finalMsg._toolCalls = last._toolCalls;
+                return [...prev.slice(0, -1), finalMsg];
+              }
+              return [...prev, { role: "assistant" as const, content: "(Agent completed with no output)", ts: new Date().toISOString() }];
+            });
           }
         }
       } catch (err: any) {
