@@ -178,8 +178,29 @@ function detectRulePacks(projectRoot) {
 function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   const bin = safePath(semgrepBin);
   const root = safePath(projectRoot);
-  const configArgs = rulePacks.map(p => `--config "${p}"`).join(" ");
-  return `"${bin}" --json ${configArgs} ${excludeArgs} --metrics off --quiet "${root}"`;
+  // --config args: rule pack identifiers (p/javascript etc.) — no spaces, no quotes needed
+  const configArgs = rulePacks.map(p => `--config ${p}`).join(" ");
+
+  // On Windows, cmd.exe + shell:true + double quotes = disaster:
+  //   "python -m semgrep" → treated as a single executable name, not a command
+  //   Never quote multi-token command strings; only quote file paths with spaces.
+  let binPart;
+  if (isWin) {
+    if (existsSync(semgrepBin)) {
+      // Real file path — quote only if it has spaces
+      binPart = bin.includes(" ") ? `"${bin}"` : bin;
+    } else {
+      // Command string like "python -m semgrep" — never quote on Windows
+      binPart = bin;
+    }
+  } else {
+    binPart = `"${bin}"`;
+  }
+
+  // Project root: quote only if it has spaces
+  const rootPart = root.includes(" ") ? `"${root}"` : root;
+
+  return `${binPart} --json ${configArgs} ${excludeArgs} --metrics off --quiet ${rootPart}`;
 }
 
 // ── Semgrep detection ──
@@ -307,8 +328,10 @@ export function diagnoseSemgrep() {
     LOG("Found exe at:", exePath);
     // Step 2: Verify it runs — this is the ONLY exec call for detection
     const escaped = safePath(exePath);
-    const r = tryExec(`"${escaped}" --version`, 60000);
-    tried.push({ cmd: `"${escaped}" --version`, ...r });
+    // On Windows, only quote if the path has spaces
+    const binCheck = isWin && !escaped.includes(" ") ? escaped : `"${escaped}"`;
+    const r = tryExec(`${binCheck} --version`, 60000);
+    tried.push({ cmd: `${binCheck} --version`, ...r });
     if (r.ok) {
       LOG("=== FOUND ===");
       return { available: true, cmd: exePath, tried };
@@ -358,7 +381,9 @@ function findSemgrepCmd() {
   const exePath = findSemgrepExeFs();
   if (exePath) {
     const escaped = safePath(exePath);
-    const r = tryExec(`"${escaped}" --version`, 60000);
+    // On Windows, only quote if the path has spaces; otherwise cmd.exe can choke
+    const binCheck = isWin && !escaped.includes(" ") ? escaped : `"${escaped}"`;
+    const r = tryExec(`${binCheck} --version`, 60000);
     if (r.ok) {
       LOG("findSemgrepCmd: using", exePath);
       return exePath;
