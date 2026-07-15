@@ -1,23 +1,23 @@
 {
-  "timestamp": 1784119948996,
+  "timestamp": 1784122782643,
   "data": {
     "architecture": {
-      "score": 100,
+      "score": 15,
       "items": [
         {
           "name": "PROJECT.md",
-          "status": "ok",
-          "detail": "Filled"
+          "status": "missing",
+          "detail": "Missing"
         },
         {
           "name": "Architecture Map",
-          "status": "ok",
-          "detail": "7057 chars"
+          "status": "missing",
+          "detail": "Run Code Understanding"
         },
         {
           "name": "Decision Records",
-          "status": "ok",
-          "detail": "10 ADRs"
+          "status": "missing",
+          "detail": "No ADRs"
         },
         {
           "name": "Entry Points",
@@ -72,7 +72,7 @@
       ]
     },
     "docs": {
-      "score": 100,
+      "score": 75,
       "items": [
         {
           "name": "README",
@@ -86,13 +86,13 @@
         },
         {
           "name": "Changelog",
-          "status": "ok",
-          "detail": "Has entries"
+          "status": "missing",
+          "detail": "Missing"
         },
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "1734 files"
+          "detail": "1736 files"
         }
       ]
     },
@@ -107,7 +107,7 @@
         {
           "name": "Git Status",
           "status": "warn",
-          "detail": "1 uncommitted"
+          "detail": "4 uncommitted"
         },
         {
           "name": "Error Handling",

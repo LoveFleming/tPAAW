@@ -1,5 +1,5 @@
 /**
- * Coding Memory Route — Agent long-term memory CRUD for .paaw/AGENT-MEMORY/
+ * Coding Memory Route — Agent long-term memory CRUD for .paaw/agent-memory/
  *
  * Endpoints:
  *   GET    /api/coding-memory?path=...                    — List all agent memory files
@@ -65,7 +65,7 @@ function parseQuery(rawUrl) {
 }
 
 function getMemoryDir(projectPath) {
-  return join(projectPath, ".paaw", "AGENT-MEMORY");
+  return join(projectPath, ".paaw", "agent-memory");
 }
 
 export default async function codingMemoryRoute(req, res) {
@@ -97,7 +97,7 @@ export default async function codingMemoryRoute(req, res) {
       const crewAgentIds = Object.keys(crews);
       const memDir_ = memDir;
       
-      // Merge: all crew agents + any extra .md files in AGENT-MEMORY/
+      // Merge: all crew agents + any extra .md files in agent-memory/
       const existingFiles = existsSync(memDir_) ? (await readdir(memDir_)).filter(f => f.endsWith(".md")) : [];
       const existingAgentIds = new Set(existingFiles.map(f => f.replace(/\.md$/, "")));
       const allAgentIds = new Set([...crewAgentIds, ...existingAgentIds]);

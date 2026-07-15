@@ -50,6 +50,7 @@ export interface ChatMessagesProps {
   loading?: boolean;
   /** Active tool badges to show */
   activeTools?: ChatToolBadge[];
+  agentAction?: string; // current action label for typing indicator
   /** Render markdown in user messages too? (default: false, plain text) */
   userMarkdown?: boolean;
   /** Custom link handler */
@@ -179,6 +180,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   assistantEmoji,
   loading = false,
   activeTools = [],
+  agentAction = "",
   userMarkdown = false,
   onDeepLink,
   endRef,
@@ -279,8 +281,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
         );
       })}
 
-      {/* Loading indicator (only when no streaming thinking bubble exists) */}
-      {loading && messages[messages.length - 1]?.role !== "assistant" && (
+      {/* Loading indicator — shows typing + current action (like Discord/OpenClaw) */}
+      {loading && (
         <div className="flex justify-start">
           <div className="flex gap-2.5">
             <div className="flex-shrink-0 mt-1">
@@ -294,7 +296,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
             </div>
             <div>
               <span className="text-xs font-medium text-stone-600">{assistantName}</span>
-              <LoadingIndicator accent={accent} />
+              <LoadingIndicator accent={accent} label={agentAction || "思考中"} />
             </div>
           </div>
         </div>

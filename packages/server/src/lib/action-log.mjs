@@ -25,7 +25,7 @@ function getActionLogPath(cwd) {
 
 function getAgentMemoryDir(cwd) {
   const root = cwd || resolve(__dirname, "../../../..");
-  const dir = join(root, ".paaw", "AGENT-MEMORY");
+  const dir = join(root, ".paaw", "agent-memory");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;
 }

@@ -315,6 +315,7 @@ export default function CodingIDE() {
   }, [activeCrew]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [agentAction, setAgentAction] = useState<string>(""); // current tool action for typing indicator
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const loadingFileRef = useRef(false);
@@ -1004,7 +1005,7 @@ const sendChat = useCallback(async () => {
       } catch (err: any) {
         setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${chatMode.toUpperCase()} AI error: ${err.message}`, ts: new Date().toISOString() }]);
       }
-      setChatLoading(false);
+      setChatLoading(false); setAgentAction("");
     } else {
       // ── Both agent + chat mode: A2A domain agent dispatch ──
       const isAgentMode = chatMode === "agent";
@@ -1045,7 +1046,7 @@ const sendChat = useCallback(async () => {
         if (!res.ok) {
           const errText = await res.text();
           setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Agent error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
-          setChatLoading(false); if (isAgentMode) setAgentRunning(false); return;
+          setChatLoading(false); setAgentAction(""); if (isAgentMode) setAgentRunning(false); return;
         }
 
         const reader = res.body?.getReader();
@@ -1070,8 +1071,33 @@ const sendChat = useCallback(async () => {
                   // thinking events — silently ignored (OpenClaw style: just show typing)
                   // No bubble created, no overwrite, no fake data displayed
 
-                  // tool call — track silently for conversation history
+                  // tool call — track silently for conversation history + show action in typing indicator
                   if (data.name && data.args !== undefined) {
+                    // Update typing indicator with current action
+                    const actionLabels = {
+                      read_file: "📖 讀取檔案",
+                      write_file: "✏️ 寫入檔案",
+                      edit_file: "✏️ 編輯檔案",
+                      glob: "🔍 搜尋檔案",
+                      grep: "🔍 搜尋內容",
+                      bash: "⚡ 執行指令",
+                      git: "🔄 Git 操作",
+                      project_context: "📋 讀取專案資訊",
+                      project_decisions: "📋 讀取決策紀錄",
+                      project_issues: "📋 讀取 Issue",
+                      record_decision: "📝 記錄決策",
+                      update_changelog: "📝 更新 Changelog",
+                      update_docs: "📝 更新文件",
+                      diff: "🔍 比較差異",
+                      ask_user: "❓ 詢問用戶",
+                      browser_test: "🌐 瀏覽器測試",
+                    };
+                    const actionLabel = actionLabels[data.name] || `🔧 ${data.name}`;
+                    // Show file name if available
+                    const argsObj = typeof data.args === "string" ? (() => { try { return JSON.parse(data.args); } catch { return {}; } })() : data.args;
+                    const detail = argsObj?.path || argsObj?.file || argsObj?.pattern || argsObj?.command || "";
+                    setAgentAction(detail ? `${actionLabel} ${detail.split(/[\/\\]/).pop()}` : actionLabel);
+
                     if (isAgentMode) {
                       setAgentToolLog(prev => [...prev, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args), result: "..." }]);
                     }
@@ -1102,6 +1128,7 @@ const sendChat = useCallback(async () => {
                   // final content — THE ONLY thing that creates a visible message
                   if (data.content && data.done) {
                     finalContent = data.content;
+                    setAgentAction(""); // clear action indicator
                     const finalMsg: ChatMessage = { role: "assistant", content: finalContent, ts: new Date().toISOString() };
                     if (silentToolCalls.length > 0) finalMsg._toolCalls = silentToolCalls;
                     setChatMessages(prev => [...prev, finalMsg]);
@@ -1137,7 +1164,7 @@ const sendChat = useCallback(async () => {
       } catch (err: any) {
         setChatMessages(prev => [...prev, { role: "assistant" as const, content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
       }
-      setChatLoading(false);
+      setChatLoading(false); setAgentAction("");
       if (isAgentMode) setAgentRunning(false);
     }
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
@@ -2546,6 +2573,7 @@ const sendChat = useCallback(async () => {
                     assistantAvatar={profile?.imageUrl ? `${API_BASE}${profile.imageUrl}` : undefined}
                     assistantEmoji={crew?.emoji || "🤖"}
                     loading={chatLoading}
+                    agentAction={agentAction}
                     activeTools={agentToolLog.map(t => ({ name: t.name, status: t.result !== "..." ? "done" as const : "running" as const }))}
                     endRef={chatEndRef}
                   />
