@@ -604,6 +604,45 @@ export default async function a2aRoutes(req, res) {
         return true;
       }
 
+      // GET /a2a/:agentId/system-prompt — Debug: view injected system context
+      if (req.method === "GET" && subPath === "/system-prompt") {
+        try {
+          const q = new URL(req.url, `http://${req.headers.host || "localhost"}`).searchParams;
+          const cwd = q.get("cwd") || undefined;
+          const agentInfo = getAgent(agentId);
+          const systemPrompt = await buildSystemPrompt(agentId, {
+            cwd,
+            clientContext: {},
+          });
+          // Also load dynamic context (action log, feature map, agent memory, AGENT_RULES)
+          const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+          const actionLogText = (await listActionLog({ cwd, limit: 10 })).text;
+          const agentMemoryText = await loadAgentMemory(agentId, cwd);
+          const extraContext = [];
+          if (actionLogText) extraContext.push({ source: "action-log", content: actionLogText });
+          if (agentMemoryText) extraContext.push({ source: "agent-memory", content: agentMemoryText });
+          const { AGENT_RULES } = await import("../lib/agent-rules.mjs");
+          const featureSummary = getFeatureSummary(cwd || PAAW_ROOT);
+          if (featureSummary) extraContext.push({ source: "feature-map", content: featureSummary });
+          if (AGENT_RULES) extraContext.push({ source: "agent-rules", content: AGENT_RULES });
+
+          sendJSON(res, 200, {
+            agentId,
+            agentName: agentInfo?.name,
+            crewId: agentInfo?.crewId,
+            contextProviders: agentInfo?.contextProviders || [],
+            baseSystemPrompt: systemPrompt,
+            baseSystemPromptLength: systemPrompt.length,
+            dynamicContext: extraContext,
+            dynamicContextLength: extraContext.reduce((s, c) => s + c.content.length, 0),
+            totalLength: systemPrompt.length + extraContext.reduce((s, c) => s + c.content.length, 0),
+          });
+        } catch (err) {
+          sendJSON(res, 500, { error: err.message });
+        }
+        return true;
+      }
+
       // POST /a2a/:agentId — Domain Agent JSON-RPC
       if (req.method === "POST" && !subPath) {
         let body;

@@ -353,6 +353,9 @@ export default function CodingIDE() {
   const [showCrewMenu, setShowCrewMenu] = useState(false);
   const [showBrowserMenu, setShowBrowserMenu] = useState(false);
   const [showTerminalMenu, setShowTerminalMenu] = useState(false);
+  // ── Agent System Context Viewer ──
+  const [agentContextData, setAgentContextData] = useState<{ agentId: string; agentName: string; baseSystemPrompt: string; dynamicContext: { source: string; content: string }[]; totalLength: number } | null>(null);
+  const [agentContextLoading, setAgentContextLoading] = useState(false);
   // ── Multi-instance counters for Browser & Terminal ──
   const browserCounterRef = useRef(0);
   const terminalCounterRef = useRef(0);
@@ -376,12 +379,12 @@ export default function CodingIDE() {
 
   // ── Coding Crew Definitions ──
   const codingCrews = [
-    { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const },
-    { id: "coding.developer", emoji: "💻", title: "普里亞 Developer", mode: "chat" as const },
-    { id: "coding.tester", emoji: "🧪", title: "迪維雅 Test Agent", mode: "chat" as const },
-    { id: "coding.doc-writer", emoji: "📝", title: "梅根 Document Agent", mode: "chat" as const },
-    { id: "coding.helpdesk", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const },
-    { id: "coding.qa", emoji: "🩺", title: "武大安 QA Agent", mode: "chat" as const },
+    { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const, agentId: "architect" },
+    { id: "coding.developer", emoji: "💻", title: "普里亞 Developer", mode: "chat" as const, agentId: "developer" },
+    { id: "coding.tester", emoji: "🧪", title: "迪維雅 Test Agent", mode: "chat" as const, agentId: "tester" },
+    { id: "coding.doc-writer", emoji: "📝", title: "梅根 Document Agent", mode: "chat" as const, agentId: "doc-writer" },
+    { id: "coding.helpdesk", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
+    { id: "coding.qa", emoji: "🩺", title: "武大安 QA Agent", mode: "chat" as const, agentId: "qa" },
   ];
 
   // ── EM Orchestration State ──
@@ -1656,27 +1659,42 @@ const sendChat = useCallback(async () => {
             <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
               <div className="px-3 py-1 text-xs font-semibold text-stone-400">{tt("vibe.crewSelect", "選擇 AI 人員")}</div>
               {codingCrews.map(crew => (
-                <button key={crew.id} onClick={() => {
-                  setShowCrewMenu(false);
-                  setActiveCrew(crew.id);
-                  setChatMode(crew.mode);
-                  // Open as main tab
-                  openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
-                  // Fetch crew profile and seed greeting if new conversation
-                  fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => {
-                    setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
-                    // Seed greeting if no existing messages for this crew
-                    if (!crewConversations[crew.id] || crewConversations[crew.id].length === 0) {
-                      const greeting = data?.chatConfig?.greeting || `嗨！我是${data?.codename || crew.title}，有什麼我可以幫忙的嗎？`;
-                      setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting }] }));
+                <div key={crew.id} className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 truncate">
+                  <button onClick={() => {
+                    setShowCrewMenu(false);
+                    setActiveCrew(crew.id);
+                    setChatMode(crew.mode);
+                    openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
+                    fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => {
+                      setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
+                      if (!crewConversations[crew.id] || crewConversations[crew.id].length === 0) {
+                        const greeting = data?.chatConfig?.greeting || `嗨！我是${data?.codename || crew.title}，有什麼我可以幫忙的嗎？`;
+                        setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting }] }));
+                      }
+                    }).catch(() => {});
+                  }}
+                    className={cn("flex-1 text-left flex items-center gap-2 truncate",
+                      activeCrew === crew.id && "text-emerald-700 font-semibold")}>
+                    <span>{crew.emoji}</span> <span>{crew.title}</span>
+                    {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
+                  </button>
+                  <button onClick={async (e) => {
+                    e.stopPropagation();
+                    setShowCrewMenu(false);
+                    setAgentContextLoading(true);
+                    setAgentContextData(null);
+                    try {
+                      const res = await fetch(`${API_BASE}/a2a/${crew.agentId}/system-prompt${rootPath ? `?cwd=${encodeURIComponent(rootPath)}` : ""}`);
+                      const data = await res.json();
+                      setAgentContextData(data);
+                    } catch (err: any) {
+                      setAgentContextData({ agentId: crew.agentId, agentName: crew.title, baseSystemPrompt: `Error: ${err.message}`, dynamicContext: [], totalLength: 0 });
                     }
-                  }).catch(() => {});
-                }}
-                  className={cn("w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 truncate",
-                    activeCrew === crew.id && "bg-emerald-50 text-emerald-700 font-semibold")}>
-                  <span>{crew.emoji}</span> <span>{crew.title}</span>
-                  {activeCrew === crew.id && <span className="ml-auto text-emerald-500">●</span>}
-                </button>
+                    setAgentContextLoading(false);
+                  }} title="查看 System Context" className="shrink-0 text-stone-400 hover:text-blue-600 hover:bg-blue-50 px-1 py-0.5 rounded text-xs">
+                    🔍
+                  </button>
+                </div>
               ))}
 
               {/* Divider + EM Trigger */}
@@ -2911,6 +2929,59 @@ const sendChat = useCallback(async () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Agent System Context Modal ── */}
+      {(agentContextData || agentContextLoading) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => { setAgentContextData(null); setAgentContextLoading(false); }}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-[700px] max-w-[90vw] max-h-[80vh] bg-[#1a1a2e] rounded-xl shadow-2xl border border-stone-700 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
+              <h3 className="text-sm font-bold text-stone-100 flex items-center gap-2">
+                🔍 System Context: {agentContextLoading ? "Loading..." : agentContextData?.agentName || agentContextData?.agentId}
+              </h3>
+              <div className="flex items-center gap-3">
+                {agentContextData && (
+                  <span className="text-xs text-stone-400">
+                    Total: {(agentContextData.totalLength || 0).toLocaleString()} chars
+                  </span>
+                )}
+                <button onClick={() => { setAgentContextData(null); setAgentContextLoading(false); }} className="text-stone-400 hover:text-white text-lg">✕</button>
+              </div>
+            </div>
+            {agentContextLoading ? (
+              <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">Loading context...</div>
+            ) : agentContextData ? (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: "thin" }}>
+                {/* Base System Prompt */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 Base System Prompt</span>
+                    <span className="text-[10px] text-stone-500">{(agentContextData.baseSystemPrompt?.length || 0).toLocaleString()} chars</span>
+                  </div>
+                  <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                    {agentContextData.baseSystemPrompt || "(empty)"}
+                  </pre>
+                </div>
+                {/* Dynamic Context Sections */}
+                {agentContextData.dynamicContext?.map((ctx, i) => (
+                  <div key={i}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">⚡ {ctx.source}</span>
+                      <span className="text-[10px] text-stone-500">{ctx.content.length.toLocaleString()} chars</span>
+                    </div>
+                    <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                      {ctx.content}
+                    </pre>
+                  </div>
+                ))}
+                {(!agentContextData.dynamicContext || agentContextData.dynamicContext.length === 0) && (
+                  <div className="text-xs text-stone-500">No dynamic context injected.</div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       )}
