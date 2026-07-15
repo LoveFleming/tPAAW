@@ -21,6 +21,8 @@ import { promisify } from "util";
 const exec = promisify(execCb);
 const isWin = process.platform === "win32";
 
+const LOG = (...args) => console.log("[semgrep]", ...args);
+
 // ── Cross-platform file scanning (replaces Unix `find`) ──
 
 /**
@@ -128,16 +130,21 @@ function findWindowsSemgrepPaths() {
 }
 
 function tryExec(cmd) {
+  LOG("tryExec:", cmd);
   try {
-    execSyncCb(cmd, {
+    const result = execSyncCb(cmd, {
       stdio: "pipe",
       timeout: 60000,  // 60s — semgrep on Windows can be slow on first run
       shell: true,
       env: { ...process.env },
+      encoding: "utf-8",
     });
+    LOG("tryExec OK:", cmd, "→", (result || "").trim().slice(0, 100));
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e.message?.split('\n')[0]?.slice(0, 200) || 'failed' };
+    const errMsg = e.message?.split('\n')[0]?.slice(0, 200) || 'failed';
+    LOG("tryExec FAIL:", cmd, "→", errMsg);
+    return { ok: false, error: errMsg };
   }
 }
 
@@ -150,6 +157,10 @@ export function isSemgrepAvailable() {
  * Used in 503 response so user can see exactly why it failed.
  */
 export function diagnoseSemgrep() {
+  LOG("=== diagnoseSemgrep() START ===");
+  LOG("platform:", process.platform, "isWin:", isWin);
+  LOG("PATH:", process.env.PATH?.slice(0, 300) || "(empty)");
+
   const tried = [];
   const candidates = isWin
     ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version", "python3 -m semgrep --version", "py -m semgrep --version", "py -3 -m semgrep --version"]
@@ -157,40 +168,57 @@ export function diagnoseSemgrep() {
   for (const cmd of candidates) {
     const r = tryExec(cmd);
     tried.push({ cmd, ...r });
-    if (r.ok) return { available: true, cmd, tried };
+    if (r.ok) {
+      LOG("FOUND via candidate:", cmd);
+      return { available: true, cmd, tried };
+    }
   }
 
   // Windows fallback: search common install paths via `where`
   if (isWin) {
+    LOG("Windows fallback — searching via where...");
+    
     // Search entire PATH for semgrep
     try {
+      LOG("running: where semgrep");
       const out = execSyncCb('where semgrep 2>nul', {
         stdio: "pipe", timeout: 30000, shell: true, env: { ...process.env }, encoding: "utf-8",
       });
       const found = out.trim().split(/\r?\n/).filter(Boolean);
       tried.push({ cmd: 'where semgrep', ok: true, output: found.join('; ') });
+      LOG("where semgrep found:", found.length, "locations:", found.join('; '));
       if (found.length > 0) {
         const r = tryExec(`"${found[0]}" --version`);
         tried.push({ cmd: `"${found[0]}" --version`, ...r });
-        if (r.ok) return { available: true, cmd: `"${found[0]}"`, tried };
+        if (r.ok) {
+          LOG("FOUND via where:", found[0]);
+          return { available: true, cmd: `"${found[0]}"`, tried };
+        }
       }
-    } catch {
+    } catch (e) {
+      LOG("where semgrep: nothing found");
       tried.push({ cmd: 'where semgrep', ok: false, error: 'not found by where' });
     }
 
     // Deep search in AppData
     try {
+      LOG("running: where /R AppData semgrep.exe");
       const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
         stdio: "pipe", timeout: 60000, shell: true, env: { ...process.env }, encoding: "utf-8",
       });
       const found = out.trim().split(/\r?\n/).filter(Boolean);
       tried.push({ cmd: 'where /R AppData semgrep.exe', ok: true, output: found.join('; ') });
+      LOG("AppData search found:", found.length, "locations:", found.join('; '));
       if (found.length > 0) {
         const r = tryExec(`"${found[0]}" --version`);
         tried.push({ cmd: `"${found[0]}" --version`, ...r });
-        if (r.ok) return { available: true, cmd: `"${found[0]}"`, tried };
+        if (r.ok) {
+          LOG("FOUND via AppData:", found[0]);
+          return { available: true, cmd: `"${found[0]}"`, tried };
+        }
       }
-    } catch {
+    } catch (e) {
+      LOG("AppData search: nothing found");
       tried.push({ cmd: 'where /R AppData semgrep.exe', ok: false, error: 'not found' });
     }
   }
@@ -204,6 +232,8 @@ export function diagnoseSemgrep() {
     VIRTUAL_ENV: process.env.VIRTUAL_ENV || '(not set)',
   };
 
+  LOG("=== NOT AVAILABLE. All candidates failed. ===");
+  LOG("envInfo:", JSON.stringify(envInfo));
   return { available: false, tried, envInfo };
 }
 
@@ -212,16 +242,21 @@ export function diagnoseSemgrep() {
  * Returns the command prefix string (e.g. "semgrep" or "python -m semgrep").
  */
 function findSemgrepCmd() {
+  LOG("findSemgrepCmd() called");
   const candidates = isWin
     ? ["semgrep", "semgrep.exe", "python -m semgrep", "python3 -m semgrep", "py -m semgrep", "py -3 -m semgrep"]
     : ["semgrep", "python3 -m semgrep", "python -m semgrep"];
   for (const cmd of candidates) {
-    if (tryExec(`${cmd} --version`).ok) return cmd;
+    if (tryExec(`${cmd} --version`).ok) {
+      LOG("findSemgrepCmd: found", cmd);
+      return cmd;
+    }
   }
 
   // Windows fallback: use `where` to find semgrep.exe
   if (isWin) {
     try {
+      LOG("findSemgrepCmd: trying where /R AppData");
       const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
         stdio: "pipe",
         timeout: 30000,
@@ -232,13 +267,17 @@ function findSemgrepCmd() {
       const found = out.trim().split(/\r?\n/).filter(Boolean);
       if (found.length > 0) {
         const fullCmd = `"${found[0]}"`;
-        if (tryExec(`${fullCmd} --version`).ok) return fullCmd;
+        if (tryExec(`${fullCmd} --version`).ok) {
+          LOG("findSemgrepCmd: found via where", fullCmd);
+          return fullCmd;
+        }
       }
     } catch {
       // where found nothing
     }
   }
 
+  LOG("findSemgrepCmd: returning null — nothing found");
   return null;
 }
 
@@ -253,15 +292,20 @@ export async function runSemgrep(projectRoot, options = {}) {
   const timeoutMs = options.timeoutMs || 120_000; // 2 min default
   const customPacks = options.rulePacks;
 
+  LOG("runSemgrep() called, projectRoot:", projectRoot, "timeout:", timeoutMs);
+
   // Find the actual semgrep binary/command
   const semgrepBin = findSemgrepCmd();
   if (!semgrepBin) {
+    LOG("runSemgrep: semgrepBin is null — returning error");
     return {
       findings: [],
       stats: { total: 0, bySeverity: {}, byCategory: {} },
       error: "Semgrep not found. Tried: semgrep, semgrep.exe, python -m semgrep. Install: pip install semgrep",
     };
   }
+
+  LOG("runSemgrep: using cmd:", semgrepBin);
 
   // Detect rule packs
   const rulePacks = customPacks || detectRulePacks(projectRoot);
@@ -285,6 +329,7 @@ export async function runSemgrep(projectRoot, options = {}) {
   ].join(" ");
 
   const fullCmd = buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs);
+  LOG("runSemgrep: full command:", fullCmd);
 
   try {
     const { stdout } = await exec(fullCmd, {
@@ -324,6 +369,8 @@ export async function runSemgrep(projectRoot, options = {}) {
       if (f.file) filesAffected.add(f.file);
     }
 
+    LOG("runSemgrep: done —", findings.length, "findings,", filesAffected.size, "files affected");
+
     return {
       findings,
       stats: {
@@ -341,6 +388,7 @@ export async function runSemgrep(projectRoot, options = {}) {
       },
     };
   } catch (err) {
+    LOG("runSemgrep ERROR:", err.message?.slice(0, 300));
     if (err.killed) {
       return {
         findings: [],

@@ -907,10 +907,21 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── GET /api/coding-project/security-scan/diagnose ──
+    // Debug endpoint — always returns full diagnostic (no 503)
+    if (url.startsWith("/api/coding-project/security-scan/diagnose") && method === "GET") {
+      const diag = diagnoseSemgrep();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(diag, null, 2));
+      return true;
+    }
+
     // ── GET /api/coding-project/security-scan ──
     // Run Semgrep and return findings
     if (url.startsWith("/api/coding-project/security-scan") && method === "GET") {
+      console.log("[coding] security-scan endpoint called, checking semgrep...");
       const diag = diagnoseSemgrep();
+      console.log("[coding] diagnoseSemgrep result:", JSON.stringify({ available: diag.available, cmd: diag.cmd, triedCount: diag.tried?.length }));
       if (!diag.available) {
         res.writeHead(503, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
