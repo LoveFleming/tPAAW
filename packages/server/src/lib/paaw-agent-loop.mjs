@@ -768,7 +768,7 @@ const PAAW_TOOLS = [
 const IS_WIN = process.platform === "win32";
 
 // Module-level agent config defaults (used by runShell + executeTool)
-const _agentCfgDefaults = { maxTurns: 60, timeoutSeconds: 1800, bashTimeoutSeconds: 600, shellTimeoutMs: 1200000 };
+const _agentCfgDefaults = { maxTurns: 200, timeoutSeconds: 1800, bashTimeoutSeconds: 300, shellTimeoutMs: 1200000 };
 let _agentCfg = { ..._agentCfgDefaults };
 export function setAgentConfig(cfg) { _agentCfg = { ..._agentCfgDefaults, ...cfg }; }
 
@@ -1048,7 +1048,7 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       // ══════════════════════════════════════════
 
       case "bash": {
-        const timeoutSec = Math.min(args.timeout || 30, _agentCfg.bashTimeoutSeconds || 300);
+        const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
         // Truncate large output
@@ -1927,44 +1927,89 @@ ${changedApis}`;
 const DEFAULT_CONTEXT_WINDOW = 262000; // 262k tokens default for company models
 const CONTEXT_SAFETY_MARGIN = 8000;   // reserve for system prompt + response
 
+// ── OpenClaw-aligned context management ──
+// Like OpenClaw: reserve 50% for prompt budget, cap tool results at 30% of context
+const MIN_PROMPT_BUDGET_RATIO = 0.5;
+const TOOL_RESULT_CONTEXT_SHARE = 0.3;
+
 function estimateTokens(text) {
-  // Rough estimate: ~4 chars per token for mixed CJK + English
+  // Rough estimate: ~3.5 chars per token for mixed CJK + English
   return Math.ceil((text || "").length / 3.5);
 }
 
+/**
+ * Trim messages to fit context window.
+ * Strategy (aligned with OpenClaw):
+ *   1. Always keep system prompt (messages[0]) + first user message
+ *   2. Keep as many recent messages as fit (sliding window from tail)
+ *   3. Summarize evicted middle messages into a compact summary
+ *   4. Cap any single tool result at 30% of context window
+ */
 function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WINDOW) {
   if (messages.length <= 4) return messages;
 
-  // Always keep: messages[0] (system), messages[1] (first user), last 6 messages
-  const keepHead = 2;
-  const keepTail = 6;
-  let totalTokens = messages.reduce((s, m) => s + estimateTokens(m.content || ""), 0);
+  const budget = contextWindow - CONTEXT_SAFETY_MARGIN;
+  const toolResultCap = Math.floor(contextWindow * TOOL_RESULT_CONTEXT_SHARE) * 4; // chars
 
-  if (totalTokens <= contextWindow - CONTEXT_SAFETY_MARGIN) {
-    return messages; // fits, no trimming needed
+  // Pass 1: Cap oversized tool results in any message content
+  let msgs = messages.map(m => {
+    const content = m.content || "";
+    if (content.length > toolResultCap) {
+      const trimmed = content.slice(0, toolResultCap) + `\n... (tool result truncated, ${content.length} chars total, capped at ${toolResultCap} chars to preserve context budget)`;
+      return { ...m, content: trimmed };
+    }
+    return m;
+  });
+
+  // Pass 2: Check total fits
+  let totalTokens = msgs.reduce((s, m) => s + estimateTokens(m.content || ""), 0);
+  if (totalTokens <= budget) {
+    return msgs; // fits, no trimming needed
   }
 
-  const head = messages.slice(0, keepHead);
-  const tail = messages.slice(-keepTail);
-  const middle = messages.slice(keepHead, -keepTail);
+  // Pass 3: Sliding window — keep head (system + first user) + as many tail messages as fit
+  const head = msgs.slice(0, 2); // system + first user
+  const tailMessages = msgs.slice(2);
 
-  // Summarize middle messages
-  const middleSummary = middle
-    .filter(m => m.role === "assistant" || m.role === "user")
+  // Greedily add tail messages from most recent backwards
+  const keptTail = [];
+  let tailTokens = head.reduce((s, m) => s + estimateTokens(m.content || ""), 0);
+  const minPromptBudget = Math.min(8000, Math.floor(budget * MIN_PROMPT_BUDGET_RATIO));
+  const tailBudget = budget - tailTokens; // remaining after head
+
+  for (let i = tailMessages.length - 1; i >= 0; i--) {
+    const msgTokens = estimateTokens(tailMessages[i].content || "");
+    if (tailTokens + msgTokens > tailBudget) break;
+    keptTail.unshift(tailMessages[i]);
+    tailTokens += msgTokens;
+  }
+
+  // Summarize evicted messages
+  const evictedStart = 0;
+  const evictedEnd = tailMessages.length - keptTail.length;
+  const evicted = tailMessages.slice(evictedStart, evictedEnd);
+
+  if (evicted.length === 0) {
+    return [...head, ...keptTail];
+  }
+
+  // Build compact summary of evicted messages
+  const summaryParts = evicted
+    .filter(m => m.role === "assistant" || m.role === "user" || m.role === "system")
     .map(m => {
-      const content = (m.content || "").slice(0, 200);
-      const role = m.role === "assistant" ? "AI" : "User";
+      const content = (m.content || "").slice(0, 300);
+      const role = m.role === "assistant" ? "AI" : m.role === "user" ? "User" : "System";
       return `[${role}] ${content}`;
-    })
-    .join(" | ");
+    });
 
   const summaryMsg = {
     role: "system",
-    content: `[Context trimmed — earlier conversation summarized]\n${middleSummary}\n[End of summary — ${middle.length} messages trimmed to save context]`,
+    content: `[Context trimmed — ${evicted.length} earlier messages summarized]\n${summaryParts.join("\n")}\n[End of summary — ${evicted.length} messages evicted to fit context window]`,
   };
 
-  const trimmed = [...head, summaryMsg, ...tail];
-  console.log(`[context-trim] ${messages.length} msgs → ${trimmed.length} msgs (est. ${totalTokens} tokens → ~${trimmed.reduce((s,m) => s + estimateTokens(m.content||""), 0)} tokens)`);
+  const trimmed = [...head, summaryMsg, ...keptTail];
+  const trimmedTokens = trimmed.reduce((s,m) => s + estimateTokens(m.content || ""), 0);
+  console.log(`[context-trim] ${messages.length} msgs → ${trimmed.length} msgs (est. ${totalTokens} tok → ~${trimmedTokens} tok, budget=${budget})`);
   return trimmed;
 }
 

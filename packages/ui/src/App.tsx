@@ -25,6 +25,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AISettingsPage from "./pages/AISettingsPage";
 
 import HelpDesk from "./pages/HelpDesk";
+import LlmLogTab from "./components/LlmLogTab";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -447,6 +448,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openLlmLog = useCallback(() => {
+    const tabId = `${currentScope}:llm-log`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openSkillAppById = useCallback((skillId: string) => {
     const tabId = `${currentScope}:skillapp.${skillId}`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -796,6 +803,13 @@ function AppInner() {
                   active={activePage.endsWith(":ai-settings")}
                   label="AI Settings"
                   onClick={openSystemPrompts}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":llm-log")}
+                  label={t("llmLog.title")}
+                  onClick={openLlmLog}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />

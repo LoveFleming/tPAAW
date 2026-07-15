@@ -82,7 +82,7 @@ const DOMAIN_AGENTS = {
     description: "Architecture/Risk Agent — 分析架構、制定技術決策、規劃模組邊界",
     contextProviders: ["project", "decisions"],
     tools: null, // null = use default agent loop tools (read_file, write_file, etc.)
-    maxTurns: 30,
+
     skills: [
       {
         id: "architect-review",
@@ -112,7 +112,7 @@ const DOMAIN_AGENTS = {
     description: "Helpdesk/Support Agent — 解決技術問題、排查 bug、操作指引",
     contextProviders: ["helpdesk"],
     tools: null,
-    maxTurns: 20,
+
     skills: [
       {
         id: "helpdesk-support",
@@ -136,7 +136,7 @@ const DOMAIN_AGENTS = {
     description: "Coding Agent — 實作功能、修 bug、refactor、全端開發",
     contextProviders: ["project", "decisions"],
     tools: null,
-    maxTurns: 30,
+
     skills: [
       {
         id: "dev-implement",
@@ -166,7 +166,7 @@ const DOMAIN_AGENTS = {
     description: "Test Agent — 撰寫測試、執行測試、回報結果",
     contextProviders: ["project", "decisions"],
     tools: null,
-    maxTurns: 20,
+
     skills: [
       {
         id: "test-write",
@@ -190,7 +190,7 @@ const DOMAIN_AGENTS = {
     description: "Document Agent — 撰寫 README、API docs、changelog、架構文件",
     contextProviders: ["project", "decisions"],
     tools: null,
-    maxTurns: 20,
+
     skills: [
       {
         id: "doc-readme",
@@ -214,7 +214,7 @@ const DOMAIN_AGENTS = {
     description: "QA Agent — Code Review、測試覆蓋率、規格驗證、品質閘門",
     contextProviders: ["project", "decisions"],
     tools: null,
-    maxTurns: 25,
+
     skills: [
       {
         id: "qa-review",
