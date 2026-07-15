@@ -231,7 +231,7 @@ export default async function projectRoute(req, res) {
       const messages = [];
       if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
 
-      // Inject conversation history with smart context window management
+      // Inject conversation history — clean then let trimMessagesToFit handle context window
       if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
         // Filter: only user/assistant, skip thinking bubbles, include tool call context
         const cleanHistory = conversationHistory
@@ -250,46 +250,17 @@ export default async function projectRoute(req, res) {
             return { role: m.role, content };
           });
 
-        // Smart context window: token budget management
-        const estimateTokens = (text) => Math.ceil((text || "").length / 4);
-        const systemPromptTokens = estimateTokens(fullSystemPrompt);
-        const maxContextTokens = 12000; // GLM 5.1 context budget for history
-        const responseReserve = 2000;
-        const budget = maxContextTokens - systemPromptTokens - responseReserve;
-
-        // Greedy fill from most recent backwards
-        const selected = [];
-        let usedTokens = 0;
-        for (let i = cleanHistory.length - 1; i >= 0; i--) {
-          const msgTokens = estimateTokens(cleanHistory[i].content);
-          if (usedTokens + msgTokens > budget && selected.length > 0) break;
-          selected.unshift(cleanHistory[i]);
-          usedTokens += msgTokens;
-        }
-
-        // If messages were trimmed, add a compact summary
-        const trimmedCount = cleanHistory.length - selected.length;
-        if (trimmedCount > 0) {
-          const trimmedMessages = cleanHistory.slice(0, trimmedCount);
-          const summaryParts = trimmedMessages.map(m => {
-            const role = m.role === "user" ? "👤" : "🤖";
-            return `${role} ${m.content.slice(0, 150)}`;
-          });
-          messages.push({
-            role: "system",
-            content: `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`,
-          });
-        }
-
-        for (const m of selected) {
+        for (const m of cleanHistory) {
           messages.push({ role: m.role, content: m.content });
         }
-
-        console.log(`[CodingCrew:chat] context window: ${selected.length}/${cleanHistory.length} messages, ~${usedTokens} tokens${trimmedCount > 0 ? `, trimmed ${trimmedCount} with summary` : ""}`);
       }
 
       // Add current user message
       messages.push({ role: "user", content: message });
+
+      // ── Apply context window trimming (aligned with A2A agent loop: 262K budget) ──
+      const { trimMessagesToFit } = await import("../lib/paaw-agent-loop.mjs");
+      const finalMessages = trimMessagesToFit(messages);
 
       // ── Dispatch Logging ──
       // Write full dispatch context to .paaw/coding-memory/dispatch-log.jsonl
@@ -307,8 +278,8 @@ export default async function projectRoute(req, res) {
           conversationHistoryCount: conversationHistory?.length || 0,
           cleanHistoryCount: conversationHistory?.filter(m => m.role === "user" || m.role === "assistant").filter(m => !m._thinking).length || 0,
           currentMessage: message,
-          totalMessages: messages.length,
-          messagesSummary: messages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
+          totalMessages: finalMessages.length,
+          messagesSummary: finalMessages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
         };
         await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
       } catch (logErr) {
@@ -330,7 +301,7 @@ export default async function projectRoute(req, res) {
       await runAgentLoopStream({
         prompt: "", // handled by messages array
         systemPrompt: "", // handled by messages array
-        messages, // pre-built with conversation history + action log + context
+        messages: finalMessages, // trimmed with 262K budget, same as A2A
         model: model || undefined,
         cwd: cwd || undefined,
         maxTurns: agent.maxTurns,

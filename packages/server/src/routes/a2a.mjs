@@ -700,41 +700,15 @@ export default async function a2aRoutes(req, res) {
 
             if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
               const cleanHistory = cleanConversationHistory(conversationHistory);
-
-              // Smart context window: token budget management
-              const estimateTokens = (text) => Math.ceil((text || "").length / 4);
-              const systemPromptTokens = estimateTokens(fullSystemPrompt);
-              const maxContextTokens = 12000;
-              const responseReserve = 2000;
-              const budget = maxContextTokens - systemPromptTokens - responseReserve;
-
-              const selected = [];
-              let usedTokens = 0;
-              for (let i = cleanHistory.length - 1; i >= 0; i--) {
-                const msgTokens = estimateTokens(cleanHistory[i].content);
-                if (usedTokens + msgTokens > budget && selected.length > 0) break;
-                selected.unshift(cleanHistory[i]);
-                usedTokens += msgTokens;
-              }
-
-              const trimmedCount = cleanHistory.length - selected.length;
-              if (trimmedCount > 0) {
-                const trimmedMessages = cleanHistory.slice(0, trimmedCount);
-                const summaryParts = trimmedMessages.map(m => {
-                  const role = m.role === "user" ? "👤" : "🤖";
-                  return `${role} ${m.content.slice(0, 150)}`;
-                });
-                messages.push({
-                  role: "system",
-                  content: `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`,
-                });
-              }
-
-              for (const m of selected) {
+              for (const m of cleanHistory) {
                 messages.push({ role: m.role, content: m.content });
               }
             }
             messages.push({ role: "user", content: userText });
+
+            // ── Apply context window trimming (aligned with agent loop: 262K budget) ──
+            const { trimMessagesToFit } = await import("../lib/paaw-agent-loop.mjs");
+            const finalMessages = trimMessagesToFit(messages);
 
             // ── Dispatch Logging ──
             try {
@@ -751,8 +725,8 @@ export default async function a2aRoutes(req, res) {
                 conversationHistoryCount: conversationHistory?.length || 0,
                 cleanHistoryCount: conversationHistory?.filter(m => m.role === "user" || m.role === "assistant").filter(m => !m._thinking).length || 0,
                 currentMessage: userText,
-                totalMessages: messages.length,
-                messagesSummary: messages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
+                totalMessages: finalMessages.length,
+                messagesSummary: finalMessages.map(m => ({ role: m.role, contentLength: m.content?.length || 0, preview: (m.content || "").slice(0, 120) })),
               };
               await appendFile(logPath, JSON.stringify(logEntry, null, 2) + "\n---\n");
             } catch (_logErr) {}
@@ -774,7 +748,7 @@ export default async function a2aRoutes(req, res) {
             await runAgentLoopStream({
               prompt: "", // handled by messages array
               systemPrompt: "", // handled by messages array
-              messages,
+              messages: finalMessages, // trimmed with 262K budget
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
@@ -834,48 +808,22 @@ export default async function a2aRoutes(req, res) {
             if (fullSystemPrompt) messages.push({ role: "system", content: fullSystemPrompt });
             if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
               const cleanHistory = cleanConversationHistory(conversationHistory);
-
-              // Smart context window: token budget management
-              const estimateTokens = (text) => Math.ceil((text || "").length / 4);
-              const systemPromptTokens = estimateTokens(fullSystemPrompt);
-              const maxContextTokens = 12000;
-              const responseReserve = 2000;
-              const budget = maxContextTokens - systemPromptTokens - responseReserve;
-
-              const selected = [];
-              let usedTokens = 0;
-              for (let i = cleanHistory.length - 1; i >= 0; i--) {
-                const msgTokens = estimateTokens(cleanHistory[i].content);
-                if (usedTokens + msgTokens > budget && selected.length > 0) break;
-                selected.unshift(cleanHistory[i]);
-                usedTokens += msgTokens;
-              }
-
-              const trimmedCount = cleanHistory.length - selected.length;
-              if (trimmedCount > 0) {
-                const trimmedMessages = cleanHistory.slice(0, trimmedCount);
-                const summaryParts = trimmedMessages.map(m => {
-                  const role = m.role === "user" ? "👤" : "🤖";
-                  return `${role} ${m.content.slice(0, 150)}`;
-                });
-                messages.push({
-                  role: "system",
-                  content: `[Earlier conversation summary (${trimmedCount} messages trimmed)]:\n${summaryParts.join("\n")}`,
-                });
-              }
-
-              for (const m of selected) {
+              for (const m of cleanHistory) {
                 messages.push({ role: m.role, content: m.content });
               }
             }
             messages.push({ role: "user", content: userText });
+
+            // ── Apply context window trimming (aligned with agent loop: 262K budget) ──
+            const { trimMessagesToFit } = await import("../lib/paaw-agent-loop.mjs");
+            const finalMessages = trimMessagesToFit(messages);
 
             const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
 
             const result = await runAgentLoop({
               prompt: "", // handled by messages array
               systemPrompt: "", // handled by messages array
-              messages,
+              messages: finalMessages, // trimmed with 262K budget
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
