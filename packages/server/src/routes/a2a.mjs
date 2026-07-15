@@ -13,7 +13,7 @@
  *   - tasks/list           → 列出 tasks
  *   - tasks/cancel         → 取消 task
  *
- * Task 存儲：data/a2a-tasks/*.json
+ * Task 存儲：data/a2a-tasks/*.json 
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink, appendFile } from "fs/promises";

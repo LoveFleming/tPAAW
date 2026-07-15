@@ -135,43 +135,76 @@ function tryExec(cmd) {
       shell: true,
       env: { ...process.env },
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message?.split('\n')[0]?.slice(0, 200) || 'failed' };
   }
 }
 
 export function isSemgrepAvailable() {
+  return diagnoseSemgrep().available;
+}
+
+/**
+ * Full diagnostic check — returns available + all tried commands + errors.
+ * Used in 503 response so user can see exactly why it failed.
+ */
+export function diagnoseSemgrep() {
+  const tried = [];
   const candidates = isWin
-    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version", "python3 -m semgrep --version", "py -m semgrep --version"]
+    ? ["semgrep --version", "semgrep.exe --version", "python -m semgrep --version", "python3 -m semgrep --version", "py -m semgrep --version", "py -3 -m semgrep --version"]
     : ["semgrep --version", "python3 -m semgrep --version", "python -m semgrep --version"];
   for (const cmd of candidates) {
-    if (tryExec(cmd)) return true;
+    const r = tryExec(cmd);
+    tried.push({ cmd, ...r });
+    if (r.ok) return { available: true, cmd, tried };
   }
 
   // Windows fallback: search common install paths via `where`
   if (isWin) {
+    // Search entire PATH for semgrep
     try {
-      const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
-        stdio: "pipe",
-        timeout: 10000,
-        shell: true,
-        env: { ...process.env },
-        encoding: "utf-8",
+      const out = execSyncCb('where semgrep 2>nul', {
+        stdio: "pipe", timeout: 10000, shell: true, env: { ...process.env }, encoding: "utf-8",
       });
       const found = out.trim().split(/\r?\n/).filter(Boolean);
+      tried.push({ cmd: 'where semgrep', ok: true, output: found.join('; ') });
       if (found.length > 0) {
-        // Verify it actually works
-        if (tryExec(`"${found[0]}" --version`)) return true;
+        const r = tryExec(`"${found[0]}" --version`);
+        tried.push({ cmd: `"${found[0]}" --version`, ...r });
+        if (r.ok) return { available: true, cmd: `"${found[0]}"`, tried };
       }
     } catch {
-      // where found nothing
+      tried.push({ cmd: 'where semgrep', ok: false, error: 'not found by where' });
     }
-    // Also try py launcher (Windows Python Launcher)
-    if (tryExec('py -3 -m semgrep --version')) return true;
+
+    // Deep search in AppData
+    try {
+      const out = execSyncCb('where /R "%USERPROFILE%\\AppData" semgrep.exe 2>nul', {
+        stdio: "pipe", timeout: 15000, shell: true, env: { ...process.env }, encoding: "utf-8",
+      });
+      const found = out.trim().split(/\r?\n/).filter(Boolean);
+      tried.push({ cmd: 'where /R AppData semgrep.exe', ok: true, output: found.join('; ') });
+      if (found.length > 0) {
+        const r = tryExec(`"${found[0]}" --version`);
+        tried.push({ cmd: `"${found[0]}" --version`, ...r });
+        if (r.ok) return { available: true, cmd: `"${found[0]}"`, tried };
+      }
+    } catch {
+      tried.push({ cmd: 'where /R AppData semgrep.exe', ok: false, error: 'not found' });
+    }
   }
 
-  return false;
+  // Gather environment diagnostics
+  const envInfo = {
+    platform: process.platform,
+    PATH: process.env.PATH?.slice(0, 500) || '(empty)',
+    USERPROFILE: process.env.USERPROFILE || '(not set)',
+    PYTHONHOME: process.env.PYTHONHOME || '(not set)',
+    VIRTUAL_ENV: process.env.VIRTUAL_ENV || '(not set)',
+  };
+
+  return { available: false, tried, envInfo };
 }
 
 /**

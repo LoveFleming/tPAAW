@@ -42,7 +42,7 @@ import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
-import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable } from "../lib/semgrep-runner.mjs";
+import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable, diagnoseSemgrep } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
 import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
@@ -910,10 +910,13 @@ export default async function projectRoute(req, res) {
     // ── GET /api/coding-project/security-scan ──
     // Run Semgrep and return findings
     if (url.startsWith("/api/coding-project/security-scan") && method === "GET") {
-      if (!isSemgrepAvailable()) {
-        const tried = isWin ? "semgrep, semgrep.exe, python -m semgrep, python3 -m semgrep" : "semgrep, python3 -m semgrep";
+      const diag = diagnoseSemgrep();
+      if (!diag.available) {
         res.writeHead(503, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: `Semgrep not found. Tried: ${tried}. Install: pip install semgrep, then restart PAAW server.` }));
+        res.end(JSON.stringify({
+          error: "Semgrep not found. Install: pip install semgrep, then restart PAAW server.",
+          diagnostic: diag,
+        }));
         return true;
       }
       try {
@@ -1317,11 +1320,10 @@ export default async function projectRoute(req, res) {
 
         // Special handling: security-scan runs Semgrep (no LLM needed)
         if (step.id === "security-scan") {
-          if (!isSemgrepAvailable()) {
-            const tried = isWin
-              ? "semgrep, semgrep.exe, python -m semgrep, python3 -m semgrep"
-              : "semgrep, python3 -m semgrep";
-            sendEvent("step_error", { step: step.id, name: step.name, error: `Semgrep 未安裝或不在 PATH 中。嘗試過: ${tried}。安裝: pip install semgrep，然後重啟 PAAW server。` });
+          const diag = diagnoseSemgrep();
+          if (!diag.available) {
+            const triedList = diag.tried.map(t => `${t.cmd} → ${t.ok ? 'ok' : (t.error || 'failed')}`).join(' | ');
+            sendEvent("step_error", { step: step.id, name: step.name, error: `Semgrep 未安裝或不在 PATH 中。嘗試過: ${triedList}` });
             sendEvent("done", { message: "Step skipped — semgrep not installed" });
             res.end();
             return true;
