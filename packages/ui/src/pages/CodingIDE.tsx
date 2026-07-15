@@ -1051,7 +1051,8 @@ const sendChat = useCallback(async () => {
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
         let finalContent = "";
-        let thinkingText = "";
+        // Accumulate tool calls + thinking silently — only show final answer (OpenClaw style)
+        const silentToolCalls: { name: string; args?: string; result?: string }[] = [];
         let buffer = "";
 
         while (reader) {
@@ -1066,42 +1067,18 @@ const sendChat = useCallback(async () => {
                 try {
                   const data = JSON.parse(line.slice(6));
 
-                  // thinking — LLM intermediate text (accumulated, OpenClaw style)
-                  // Each thinking event APPENDS to the existing thinking bubble,
-                  // rather than overwriting it.
-                  if (data.content && !data.done && !data.name) {
-                    setChatMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant" && last?._thinking) {
-                        // Append new thinking text (don't overwrite)
-                        const prevContent = last.content.replace(/^💭 /, "");
-                        // If this thinking chunk is different from the tail of existing content, append it
-                        if (!prevContent.endsWith(data.content)) {
-                          return [...prev.slice(0, -1), { ...last, content: last.content + "\n" + data.content }];
-                        }
-                        return prev; // duplicate, skip
-                      }
-                      return [...prev, { role: "assistant" as const, content: `💭 ${data.content}`, _thinking: true, _streaming: true, ts: new Date().toISOString() }];
-                    });
-                  }
+                  // thinking events — silently ignored (OpenClaw style: just show typing)
+                  // No bubble created, no overwrite, no fake data displayed
 
-                  // tool call
+                  // tool call — track silently for conversation history
                   if (data.name && data.args !== undefined) {
                     if (isAgentMode) {
                       setAgentToolLog(prev => [...prev, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args), result: "..." }]);
                     }
-                    // Track tool call in chat messages for conversation history
-                    setChatMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant") {
-                        const tc = last._toolCalls || [];
-                        return [...prev.slice(0, -1), { ...last, _toolCalls: [...tc, { name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args) }] }];
-                      }
-                      return prev;
-                    });
+                    silentToolCalls.push({ name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args) });
                   }
 
-                  // tool result
+                  // tool result — track silently
                   if (data.name && data.result !== undefined && data.result !== "...") {
                     if (isAgentMode) {
                       setAgentToolLog(prev => {
@@ -1113,73 +1090,28 @@ const sendChat = useCallback(async () => {
                         return updated;
                       });
                     }
-                    // Track tool result in chat messages
-                    setChatMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant" && last._toolCalls) {
-                        const tc = [...last._toolCalls];
-                        const idx = tc.length - 1;
-                        if (idx >= 0 && tc[idx].name === data.name) {
-                          tc[idx] = { ...tc[idx], result: data.result };
-                        }
-                        return [...prev.slice(0, -1), { ...last, _toolCalls: tc }];
-                      }
-                      return prev;
-                    });
+                    // Update silent tracking
+                    const lastTool = silentToolCalls[silentToolCalls.length - 1];
+                    if (lastTool && lastTool.name === data.name) {
+                      lastTool.result = data.result;
+                    }
                   }
 
-                  // info events (e.g. provider fallback messages) — append to thinking, don't overwrite
-                  if (data.message && !data.name) {
-                    setChatMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant" && last?._thinking) {
-                        // Append info as a new line in the thinking bubble
-                        const infoLine = `\n⏳ ${data.message}`;
-                        if (!last.content.includes(data.message)) {
-                          return [...prev.slice(0, -1), { ...last, content: last.content + infoLine }];
-                        }
-                        return prev;
-                      }
-                      return [...prev, { role: "assistant" as const, content: `⏳ ${data.message}`, _thinking: true, _streaming: true, ts: new Date().toISOString() }];
-                    });
-                  }
+                  // info events — silently ignored (typing indicator covers this)
 
-                  // final content — the actual answer
+                  // final content — THE ONLY thing that creates a visible message
                   if (data.content && data.done) {
                     finalContent = data.content;
-                    // Replace thinking bubble with real answer, preserve thinking history
-                    setChatMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant" && last?._thinking) {
-                        // Save thinking history before replacing with final answer
-                        const thinkingHistory = last._thinkingHistory || [];
-                        // Include the last thinking content too
-                        const lastThinking = last.content.replace(/^💭 /, "");
-                        if (lastThinking && !thinkingHistory.includes(lastThinking)) {
-                          thinkingHistory.push(lastThinking);
-                        }
-                        const finalMsg: ChatMessage = { role: "assistant", content: finalContent, ts: new Date().toISOString() };
-                        if (thinkingHistory.length > 0) finalMsg._thinkingHistory = thinkingHistory;
-                        return [...prev.slice(0, -1), finalMsg];
-                      }
-                      return [...prev, { role: "assistant" as const, content: finalContent, ts: new Date().toISOString() }];
-                    });
+                    const finalMsg: ChatMessage = { role: "assistant", content: finalContent, ts: new Date().toISOString() };
+                    if (silentToolCalls.length > 0) finalMsg._toolCalls = silentToolCalls;
+                    setChatMessages(prev => [...prev, finalMsg]);
                   }
 
                   // error
                   if (data.error) {
-                    setChatMessages(prev => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant" && last?._thinking) {
-                        const thinkingHistory = last._thinkingHistory || [];
-                        const lastThinking = last.content.replace(/^💭 /, "");
-                        if (lastThinking) thinkingHistory.push(lastThinking);
-                        const errMsg: ChatMessage = { role: "assistant", content: `❌ Error: ${data.error}`, ts: new Date().toISOString() };
-                        if (thinkingHistory.length > 0) errMsg._thinkingHistory = thinkingHistory;
-                        return [...prev.slice(0, -1), errMsg];
-                      }
-                      return [...prev, { role: "assistant" as const, content: `❌ Error: ${data.error}`, ts: new Date().toISOString() }];
-                    });
+                    const errMsg: ChatMessage = { role: "assistant", content: `❌ Error: ${data.error}`, ts: new Date().toISOString() };
+                    if (silentToolCalls.length > 0) errMsg._toolCalls = silentToolCalls;
+                    setChatMessages(prev => [...prev, errMsg]);
                   }
                 } catch {}
               }
@@ -1187,40 +1119,19 @@ const sendChat = useCallback(async () => {
           }
         }
 
-        // If stream ended without final content, keep thinking as answer or show fallback
+        // Stream ended without final content — generate summary from tool calls
         if (!finalContent) {
-          if (thinkingText) {
-            // Upgrade thinking to final if no separate final answer
-            setChatMessages(prev => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant" && last?._thinking) {
-                // Preserve thinking history when upgrading thinking to final
-                const thinkingHistory = last._thinkingHistory || [];
-                const lastThinking = last.content.replace(/^💭 /, "");
-                if (lastThinking && !thinkingHistory.includes(lastThinking)) thinkingHistory.push(lastThinking);
-                const finalMsg: ChatMessage = { role: "assistant", content: thinkingText, ts: new Date().toISOString() };
-                if (thinkingHistory.length > 0) finalMsg._thinkingHistory = thinkingHistory;
-                if (last._toolCalls) finalMsg._toolCalls = last._toolCalls;
-                return [...prev.slice(0, -1), finalMsg];
-              }
-              return prev;
-            });
+          if (silentToolCalls.length > 0) {
+            // Tool calls were made but no final answer — summarize what was done
+            const toolSummary = silentToolCalls.map(tc => {
+              if (tc.result) return `🔧 ${tc.name}: ${tc.result.slice(0, 150)}`;
+              return `🔧 ${tc.name}: ${typeof tc.args === "string" ? tc.args.slice(0, 100) : "..."}`;
+            }).join("\n");
+            const finalMsg: ChatMessage = { role: "assistant", content: `已執行以下操作：\n${toolSummary}`, ts: new Date().toISOString() };
+            finalMsg._toolCalls = silentToolCalls;
+            setChatMessages(prev => [...prev, finalMsg]);
           } else {
-            // No thinking text either — check if tool calls were made
-            setChatMessages(prev => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant" && last._toolCalls?.length) {
-                // Tool calls were made but no final answer — summarize what was done
-                const toolSummary = last._toolCalls.map(tc => {
-                  if (tc.result) return `🔧 ${tc.name}: ${tc.result.slice(0, 150)}`;
-                  return `🔧 ${tc.name}: ${typeof tc.args === "string" ? tc.args.slice(0, 100) : "..."}`;
-                }).join("\n");
-                const finalMsg: ChatMessage = { role: "assistant", content: `已執行以下操作：\n${toolSummary}`, ts: new Date().toISOString() };
-                finalMsg._toolCalls = last._toolCalls;
-                return [...prev.slice(0, -1), finalMsg];
-              }
-              return [...prev, { role: "assistant" as const, content: "(Agent completed with no output)", ts: new Date().toISOString() }];
-            });
+            setChatMessages(prev => [...prev, { role: "assistant" as const, content: "(Agent completed with no output)", ts: new Date().toISOString() }]);
           }
         }
       } catch (err: any) {
