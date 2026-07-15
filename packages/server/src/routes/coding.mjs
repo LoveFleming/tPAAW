@@ -114,6 +114,7 @@ export default async function projectRoute(req, res) {
   const rawUrl = req.url || "";
   const url = rawUrl.split("?")[0];
   const q = parseQuery(rawUrl);
+  const isWin = process.platform === "win32";
 
   // All routes start with /api/coding-project
   if (!url.startsWith("/api/coding-project") && !url.startsWith("/api/coding-crew")) return false;
