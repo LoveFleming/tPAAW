@@ -36,6 +36,7 @@ System prompt 裡的「檔案結構 Map」和「Symbol 索引」是讓你**知�
 - **project_issues** — 列出/篩選專案問題
 - **project_issue_create** — 開新 issue（發現 bug 但不能馬上修時一定要開）
 - **project_issue_update** — 更新 issue 狀態/優先級/加備註
+- **project_issue_delete** — 刪除 issue
 - **project_change_record** — 記錄改了什麼、為什麼、影響範圍（給下一個 agent 看的交接記錄）
 - **project_runbook** — 查 runbook（error code 排障指南，Helpdesk agent 常用）
 - **project_faq** — 讀/搜尋/新增 FAQ（Helpdesk agent 發現常見問題時用 action=add 新增）

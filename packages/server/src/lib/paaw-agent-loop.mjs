@@ -438,6 +438,20 @@ const PAAW_TOOLS = [
   {
     type: "function",
     function: {
+      name: "project_issue_delete",
+      description: "Delete an issue from .paaw/issues/ISSUES.json.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Issue ID to delete (e.g. ISS-001)" },
+        },
+        required: ["id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "project_change_record",
       description: "Record a change to the project: what you changed, why, and impact. Use this AFTER making code changes to create a structured change record in .paaw/changes/. This is different from update_changelog (which is for users) — this is for AI agent handover.",
       parameters: {
@@ -1254,6 +1268,24 @@ ${summary}`;
           return `Updated ${args.id}: status=${issue.status}, priority=${issue.priority}${args.note ? ", note added" : ""}`;
         } catch (err) {
           return `Error updating issue: ${err.message}`;
+        }
+      }
+
+      case "project_issue_delete": {
+        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+        if (!existsSync(issuesFile)) return "⚠️ No issues tracking.";
+        try {
+          const data = JSON.parse(readSync(issuesFile, "utf-8"));
+          const idx = (data.issues || []).findIndex(i => i.id === args.id);
+          if (idx === -1) return `Issue ${args.id} not found.`;
+          const removed = data.issues.splice(idx, 1)[0];
+          data.updatedAt = new Date().toISOString();
+          const { writeFileSync: writeSync } = await import("fs");
+          writeSync(issuesFile, JSON.stringify(data, null, 2), "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+          return `Deleted issue ${removed.id}: ${removed.title}`;
+        } catch (err) {
+          return `Error deleting issue: ${err.message}`;
         }
       }
 
@@ -2167,6 +2199,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)
 - **project_issue_create** — Create a new issue (bug, tech-debt, task you can't fix now)
 - **project_issue_update** — Update issue status/priority, add notes
+- **project_issue_delete** — Delete an issue
 - **project_change_record** — Record what you changed, why, impact (for AI agent handover)
 - **project_runbook** — Get troubleshooting runbooks by error code or keyword (Helpdesk agent)
 - **project_faq** — Read/search/add Helpdesk FAQ entries\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.

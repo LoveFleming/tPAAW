@@ -5,8 +5,10 @@
 // New apps can be created at runtime — no code changes needed
 
 import { readFile, writeFile, mkdir, readdir } from "fs/promises";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname, join, isAbsolute, relative } from "path";
 import { fileURLToPath } from "url";
+import { PAAW_ROOT } from "../routes/shared.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PAAW_DATA_DIR = resolve(__dirname, "../../../../data");
@@ -644,6 +646,71 @@ async function buildToolDefinitions() {
     },
   });
 
+  // ── Project Issues (CRUD) ──
+  tools.push({
+    type: "function",
+    function: {
+      name: "project_issues",
+      description: "List project issues from .paaw/issues/ISSUES.json. Filter by status/priority.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", description: "Filter by status: open, in-progress, resolved, closed, wontfix (comma-separated)" },
+          priority: { type: "string", description: "Filter by priority: critical, high, medium, low (comma-separated)" },
+        },
+      },
+    },
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "project_issue_create",
+      description: "Create a new issue in .paaw/issues/ISSUES.json. Use when you find a bug, tech-debt, or task to track.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Issue title" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority" },
+          labels: { type: "array", items: { type: "string" }, description: "Labels: bug, feature, tech-debt, security, performance" },
+          description: { type: "string", description: "Detailed description" },
+          featureId: { type: "string", description: "Related feature ID (e.g. F-001)" },
+        },
+        required: ["title", "priority"],
+      },
+    },
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "project_issue_update",
+      description: "Update an issue (status, priority, add notes). Close issues you've fixed, or escalate.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Issue ID (e.g. ISS-001)" },
+          status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "New status" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "New priority" },
+          note: { type: "string", description: "Add a note/comment" },
+        },
+        required: ["id"],
+      },
+    },
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "project_issue_delete",
+      description: "Delete an issue from .paaw/issues/ISSUES.json.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Issue ID to delete (e.g. ISS-001)" },
+        },
+        required: ["id"],
+      },
+    },
+  });
+
   return { tools, apps };
 }
 
@@ -655,6 +722,87 @@ function buildHandlers(apps) {
 
   const PAAW_PORT = process.env.PAAW_PORT || "4097";
   const API = `http://127.0.0.1:${PAAW_PORT}`;
+
+  // ── Project Issues (CRUD) ──
+  // These read/write .paaw/issues/ISSUES.json directly
+  const _issuesFile = (cwd) => {
+    const root = cwd || PAAW_ROOT;
+    return { root, file: join(root, ".paaw", "issues", "ISSUES.json") };
+  };
+
+  handlers.project_issues = async (args = {}) => {
+    const { file } = _issuesFile(args.cwd);
+    if (!existsSync(file)) return "(No issues tracking initialized)";
+    try {
+      const data = JSON.parse(readFileSync(file, "utf-8"));
+      let issues = data.issues || [];
+      if (args.status) {
+        const ss = args.status.split(",").map(s => s.trim());
+        issues = issues.filter(i => ss.includes(i.status));
+      }
+      if (args.priority) {
+        const ps = args.priority.split(",").map(p => p.trim());
+        issues = issues.filter(i => ps.includes(i.priority));
+      }
+      if (issues.length === 0) return "(No matching issues found)";
+      return "Issues (" + issues.length + "):\n" + issues.map(i =>
+        `[${i.id}] ${i.status} | ${i.priority} | ${i.title}${i.labels?.length ? ` [${i.labels.join(",")}]` : ""}`
+      ).join("\n");
+    } catch (err) { return `Error reading issues: ${err.message}`; }
+  };
+
+  handlers.project_issue_create = async (args) => {
+    const { root, file } = _issuesFile(args.cwd);
+    let data = { issues: [], updatedAt: new Date().toISOString() };
+    if (existsSync(file)) { try { data = JSON.parse(readFileSync(file, "utf-8")); } catch {} }
+    const num = (data.issues || []).length + 1;
+    const id = `ISS-${String(num).padStart(3, "0")}`;
+    const issue = {
+      id, title: args.title, priority: args.priority || "medium", status: "open",
+      labels: args.labels || [], description: args.description || "",
+      featureId: args.featureId || null,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), notes: [],
+    };
+    data.issues = data.issues || [];
+    data.issues.push(issue);
+    data.updatedAt = new Date().toISOString();
+    const dir = join(root, ".paaw", "issues");
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(file, JSON.stringify(data, null, 2), "utf-8");
+    return `Created issue ${id}: ${issue.title} [${issue.priority}]`;
+  };
+
+  handlers.project_issue_update = async (args) => {
+    const { file } = _issuesFile(args.cwd);
+    if (!existsSync(file)) return "⚠️ No issues tracking. Create issues first with project_issue_create.";
+    try {
+      const data = JSON.parse(readFileSync(file, "utf-8"));
+      const idx = (data.issues || []).findIndex(i => i.id === args.id);
+      if (idx === -1) return `Issue ${args.id} not found.`;
+      const issue = data.issues[idx];
+      if (args.status) issue.status = args.status;
+      if (args.priority) issue.priority = args.priority;
+      if (args.note) { issue.notes = issue.notes || []; issue.notes.push({ text: args.note, date: new Date().toISOString() }); }
+      issue.updatedAt = new Date().toISOString();
+      data.updatedAt = new Date().toISOString();
+      writeFileSync(file, JSON.stringify(data, null, 2), "utf-8");
+      return `Updated ${args.id}: status=${issue.status}, priority=${issue.priority}${args.note ? ", note added" : ""}`;
+    } catch (err) { return `Error updating issue: ${err.message}`; }
+  };
+
+  handlers.project_issue_delete = async (args) => {
+    const { file } = _issuesFile(args.cwd);
+    if (!existsSync(file)) return "⚠️ No issues tracking.";
+    try {
+      const data = JSON.parse(readFileSync(file, "utf-8"));
+      const idx = (data.issues || []).findIndex(i => i.id === args.id);
+      if (idx === -1) return `Issue ${args.id} not found.`;
+      const removed = data.issues.splice(idx, 1)[0];
+      data.updatedAt = new Date().toISOString();
+      writeFileSync(file, JSON.stringify(data, null, 2), "utf-8");
+      return `Deleted issue ${removed.id}: ${removed.title}`;
+    } catch (err) { return `Error deleting issue: ${err.message}`; }
+  };
 
   // app_list — call REST API
   handlers.app_list = async () => {
