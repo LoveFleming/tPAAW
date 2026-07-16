@@ -445,19 +445,25 @@ export async function runSemgrep(projectRoot, options = {}) {
   const fullCmd = buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs);
   LOG("runSemgrep: full command:", fullCmd);
 
+  // Write JSON output to a temp file (avoids stdout truncation/encoding issues)
+  const jsonOutPath = join(tmpdir(), `semgrep-result-${randomUUID()}.json`);
+  // Replace --json with --json-output <path> in the command
+  const fileCmd = fullCmd.replace("--json ", `--json --json-output ${safePath(jsonOutPath)} `);
+
   // Write command to a temp script file to avoid Windows cmd.exe line length / newline issues
   const scriptExt = isWin ? ".bat" : ".sh";
   const scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
   const scriptContent = isWin
-    ? `@echo off\n${fullCmd}\n`
-    : `#!/bin/sh\n${fullCmd}\n`;
+    ? `@echo off\r\n${fileCmd}\r\n`
+    : `#!/bin/sh\n${fileCmd}\n`;
   writeFileSync(scriptPath, scriptContent, "utf-8");
   LOG("runSemgrep: script file:", scriptPath);
+  LOG("runSemgrep: json output:", jsonOutPath);
 
   const runCmd = isWin ? `cmd /c "${safePath(scriptPath)}"` : `sh "${scriptPath}"`;
 
   try {
-    const { stdout } = await exec(runCmd, {
+    const { stdout, stderr } = await exec(runCmd, {
       cwd: projectRoot,
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024,
@@ -468,7 +474,24 @@ export async function runSemgrep(projectRoot, options = {}) {
     // Clean up temp script
     try { require("fs").unlinkSync(scriptPath); } catch {}
 
-    const raw = JSON.parse(stdout);
+    // Read JSON output from file
+    let raw;
+    if (existsSync(jsonOutPath)) {
+      try {
+        const jsonText = readFileSync(jsonOutPath, "utf-8");
+        raw = JSON.parse(jsonText);
+        LOG("runSemgrep: read result from file, size:", jsonText.length);
+      } catch (parseErr) {
+        LOG("runSemgrep: json-output file parse error:", parseErr.message);
+        // Fallback to stdout
+        raw = JSON.parse(stdout);
+      }
+      // Clean up temp json file
+      try { require("fs").unlinkSync(jsonOutPath); } catch {}
+    } else {
+      LOG("runSemgrep: json-output file not found, falling back to stdout");
+      raw = JSON.parse(stdout);
+    }
     const findings = (raw.results || []).map(r => ({
       id: r.check_id || "unknown",
       severity: r.extra?.severity || "INFO",
@@ -536,8 +559,9 @@ export async function runSemgrep(projectRoot, options = {}) {
       raw: { version: raw.version, paths: raw.paths },
     };
   } catch (err) {
-    // Clean up temp script on error too
+    // Clean up temp files on error
     try { require("fs").unlinkSync(scriptPath); } catch {}
+    try { require("fs").unlinkSync(jsonOutPath); } catch {}
     LOG("runSemgrep ERROR:", err.message?.slice(0, 300));
     if (err.killed) {
       return {
