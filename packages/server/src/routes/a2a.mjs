@@ -673,7 +673,7 @@ export default async function a2aRoutes(req, res) {
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
             const conversationHistory = params?.conversationHistory || null;
-            const rootDir = PAAW_ROOT;
+            const rootDir = clientContext.cwd || PAAW_ROOT;
 
             // Build system prompt from crew + context providers + action log + agent memory
             const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
@@ -691,6 +691,32 @@ export default async function a2aRoutes(req, res) {
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
             const featureSummary = getFeatureSummary(rootDir);
             if (featureSummary) extraContext.push(featureSummary);
+            // Inject Code Intelligence file map for coding projects
+            const ciFile = join(rootDir, ".paaw", "code-intelligence", "code-intelligence.json");
+            if (existsSync(ciFile)) {
+              try {
+                const ci = JSON.parse(readSync(ciFile, "utf-8"));
+                if (ci.files?.length) {
+                  const fileLines = ci.files.slice(0, 200).map(f => {
+                    const parts = [`- ${f.path}`];
+                    if (f.exports?.length) parts.push(`exports: ${f.exports.slice(0, 10).join(", ")}`);
+                    if (f.imports?.length) parts.push(`imports: ${f.imports.slice(0, 10).join(", ")}`);
+                    return parts.join(" ");
+                  }).join("\n");
+                  extraContext.push(`\n## Code Intelligence File Map (${ci.files.length} files, showing first ${Math.min(ci.files.length, 200)})\n${fileLines}`);
+                }
+              } catch {}
+            }
+            // Inject Security Scan summary
+            const secFile = join(rootDir, ".paaw", "security", "scan-results.json");
+            if (existsSync(secFile)) {
+              try {
+                const sec = JSON.parse(readSync(secFile, "utf-8"));
+                if (sec.stats?.total > 0) {
+                  extraContext.push(`\n## Security Scan Summary (${sec.stats.total} findings, scanned ${sec.scannedAt || "unknown"})\nBy severity: ${JSON.stringify(sec.stats.bySeverity)}\nBy category: ${JSON.stringify(sec.stats.byCategory)}`);
+                }
+              } catch {}
+            }
             extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 
@@ -783,7 +809,7 @@ export default async function a2aRoutes(req, res) {
             const clientContext = params?.context || {};
             const modelOverride = params?.metadata?.model;
             const conversationHistory = params?.conversationHistory || null;
-            const rootDir = PAAW_ROOT;
+            const rootDir = clientContext.cwd || PAAW_ROOT;
 
             // Build system prompt from crew + context providers + action log + agent memory
             const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
@@ -800,6 +826,31 @@ export default async function a2aRoutes(req, res) {
             if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory (你的長期記憶)\n${agentMemoryText}`);
             const featureSummary2 = getFeatureSummary(rootDir);
             if (featureSummary2) extraContext.push(featureSummary2);
+            // Inject Code Intelligence file map for coding projects
+            const ciFile2 = join(rootDir, ".paaw", "code-intelligence", "code-intelligence.json");
+            if (existsSync(ciFile2)) {
+              try {
+                const ci2 = JSON.parse(readSync(ciFile2, "utf-8"));
+                if (ci2.files?.length) {
+                  const fileLines2 = ci2.files.slice(0, 200).map(f => {
+                    const parts = [`- ${f.path}`];
+                    if (f.exports?.length) parts.push(`exports: ${f.exports.slice(0, 10).join(", ")}`);
+                    if (f.imports?.length) parts.push(`imports: ${f.imports.slice(0, 10).join(", ")}`);
+                    return parts.join(" ");
+                  }).join("\n");
+                  extraContext.push(`\n## Code Intelligence File Map (${ci2.files.length} files, showing first ${Math.min(ci2.files.length, 200)})\n${fileLines2}`);
+                }
+              } catch {}
+            }
+            const secFile2 = join(rootDir, ".paaw", "security", "scan-results.json");
+            if (existsSync(secFile2)) {
+              try {
+                const sec2 = JSON.parse(readSync(secFile2, "utf-8"));
+                if (sec2.stats?.total > 0) {
+                  extraContext.push(`\n## Security Scan Summary (${sec2.stats.total} findings, scanned ${sec2.scannedAt || "unknown"})\nBy severity: ${JSON.stringify(sec2.stats.bySeverity)}\nBy category: ${JSON.stringify(sec2.stats.byCategory)}`);
+                }
+              } catch {}
+            }
             extraContext.push(AGENT_RULES);
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 
