@@ -166,12 +166,13 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Load persisted step statuses when opening Modal ──
   const [persistedSteps, setPersistedSteps] = useState<Array<{ id: string; name: string; status: string; size?: number; error?: string }>>([]);
   const loadPersistedSteps = useCallback(async () => {
-    if (!rootPath) return;
+    if (!rootPath) return [];
+    let steps: Array<{ id: string; name: string; status: string; size?: number; error?: string }> = [];
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/cu-status?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
         const data = await res.json();
-        const steps = CU_STEPS.map(s => {
+        steps = CU_STEPS.map(s => {
           const st = data.steps?.[s.id];
           if (st?.status === "done") {
             return { id: s.id, name: s.name, status: "done", size: st.size };
@@ -182,11 +183,11 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           }
         });
         setPersistedSteps(steps);
-        return;
+        return steps;
       }
     } catch {}
     // Fallback: check file existence
-    const steps = [];
+    steps = [];
     for (const s of CU_STEPS) {
       try {
         const res = await fetch(`${API_BASE}/api/coding-project/file?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(s.file)}`);
@@ -205,6 +206,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       }
     }
     setPersistedSteps(steps);
+    return steps;
   }, [rootPath]);
 
   // ── Fetch data when rootPath changes ──
@@ -230,14 +232,17 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Auto-trigger Code Understanding on first project open ──
   const autoCUTriggered = useRef(false);
   useEffect(() => {
-    // Only trigger once per mount, and only if code status says not initialized
     if (autoCUTriggered.current) return;
     if (!rootPath) return;
     if (codeStatus && !codeStatus.initialized && onStartCodeUnderstanding) {
       autoCUTriggered.current = true;
-      loadPersistedSteps().then(() => {
+      loadPersistedSteps().then((steps) => {
+        // If CU was already done before (>50% steps done), don't auto-popup
+        const doneCount = (steps || []).filter((s: any) => s.status === "done").length;
+        if (doneCount >= CU_STEPS.length * 0.5) {
+          return; // Already done — stay silent
+        }
         setShowCUModal(true);
-        // Auto-start after a brief moment so the modal renders first
         setTimeout(() => onStartCodeUnderstanding!(), 300);
       });
     }
