@@ -242,8 +242,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         if (doneCount >= CU_STEPS.length * 0.5) {
           return; // Already done — stay silent
         }
+        // .paaw deleted or never initialized — show modal but DON'T auto-start
+        // Let user decide whether to run Code Understanding
         setShowCUModal(true);
-        setTimeout(() => onStartCodeUnderstanding!(), 300);
       });
     }
   }, [rootPath, codeStatus, onStartCodeUnderstanding, loadPersistedSteps]);
