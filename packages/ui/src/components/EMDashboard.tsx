@@ -111,6 +111,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const prevMsgLenRef = useRef(0);
   const composingRef = useRef(false);
 
   // ── Project Status ──
@@ -273,8 +274,13 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     prevRunningRef.current = !!isRunning;
   }, [codeUnderstanding?.running, loadPersistedSteps, refreshData]);
 
-  // ── Auto scroll ──
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  // Only auto-scroll when NEW messages arrive (not on tab switch)
+  useEffect(() => {
+    if (messages.length > prevMsgLenRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevMsgLenRef.current = messages.length;
+  }, [messages]);
 
   // ── Send chat to EM via A2A ──
   const sendMessage = async () => {

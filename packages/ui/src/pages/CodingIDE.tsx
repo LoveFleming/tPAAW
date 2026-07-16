@@ -318,6 +318,7 @@ export default function CodingIDE() {
   const [agentAction, setAgentAction] = useState<string>(""); // current tool action for typing indicator
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const prevChatLenRef = useRef(0);
   const loadingFileRef = useRef(false);
   const openTabsRef = useRef(openTabs);
   openTabsRef.current = openTabs; // keep in sync
@@ -1169,7 +1170,13 @@ const sendChat = useCallback(async () => {
     }
   }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+  // Only auto-scroll when NEW messages arrive (not on tab switch or re-render)
+  useEffect(() => {
+    if (chatMessages.length > prevChatLenRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevChatLenRef.current = chatMessages.length;
+  }, [chatMessages]);
 
   // Alias for inline usage in AI crew tab
   const sendChatMessage = useCallback((msg: string) => {
