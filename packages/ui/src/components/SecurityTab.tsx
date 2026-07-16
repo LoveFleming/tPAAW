@@ -103,6 +103,26 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
 
   // Run new scan
   const [notInstalled, setNotInstalled] = useState(false);
+  const [diagnostic, setDiagnostic] = useState<any | null>(null);
+  const [loadingDiag, setLoadingDiag] = useState(false);
+  const [showDiag, setShowDiag] = useState(false);
+  // Load diagnostic info
+  const loadDiagnostic = useCallback(async () => {
+    setLoadingDiag(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/security-scan/diagnose?path=${encodeURIComponent(rootPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnostic(data);
+        setShowDiag(true);
+      }
+    } catch (err) {
+      console.error("Diagnostic failed:", err);
+    } finally {
+      setLoadingDiag(false);
+    }
+  }, [rootPath]);
+
   const runScan = useCallback(async () => {
     setScanning(true);
     setError(null);
@@ -170,15 +190,96 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
 
         <span className="flex-1" />
 
-        <button
-          onClick={runScan}
-          disabled={scanning}
-          className={cn("text-xs px-3 py-1 rounded font-semibold transition-colors",
-            scanning ? "bg-stone-200 text-stone-400 cursor-wait" : "bg-blue-500 text-white hover:bg-blue-600")}
-        >
-          {scanning ? "⏳ Scanning..." : "🔄 Run Scan"}
-        </button>
+          <button
+            onClick={loadDiagnostic}
+            disabled={loadingDiag}
+            className={cn("text-xs px-3 py-1 rounded font-semibold transition-colors",
+              loadingDiag ? "bg-stone-200 text-stone-400 cursor-wait" : "bg-amber-500 text-white hover:bg-amber-600")}
+          >
+            {loadingDiag ? "⏳..." : "🔧 Diagnose"}
+          </button>
+          <button
+            onClick={runScan}
+            disabled={scanning}
+            className={cn("text-xs px-3 py-1 rounded font-semibold transition-colors",
+              scanning ? "bg-stone-200 text-stone-400 cursor-wait" : "bg-blue-500 text-white hover:bg-blue-600")}
+          >
+            {scanning ? "⏳ Scanning..." : "🔄 Run Scan"}
+          </button>
       </div>
+
+      {/* ── Diagnostic Panel ── */}
+      {showDiag && diagnostic && (
+        <div className="shrink-0 border-b" style={{ borderColor: tk.borderLight, backgroundColor: "#fffbeb" }}>
+          <div className="px-4 py-2 flex items-center gap-2">
+            <span className="text-sm font-bold text-amber-700">🔧 Security Scan 診斷</span>
+            <span className={cn("text-xs px-2 py-0.5 rounded-full font-bold",
+              diagnostic.available ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+              {diagnostic.available ? "✅ Semgrep 可用" : "❌ Semgrep 不可用"}
+            </span>
+            <span className="flex-1" />
+            <button onClick={() => setShowDiag(false)} className="text-xs text-stone-400 hover:text-stone-600">✕ 關閉</button>
+          </div>
+          <div className="px-4 pb-3 space-y-2 text-xs">
+            {/* Detected command */}
+            {diagnostic.cmd && (
+              <div>
+                <span className="text-stone-500 font-bold">偵測到的指令：</span>
+                <code className="ml-1 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded font-mono text-amber-800 select-all">{diagnostic.cmd}</code>
+              </div>
+            )}
+
+            {/* Manual test commands */}
+            <div>
+              <span className="text-stone-500 font-bold">📋 手動測試指令（複製到終端機執行）：</span>
+            </div>
+            <div className="space-y-1">
+              {[
+                { label: "1. 檢查 Python", cmd: "python --version" },
+                { label: "2. 檢查 pip", cmd: "pip --version" },
+                { label: "3. 檢查 semgrep 版本", cmd: diagnostic.cmd ? `${diagnostic.cmd} --version` : "semgrep --version" },
+                { label: "4. 安裝 semgrep", cmd: "pip install semgrep" },
+                { label: "5. 找 semgrep 路徑", cmd: "where semgrep" },
+                { label: "6. 找 Python Scripts 目錄", cmd: "python -c \"import os,site;print(os.path.join(site.getsitepackages()[0],'..','Scripts'))\"" },
+                { label: "7. 設定環境變數", cmd: "set SEMGREP_PATH=<上面找到的路徑>" },
+              ].map(item => (
+                <div key={item.label} className="flex items-start gap-2">
+                  <span className="text-stone-400 shrink-0 w-28">{item.label}</span>
+                  <code className="flex-1 px-1.5 py-0.5 bg-white border border-stone-200 rounded font-mono text-stone-700 select-all break-all">{item.cmd}</code>
+                </div>
+              ))}
+            </div>
+
+            {/* Tried commands & results */}
+            {diagnostic.tried && diagnostic.tried.length > 0 && (
+              <div>
+                <span className="text-stone-500 font-bold">🔍 已嘗試的指令：</span>
+                <div className="mt-1 space-y-1">
+                  {diagnostic.tried.map((t: any, i: number) => (
+                    <div key={i} className={cn("px-2 py-1 rounded font-mono text-xs",
+                      t.ok ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200")}>
+                      <span className={t.ok ? "text-green-600" : "text-red-600"}>{t.ok ? "✅" : "❌"}</span>{" "}
+                      <span className="select-all">{t.cmd}</span>
+                      {t.ok && t.stdout && <div className="text-green-700 mt-0.5 select-all">→ {t.stdout.slice(0, 120)}</div>}
+                      {!t.ok && t.error && <div className="text-red-600 mt-0.5 select-all">→ {t.error.slice(0, 120)}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Env info */}
+            {diagnostic.envInfo && (
+              <div>
+                <span className="text-stone-500 font-bold">🌍 環境資訊：</span>
+                <pre className="mt-1 px-2 py-1 bg-white border border-stone-200 rounded text-xs font-mono text-stone-600 overflow-x-auto select-all" style={{whiteSpace:"pre-wrap"}}>
+{JSON.stringify(diagnostic.envInfo, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Error banner ── */}
       {error && (
