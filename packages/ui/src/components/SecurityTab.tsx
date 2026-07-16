@@ -287,7 +287,7 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
             )}
             <span className="flex-1" />
             {/* Quick command buttons */}
-            {["python --version", "pip --version", "where semgrep", "semgrep --version", "pip install semgrep"].map(cmd => (
+            {["where semgrep", "semgrep --version", "semgrep scan --help"].map(cmd => (
               <button key={cmd}
                 onClick={() => execConsole(cmd)}
                 disabled={consoleRunning}
@@ -364,6 +364,10 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
                 <div className="flex items-center gap-2">
                   <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-xs font-bold shrink-0">pip</span>
                   <span className="text-stone-700">pip install semgrep</span>
+                </div>
+                <div className="mt-2 text-stone-500 font-bold">然後在 .env 設定：</div>
+                <div className="mt-1">
+                  <code className="select-all px-1.5 py-0.5 bg-white border border-stone-200 rounded font-mono text-stone-700">SEMGREP_PATH=C:\Python312\Scripts\semgrep.exe</code>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 text-xs font-bold shrink-0">brew</span>
