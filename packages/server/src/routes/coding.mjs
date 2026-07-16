@@ -164,6 +164,9 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // Resolve project root from cwd (the coding project being worked on)
+    const projRoot = cwd ? resolve(cwd) : resolve(projectPath || PAAW_ROOT);
+
     // Resolve agentId from crewId
     const { getAgentByCrewId, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
     const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
@@ -221,6 +224,34 @@ export default async function projectRoute(req, res) {
             const sortedFiles = Object.keys(fileMap).sort();
             const fileLines = sortedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
             extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_feature_detail for full info.\n${fLines}\n\n## File → Feature Index (${sortedFiles.length} files)\n${fileLines}`);
+          }
+        } catch {}
+      }
+
+      // Inject Code Intelligence (file map, exports, imports)
+      const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
+      if (existsSync(ciFile)) {
+        try {
+          const ci = JSON.parse(readSync(ciFile, "utf-8"));
+          if (ci.files?.length) {
+            const fileLines = ci.files.slice(0, 200).map(f => {
+              const parts = [`- ${f.path}`];
+              if (f.exports?.length) parts.push(`exports: ${f.exports.slice(0, 10).join(", ")}`);
+              if (f.imports?.length) parts.push(`imports: ${f.imports.slice(0, 10).join(", ")}`);
+              return parts.join(" ");
+            }).join("\n");
+            extraContext.push(`\n## Code Intelligence File Map (${ci.files.length} files, showing first ${Math.min(ci.files.length, 200)})\n${fileLines}`);
+          }
+        } catch {}
+      }
+
+      // Inject Security scan summary (last scan)
+      const secFile = join(projRoot, ".paaw", "security", "scan-results.json");
+      if (existsSync(secFile)) {
+        try {
+          const sec = JSON.parse(readSync(secFile, "utf-8"));
+          if (sec.stats?.total > 0) {
+            extraContext.push(`\n## Security Scan Summary (${sec.stats.total} findings, scanned ${sec.scannedAt || 'unknown'})\nBy severity: ${JSON.stringify(sec.stats.bySeverity)}\nBy category: ${JSON.stringify(sec.stats.byCategory)}`);
           }
         } catch {}
       }
