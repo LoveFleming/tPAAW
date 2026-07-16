@@ -624,6 +624,7 @@ export default function CodingIDE() {
         const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}?cwd=${encodeURIComponent(rootPath)}`);
         const data = await res.json();
         if (data.messages && data.messages.length > 0) {
+          // Don't count greeting from server — it was saved before the _greeting fix
           setCrewConversations(prev => ({ ...prev, [activeCrew]: data.messages }));
         }
         setLoadedCrews(prev => new Set(prev).add(activeCrew));
@@ -639,6 +640,9 @@ export default function CodingIDE() {
     if (!activeCrew || !rootPath) return;
     const messages = crewConversations[activeCrew];
     if (!messages || messages.length === 0) return;
+    // Don't save if only greeting messages (no real conversation yet)
+    const hasRealMessages = messages.some(m => !m._greeting && m.role === "user");
+    if (!hasRealMessages) return;
     // Debounce: save 2 seconds after last change
     if (saveConversationTimerRef.current) clearTimeout(saveConversationTimerRef.current);
     saveConversationTimerRef.current = setTimeout(async () => {
@@ -646,7 +650,8 @@ export default function CodingIDE() {
         await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}?cwd=${encodeURIComponent(rootPath)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages }),
+          // Strip _greeting flag before saving — greeting is UI-only
+          body: JSON.stringify({ messages: messages.map(({ _greeting, ...rest }) => rest) }),
         });
       } catch {}
     }, 2000);
@@ -1038,7 +1043,7 @@ const sendChat = useCallback(async () => {
                 ...(activeTab ? { activeFile: activeTab.path, activeFileContent: activeTab.content.slice(0, 3000) } : {}),
               },
               metadata: codingModel ? { model: codingModel } : undefined,
-              conversationHistory: crewConversations[activeCrew || "coding.architect"] || [],
+              conversationHistory: (crewConversations[activeCrew || "coding.architect"] || []).map(({ _greeting, ...rest }) => rest),
             },
             id: `msg-${Date.now()}`,
           }),
@@ -1622,7 +1627,7 @@ const sendChat = useCallback(async () => {
                       setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
                       if (!crewConversations[crew.id] || crewConversations[crew.id].length === 0) {
                         const greeting = data?.chatConfig?.greeting || `嗨！我是${data?.codename || crew.title}，有什麼我可以幫忙的嗎？`;
-                        setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting }] }));
+                        setCrewConversations(prev => ({ ...prev, [crew.id]: [{ role: "assistant", content: greeting, _greeting: true }] }));
                       }
                     }).catch(() => {});
                   }}

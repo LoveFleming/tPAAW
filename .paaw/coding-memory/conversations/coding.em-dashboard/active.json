@@ -2,13 +2,7 @@
   "_meta": {
     "crewId": "coding.em-dashboard",
     "lastUpdated": "2026-07-16T11:22:10.928Z",
-    "messageCount": 1
+    "messageCount": 0
   },
-  "messages": [
-    {
-      "role": "assistant",
-      "content": "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。",
-      "ts": "2026-07-16T11:10:30.695Z"
-    }
-  ]
+  "messages": []
 }
