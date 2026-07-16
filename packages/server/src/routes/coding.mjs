@@ -97,7 +97,6 @@ async function callProjectLLM(body, opts = {}) {
     sanitize: true,
     caller: opts.caller || "coding",
   });
-  });
 }
 
 // ── Query parser ──
