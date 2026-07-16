@@ -1025,6 +1025,95 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
+    // ── POST /api/coding-project/security-scan/exec — Quick shell command for diagnostics ──
+    // Runs a command with short timeout (5s), returns stdout/stderr. No side effects.
+    if (url === "/api/coding-project/security-scan/exec" && method === "POST") {
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
+        return true;
+      }
+      const { cmd } = body;
+      if (!cmd || typeof cmd !== "string") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing cmd" }));
+        return true;
+      }
+      // Safety: block dangerous commands
+      const blocked = /\b(rm\s+-rf|del\s+/[sS]|format\s+[A-Za-z]:|shutdown|reboot|mkfs|dd\s+if=)\b/;
+      if (blocked.test(cmd)) {
+        res.writeHead(403, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Command blocked for safety" }));
+        return true;
+      }
+      try {
+        const { execSync } = await import("child_process");
+        const result = execSync(cmd, {
+          encoding: "utf-8",
+          timeout: 8000,
+          shell: true,
+          cwd: root,
+          env: { ...process.env },
+          maxBuffer: 1024 * 1024,
+        });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, stdout: (result || "").slice(0, 5000), cmd }));
+      } catch (e) {
+        const stdout = (e.stdout || "").slice(0, 2000);
+        const stderr = (e.stderr || "").slice(0, 2000);
+        const timedOut = e.killed;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: stderr || e.message?.slice(0, 300) || "failed", stdout, timedOut, cmd }));
+      }
+      return true;
+    }
+
+    // ── GET /api/coding-project/security-scan/quick-check — Fast path check (no exec, <100ms) ──
+    if (url.startsWith("/api/coding-project/security-scan/quick-check") && method === "GET") {
+      const { existsSync } = await import("fs");
+      const { readdirSync, statSync } = await import("fs");
+      const { homedir } = await import("os");
+      const pathChecks = [];
+      const _isWin = process.platform === "win32";
+      const home = process.env.USERPROFILE || process.env.HOME || homedir();
+
+      // Check common semgrep locations (pure fs, zero exec)
+      const candidates = [];
+      if (process.env.SEMGREP_PATH) candidates.push({ label: "SEMGREP_PATH env", path: process.env.SEMGREP_PATH, exists: existsSync(process.env.SEMGREP_PATH) });
+
+      if (_isWin) {
+        const scanBases = [
+          require("path").join(home, "AppData", "Local", "Programs", "Python"),
+          require("path").join(home, "AppData", "Roaming", "Python"),
+        ];
+        for (const base of scanBases) {
+          if (!existsSync(base)) continue;
+          try {
+            for (const entry of readdirSync(base)) {
+              const scriptsDir = require("path").join(base, entry, "Scripts");
+              if (existsSync(scriptsDir)) {
+                const hasSemgrep = existsSync(require("path").join(scriptsDir, "semgrep.exe")) || existsSync(require("path").join(scriptsDir, "semgrep"));
+                candidates.push({ label: `Python ${entry}/Scripts`, path: scriptsDir, exists: hasSemgrep, hasSemgrep });
+              }
+              // Also check python.exe presence
+              const hasPython = existsSync(require("path").join(base, entry, "python.exe")) || existsSync(require("path").join(base, entry, "python3.exe"));
+              if (hasPython) candidates.push({ label: `Python ${entry}`, path: require("path").join(base, entry), exists: true, hasPython });
+            }
+          } catch {}
+        }
+      } else {
+        const unixPaths = ["/opt/homebrew/bin/semgrep", "/usr/local/bin/semgrep", "/usr/bin/semgrep"];
+        for (const p of unixPaths) {
+          candidates.push({ label: p, path: p, exists: existsSync(p) });
+        }
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ platform: process.platform, candidates }));
+      return true;
+    }
+
     // ── GET /api/coding-project/security-scan/diagnose ──
     // Debug endpoint — always returns full diagnostic (no 503)
     if (url.startsWith("/api/coding-project/security-scan/diagnose") && method === "GET") {
