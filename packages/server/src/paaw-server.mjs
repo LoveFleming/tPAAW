@@ -17,6 +17,9 @@ import {
 } from "./routes/shared.mjs";
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
 
+// ── Startup import check — catch missing exports (runs in background) ──
+import("./lib/import-check.mjs").catch(() => {}); // non-blocking, best-effort
+
 // ── Lazy-loaded route modules (existing) ──
 const ROUTE_MODULES = [
   "./routes/skill.mjs",

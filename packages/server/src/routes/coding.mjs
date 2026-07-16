@@ -1041,7 +1041,7 @@ export default async function projectRoute(req, res) {
         return true;
       }
       // Safety: block dangerous commands
-      const blocked = /\b(rm\s+-rf|del\s+/[sS]|format\s+[A-Za-z]:|shutdown|reboot|mkfs|dd\s+if=)\b/;
+      const blocked = /\b(rm\s+-rf|del\s+\/[sS]|format\s+[A-Za-z]:|shutdown|reboot|mkfs|dd\s+if=)\b/;
       if (blocked.test(cmd)) {
         res.writeHead(403, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Command blocked for safety" }));
