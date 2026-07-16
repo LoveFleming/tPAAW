@@ -8,11 +8,12 @@
  */
 
 import { exec as execCb, execSync as execSyncCb } from "child_process";
-import { existsSync, readdirSync, statSync } from "fs";
+import { existsSync, readdirSync, statSync, writeFileSync, mkdirSync, readFileSync } from "fs";
 import { join, resolve, extname, dirname } from "path";
 import { promisify } from "util";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 import { fileURLToPath } from "url";
+import { randomUUID } from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -444,14 +445,28 @@ export async function runSemgrep(projectRoot, options = {}) {
   const fullCmd = buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs);
   LOG("runSemgrep: full command:", fullCmd);
 
+  // Write command to a temp script file to avoid Windows cmd.exe line length / newline issues
+  const scriptExt = isWin ? ".bat" : ".sh";
+  const scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
+  const scriptContent = isWin
+    ? `@echo off\n${fullCmd}\n`
+    : `#!/bin/sh\n${fullCmd}\n`;
+  writeFileSync(scriptPath, scriptContent, "utf-8");
+  LOG("runSemgrep: script file:", scriptPath);
+
+  const runCmd = isWin ? `cmd /c "${safePath(scriptPath)}"` : `sh "${scriptPath}"`;
+
   try {
-    const { stdout } = await exec(fullCmd, {
+    const { stdout } = await exec(runCmd, {
       cwd: projectRoot,
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024,
       shell: true,
       env: { ...process.env },
     });
+
+    // Clean up temp script
+    try { require("fs").unlinkSync(scriptPath); } catch {}
 
     const raw = JSON.parse(stdout);
     const findings = (raw.results || []).map(r => ({
@@ -483,6 +498,30 @@ export async function runSemgrep(projectRoot, options = {}) {
 
     LOG("runSemgrep: done —", findings.length, "findings,", filesAffected.size, "files affected");
 
+    // Save results to .paaw/security/scan-results.json
+    const secDir = join(projectRoot, ".paaw", "security");
+    try {
+      if (!existsSync(secDir)) mkdirSync(secDir, { recursive: true });
+      const scanResult = {
+        findings,
+        stats: {
+          total: findings.length,
+          bySeverity,
+          byCategory,
+          filesScanned: raw.paths?.scanned || 0,
+          filesAffected: filesAffected.size,
+          rulesRun: raw.checks?.performed || rulePacks.length,
+          rulePacks,
+        },
+        raw: { version: raw.version, paths: raw.paths },
+        scannedAt: new Date().toISOString(),
+      };
+      writeFileSync(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+      LOG("runSemgrep: results saved to", join(secDir, "scan-results.json"));
+    } catch (saveErr) {
+      LOG("runSemgrep: failed to save results:", saveErr.message);
+    }
+
     return {
       findings,
       stats: {
@@ -497,6 +536,8 @@ export async function runSemgrep(projectRoot, options = {}) {
       raw: { version: raw.version, paths: raw.paths },
     };
   } catch (err) {
+    // Clean up temp script on error too
+    try { require("fs").unlinkSync(scriptPath); } catch {}
     LOG("runSemgrep ERROR:", err.message?.slice(0, 300));
     if (err.killed) {
       return {
