@@ -2671,8 +2671,10 @@ const sendChat = useCallback(async () => {
             </div>
 
             {/* === ISSUES TAB === */}
-            {activeMainTab?.type === "issues" && rootPath && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+            {/* === Issues Tab === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "issues") && rootPath && (
+              <div key="tool:issues" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "issues" ? undefined : "none" }}>
                 <IssueTracker
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
@@ -2681,9 +2683,10 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === MEMORY TAB === */}
-            {activeMainTab?.type === "memory" && rootPath && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+            {/* === MEMORY TAB === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "memory") && rootPath && (
+              <div key="tool:memory" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "memory" ? undefined : "none" }}>
                 <AgentMemoryPanel
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
@@ -2691,9 +2694,10 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === FEATURES TAB === */}
-            {activeMainTab?.type === "features" && rootPath && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+            {/* === FEATURES TAB === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "features") && rootPath && (
+              <div key="tool:features" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "features" ? undefined : "none" }}>
                 <FeatureMap
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
@@ -2702,9 +2706,10 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === Night Shift === */}
-            {activeMainTab?.type === "nightshift" && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+            {/* === Night Shift === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "nightshift") && (
+              <div key="tool:nightshift" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "nightshift" ? undefined : "none" }}>
                 <NightShiftPanel
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   rootPath={rootPath}
@@ -2712,9 +2717,10 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === Security Tab === */}
-            {activeMainTab?.type === "security" && rootPath && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
+            {/* === Security Tab === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "security") && rootPath && (
+              <div key="tool:security" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "security" ? undefined : "none" }}>
                 <SecurityTab
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
