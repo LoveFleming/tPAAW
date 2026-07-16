@@ -1945,7 +1945,7 @@ function estimateTokens(text) {
  *   3. Summarize evicted middle messages into a compact summary
  *   4. Cap any single tool result at 30% of context window
  */
-function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WINDOW) {
+export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WINDOW) {
   if (messages.length <= 4) return messages;
 
   const budget = contextWindow - CONTEXT_SAFETY_MARGIN;
