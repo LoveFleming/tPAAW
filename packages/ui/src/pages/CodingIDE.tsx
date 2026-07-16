@@ -960,7 +960,7 @@ const sendChat = useCallback(async () => {
             domain: chatMode,
             prompt: userMsg.content,
             model: codingModel || undefined,
-            history: chatMessages.filter(m => !m._thinking).slice(-12).map(m => ({ role: m.role, content: m.content })),
+            history: chatMessages.filter(m => !m._thinking).map(m => ({ role: m.role, content: m.content })),
             crewId: activeCrew || undefined,
           }),
         });

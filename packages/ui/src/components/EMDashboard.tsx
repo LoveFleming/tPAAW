@@ -105,14 +105,50 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   };
 
   // ── Chat State ──
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() },
-  ]);
+  const EM_CHAT_ID = "coding.em-dashboard";
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const prevMsgLenRef = useRef(0);
   const composingRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load persisted EM chat on mount
+  useEffect(() => {
+    if (!rootPath || messagesLoaded) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}?cwd=${encodeURIComponent(rootPath)}`);
+        const data = await res.json();
+        if (data.messages?.length > 0) {
+          setMessages(data.messages);
+        } else {
+          setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
+        }
+      } catch {
+        setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
+      }
+      setMessagesLoaded(true);
+    })();
+  }, [rootPath, messagesLoaded]);
+
+  // Save EM chat (debounced)
+  useEffect(() => {
+    if (!rootPath || !messagesLoaded || messages.length === 0) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}?cwd=${encodeURIComponent(rootPath)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages }),
+        });
+      } catch {}
+    }, 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [messages, rootPath, messagesLoaded]);
 
   // ── Project Status ──
   const [status, setStatus] = useState<ProjectStatus | null>(null);
@@ -306,7 +342,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           params: {
             message: { role: "user", parts: [{ type: "text", text }] },
             context: { cwd: rootPath },
-            conversationHistory: messages.filter(m => !m._thinking).slice(-20),
+            conversationHistory: messages.filter(m => !m._thinking),
             ...(model ? { metadata: { model } } : {}),
           },
           id: `em-chat-${thinkId}`,
