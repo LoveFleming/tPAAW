@@ -1926,6 +1926,7 @@ ${changedApis}`;
 
 const DEFAULT_CONTEXT_WINDOW = 262000; // 262k tokens default for company models
 const CONTEXT_SAFETY_MARGIN = 8000;   // reserve for system prompt + response
+const LLM_CALL_TIMEOUT_MS = 120_000;  // 2 min per LLM call (deep thinking + large context needs more than 90s)
 
 // ── OpenClaw-aligned context management ──
 // Like OpenClaw: reserve 50% for prompt budget, cap tool results at 30% of context
@@ -2090,7 +2091,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
       method: "POST",
       headers,
       body: JSON.stringify(body),
-    }, { timeoutMs: 90_000, maxRetries: 2, onRetry: (info) => {
+    }, { timeoutMs: LLM_CALL_TIMEOUT_MS, maxRetries: 2, onRetry: (info) => {
       if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
     } });
 
@@ -2109,7 +2110,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // 非串流：用 callLLMWithRetry 統一處理 retry + 內容驗證
   const result = await callLLMWithRetry(apiUrl, headers, body, {
     maxRetries: 3,
-    timeoutMs: 90_000,
+    timeoutMs: LLM_CALL_TIMEOUT_MS,
     validateContent: true,
     sanitize: true,
     onRetry: (info) => {
