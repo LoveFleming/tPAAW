@@ -42,7 +42,7 @@ import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
-import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable, diagnoseSemgrep } from "../lib/semgrep-runner.mjs";
+import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable, diagnoseSemgrep, buildFullScanCommand, detectRulePacks } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
 import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
@@ -1029,6 +1029,12 @@ export default async function projectRoute(req, res) {
     // Debug endpoint — always returns full diagnostic (no 503)
     if (url.startsWith("/api/coding-project/security-scan/diagnose") && method === "GET") {
       const diag = diagnoseSemgrep();
+      // Add the full scan command for manual testing
+      const fullScanCmd = buildFullScanCommand(root);
+      const rulePacks = detectRulePacks(root);
+      diag.fullScanCommand = fullScanCmd;
+      diag.rulePacks = rulePacks;
+      diag.projectRoot = root;
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(diag, null, 2));
       return true;

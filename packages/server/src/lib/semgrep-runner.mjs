@@ -163,7 +163,7 @@ function scanSourceExtensions(projectRoot, maxDepth = 4) {
   return found;
 }
 
-function detectRulePacks(projectRoot) {
+export function detectRulePacks(projectRoot) {
   const packs = [];
   const exts = scanSourceExtensions(projectRoot);
   if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) packs.push("p/javascript");
@@ -201,6 +201,29 @@ function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   const rootPart = root.includes(" ") ? `"${root}"` : root;
 
   return `${binPart} --json ${configArgs} ${excludeArgs} --metrics off --quiet ${rootPart}`;
+}
+
+/**
+ * Build the full semgrep scan command for a project (for diagnostic display).
+ * Returns the command string that runSemgrep would execute.
+ */
+export function buildFullScanCommand(projectRoot) {
+  patchWindowsPath();
+  const semgrepBin = findSemgrepCmd();
+  if (!semgrepBin) return null;
+  const rulePacks = detectRulePacks(projectRoot);
+  if (rulePacks.length === 0) return null;
+  const excludeArgs = [
+    "--exclude node_modules",
+    "--exclude .git",
+    "--exclude .paaw",
+    "--exclude dist",
+    "--exclude build",
+    "--exclude coverage",
+    "--exclude '*.min.js'",
+    "--exclude '*.map'",
+  ].join(" ");
+  return buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs);
 }
 
 // ── Semgrep detection ──

@@ -229,6 +229,26 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
               </div>
             )}
 
+            {/* Full scan command */}
+            {diagnostic.fullScanCommand && (
+              <div>
+                <span className="text-stone-500 font-bold">🚀 完整掃描指令（手動執行這行等同 Run Scan）：</span>
+                <div className="mt-1 px-2 py-1.5 bg-blue-50 border border-blue-300 rounded font-mono text-xs text-blue-900 select-all break-all" style={{whiteSpace:"pre-wrap"}}>
+                  {diagnostic.fullScanCommand}
+                </div>
+                {diagnostic.rulePacks && (
+                  <div className="mt-1 text-stone-400">
+                    Rule packs: {diagnostic.rulePacks.join(", ")}
+                  </div>
+                )}
+                {diagnostic.projectRoot && (
+                  <div className="text-stone-400">
+                    Project: {diagnostic.projectRoot}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Manual test commands */}
             <div>
               <span className="text-stone-500 font-bold">📋 手動測試指令（複製到終端機執行）：</span>
