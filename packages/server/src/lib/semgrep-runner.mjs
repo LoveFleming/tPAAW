@@ -17,6 +17,12 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSy
 import { join, resolve, extname, dirname } from "path";
 import { promisify } from "util";
 import { homedir } from "os";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// PAAW_ROOT = packages/server/src/lib → ../../../ = repo root
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..");
 
 const exec = promisify(execCb);
 const isWin = process.platform === "win32";
@@ -162,22 +168,48 @@ function scanSourceExtensions(projectRoot, maxDepth = 4) {
 }
 
 export function detectRulePacks(projectRoot) {
+  // Local rules bundled in PAAW (offline, no download needed)
+  const LOCAL_RULES_DIR = resolve(PAAW_ROOT, "data/semgrep-rules/semgrep-rules");
   const packs = [];
   const exts = scanSourceExtensions(projectRoot);
-  if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) packs.push("p/javascript");
-  if (exts.has(".ts") || exts.has(".tsx")) packs.push("p/typescript");
-  if (exts.has(".py")) packs.push("p/python");
-  if (exts.has(".java")) packs.push("p/java");
-  packs.push("p/owasp-top-ten");
-  packs.push("p/cwe-top-25");
+  if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) {
+    const localJs = join(LOCAL_RULES_DIR, "javascript");
+    packs.push(existsSync(localJs) ? localJs : "p/javascript");
+  }
+  if (exts.has(".ts") || exts.has(".tsx")) {
+    const localTs = join(LOCAL_RULES_DIR, "typescript");
+    packs.push(existsSync(localTs) ? localTs : "p/typescript");
+  }
+  if (exts.has(".py")) {
+    const localPy = join(LOCAL_RULES_DIR, "python");
+    packs.push(existsSync(localPy) ? localPy : "p/python");
+  }
+  if (exts.has(".java")) {
+    const localJava = join(LOCAL_RULES_DIR, "java");
+    packs.push(existsSync(localJava) ? localJava : "p/java");
+  }
+  // OWASP + CWE — use problem-based-packs if available
+  const localPbp = join(LOCAL_RULES_DIR, "problem-based-packs");
+  if (existsSync(localPbp)) {
+    packs.push(localPbp);
+  } else {
+    packs.push("p/owasp-top-ten");
+    packs.push("p/cwe-top-25");
+  }
   return packs;
 }
 
 function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   const bin = safePath(semgrepBin);
   const root = safePath(projectRoot);
-  // --config args: rule pack identifiers (p/javascript etc.) — no spaces, no quotes needed
-  const configArgs = rulePacks.map(p => `--config ${p}`).join(" ");
+
+  // --config args: local paths need quoting on Windows if they have spaces
+  const configArgs = rulePacks.map(p => {
+    const sp = safePath(p);
+    // Local paths may have spaces; registry packs (p/javascript) never do
+    if (isWin && sp.includes(" ")) return `--config "${sp}"`;
+    return `--config ${sp}`;
+  }).join(" ");
 
   // On Windows, cmd.exe + shell:true + double quotes = disaster:
   //   "python -m semgrep" → treated as a single executable name, not a command
@@ -185,7 +217,7 @@ function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   let binPart;
   if (isWin) {
     if (existsSync(semgrepBin)) {
-      // Real file path — quote only if it has spaces
+      // Real file path (e.g. semgrep.exe) — quote only if it has spaces
       binPart = bin.includes(" ") ? `"${bin}"` : bin;
     } else {
       // Command string like "python -m semgrep" — never quote on Windows
@@ -198,7 +230,8 @@ function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   // Project root: quote only if it has spaces
   const rootPart = root.includes(" ") ? `"${root}"` : root;
 
-  return `${binPart} --json ${configArgs} ${excludeArgs} --metrics off --quiet ${rootPart}`;
+  // Parameter order matters: --metrics off before --json, --quiet at end
+  return `${binPart} --metrics off --json ${configArgs} ${excludeArgs} --quiet ${rootPart}`;
 }
 
 /**
