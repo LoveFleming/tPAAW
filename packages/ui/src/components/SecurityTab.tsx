@@ -270,10 +270,15 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
             {/* Quick path check results */}
             {quickCheck && (
               <div className="flex items-center gap-1 text-xs ml-2">
-                {quickCheck.candidates?.filter((c: any) => c.exists).map((c: any, i: number) => (
+                {quickCheck.envOverride && (
+                  <span className="px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-400 font-mono text-xs">
+                    ⚡ env: {quickCheck.SEMGREP_PATH || quickCheck.PYTHON_PATH}
+                  </span>
+                )}
+                {!quickCheck.envOverride && quickCheck.candidates?.filter((c: any) => c.exists).map((c: any, i: number) => (
                   <span key={i} className="px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 font-mono text-xs">✅ {c.label}</span>
                 ))}
-                {quickCheck.candidates?.filter((c: any) => !c.exists).length > 0 && (
+                {!quickCheck.envOverride && quickCheck.candidates?.filter((c: any) => !c.exists).length > 0 && (
                   <span className="px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 text-xs">
                     ❌ {quickCheck.candidates?.filter((c: any) => !c.exists).length} not found
                   </span>

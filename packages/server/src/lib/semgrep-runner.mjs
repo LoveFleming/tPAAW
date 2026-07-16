@@ -338,7 +338,32 @@ export function diagnoseSemgrep() {
   LOG("=== diagnoseSemgrep() START ===");
   LOG("platform:", process.platform, "isWin:", isWin);
 
-  // Patch PATH first (Windows) — pure fs, no exec
+  // ── Fast path: env vars set → trust them, skip all detection ──
+  if (process.env.SEMGREP_PATH) {
+    LOG("SEMGREP_PATH set → using directly:", process.env.SEMGREP_PATH);
+    // If PYTHON_PATH is also set, use "<python> -m semgrep" as cmd
+    const cmd = process.env.PYTHON_PATH
+      ? `${safePath(process.env.PYTHON_PATH)} -m semgrep`
+      : process.env.SEMGREP_PATH;
+    return {
+      available: true,
+      cmd,
+      tried: [{ cmd: "SEMGREP_PATH env", ok: true, stdout: `Using ${cmd}` }],
+      envOverride: true,
+    };
+  }
+
+  if (process.env.PYTHON_PATH) {
+    LOG("PYTHON_PATH set → using python -m semgrep:", process.env.PYTHON_PATH);
+    return {
+      available: true,
+      cmd: `${safePath(process.env.PYTHON_PATH)} -m semgrep`,
+      tried: [{ cmd: "PYTHON_PATH env", ok: true, stdout: `Using ${process.env.PYTHON_PATH} -m semgrep` }],
+      envOverride: true,
+    };
+  }
+
+  // ── Normal detection (no env vars) ──
   patchWindowsPath();
 
   const tried = [];
@@ -381,6 +406,7 @@ export function diagnoseSemgrep() {
     PATH: process.env.PATH?.slice(0, 500) || '(empty)',
     USERPROFILE: process.env.USERPROFILE || '(not set)',
     SEMGREP_PATH: process.env.SEMGREP_PATH || '(not set)',
+    PYTHON_PATH: process.env.PYTHON_PATH || '(not set)',
     exePathFound: exePath || '(not found)',
   };
 
@@ -390,13 +416,22 @@ export function diagnoseSemgrep() {
 
 function findSemgrepCmd() {
   LOG("findSemgrepCmd() called");
-  patchWindowsPath();
 
-  // 1. SEMGREP_PATH
-  if (process.env.SEMGREP_PATH && existsSync(process.env.SEMGREP_PATH)) {
-    LOG("Using SEMGREP_PATH:", process.env.SEMGREP_PATH);
+  // ── Fast path: env vars set → trust them, skip all detection ──
+  if (process.env.SEMGREP_PATH) {
+    LOG("SEMGREP_PATH set → using directly:", process.env.SEMGREP_PATH);
+    if (process.env.PYTHON_PATH) {
+      return `${safePath(process.env.PYTHON_PATH)} -m semgrep`;
+    }
     return process.env.SEMGREP_PATH;
   }
+  if (process.env.PYTHON_PATH) {
+    LOG("PYTHON_PATH set → using python -m semgrep:", process.env.PYTHON_PATH);
+    return `${safePath(process.env.PYTHON_PATH)} -m semgrep`;
+  }
+
+  // ── Normal detection (no env vars) ──
+  patchWindowsPath();
 
   // 2. fs-based
   const exePath = findSemgrepExeFs();
