@@ -137,7 +137,7 @@ function scanSourceExtensions(projectRoot, maxDepth = 4) {
 }
 
 export function detectRulePacks(projectRoot) {
-  const LOCAL_RULES_DIR = resolve(PAAW_ROOT, "data/semgrep-rules/semgrep-rules");
+  const LOCAL_RULES_DIR = resolve(PAAW_ROOT, "data/semgrep-rules");
   const hasLocal = existsSync(LOCAL_RULES_DIR);
   const packs = [];
   const exts = scanSourceExtensions(projectRoot);

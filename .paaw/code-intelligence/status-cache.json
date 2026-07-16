@@ -1,23 +1,23 @@
 {
-  "timestamp": 1784124238646,
+  "timestamp": 1784200929032,
   "data": {
     "architecture": {
-      "score": 15,
+      "score": 100,
       "items": [
         {
           "name": "PROJECT.md",
-          "status": "missing",
-          "detail": "Missing"
+          "status": "ok",
+          "detail": "Filled"
         },
         {
           "name": "Architecture Map",
-          "status": "missing",
-          "detail": "Run Code Understanding"
+          "status": "ok",
+          "detail": "7057 chars"
         },
         {
           "name": "Decision Records",
-          "status": "missing",
-          "detail": "No ADRs"
+          "status": "ok",
+          "detail": "10 ADRs"
         },
         {
           "name": "Entry Points",
@@ -47,7 +47,7 @@
         {
           "name": "API Endpoints",
           "status": "info",
-          "detail": "~72 detected"
+          "detail": "~74 detected"
         }
       ]
     },
@@ -72,12 +72,12 @@
       ]
     },
     "docs": {
-      "score": 75,
+      "score": 100,
       "items": [
         {
           "name": "README",
           "status": "ok",
-          "detail": "37d ago"
+          "detail": "38d ago"
         },
         {
           "name": "FAQ",
@@ -86,13 +86,13 @@
         },
         {
           "name": "Changelog",
-          "status": "missing",
-          "detail": "Missing"
+          "status": "ok",
+          "detail": "Has entries"
         },
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "1736 files"
+          "detail": "3220 files"
         }
       ]
     },
@@ -107,12 +107,12 @@
         {
           "name": "Git Status",
           "status": "warn",
-          "detail": "3 uncommitted"
+          "detail": "16 uncommitted"
         },
         {
           "name": "Error Handling",
           "status": "ok",
-          "detail": "52 files"
+          "detail": "53 files"
         },
         {
           "name": "Dependencies",
