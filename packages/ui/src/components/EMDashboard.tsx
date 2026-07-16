@@ -155,6 +155,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
   const [report, setReport] = useState<string | null>(null);
   const [emRunning, setEmRunning] = useState(false);
+  const [showEmContextDebug, setShowEmContextDebug] = useState(false);
+  const [emContextDebug, setEmContextDebug] = useState<any>(null);
   const [emLog, setEmLog] = useState<string[]>([]);
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
   const [codeStatusLoading, setCodeStatusLoading] = useState(true);
@@ -559,6 +561,23 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           <span className="text-sm font-bold text-stone-700">EM 大總管</span>
           <span className="text-sm text-stone-400">Engineering Manager</span>
           <div className="flex-1" />
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch(`${API_BASE}/a2a/architect/system-prompt${rootPath ? `?cwd=${encodeURIComponent(rootPath)}` : ""}`);
+                const data = await res.json();
+                setEmContextDebug(data);
+                setShowEmContextDebug(true);
+              } catch (e: any) {
+                setEmContextDebug({ error: e.message });
+                setShowEmContextDebug(true);
+              }
+            }}
+            className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+            title="查看 EM 注入的 Context & Prompts"
+          >
+            🔍
+          </button>
           {onModelChange && (
             <ModelSelector feature="codingIDE" value={model || ""} onChange={onModelChange} />
           )}
@@ -990,6 +1009,45 @@ const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
             </button>
           );
         })}
+      {/* Context Debug Modal */}
+      {showEmContextDebug && emContextDebug && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowEmContextDebug(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="shrink-0 px-5 py-3 border-b border-stone-200 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-stone-800">🔍 EM Context Debug — {emContextDebug.agentId || "architect"}</h3>
+              <div className="flex items-center gap-3">
+                {emContextDebug.totalLength != null && (
+                  <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600">{emContextDebug.totalLength.toLocaleString()} chars total</span>
+                )}
+                <button onClick={() => setShowEmContextDebug(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-sm">
+              {emContextDebug.error && (
+                <div className="p-3 rounded bg-red-50 text-red-700">❌ {emContextDebug.error}</div>
+              )}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-bold text-stone-700">📝 Base System Prompt</span>
+                  {emContextDebug.baseSystemPromptLength != null && (
+                    <span className="text-xs text-stone-400">({emContextDebug.baseSystemPromptLength.toLocaleString()} chars)</span>
+                  )}
+                </div>
+                <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-64 overflow-y-auto border border-stone-200">{emContextDebug.baseSystemPrompt || "(empty)"}</pre>
+              </div>
+              {(emContextDebug.dynamicContext || []).map((ctx: any, i: number) => (
+                <div key={i}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-stone-700">📂 {ctx.source}</span>
+                    <span className="text-xs text-stone-400">({ctx.content?.length?.toLocaleString() || "?"} chars)</span>
+                  </div>
+                  <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-48 overflow-y-auto border border-stone-200">{ctx.content || "(empty)"}</pre>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

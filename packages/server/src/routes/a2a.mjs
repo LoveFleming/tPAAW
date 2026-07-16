@@ -624,6 +624,32 @@ export default async function a2aRoutes(req, res) {
           const { AGENT_RULES } = await import("../lib/agent-rules.mjs");
           const featureSummary = getFeatureSummary(cwd || PAAW_ROOT);
           if (featureSummary) extraContext.push({ source: "feature-map", content: featureSummary });
+          // Code Intelligence
+          const ciFile = join(cwd || PAAW_ROOT, ".paaw", "code-intelligence", "code-intelligence.json");
+          if (existsSync(ciFile)) {
+            try {
+              const ci = JSON.parse(readSync(ciFile, "utf-8"));
+              if (ci.files?.length) {
+                const fileLines = ci.files.slice(0, 200).map(f => {
+                  const parts = [`- ${f.path}`];
+                  if (f.exports?.length) parts.push(`exports: ${f.exports.slice(0, 10).join(", ")}`);
+                  if (f.imports?.length) parts.push(`imports: ${f.imports.slice(0, 10).join(", ")}`);
+                  return parts.join(" ");
+                }).join("\n");
+                extraContext.push({ source: "code-intelligence", content: `Code Intelligence File Map (${ci.files.length} files, showing first ${Math.min(ci.files.length, 200)})\n${fileLines}` });
+              }
+            } catch {}
+          }
+          // Security Scan
+          const secFile = join(cwd || PAAW_ROOT, ".paaw", "security", "scan-results.json");
+          if (existsSync(secFile)) {
+            try {
+              const sec = JSON.parse(readSync(secFile, "utf-8"));
+              if (sec.stats?.total > 0) {
+                extraContext.push({ source: "security-scan", content: `Security Scan Summary (${sec.stats.total} findings, scanned ${sec.scannedAt || "unknown"})\nBy severity: ${JSON.stringify(sec.stats.bySeverity)}\nBy category: ${JSON.stringify(sec.stats.byCategory)}` });
+              }
+            } catch {}
+          }
           if (AGENT_RULES) extraContext.push({ source: "agent-rules", content: AGENT_RULES });
 
           sendJSON(res, 200, {

@@ -328,6 +328,8 @@ export default function CodingIDE() {
   const [archivedConversations, setArchivedConversations] = useState<Record<string, any[]>>({}); // crewId → list of archives
   const [showArchivePanel, setShowArchivePanel] = useState(false);
   const [viewingArchive, setViewingArchive] = useState<string | null>(null); // archiveId when viewing an archived conversation
+  const [showContextDebug, setShowContextDebug] = useState(false);
+  const [contextDebug, setContextDebug] = useState<any>(null);
 
   // ── Right Panel Tab State ──
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
@@ -2487,6 +2489,26 @@ const sendChat = useCallback(async () => {
                         title="歷史對話"
                       >
                         📋
+                      </button>
+                      {/* Context debug button */}
+                      <button
+                        onClick={async () => {
+                          if (!activeCrew) return;
+                          const agentId = activeCrew.replace(/^coding\./, "");
+                          try {
+                            const res = await fetch(`${API_BASE}/a2a/${encodeURIComponent(agentId)}/system-prompt${rootPath ? `?cwd=${encodeURIComponent(rootPath)}` : ""}`);
+                            const data = await res.json();
+                            setContextDebug(data);
+                            setShowContextDebug(true);
+                          } catch (e: any) {
+                            setContextDebug({ error: e.message });
+                            setShowContextDebug(true);
+                          }
+                        }}
+                        className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                        title="查看注入的 Context & Prompts"
+                      >
+                        🔍
                       </button>
                       {/* New conversation button */}
                       <button
