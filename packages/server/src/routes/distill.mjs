@@ -187,6 +187,7 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride
       timeoutMs: 60_000,
       validateContent: true,
       sanitize: true,
+      caller: "distill",
     });
 
     if (!isMeaningfulContent(result.content)) {

@@ -656,6 +656,7 @@ async function vibeSessionsApiHandler(req, res) {
             timeoutMs: 60_000,
             validateContent: true,
             sanitize: true,
+            caller: "cron-distill",
           });
           distilled = isMeaningfulContent(result.content) ? result.content : null;
         }

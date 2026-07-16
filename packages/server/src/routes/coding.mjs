@@ -95,6 +95,8 @@ async function callProjectLLM(body, opts = {}) {
     timeoutMs: opts.timeoutMs ?? 60_000,
     validateContent: true,
     sanitize: true,
+    caller: opts.caller || "coding",
+  });
   });
 }
 

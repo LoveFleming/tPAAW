@@ -172,6 +172,7 @@ async function generateMindMap(userPrompt, content, modelOverride) {
     timeoutMs: 90_000,
     validateContent: true,
     sanitize: true,
+    caller: "mindmap",
   });
 
   const markdown = cleanMarkdownResponse(result.content);

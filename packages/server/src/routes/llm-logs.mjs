@@ -67,6 +67,7 @@ function pairLogs(logs) {
       toolCalls: p.response?.toolCalls || [],
       usage: p.response?.usage || null,
       error: p.response?.error || null,
+      caller: p.request.caller || p.response?.caller || null,
     }))
     .sort((a, b) => b.ts.localeCompare(a.ts)); // newest first
 }

@@ -23,6 +23,7 @@ interface LlmLogItem {
   toolCalls: { name: string; argsLen: number }[];
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
   error: string | null;
+  caller: string | null;
 }
 
 interface LlmLogSummary {
@@ -184,6 +185,7 @@ export default function LlmLogTab() {
               <tr className="text-stone-500 border-b border-stone-700/50">
                 <th className="text-left px-3 py-2 font-medium">Time</th>
                 <th className="text-left px-3 py-2 font-medium">Agent</th>
+                <th className="text-left px-3 py-2 font-medium">Caller</th>
                 <th className="text-left px-3 py-2 font-medium">Model</th>
                 <th className="text-left px-3 py-2 font-medium">Msgs</th>
                 <th className="text-left px-3 py-2 font-medium">Tools</th>
@@ -204,6 +206,7 @@ export default function LlmLogTab() {
                     <span className="mr-1">{AGENT_EMOJI[log.agentId] || "🤖"}</span>
                     <span className={log.agentId === "unknown" ? "text-stone-500" : "text-stone-200"}>{log.agentId}</span>
                   </td>
+                  <td className="px-3 py-1.5 text-cyan-300 whitespace-nowrap text-[10px]">{log.caller || "—"}</td>
                   <td className="px-3 py-1.5 text-blue-300 whitespace-nowrap">{log.model}</td>
                   <td className="px-3 py-1.5 text-stone-400 text-center">{log.messageCount}</td>
                   <td className="px-3 py-1.5 text-stone-400">
@@ -240,7 +243,7 @@ export default function LlmLogTab() {
               ))}
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-stone-500">
+                  <td colSpan={9} className="px-3 py-8 text-center text-stone-500">
                     No LLM calls recorded yet. Start chatting with an AI agent to see logs here.
                   </td>
                 </tr>
@@ -267,6 +270,10 @@ export default function LlmLogTab() {
               <div>
                 <div className="text-stone-500 mb-0.5">Agent</div>
                 <div className="text-stone-200">{selectedLog.agentId}</div>
+              </div>
+              <div>
+                <div className="text-stone-500 mb-0.5">Caller</div>
+                <div className="text-cyan-300">{selectedLog.caller || "—"}</div>
               </div>
               <div>
                 <div className="text-stone-500 mb-0.5">Duration</div>

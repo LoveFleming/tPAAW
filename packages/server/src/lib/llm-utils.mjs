@@ -24,6 +24,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;    // API call timeout 60s
 import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { mkdirSync, appendFileSync } from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -282,6 +283,23 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     sanitize = true,
   } = opts;
   const _startTime = Date.now();
+  const _callId = `llm-${_startTime}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // ── LLM Request Log ──
+  _writeLlmLog({
+    id: _callId,
+    ts: new Date(_startTime).toISOString(),
+    phase: "request",
+    model: body.model || "?",
+    stream: false,
+    apiUrl: apiUrl.replace(/\/v.*$/, "/..."),
+    messageCount: body.messages?.length,
+    messagesPreview: body.messages?.map(m => ({ role: m.role, len: (m.content || "").length, preview: (m.content || "").slice(0, 200) })),
+    toolsCount: body.tools?.length || 0,
+    toolNames: (body.tools || []).map(t => t.function?.name).filter(Boolean),
+    maxTokens: body.max_tokens,
+    caller: opts.caller || null,
+  });
 
   let lastError = null;
 
@@ -337,6 +355,22 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
       }
 
       // Log successful call
+      _writeLlmLog({
+        id: _callId,
+        ts: new Date().toISOString(),
+        phase: "response",
+        model: body.model || "?",
+        stream: false,
+        durationMs: Date.now() - _startTime,
+        error: null,
+        finishReason: choice.finish_reason || null,
+        contentLen: content.length,
+        contentPreview: content.slice(0, 500),
+        toolCalls: (choice.message?.tool_calls || []).map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || "").length })),
+        usage: data.usage || null,
+        caller: opts.caller || null,
+        attempts: attempt + 1,
+      });
 
       return {
         content,
@@ -351,6 +385,17 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
       lastError = err;
 
       // Log error
+      _writeLlmLog({
+        id: _callId,
+        ts: new Date().toISOString(),
+        phase: "response",
+        model: body.model || "?",
+        stream: false,
+        durationMs: Date.now() - _startTime,
+        error: err.message?.slice(0, 500) || String(err),
+        caller: opts.caller || null,
+        attempts: attempt + 1,
+      });
 
       // 如果是 retryable 且還有 retry 次數
       if (attempt < maxRetries) {
@@ -454,4 +499,17 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
   }
 
   throw lastError || new Error('fetchStreamWithRetry: exhausted all retries');
+}
+
+// ── LLM Log Writer (shared by callLLMWithRetry and callLLM) ──
+const _PAAW_ROOT = resolve(fileURLToPath(import.meta.url), "../../../../");
+
+function _writeLlmLog(entry) {
+  try {
+    const logDir = join(_PAAW_ROOT, "data", "llm-logs");
+    mkdirSync(logDir, { recursive: true });
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const logPath = join(logDir, `${dateStr}.jsonl`);
+    appendFileSync(logPath, JSON.stringify(entry) + "\n");
+  } catch (_e) { /* never fail the LLM call for a logging error */ }
 }

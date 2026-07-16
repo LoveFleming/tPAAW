@@ -437,6 +437,7 @@ export default async function skillsApiRoute(req, res) {
         maxRetries: 3,
         timeoutMs: 90_000,
         validateContent: true,
+        caller: "skill-builder",
       });
 
       let content = (result.content || "").trim();
