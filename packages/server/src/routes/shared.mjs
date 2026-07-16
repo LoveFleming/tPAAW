@@ -50,6 +50,35 @@ const CRON_CHAT_DIR = resolve(PAAW_ROOT, "data/chats");
 // Vibe sessions
 const VIBE_SESSIONS_DIR = resolve(PAAW_ROOT, "logs/vibe-sessions");
 
+// ── Load .env before computing PORT (no external dependency) ──
+{
+  const candidates = [
+    resolve(PAAW_ROOT, ".env"),                     // repo root
+    resolve(process.cwd(), ".env"),                 // CWD fallback
+  ];
+  for (const envPath of candidates) {
+    if (existsSync(envPath)) {
+      try {
+        const text = readFileSync(envPath, "utf-8");
+        for (const line of text.split(/\r?\n/)) {
+          const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)/);
+          if (m && !line.match(/^\s*#/)) {
+            const [, key, val] = m;
+            // Real env vars take precedence over .env
+            if (process.env[key] === undefined) {
+              process.env[key] = val.trim().replace(/^(['"])(.*)\1$/, "$2");
+            }
+          }
+        }
+        console.log(`[PAAW] Loaded .env from ${envPath}`);
+      } catch (e) {
+        console.error(`[PAAW] Failed to load .env:`, e.message);
+      }
+      break;
+    }
+  }
+}
+
 const PORT = parseInt(process.env.PAAW_PORT || "4097", 10);
 
 // ── Helper functions ──
