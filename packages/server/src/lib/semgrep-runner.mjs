@@ -41,20 +41,19 @@ export function patchWindowsPath() {
   if (!isWin || _pathPatched) return;
   _pathPatched = true;
 
-  // 0. Try to read user PATH from Windows registry (fast, <1s)
-  //    This ensures PTY terminal gets the same PATH as a real CMD window.
+  // 0. Read user PATH from Windows registry
+  //    On Windows, Node.js child_process may not inherit the full user PATH.
+  //    We try the registry first (fast, <1s), then fall back to fs scanning.
   try {
     const regResult = execSync(
       'reg query "HKCU\\Environment" /v Path',
       { encoding: "utf8", timeout: 5000, windowsHide: true }
     );
-    // reg output: "    Path    REG_EXPAND_SZ    C:\Users\...;C:\Users\..."
     const lines = regResult.split(/\r?\n/);
     for (const line of lines) {
       const m = line.match(/REG_(?:SZ|EXPAND_SZ)\s+(.+)/);
       if (m) {
         let userPath = m[1].trim();
-        // Expand %USERPROFILE% etc.
         userPath = userPath.replace(/%([^%]+)%/g, (_, v) => process.env[v] || _);
         const currentPath = process.env.PATH || "";
         const currentSet = new Set(currentPath.toLowerCase().split(/;/).filter(Boolean));
@@ -63,13 +62,12 @@ export function patchWindowsPath() {
         );
         if (missingParts.length > 0) {
           process.env.PATH = missingParts.join(";") + ";" + currentPath;
-          LOG("Patched PATH from registry — added", missingParts.length, "dirs:", missingParts);
         }
         break;
       }
     }
-  } catch (e) {
-    LOG("Could not read registry PATH:", e.message);
+  } catch {
+    // Registry not available (e.g. non-Windows, permission denied) — skip silently
   }
 
   const dirsToAdd = new Set();
