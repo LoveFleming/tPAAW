@@ -21,8 +21,8 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-// PAAW_ROOT = packages/server/src/lib → ../../../ = repo root
-const PAAW_ROOT = resolve(__dirname, "..", "..", "..");
+// PAAW_ROOT = packages/server/src/lib → 4 levels up = repo root
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
 const exec = promisify(execCb);
 const isWin = process.platform === "win32";
