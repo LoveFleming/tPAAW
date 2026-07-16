@@ -80,6 +80,11 @@ const server = createServer(async (req, res) => {
       if (await mod.default(req, res)) return;
     } catch (err) {
       console.error(`[Route] ${p} error:`, err.message);
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));
+      }
+      return; // ← stop processing, don't fall through to next route/404
     }
   }
 
@@ -90,6 +95,11 @@ const server = createServer(async (req, res) => {
       if (await sched.default(req, res)) return;
     } catch (err) {
       console.error("[Scheduler] error:", err.message);
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal server error", detail: err.message }));
+      }
+      return;
     }
   }
 

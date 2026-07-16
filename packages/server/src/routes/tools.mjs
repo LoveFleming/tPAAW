@@ -194,12 +194,17 @@ export default async function toolRegistryRoutes(req, res) {
     const contract = await loadContract(routeId);
     if (!contract) { res.writeHead(404); res.end(JSON.stringify({ error: "Not found" })); return true; }
     
-    const body = JSON.parse(await readBody(req));
-    if (body.enabled !== undefined) contract.enabled = body.enabled;
-    if (body.autoTool !== undefined) contract.autoTool = body.autoTool;
-    if (body.description !== undefined) contract.description = body.description;
-    if (body.parameters !== undefined) contract.parameters = body.parameters;
-    if (body.sampleData !== undefined) contract.sampleData = body.sampleData;
+    try {
+      const body = JSON.parse(await readBody(req));
+      if (body.enabled !== undefined) contract.enabled = body.enabled;
+      if (body.autoTool !== undefined) contract.autoTool = body.autoTool;
+      if (body.description !== undefined) contract.description = body.description;
+      if (body.parameters !== undefined) contract.parameters = body.parameters;
+      if (body.sampleData !== undefined) contract.sampleData = body.sampleData;
+    } catch (e) {
+      if (!res.headersSent) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Invalid JSON body" })); }
+      return true;
+    }
     
     await saveContract(routeId, contract);
     
