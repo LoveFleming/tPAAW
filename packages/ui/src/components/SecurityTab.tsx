@@ -272,7 +272,7 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
               <div className="flex items-center gap-1 text-xs ml-2">
                 {quickCheck.envOverride && (
                   <span className="px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-400 font-mono text-xs">
-                    ⚡ env: {quickCheck.SEMGREP_PATH || quickCheck.PYTHON_PATH}
+                    ⚡ env: {quickCheck.SEMGREP_PATH}
                   </span>
                 )}
                 {!quickCheck.envOverride && quickCheck.candidates?.filter((c: any) => c.exists).map((c: any, i: number) => (

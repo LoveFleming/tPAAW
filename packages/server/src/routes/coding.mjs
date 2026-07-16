@@ -1112,9 +1112,8 @@ export default async function projectRoute(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         platform: process.platform,
-        envOverride: !!(process.env.SEMGREP_PATH || process.env.PYTHON_PATH),
+        envOverride: !!process.env.SEMGREP_PATH,
         SEMGREP_PATH: process.env.SEMGREP_PATH || null,
-        PYTHON_PATH: process.env.PYTHON_PATH || null,
         candidates,
       }));
       return true;

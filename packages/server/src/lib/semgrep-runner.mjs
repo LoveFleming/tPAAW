@@ -169,30 +169,36 @@ function scanSourceExtensions(projectRoot, maxDepth = 4) {
 
 export function detectRulePacks(projectRoot) {
   // Local rules bundled in PAAW (offline, no download needed)
+  // semgrep --config <dir> recursively finds all .yaml/.yml rules
   const LOCAL_RULES_DIR = resolve(PAAW_ROOT, "data/semgrep-rules/semgrep-rules");
+  const hasLocal = existsSync(LOCAL_RULES_DIR);
   const packs = [];
   const exts = scanSourceExtensions(projectRoot);
-  if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) {
-    const localJs = join(LOCAL_RULES_DIR, "javascript");
-    packs.push(existsSync(localJs) ? localJs : "p/javascript");
-  }
-  if (exts.has(".ts") || exts.has(".tsx")) {
-    const localTs = join(LOCAL_RULES_DIR, "typescript");
-    packs.push(existsSync(localTs) ? localTs : "p/typescript");
-  }
-  if (exts.has(".py")) {
-    const localPy = join(LOCAL_RULES_DIR, "python");
-    packs.push(existsSync(localPy) ? localPy : "p/python");
-  }
-  if (exts.has(".java")) {
-    const localJava = join(LOCAL_RULES_DIR, "java");
-    packs.push(existsSync(localJava) ? localJava : "p/java");
-  }
-  // OWASP + CWE — use problem-based-packs if available
-  const localPbp = join(LOCAL_RULES_DIR, "problem-based-packs");
-  if (existsSync(localPbp)) {
-    packs.push(localPbp);
+
+  if (hasLocal) {
+    // Use local rules — one --config per language directory (semgrep scans recursively)
+    if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) {
+      packs.push(join(LOCAL_RULES_DIR, "javascript"));
+    }
+    if (exts.has(".ts") || exts.has(".tsx")) {
+      packs.push(join(LOCAL_RULES_DIR, "typescript"));
+    }
+    if (exts.has(".py")) {
+      packs.push(join(LOCAL_RULES_DIR, "python"));
+    }
+    if (exts.has(".java")) {
+      packs.push(join(LOCAL_RULES_DIR, "java"));
+    }
+    // Problem-based-packs (OWASP/CWE)
+    if (existsSync(join(LOCAL_RULES_DIR, "problem-based-packs"))) {
+      packs.push(join(LOCAL_RULES_DIR, "problem-based-packs"));
+    }
   } else {
+    // No local rules — fallback to registry (needs internet)
+    if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) packs.push("p/javascript");
+    if (exts.has(".ts") || exts.has(".tsx")) packs.push("p/typescript");
+    if (exts.has(".py")) packs.push("p/python");
+    if (exts.has(".java")) packs.push("p/java");
     packs.push("p/owasp-top-ten");
     packs.push("p/cwe-top-25");
   }
@@ -203,34 +209,27 @@ function buildSemgrepCmd(semgrepBin, projectRoot, rulePacks, excludeArgs) {
   const bin = safePath(semgrepBin);
   const root = safePath(projectRoot);
 
-  // --config args: local paths need quoting on Windows if they have spaces
+  // Build --config args. On Windows, long commands get truncated at ~8191 chars.
+  // Use short relative paths or quote only when spaces exist.
   const configArgs = rulePacks.map(p => {
     const sp = safePath(p);
-    // Local paths may have spaces; registry packs (p/javascript) never do
     if (isWin && sp.includes(" ")) return `--config "${sp}"`;
     return `--config ${sp}`;
   }).join(" ");
 
-  // On Windows, cmd.exe + shell:true + double quotes = disaster:
-  //   "python -m semgrep" → treated as a single executable name, not a command
-  //   Never quote multi-token command strings; only quote file paths with spaces.
+  // Binary: semgrep.exe directly — no python -m semgrep
   let binPart;
   if (isWin) {
-    if (existsSync(semgrepBin)) {
-      // Real file path (e.g. semgrep.exe) — quote only if it has spaces
-      binPart = bin.includes(" ") ? `"${bin}"` : bin;
-    } else {
-      // Command string like "python -m semgrep" — never quote on Windows
-      binPart = bin;
-    }
+    // On Windows: quote only if spaces, never quote multi-token commands
+    binPart = bin.includes(" ") ? `"${bin}"` : bin;
   } else {
     binPart = `"${bin}"`;
   }
 
-  // Project root: quote only if it has spaces
+  // Project root
   const rootPart = root.includes(" ") ? `"${root}"` : root;
 
-  // Parameter order matters: --metrics off before --json, --quiet at end
+  // Clean short command — --metrics off first, --json for output, --quiet last
   return `${binPart} --metrics off --json ${configArgs} ${excludeArgs} --quiet ${rootPart}`;
 }
 
@@ -262,7 +261,7 @@ export function buildFullScanCommand(projectRoot) {
 /**
  * Execute a command with timeout. Returns { ok, error?, stdout? }.
  */
-function tryExec(cmd, timeout = 60000) {
+function tryExec(cmd, timeout = 15000) {
   LOG("tryExec:", cmd, `(${timeout}ms)`);
   try {
     const result = execSyncCb(cmd, {
@@ -371,27 +370,13 @@ export function diagnoseSemgrep() {
   LOG("=== diagnoseSemgrep() START ===");
   LOG("platform:", process.platform, "isWin:", isWin);
 
-  // ── Fast path: env vars set → trust them, skip all detection ──
+  // ── Fast path: SEMGREP_PATH set → use directly, skip all detection ──
   if (process.env.SEMGREP_PATH) {
     LOG("SEMGREP_PATH set → using directly:", process.env.SEMGREP_PATH);
-    // If PYTHON_PATH is also set, use "<python> -m semgrep" as cmd
-    const cmd = process.env.PYTHON_PATH
-      ? `${safePath(process.env.PYTHON_PATH)} -m semgrep`
-      : process.env.SEMGREP_PATH;
     return {
       available: true,
-      cmd,
-      tried: [{ cmd: "SEMGREP_PATH env", ok: true, stdout: `Using ${cmd}` }],
-      envOverride: true,
-    };
-  }
-
-  if (process.env.PYTHON_PATH) {
-    LOG("PYTHON_PATH set → using python -m semgrep:", process.env.PYTHON_PATH);
-    return {
-      available: true,
-      cmd: `${safePath(process.env.PYTHON_PATH)} -m semgrep`,
-      tried: [{ cmd: "PYTHON_PATH env", ok: true, stdout: `Using ${process.env.PYTHON_PATH} -m semgrep` }],
+      cmd: process.env.SEMGREP_PATH,
+      tried: [{ cmd: "SEMGREP_PATH env", ok: true, stdout: `Using ${process.env.SEMGREP_PATH}` }],
       envOverride: true,
     };
   }
@@ -405,28 +390,25 @@ export function diagnoseSemgrep() {
   const exePath = findSemgrepExeFs();
   if (exePath) {
     LOG("Found exe at:", exePath);
-    // Step 2: Verify it runs — this is the ONLY exec call for detection
     const escaped = safePath(exePath);
-    // On Windows, only quote if the path has spaces
     const binCheck = isWin && !escaped.includes(" ") ? escaped : `"${escaped}"`;
-    const r = tryExec(`${binCheck} --version`, 60000);
+    const r = tryExec(`${binCheck} --version`, 15000);
     tried.push({ cmd: `${binCheck} --version`, ...r });
     if (r.ok) {
       LOG("=== FOUND ===");
       return { available: true, cmd: exePath, tried };
     }
-    // exe exists but won't run — PATH still missing Python deps?
-    LOG("exe found but won't run — trying python -m semgrep fallback");
+    LOG("exe found but won't run — trying fallbacks");
   } else {
     LOG("No exe found via fs");
   }
 
-  // Step 3: Fallback — try python -m semgrep (PATH was patched)
+  // Step 2: Fallback — try semgrep/semgrep.exe in PATH
   const fallbacks = isWin
-    ? ["python -m semgrep --version", "py -m semgrep --version", "py -3 -m semgrep --version", "semgrep --version", "semgrep.exe --version"]
-    : ["python3 -m semgrep --version", "python -m semgrep --version", "semgrep --version"];
+    ? ["semgrep.exe --version", "semgrep --version"]
+    : ["semgrep --version", "python3 -m semgrep --version", "python -m semgrep --version"];
   for (const cmd of fallbacks) {
-    const r = tryExec(cmd, 60000);
+    const r = tryExec(cmd, 15000);
     tried.push({ cmd, ...r });
     if (r.ok) {
       LOG("=== FOUND via fallback:", cmd, "===");
@@ -439,7 +421,6 @@ export function diagnoseSemgrep() {
     PATH: process.env.PATH?.slice(0, 500) || '(empty)',
     USERPROFILE: process.env.USERPROFILE || '(not set)',
     SEMGREP_PATH: process.env.SEMGREP_PATH || '(not set)',
-    PYTHON_PATH: process.env.PYTHON_PATH || '(not set)',
     exePathFound: exePath || '(not found)',
   };
 
@@ -450,41 +431,32 @@ export function diagnoseSemgrep() {
 function findSemgrepCmd() {
   LOG("findSemgrepCmd() called");
 
-  // ── Fast path: env vars set → trust them, skip all detection ──
+  // ── Fast path: SEMGREP_PATH set → use directly ──
   if (process.env.SEMGREP_PATH) {
     LOG("SEMGREP_PATH set → using directly:", process.env.SEMGREP_PATH);
-    if (process.env.PYTHON_PATH) {
-      return `${safePath(process.env.PYTHON_PATH)} -m semgrep`;
-    }
     return process.env.SEMGREP_PATH;
   }
-  if (process.env.PYTHON_PATH) {
-    LOG("PYTHON_PATH set → using python -m semgrep:", process.env.PYTHON_PATH);
-    return `${safePath(process.env.PYTHON_PATH)} -m semgrep`;
-  }
 
-  // ── Normal detection (no env vars) ──
+  // ── Normal detection ──
   patchWindowsPath();
 
-  // 2. fs-based
   const exePath = findSemgrepExeFs();
   if (exePath) {
     const escaped = safePath(exePath);
-    // On Windows, only quote if the path has spaces; otherwise cmd.exe can choke
     const binCheck = isWin && !escaped.includes(" ") ? escaped : `"${escaped}"`;
-    const r = tryExec(`${binCheck} --version`, 60000);
+    const r = tryExec(`${binCheck} --version`, 15000);
     if (r.ok) {
       LOG("findSemgrepCmd: using", exePath);
       return exePath;
     }
   }
 
-  // 3. Fallback
+  // Fallback
   const cmds = isWin
-    ? ["python -m semgrep", "py -m semgrep", "py -3 -m semgrep", "semgrep", "semgrep.exe"]
+    ? ["semgrep.exe", "semgrep"]
     : ["semgrep", "python3 -m semgrep", "python -m semgrep"];
   for (const cmd of cmds) {
-    if (tryExec(`${cmd} --version`, 60000).ok) {
+    if (tryExec(`${cmd} --version`, 15000).ok) {
       LOG("findSemgrepCmd: found via fallback:", cmd);
       return cmd;
     }
