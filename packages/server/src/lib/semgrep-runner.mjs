@@ -247,13 +247,9 @@ export async function runSemgrep(projectRoot, options = {}) {
   LOG("runSemgrep: full command:", fullCmd);
 
   // ── Step 3: Prepare temp output path ──
-  const jsonOutPath = join(tmpdir(), `semgrep-result-${randomUUID()}.json`);
-  const jsonOutSafe = safePath(jsonOutPath);
-  LOG("runSemgrep: json output path:", jsonOutSafe);
-
-  // Add --json-output to the command (semgrep writes results to file)
-  // Some older semgrep versions may not support this — we'll also capture stdout
-  const fileCmd = fullCmd.replace(" --quiet ", ` --quiet --json-output ${jsonOutSafe.includes(" ") ? `"${jsonOutSafe}"` : jsonOutSafe} `);
+  // Removed --json-output flag: it conflicts with --json on some semgrep versions.
+  // We read JSON from stdout directly — more reliable across all versions.
+  LOG("runSemgrep: will parse JSON from stdout (--json mode)");
 
   // ── Step 4: Write temp script (avoids Windows cmd.exe quoting hell) ──
   const scriptExt = isWin ? ".bat" : ".sh";
@@ -264,14 +260,9 @@ export async function runSemgrep(projectRoot, options = {}) {
   if (isWin) {
     // Windows .bat: set env vars, then run semgrep
     // Use pushd to handle paths with spaces
-    scriptContent = [
-      "@echo off",
-      "set PYTHONUTF8=1",
-      "set PYTHONIOENCODING=utf-8",
-      fileCmd,
-    ].join("\r\n");
+    scriptContent = "@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n" + fullCmd + "\r\n";
   } else {
-    scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fileCmd}\n`;
+    scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fullCmd}\n`;
   }
 
   writeFileSync(scriptPath, scriptContent, "utf-8");
@@ -323,26 +314,9 @@ export async function runSemgrep(projectRoot, options = {}) {
   let raw = null;
   let parseSource = "none";
 
-  // Try reading from --json-output file first
-  if (existsSync(jsonOutPath)) {
-    try {
-      const jsonText = readFileSync(jsonOutPath, "utf-8");
-      LOG("runSemgrep: read json-output file, size:", jsonText.length, "bytes");
-      if (jsonText.length > 0) {
-        raw = JSON.parse(jsonText);
-        parseSource = "json-output-file";
-      }
-    } catch (parseErr) {
-      LOG_ERR("runSemgrep: json-output file parse error:", parseErr.message);
-    }
-    try { unlinkSync(jsonOutPath); } catch {}
-  } else {
-    LOG("runSemgrep: json-output file NOT found at:", jsonOutSafe);
-  }
-
-  // Fallback: try parsing stdout
-  if (!raw && stdout.length > 0) {
-    LOG("runSemgrep: falling back to stdout, size:", stdout.length, "bytes");
+  // Parse stdout JSON (--json outputs to stdout)
+  if (stdout.length > 0) {
+    LOG("runSemgrep: parsing stdout JSON, size:", stdout.length, "bytes");
     try {
       raw = JSON.parse(stdout);
       parseSource = "stdout";
