@@ -121,7 +121,7 @@ const INSTALL_INSTRUCTIONS = isWin
 
 function scanSourceExtensions(projectRoot, maxDepth = 4) {
   const found = new Set();
-  const excludeDirs = new Set(["node_modules", ".git", "dist", "build", "coverage", ".paaw"]);
+  const excludeDirs = new Set(["node_modules", ".git", "dist", "build", "coverage", ".paaw", "semgrep-rules"]);
   const targetExts = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".java"]);
 
   function walk(dir, depth) {
@@ -208,6 +208,7 @@ export function buildFullScanCommand(projectRoot) {
     "--exclude node_modules",
     "--exclude .git",
     "--exclude .paaw",
+    "--exclude data/semgrep-rules",
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",
@@ -276,6 +277,7 @@ export async function runSemgrep(projectRoot, options = {}) {
     "--exclude node_modules",
     "--exclude .git",
     "--exclude .paaw",
+    "--exclude data/semgrep-rules",
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",

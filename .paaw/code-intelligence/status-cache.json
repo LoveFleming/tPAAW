@@ -1,5 +1,5 @@
 {
-  "timestamp": 1784216783951,
+  "timestamp": 1784289512300,
   "data": {
     "architecture": {
       "score": 100,
@@ -47,7 +47,7 @@
         {
           "name": "API Endpoints",
           "status": "info",
-          "detail": "~75 detected"
+          "detail": "~72 detected"
         }
       ]
     },
@@ -77,12 +77,12 @@
         {
           "name": "README",
           "status": "ok",
-          "detail": "38d ago"
+          "detail": "39d ago"
         },
         {
           "name": "FAQ",
           "status": "ok",
-          "detail": "5486 chars"
+          "detail": "7689 chars"
         },
         {
           "name": "Changelog",
@@ -92,7 +92,7 @@
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "3233 files"
+          "detail": "3243 files"
         }
       ]
     },
@@ -107,12 +107,12 @@
         {
           "name": "Git Status",
           "status": "warn",
-          "detail": "10 uncommitted"
+          "detail": "1 uncommitted"
         },
         {
           "name": "Error Handling",
           "status": "ok",
-          "detail": "53 files"
+          "detail": "54 files"
         },
         {
           "name": "Dependencies",
