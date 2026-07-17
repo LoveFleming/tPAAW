@@ -8,7 +8,7 @@
   "maxBackups": 7,
   "autoStartPaaw": false,
   "users": [
-    { "id": "admin", "name": "Fleming", "role": "admin", "passwordHash": "change_me_on_first_login" }
+    { "id": "admin", "name": "Fleming", "role": "admin", "passwordHash": "changeme" }
   ],
   "sessionSecret": "paaw-gateway-secret-change-me",
   "sessionMaxAge": 86400000
