@@ -792,11 +792,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               className="text-xs px-1.5 py-0.5 rounded border border-stone-300 bg-white text-stone-700"
               title="查看從這天開始的 git 變更"
             />
-            {lastRunInfo?.hasRun && (
-              <span className="text-[10px] text-indigo-400" title={`上次 ${lastRunInfo.lastRunBy} 於 ${lastRunInfo.lastRunAt?.slice(0, 16)}`}>
-                (上次 {lastRunInfo.lastRunBy}: {lastRunInfo.lastRunAt?.slice(5, 10)})
-              </span>
-            )}
           </div>
           <button
             onClick={runEM}
