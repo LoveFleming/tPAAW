@@ -247,7 +247,7 @@ export function diagnoseSemgrep() {
 // ── Core: run semgrep scan ──
 
 export async function runSemgrep(projectRoot, options = {}) {
-  const timeoutMs = options.timeoutMs || 300_000; // 5 min
+  const timeoutMs = options.timeoutMs || 1_800_000; // 30 min
   const customPacks = options.rulePacks;
 
   LOG("━━━ runSemgrep START ━━━");

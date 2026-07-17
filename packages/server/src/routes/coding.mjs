@@ -1081,7 +1081,7 @@ export default async function projectRoute(req, res) {
     // Run Semgrep scan directly — just run it, show install instructions if it fails
     if (url.startsWith("/api/coding-project/security-scan") && !url.includes("/results") && method === "GET") {
       try {
-        const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
+        const scanResult = await runSemgrep(root, { timeoutMs: 1_800_000 });
         // Save to .paaw/security/
         const secDir = join(root, ".paaw", "security");
         if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
@@ -1464,7 +1464,7 @@ export default async function projectRoute(req, res) {
         if (step.id === "security-scan") {
           try {
             cuLog(step.id, "Running Semgrep scan...");
-            const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
+            const scanResult = await runSemgrep(root, { timeoutMs: 1_800_000 });
             if (scanResult.error && scanResult.findings.length === 0) {
               sendEvent("step_error", { step: step.id, name: step.name, error: scanResult.error });
               sendEvent("done", { message: "Semgrep scan failed" });
@@ -1886,7 +1886,7 @@ export default async function projectRoute(req, res) {
           if (step.id === "security-scan") {
             try {
               cuLog(step.id, "[bulk] Running Semgrep scan...");
-              const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
+              const scanResult = await runSemgrep(root, { timeoutMs: 1_800_000 });
               if (scanResult.error && scanResult.findings.length === 0) {
                 sendEvent("step_skip", { step: step.id, name: step.name, reason: scanResult.error.split('\n')[0] });
                 continue;
