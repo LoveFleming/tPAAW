@@ -17,6 +17,19 @@ function ensureLogDir() {
   mkdirSync(LOG_DIR, { recursive: true });
 }
 
+/** Infer agentId from caller field for old logs that lack agentId */
+function _callerToAgentId(caller) {
+  if (!caller) return null;
+  const map = {
+    "night-shift": "night-shift",
+    "tool-engine": "assistant",
+    "chat": "assistant",
+    "a2a": "a2a-server",
+    "a2a-helpdesk": "a2a-helpdesk",
+  };
+  return map[caller] || caller;
+}
+
 function parseLogs(dateStr) {
   const logPath = join(LOG_DIR, `${dateStr}.jsonl`);
   try {
@@ -55,7 +68,7 @@ function pairLogs(logs) {
     .map(p => ({
       id: p.request.id,
       ts: p.request.ts,
-      agentId: p.request.agentId || p.response?.agentId || "unknown",
+      agentId: p.request.agentId || p.response?.agentId || _callerToAgentId(p.request.caller || p.response?.caller) || "unknown",
       model: p.request.model || p.response?.model || "?",
       stream: p.request.stream ?? false,
       messageCount: p.request.messageCount ?? 0,
