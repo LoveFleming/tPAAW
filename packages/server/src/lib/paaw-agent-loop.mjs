@@ -2397,7 +2397,7 @@ export async function runAgentLoop(config) {
   let turns = 0;
   let emptyRetryCount = 0;
 
-  for (let i = 0; i < maxTurns; i++) {
+  for (let i = 0; i < effectiveMaxTurns; i++) {
     // Check timeout
     if (Date.now() - startTime > timeoutMs) {
       finalContent += `\n\n---\n⏱️ 任務超時 (${effectiveTimeout}s)，但已完成 ${turns} 個步驟。\n已修改的檔案已保存。\n你可以跟我說「繼續」來接著完成。\n---`;
@@ -2648,7 +2648,7 @@ export async function runAgentLoopStream(config, res) {
   let contentEmitted = false;
   let streamEmptyRetryCount = 0;
 
-  for (let i = 0; i < maxTurns; i++) {
+  for (let i = 0; i < effectiveMaxTurns; i++) {
     if (Date.now() - startTime > timeoutMs) {
       sendSSE("error", { error: "Agent loop timed out" });
       break;
