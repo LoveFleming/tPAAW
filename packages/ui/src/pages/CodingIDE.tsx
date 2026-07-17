@@ -254,8 +254,12 @@ export default function CodingIDE() {
   useEffect(() => {
     if (activeMainTab?.type === "ai-crew" && activeMainTab.crewId) {
       setActiveCrew(activeMainTab.crewId);
+      // Refresh archived conversations when switching crew tab
+      if (rootPath && showArchivePanel) {
+        loadArchivedConversations(activeMainTab.crewId, rootPath);
+      }
     }
-  }, [activeMainTab?.type, activeMainTab?.crewId]);
+  }, [activeMainTab?.type, activeMainTab?.crewId, rootPath, showArchivePanel]);
 
   const openMainTab = useCallback((tab: MainTab) => {
     setMainTabs(prev => {
@@ -977,6 +981,27 @@ export default function CodingIDE() {
 
 const sendChat = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
+
+    // ── Auto-archive: if last message was >30 min ago, archive current and start fresh ──
+    if (activeCrew && rootPath) {
+      const msgs = crewConversations[activeCrew] || [];
+      const lastRealMsg = [...msgs].reverse().find(m => m.role === "user" && !m._greeting);
+      if (lastRealMsg?.ts) {
+        const lastTs = new Date(lastRealMsg.ts).getTime();
+        const gapMs = Date.now() - lastTs;
+        if (gapMs > 30 * 60 * 1000 && msgs.some(m => m.role === "user" && !m._greeting)) {
+          try {
+            await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/new-session?cwd=${encodeURIComponent(rootPath)}`, { method: "POST" });
+            setCrewConversations(prev => ({ ...prev, [activeCrew]: [] }));
+            // Refresh archive list
+            const sessRes = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(activeCrew)}/sessions?cwd=${encodeURIComponent(rootPath)}`);
+            const sessData = await sessRes.json();
+            setArchivedConversations(prev => ({ ...prev, [activeCrew]: sessData.sessions || [] }));
+          } catch {}
+        }
+      }
+    }
+
     const userMsg: ChatMessage = { role: "user", content: chatInput.trim(), ts: new Date().toISOString() };
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput("");
