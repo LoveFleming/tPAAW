@@ -2814,6 +2814,18 @@ const sendChat = useCallback(async () => {
                     setTimeout(() => chatInputRef.current?.focus(), 300);
                   }
                 }}
+                onOpenReportTab={(reportId) => {
+                  // Open the appropriate report tab based on reportId
+                  const reportTabMap: Record<string, { type: string; label: string; icon: string }> = {
+                    "security": { type: "security", label: "Security Report", icon: "🔒" },
+                    "code-intelligence": { type: "features", label: "Code Intelligence", icon: "🗺️" },
+                    "test-intelligence": { type: "features", label: "Test Intelligence", icon: "🧪" },
+                    "change-intelligence": { type: "features", label: "Change Intelligence", icon: "🔄" },
+                    "em-report": { type: "em-dashboard", label: "EM Dashboard", icon: "🎖️" },
+                  };
+                  const tabInfo = reportTabMap[reportId] || reportTabMap["em-report"];
+                  openMainTab({ id: `report:${reportId}`, type: tabInfo.type as any, label: tabInfo.label, icon: tabInfo.icon, closable: true });
+                }}
               />
             </div>
 

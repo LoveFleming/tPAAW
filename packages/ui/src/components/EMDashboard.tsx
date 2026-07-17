@@ -7,7 +7,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import API_BASE from "../api";
-import ChatMessages from "./ChatMessages";
+import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
 import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
 
@@ -17,6 +17,19 @@ interface ChatMessage {
   ts?: string;
   _thinking?: boolean;
   _streamId?: string | null;
+  _emProgress?: boolean;
+  // Rich EM actions — clickable links/buttons embedded in chat
+  actions?: ChatAction[];
+  reportRef?: string; // e.g. "security", "code-intelligence", "test-intelligence"
+}
+
+interface ChatAction {
+  label: string; // e.g. "📄報告", "🔧修復", "💻派 Developer"
+  type: "openReport" | "dispatchCrew";
+  reportId?: string; // for openReport
+  crewId?: string; // for dispatchCrew
+  prompt?: string; // for dispatchCrew — pre-filled message
+  findingIndex?: number; // specific finding to highlight
 }
 
 interface ActionLogEntry {
@@ -61,11 +74,13 @@ interface EMDashboardProps {
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
   // Dispatch to crew with pre-filled message
   onDispatchToCrew?: (crewId: string, message: string) => void;
+  // Open a report tab (EM chat → Report)
+  onOpenReportTab?: (reportId: string) => void;
   model?: string;
   onModelChange?: (m: string) => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, model, onModelChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenReportTab, model, onModelChange }: EMDashboardProps) {
   // ── Night Shift State ──
   const [nsRunning, setNsRunning] = useState(false);
   const [nsStatus, setNsStatus] = useState<string>("");
@@ -133,15 +148,24 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             const e = agentEmojis[r.agentId] || "🤖";
             return `${e} ${r.agentId}: ${r.error ? "❌ " + r.error.slice(0, 80) : "✅ " + (r.summary || "完成").slice(0, 80)}`;
           }).join("\n");
+          const nsActions: ChatAction[] = [
+            { label: "📊完整報告", type: "openReport", reportId: "em-report" },
+          ];
+          // If any agent had errors, add retry actions
+          const failedAgents = (sd.results || []).filter((r: any) => r.error);
+          for (const fa of failedAgents) {
+            const crewMap: Record<string, string> = { architect: "coding.architect", developer: "coding.developer", tester: "coding.tester", "doc-writer": "coding.doc-writer", qa: "coding.qa", helpdesk: "coding.helpdesk" };
+            nsActions.push({ label: `🔄重試 ${fa.agentId}`, type: "dispatchCrew", crewId: crewMap[fa.agentId] || "", prompt: `Night Shift 發現錯誤：${fa.error.slice(0, 100)}\n請重新執行這個任務。` });
+          }
           setMessages(prev => {
             const lastNs = [...prev].reverse().findIndex(m => (m as any)._nsProgress);
             if (lastNs >= 0) {
               const idx = prev.length - 1 - lastNs;
               const updated = [...prev];
-              updated[idx] = { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString() } as any;
+              updated[idx] = { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString(), actions: nsActions } as any;
               return updated;
             }
-            return [...prev, { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString() } as any];
+            return [...prev, { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString(), actions: nsActions } as any];
           });
           refreshData();
         } else if (sd.status === "running") {
@@ -527,25 +551,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const decoder = new TextDecoder();
       let buffer = "";
       const logLines: string[] = [];
-      let lastChatMsg = "";
-      let chatUpdateTimer: ReturnType<typeof setTimeout> | null = null;
-
-      const flushChatUpdate = (text: string) => {
-        if (chatUpdateTimer) clearTimeout(chatUpdateTimer);
-        chatUpdateTimer = setTimeout(() => {
-          setMessages(prev => {
-            // Find last assistant EM message and update it, or add new
-            const lastEm = [...prev].reverse().findIndex(m => m.role === "assistant" && m._emProgress);
-            if (lastEm >= 0) {
-              const idx = prev.length - 1 - lastEm;
-              const updated = [...prev];
-              updated[idx] = { ...updated[idx], content: text };
-              return updated;
-            }
-            return [...prev, { role: "assistant", content: text, ts: new Date().toISOString(), _emProgress: true } as any];
-          });
-        }, 300);
-      };
+      // Track completed steps for rich actions
+      const completedSteps: { stepId: string; name: string; summary: string; reportId?: string; stats?: any }[] = [];
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -558,12 +565,79 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           if (!line.startsWith("data: ")) continue;
           try {
             const d = JSON.parse(line.slice(6));
-            if (d.message) {
+            // Handle step events — generate rich chat messages
+            if (d.step) {
+              if (d.message) {
+                // step_start — push running indicator
+                setMessages(prev => [...prev, {
+                  role: "assistant",
+                  content: `⏳ **${d.name}** 執行中...`,
+                  ts: new Date().toISOString(),
+                  _emProgress: true,
+                }]);
+                logLines.push(d.message);
+                setEmLog([...logLines]);
+              }
+            }
+            if (d.message && !d.step) {
               logLines.push(d.message);
               setEmLog([...logLines]);
-              // Build progressive chat message
-              lastChatMsg = logLines.map(l => l.replace(/^[🎨🏗️💻🧪📝🔍🎫🎖️🌙⏳✅❌⚡📋🔧📊] /, "• ")).join("\n");
-              flushChatUpdate("🎖️ EM 調度進度：\n\n" + lastChatMsg);
+            }
+            // step_done — replace running message with result + actions
+            if (d.step && d.summary !== undefined) {
+              const stepId = d.step;
+              const stepName = d.name || stepId;
+              const reportIdMap: Record<string, string> = {
+                "security-scan": "security",
+                "code-intelligence": "code-intelligence",
+                "test-intelligence": "test-intelligence",
+                "change-intelligence": "change-intelligence",
+              };
+              const reportId = reportIdMap[stepId];
+              completedSteps.push({ stepId, name: stepName, summary: d.summary, reportId, stats: d.stats });
+
+              const actions: ChatAction[] = [];
+              if (reportId) actions.push({ label: "📄報告", type: "openReport", reportId });
+              // If security scan has findings, add fix action
+              if (stepId === "security-scan" && d.stats?.total > 0) {
+                actions.push({ label: "🔧派 QA 修復", type: "dispatchCrew", crewId: "coding.qa", prompt: `請修復以下安全掃描發現的問題：\n${d.summary}\n\n請逐一檢查每個 finding，修復後確認不影響其他功能。` });
+                actions.push({ label: "💻派 Developer", type: "dispatchCrew", crewId: "coding.developer", prompt: `Security scan 發現 ${d.stats.total} 個問題：${d.summary}\n請優先修復 CRITICAL 和 WARNING 等級的。` });
+              }
+
+              setMessages(prev => {
+                // Replace last _emProgress message for this step
+                const lastProg = [...prev].reverse().findIndex(m => m.role === "assistant" && m._emProgress);
+                if (lastProg >= 0) {
+                  const idx = prev.length - 1 - lastProg;
+                  const updated = [...prev];
+                  updated[idx] = {
+                    role: "assistant",
+                    content: `✅ **${stepName}** — ${d.summary}`,
+                    ts: new Date().toISOString(),
+                    actions,
+                    reportRef: reportId,
+                  };
+                  return updated;
+                }
+                return [...prev, { role: "assistant", content: `✅ **${stepName}** — ${d.summary}`, ts: new Date().toISOString(), actions, reportRef: reportId }];
+              });
+            }
+            // step_error
+            if (d.step && d.error) {
+              setMessages(prev => {
+                const lastProg = [...prev].reverse().findIndex(m => m.role === "assistant" && m._emProgress);
+                if (lastProg >= 0) {
+                  const idx = prev.length - 1 - lastProg;
+                  const updated = [...prev];
+                  updated[idx] = {
+                    role: "assistant",
+                    content: `❌ **${d.name}** — ${d.error}`,
+                    ts: new Date().toISOString(),
+                  };
+                  return updated;
+                }
+                return [...prev, { role: "assistant", content: `❌ **${d.name}** — ${d.error}`, ts: new Date().toISOString() }];
+              });
             }
             if (d.type === "report" && d.report) {
               setReport(d.report);
@@ -572,19 +646,16 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         }
       }
 
-      // Final chat message — replace progress with summary
-      if (chatUpdateTimer) clearTimeout(chatUpdateTimer);
-      const summary = logLines.filter(l => l.includes("✅") || l.includes("❌") || l.includes("完成")).pop() || "EM 調度完成";
-      setMessages(prev => {
-        const lastEm = [...prev].reverse().findIndex(m => (m as any)._emProgress);
-        if (lastEm >= 0) {
-          const idx = prev.length - 1 - lastEm;
-          const updated = [...prev];
-          updated[idx] = { role: "assistant", content: `🎖️ ${summary}\n\n${logLines.length > 1 ? "📋 工作紀錄：\n" + logLines.map(l => "  " + l).join("\n") : ""}`, ts: new Date().toISOString() } as any;
-          return updated;
-        }
-        return [...prev, { role: "assistant", content: `🎖️ ${summary}\n\n${logLines.length > 1 ? "📋 工作紀錄：\n" + logLines.map(l => "  " + l).join("\n") : ""}`, ts: new Date().toISOString() } as any];
-      });
+      // Final summary message with report link
+      const totalSteps = completedSteps.length;
+      const finalActions: ChatAction[] = [];
+      if (totalSteps > 0) {
+        finalActions.push({ label: "📊完整報告", type: "openReport", reportId: "em-report" });
+      }
+      const summaryText = totalSteps > 0
+        ? `🎖️ EM 調度完成！完成 ${totalSteps} 項工作。\n\n${completedSteps.map(s => `  ✅ ${s.name}: ${s.summary}`).join("\n")}`
+        : "🎖️ EM 調度完成";
+      setMessages(prev => [...prev, { role: "assistant", content: summaryText, ts: new Date().toISOString(), actions: finalActions }]);
       refreshData();
     } catch (err: any) {
       setMessages(prev => [...prev, { role: "assistant", content: `❌ EM error: ${err.message}`, ts: new Date().toISOString() }]);
@@ -730,7 +801,62 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
-          <ChatMessages messages={messages} loading={loading} accent={tk.accent} />
+          {messages.map((msg, i) => (
+            <div key={i} className={`mb-3 ${msg.role === "user" ? "text-right" : ""}`}>
+              {msg.role === "user" ? (
+                <span className="inline-block px-3 py-1.5 rounded-lg text-sm bg-amber-100 text-amber-900 max-w-[80%] text-left whitespace-pre-wrap">{msg.content}</span>
+              ) : (
+                <div className="text-left">
+                  <div className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: msg.content
+                    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\n/g, "<br/>")
+                  }} />
+                  {/* Rich action buttons */}
+                  {msg.actions && msg.actions.length > 0 && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {msg.actions.map((action, j) => (
+                        <button
+                          key={j}
+                          onClick={() => {
+                            if (action.type === "dispatchCrew" && onDispatchToCrew) {
+                              onDispatchToCrew(action.crewId || "", action.prompt || "");
+                            // Push dispatch confirmation to chat
+                            setMessages(prev => [...prev, {
+                              role: "assistant",
+                              content: `🔧 已派交 **${action.crewId}** 處理：${(action.prompt || "").slice(0, 60)}...`,
+                              ts: new Date().toISOString(),
+                            }]);
+                            chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                            }
+                            if (action.type === "openReport" && action.reportId) {
+                              // Open report tab
+                              if (onOpenReportTab) {
+                                onOpenReportTab(action.reportId);
+                              } else if (onOpenFile) {
+                                // Fallback: open file
+                                if (action.reportId === "security") {
+                                  onOpenFile(".paaw/security/scan-results.json");
+                                }
+                              }
+                            }
+                          }}
+                          className={cn(
+                            "text-xs px-2.5 py-1.5 rounded-md font-semibold transition-colors",
+                            action.type === "openReport"
+                              ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                          )}
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          {loading && <div className="text-sm text-amber-600 animate-pulse">⏳ 思考中...</div>}
           <div ref={chatEndRef} />
         </div>
 
