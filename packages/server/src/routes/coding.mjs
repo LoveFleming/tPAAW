@@ -1057,26 +1057,8 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/coding-project/security-scan ──
-    // Run Semgrep scan directly — just run it, show install instructions if it fails
-    if (url.startsWith("/api/coding-project/security-scan") && method === "GET") {
-      try {
-        const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
-        // Save to .paaw/security/
-        const secDir = join(root, ".paaw", "security");
-        if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
-        await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(scanResult));
-      } catch (err) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-      return true;
-    }
-
     // ── GET /api/coding-project/security-scan/results ──
-    // Load last scan results (without re-running)
+    // Load last scan results (without re-running) — MUST check before the scan endpoint
     if (url.startsWith("/api/coding-project/security-scan/results") && method === "GET") {
       const resultsFile = join(root, ".paaw", "security", "scan-results.json");
       if (!existsSync(resultsFile)) {
@@ -1093,6 +1075,25 @@ export default async function projectRoute(req, res) {
         res.end(JSON.stringify({ error: "Failed to read scan results" }));
       }
       return true;
+    }
+
+    // ── GET /api/coding-project/security-scan ──
+    // Run Semgrep scan directly — just run it, show install instructions if it fails
+    if (url.startsWith("/api/coding-project/security-scan") && !url.includes("/results") && method === "GET") {
+      try {
+        const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
+        // Save to .paaw/security/
+        const secDir = join(root, ".paaw", "security");
+        if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
+        await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(scanResult));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
     }
 
     // ── GET /api/coding-project/test-intelligence ──
