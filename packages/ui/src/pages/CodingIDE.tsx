@@ -948,7 +948,12 @@ export default function CodingIDE() {
   const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentToolLog, setAgentToolLog] = useState<Array<{name: string; args: string; result: string}>>([]);
-  const [codingModel, setCodingModel] = useState<string>("");
+  const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
+  const codingModel = activeCrew ? (crewModels[activeCrew] || "") : "";
+  const setCodingModel = useCallback((model: string) => {
+    if (!activeCrew) return;
+    setCrewModels(prev => ({ ...prev, [activeCrew]: model }));
+  }, [activeCrew]);
 
 const sendChat = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
