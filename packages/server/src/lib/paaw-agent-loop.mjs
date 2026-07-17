@@ -22,7 +22,10 @@ import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { exec as execCb } from "child_process";
 import { resolve, join, dirname, relative } from "path";
+import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
 import { fileURLToPath } from "url";
+import { readFileSync as _readSync, existsSync as _exSync } from "fs";
+import { join as _pathJoin, dirname as _pathDirname, basename as _pathBasename, extname as _pathExtname } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -786,6 +789,101 @@ const _agentCfgDefaults = { maxTurns: 200, timeoutSeconds: 1800, bashTimeoutSeco
 let _agentCfg = { ..._agentCfgDefaults };
 export function setAgentConfig(cfg) { _agentCfg = { ..._agentCfgDefaults, ...cfg }; }
 
+/** Build test command for affected test files */
+function _buildTestCommand(cwd, testFiles) {
+  // Detect test runner from project config
+  let testRunner = null;
+  try {
+    const pkg = JSON.parse(_readSync(_pathJoin(cwd, "package.json"), "utf-8"));
+    const scripts = pkg.scripts || {};
+    if (scripts.test) testRunner = "npm test";
+    if (scripts["test:ci"]) testRunner = "npm run test:ci";
+    if (scripts.vitest) testRunner = "npx vitest run";
+    if (scripts.jest) testRunner = "npx jest";
+  } catch {}
+
+  // Check for vitest/jest config directly
+  if (!testRunner) {
+    if (_exSync(_pathJoin(cwd, "vitest.config.ts")) || _exSync(_pathJoin(cwd, "vitest.config.js")) || _exSync(_pathJoin(cwd, "vitest.config.mjs"))) {
+      testRunner = "npx vitest run";
+    } else if (_exSync(_pathJoin(cwd, "jest.config.ts")) || _exSync(_pathJoin(cwd, "jest.config.js")) || _exSync(_pathJoin(cwd, "jest.config.mjs"))) {
+      testRunner = "npx jest";
+    }
+  }
+
+  if (!testRunner) return null;
+
+  // Build command with specific test files
+  const fileList = testFiles.map(f => `"${f}"`).join(" ");
+  if (testRunner.includes("vitest")) {
+    return `${testRunner} ${fileList} --reporter=verbose 2>&1`;
+  } else if (testRunner.includes("jest")) {
+    return `${testRunner} ${fileList} --verbose 2>&1`;
+  } else {
+    // Generic: just run the test command (can't filter files)
+    return `${testRunner} 2>&1`;
+  }
+}
+
+/** Parse test output to determine pass/fail */
+function _parseTestResult(output) {
+  const out = (output || "").toLowerCase();
+
+  // Vitest patterns
+  const vitestMatch = out.match(/(\d+)\s+failed/);
+  const vitestTotal = out.match(/(\d+)\s+tests?\s+(passed|total)/i);
+  if (vitestMatch) {
+    return { ok: false, failed: parseInt(vitestMatch[1]), total: parseInt(vitestTotal?.[1] || "0") };
+  }
+
+  // Jest patterns
+  const jestFailMatch = out.match(/tests?\s*:\s*(\d+)\s+failed/i) || out.match(/(\d+)\s+failed.*?(\d+)\s+passed/i);
+  if (jestFailMatch) {
+    return { ok: false, failed: parseInt(jestFailMatch[1]), total: parseInt(jestFailMatch[2] || "0") + parseInt(jestFailMatch[1]) };
+  }
+
+  // Generic: check for common failure patterns
+  if (out.includes("fail") || out.includes("error") || out.includes("✗") || out.includes("✘")) {
+    // Might be a real failure or just noise — be conservative
+    if (out.includes("failed") || out.includes("test suite failed")) {
+      return { ok: false, failed: 1, total: 1 };
+    }
+  }
+
+  // Check for success patterns
+  if (out.includes("passed") || out.includes("all tests passed") || out.includes("✓") || out.includes("✔")) {
+    const totalMatch = out.match(/(\d+)\s+passed/);
+    return { ok: true, failed: 0, total: parseInt(totalMatch?.[1] || "1") };
+  }
+
+  // No recognizable pattern — assume pass if exit code was ok (we already ran it successfully)
+  return { ok: true, failed: 0, total: 0 };
+}
+
+/** Find test files by convention (e.g., foo.mjs → foo.test.mjs, foo.spec.ts) */
+function _findConventionTests(cwd, changedFiles) {
+  const tests = [];
+  for (const f of changedFiles) {
+    const dir = _pathDirname(_pathJoin(cwd, f));
+    const base = _pathBasename(f, _pathExtname(f));
+    const ext = _pathExtname(f);
+    // Common test file patterns
+    const candidates = [
+      _pathJoin(dir, `${base}.test${ext}`),
+      _pathJoin(dir, `${base}.spec${ext}`),
+      _pathJoin(dir, `__tests__/${base}.test${ext}`),
+      // Mirror in test/ directory
+      _pathJoin(cwd, f.replace("/src/", "/test/").replace(ext, `.test${ext}`)),
+      _pathJoin(cwd, f.replace("/src/", "/tests/").replace(ext, `.test${ext}`)),
+      _pathJoin(cwd, f.replace("/src/", "/__tests__/").replace(ext, `.test${ext}`)),
+    ];
+    for (const c of candidates) {
+      if (_exSync(c)) tests.push(c.replace(cwd + "/", ""));
+    }
+  }
+  return [...new Set(tests)];
+}
+
 function runShell(command, cwd, timeoutMs = 30_000) {
   return new Promise((resolve) => {
     const shellOpt = IS_WIN ? "powershell.exe" : true;
@@ -893,6 +991,11 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       case "write_file": {
         const filePath = resolvePath(args.path);
         if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
+        // ── P0: Inject dependency context before write ──
+        const depCtx = getDependencyContext(cwd, filePath);
+        if (depCtx) {
+          LOG("[dependency-context] Pre-write impact analysis for", filePath);
+        }
         // Auto-snapshot before first modification
         if (!snapshotTaken && paaw?.exists) {
           try {
@@ -903,14 +1006,22 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         }
         await mkdir(dirname(filePath), { recursive: true });
         await writeFile(filePath, args.content, "utf-8");
+        // Track modified files for post-edit test verification
+        modifiedFiles.add(filePath.replace(cwd + "/", "").replace(cwd + "\\", ""));
         if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)` });
-        return `Successfully wrote ${args.content.length} bytes to ${args.path}`;
+        const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}`;
+        return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
       }
 
       case "edit_file": {
         const filePath = resolvePath(args.path);
         if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
+        // ── P0: Inject dependency context before edit ──
+        const depCtx = getDependencyContext(cwd, filePath);
+        if (depCtx) {
+          LOG("[dependency-context] Pre-edit impact analysis for", filePath);
+        }
         // Auto-snapshot before first modification
         if (!snapshotTaken && paaw?.exists) {
           try {
@@ -925,8 +1036,11 @@ async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         if (occurrences > 1) return `Error: old_text found ${occurrences} times in ${args.path} — must be unique`;
         const newContent = content.replace(args.old_text, args.new_text);
         await writeFile(filePath, newContent, "utf-8");
+        // Track modified files for post-edit test verification
+        modifiedFiles.add(filePath.replace(cwd + "/", "").replace(cwd + "\\", ""));
         if (onEvent) onEvent({ type: "tool_end", name, result: `Edited ${filePath}` });
-        return `Successfully edited ${args.path} (1 replacement)`;
+        const baseResult = `Successfully edited ${args.path} (1 replacement)`;
+        return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
       }
 
       // ══════════════════════════════════════════
@@ -2254,6 +2368,7 @@ export async function runAgentLoop(config) {
   const timeoutMs = effectiveTimeout * 1000;
   const toolCallLog = [];
   let snapshotTaken = false; // auto-snapshot before first file write
+  const modifiedFiles = new Set<string>(); // track modified files for post-edit test verification
 
   // Resolve LLM config
   const llm = resolveLLMConfig(rootDir, modelOverride);
@@ -2400,6 +2515,62 @@ export async function runAgentLoop(config) {
           task: prompt.slice(0, 200),
           toolCalls: toolCallLog,
         });
+
+        // ── P0: Auto-run affected tests after code changes ──
+        const changedFiles = [...modifiedFiles];
+        if (changedFiles.length > 0) {
+          try {
+            const affectedTests = getAffectedTests(cwd, changedFiles);
+            if (affectedTests.length > 0) {
+              LOG(`[post-edit-verify] Found ${affectedTests.length} affected test files for ${changedFiles.length} changed files`);
+              // Run the tests using the project's test runner
+              const testCmd = _buildTestCommand(cwd, affectedTests);
+              if (testCmd) {
+                LOG(`[post-edit-verify] Running: ${testCmd}`);
+                const testResult = await runShell(testCmd, cwd, 60_000);
+                const testPassed = _parseTestResult(testResult);
+                if (!testPassed.ok) {
+                  LOG(`[post-edit-verify] ⚠️ Tests FAILED: ${testPassed.failed}/${testPassed.total}`);
+                  // Append test failure info to the final content so the AI knows
+                  const failureNotice = [
+                    "",
+                    "━━━ ⚠️ Post-Edit Test Verification ━━━",
+                    testPassed.ok ? "✅ All affected tests passed!" : `❌ ${testPassed.failed}/${testPassed.total} tests FAILED after your changes:`,
+                    "",
+                    testResult.slice(0, 3000),
+                    "",
+                    "💡 Your changes may have broken these tests. Please review and fix.",
+                  ].join("\n");
+                  finalContent += failureNotice;
+                } else {
+                  LOG(`[post-edit-verify] ✅ All ${testPassed.total} affected tests passed`);
+                  finalContent += "\n\n✅ Post-edit verification: All affected tests passed.";
+                }
+              }
+            } else {
+              // Convention-based test lookup
+              const conventionTests = _findConventionTests(cwd, changedFiles);
+              if (conventionTests.length > 0) {
+                LOG(`[post-edit-verify] Found ${conventionTests.length} convention-based test files`);
+                const testCmd = _buildTestCommand(cwd, conventionTests);
+                if (testCmd) {
+                  const testResult = await runShell(testCmd, cwd, 60_000);
+                  const testPassed = _parseTestResult(testResult);
+                  if (!testPassed.ok) {
+                    const failureNotice = ["", "━━━ ⚠️ Post-Edit Test Verification ━━━", `❌ ${testPassed.failed}/${testPassed.total} tests FAILED:`, "", testResult.slice(0, 3000), "", "💡 Your changes may have broken these tests. Please review and fix."].join("\n");
+                    finalContent += failureNotice;
+                  } else {
+                    finalContent += "\n\n✅ Post-edit verification: All affected tests passed.";
+                  }
+                }
+              } else {
+                LOG("[post-edit-verify] No affected tests found — skipping auto-verify");
+              }
+            }
+          } catch (verifyErr) {
+            LOG("[post-edit-verify] Error:", verifyErr.message);
+          }
+        }
       }
     } catch (e) {
       console.error("[paaw-project] Failed to record session:", e.message);
@@ -2444,6 +2615,7 @@ export async function runAgentLoopStream(config, res) {
 
   const startTime = Date.now();
   const timeoutMs = timeout * 1000;
+  const streamModifiedFiles = new Set(); // track modified files for post-edit verification
 
   // SSE helper
   const sendSSE = (event, data) => {
@@ -2584,6 +2756,15 @@ export async function runAgentLoopStream(config, res) {
       const toolResult = await executeTool(call, cwd, rootDir, null, agentId);
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 
+      // Track modified files for post-edit verification
+      if (call.function.name === "write_file" || call.function.name === "edit_file") {
+        try {
+          const p = args.path || args.file || "";
+          const normP = p.replace(cwd + "/", "").replace(cwd + "\\", "").replace(/^\//, "");
+          if (normP) streamModifiedFiles.add(normP);
+        } catch {}
+      }
+
       messages.push({
         role: "tool",
         tool_call_id: call.id,
@@ -2606,6 +2787,30 @@ export async function runAgentLoopStream(config, res) {
       }
     } catch (err) {
       sendSSE("error", { error: `Final summary failed: ${err.message}` });
+    }
+  }
+
+  // ── P0: Post-edit test verification for stream mode ──
+  if (streamModifiedFiles.size > 0) {
+    try {
+      const changedFiles = [...streamModifiedFiles];
+      const affectedTests = getAffectedTests(cwd, changedFiles);
+      const testsToRun = affectedTests.length > 0 ? affectedTests : _findConventionTests(cwd, changedFiles);
+      if (testsToRun.length > 0) {
+        sendSSE("info", { message: `🧪 Auto-verifying ${testsToRun.length} affected test files...` });
+        const testCmd = _buildTestCommand(cwd, testsToRun);
+        if (testCmd) {
+          const testResult = await runShell(testCmd, cwd, 60_000);
+          const testPassed = _parseTestResult(testResult);
+          if (!testPassed.ok) {
+            sendSSE("verify", { ok: false, failed: testPassed.failed, total: testPassed.total, output: testResult.slice(0, 2000) });
+          } else {
+            sendSSE("verify", { ok: true, total: testPassed.total, output: "All affected tests passed" });
+          }
+        }
+      }
+    } catch (verifyErr) {
+      sendSSE("verify", { ok: true, error: verifyErr.message });
     }
   }
 

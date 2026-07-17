@@ -128,6 +128,7 @@ export class ToolEngine {
     this.sessionKey = options.sessionKey || 'default'
     this.agentId = options.agentId || 'default'
     this.security = options.security ? new SecurityKernel(options.security) : null
+    this.cwd = options.cwd || process.cwd()
     this.registry.registerAll(options.executors || [])
   }
 
@@ -243,15 +244,29 @@ export class ToolEngine {
 
             // 2. Success Verification（只對寫入操作）
             let verifyDetail = null
+            let depContextStr = null
             if (isWriteOperation(tc.function.name)) {
+              // ── P0: Inject dependency context before write verification ──
+              try {
+                const { getDependencyContext } = await import('../dependency-context.mjs')
+                const filePath = args.path || args.file || args.filename || args.dest || ''
+                if (filePath && this.cwd) {
+                  depContextStr = getDependencyContext(this.cwd, filePath)
+                  if (depContextStr) {
+                    console.log(`[ToolEngine] 📎 dependency context injected for ${filePath}`)
+                  }
+                }
+              } catch (_dcErr) {}
+
               const verify = await verifyWriteResult(tc.function.name, args, result, this.registry)
               verifyDetail = verify
               console.log(`[ToolEngine]   🔍 verify: ${tc.function.name} → ${verify.verified ? 'PASS' : 'FAIL'} ${verify.detail}`)
 
-              // 把驗證結果附加到 tool result，讓 LLM 知道
+              // 把驗證結果 + dependency context 附加到 tool result，讓 LLM 知道
               const enriched = {
                 ...result,
                 _validation: { verified: verify.verified, detail: verify.detail },
+                ...(depContextStr ? { _dependencyContext: depContextStr } : {}),
               }
               yield { type: 'tool_end', name: tc.function.name, result: enriched }
             } else {
@@ -262,9 +277,9 @@ export class ToolEngine {
               await this.security.recordResult(tc.function.name, args, result, { sessionKey: this.sessionKey, agentId: this.agentId, duration: Date.now() - startTime })
             }
 
-            // 組裝給 LLM 的 message（含驗證結果）
+            // 組裝給 LLM 的 message（含驗證結果 + dependency context）
             const msgContent = verifyDetail
-              ? { ...result, _validation: { verified: verifyDetail.verified, detail: verifyDetail.detail } }
+              ? { ...result, _validation: { verified: verifyDetail.verified, detail: verifyDetail.detail }, ...(depContextStr ? { _dependencyContext: depContextStr } : {}) }
               : result
             messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(msgContent) })
             console.log(`[ToolEngine]   ← tool result pushed: ${tc.function.name} id=${tc.id} verified=${verifyDetail?.verified ?? 'N/A'} msgs=${messages.length}`)

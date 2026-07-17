@@ -371,6 +371,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   // executors from cache
 
   const engine = new ToolEngine({
+    cwd: rootPath,
     provider: {
       id: providerId,
       baseURL: provider.baseURL,
@@ -459,6 +460,7 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
   }
 
   const engine = new ToolEngine({
+    cwd: rootPath,
     provider: {
       id: providerId,
       baseURL: provider.baseURL,

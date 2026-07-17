@@ -184,6 +184,7 @@ export default async function chatRoutes(req, res) {
       // ── 建立 Tool Engine（含 Security Kernel）──
       const { ToolEngine } = await import("../lib/tool-engine/index.mjs")
       const engine = new ToolEngine({
+        cwd: rootPath,
         provider: {
           id: resolvedProviderId,
           baseURL: resolvedProvider.baseURL,
