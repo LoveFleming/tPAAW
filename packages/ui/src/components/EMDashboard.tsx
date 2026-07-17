@@ -598,10 +598,39 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
               const actions: ChatAction[] = [];
               if (reportId) actions.push({ label: "📄報告", type: "openReport", reportId });
-              // If security scan has findings, add fix action
+              // If security scan has findings, add fix action with DETAILED prompt
               if (stepId === "security-scan" && d.stats?.total > 0) {
-                actions.push({ label: "🔧派 QA 修復", type: "dispatchCrew", crewId: "coding.qa", prompt: `請修復以下安全掃描發現的問題：\n${d.summary}\n\n請逐一檢查每個 finding，修復後確認不影響其他功能。` });
-                actions.push({ label: "💻派 Developer", type: "dispatchCrew", crewId: "coding.developer", prompt: `Security scan 發現 ${d.stats.total} 個問題：${d.summary}\n請優先修復 CRITICAL 和 WARNING 等級的。` });
+                const findings = d.findings || [];
+                const detailedFindingList = findings.map((f: any, i: number) => {
+                  const icon = f.severity === "CRITICAL" ? "🔴" : f.severity === "WARNING" || f.severity === "ERROR" ? "🟡" : "🔵";
+                  return `${icon} [${f.severity}] ${f.id}\n   📄 File: ${f.file}:${f.line}\n   💬 ${f.message}\n   ${f.snippet ? `📝 Code: ${f.snippet.trim().slice(0, 200)}` : ""}\n   ${f.fix ? `✅ Suggested fix: ${f.fix.slice(0, 200)}` : ""}\n   ${f.category ? `📂 Category: ${f.category}` : ""}`;
+                }).join("\n\n");
+
+                const criticalCount = findings.filter((f: any) => f.severity === "CRITICAL").length;
+                const warningCount = findings.filter((f: any) => f.severity === "WARNING" || f.severity === "ERROR").length;
+                const infoCount = findings.filter((f: any) => f.severity === "INFO").length;
+                const severitySummary = `CRITICAL: ${criticalCount}, WARNING: ${warningCount}, INFO: ${infoCount}`;
+
+                const qaPrompt = [`🔧 Security Scan 修復任務`, ``, `📊 掃描結果：共 ${d.stats.total} 個 finding（${severitySummary}）`, `掃描時間：${new Date().toISOString().slice(0, 19)}`, ``, `📋 完整 Finding 清單：`, ``, detailedFindingList, ``, `⚠️ 修復要求：`, `1. 請逐一檢查每個 finding，從 CRITICAL → WARNING → INFO 順序修復`, `2. 修復前先閱讀相關檔案的 context，理解程式碼邏輯`, `3. 修復後確認不影響其他功能（特別是同一 file 裡的其他 code）`, `4. 如果某個 finding 是誤判（false positive），請說明原因，不要硬改`, `5. 每修一個 finding，簡述改了什麼、為什麼這樣改`, `6. 全部修完後，建議跑一次 semgrep 驗證`, ``].join("\n");
+
+                const devPrompt = [`💻 Security Scan 修復任務`, ``, `📊 掃描結果：共 ${d.stats.total} 個 finding（${severitySummary}）`, ``, `📋 完整 Finding 清單：`, ``, detailedFindingList, ``, `⚠️ 修復要求：`, `1. 優先修復 CRITICAL 等級的 finding`, `2. 修復時注意不要破壞現有功能`, `3. 如果 finding 有建議 fix，優先採用`, `4. 改完請說明改了什麼`, ``].join("\n");
+
+                actions.push({ label: "🔧派 QA 修復", type: "dispatchCrew", crewId: "coding.qa", prompt: qaPrompt });
+                actions.push({ label: "💻派 Developer", type: "dispatchCrew", crewId: "coding.developer", prompt: devPrompt });
+              }
+              // If code-intelligence has useful data, add context-aware actions
+              if (stepId === "code-intelligence" && d.codeIntelligenceSummary) {
+                const ci = d.codeIntelligenceSummary;
+                const ciDetail = [`📊 Code Intelligence 摘要`, ``, `• Functions: ${ci.totalFunctions}`, `• Calls: ${ci.totalCalls}`, `• Dependencies: ${ci.totalDependencies}`, `• Symbols: ${ci.totalSymbols}`, ``, ci.topFunctions?.length ? `🔝 最常被呼叫的 functions：\n${ci.topFunctions.join("\n")}` : "", ``, ci.topDependencies?.length ? `🔗 最常見的 dependencies：\n${ci.topDependencies.join("\n")}` : "", ``].join("\n");
+                actions.push({ label: "💻派 Developer 審查", type: "dispatchCrew", crewId: "coding.developer", prompt: `請審查以下 code intelligence 結果，找出潛在的重構或優化機會：\n\n${ciDetail}` });
+              }
+              // If test-intelligence has untested files, add test-writing action
+              if (stepId === "test-intelligence" && d.testIntelligenceSummary) {
+                const ti = d.testIntelligenceSummary;
+                if (ti.untestedFiles?.length > 0) {
+                  const untestedList = ti.untestedFiles.slice(0, 15).join("\n");
+                  actions.push({ label: "🧪派 Tester 寫測試", type: "dispatchCrew", crewId: "coding.tester", prompt: [`🧪 Test Intelligence 分析結果`, ``, `📊 測試覆蓋率：${ti.coverageRate}`, `📋 未測試的檔案（共 ${ti.untestedFiles.length} 個，顯示前 15 個）：`, ``, untestedList, ``, ti.lowCoverageFiles?.length ? `⚠️ 低覆蓋率檔案：\n${ti.lowCoverageFiles.join("\n")}` : "", ``, `請為以上未測試的檔案撰寫 unit test。`, `優先處理 core business logic 檔案。`, `每個 test 都要有清晰的描述。`, ``].join("\n") });
+                }
               }
 
               setMessages(prev => {

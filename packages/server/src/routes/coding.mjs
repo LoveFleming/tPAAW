@@ -1481,6 +1481,16 @@ export default async function projectRoute(req, res) {
               name: step.name,
               summary: `${scanResult.stats.total} findings (${JSON.stringify(scanResult.stats.bySeverity)})`,
               stats: scanResult.stats,
+              findings: (scanResult.findings || []).map(f => ({
+                id: f.id,
+                severity: f.severity,
+                file: f.file,
+                line: f.line,
+                message: f.message,
+                snippet: f.snippet,
+                fix: f.fix,
+                category: f.category,
+              })),
             });
             try { await paaw.setCuStepStatus(step.id, "done", { summary: `${scanResult.stats.total} findings` }); } catch {}
           } catch (err) {
@@ -1503,6 +1513,14 @@ export default async function projectRoute(req, res) {
               name: step.name,
               summary: `${summary.callGraph.totalFunctions} functions, ${summary.callGraph.totalCalls} calls, ${summary.symbolIndex.total} symbols`,
               stats: summary,
+              codeIntelligenceSummary: {
+                totalFunctions: summary.callGraph?.totalFunctions || 0,
+                totalCalls: summary.callGraph?.totalCalls || 0,
+                totalDependencies: summary.dependencyGraph?.totalEdges || 0,
+                totalSymbols: summary.symbolIndex?.total || 0,
+                topFunctions: (summary.callGraph?.topFunctions || []).slice(0, 20).map((f: any) => `${f.name} (${f.file}:${f.line}, called ${f.callCount}x)`),
+                topDependencies: (summary.dependencyGraph?.topEdges || []).slice(0, 15).map((e: any) => `${e.from} → ${e.to}`),
+              },
             });
             try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.callGraph.totalFunctions} functions` }); } catch {}
           } catch (err) {
@@ -1525,6 +1543,12 @@ export default async function projectRoute(req, res) {
               name: step.name,
               summary: `${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`,
               stats: summary,
+              testIntelligenceSummary: {
+                totalTestFiles: summary.totalTestFiles || 0,
+                coverageRate: summary.coverageRate || "N/A",
+                untestedFiles: (summary.untestedFiles || []).slice(0, 20),
+                lowCoverageFiles: (summary.lowCoverageFiles || []).slice(0, 15).map((f: any) => `${f.file} (${f.coverage || "0%"})`),
+              },
             });
             try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
           } catch (err) {
