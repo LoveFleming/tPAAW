@@ -976,6 +976,7 @@ export default function CodingIDE() {
   const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
   // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
+  const [emModel, setEmModel] = useState<string>(""); // EM Dashboard has its own model
   const codingModel = activeCrew ? (crewModels[activeCrew] || "") : "";
   const setCodingModel = useCallback((model: string) => {
     if (!activeCrew) return;
@@ -2797,8 +2798,8 @@ const sendChat = useCallback(async () => {
                 onOpenFile={openFile}
                 onStartCodeUnderstanding={startAiInitialize}
                 codeUnderstanding={{ running: aiInitializing, steps: aiInitSteps }}
-                model={codingModel}
-                onModelChange={setCodingModel}
+                model={emModel}
+                onModelChange={setEmModel}
                 onDispatchToCrew={(crewId, message) => {
                   // Switch to the crew tab and pre-fill the chat input
                   const crew = codingCrews.find(c => c.id === crewId);
