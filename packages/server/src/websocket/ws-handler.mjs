@@ -6,7 +6,6 @@
 import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
-import { patchWindowsPath } from "../lib/semgrep-runner.mjs";
 import {
   PAAW_ROOT, readFileSync, writeFileSync, appendFileSync, resolve, mkdirSync,
 } from "../routes/shared.mjs";
@@ -102,9 +101,6 @@ export function setupWebSocket() {
         }
 
         try {
-          // Patch PATH on Windows so Python/semgrep are available in PTY
-          patchWindowsPath();
-
           const shellBin = process.platform === "win32"
             ? (process.env.COMSPEC || "powershell.exe")
             : (process.env.SHELL || "/bin/zsh");
