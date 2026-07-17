@@ -1101,52 +1101,17 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── GET /api/coding-project/security-scan/quick-check — Fast path check (no exec, <100ms) ──
+    // ── GET /api/coding-project/security-scan/quick-check — Fast check if semgrep is available ──
     if (url.startsWith("/api/coding-project/security-scan/quick-check") && method === "GET") {
-      const { existsSync } = await import("fs");
-      const { readdirSync, statSync } = await import("fs");
-      const { homedir } = await import("os");
-      const pathChecks = [];
-      const _isWin = process.platform === "win32";
-      const home = process.env.USERPROFILE || process.env.HOME || homedir();
-
-      // Check common semgrep locations (pure fs, zero exec)
-      const candidates = [];
-      if (process.env.SEMGREP_PATH) candidates.push({ label: "SEMGREP_PATH env", path: process.env.SEMGREP_PATH, exists: existsSync(process.env.SEMGREP_PATH) });
-
-      if (_isWin) {
-        const scanBases = [
-          require("path").join(home, "AppData", "Local", "Programs", "Python"),
-          require("path").join(home, "AppData", "Roaming", "Python"),
-        ];
-        for (const base of scanBases) {
-          if (!existsSync(base)) continue;
-          try {
-            for (const entry of readdirSync(base)) {
-              const scriptsDir = require("path").join(base, entry, "Scripts");
-              if (existsSync(scriptsDir)) {
-                const hasSemgrep = existsSync(require("path").join(scriptsDir, "semgrep.exe")) || existsSync(require("path").join(scriptsDir, "semgrep"));
-                candidates.push({ label: `Python ${entry}/Scripts`, path: scriptsDir, exists: hasSemgrep, hasSemgrep });
-              }
-              // Also check python.exe presence
-              const hasPython = existsSync(require("path").join(base, entry, "python.exe")) || existsSync(require("path").join(base, entry, "python3.exe"));
-              if (hasPython) candidates.push({ label: `Python ${entry}`, path: require("path").join(base, entry), exists: true, hasPython });
-            }
-          } catch {}
-        }
-      } else {
-        const unixPaths = ["/opt/homebrew/bin/semgrep", "/usr/local/bin/semgrep", "/usr/bin/semgrep"];
-        for (const p of unixPaths) {
-          candidates.push({ label: p, path: p, exists: existsSync(p) });
-        }
-      }
-
+      const diag = diagnoseSemgrep();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         platform: process.platform,
-        envOverride: !!process.env.SEMGREP_PATH,
+        available: diag.available,
+        cmd: diag.cmd,
+        version: diag.version || null,
+        installInstructions: diag.installInstructions || null,
         SEMGREP_PATH: process.env.SEMGREP_PATH || null,
-        candidates,
       }));
       return true;
     }
@@ -1181,8 +1146,7 @@ export default async function projectRoute(req, res) {
         return true;
       }
       try {
-        const scanResult = await runSemgrep(root, { timeoutMs: 120_000 });
-        // Save to .paaw/security/
+        const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
         const secDir = join(root, ".paaw", "security");
         if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
         await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
@@ -1591,7 +1555,7 @@ export default async function projectRoute(req, res) {
           }
           try {
             cuLog(step.id, "Running Semgrep scan...");
-            const scanResult = await runSemgrep(root, { timeoutMs: 120_000 });
+            const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
             // Save results
             const secDir = join(root, ".paaw", "security");
             if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
@@ -2011,7 +1975,7 @@ export default async function projectRoute(req, res) {
             }
             try {
               cuLog(step.id, "[bulk] Running Semgrep scan...");
-              const scanResult = await runSemgrep(root, { timeoutMs: 120_000 });
+              const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
               const secDir = join(root, ".paaw", "security");
               if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
               await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");

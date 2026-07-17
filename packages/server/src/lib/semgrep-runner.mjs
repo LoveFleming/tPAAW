@@ -292,9 +292,25 @@ export async function runSemgrep(projectRoot, options = {}) {
       raw = JSON.parse(stdout);
     }
 
-    const findings = (raw.results || []).map(r => ({
-      id: r.check_id || "unknown",
-      severity: r.extra?.severity || "INFO",
+    const findings = (raw.results || []).map(r => {
+      // Remap severity: semgrep ERROR is overly aggressive
+      // Real blocking = ERROR + HIGH confidence + not audit rule
+      const rawSeverity = r.extra?.severity || "INFO";
+      const confidence = (r.extra?.metadata?.confidence || "").toUpperCase();
+      const subcategory = (r.extra?.metadata?.subcategory || []).map(s => s.toLowerCase());
+      const isAudit = subcategory.includes("audit") || (r.check_id || "").includes("audit");
+      let severity;
+      if (rawSeverity === "ERROR" && confidence === "HIGH" && !isAudit) {
+        severity = "CRITICAL";  // truly actionable
+      } else if (rawSeverity === "ERROR") {
+        severity = "WARNING";  // downgrade: ERROR but not high confidence or is audit
+      } else {
+        severity = rawSeverity;
+      }
+      return {
+        id: r.check_id || "unknown",
+        severity,
+        rawSeverity,
       confidence: r.extra?.metadata?.confidence || "UNKNOWN",
       category: r.extra?.metadata?.category || r.extra?.metadata?.owasp || "general",
       cwe: r.extra?.metadata?.cwe || [],
@@ -430,7 +446,7 @@ export function formatCondensed(scanResult) {
   if (!scanResult.findings || scanResult.findings.length === 0) return "✅ No issues found";
   const lines = [];
   for (const f of scanResult.findings) {
-    const icon = f.severity === "ERROR" ? "🔴" : f.severity === "WARNING" ? "🟡" : "🔵";
+    const icon = f.severity === "CRITICAL" ? "🔴" : f.severity === "ERROR" ? "🔴" : f.severity === "WARNING" ? "🟡" : "🔵";
     lines.push(`${icon} ${f.file}:${f.line} [${f.severity}] ${f.id} — ${f.message.slice(0, 80)}`);
   }
   return lines.join("\n");
