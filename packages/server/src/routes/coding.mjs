@@ -1094,7 +1094,6 @@ export default async function projectRoute(req, res) {
       }
       return true;
     }
-    }
 
     // ── GET /api/coding-project/test-intelligence ──
     if (url.startsWith("/api/coding-project/test-intelligence") && method === "GET") {
@@ -1518,8 +1517,8 @@ export default async function projectRoute(req, res) {
                 totalCalls: summary.callGraph?.totalCalls || 0,
                 totalDependencies: summary.dependencyGraph?.totalEdges || 0,
                 totalSymbols: summary.symbolIndex?.total || 0,
-                topFunctions: (summary.callGraph?.topFunctions || []).slice(0, 20).map((f: any) => `${f.name} (${f.file}:${f.line}, called ${f.callCount}x)`),
-                topDependencies: (summary.dependencyGraph?.topEdges || []).slice(0, 15).map((e: any) => `${e.from} → ${e.to}`),
+                topFunctions: (summary.callGraph?.topFunctions || []).slice(0, 20).map((f) => `${f.name} (${f.file}:${f.line}, called ${f.callCount}x)`),
+                topDependencies: (summary.dependencyGraph?.topEdges || []).slice(0, 15).map((e) => `${e.from} → ${e.to}`),
               },
             });
             try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.callGraph.totalFunctions} functions` }); } catch {}
@@ -1547,7 +1546,7 @@ export default async function projectRoute(req, res) {
                 totalTestFiles: summary.totalTestFiles || 0,
                 coverageRate: summary.coverageRate || "N/A",
                 untestedFiles: (summary.untestedFiles || []).slice(0, 20),
-                lowCoverageFiles: (summary.lowCoverageFiles || []).slice(0, 15).map((f: any) => `${f.file} (${f.coverage || "0%"})`),
+                lowCoverageFiles: (summary.lowCoverageFiles || []).slice(0, 15).map((f) => `${f.file} (${f.coverage || "0%"})`),
               },
             });
             try { await paaw.setCuStepStatus(step.id, "done", { summary: `${summary.totalTestFiles} tests` }); } catch {}
