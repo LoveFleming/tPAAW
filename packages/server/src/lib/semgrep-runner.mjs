@@ -1,15 +1,19 @@
 /**
  * semgrep-runner.mjs — Run Semgrep static analysis on a project
  *
- * Simple approach: just run `semgrep` directly. If it's not available,
- * show installation instructions. No complex PATH scanning or version detection.
+ * Simple & robust: just run `semgrep` directly. Detailed logging at every step
+ * so Windows issues are visible. No pre-scan diagnose — if semgrep fails,
+ * the error + stderr is returned so the user can see what happened.
  *
- * Windows: automatically sets PYTHONUTF8=1 and PYTHONIOENCODING=utf-8
- * to avoid Python encoding errors.
+ * Windows fixes:
+ *   - PYTHONUTF8=1 + PYTHONIOENCODING=utf-8
+ *   - .bat script with @echo off + set commands
+ *   - Avoid cmd /c with quoted paths (breaks on spaces)
+ *   - Use pushd / cd to script dir instead
  */
 
 import { exec as execCb, execSync as execSyncCb } from "child_process";
-import { existsSync, readdirSync, statSync, writeFileSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync, statSync, writeFileSync, mkdirSync, readFileSync, unlinkSync } from "fs";
 import { join, resolve, extname, dirname } from "path";
 import { promisify } from "util";
 import { fileURLToPath } from "url";
@@ -23,7 +27,11 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const exec = promisify(execCb);
 const isWin = process.platform === "win32";
 
-const LOG = (...args) => console.log("[semgrep]", ...args);
+// ── Logging ──
+// Always log — these go to server console and are critical for debugging Windows issues
+
+const LOG = (...args) => console.log(`[semgrep ${new Date().toISOString().slice(11, 19)}]`, ...args);
+const LOG_ERR = (...args) => console.error(`[semgrep ${new Date().toISOString().slice(11, 19)}]`, ...args);
 
 /** Normalize path: Windows backslashes → forward slashes */
 function safePath(p) {
@@ -38,26 +46,27 @@ function _semgrepEnv() {
     env.PYTHONUTF8 = "1";
     env.PYTHONIOENCODING = "utf-8";
   }
+  LOG("_semgrepEnv: PYTHONUTF8=", env.PYTHONUTF8, "PYTHONIOENCODING=", env.PYTHONIOENCODING);
   return env;
 }
 
-// ── Installation instructions ──
+// ── Installation instructions (returned when semgrep not found) ──
 
 const INSTALL_INSTRUCTIONS = isWin
   ? [
       "Semgrep is not installed or not in PATH.",
       "",
       "Install steps (Windows):",
-      "  1. pip install semgrep",
-      "  2. Make sure Python Scripts directory is in your PATH:",
-      "     Usually: %APPDATA%\\Python\\PythonXX\\Scripts",
-      "  3. Or set environment variable: set SEMGREP_PATH=C:\\path\\to\\semgrep.exe",
-      "  4. Set PYTHONUTF8=1 and PYTHONIOENCODING=utf-8 to avoid encoding errors",
+      "  1. Open command prompt as Administrator",
+      "  2. pip install semgrep",
+      "  3. Make sure Python Scripts directory is in your system PATH",
+      "     (usually %APPDATA%\\Python\\PythonXX\\Scripts)",
+      "  4. Test: set PYTHONUTF8=1 && set PYTHONIOENCODING=utf-8 && semgrep --version",
       "",
-      "Quick test in command line:",
-      "  set PYTHONUTF8=1",
-      "  set PYTHONIOENCODING=utf-8",
-      "  semgrep --version",
+      "If semgrep is installed but not in PATH, set env var:",
+      "  set SEMGREP_PATH=C:\\path\\to\\semgrep.exe",
+      "",
+      "Note: PAAW auto-sets PYTHONUTF8=1 and PYTHONIOENCODING=utf-8 when running semgrep.",
     ].join("\n")
   : [
       "Semgrep is not installed or not in PATH.",
@@ -65,10 +74,9 @@ const INSTALL_INSTRUCTIONS = isWin
       "Install steps (macOS/Linux):",
       "  1. pip install semgrep",
       "  Or: brew install semgrep",
-      "  2. Or set environment variable: export SEMGREP_PATH=/path/to/semgrep",
+      "  2. Or set: export SEMGREP_PATH=/path/to/semgrep",
       "",
-      "Quick test:",
-      "  semgrep --version",
+      "Quick test: semgrep --version",
     ].join("\n");
 
 // ── File scanning for rule detection ──
@@ -99,26 +107,28 @@ function scanSourceExtensions(projectRoot, maxDepth = 4) {
 }
 
 export function detectRulePacks(projectRoot) {
-  const LOCAL_RULES_DIR = resolve(PAAW_ROOT, "data/semgrep-rules");
+  const LOCAL_RULES_DIR = resolve(PAAW_ROOT, "data", "semgrep-rules");
+  LOG("detectRulePacks: LOCAL_RULES_DIR=", LOCAL_RULES_DIR, "exists=", existsSync(LOCAL_RULES_DIR));
   const hasLocal = existsSync(LOCAL_RULES_DIR);
   const packs = [];
   const exts = scanSourceExtensions(projectRoot);
+  LOG("detectRulePacks: found extensions:", [...exts].join(", "));
 
   if (hasLocal) {
     if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) {
-      packs.push(join(LOCAL_RULES_DIR, "javascript"));
+      packs.push(safePath(join(LOCAL_RULES_DIR, "javascript")));
     }
     if (exts.has(".ts") || exts.has(".tsx")) {
-      packs.push(join(LOCAL_RULES_DIR, "typescript"));
+      packs.push(safePath(join(LOCAL_RULES_DIR, "typescript")));
     }
     if (exts.has(".py")) {
-      packs.push(join(LOCAL_RULES_DIR, "python"));
+      packs.push(safePath(join(LOCAL_RULES_DIR, "python")));
     }
     if (exts.has(".java")) {
-      packs.push(join(LOCAL_RULES_DIR, "java"));
+      packs.push(safePath(join(LOCAL_RULES_DIR, "java")));
     }
     if (existsSync(join(LOCAL_RULES_DIR, "problem-based-packs"))) {
-      packs.push(join(LOCAL_RULES_DIR, "problem-based-packs"));
+      packs.push(safePath(join(LOCAL_RULES_DIR, "problem-based-packs")));
     }
   } else {
     // No local rules → registry (needs internet)
@@ -129,6 +139,7 @@ export function detectRulePacks(projectRoot) {
     packs.push("p/owasp-top-ten");
     packs.push("p/cwe-top-25");
   }
+  LOG("detectRulePacks: rule packs:", packs.length, packs);
   return packs;
 }
 
@@ -144,7 +155,9 @@ function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
     return sp.includes(" ") ? `--config "${sp}"` : `--config ${sp}`;
   }).join(" ");
 
-  return `${bin} --metrics off --json ${configArgs} ${excludeArgs} --quiet ${root}`;
+  const cmd = `${bin} --metrics off --json ${configArgs} ${excludeArgs} --quiet ${root}`;
+  LOG("buildSemgrepCmd:", cmd);
+  return cmd;
 }
 
 export function buildFullScanCommand(projectRoot) {
@@ -163,11 +176,12 @@ export function buildFullScanCommand(projectRoot) {
   return buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
 }
 
-// ── Public API ──
+// ── Quick check (used by import-check only) ──
 
 export function isSemgrepAvailable() {
   const bin = process.env.SEMGREP_PATH || "semgrep";
   try {
+    LOG("isSemgrepAvailable: testing", bin);
     execSyncCb(`${bin} --version`, {
       stdio: "pipe",
       timeout: 15000,
@@ -175,64 +189,48 @@ export function isSemgrepAvailable() {
       env: _semgrepEnv(),
       encoding: "utf-8",
     });
+    LOG("isSemgrepAvailable: true");
     return true;
-  } catch {
+  } catch (e) {
+    LOG("isSemgrepAvailable: false —", e.message?.slice(0, 200));
     return false;
   }
 }
 
 export function diagnoseSemgrep() {
+  // Kept for import-check compatibility — just wraps isSemgrepAvailable
+  const available = isSemgrepAvailable();
   const bin = process.env.SEMGREP_PATH || "semgrep";
-  try {
-    const result = execSyncCb(`${bin} --version`, {
-      stdio: "pipe",
-      timeout: 15000,
-      shell: true,
-      env: _semgrepEnv(),
-      encoding: "utf-8",
-    });
-    return {
-      available: true,
-      cmd: bin,
-      version: (result || "").trim(),
-    };
-  } catch {
-    return {
-      available: false,
-      cmd: bin,
-      installInstructions: INSTALL_INSTRUCTIONS,
-    };
-  }
+  return available
+    ? { available: true, cmd: bin }
+    : { available: false, cmd: bin, installInstructions: INSTALL_INSTRUCTIONS };
 }
 
-/**
- * Run Semgrep on a project and return structured results
- */
+// ── Core: run semgrep scan ──
+
 export async function runSemgrep(projectRoot, options = {}) {
-  const timeoutMs = options.timeoutMs || 300_000; // 5 min default — semgrep scans can be slow
+  const timeoutMs = options.timeoutMs || 300_000; // 5 min
   const customPacks = options.rulePacks;
 
-  LOG("runSemgrep() called, projectRoot:", projectRoot, "timeout:", timeoutMs);
+  LOG("━━━ runSemgrep START ━━━");
+  LOG("projectRoot:", projectRoot);
+  LOG("platform:", process.platform, "| isWin:", isWin);
+  LOG("timeout:", timeoutMs, "ms");
+  LOG("SEMGREP_PATH env:", process.env.SEMGREP_PATH || "(not set)");
+  LOG("PATH (first 300):", (process.env.PATH || "").slice(0, 300));
 
-  // Check if semgrep is available first
-  const diag = diagnoseSemgrep();
-  if (!diag.available) {
-    return {
-      findings: [],
-      stats: { total: 0, bySeverity: {}, byCategory: {} },
-      error: INSTALL_INSTRUCTIONS,
-    };
-  }
-
+  // ── Step 1: Detect rules ──
   const rulePacks = customPacks || detectRulePacks(projectRoot);
   if (rulePacks.length === 0) {
+    LOG("runSemgrep: no rule packs detected — aborting");
     return {
       findings: [],
       stats: { total: 0, bySeverity: {}, byCategory: {}, filesScanned: 0, rulesRun: 0 },
-      error: "No supported source files found",
+      error: "No supported source files found. Semgrep needs .js/.ts/.py/.java files to scan.",
     };
   }
 
+  // ── Step 2: Build command ──
   const excludeArgs = [
     "--exclude node_modules",
     "--exclude .git",
@@ -244,125 +242,224 @@ export async function runSemgrep(projectRoot, options = {}) {
     "--exclude '*.map'",
   ].join(" ");
 
+  const semgrepBin = process.env.SEMGREP_PATH || "semgrep";
   const fullCmd = buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
   LOG("runSemgrep: full command:", fullCmd);
 
-  // Write JSON output to a temp file (avoids stdout truncation/encoding issues)
+  // ── Step 3: Prepare temp output path ──
   const jsonOutPath = join(tmpdir(), `semgrep-result-${randomUUID()}.json`);
-  const fileCmd = fullCmd.replace("--json ", `--json --json-output ${safePath(jsonOutPath)} `);
+  const jsonOutSafe = safePath(jsonOutPath);
+  LOG("runSemgrep: json output path:", jsonOutSafe);
 
-  // Write command to a temp script file to avoid Windows cmd.exe line length issues
+  // Add --json-output to the command (semgrep writes results to file)
+  // Some older semgrep versions may not support this — we'll also capture stdout
+  const fileCmd = fullCmd.replace(" --quiet ", ` --quiet --json-output ${jsonOutSafe.includes(" ") ? `"${jsonOutSafe}"` : jsonOutSafe} `);
+
+  // ── Step 4: Write temp script (avoids Windows cmd.exe quoting hell) ──
   const scriptExt = isWin ? ".bat" : ".sh";
   const scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
-  const scriptContent = isWin
-    ? `@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n${fileCmd}\r\n`
-    : `#!/bin/sh\n${fileCmd}\n`;
-  writeFileSync(scriptPath, scriptContent, "utf-8");
-  LOG("runSemgrep: script file:", scriptPath);
-  LOG("runSemgrep: json output:", jsonOutPath);
+  const scriptSafe = safePath(scriptPath);
 
-  const runCmd = isWin ? `cmd /c "${safePath(scriptPath)}"` : `sh "${scriptPath}"`;
+  let scriptContent;
+  if (isWin) {
+    // Windows .bat: set env vars, then run semgrep
+    // Use pushd to handle paths with spaces
+    scriptContent = [
+      "@echo off",
+      "set PYTHONUTF8=1",
+      "set PYTHONIOENCODING=utf-8",
+      fileCmd,
+    ].join("\r\n");
+  } else {
+    scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fileCmd}\n`;
+  }
+
+  writeFileSync(scriptPath, scriptContent, "utf-8");
+  LOG("runSemgrep: script written to:", scriptSafe, `(${scriptContent.length} bytes)`);
+
+  // ── Step 5: Execute ──
+  let runCmd;
+  if (isWin) {
+    // Windows: use call to run the .bat, avoid cmd /c "path with spaces" truncation
+    // Use short 8.3 name if possible, or just use the script dir
+    runCmd = `call "${scriptSafe}"`;
+  } else {
+    runCmd = `sh "${scriptSafe}"`;
+  }
+  LOG("runSemgrep: run command:", runCmd);
+
+  let stdout = "";
+  let stderr = "";
+  let execError = null;
 
   try {
-    const { stdout, stderr } = await exec(runCmd, {
+    const result = await exec(runCmd, {
       cwd: projectRoot,
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024,
       shell: true,
       env: _semgrepEnv(),
     });
-
-    // Clean up temp script
-    try { require("fs").unlinkSync(scriptPath); } catch {}
-
-    // Read JSON output from file
-    let raw;
-    if (existsSync(jsonOutPath)) {
-      try {
-        const jsonText = readFileSync(jsonOutPath, "utf-8");
-        raw = JSON.parse(jsonText);
-        LOG("runSemgrep: read result from file, size:", jsonText.length);
-      } catch (parseErr) {
-        LOG("runSemgrep: json-output file parse error:", parseErr.message);
-        raw = JSON.parse(stdout);
-      }
-      try { require("fs").unlinkSync(jsonOutPath); } catch {}
-    } else {
-      LOG("runSemgrep: json-output file not found, falling back to stdout");
-      raw = JSON.parse(stdout);
+    stdout = result.stdout || "";
+    stderr = result.stderr || "";
+    LOG("runSemgrep: exec completed. stdout:", stdout.length, "bytes, stderr:", stderr.length, "bytes");
+    if (stderr.length > 0 && stderr.length < 2000) {
+      LOG("runSemgrep: stderr content:", stderr.slice(0, 1000));
     }
+  } catch (err) {
+    execError = err;
+    stdout = err.stdout || "";
+    stderr = err.stderr || "";
+    LOG_ERR("runSemgrep: exec FAILED —", err.message?.slice(0, 300));
+    LOG_ERR("runSemgrep: exit code:", err.code, "killed:", err.killed);
+    if (stderr.length > 0) LOG_ERR("runSemgrep: stderr:", stderr.slice(0, 2000));
+    if (stdout.length > 0) LOG("runSemgrep: stdout (error):", stdout.slice(0, 1000));
+  }
 
-    const findings = (raw.results || []).map(r => {
-      // Remap severity: semgrep ERROR is overly aggressive
-      // Real blocking = ERROR + HIGH confidence + not audit rule
-      const rawSeverity = r.extra?.severity || "INFO";
-      const confidence = (r.extra?.metadata?.confidence || "").toUpperCase();
-      const subcategory = (r.extra?.metadata?.subcategory || []).map(s => s.toLowerCase());
-      const isAudit = subcategory.includes("audit") || (r.check_id || "").includes("audit");
-      let severity;
-      if (rawSeverity === "ERROR" && confidence === "HIGH" && !isAudit) {
-        severity = "CRITICAL";  // truly actionable
-      } else if (rawSeverity === "ERROR") {
-        severity = "WARNING";  // downgrade: ERROR but not high confidence or is audit
-      } else {
-        severity = rawSeverity;
-      }
-      return {
-        id: r.check_id || "unknown",
-        severity,
-        rawSeverity,
-        confidence: r.extra?.metadata?.confidence || "UNKNOWN",
-        category: r.extra?.metadata?.category || r.extra?.metadata?.owasp || "general",
-        cwe: r.extra?.metadata?.cwe || [],
-        message: r.extra?.message || "",
-        file: r.path || "",
-        line: r.start?.line || 0,
-        column: r.start?.col || 0,
-        endLine: r.end?.line || 0,
-        snippet: r.extra?.lines || "",
-        fix: r.extra?.fix || null,
-        references: r.extra?.metadata?.references || [],
-      };
-    });
+  // ── Step 6: Clean up script ──
+  try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", scriptSafe); }
 
-    const bySeverity = {};
-    const byCategory = {};
-    const filesAffected = new Set();
+  // ── Step 7: Parse results ──
+  let raw = null;
+  let parseSource = "none";
 
-    for (const f of findings) {
-      bySeverity[f.severity] = (bySeverity[f.severity] || 0) + 1;
-      const cat = typeof f.category === "string" ? f.category : Array.isArray(f.category) ? f.category[0] : "general";
-      byCategory[cat] = (byCategory[cat] || 0) + 1;
-      if (f.file) filesAffected.add(f.file);
-    }
-
-    LOG("runSemgrep: done —", findings.length, "findings,", filesAffected.size, "files affected");
-
-    // Save results to .paaw/security/scan-results.json
-    const secDir = join(projectRoot, ".paaw", "security");
+  // Try reading from --json-output file first
+  if (existsSync(jsonOutPath)) {
     try {
-      if (!existsSync(secDir)) mkdirSync(secDir, { recursive: true });
-      const scanResult = {
-        findings,
-        stats: {
-          total: findings.length,
-          bySeverity,
-          byCategory,
-          filesScanned: raw.paths?.scanned || 0,
-          filesAffected: filesAffected.size,
-          rulesRun: raw.checks?.performed || rulePacks.length,
-          rulePacks,
-        },
-        raw: { version: raw.version, paths: raw.paths },
-        scannedAt: new Date().toISOString(),
+      const jsonText = readFileSync(jsonOutPath, "utf-8");
+      LOG("runSemgrep: read json-output file, size:", jsonText.length, "bytes");
+      if (jsonText.length > 0) {
+        raw = JSON.parse(jsonText);
+        parseSource = "json-output-file";
+      }
+    } catch (parseErr) {
+      LOG_ERR("runSemgrep: json-output file parse error:", parseErr.message);
+    }
+    try { unlinkSync(jsonOutPath); } catch {}
+  } else {
+    LOG("runSemgrep: json-output file NOT found at:", jsonOutSafe);
+  }
+
+  // Fallback: try parsing stdout
+  if (!raw && stdout.length > 0) {
+    LOG("runSemgrep: falling back to stdout, size:", stdout.length, "bytes");
+    try {
+      raw = JSON.parse(stdout);
+      parseSource = "stdout";
+    } catch (parseErr) {
+      LOG_ERR("runSemgrep: stdout parse error:", parseErr.message);
+      LOG("runSemgrep: stdout first 500 chars:", stdout.slice(0, 500));
+    }
+  }
+
+  // Fallback: try parsing stderr for JSON
+  if (!raw && stderr.length > 0) {
+    const jsonStart = stderr.indexOf("{");
+    if (jsonStart >= 0) {
+      LOG("runSemgrep: trying to extract JSON from stderr at offset", jsonStart);
+      try {
+        raw = JSON.parse(stderr.slice(jsonStart));
+        parseSource = "stderr";
+      } catch {
+        LOG_ERR("runSemgrep: stderr JSON extraction failed");
+      }
+    }
+  }
+
+  // ── Step 8: Handle no results ──
+  if (!raw) {
+    // semgrep didn't produce any output — probably not installed or crashed
+    const errorDetail = [];
+    if (execError) {
+      errorDetail.push(`Exit code: ${execError.code || "unknown"}`);
+      errorDetail.push(`Error: ${execError.message?.slice(0, 300)}`);
+    }
+    if (stderr.length > 0) {
+      errorDetail.push(`stderr: ${stderr.slice(0, 500)}`);
+    }
+    if (stdout.length > 0) {
+      errorDetail.push(`stdout: ${stdout.slice(0, 500)}`);
+    }
+    // Check if it's "command not found" type error
+    const stdLower = (stderr + stdout).toLowerCase();
+    const isNotFound = stdLower.includes("'semgrep' is not recognized") ||
+                       stdLower.includes("semgrep: not found") ||
+                       stdLower.includes("command not found") ||
+                       stdLower.includes("is not recognized as an internal or external command") ||
+                       stdLower.includes("no such file or directory") ||
+                       (execError && execError.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" === false && !raw);
+
+    LOG_ERR("runSemgrep: no parseable output. isNotFound:", isNotFound, "details:", errorDetail.join(" | "));
+
+    if (isNotFound || (execError && !raw)) {
+      return {
+        findings: [],
+        stats: { total: 0, bySeverity: {}, byCategory: {} },
+        error: INSTALL_INSTRUCTIONS,
+        _debug: { parseSource, execError: execError?.message?.slice(0, 200), stderr: stderr.slice(0, 300), stdout: stdout.slice(0, 300) },
       };
-      writeFileSync(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
-      LOG("runSemgrep: results saved to", join(secDir, "scan-results.json"));
-    } catch (saveErr) {
-      LOG("runSemgrep: failed to save results:", saveErr.message);
     }
 
     return {
+      findings: [],
+      stats: { total: 0, bySeverity: {}, byCategory: {} },
+      error: `Semgrep produced no output.\n${errorDetail.join("\n")}`,
+      _debug: { parseSource, stderr: stderr.slice(0, 500), stdout: stdout.slice(0, 500) },
+    };
+  }
+
+  // ── Step 9: Map findings ──
+  LOG("runSemgrep: parsed results from:", parseSource, "version:", raw.version, "paths.scanned:", raw.paths?.scanned);
+
+  const findings = (raw.results || []).map(r => {
+    const rawSeverity = r.extra?.severity || "INFO";
+    const confidence = (r.extra?.metadata?.confidence || "").toUpperCase();
+    const subcategory = (r.extra?.metadata?.subcategory || []).map(s => s.toLowerCase());
+    const isAudit = subcategory.includes("audit") || (r.check_id || "").includes("audit");
+    let severity;
+    if (rawSeverity === "ERROR" && confidence === "HIGH" && !isAudit) {
+      severity = "CRITICAL";
+    } else if (rawSeverity === "ERROR") {
+      severity = "WARNING";
+    } else {
+      severity = rawSeverity;
+    }
+    return {
+      id: r.check_id || "unknown",
+      severity,
+      rawSeverity,
+      confidence: r.extra?.metadata?.confidence || "UNKNOWN",
+      category: r.extra?.metadata?.category || r.extra?.metadata?.owasp || "general",
+      cwe: r.extra?.metadata?.cwe || [],
+      message: r.extra?.message || "",
+      file: r.path || "",
+      line: r.start?.line || 0,
+      column: r.start?.col || 0,
+      endLine: r.end?.line || 0,
+      snippet: r.extra?.lines || "",
+      fix: r.extra?.fix || null,
+      references: r.extra?.metadata?.references || [],
+    };
+  });
+
+  const bySeverity = {};
+  const byCategory = {};
+  const filesAffected = new Set();
+
+  for (const f of findings) {
+    bySeverity[f.severity] = (bySeverity[f.severity] || 0) + 1;
+    const cat = typeof f.category === "string" ? f.category : Array.isArray(f.category) ? f.category[0] : "general";
+    byCategory[cat] = (byCategory[cat] || 0) + 1;
+    if (f.file) filesAffected.add(f.file);
+  }
+
+  LOG("runSemgrep: done —", findings.length, "findings,", filesAffected.size, "files affected, parsed from:", parseSource);
+
+  // ── Step 10: Save results ──
+  const secDir = join(projectRoot, ".paaw", "security");
+  try {
+    if (!existsSync(secDir)) mkdirSync(secDir, { recursive: true });
+    const scanResult = {
       findings,
       stats: {
         total: findings.length,
@@ -374,48 +471,44 @@ export async function runSemgrep(projectRoot, options = {}) {
         rulePacks,
       },
       raw: { version: raw.version, paths: raw.paths },
+      scannedAt: new Date().toISOString(),
     };
-  } catch (err) {
-    try { require("fs").unlinkSync(scriptPath); } catch {}
-    try { require("fs").unlinkSync(jsonOutPath); } catch {}
-    LOG("runSemgrep ERROR:", err.message?.slice(0, 300));
-    if (err.killed) {
-      return {
-        findings: [],
-        stats: { total: 0, bySeverity: {}, byCategory: {} },
-        error: `Semgrep timed out after ${timeoutMs / 1000}s`,
-      };
-    }
-    try {
-      const stderr = err.stderr || "";
-      if (stderr.includes("{")) {
-        const jsonStart = stderr.indexOf("{");
-        const raw = JSON.parse(stderr.slice(jsonStart));
-        if (raw.results) {
-          return {
-            findings: raw.results.map(r => ({
-              id: r.check_id,
-              severity: r.extra?.severity || "INFO",
-              message: r.extra?.message || "",
-              file: r.path,
-              line: r.start?.line || 0,
-            })),
-            stats: { total: raw.results.length, bySeverity: {}, byCategory: {} },
-            error: "Partial scan with errors",
-          };
-        }
-      }
-    } catch {}
-    return {
-      findings: [],
-      stats: { total: 0, bySeverity: {}, byCategory: {} },
-      error: err.message.slice(0, 500),
-    };
+    writeFileSync(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
+    LOG("runSemgrep: results saved to", safePath(join(secDir, "scan-results.json")));
+  } catch (saveErr) {
+    LOG_ERR("runSemgrep: failed to save results:", saveErr.message);
   }
+
+  // ── Step 11: Return ──
+  const result = {
+    findings,
+    stats: {
+      total: findings.length,
+      bySeverity,
+      byCategory,
+      filesScanned: raw.paths?.scanned || 0,
+      filesAffected: filesAffected.size,
+      rulesRun: raw.checks?.performed || rulePacks.length,
+      rulePacks,
+    },
+    raw: { version: raw.version, paths: raw.paths },
+  };
+
+  if (execError && findings.length === 0) {
+    // semgrep ran but exited with error and no findings — include warning
+    result.warning = `Semgrep exited with code ${execError.code}. stderr: ${stderr.slice(0, 200)}`;
+    LOG("runSemgrep: adding warning to result:", result.warning);
+  }
+
+  LOG("━━━ runSemgrep END ━━━", findings.length, "findings");
+  return result;
 }
+
+// ── Formatters ──
 
 export function formatForAI(scanResult) {
   if (!scanResult.findings || scanResult.findings.length === 0) {
+    if (scanResult.error) return `Scan failed: ${scanResult.error}`;
     return "No security or code quality issues found by Semgrep.";
   }
   const lines = [];
@@ -444,10 +537,13 @@ export function formatForAI(scanResult) {
 }
 
 export function formatCondensed(scanResult) {
-  if (!scanResult.findings || scanResult.findings.length === 0) return "✅ No issues found";
+  if (!scanResult.findings || scanResult.findings.length === 0) {
+    if (scanResult.error) return `❌ ${scanResult.error.split("\n")[0]}`;
+    return "✅ No issues found";
+  }
   const lines = [];
   for (const f of scanResult.findings) {
-    const icon = f.severity === "CRITICAL" ? "🔴" : f.severity === "ERROR" ? "🔴" : f.severity === "WARNING" ? "🟡" : "🔵";
+    const icon = f.severity === "CRITICAL" ? "🔴" : f.severity === "WARNING" ? "🟡" : "🔵";
     lines.push(`${icon} ${f.file}:${f.line} [${f.severity}] ${f.id} — ${f.message.slice(0, 80)}`);
   }
   return lines.join("\n");

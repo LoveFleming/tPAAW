@@ -5,7 +5,7 @@
  * Left: Finding list with severity filter
  * Right: Finding detail (code snippet, fix suggestion, references)
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
@@ -13,6 +13,7 @@ import API_BASE from "../api";
 interface Finding {
   id: string;
   severity: string;
+  rawSeverity: string;
   confidence: string;
   category: string | string[];
   cwe: string[];
@@ -40,6 +41,7 @@ interface ScanResult {
   findings: Finding[];
   stats: ScanStats;
   error?: string;
+  warning?: string;
 }
 
 interface Props {
@@ -56,12 +58,13 @@ interface Props {
 }
 
 const SEVERITY_CONFIG: Record<string, { icon: string; color: string; bg: string; label: string }> = {
-  ERROR:   { icon: "🔴", color: "#dc2626", bg: "#fef2f2", label: "Error" },
-  WARNING: { icon: "🟡", color: "#d97706", bg: "#fffbeb", label: "Warning" },
-  INFO:    { icon: "🔵", color: "#2563eb", bg: "#eff6ff", label: "Info" },
+  CRITICAL: { icon: "🔴", color: "#b91c1c", bg: "#fef2f2", label: "Critical" },
+  ERROR:    { icon: "🔴", color: "#dc2626", bg: "#fef2f2", label: "Error" },
+  WARNING:  { icon: "🟡", color: "#d97706", bg: "#fffbeb", label: "Warning" },
+  INFO:     { icon: "🔵", color: "#2563eb", bg: "#eff6ff", label: "Info" },
 };
 
-const SEVERITY_ORDER = ["ERROR", "WARNING", "INFO"];
+const SEVERITY_ORDER = ["CRITICAL", "ERROR", "WARNING", "INFO"];
 
 export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
   const { t } = useI18n();
@@ -77,16 +80,15 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
   const loadResults = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setNotInstalled(false);
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/security-scan/results?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
         const data = await res.json();
         setScanResult(data);
+        // If there's an error in the saved result, show it
+        if (data.error) setError(data.error);
       } else if (res.status === 404) {
         setScanResult(null);
-      } else if (res.status === 503) {
-        setNotInstalled(true);
       } else {
         setError(`HTTP ${res.status}`);
       }
@@ -102,83 +104,19 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
   }, [loadResults]);
 
   // Run new scan
-  const [notInstalled, setNotInstalled] = useState(false);
-  const [diagnostic, setDiagnostic] = useState<any | null>(null);
-  const [loadingDiag, setLoadingDiag] = useState(false);
-  const [showConsole, setShowConsole] = useState(false);
-  const [quickCheck, setQuickCheck] = useState<any | null>(null);
-  const [consoleLines, setConsoleLines] = useState<Array<{type: string; text: string}>>([]);
-  const [consoleInput, setConsoleInput] = useState("");
-  const [consoleRunning, setConsoleRunning] = useState(false);
-
-  // Execute command in console
-  const execConsole = useCallback(async (cmd: string) => {
-    setConsoleRunning(true);
-    setConsoleLines(prev => [...prev, { type: "cmd", text: `$ ${cmd}` }]);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/security-scan/exec?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cmd }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        if (data.stdout) setConsoleLines(prev => [...prev, { type: "stdout", text: data.stdout }]);
-        else setConsoleLines(prev => [...prev, { type: "stdout", text: "(no output)" }]);
-      } else {
-        if (data.stdout) setConsoleLines(prev => [...prev, { type: "stdout", text: data.stdout }]);
-        setConsoleLines(prev => [...prev, { type: "error", text: data.timedOut ? `⏱️ Timeout (8s)` : data.error || "failed" }]);
-      }
-    } catch (err) {
-      setConsoleLines(prev => [...prev, { type: "error", text: String(err) }]);
-    } finally {
-      setConsoleRunning(false);
-    }
-  }, [rootPath]);
-  // Load diagnostic info
-  const loadDiagnostic = useCallback(async () => {
-    setLoadingDiag(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/security-scan/diagnose?path=${encodeURIComponent(rootPath)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setDiagnostic(data);
-        // Also show full scan command in console
-        if (data.fullScanCommand) {
-          setConsoleLines(prev => [...prev,
-            { type: "info", text: `🚀 Full scan command:` },
-            { type: "stdout", text: data.fullScanCommand },
-          ]);
-        }
-        // Show tried commands
-        if (data.tried?.length) {
-          for (const t of data.tried) {
-            setConsoleLines(prev => [...prev, {
-              type: t.ok ? "stdout" : "error",
-              text: `${t.ok ? "✅" : "❌"} ${t.cmd}${t.ok ? " → " + (t.stdout || "").slice(0, 80) : " → " + (t.error || "").slice(0, 80)}`,
-            }]);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Diagnostic failed:", err);
-    } finally {
-      setLoadingDiag(false);
-    }
-  }, [rootPath]);
-
   const runScan = useCallback(async () => {
     setScanning(true);
     setError(null);
-    setNotInstalled(false);
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/security-scan?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
         const data = await res.json();
         setScanResult(data);
         setSelectedFinding(null);
-      } else if (res.status === 503) {
-        setNotInstalled(true);
+        // Check if scan result has error (semgrep not found, etc.)
+        if (data.error) {
+          setError(data.error);
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || `HTTP ${res.status}`);
@@ -210,6 +148,9 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
 
   const tk = theme;
 
+  // Check if error is an install instruction
+  const isInstallError = error && (error.includes("Semgrep is not installed") || error.includes("not in PATH") || error.includes("pip install semgrep"));
+
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: tk.bg }}>
       {/* ── Header: Summary + Actions ── */}
@@ -234,112 +175,19 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
 
         <span className="flex-1" />
 
-          <button
-            onClick={async () => {
-              setShowConsole(v => !v);
-              if (!showConsole) {
-                // Quick path check on open (instant, no exec)
-                try {
-                  const res = await fetch(`${API_BASE}/api/coding-project/security-scan/quick-check?path=${encodeURIComponent(rootPath)}`);
-                  if (res.ok) setQuickCheck(await res.json());
-                } catch {}
-              }
-            }}
-            className={cn("text-xs px-3 py-1 rounded font-semibold transition-colors",
-              showConsole ? "bg-amber-600 text-white" : "bg-amber-500 text-white hover:bg-amber-600")}
-          >
-            🖥️ Console
-          </button>
-          <button
-            onClick={runScan}
-            disabled={scanning}
-            className={cn("text-xs px-3 py-1 rounded font-semibold transition-colors",
-              scanning ? "bg-stone-200 text-stone-400 cursor-wait" : "bg-blue-500 text-white hover:bg-blue-600")}
-          >
-            {scanning ? "⏳ Scanning..." : "🔄 Run Scan"}
-          </button>
+        <button
+          onClick={runScan}
+          disabled={scanning}
+          className={cn("text-xs px-3 py-1 rounded font-semibold transition-colors",
+            scanning ? "bg-stone-200 text-stone-400 cursor-wait" : "bg-blue-500 text-white hover:bg-blue-600")}
+        >
+          {scanning ? "⏳ Scanning..." : "🔄 Run Scan"}
+        </button>
       </div>
 
-      {/* ── Console Panel ── */}
-      {showConsole && (
-        <div className="shrink-0 border-b flex flex-col" style={{ borderColor: tk.borderLight, backgroundColor: "#1e1e1e", maxHeight: "45%" }}>
-          {/* Console header */}
-          <div className="px-3 py-1.5 flex items-center gap-2 shrink-0" style={{ borderBottom: "1px solid #333" }}>
-            <span className="text-xs font-bold text-amber-400">🖥️ Security Console</span>
-            <span className="text-xs text-stone-500">輸入指令測試 semgrep 環境</span>
-            {/* Quick path check results */}
-            {quickCheck && (
-              <div className="flex items-center gap-1 text-xs ml-2">
-                {quickCheck.envOverride && (
-                  <span className="px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-400 font-mono text-xs">
-                    ⚡ env: {quickCheck.SEMGREP_PATH}
-                  </span>
-                )}
-                {!quickCheck.envOverride && quickCheck.candidates?.filter((c: any) => c.exists).map((c: any, i: number) => (
-                  <span key={i} className="px-1.5 py-0.5 rounded bg-green-900/50 text-green-400 font-mono text-xs">✅ {c.label}</span>
-                ))}
-                {!quickCheck.envOverride && quickCheck.candidates?.filter((c: any) => !c.exists).length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 text-xs">
-                    ❌ {quickCheck.candidates?.filter((c: any) => !c.exists).length} not found
-                  </span>
-                )}
-              </div>
-            )}
-            <span className="flex-1" />
-            {/* Quick command buttons */}
-            {["where semgrep", "semgrep --version", "semgrep scan --help"].map(cmd => (
-              <button key={cmd}
-                onClick={() => execConsole(cmd)}
-                disabled={consoleRunning}
-                className="text-xs px-1.5 py-0.5 rounded bg-stone-700 text-stone-300 hover:bg-stone-600 font-mono disabled:opacity-40">
-                {cmd.length > 18 ? cmd.slice(0, 16) + ".." : cmd}
-              </button>
-            ))}
-            <button onClick={() => setShowConsole(false)} className="text-xs text-stone-500 hover:text-stone-300 ml-1">✕</button>
-          </div>
-
-          {/* Console output */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs" style={{ minHeight: 80, maxHeight: 200 }}>
-            {consoleLines.length === 0 && (
-              <div className="text-stone-600">$ 輸入指令或點上方快捷鍵開始...</div>
-            )}
-            {consoleLines.map((line, i) => (
-              <div key={i} className={cn(
-                line.type === "cmd" ? "text-green-400" :
-                line.type === "stdout" ? "text-stone-300" :
-                line.type === "error" ? "text-red-400" :
-                line.type === "info" ? "text-amber-400" : "text-stone-400"
-              )} style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-                {line.text}
-              </div>
-            ))}
-            {consoleRunning && <div className="text-amber-400 animate-pulse">⏳ 執行中...</div>}
-          </div>
-
-          {/* Console input */}
-          <div className="px-3 py-1.5 flex items-center gap-2 shrink-0" style={{ borderTop: "1px solid #333" }}>
-            <span className="text-green-400 font-mono text-xs">$</span>
-            <input
-              type="text"
-              value={consoleInput}
-              onChange={e => setConsoleInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && consoleInput.trim() && !consoleRunning) {
-                  execConsole(consoleInput.trim());
-                  setConsoleInput("");
-                }
-              }}
-              placeholder="輸入指令... (Enter 執行)"
-              disabled={consoleRunning}
-              className="flex-1 bg-transparent text-stone-200 font-mono text-xs outline-none placeholder:text-stone-600 disabled:opacity-40"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ── Error banner ── */}
-      {error && (
-        <div className="px-4 py-2 text-xs text-red-600 bg-red-50 border-b border-red-200">
+      {/* ── Error banner (general errors) ── */}
+      {error && !isInstallError && (
+        <div className="px-4 py-3 text-xs text-red-600 bg-red-50 border-b border-red-200 whitespace-pre-wrap">
           ❌ {error}
         </div>
       )}
@@ -351,27 +199,37 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
         </div>
       )}
 
-      {/* ── Semgrep not installed ── */}
-      {notInstalled && (
+      {/* ── Scanning in progress ── */}
+      {scanning && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <div className="text-4xl animate-pulse">🔍</div>
+          <div className="text-stone-500 text-sm">Running Semgrep scan...</div>
+          <div className="text-stone-400 text-xs">This may take a few minutes for large projects</div>
+        </div>
+      )}
+
+      {/* ── Semgrep not installed (install instructions) ── */}
+      {!loading && !scanning && isInstallError && (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8">
           <div className="text-5xl">📦</div>
           <div className="text-center">
-            <div className="text-stone-600 font-semibold text-sm mb-1">Semgrep 未安裝</div>
+            <div className="text-stone-600 font-semibold text-sm mb-1">Semgrep 未安裝或不在 PATH 中</div>
             <div className="text-stone-400 text-xs mb-4">Security scan 需要 Semgrep — 輕量級靜態分析工具（SAST）</div>
-            <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 text-left">
+            <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 text-left max-w-md">
               <div className="text-xs font-bold text-stone-500 mb-2">安裝方式：</div>
               <div className="font-mono text-xs space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-xs font-bold shrink-0">pip</span>
                   <span className="text-stone-700">pip install semgrep</span>
                 </div>
-                <div className="mt-2 text-stone-500 font-bold">然後在 .env 設定：</div>
+                <div className="text-stone-500 mt-2">確認 PATH 包含 Python Scripts：</div>
+                <div className="text-stone-500 mt-1">Windows: set PYTHONUTF8=1 && set PYTHONIOENCODING=utf-8 && semgrep --version</div>
+                <div className="text-stone-500">macOS: brew install semgrep</div>
+                <div className="mt-2 text-stone-500 font-bold">若 semgrep 不在 PATH，可設環境變數：</div>
                 <div className="mt-1">
-                  <code className="select-all px-1.5 py-0.5 bg-white border border-stone-200 rounded font-mono text-stone-700">SEMGREP_PATH=C:\Python312\Scripts\semgrep.exe</code>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 text-xs font-bold shrink-0">brew</span>
-                  <span className="text-stone-700">brew install semgrep</span>
+                  <code className="select-all px-1.5 py-0.5 bg-white border border-stone-200 rounded font-mono text-stone-700">
+                    SEMGREP_PATH=C:\path\to\semgrep.exe (Windows) / SEMGREP_PATH=/usr/local/bin/semgrep (macOS)
+                  </code>
                 </div>
               </div>
             </div>
@@ -382,8 +240,8 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
         </div>
       )}
 
-      {/* ── Empty state ── */}
-      {!loading && !scanResult && !error && (
+      {/* ── Empty state (never scanned) ── */}
+      {!loading && !scanning && !scanResult && !error && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <div className="text-5xl">🔒</div>
           <div className="text-stone-500 text-sm">No security scan results yet</div>
@@ -394,17 +252,22 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
         </div>
       )}
 
-      {/* ── Clean state ── */}
-      {!loading && scanResult && findings.length === 0 && !error && (
+      {/* ── Clean state (0 findings, no error) ── */}
+      {!loading && !scanning && scanResult && findings.length === 0 && !error && (
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <div className="text-5xl">✅</div>
           <div className="text-green-600 text-sm font-semibold">No issues found!</div>
           <div className="text-stone-400 text-xs">Scanned {stats?.filesScanned || 0} files with {stats?.rulesRun || 0} rules</div>
+          {scanResult.warning && (
+            <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5 max-w-lg whitespace-pre-wrap">
+              ⚠️ {scanResult.warning}
+            </div>
+          )}
         </div>
       )}
 
       {/* ── Main content: finding list + detail ── */}
-      {!loading && scanResult && findings.length > 0 && (
+      {!loading && !scanning && scanResult && findings.length > 0 && (
         <>
           {/* Filter bar */}
           <div className="shrink-0 px-3 py-1.5 flex items-center gap-2 text-xs" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
@@ -474,6 +337,9 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
                       <span className="text-sm font-bold" style={{ color: SEVERITY_CONFIG[selectedFinding.severity]?.color }}>
                         {selectedFinding.severity}
                       </span>
+                      {selectedFinding.rawSeverity && selectedFinding.rawSeverity !== selectedFinding.severity && (
+                        <span className="text-xs text-stone-400">(raw: {selectedFinding.rawSeverity})</span>
+                      )}
                       <span className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-mono">
                         {selectedFinding.id}
                       </span>
