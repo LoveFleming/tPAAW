@@ -142,6 +142,24 @@ export default async function vibeFsRoute(req, res) {
     return true;
   }
 
+  // ── GET /api/vibe-git/changes-since?path=...&since=YYYY-MM-DD ──
+  if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/changes-since")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    const sinceDate = params.get("since") || new Date().toISOString().split("T")[0];
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+    const sinceArg = sinceDate.includes("T") ? sinceDate : `${sinceDate}T00:00:00`;
+    const logR = await runGit(["log", `--since=${sinceArg}`, "--oneline", "--no-decorate"], cwd);
+    const commits = logR.ok ? logR.stdout.trim().split("\n").filter(Boolean) : [];
+    const count = commits.length || 1;
+    const diffR = await runGit(["diff", "--name-only", `HEAD~${Math.min(count, 50)}`, "HEAD"], cwd);
+    const changedFiles = diffR.ok ? diffR.stdout.trim().split("\n").filter(Boolean) : [];
+    const statR = await runGit(["diff", "--stat", `HEAD~${Math.min(count, 50)}`, "HEAD"], cwd);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ since: sinceDate, commits, commitCount: commits.length, changedFiles, diffStat: statR.ok ? statR.stdout.trim() : "" }));
+    return true;
+  }
+
   // ── GET /api/vibe-git/blame ──
   if (req.method === "GET" && req.url?.startsWith("/api/vibe-git/blame")) {
     const params = new URL(req.url, "http://localhost").searchParams;
@@ -170,6 +188,67 @@ export default async function vibeFsRoute(req, res) {
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ file, lines }));
+    return true;
+  }
+
+  // ── POST /api/vibe-git/add — git add files ──
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/add")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const files = body.files; // string[] or ["."] for all
+    if (!files?.length) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing files" })); return true; }
+    const r = await runGit(["add", ...files], cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: `Added ${files.length} file(s)` }));
+    return true;
+  }
+
+  // ── POST /api/vibe-git/commit — git commit ──
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/commit")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const message = body.message;
+    if (!message) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing commit message" })); return true; }
+    const r = await runGit(["commit", "-m", message], cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: "Committed", output: r.stdout.trim() }));
+    return true;
+  }
+
+  // ── POST /api/vibe-git/push — git push ──
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/push")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+    let body = {};
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch {}
+    const args = ["push"];
+    if (body.remote) args.push(body.remote);
+    if (body.branch) args.push(body.branch);
+    const r = await runGit(args, cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: "Pushed", output: r.stdout.trim() + (r.stderr ? "\n" + r.stderr.trim() : "") }));
+    return true;
+  }
+
+  // ── POST /api/vibe-git/pull — git pull ──
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/pull")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+    const r = await runGit(["pull"], cwd);
+    if (!r.ok) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: r.stderr })); return true; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: "Pulled", output: r.stdout.trim() + (r.stderr ? "\n" + r.stderr.trim() : "") }));
     return true;
   }
 

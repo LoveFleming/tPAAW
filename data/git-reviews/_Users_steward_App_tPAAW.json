@@ -1,0 +1,17 @@
+[
+  {
+    "comment": "⚠️ AI review 不可用 (chatRes.body.on is not a function)，但以下是基本分析：\n\ndiff --git a/.paaw/code-intelligence/status-cache.json b/.paaw/code-intelligence/status-cache.json\nindex 2f1ac36..604a15d 100644\n--- a/.paaw/code-intelligence/status-cache.json\n+++ b/.paaw/code-intelligence/status-cache.json\n@@ -1,5 +1,5 @@\n {\n-  \"timestamp\": 1784201647830,\n+  \"timestamp\": 1784206054828,\n   \"data\": {\n     \"architecture\": {\n       \"score\": 100,\n@@ -92,7 +92,7 @@\n         {\n           \"name\": \"Tracked Files\",\n           \"status\": \"info\",\n-          \"detail\": \"3222 files\"\n+          \"detail\": \"3226 files\"\n         }\n       ]\n     },\n@@ -107,7 +107,7 @@\n         {\n           \"name\": \"Git Status\",\n           \"status\": \"warn\",\n-          \"detail\": \"4 uncommitted\"\n+          \"detail\": \"6 uncommitted\"\n         },\n         {\n           \"name\": \"Error Handling\",\ndiff --git a/.paaw/coding-memory/conversations/coding.em-dashboard/active.json b/.paaw/coding-memory/conversations/coding.em-dashboard/active.json\nindex d9bda4f..2cfb601 100644\n--- a/.paaw/coding-memory/conversations/coding.em-dashboard/active.json\n+++ b/.paaw/coding-memory/conversations/coding.em-dashboard/active.json\n@@ -1,7 +1,7 @@\n {\n   \"_meta\": {\n     \"crewId\": \"coding.em-dashboard\",\n-    \"lastUpdated\": \"2026-07-16T11:34:10.697Z\",\n+    \"lastUpdated\": \"2026-07-16T12:47:58.727Z\",\n     \"messageCount\": 1\n   },\n   \"messages\": [\ndiff --git a/data/config/recent-projects.json b/data/config/recent-projects.json\nindex 1e995a6..f690717 100644\n--- a/data/config/recent-projects.json\n+++ b/data/config/recent-projects.json\n@@ -2,7 +2,7 @@\n   {\n     \"path\": \"/Users/steward/App/tPAAW\",\n     \"name\": \"tPAAW\",\n-    \"lastOpened\": \"2026-07-16T11:34:07.735Z\",\n+    \"lastOpened\": \"2026-07-16T12:49:17.747Z\",\n     \"hasPaaw\": true\n   }\n ]\n\\ No newline at end of file\ndiff --git a/packages/server/src/routes/vibe-fs.mjs b/packages/server/src/routes/vibe-fs.mjs\nindex f1a5332..1b74104 100644\n--- a/packages/server/src/routes/vibe-fs.mjs\n+++ b/packages/server/src/routes/vibe-fs.mjs\n@@ -173,6 +173,67 @@ export default async functio",
+    "branch": "dev",
+    "files": [
+      ".paaw/code-intelligence/status-cache.json",
+      ".paaw/coding-memory/conversations/coding.em-dashboard/active.json",
+      "data/config/recent-projects.json",
+      "packages/server/src/routes/vibe-fs.mjs",
+      "packages/ui/src/components/EMDashboard.tsx",
+      "packages/ui/src/pages/CodingIDE.tsx"
+    ],
+    "diffLength": 19777,
+    "id": "review-1784206303137",
+    "ts": "2026-07-16T12:51:43.137Z"
+  }
+]

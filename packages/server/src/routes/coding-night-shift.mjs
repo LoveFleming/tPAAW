@@ -159,24 +159,37 @@ function execAsync(cmd, opts = {}) {
   });
 }
 
-// ── Helper: get today's git changes ──
-async function getTodayChanges(cwd) {
-  const since = new Date();
-  since.setHours(0, 0, 0, 0);
-  const sinceStr = since.toISOString().split("T")[0];
+// ── Helper: get git changes since a date ──
+async function getChangesSince(cwd, sinceDate) {
+  const since = sinceDate || new Date().toISOString().split("T")[0];
+  // If sinceDate is just a date like "2026-07-14", use it directly
+  const sinceArg = since.includes("T") ? since : `${since}T00:00:00`;
 
   const { stdout: gitLog } = await execAsync(
-    `git log --since="${sinceStr}" --oneline --no-decorate 2>/dev/null`,
+    `git log --since="${sinceArg}" --oneline --no-decorate 2>/dev/null`,
     { cwd }
   );
 
+  const commitCount = gitLog.trim().split("\n").filter(Boolean).length || 1;
   const { stdout: diffNames } = await execAsync(
-    `git diff --name-only HEAD~${Math.min(gitLog.trim().split("\n").filter(Boolean).length || 1, 20)} HEAD 2>/dev/null || git diff --name-only 2>/dev/null`,
+    `git diff --name-only HEAD~${Math.min(commitCount, 50)} HEAD 2>/dev/null || git diff --name-only 2>/dev/null`,
+    { cwd }
+  );
+
+  // Also get diff stat for summary
+  const { stdout: diffStat } = await execAsync(
+    `git diff --stat HEAD~${Math.min(commitCount, 50)} HEAD 2>/dev/null || git diff --stat 2>/dev/null`,
     { cwd }
   );
 
   const changedFiles = diffNames.trim().split("\n").filter(Boolean);
-  return { gitLog: gitLog.trim() || "(no commits today)", changedFiles };
+  return {
+    gitLog: gitLog.trim() || "(no commits in this period)",
+    changedFiles,
+    diffStat: diffStat.trim() || "",
+    since: sinceArg,
+    commitCount,
+  };
 }
 
 // ── Helper: get feature summary ──
@@ -244,10 +257,13 @@ export default async function codingNightShiftRoute(req, res) {
     sendJSON(res, 200, { ok: true, message: "Night shift started", startedAt: status.startedAt });
 
     // Gather context
-    const { gitLog, changedFiles } = await getTodayChanges(projRoot);
+    let reqBody = {};
+    try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
+    const sinceDate = reqBody.since || urlObj.searchParams.get("since") || new Date().toISOString().split("T")[0];
+    const { gitLog, changedFiles, diffStat, commitCount } = await getChangesSince(projRoot, sinceDate);
     const featuresSummary = getFeatureSummaryText(projRoot);
 
-    if (changedFiles.length === 0 && gitLog === "(no commits today)") {
+    if (changedFiles.length === 0 && gitLog === "(no commits in this period)") {
       // No changes today — still run but with lighter tasks
       status.status = "completed";
       status.completedAt = new Date().toISOString();
@@ -346,7 +362,7 @@ export default async function codingNightShiftRoute(req, res) {
     report += `**Date:** ${new Date().toLocaleDateString("zh-TW")}\n`;
     report += `**Started:** ${new Date(startTime).toLocaleTimeString("zh-TW")}\n`;
     report += `**Duration:** ${Math.round((Date.now() - startTime) / 1000)}s\n`;
-    report += `**Changes today:** ${changedFiles.length} files, ${gitLog.split("\n").filter(Boolean).length} commits\n\n`;
+    report += `**Changes since ${sinceDate}:** ${changedFiles.length} files, ${commitCount} commits\n\n`;
     report += `---\n\n`;
 
     for (const [role, label] of Object.entries(crewLabels)) {
@@ -368,7 +384,7 @@ export default async function codingNightShiftRoute(req, res) {
     }
 
     // Today's git log
-    report += `## 📋 Today's Commits\n\`\`\`\n${gitLog}\n\`\`\`\n`;
+    report += `## 📋 Commits since ${sinceDate}\n\`\`\`\n${gitLog}\n\`\`\`\n`;
     report += `\n## 📁 Changed Files\n${changedFiles.map(f => `- \`${f}\``).join("\n")}\n`;
 
     status.status = "completed";
@@ -380,6 +396,51 @@ export default async function codingNightShiftRoute(req, res) {
     writeFileSync(join(nsDir, REPORT_FILE), report);
 
     console.log(`[NightShift] Complete in ${status.duration}ms`);
+    return true;
+  }
+
+  // ── GET /api/coding-night-shift/last-run ──
+  if (urlObj.pathname === "/api/coding-night-shift/last-run" && method === "GET") {
+    // Check both Night Shift status.json and EM overnight-reports for latest run time
+    let lastRunAt = null;
+    let lastRunBy = null;
+
+    // Night Shift
+    const nsStatusFile = join(projRoot, NIGHT_SHIFT_DIR, STATUS_FILE);
+    if (existsSync(nsStatusFile)) {
+      try {
+        const ns = JSON.parse(readSync(nsStatusFile, "utf-8"));
+        if (ns.completedAt) { lastRunAt = ns.completedAt; lastRunBy = "night-shift"; }
+        else if (ns.startedAt) { lastRunAt = ns.startedAt; lastRunBy = "night-shift"; }
+      } catch {}
+    }
+
+    // EM overnight reports — find latest file by date
+    const emDir = join(projRoot, ".paaw", "overnight-reports");
+    if (existsSync(emDir)) {
+      try {
+        const { readdirSync } = await import("fs");
+        const files = readdirSync(emDir).filter(f => f.endsWith(".md")).sort().reverse();
+        if (files.length > 0) {
+          const fileDate = files[0].replace(".md", "");
+          // If the overnight report is newer than night shift, use it
+          const emTime = new Date(fileDate + "T23:59:59").toISOString();
+          if (!lastRunAt || emTime > lastRunAt) { lastRunAt = emTime; lastRunBy = "em"; }
+        }
+      } catch {}
+    }
+
+    // Also check action-log for EM activity
+    try {
+      const { listActionLog } = await import("../lib/action-log.mjs");
+      const logs = await listActionLog(projRoot, 20);
+      const emLog = logs.find(e => e.agent === "em" && e.ts);
+      if (emLog?.ts && (!lastRunAt || emLog.ts > lastRunAt)) { lastRunAt = emLog.ts; lastRunBy = "em-action-log"; }
+    } catch {}
+
+    // Default: if never run, return today
+    const since = lastRunAt ? lastRunAt.split("T")[0] : new Date().toISOString().split("T")[0];
+    sendJSON(res, 200, { lastRunAt, lastRunBy, since, hasRun: !!lastRunAt });
     return true;
   }
 

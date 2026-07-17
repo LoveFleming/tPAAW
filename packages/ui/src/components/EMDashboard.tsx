@@ -69,22 +69,55 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Night Shift State ──
   const [nsRunning, setNsRunning] = useState(false);
   const [nsStatus, setNsStatus] = useState<string>("");
+  const [nsSinceDate, setNsSinceDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [emSinceDate, setEmSinceDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [lastRunInfo, setLastRunInfo] = useState<{ lastRunAt: string | null; lastRunBy: string | null; since: string; hasRun: boolean } | null>(null);
+
+  // Auto-detect last EM/Night Shift run time on mount
+  useEffect(() => {
+    if (!rootPath) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/coding-night-shift/last-run?path=${encodeURIComponent(rootPath)}`);
+        const data = await res.json();
+        setLastRunInfo(data);
+        if (data.hasRun && data.since) {
+          setEmSinceDate(data.since);
+          setNsSinceDate(data.since);
+        }
+      } catch {}
+    })();
+  }, [rootPath]);
 
   const startNightShift = async () => {
     setNsRunning(true);
     setNsStatus("啟動中...");
+    setMessages(prev => [...prev, { role: "user", content: "🌙 啟動 Night Shift", ts: new Date().toISOString() }]);
     try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}&since=${nsSinceDate}` : `?since=${nsSinceDate}`}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ since: nsSinceDate }),
+      });
       const data = await res.json();
       if (data.ok) {
         setNsStatus("🌙 Night Shift 已啟動！6 個 agent 平行工作中...");
       } else {
         setNsStatus("❌ 啟動失敗: " + (data.error || "unknown"));
+        setMessages(prev => [...prev, { role: "assistant", content: `❌ Night Shift 啟動失敗: ${data.error || "unknown"}`, ts: new Date().toISOString() }]);
+        setNsRunning(false);
+        return;
       }
     } catch (err: any) {
       setNsStatus("❌ " + err.message);
+      setMessages(prev => [...prev, { role: "assistant", content: `❌ Night Shift error: ${err.message}`, ts: new Date().toISOString() }]);
+      setNsRunning(false);
+      return;
     }
-    // Don't set nsRunning false immediately — poll status
+    // Poll status and update chat
+    const agentEmojis: Record<string,string> = { architect: "🏗️", developer: "💻", tester: "🧪", "doc-writer": "📝", qa: "🔍", helpdesk: "🎫" };
+    let prevCompleted = 0;
+    let progressMsg = "🌙 Night Shift 啟動中...";
     const poll = setInterval(async () => {
       try {
         const sr = await fetch(`${API_BASE}/api/coding-night-shift/status${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
@@ -95,10 +128,46 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           const done = sd.completedAgents || 0;
           const total = sd.totalAgents || 6;
           setNsStatus(`✅ Night Shift 完成！${done}/${total} agents 完成，耗時 ${Math.round((sd.duration || 0) / 1000)}s`);
-          // Refresh data to show overnight report
-          setTimeout(() => window.location.reload(), 2000);
+          // Build final chat message with per-agent results
+          const agentResults = (sd.results || []).map((r: any) => {
+            const e = agentEmojis[r.agentId] || "🤖";
+            return `${e} ${r.agentId}: ${r.error ? "❌ " + r.error.slice(0, 80) : "✅ " + (r.summary || "完成").slice(0, 80)}`;
+          }).join("\n");
+          setMessages(prev => {
+            const lastNs = [...prev].reverse().findIndex(m => (m as any)._nsProgress);
+            if (lastNs >= 0) {
+              const idx = prev.length - 1 - lastNs;
+              const updated = [...prev];
+              updated[idx] = { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString() } as any;
+              return updated;
+            }
+            return [...prev, { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString() } as any];
+          });
+          refreshData();
         } else if (sd.status === "running") {
-          setNsStatus(`⏳ ${sd.completedAgents}/${sd.totalAgents} agents 完成...`);
+          const completed = sd.completedAgents || 0;
+          const total = sd.totalAgents || 6;
+          setNsStatus(`⏳ ${completed}/${total} agents 完成...`);
+          // Update progress in chat
+          if (completed > prevCompleted) {
+            prevCompleted = completed;
+            const agentList = (sd.agentStatuses || []).map((a: any) => {
+              const e = agentEmojis[a.agentId] || "🤖";
+              const s = a.status === "completed" ? "✅" : a.status === "running" ? "⏳" : a.status === "error" ? "❌" : "⏸️";
+              return `${e} ${a.agentId}: ${s}`;
+            }).join("\n");
+            progressMsg = `🌙 Night Shift 進度 ${completed}/${total}:\n\n${agentList}`;
+            setMessages(prev => {
+              const lastNs = [...prev].reverse().findIndex(m => (m as any)._nsProgress);
+              if (lastNs >= 0) {
+                const idx = prev.length - 1 - lastNs;
+                const updated = [...prev];
+                updated[idx] = { ...updated[idx], content: progressMsg } as any;
+                return updated;
+              }
+              return [...prev, { role: "assistant", content: progressMsg, ts: new Date().toISOString(), _nsProgress: true } as any];
+            });
+          }
         }
       } catch {}
     }, 5000);
@@ -452,12 +521,31 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const res = await fetch(`${API_BASE}/api/coding-crew/em-run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd: rootPath }),
+        body: JSON.stringify({ cwd: rootPath, since: emSinceDate }),
       });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       const logLines: string[] = [];
+      let lastChatMsg = "";
+      let chatUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const flushChatUpdate = (text: string) => {
+        if (chatUpdateTimer) clearTimeout(chatUpdateTimer);
+        chatUpdateTimer = setTimeout(() => {
+          setMessages(prev => {
+            // Find last assistant EM message and update it, or add new
+            const lastEm = [...prev].reverse().findIndex(m => m.role === "assistant" && m._emProgress);
+            if (lastEm >= 0) {
+              const idx = prev.length - 1 - lastEm;
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], content: text };
+              return updated;
+            }
+            return [...prev, { role: "assistant", content: text, ts: new Date().toISOString(), _emProgress: true } as any];
+          });
+        }, 300);
+      };
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -473,6 +561,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             if (d.message) {
               logLines.push(d.message);
               setEmLog([...logLines]);
+              // Build progressive chat message
+              lastChatMsg = logLines.map(l => l.replace(/^[🎨🏗️💻🧪📝🔍🎫🎖️🌙⏳✅❌⚡📋🔧📊] /, "• ")).join("\n");
+              flushChatUpdate("🎖️ EM 調度進度：\n\n" + lastChatMsg);
             }
             if (d.type === "report" && d.report) {
               setReport(d.report);
@@ -481,9 +572,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         }
       }
 
-      // Add EM result to chat
+      // Final chat message — replace progress with summary
+      if (chatUpdateTimer) clearTimeout(chatUpdateTimer);
       const summary = logLines.filter(l => l.includes("✅") || l.includes("❌") || l.includes("完成")).pop() || "EM 調度完成";
-      setMessages(prev => [...prev, { role: "assistant", content: `🎖️ ${summary}\n\n詳細報告請看右側「隔天報告」面板。`, ts: new Date().toISOString() }]);
+      setMessages(prev => {
+        const lastEm = [...prev].reverse().findIndex(m => (m as any)._emProgress);
+        if (lastEm >= 0) {
+          const idx = prev.length - 1 - lastEm;
+          const updated = [...prev];
+          updated[idx] = { role: "assistant", content: `🎖️ ${summary}\n\n${logLines.length > 1 ? "📋 工作紀錄：\n" + logLines.map(l => "  " + l).join("\n") : ""}`, ts: new Date().toISOString() } as any;
+          return updated;
+        }
+        return [...prev, { role: "assistant", content: `🎖️ ${summary}\n\n${logLines.length > 1 ? "📋 工作紀錄：\n" + logLines.map(l => "  " + l).join("\n") : ""}`, ts: new Date().toISOString() } as any];
+      });
       refreshData();
     } catch (err: any) {
       setMessages(prev => [...prev, { role: "assistant", content: `❌ EM error: ${err.message}`, ts: new Date().toISOString() }]);
@@ -581,6 +682,22 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           {onModelChange && (
             <ModelSelector feature="codingIDE" value={model || ""} onChange={onModelChange} />
           )}
+          {/* Date range for EM & Night Shift */}
+          <div className="flex items-center gap-1 text-xs">
+            <span className="text-stone-400">從</span>
+            <input
+              type="date"
+              value={emSinceDate}
+              onChange={e => { setEmSinceDate(e.target.value); setNsSinceDate(e.target.value); }}
+              className="text-xs px-1.5 py-0.5 rounded border border-stone-300 bg-white text-stone-700"
+              title="查看從這天開始的 git 變更"
+            />
+            {lastRunInfo?.hasRun && (
+              <span className="text-[10px] text-indigo-400" title={`上次 ${lastRunInfo.lastRunBy} 於 ${lastRunInfo.lastRunAt?.slice(0, 16)}`}>
+                (上次 {lastRunInfo.lastRunBy}: {lastRunInfo.lastRunAt?.slice(5, 10)})
+              </span>
+            )}
+          </div>
           <button
             onClick={runEM}
             disabled={emRunning}
@@ -594,7 +711,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             disabled={nsRunning}
             className={cn("text-sm px-3 py-1 rounded-md font-bold flex items-center gap-1",
               nsRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700")}
-            title="掃描今天的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review"
+            title={`掃描 ${nsSinceDate} 以來的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review`}
           >
             {nsRunning ? `⏳ ${nsStatus}` : "🌙 Night Shift"}
           </button>
@@ -659,6 +776,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <StatusRow icon="📦" label="Path" value={rootPath.split("/").slice(-2).join("/")} ok />
           </div>
         </div>
+
+        {/* ── Git Changes Preview ── */}
+        <GitChangesPreview rootPath={rootPath} tk={tk} since={emSinceDate} />
 
         {/* ── Code Health (from Code Understanding) ── */}
         <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
@@ -774,13 +894,71 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <span>📅</span> 隔天報告
           </h3>
           {report ? (
-            <details>
+            <details open>
               <summary className="text-sm text-amber-700 cursor-pointer hover:text-amber-800">
                 {report.split("\n")[0]?.replace(/^#\s*/, "") || "View report"}
               </summary>
               <pre className="mt-2 text-sm text-stone-600 whitespace-pre-wrap max-h-60 overflow-y-auto bg-white rounded p-2 border" style={{ borderColor: tk.borderLight }}>
                 {report}
               </pre>
+              {/* Post-report actions */}
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <button
+                  onClick={async () => {
+                    if (!confirm('確認 Commit & Push 所有 agent 產生的變更？')) return;
+                    try {
+                      const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files: ["."] }) });
+                      const addData = await addRes.json();
+                      if (!addData.ok) { alert(`Stage failed: ${addData.error}`); return; }
+                      const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: `feat: EM auto dispatch ${new Date().toISOString().split("T")[0]}` }) });
+                      const commitData = await commitRes.json();
+                      if (!commitData.ok) { alert(`Commit failed: ${commitData.error}`); return; }
+                      const pushRes = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+                      const pushData = await pushRes.json();
+                      if (!pushData.ok) { alert(`Push failed: ${pushData.error}`); return; }
+                      alert(`✅ Pushed! ${pushData.output || pushData.message}`);
+                      refreshData();
+                    } catch (e: any) { alert(`❌ ${e.message}`); }
+                  }}
+                  className="text-xs px-3 py-1.5 rounded bg-purple-600 text-white hover:bg-purple-700 font-bold"
+                >⬆ Commit & Push</button>
+                {[['architect','🏗️'],['developer','💻'],['tester','🧪'],['doc-writer','📝'],['qa','🔍'],['helpdesk','🎫']].map(([agent,emoji]) => (
+                  <button
+                    key={agent}
+                    onClick={() => {
+                      const task = prompt(`${emoji} 叫 ${agent} 做什麼？`);
+                      if (!task) return;
+                      setMessages(prev => [...prev, { role: "user", content: `叫 ${agent} ${task}`, ts: new Date().toISOString() }]);
+                      // Dispatch via A2A
+                      (async () => {
+                        setLoading(true);
+                        try {
+                          const res = await fetch(`${API_BASE}/a2a/${agent}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              jsonrpc: "2.0",
+                              method: "message/send",
+                              params: {
+                                message: { role: "user", parts: [{ type: "text", text: task }] },
+                                context: { cwd: rootPath },
+                              },
+                              id: `em-dispatch-${agent}-${Date.now()}`,
+                            }),
+                          });
+                          const data = await res.json();
+                          const content = data.result?.artifacts?.flatMap((a: any) => (a.parts || []).filter((p: any) => p.type === "text" || p.kind === "text").map((p: any) => p.text)).join("\n") || "(no output)";
+                          setMessages(prev => [...prev, { role: "assistant", content: `${emoji} **${agent}** 完成:\n${content.slice(0, 1000)}`, ts: new Date().toISOString() }]);
+                        } catch (e: any) {
+                          setMessages(prev => [...prev, { role: "assistant", content: `❌ ${agent} failed: ${e.message}`, ts: new Date().toISOString() }]);
+                        }
+                        setLoading(false);
+                      })();
+                    }}
+                    className="text-xs px-1.5 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200"
+                  >{emoji}</button>
+                ))}
+              </div>
             </details>
           ) : (
             <p className="text-sm text-stone-400 py-2">尚無隔天報告。點「🚀 EM 自動調度」產生。</p>
@@ -894,6 +1072,46 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         </div>
       </div>
     )}
+
+    {/* Context Debug Modal */}
+    {showEmContextDebug && emContextDebug && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowEmContextDebug(false)}>
+        <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="shrink-0 px-5 py-3 border-b border-stone-200 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-stone-800">🔍 EM Context Debug — {emContextDebug.agentId || "architect"}</h3>
+            <div className="flex items-center gap-3">
+              {emContextDebug.totalLength != null && (
+                <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600">{emContextDebug.totalLength.toLocaleString()} chars total</span>
+              )}
+              <button onClick={() => setShowEmContextDebug(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 text-sm">
+            {emContextDebug.error && (
+              <div className="p-3 rounded bg-red-50 text-red-700">❌ {emContextDebug.error}</div>
+            )}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-bold text-stone-700">📝 Base System Prompt</span>
+                {emContextDebug.baseSystemPromptLength != null && (
+                  <span className="text-xs text-stone-400">({emContextDebug.baseSystemPromptLength.toLocaleString()} chars)</span>
+                )}
+              </div>
+              <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-64 overflow-y-auto border border-stone-200">{emContextDebug.baseSystemPrompt || "(empty)"}</pre>
+            </div>
+            {(emContextDebug.dynamicContext || []).map((ctx: any, i: number) => (
+              <div key={i}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-bold text-stone-700">📂 {ctx.source}</span>
+                  <span className="text-xs text-stone-400">({ctx.content?.length?.toLocaleString() || "?"} chars)</span>
+                </div>
+                <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-48 overflow-y-auto border border-stone-200">{ctx.content || "(empty)"}</pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
@@ -906,6 +1124,77 @@ function StatusRow({ icon, label, value, ok }: { icon: string; label: string; va
       <span className="font-semibold text-stone-500 w-16 shrink-0">{label}</span>
       <span className={cn("truncate flex-1", ok ? "text-green-600" : "text-amber-600")} title={value}>{value}</span>
       <span className="shrink-0">{ok ? "✅" : "⚠️"}</span>
+    </div>
+  );
+}
+
+// ── Git Changes Preview Panel ──
+function GitChangesPreview({ rootPath, tk, since }: { rootPath: string; tk: any; since: string }) {
+  const [changes, setChanges] = useState<{ commits: string[]; changedFiles: string[]; commitCount: number; diffStat: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchChanges = useCallback(async () => {
+    if (!rootPath) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/vibe-git/changes-since?path=${encodeURIComponent(rootPath)}&since=${since}`);
+      const data = await res.json();
+      setChanges(data);
+    } catch {}
+    setLoading(false);
+  }, [rootPath, since]);
+
+  useEffect(() => { fetchChanges(); }, [fetchChanges]);
+
+  return (
+    <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
+          <span>🔀</span> Git Changes
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-stone-400">since {since}</span>
+          <button onClick={fetchChanges} className="text-xs text-stone-400 hover:text-stone-600">🔄</button>
+        </div>
+      </div>
+      {loading ? (
+        <div className="text-xs text-stone-400 animate-pulse">Loading...</div>
+      ) : changes ? (
+        <div className="space-y-2">
+          <div className="text-xs text-stone-600">
+            <span className="font-bold text-blue-600">{changes.commitCount}</span> commits · <span className="font-bold text-amber-600">{changes.changedFiles.length}</span> files changed
+          </div>
+          {changes.commits.length > 0 && (
+            <div className="max-h-32 overflow-y-auto space-y-0.5">
+              {changes.commits.slice(0, 10).map((c, i) => (
+                <div key={i} className="text-[10px] text-stone-500 font-mono truncate">{c}</div>
+              ))}
+              {changes.commits.length > 10 && <div className="text-[10px] text-stone-400">... +{changes.commits.length - 10} more</div>}
+            </div>
+          )}
+          {changes.changedFiles.length > 0 && (
+            <details>
+              <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-700">📁 Changed files ({changes.changedFiles.length})</summary>
+              <div className="max-h-24 overflow-y-auto mt-1 space-y-0.5">
+                {changes.changedFiles.map((f, i) => (
+                  <div key={i} className="text-[10px] text-stone-500 truncate">{f}</div>
+                ))}
+              </div>
+            </details>
+          )}
+          {changes.diffStat && (
+            <details>
+              <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-700">📊 Diff stat</summary>
+              <pre className="text-[10px] text-stone-500 mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap">{changes.diffStat}</pre>
+            </details>
+          )}
+          {changes.commitCount === 0 && changes.changedFiles.length === 0 && (
+            <div className="text-xs text-stone-400">No changes since {since}</div>
+          )}
+        </div>
+      ) : (
+        <div className="text-xs text-stone-400">Unable to load</div>
+      )}
     </div>
   );
 }
@@ -1009,45 +1298,6 @@ const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
             </button>
           );
         })}
-      {/* Context Debug Modal */}
-      {showEmContextDebug && emContextDebug && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowEmContextDebug(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="shrink-0 px-5 py-3 border-b border-stone-200 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-stone-800">🔍 EM Context Debug — {emContextDebug.agentId || "architect"}</h3>
-              <div className="flex items-center gap-3">
-                {emContextDebug.totalLength != null && (
-                  <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600">{emContextDebug.totalLength.toLocaleString()} chars total</span>
-                )}
-                <button onClick={() => setShowEmContextDebug(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-sm">
-              {emContextDebug.error && (
-                <div className="p-3 rounded bg-red-50 text-red-700">❌ {emContextDebug.error}</div>
-              )}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-bold text-stone-700">📝 Base System Prompt</span>
-                  {emContextDebug.baseSystemPromptLength != null && (
-                    <span className="text-xs text-stone-400">({emContextDebug.baseSystemPromptLength.toLocaleString()} chars)</span>
-                  )}
-                </div>
-                <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-64 overflow-y-auto border border-stone-200">{emContextDebug.baseSystemPrompt || "(empty)"}</pre>
-              </div>
-              {(emContextDebug.dynamicContext || []).map((ctx: any, i: number) => (
-                <div key={i}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-stone-700">📂 {ctx.source}</span>
-                    <span className="text-xs text-stone-400">({ctx.content?.length?.toLocaleString() || "?"} chars)</span>
-                  </div>
-                  <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-48 overflow-y-auto border border-stone-200">{ctx.content || "(empty)"}</pre>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
       </div>
     </div>
   );

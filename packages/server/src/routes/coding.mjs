@@ -790,7 +790,7 @@ export default async function projectRoute(req, res) {
   // ── POST /api/coding-crew/em-run — Trigger EM orchestration (SSE) ──
   if (url === "/api/coding-crew/em-run" && method === "POST") {
     const body = await _readBody(req);
-    const { cwd } = JSON.parse(body || "{}");
+    const { cwd, since } = JSON.parse(body || "{}");
     const rootDir = cwd || projectPath || PAAW_ROOT;
 
     res.writeHead(200, {
@@ -811,7 +811,7 @@ export default async function projectRoute(req, res) {
     try {
       const { runEMSession } = await import("../lib/overnight-manager.mjs");
       sendSSE("start", { message: "🎖️ EM Session 啟動", ts: new Date().toISOString() });
-      const { report, workList, results } = await runEMSession({ rootDir, sendSSE });
+      const { report, workList, results } = await runEMSession({ rootDir, sendSSE, since });
       sendSSE("complete", { workList, results, report });
     } catch (err) {
       console.error("[EM] error:", err);

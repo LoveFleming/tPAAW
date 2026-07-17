@@ -55,24 +55,27 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
 
 // ── Layer 1: Deterministic Context Gathering ──
 
-async function gatherContext(rootDir) {
+async function gatherContext(rootDir, sinceDate) {
   const { execSync } = await import("child_process");
   const safeDir = JSON.stringify(rootDir);
   const summary = {};
+  const since = sinceDate || new Date().toISOString().split("T")[0];
+  const sinceArg = since.includes("T") ? since : `${since}T00:00:00`;
 
   // 1. Git status (what changed, what's uncommitted)
   try {
     summary.gitStatus = execSync(`cd ${safeDir} && git status --short`, { encoding: "utf-8", timeout: 10000 }).trim();
   } catch { summary.gitStatus = ""; }
 
-  // 2. Git diff stat (what files changed, how much)
+  // 2. Git diff stat since date
   try {
-    summary.gitDiffStat = execSync(`cd ${safeDir} && git diff --stat HEAD~5`, { encoding: "utf-8", timeout: 10000 }).trim();
+    const commitCount = parseInt(execSync(`cd ${safeDir} && git log --since="${sinceArg}" --oneline 2>/dev/null | wc -l`, { encoding: "utf-8", timeout: 10000 }).trim()) || 5;
+    summary.gitDiffStat = execSync(`cd ${safeDir} && git diff --stat HEAD~${Math.min(commitCount, 50)}`, { encoding: "utf-8", timeout: 10000 }).trim();
   } catch { summary.gitDiffStat = ""; }
 
-  // 3. Recent commits
+  // 3. Recent commits since date
   try {
-    summary.recentCommits = execSync(`cd ${safeDir} && git log --oneline -10`, { encoding: "utf-8", timeout: 10000 }).trim();
+    summary.recentCommits = execSync(`cd ${safeDir} && git log --since="${sinceArg}" --oneline -20`, { encoding: "utf-8", timeout: 10000 }).trim();
   } catch { summary.recentCommits = ""; }
 
   // 4. Unpushed commits
@@ -159,6 +162,7 @@ async function planWorkList(situationReport, rootDir) {
 - **developer** — 寫程式、修 bug、refactor、實作功能、全端開發
 - **tester** — 撰寫單元測試/整合測試/E2E、跑測試、覆蓋率分析
 - **doc-writer** — 寫 README、API docs、changelog、技術文件
+- **qa** — Code review、品質把關、安全性檢查、issue 追蹤
 - **helpdesk** — 技術支援、排查問題、操作指引
 
 ## 規劃原則
@@ -212,12 +216,12 @@ async function planWorkList(situationReport, rootDir) {
 // ── Main: Run EM Session ──
 
 export async function runEMSession(opts = {}) {
-  const { rootDir, baseUrl = "http://127.0.0.1:4097" } = opts;
+  const { rootDir, baseUrl = "http://127.0.0.1:4097", since } = opts;
   const sendSSE = opts.sendSSE || (() => {});
 
   // ── Phase 1: Deterministic gathering ──
   sendSSE("info", { message: "🎖️ EM 啟動，收集專案狀態..." });
-  const ctx = await gatherContext(rootDir);
+  const ctx = await gatherContext(rootDir, since);
   const situationReport = buildSituationReport(ctx);
   sendSSE("info", { message: `📊 現況摘要收集完成` });
 

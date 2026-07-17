@@ -513,6 +513,8 @@ export default function CodingIDE() {
   const [aiComment, setAiComment] = useState("");
   const [aiCommentLoading, setAiCommentLoading] = useState(false);
   const [gitTab, setGitTab] = useState<"status" | "log" | "diff" | "blame" | "review">("status");
+  const [gitCommitMsg, setGitCommitMsg] = useState("");
+  const [gitActionMsg, setGitActionMsg] = useState<string | null>(null);
   const [gitReviews, setGitReviews] = useState<{ id: string; ts: string; comment: string; branch?: string; files?: string[] }[]>([]);
 
   // ── API Tester State ──
@@ -1244,9 +1246,17 @@ const sendChat = useCallback(async () => {
     setAiCommentLoading(true);
     setAiComment("");
     try {
+      // Auto-load diff if not available
+      let currentDiff = gitDiff;
+      if (!currentDiff) {
+        const diffRes = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
+        const diffData = await diffRes.json();
+        currentDiff = diffData.diff || "";
+        setGitDiff(currentDiff);
+      }
       const res = await fetch(`${API_BASE}/api/vibe-git/ai-comment?path=${encodeURIComponent(rootPath)}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ diff: gitDiff, commits: gitLog.slice(0, 5), context: activeTab ? `Current file: ${activeTab.path}` : "" }),
+        body: JSON.stringify({ diff: currentDiff, commits: gitLog.slice(0, 5), context: activeTab ? `Current file: ${activeTab.path}` : "" }),
       });
       const data = await res.json();
       setAiComment(data.comment || "No comment generated");
@@ -1262,10 +1272,14 @@ const sendChat = useCallback(async () => {
     setAiCommentLoading(false);
   }, [rootPath, gitDiff, gitLog, activeTab, gitStatus]);
 
-  // Auto-refresh git when panel opens
+  // Auto-refresh git when panel opens or when switching to git tab
   useEffect(() => {
     if (showGitPanel) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }
   }, [showGitPanel]);
+
+  useEffect(() => {
+    if (activeMainTab?.type === "git" && rootPath) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }
+  }, [activeMainTab?.type, rootPath]);
 
   // Load git reviews when entering review tab
   useEffect(() => {
@@ -1990,11 +2004,68 @@ const sendChat = useCallback(async () => {
                 </div>
 
                 {/* Git Status */}
-                {gitTab === "status" && gitStatus && (
+                {gitTab === "status" && (
                   <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                    <div>
-                      <div className="text-xs font-bold text-stone-500 mb-1">🌿 Branch: {gitStatus.branch}</div>
+                    {/* Branch + Action Buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="text-xs font-bold text-stone-500">🌿 {gitStatus?.branch || "..."}</div>
+                      <span className="flex-1" />
+                      <button onClick={async () => {
+                        setGitActionMsg("Pulling...");
+                        try {
+                          const r = await fetch(`${API_BASE}/api/vibe-git/pull?path=${encodeURIComponent(rootPath!)}`, { method: "POST" });
+                          const d = await r.json();
+                          setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
+                          refreshGitStatus(); refreshGitLog();
+                        } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
+                      }} className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">⬇ Pull</button>
+                      <button onClick={async () => {
+                        if (!gitStatus?.staged?.length && !gitStatus?.unstaged?.length && !gitStatus?.untracked?.length) {
+                          setGitActionMsg("Nothing to commit"); return;
+                        }
+                        // Stage all
+                        const files = gitStatus.all?.map(f => f.path) || ["."];
+                        setGitActionMsg("Staging...");
+                        const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
+                        const addData = await addRes.json();
+                        if (!addData.ok) { setGitActionMsg(`❌ Stage failed: ${addData.error}`); return; }
+                        if (!gitCommitMsg.trim()) { setGitActionMsg("⚠️ Enter commit message first"); refreshGitStatus(); return; }
+                        setGitActionMsg("Committing...");
+                        const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: gitCommitMsg.trim() }) });
+                        const commitData = await commitRes.json();
+                        if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
+                        setGitActionMsg(`✅ ${commitData.output || commitData.message}`);
+                        setGitCommitMsg("");
+                        refreshGitStatus(); refreshGitLog();
+                      }} className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">✅ Commit All</button>
+                      <button onClick={async () => {
+                        setGitActionMsg("Pushing...");
+                        try {
+                          const r = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+                          const d = await r.json();
+                          setGitActionMsg(d.ok ? `✅ ${d.output || d.message}` : `❌ ${d.error}`);
+                          refreshGitStatus(); refreshGitLog();
+                        } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
+                      }} className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">⬆ Push</button>
                     </div>
+                    {/* Commit message input */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={gitCommitMsg}
+                        onChange={e => setGitCommitMsg(e.target.value)}
+                        placeholder="Commit message..."
+                        className="flex-1 text-xs px-2 py-1.5 rounded border border-stone-200 focus:border-stone-400 focus:outline-none bg-white text-stone-700"
+                        onKeyDown={e => { if (e.key === "Enter" && gitCommitMsg.trim()) { (e.target as HTMLElement).parentElement?.querySelector?.('[data-commit-btn]')?.dispatchEvent(new MouseEvent('click')); } }}
+                      />
+                    </div>
+                    {/* Action feedback */}
+                    {gitActionMsg && (
+                      <div className={`text-xs px-2 py-1.5 rounded ${gitActionMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : gitActionMsg.startsWith("❌") ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>
+                        {gitActionMsg}
+                        <button onClick={() => setGitActionMsg(null)} className="ml-2 text-stone-400 hover:text-stone-600">✕</button>
+                      </div>
+                    )}
+                    {gitStatus ? (<>
                     {gitStatus.staged.length > 0 && (
                       <div>
                         <div className="text-xs font-bold text-emerald-500 mb-1">{tt('vibe.gitStaged')} ({gitStatus.staged.length})</div>
@@ -2042,6 +2113,9 @@ const sendChat = useCallback(async () => {
                           </div>
                         ))}
                       </div>
+                    )}
+                    </>) : (
+                      <div className="flex-1 flex items-center justify-center text-xs text-stone-400">Loading...</div>
                     )}
                   </div>
                 )}
@@ -2106,7 +2180,7 @@ const sendChat = useCallback(async () => {
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-bold text-stone-700">🤖 {tt("vibe.gitReview")}</span>
                       <span className="flex-1" />
-                      <button onClick={generateAiComment} disabled={aiCommentLoading || !gitDiff}
+                      <button onClick={generateAiComment} disabled={aiCommentLoading}
                         className="text-xs px-3 py-1 rounded text-white disabled:opacity-40 active:scale-95"
                         style={{ backgroundColor: tk.accent }}>
                         {aiCommentLoading ? `⏳ ${tt("vibe.gitReviewing")}` : tt("vibe.gitNewReview")}

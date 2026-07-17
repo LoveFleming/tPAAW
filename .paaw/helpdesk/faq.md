@@ -105,3 +105,83 @@ Keep them small and single‑purpose. Import them directly in route handlers or 
 
 > For detailed error runbooks, see `.paaw/runbook/`.  
 > For architecture decisions, see `DECISIONS.md`.
+## Night Shift 是怎麼運作的？我要怎麼啟動？
+**Category:** features
+
+Night Shift 是 EM Dashboard 上的自動化功能。啟動後，6 個 AI agent（architect、developer、tester、doc-writer、qa、helpdesk）會平行掃描 git 變更並執行任務。
+
+啟動方式：
+1. 打開 EM Dashboard（右側面板）
+2. 可以在「從」日期選擇器指定要掃描哪一天以來的 git 變更（預設是今天）
+3. 點「🌙 Night Shift」按鈕啟動
+
+啟動後 Dashboard 會即時顯示每位 agent 的進度。完成後會產生 Night Shift Report，包含各 agent 的工作摘要。
+
+如果需要指定掃描範圍而非只有今天，可以在啟動前調整日期選擇器。
+
+## EM 自動調度和 Night Shift 有什麼不同？
+**Category:** features
+
+EM 自動調度（🚀 EM 自動調度）和 Night Shift（🌙 Night Shift）是兩種不同的運作模式：
+
+**EM 自動調度（EM Auto Dispatch）**
+- 由 Engineering Manager agent 規劃工作計劃、逐一派發任務給各 agent
+- 使用 SSE（Server-Sent Events）即時串流進度
+- 完成後會產生一份「隔天報告」
+- 適合仔細規劃的批次工作
+
+**Night Shift**
+- 6 個 agent 平行獨立工作，EM 不介入調度
+- 使用 POST 請求啟動，由 polling 取得進度
+- 適合快速掃描和處理大量變更
+- 日期選擇器可決定要掃描哪一段時間的 git 變更
+
+兩者完成後都會在 Dashboard 的聊天區域顯示摘要，並且都可以透過「Commit & Push」按鈕將 agent 的變更提交。
+
+## Coding IDE 的 Git 面板有新的 Commit/Push/Pull 按鈕，要怎麼用？
+**Category:** features
+
+Coding IDE 的 Git 面板（點擊側邊欄的 Git 圖示）現在有完整的 Git 操作按鈕：
+
+**基本操作**
+- ⬇ Pull — 拉取遠端變更
+- ⬆ Push — 推送本地變更到遠端
+- ✅ Commit All — 自動 stage 所有變更並 commit
+
+**如何 Commit & Push**
+1. 在 Git 面板中，檢查 Status 頁籤確認變更內容
+2. 在「Commit message...」輸入框中輸入 commit 訊息
+3. 按 Enter 或點「✅ Commit All」按鈕
+4. 確認成功後按「⬆ Push」推送
+
+**Git Review（AI Code Review）**
+- 在 Review 頁籤，點「New Review」按鈕
+- AI 會根據 git diff 產生 code review 意見
+- ⚠️ 注意：目前 Node.js 25 環境下 AI Review 功能有已知問題（chatRes.body.on 非函式），會回傳基本分析而非完整 AI review。
+
+**注意事項**
+- 操作時會顯示即時狀態回饋在面板頂部
+- 提交成功或失敗都會有明確訊息
+
+## Git Changes Preview 面板是做什麼的？
+**Category:** features
+
+Git Changes Preview 是 EM Dashboard 上的一個新面板，顯示自從指定日期以來的 git 變更摘要。內容包括：
+- 提交數量（commits）
+- 變更的檔案數量
+- 最近 10 筆 commit 列表
+- 變更檔案列表（可展開）
+- Diff stat 統計（可展開）
+
+這個面板會自動根據 EM Dashboard 上的日期選擇器更新，讓你在啟動調度前先確認範圍是否正確。
+
+## AI Review 顯示「AI review 不可用 (chatRes.body.on is not a function)」怎麼辦？
+**Category:** troubleshooting
+
+這是在 Node.js 25（或其他較新版本）上的已知問題。Node.js 18+ 的內建 `fetch()` API 回傳的是 Web `ReadableStream`，但程式碼用了 `chatRes.body.on("data")` — 這是 Node.js stream（IncomingMessage）的寫法，不是 Web stream 的寫法。
+
+**目前影響**：無法產生真正的 AI review，只會回傳基本的 diff 分析。
+
+**預計修復**：Developer 團隊已記錄此問題（ISS-001），需要將 `chatRes.body.on("data")` 改為 `for await (const chunk of chatRes.body)` 或 `chatRes.body.getReader()`。
+
+**暫時替代方案**：可以直接在聊天中請 AI agent 幫忙 review diff。

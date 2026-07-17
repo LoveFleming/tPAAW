@@ -1,14 +1,39 @@
 {
   "_meta": {
     "crewId": "coding.em-dashboard",
-    "lastUpdated": "2026-07-16T11:34:10.697Z",
-    "messageCount": 1
+    "lastUpdated": "2026-07-16T15:46:47.544Z",
+    "messageCount": 6
   },
   "messages": [
     {
       "role": "assistant",
       "content": "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。",
       "ts": "2026-07-16T11:34:07.733Z"
+    },
+    {
+      "role": "user",
+      "content": "🚀 啟動 EM 自動調度",
+      "ts": "2026-07-16T14:02:38.386Z"
+    },
+    {
+      "role": "assistant",
+      "content": "🎖️ EM 調度完成\n\n詳細報告請看右側「隔天報告」面板。",
+      "ts": "2026-07-16T14:02:38.407Z"
+    },
+    {
+      "role": "user",
+      "content": "🚀 啟動 EM 自動調度",
+      "ts": "2026-07-16T15:46:28.343Z"
+    },
+    {
+      "role": "assistant",
+      "content": "🎖️ EM 調度完成\n\n",
+      "ts": "2026-07-16T15:46:28.364Z"
+    },
+    {
+      "role": "user",
+      "content": "🌙 啟動 Night Shift",
+      "ts": "2026-07-16T15:46:45.518Z"
     }
   ]
 }

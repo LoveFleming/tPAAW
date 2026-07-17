@@ -1,4 +1,35 @@
 {
-  "issues": [],
-  "updatedAt": "2026-07-16T10:02:01.960Z"
+  "issues": [
+    {
+      "id": "ISS-001",
+      "title": "Git AI Review 在 Node.js 25 上 body.on 失敗",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "nodejs"
+      ],
+      "description": "在 `packages/server/src/routes/vibe-fs.mjs` 的 `/api/vibe-git/ai-comment` 端點中，`chatRes.body.on(\"data\", ...)` 在 Node.js 25 上會拋出 `chatRes.body.on is not a function`。因為 Node.js 18+ 的 `fetch()` 回傳的是 `ReadableStream`（Web API），不是 Node.js 的 `IncomingMessage` stream，所以沒有 `.on()` 方法。應該改用 `for await (const chunk of chatRes.body)` 或 `chatRes.body.getReader()`。\n\n目前 catch block 會回傳基本分析，但不會產生真正的 AI review。",
+      "featureId": null,
+      "createdAt": "2026-07-16T15:48:30.344Z",
+      "updatedAt": "2026-07-16T15:48:30.344Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-002",
+      "title": "FAQ 缺少新 Git 功能的使用說明",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "docs",
+        "faq"
+      ],
+      "description": "新增了 Git API 端點（add/commit/push/pull/changes-since）以及 UI 上的 Git 操作按鈕，但 FAQ 完全沒有相關條目。使用者可能不知道如何操作、或遇到錯誤時不知道怎麼排查。",
+      "featureId": null,
+      "createdAt": "2026-07-16T15:48:30.345Z",
+      "updatedAt": "2026-07-16T15:48:30.345Z",
+      "notes": []
+    }
+  ],
+  "updatedAt": "2026-07-16T15:48:30.345Z"
 }

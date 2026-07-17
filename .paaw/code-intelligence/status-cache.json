@@ -1,5 +1,5 @@
 {
-  "timestamp": 1784201647830,
+  "timestamp": 1784216783951,
   "data": {
     "architecture": {
       "score": 100,
@@ -47,7 +47,7 @@
         {
           "name": "API Endpoints",
           "status": "info",
-          "detail": "~74 detected"
+          "detail": "~75 detected"
         }
       ]
     },
@@ -92,7 +92,7 @@
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "3222 files"
+          "detail": "3233 files"
         }
       ]
     },
@@ -107,7 +107,7 @@
         {
           "name": "Git Status",
           "status": "warn",
-          "detail": "4 uncommitted"
+          "detail": "10 uncommitted"
         },
         {
           "name": "Error Handling",
