@@ -388,6 +388,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
     },
     sessionKey: "a2a",
     agentId: "a2a-server",
+    caller: "a2a",
   });
 
   // Convert A2A message → chat messages format

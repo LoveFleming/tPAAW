@@ -201,7 +201,8 @@ export default async function chatRoutes(req, res) {
           audit: { enabled: true },
         },
         sessionKey: req.headers['x-session-key'] || 'chat',
-        agentId: 'default',
+        agentId: 'assistant',
+        caller: 'chat',
       })
 
       // ── 執行 ReAct loop，stream 給前端 ──

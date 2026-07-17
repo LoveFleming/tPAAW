@@ -1669,14 +1669,14 @@ ${changedApis}`;
         if (steps.includes("code-intelligence")) {
           try {
             const { buildCodeIntelligence } = await import("./code-intelligence.mjs");
-            const { summary } = await buildCodeIntelligence(cwd, PAAW_ROOT);
+            const { summary } = await buildCodeIntelligence(cwd, _PAAW_ROOT);
             results.push(`🧠 Code Intelligence: ${summary.totalFunctions} functions, ${summary.totalRoutes} routes, ${summary.totalDependencies} deps`);
           } catch (err) { results.push(`🧠 Code Intelligence: failed — ${err.message}`); }
         }
         if (steps.includes("test-intelligence")) {
           try {
             const { buildTestIntelligence } = await import("./test-intelligence.mjs");
-            const { summary } = await buildTestIntelligence(cwd, PAAW_ROOT);
+            const { summary } = await buildTestIntelligence(cwd, _PAAW_ROOT);
             results.push(`🧪 Test Intelligence: ${summary.totalTestFiles} tests, ${summary.coverageRate} coverage`);
           } catch (err) { results.push(`🧪 Test Intelligence: failed — ${err.message}`); }
         }
@@ -2064,7 +2064,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // ── LLM Request Logging (append to .paaw/llm-logs/) ──
   const _logRequest = () => {
     try {
-      const logDir = join(PAAW_ROOT, "data", "llm-logs");
+      const logDir = join(_PAAW_ROOT, "data", "llm-logs");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -2090,7 +2090,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // Helper to log response
   const _logResponse = (response, error = null) => {
     try {
-      const logDir = join(PAAW_ROOT, "data", "llm-logs");
+      const logDir = join(_PAAW_ROOT, "data", "llm-logs");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -2522,7 +2522,7 @@ export async function runAgentLoopStream(config, res) {
     // ── Log stream response ──
     if (response._llmCallId) {
       try {
-        const logDir = join(PAAW_ROOT, "data", "llm-logs");
+        const logDir = join(_PAAW_ROOT, "data", "llm-logs");
         mkdirSync(logDir, { recursive: true });
         const dateStr = new Date().toISOString().slice(0, 10);
         const logPath = join(logDir, `${dateStr}.jsonl`);

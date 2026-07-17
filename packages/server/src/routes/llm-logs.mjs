@@ -9,7 +9,6 @@
 import { readdirSync, readFileSync, unlinkSync, statSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 
-const PAAW_ROOT = resolve(process.env.PAAW_ROOT || process.env.QWEN_CWD || import.meta.dirname ? fileURLToPath(import.meta.url) : process.cwd());
 import { fileURLToPath } from "url";
 const _ROOT = resolve(process.env.PAAW_ROOT || process.env.QWEN_CWD || fileURLToPath(new URL("../../../../", import.meta.url)));
 const LOG_DIR = join(_ROOT, "data", "llm-logs");

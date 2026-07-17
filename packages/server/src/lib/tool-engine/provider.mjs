@@ -10,7 +10,22 @@
 
 import { fetchStreamWithRetry, sanitizeContent } from '../llm-utils.mjs'
 import { fileURLToPath } from 'url'
-import { dirname, resolve as pathResolve } from 'path'
+import { dirname, resolve as pathResolve, join } from 'path'
+import { existsSync, mkdirSync, appendFileSync } from 'fs'
+
+const __providerDir = dirname(fileURLToPath(import.meta.url))
+const PAAW_ROOT = pathResolve(__providerDir, '../../../../../')
+
+/** Append an LLM log entry to data/llm-logs/YYYY-MM-DD.jsonl */
+function _llmLog(entry) {
+  try {
+    const logDir = join(PAAW_ROOT, 'data', 'llm-logs')
+    if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const logPath = join(logDir, `${dateStr}.jsonl`)
+    appendFileSync(logPath, JSON.stringify(entry) + '\n')
+  } catch {}
+}
 
 // ── OpenAI-compatible Provider ──
 
@@ -53,10 +68,21 @@ export class OpenAICompatibleAdapter {
 
     console.log(`[Provider] → POST ${url} model=${modelName} msgs=${messages.length} tools=${tools.length}`)
 
-    // ★ 寫 payload 到 temp
+    // ── LLM Request Log ──
+    const callId = `llm-${streamStartTime}-${Math.random().toString(36).slice(2, 8)}`
+    _llmLog({
+      id: callId,
+      ts: new Date(streamStartTime).toISOString(),
+      phase: 'request',
+      agentId: this.config.agentId || 'unknown',
+      model: modelName,
+      stream: true,
+      caller: this.config.caller || 'tool-engine',
+      messageCount: messages.length,
+      toolNames: (tools || []).map(t => t.function?.name).filter(Boolean),
+    })
+
     requestBody = body
-    const __dirname = dirname(fileURLToPath(import.meta.url))
-    const PAAW_ROOT = pathResolve(__dirname, '../../../../../')
     const fs = await import('fs')
     const nodePath = await import('path')
     const tempDir = nodePath.join(PAAW_ROOT, 'temp')
@@ -104,6 +130,9 @@ export class OpenAICompatibleAdapter {
     // 累積 tool calls（index → { id, name, args }）
     const pendingTools = new Map()
     let doneEmitted = false
+    let lastFinishReason = null
+    let accumulatedContentLen = 0
+    let accumulatedToolCalls = []
 
     // ★ 寫 streaming result 到 temp
     const streamLogPath = nodePath.join(tempDir, `stream-${Date.now()}.log`)
@@ -158,6 +187,7 @@ export class OpenAICompatibleAdapter {
                 .replace(/[\u00AD\u2061\u2062\u2064]/g, '')
                 .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
               if (cleanDelta) {
+                accumulatedContentLen += cleanDelta.length
                 yield { type: 'text', delta: cleanDelta }
               }
             }
@@ -194,6 +224,8 @@ export class OpenAICompatibleAdapter {
                 })
               }
               yield { type: 'done', finishReason, toolCalls }
+              lastFinishReason = finishReason
+              accumulatedToolCalls = toolCalls.map(tc => ({ name: tc.function?.name, argsLen: (tc.function?.arguments || '').length }))
               doneEmitted = true
               pendingTools.clear()
               break
@@ -203,6 +235,7 @@ export class OpenAICompatibleAdapter {
               logStream(`FINISH: stop`)
               console.log(`[Provider] finishReason=stop`)
               yield { type: 'done', finishReason, toolCalls: [] }
+              lastFinishReason = finishReason
               doneEmitted = true
               break
             }
@@ -229,13 +262,27 @@ export class OpenAICompatibleAdapter {
         }
       }
     } finally {
-      // 寫 stream log 到 temp file
-      try { fs.writeFileSync(streamLogPath, streamLog); console.log(`[Provider] Stream log: ${streamLogPath}`) } catch {}
-      // 也寫結構化 AI log
+      // ── LLM Response Log + clean up temp files ──
       try {
-        const { writeAILog } = await import('../llm-utils.mjs');
-        writeAILog('stream-done', requestBody, { streamLogLength: streamLog.length }, { model: modelName, url, durationMs: Date.now() - streamStartTime, status: response.status, provider: providerId });
+        const durationMs = Date.now() - streamStartTime
+        _llmLog({
+          id: callId,
+          ts: new Date().toISOString(),
+          phase: 'response',
+          agentId: this.config.agentId || 'unknown',
+          model: modelName,
+          stream: true,
+          durationMs,
+          finishReason: lastFinishReason || 'stop',
+          contentLen: accumulatedContentLen,
+          toolCalls: accumulatedToolCalls,
+          caller: this.config.caller || 'tool-engine',
+        })
+        console.log(`[Provider] Stream log: ${streamLogPath}`)
+        fs.writeFileSync(streamLogPath, streamLog)
       } catch {}
+      // Clean up temp payload file
+      try { fs.unlinkSync(payloadPath) } catch {}
       reader.releaseLock()
     }
   }

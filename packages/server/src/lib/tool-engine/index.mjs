@@ -121,7 +121,7 @@ export class ToolEngine {
    * @param {object} options
    */
   constructor(options) {
-    this.provider = createProviderAdapter(options.provider)
+    this.provider = createProviderAdapter({ ...options.provider, agentId: options.agentId || 'default', caller: options.caller })
     this.registry = new ToolRegistry()
     this.maxToolRounds = options.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS
     this.debug = options.debug ?? false
