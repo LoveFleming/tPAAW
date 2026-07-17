@@ -168,6 +168,9 @@ export function detectRulePacks(projectRoot) {
     if (existsSync(join(LOCAL_RULES_DIR, "problem-based-packs"))) {
       packs.push(safePath(join(LOCAL_RULES_DIR, "problem-based-packs")));
     }
+    // Also add registry packs for broader coverage (owasp, cwe) — local rules cover language-specific, registry covers cross-cutting security
+    packs.push("p/owasp-top-ten");
+    packs.push("p/cwe-top-25");
   } else {
     // No local rules → registry (needs internet)
     if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) packs.push("p/javascript");
