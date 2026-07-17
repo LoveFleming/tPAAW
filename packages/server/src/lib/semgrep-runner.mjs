@@ -23,6 +23,19 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const exec = promisify(execCb);
 const isWin = process.platform === "win32";
 
+// Windows Python encoding fix — semgrep (Python-based) needs UTF-8 mode on Windows
+// Without these, semgrep crashes with encoding errors on non-English Windows or
+// when scanning files with non-ASCII characters.
+// See: https://peps.python.org/pep-0686/ (PYTHONUTF8)
+function _semgrepEnv(base = process.env) {
+  const env = { ...base };
+  if (isWin) {
+    env.PYTHONUTF8 = "1";
+    env.PYTHONIOENCODING = "utf-8";
+  }
+  return env;
+}
+
 const LOG = (...args) => console.log("[semgrep]", ...args);
 
 /** Normalize path: Windows backslashes → forward slashes */
@@ -216,7 +229,7 @@ function tryExec(cmd, timeout = 10000) {
       stdio: "pipe",
       timeout,
       shell: true,
-      env: { ...process.env },
+      env: _semgrepEnv(),
       encoding: "utf-8",
     });
     return { ok: true, stdout: (result || "").trim() };
@@ -454,7 +467,7 @@ export async function runSemgrep(projectRoot, options = {}) {
   const scriptExt = isWin ? ".bat" : ".sh";
   const scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
   const scriptContent = isWin
-    ? `@echo off\r\n${fileCmd}\r\n`
+    ? `@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n${fileCmd}\r\n`
     : `#!/bin/sh\n${fileCmd}\n`;
   writeFileSync(scriptPath, scriptContent, "utf-8");
   LOG("runSemgrep: script file:", scriptPath);
@@ -468,7 +481,7 @@ export async function runSemgrep(projectRoot, options = {}) {
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024,
       shell: true,
-      env: { ...process.env },
+      env: _semgrepEnv(),
     });
 
     // Clean up temp script
