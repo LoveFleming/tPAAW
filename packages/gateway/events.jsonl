@@ -1,0 +1,6 @@
+{"id":"b8282311-f126-44c2-a691-1108e2a41c05","ts":"2026-07-17T10:21:05.125Z","type":"gateway_started","detail":"PAAW Gateway started on :4199","userId":"system"}
+{"id":"12d0ccb0-9008-4ecb-8a1e-4818a383285f","ts":"2026-07-17T10:21:06.129Z","type":"server_starting","detail":"PAAW Server starting...","userId":"system"}
+{"id":"3675d66b-53ec-41a8-adf4-acba3a17f814","ts":"2026-07-17T10:21:06.134Z","type":"server_started","detail":"PAAW Server started (PID: 58143)","userId":"system"}
+{"id":"5384996b-d24b-4505-bf74-d29c9c289b6e","ts":"2026-07-17T10:21:06.213Z","type":"server_exited","detail":"PAAW Server exited (code=1, signal=null)","userId":"system"}
+{"id":"bf5e8c85-ac5d-4316-bc5f-bc82e73fcd0c","ts":"2026-07-17T10:22:07.020Z","type":"gateway_started","detail":"PAAW Gateway started on :4199","userId":"system"}
+{"id":"406be42c-e5fe-49a3-bb62-40aa43b999a1","ts":"2026-07-17T10:22:08.945Z","type":"login","detail":"User Fleming logged in","userId":"admin"}
