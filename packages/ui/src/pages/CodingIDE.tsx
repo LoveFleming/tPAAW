@@ -250,6 +250,10 @@ export default function CodingIDE() {
   const [activeMainTabId, setActiveMainTabId] = useState<string>(DASHBOARD_TAB_ID);
   const activeMainTab = useMemo(() => mainTabs.find(t => t.id === activeMainTabId), [mainTabs, activeMainTabId]);
 
+  // ── Archive panel state (must be before useEffect that references them) ──
+  const [showArchivePanel, setShowArchivePanel] = useState(false);
+  const [viewingArchive, setViewingArchive] = useState<string | null>(null);
+
   // Sync activeCrew when switching tabs (crew tabs have crewId)
   useEffect(() => {
     if (activeMainTab?.type === "ai-crew" && activeMainTab.crewId) {
@@ -351,8 +355,7 @@ export default function CodingIDE() {
   const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
   const [loadedCrews, setLoadedCrews] = useState<Set<string>>(new Set()); // track which crew conversations have been loaded from server
   const [archivedConversations, setArchivedConversations] = useState<Record<string, any[]>>({}); // crewId → list of archives
-  const [showArchivePanel, setShowArchivePanel] = useState(false);
-  const [viewingArchive, setViewingArchive] = useState<string | null>(null); // archiveId when viewing an archived conversation
+  // (showArchivePanel & viewingArchive moved above — before the useEffect that references them)
   const [showContextDebug, setShowContextDebug] = useState(false);
   const [contextDebug, setContextDebug] = useState<any>(null);
 
