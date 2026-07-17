@@ -42,7 +42,7 @@ import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
 import { parseProject, formatForAI, formatCondensed } from "../lib/tree-sitter-parser.mjs";
-import { runSemgrep, formatForAI as formatSemgrepForAI, formatCondensed as formatSemgrepCondensed, isSemgrepAvailable, diagnoseSemgrep, buildFullScanCommand, detectRulePacks } from "../lib/semgrep-runner.mjs";
+import { runSemgrep } from "../lib/semgrep-runner.mjs";
 import { buildCodeIntelligence, buildContextPackage } from "../lib/code-intelligence.mjs";
 import { buildTestIntelligence } from "../lib/test-intelligence.mjs";
 import { buildChangeIntelligence } from "../lib/change-intelligence.mjs";
@@ -1057,96 +1057,12 @@ export default async function projectRoute(req, res) {
       return true;
     }
 
-    // ── POST /api/coding-project/security-scan/exec — Quick shell command for diagnostics ──
-    // Runs a command with short timeout (5s), returns stdout/stderr. No side effects.
-    if (url === "/api/coding-project/security-scan/exec" && method === "POST") {
-      let body;
-      try { body = JSON.parse(await readBody(req)); } catch {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Invalid JSON" }));
-        return true;
-      }
-      const { cmd } = body;
-      if (!cmd || typeof cmd !== "string") {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing cmd" }));
-        return true;
-      }
-      // Safety: block dangerous commands
-      const blocked = /\b(rm\s+-rf|del\s+\/[sS]|format\s+[A-Za-z]:|shutdown|reboot|mkfs|dd\s+if=)\b/;
-      if (blocked.test(cmd)) {
-        res.writeHead(403, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Command blocked for safety" }));
-        return true;
-      }
-      try {
-        const { execSync } = await import("child_process");
-        const result = execSync(cmd, {
-          encoding: "utf-8",
-          timeout: 8000,
-          shell: true,
-          cwd: root,
-          env: { ...process.env },
-          maxBuffer: 1024 * 1024,
-        });
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, stdout: (result || "").slice(0, 5000), cmd }));
-      } catch (e) {
-        const stdout = (e.stdout || "").slice(0, 2000);
-        const stderr = (e.stderr || "").slice(0, 2000);
-        const timedOut = e.killed;
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: stderr || e.message?.slice(0, 300) || "failed", stdout, timedOut, cmd }));
-      }
-      return true;
-    }
-
-    // ── GET /api/coding-project/security-scan/quick-check — Fast check if semgrep is available ──
-    if (url.startsWith("/api/coding-project/security-scan/quick-check") && method === "GET") {
-      const diag = diagnoseSemgrep();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        platform: process.platform,
-        available: diag.available,
-        cmd: diag.cmd,
-        version: diag.version || null,
-        installInstructions: diag.installInstructions || null,
-        SEMGREP_PATH: process.env.SEMGREP_PATH || null,
-      }));
-      return true;
-    }
-
-    // ── GET /api/coding-project/security-scan/diagnose ──
-    // Debug endpoint — always returns full diagnostic (no 503)
-    if (url.startsWith("/api/coding-project/security-scan/diagnose") && method === "GET") {
-      const diag = diagnoseSemgrep();
-      // Add the full scan command for manual testing
-      const fullScanCmd = buildFullScanCommand(root);
-      const rulePacks = detectRulePacks(root);
-      diag.fullScanCommand = fullScanCmd;
-      diag.rulePacks = rulePacks;
-      diag.projectRoot = root;
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(diag, null, 2));
-      return true;
-    }
-
     // ── GET /api/coding-project/security-scan ──
-    // Run Semgrep and return findings
+    // Run Semgrep scan directly — just run it, show install instructions if it fails
     if (url.startsWith("/api/coding-project/security-scan") && method === "GET") {
-      console.log("[coding] security-scan endpoint called, checking semgrep...");
-      const diag = diagnoseSemgrep();
-      console.log("[coding] diagnoseSemgrep result:", JSON.stringify({ available: diag.available, cmd: diag.cmd, triedCount: diag.tried?.length }));
-      if (!diag.available) {
-        res.writeHead(503, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          error: "Semgrep not found. Install: pip install semgrep, then restart PAAW server.",
-          diagnostic: diag,
-        }));
-        return true;
-      }
       try {
         const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
+        // Save to .paaw/security/
         const secDir = join(root, ".paaw", "security");
         if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
         await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
@@ -1545,17 +1461,15 @@ export default async function projectRoute(req, res) {
 
         // Special handling: security-scan runs Semgrep (no LLM needed)
         if (step.id === "security-scan") {
-          const diag = diagnoseSemgrep();
-          if (!diag.available) {
-            const triedList = diag.tried.map(t => `${t.cmd} → ${t.ok ? 'ok' : (t.error || 'failed')}`).join(' | ');
-            sendEvent("step_error", { step: step.id, name: step.name, error: `Semgrep 未安裝或不在 PATH 中。嘗試過: ${triedList}` });
-            sendEvent("done", { message: "Step skipped — semgrep not installed" });
-            res.end();
-            return true;
-          }
           try {
             cuLog(step.id, "Running Semgrep scan...");
             const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
+            if (scanResult.error && scanResult.findings.length === 0) {
+              sendEvent("step_error", { step: step.id, name: step.name, error: scanResult.error });
+              sendEvent("done", { message: "Semgrep scan failed" });
+              res.end();
+              return true;
+            }
             // Save results
             const secDir = join(root, ".paaw", "security");
             if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
@@ -1969,13 +1883,13 @@ export default async function projectRoute(req, res) {
 
           // Special handling: security-scan runs Semgrep (no LLM needed)
           if (step.id === "security-scan") {
-            if (!isSemgrepAvailable()) {
-              sendEvent("step_skip", { step: step.id, name: step.name, reason: "Semgrep not installed" });
-              continue;
-            }
             try {
               cuLog(step.id, "[bulk] Running Semgrep scan...");
               const scanResult = await runSemgrep(root, { timeoutMs: 300_000 });
+              if (scanResult.error && scanResult.findings.length === 0) {
+                sendEvent("step_skip", { step: step.id, name: step.name, reason: scanResult.error.split('\n')[0] });
+                continue;
+              }
               const secDir = join(root, ".paaw", "security");
               if (!existsSync(secDir)) await mkdir(secDir, { recursive: true });
               await writeFile(join(secDir, "scan-results.json"), JSON.stringify(scanResult, null, 2), "utf-8");
