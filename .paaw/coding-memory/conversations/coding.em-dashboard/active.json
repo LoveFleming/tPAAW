@@ -1,8 +1,8 @@
 {
   "_meta": {
     "crewId": "coding.em-dashboard",
-    "lastUpdated": "2026-07-17T14:21:53.253Z",
-    "messageCount": 8
+    "lastUpdated": "2026-07-17T14:24:09.239Z",
+    "messageCount": 10
   },
   "messages": [
     {
@@ -44,6 +44,17 @@
       "role": "assistant",
       "content": "🎖️ EM 調度完成",
       "ts": "2026-07-17T14:13:04.605Z",
+      "actions": []
+    },
+    {
+      "role": "user",
+      "content": "🚀 啟動 EM 自動調度",
+      "ts": "2026-07-17T14:24:07.199Z"
+    },
+    {
+      "role": "assistant",
+      "content": "🎖️ EM 調度完成（沒有執行任何工作）\n\n可能原因：\n• LLM 規劃返回空（專案狀態良好）\n• LLM 回覆格式不符（不是 JSON array）\n• LLM 呼叫失敗（檢查 server log）",
+      "ts": "2026-07-17T14:24:07.220Z",
       "actions": []
     }
   ]

@@ -148,7 +148,7 @@ function buildSituationReport(ctx) {
 // ── Layer 2: LLM Work Planning ──
 
 async function planWorkList(situationReport, rootDir) {
-  const { resolveLLMConfig, callLLM } = await import("./paaw-agent-loop.mjs");
+  const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
   const llm = resolveLLMConfig(rootDir);
 
   const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (武大安)。
@@ -197,9 +197,20 @@ async function planWorkList(situationReport, rootDir) {
   ];
 
   try {
-    const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, []);
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || "";
+    const { callLLMWithRetry } = await import("./llm-utils.mjs");
+    const body = {
+      model: llm.model,
+      messages,
+      max_tokens: 8192,
+      stream: false,
+    };
+    const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
+      maxRetries: 3,
+      timeoutMs: 60000,
+      validateContent: true,
+      sanitize: true,
+    });
+    const text = result.content || "";
     console.log("[EM] planWorkList LLM response length:", text.length);
     console.log("[EM] planWorkList LLM response preview:", text.slice(0, 500));
     const match = text.match(/\[[\s\S]*\]/);
