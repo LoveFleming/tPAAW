@@ -2368,7 +2368,7 @@ export async function runAgentLoop(config) {
   const timeoutMs = effectiveTimeout * 1000;
   const toolCallLog = [];
   let snapshotTaken = false; // auto-snapshot before first file write
-  const modifiedFiles = new Set<string>(); // track modified files for post-edit test verification
+  const modifiedFiles = new Set(); // track modified files for post-edit test verification
 
   // Resolve LLM config
   const llm = resolveLLMConfig(rootDir, modelOverride);
