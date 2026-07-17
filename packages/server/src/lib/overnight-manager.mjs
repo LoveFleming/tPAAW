@@ -200,15 +200,25 @@ async function planWorkList(situationReport, rootDir) {
     const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, []);
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content || "";
+    console.log("[EM] planWorkList LLM response length:", text.length);
+    console.log("[EM] planWorkList LLM response preview:", text.slice(0, 500));
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
-      const list = JSON.parse(match[0]);
-      // Validate
-      return list.filter(item => item.agent && item.task);
+      try {
+        const list = JSON.parse(match[0]);
+        console.log("[EM] planWorkList parsed:", list.length, "items");
+        return list.filter(item => item.agent && item.task);
+      } catch (parseErr) {
+        console.error("[EM] planWorkList JSON parse failed:", parseErr.message);
+        console.log("[EM] matched text:", match[0].slice(0, 300));
+        return [];
+      }
     }
+    console.error("[EM] planWorkList: no JSON array found in LLM response");
+    console.log("[EM] full response:", text.slice(0, 1000));
     return [];
   } catch (err) {
-    console.error("[EM] planWorkList error:", err.message);
+    console.error("[EM] planWorkList error:", err.message, err.stack?.slice(0, 300));
     return [];
   }
 }
@@ -235,8 +245,10 @@ export async function runEMSession(opts = {}) {
 
   if (!workList.length) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
+    sendSSE("info", { message: "ℹ️ 這可能代表 LLM 規劃返回空，或專案狀態良好。查看 server log 取得詳細資訊。" });
     const report = generateReport([], [], situationReport);
     await saveReport(rootDir, report);
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, workList: [], results: [] };
   }
 

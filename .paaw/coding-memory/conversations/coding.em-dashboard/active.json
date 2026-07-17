@@ -1,8 +1,8 @@
 {
   "_meta": {
     "crewId": "coding.em-dashboard",
-    "lastUpdated": "2026-07-17T13:28:48.237Z",
-    "messageCount": 6
+    "lastUpdated": "2026-07-17T14:17:39.246Z",
+    "messageCount": 8
   },
   "messages": [
     {
@@ -34,6 +34,17 @@
       "role": "user",
       "content": "🌙 啟動 Night Shift",
       "ts": "2026-07-16T15:46:45.518Z"
+    },
+    {
+      "role": "user",
+      "content": "🚀 啟動 EM 自動調度",
+      "ts": "2026-07-17T14:13:04.583Z"
+    },
+    {
+      "role": "assistant",
+      "content": "🎖️ EM 調度完成",
+      "ts": "2026-07-17T14:13:04.605Z",
+      "actions": []
     }
   ]
 }

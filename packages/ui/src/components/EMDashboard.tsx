@@ -565,111 +565,112 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           if (!line.startsWith("data: ")) continue;
           try {
             const d = JSON.parse(line.slice(6));
-            // Handle step events — generate rich chat messages
-            if (d.step) {
-              if (d.message) {
-                // step_start — push running indicator
-                setMessages(prev => [...prev, {
-                  role: "assistant",
-                  content: `⏳ **${d.name}** 執行中...`,
-                  ts: new Date().toISOString(),
-                  _emProgress: true,
-                }]);
-                logLines.push(d.message);
-                setEmLog([...logLines]);
-              }
-            }
-            if (d.message && !d.step) {
+
+            // ── Handle overnight-manager SSE events ──
+            // info messages
+            if (d.message && !d.step && !d.agent && !d.workList && d.totalTasks === undefined) {
               logLines.push(d.message);
               setEmLog([...logLines]);
             }
-            // step_done — replace running message with result + actions
+
+            // plan — show work list
+            if (d.workList) {
+              const planText = d.workList.map((w: any, i: number) =>
+                `  ${i + 1}. [${w.priority}] **${w.agent}**: ${w.task}${w.reason ? `\n     _${w.reason}_` : ""}`
+              ).join("\n");
+              setMessages(prev => [...prev, {
+                role: "assistant",
+                content: `📋 **工作規劃完成，共 ${d.workList.length} 項：**\n\n${planText}`,
+                ts: new Date().toISOString(),
+              }]);
+            }
+
+            // task_start — agent starting work
+            if (d.agent && d.task && d.preview === undefined && d.error === undefined) {
+              setMessages(prev => [...prev, {
+                role: "assistant",
+                content: `⏳ **${d.agent}** ${d.task}`,
+                ts: new Date().toISOString(),
+                _emProgress: true,
+              }]);
+              logLines.push(`▶ [${d.index}/${d.total}] ${d.agent}: ${d.task}`);
+              setEmLog([...logLines]);
+            }
+
+            // task_done — agent finished
+            if (d.agent && d.preview !== undefined) {
+              completedSteps.push({ stepId: d.agent, name: d.agent, summary: d.preview });
+              setMessages(prev => {
+                const lastProg = [...prev].reverse().findIndex(m => m._emProgress);
+                if (lastProg >= 0) {
+                  const idx = prev.length - 1 - lastProg;
+                  const updated = [...prev];
+                  updated[idx] = { role: "assistant", content: `✅ **${d.agent}** — ${d.preview.slice(0, 200)}`, ts: new Date().toISOString() } as any;
+                  return updated;
+                }
+                return [...prev, { role: "assistant", content: `✅ **${d.agent}** — ${d.preview.slice(0, 200)}`, ts: new Date().toISOString() } as any];
+              });
+              logLines.push(`✅ [${d.index}] ${d.agent}: ${d.preview.slice(0, 100)}`);
+              setEmLog([...logLines]);
+            }
+
+            // task_error
+            if (d.agent && d.error) {
+              setMessages(prev => {
+                const lastProg = [...prev].reverse().findIndex(m => m._emProgress);
+                if (lastProg >= 0) {
+                  const idx = prev.length - 1 - lastProg;
+                  const updated = [...prev];
+                  updated[idx] = { role: "assistant", content: `❌ **${d.agent}** — ${d.error}`, ts: new Date().toISOString() } as any;
+                  return updated;
+                }
+                return [...prev, { role: "assistant", content: `❌ **${d.agent}** — ${d.error}`, ts: new Date().toISOString() } as any];
+              });
+              logLines.push(`❌ [${d.index}] ${d.agent}: ${d.error}`);
+              setEmLog([...logLines]);
+            }
+
+            // done — session complete
+            if (d.totalTasks !== undefined) {
+              if (d.empty) {
+                logLines.push("ℹ️ LLM 規劃返回空，可能是專案狀態良好或 LLM 回覆格式不符");
+                setEmLog([...logLines]);
+              }
+            }
+
+            // report content
+            if (d.report) {
+              setReport(d.report);
+            }
+
+            // ── Legacy CU step events (security-scan, code-intelligence, etc.) ──
+            if (d.step && d.message && d.summary === undefined) {
+              setMessages(prev => [...prev, { role: "assistant", content: `⏳ **${d.name}** 執行中...`, ts: new Date().toISOString(), _emProgress: true } as any]);
+              logLines.push(d.message);
+              setEmLog([...logLines]);
+            }
             if (d.step && d.summary !== undefined) {
               const stepId = d.step;
               const stepName = d.name || stepId;
-              const reportIdMap: Record<string, string> = {
-                "security-scan": "security",
-                "code-intelligence": "code-intelligence",
-                "test-intelligence": "test-intelligence",
-                "change-intelligence": "change-intelligence",
-              };
+              const reportIdMap: Record<string, string> = { "security-scan": "security", "code-intelligence": "code-intelligence", "test-intelligence": "test-intelligence", "change-intelligence": "change-intelligence" };
               const reportId = reportIdMap[stepId];
               completedSteps.push({ stepId, name: stepName, summary: d.summary, reportId, stats: d.stats });
-
               const actions: ChatAction[] = [];
               if (reportId) actions.push({ label: "📄報告", type: "openReport", reportId });
-              // If security scan has findings, add fix action with DETAILED prompt
               if (stepId === "security-scan" && d.stats?.total > 0) {
-                const findings = d.findings || [];
-                const detailedFindingList = findings.map((f: any, i: number) => {
-                  const icon = f.severity === "CRITICAL" ? "🔴" : f.severity === "WARNING" || f.severity === "ERROR" ? "🟡" : "🔵";
-                  return `${icon} [${f.severity}] ${f.id}\n   📄 File: ${f.file}:${f.line}\n   💬 ${f.message}\n   ${f.snippet ? `📝 Code: ${f.snippet.trim().slice(0, 200)}` : ""}\n   ${f.fix ? `✅ Suggested fix: ${f.fix.slice(0, 200)}` : ""}\n   ${f.category ? `📂 Category: ${f.category}` : ""}`;
-                }).join("\n\n");
-
-                const criticalCount = findings.filter((f: any) => f.severity === "CRITICAL").length;
-                const warningCount = findings.filter((f: any) => f.severity === "WARNING" || f.severity === "ERROR").length;
-                const infoCount = findings.filter((f: any) => f.severity === "INFO").length;
-                const severitySummary = `CRITICAL: ${criticalCount}, WARNING: ${warningCount}, INFO: ${infoCount}`;
-
-                const qaPrompt = [`🔧 Security Scan 修復任務`, ``, `📊 掃描結果：共 ${d.stats.total} 個 finding（${severitySummary}）`, `掃描時間：${new Date().toISOString().slice(0, 19)}`, ``, `📋 完整 Finding 清單：`, ``, detailedFindingList, ``, `⚠️ 修復要求：`, `1. 請逐一檢查每個 finding，從 CRITICAL → WARNING → INFO 順序修復`, `2. 修復前先閱讀相關檔案的 context，理解程式碼邏輯`, `3. 修復後確認不影響其他功能（特別是同一 file 裡的其他 code）`, `4. 如果某個 finding 是誤判（false positive），請說明原因，不要硬改`, `5. 每修一個 finding，簡述改了什麼、為什麼這樣改`, `6. 全部修完後，建議跑一次 semgrep 驗證`, ``].join("\n");
-
-                const devPrompt = [`💻 Security Scan 修復任務`, ``, `📊 掃描結果：共 ${d.stats.total} 個 finding（${severitySummary}）`, ``, `📋 完整 Finding 清單：`, ``, detailedFindingList, ``, `⚠️ 修復要求：`, `1. 優先修復 CRITICAL 等級的 finding`, `2. 修復時注意不要破壞現有功能`, `3. 如果 finding 有建議 fix，優先採用`, `4. 改完請說明改了什麼`, ``].join("\n");
-
-                actions.push({ label: "🔧派 QA 修復", type: "dispatchCrew", crewId: "coding.qa", prompt: qaPrompt });
-                actions.push({ label: "💻派 Developer", type: "dispatchCrew", crewId: "coding.developer", prompt: devPrompt });
+                actions.push({ label: "🔧派 QA 修復", type: "dispatchCrew", crewId: "coding.qa", prompt: `Security Scan 修復：${d.stats.total} findings` });
+                actions.push({ label: "💻派 Developer", type: "dispatchCrew", crewId: "coding.developer", prompt: `Security Scan 修復：${d.stats.total} findings` });
               }
-              // If code-intelligence has useful data, add context-aware actions
-              if (stepId === "code-intelligence" && d.codeIntelligenceSummary) {
-                const ci = d.codeIntelligenceSummary;
-                const ciDetail = [`📊 Code Intelligence 摘要`, ``, `• Functions: ${ci.totalFunctions}`, `• Calls: ${ci.totalCalls}`, `• Dependencies: ${ci.totalDependencies}`, `• Symbols: ${ci.totalSymbols}`, ``, ci.topFunctions?.length ? `🔝 最常被呼叫的 functions：\n${ci.topFunctions.join("\n")}` : "", ``, ci.topDependencies?.length ? `🔗 最常見的 dependencies：\n${ci.topDependencies.join("\n")}` : "", ``].join("\n");
-                actions.push({ label: "💻派 Developer 審查", type: "dispatchCrew", crewId: "coding.developer", prompt: `請審查以下 code intelligence 結果，找出潛在的重構或優化機會：\n\n${ciDetail}` });
-              }
-              // If test-intelligence has untested files, add test-writing action
-              if (stepId === "test-intelligence" && d.testIntelligenceSummary) {
-                const ti = d.testIntelligenceSummary;
-                if (ti.untestedFiles?.length > 0) {
-                  const untestedList = ti.untestedFiles.slice(0, 15).join("\n");
-                  actions.push({ label: "🧪派 Tester 寫測試", type: "dispatchCrew", crewId: "coding.tester", prompt: [`🧪 Test Intelligence 分析結果`, ``, `📊 測試覆蓋率：${ti.coverageRate}`, `📋 未測試的檔案（共 ${ti.untestedFiles.length} 個，顯示前 15 個）：`, ``, untestedList, ``, ti.lowCoverageFiles?.length ? `⚠️ 低覆蓋率檔案：\n${ti.lowCoverageFiles.join("\n")}` : "", ``, `請為以上未測試的檔案撰寫 unit test。`, `優先處理 core business logic 檔案。`, `每個 test 都要有清晰的描述。`, ``].join("\n") });
-                }
-              }
-
               setMessages(prev => {
-                // Replace last _emProgress message for this step
-                const lastProg = [...prev].reverse().findIndex(m => m.role === "assistant" && m._emProgress);
+                const lastProg = [...prev].reverse().findIndex(m => m._emProgress);
                 if (lastProg >= 0) {
                   const idx = prev.length - 1 - lastProg;
                   const updated = [...prev];
-                  updated[idx] = {
-                    role: "assistant",
-                    content: `✅ **${stepName}** — ${d.summary}`,
-                    ts: new Date().toISOString(),
-                    actions,
-                    reportRef: reportId,
-                  };
+                  updated[idx] = { role: "assistant", content: `✅ **${stepName}** — ${d.summary}`, ts: new Date().toISOString(), actions, reportRef: reportId } as any;
                   return updated;
                 }
-                return [...prev, { role: "assistant", content: `✅ **${stepName}** — ${d.summary}`, ts: new Date().toISOString(), actions, reportRef: reportId }];
+                return [...prev, { role: "assistant", content: `✅ **${stepName}** — ${d.summary}`, ts: new Date().toISOString(), actions, reportRef: reportId } as any];
               });
-            }
-            // step_error
-            if (d.step && d.error) {
-              setMessages(prev => {
-                const lastProg = [...prev].reverse().findIndex(m => m.role === "assistant" && m._emProgress);
-                if (lastProg >= 0) {
-                  const idx = prev.length - 1 - lastProg;
-                  const updated = [...prev];
-                  updated[idx] = {
-                    role: "assistant",
-                    content: `❌ **${d.name}** — ${d.error}`,
-                    ts: new Date().toISOString(),
-                  };
-                  return updated;
-                }
-                return [...prev, { role: "assistant", content: `❌ **${d.name}** — ${d.error}`, ts: new Date().toISOString() }];
-              });
-            }
-            if (d.type === "report" && d.report) {
-              setReport(d.report);
             }
           } catch {}
         }
@@ -683,7 +684,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       }
       const summaryText = totalSteps > 0
         ? `🎖️ EM 調度完成！完成 ${totalSteps} 項工作。\n\n${completedSteps.map(s => `  ✅ ${s.name}: ${s.summary}`).join("\n")}`
-        : "🎖️ EM 調度完成";
+        : "🎖️ EM 調度完成（沒有執行任何工作）\n\n可能原因：\n• LLM 規劃返回空（專案狀態良好）\n• LLM 回覆格式不符（不是 JSON array）\n• LLM 呼叫失敗（檢查 server log）";
       setMessages(prev => [...prev, { role: "assistant", content: summaryText, ts: new Date().toISOString(), actions: finalActions }]);
       refreshData();
     } catch (err: any) {
