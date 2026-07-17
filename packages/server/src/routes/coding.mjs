@@ -789,7 +789,7 @@ export default async function projectRoute(req, res) {
 
   // ── POST /api/coding-crew/em-run — Trigger EM orchestration (SSE) ──
   if (url === "/api/coding-crew/em-run" && method === "POST") {
-    const body = await _readBody(req);
+    const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
     const { cwd, since } = JSON.parse(body || "{}");
     const rootDir = cwd || projectPath || PAAW_ROOT;
 
