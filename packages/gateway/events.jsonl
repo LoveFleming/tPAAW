@@ -4,3 +4,6 @@
 {"id":"5384996b-d24b-4505-bf74-d29c9c289b6e","ts":"2026-07-17T10:21:06.213Z","type":"server_exited","detail":"PAAW Server exited (code=1, signal=null)","userId":"system"}
 {"id":"bf5e8c85-ac5d-4316-bc5f-bc82e73fcd0c","ts":"2026-07-17T10:22:07.020Z","type":"gateway_started","detail":"PAAW Gateway started on :4199","userId":"system"}
 {"id":"406be42c-e5fe-49a3-bb62-40aa43b999a1","ts":"2026-07-17T10:22:08.945Z","type":"login","detail":"User Fleming logged in","userId":"admin"}
+{"id":"e0c142c3-3f4a-4c67-bbda-2d97515957fd","ts":"2026-07-17T11:44:52.646Z","type":"gateway_started","detail":"PAAW Gateway started on :4199","userId":"system"}
+{"id":"e6084df7-9ccd-47c0-bf9f-bf76a0132101","ts":"2026-07-17T11:48:49.221Z","type":"gateway_started","detail":"PAAW Gateway started on :4199","userId":"system"}
+{"id":"33518b2e-01f6-4753-8f0e-3857479adae8","ts":"2026-07-17T11:49:16.493Z","type":"login","detail":"User Fleming logged in","userId":"admin"}

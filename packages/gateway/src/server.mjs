@@ -553,12 +553,11 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/" || url.pathname === "/index.html") {
     try {
       const html = readFileSync(join(__dirname, "..", "public", "index.html"), "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html" });
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
-    } catch {
-      // Serve inline fallback UI
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(buildFallbackUI());
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("UI file missing: " + err.message);
     }
     return;
   }
@@ -567,8 +566,8 @@ const server = createServer(async (req, res) => {
   sendJSON(404, { error: "Not found" });
 });
 
-// ── Fallback UI (no build step needed) ──
-function buildFallbackUI() {
+// ── (inline UI removed — now served from public/index.html) ──
+/* function buildFallbackUI() {
   return `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -863,6 +862,9 @@ setInterval(() => { if (token) refresh(); }, 15000);
 </html>`;
 }
 
+`;
+}
+*/
 // ── Start Gateway ──
 server.listen(config.port, () => {
   console.log(`[PAAW Gateway] ⚙️ Running on http://localhost:${config.port}`);
