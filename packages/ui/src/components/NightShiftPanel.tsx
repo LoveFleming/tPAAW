@@ -144,13 +144,7 @@ export default function NightShiftPanel({ theme, rootPath }: { theme: any; rootP
           })}
         </div>
 
-        {/* Last run info */}
-        {nsStatus?.completedAt && (
-          <div className="px-3 py-2 text-[10px]" style={{ color: theme.text, opacity: 0.4, borderTop: `1px solid ${theme.borderLight}` }}>
-            {t("nightShift.lastRun")}: {new Date(nsStatus.completedAt).toLocaleString()}
-            {nsStatus.duration && ` · ${Math.round(nsStatus.duration / 1000)}s`}
-          </div>
-        )}
+        {/* Last run info — hidden per Fleming's request */}
       </div>
 
       {/* Right: Report */}
