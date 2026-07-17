@@ -827,12 +827,25 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
           {messages.map((msg, i) => (
-            <div key={i} className={`mb-3 ${msg.role === "user" ? "text-right" : ""}`}>
-              {msg.role === "user" ? (
-                <span className="inline-block px-3 py-1.5 rounded-lg text-sm bg-amber-100 text-amber-900 max-w-[80%] text-left whitespace-pre-wrap">{msg.content}</span>
-              ) : (
-                <div className="text-left">
-                  <div className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: msg.content
+            <div key={i} className="mb-3 flex gap-2.5">
+              {/* Avatar */}
+              <div className="flex-shrink-0 mt-0.5">
+                {msg.role === "user" ? (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>你</div>
+                ) : (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: "#8b5cf622", border: "1px solid #8b5cf633" }}>🎖️</div>
+                )}
+              </div>
+              {/* Bubble */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-xs font-medium text-stone-600">{msg.role === "user" ? "你" : "EM 大總管"}</span>
+                </div>
+                {msg.role === "user" ? (
+                  <span className="inline-block px-3 py-1.5 rounded-2xl text-sm bg-stone-50 text-stone-700 max-w-[80%] whitespace-pre-wrap">{msg.content}</span>
+                ) : (
+                  <div className="px-4 py-2.5 rounded-2xl bg-white shadow-sm border border-stone-100 text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">
+                  <div dangerouslySetInnerHTML={{ __html: msg.content
                     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
                     .replace(/\n/g, "<br/>")
                   }} />
@@ -878,7 +891,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                     </div>
                   )}
                 </div>
-              )}
+                )}
+            </div>
             </div>
           ))}
           {loading && <div className="text-sm text-amber-600 animate-pulse">⏳ 思考中...</div>}

@@ -1,5 +1,5 @@
 {
-  "timestamp": 1784297584732,
+  "timestamp": 1784298110392,
   "data": {
     "architecture": {
       "score": 100,
@@ -97,7 +97,7 @@
       ]
     },
     "maintainability": {
-      "score": 100,
+      "score": 85,
       "items": [
         {
           "name": "Coding Standards",
@@ -106,8 +106,8 @@
         },
         {
           "name": "Git Status",
-          "status": "ok",
-          "detail": "Clean"
+          "status": "warn",
+          "detail": "1 uncommitted"
         },
         {
           "name": "Error Handling",
