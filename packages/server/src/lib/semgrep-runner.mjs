@@ -39,12 +39,50 @@ function safePath(p) {
   return p.replace(/\\/g, "/");
 }
 
-/** Build env with Windows Python UTF-8 fix */
+/** Build env with Windows Python UTF-8 fix + Python Scripts in PATH */
 function _semgrepEnv() {
   const env = { ...process.env };
   if (isWin) {
     env.PYTHONUTF8 = "1";
     env.PYTHONIOENCODING = "utf-8";
+    // Append Python Scripts directories to PATH so semgrep can be found
+    const pathParts = [env.PATH];
+    // User-level pip install: %APPDATA%\Python\PythonXX\Scripts
+    const appData = env.APPDATA || "";
+    if (appData) {
+      try {
+        const pythonDir = join(appData, "Python");
+        if (existsSync(pythonDir)) {
+          const entries = readdirSync(pythonDir).filter(e => e.startsWith("Python"));
+          for (const ver of entries) {
+            const scriptsDir = join(pythonDir, ver, "Scripts");
+            if (existsSync(scriptsDir)) {
+              pathParts.push(scriptsDir);
+              LOG("_semgrepEnv: added Python Scripts to PATH:", scriptsDir);
+            }
+          }
+        }
+      } catch (e) {
+        LOG("_semgrepEnv: failed to scan Python Scripts dirs:", e.message);
+      }
+    }
+    // System-level Python Scripts (common on some installs)
+    const systemRoot = env.SystemRoot || "C:\\Windows";
+    const systemPythonBase = join(systemRoot, "System32", "config", "systemprofile", "AppData", "Roaming", "Python");
+    // Also check standard Python install paths
+    for (const pf of [env["ProgramFiles"] || "C:\\Program Files", env["ProgramFiles(x86)"] || "C:\\Program Files (x86)"]) {
+      try {
+        const entries = readdirSync(pf).filter(e => e.startsWith("Python"));
+        for (const ver of entries) {
+          const scriptsDir = join(pf, ver, "Scripts");
+          if (existsSync(scriptsDir)) {
+            pathParts.push(scriptsDir);
+            LOG("_semgrepEnv: added system Python Scripts to PATH:", scriptsDir);
+          }
+        }
+      } catch {}
+    }
+    env.PATH = pathParts.join(";");
   }
   LOG("_semgrepEnv: PYTHONUTF8=", env.PYTHONUTF8, "PYTHONIOENCODING=", env.PYTHONIOENCODING);
   return env;

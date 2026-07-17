@@ -2984,6 +2984,84 @@ const sendChat = useCallback(async () => {
         </div>
       )}
 
+      {/* ── Context Debug Modal (🔍 button in chat header) ── */}
+      {showContextDebug && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => { setShowContextDebug(false); setContextDebug(null); }}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-[700px] max-w-[90vw] max-h-[80vh] bg-[#1a1a2e] rounded-xl shadow-2xl border border-stone-700 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
+              <h3 className="text-sm font-bold text-stone-100 flex items-center gap-2">
+                🔍 Context & Prompts
+              </h3>
+              <div className="flex items-center gap-3">
+                {contextDebug?.totalLength != null && (
+                  <span className="text-xs text-stone-400">
+                    Total: {contextDebug.totalLength.toLocaleString()} chars
+                  </span>
+                )}
+                <button onClick={() => { setShowContextDebug(false); setContextDebug(null); }} className="text-stone-400 hover:text-white text-lg">✕</button>
+              </div>
+            </div>
+            {contextDebug?.error ? (
+              <div className="flex-1 flex items-center justify-center text-red-400 text-sm p-6">Error: {contextDebug.error}</div>
+            ) : contextDebug ? (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: "thin" }}>
+                {/* Agent Info */}
+                {contextDebug.agentId && (
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">🤖 {contextDebug.agentName || contextDebug.agentId}</span>
+                    {contextDebug.contextProviders?.length > 0 && (
+                      <span className="text-[10px] text-stone-500">providers: {contextDebug.contextProviders.join(", ")}</span>
+                    )}
+                  </div>
+                )}
+                {/* Base System Prompt */}
+                {contextDebug.baseSystemPrompt && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 Base System Prompt</span>
+                      <span className="text-[10px] text-stone-500">{(contextDebug.baseSystemPrompt.length || 0).toLocaleString()} chars</span>
+                    </div>
+                    <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                      {contextDebug.baseSystemPrompt}
+                    </pre>
+                  </div>
+                )}
+                {/* System Prompt Preview (compact) */}
+                {contextDebug.systemPromptPreview && !contextDebug.baseSystemPrompt && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">📋 System Prompt Preview</span>
+                      <span className="text-[10px] text-stone-500">{contextDebug.systemPromptLength?.toLocaleString()} chars total</span>
+                    </div>
+                    <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                      {contextDebug.systemPromptPreview}
+                    </pre>
+                  </div>
+                )}
+                {/* Dynamic Context Sections */}
+                {contextDebug.dynamicContext?.map((ctx: { source: string; content: string }, i: number) => (
+                  <div key={i}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">⚡ {ctx.source}</span>
+                      <span className="text-[10px] text-stone-500">{ctx.content.length.toLocaleString()} chars</span>
+                    </div>
+                    <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                      {ctx.content}
+                    </pre>
+                  </div>
+                ))}
+                {(!contextDebug.dynamicContext || contextDebug.dynamicContext.length === 0) && !contextDebug.baseSystemPrompt && !contextDebug.systemPromptPreview && (
+                  <div className="text-xs text-stone-500">No context data available.</div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">No data</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Agent System Context Modal ── */}
       {(agentContextData || agentContextLoading) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => { setAgentContextData(null); setAgentContextLoading(false); }}>
