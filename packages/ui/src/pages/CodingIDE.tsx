@@ -314,8 +314,29 @@ export default function CodingIDE() {
     });
   }, [activeCrew]);
   const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const [agentAction, setAgentAction] = useState<string>(""); // current tool action for typing indicator
+  const [crewLoading, setCrewLoading] = useState<Record<string, boolean>>({}); // crewId → chatLoading
+  const [crewAgentRunning, setCrewAgentRunning] = useState<Record<string, boolean>>({}); // crewId → agentRunning
+  const [crewAgentAction, setCrewAgentAction] = useState<Record<string, string>>({}); // crewId → agentAction
+  const [crewAgentToolLog, setCrewAgentToolLog] = useState<Record<string, Array<{name: string; args: string; result: string}>>>({}); // crewId → toolLog
+  const chatLoading = activeCrew ? !!crewLoading[activeCrew] : false;
+  const agentRunning = activeCrew ? !!crewAgentRunning[activeCrew] : false;
+  const agentAction = activeCrew ? (crewAgentAction[activeCrew] || "") : "";
+  const agentToolLog = activeCrew ? (crewAgentToolLog[activeCrew] || []) : [];
+  const setChatLoading = useCallback((v: boolean) => { if (activeCrew) setCrewLoading(prev => ({ ...prev, [activeCrew]: v })); }, [activeCrew]);
+  const setAgentRunning = useCallback((v: boolean) => { if (activeCrew) setCrewAgentRunning(prev => ({ ...prev, [activeCrew]: v })); }, [activeCrew]);
+  const setAgentAction = useCallback((v: string) => { if (activeCrew) setCrewAgentAction(prev => ({ ...prev, [activeCrew]: v })); }, [activeCrew]);
+  const setAgentToolLog = useCallback((v: Array<{name: string; args: string; result: string}> | ((prev: Array<{name: string; args: string; result: string}>) => Array<{name: string; args: string; result: string}>)) => {
+    if (!activeCrew) return;
+    if (typeof v === "function") {
+      setCrewAgentToolLog(prev => {
+        const current = prev[activeCrew] || [];
+        const next = v(current);
+        return { ...prev, [activeCrew]: next };
+      });
+    } else {
+      setCrewAgentToolLog(prev => ({ ...prev, [activeCrew]: v }));
+    }
+  }, [activeCrew]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const prevChatLenRef = useRef(0);
@@ -946,8 +967,7 @@ export default function CodingIDE() {
   // AI Chat Sidebar
   // ═══════════════════════════════════════════════
   const [chatMode, setChatMode] = useState<"chat" | "agent" | "spec" | "test" | "bug" | "docs" | "maintain">("agent");
-  const [agentRunning, setAgentRunning] = useState(false);
-  const [agentToolLog, setAgentToolLog] = useState<Array<{name: string; args: string; result: string}>>([]);
+  // agentRunning/agentToolLog are now per-crew (derived from crewAgentRunning/crewAgentToolLog above)
   const [crewModels, setCrewModels] = useState<Record<string, string>>({}); // crewId → model
   const codingModel = activeCrew ? (crewModels[activeCrew] || "") : "";
   const setCodingModel = useCallback((model: string) => {
