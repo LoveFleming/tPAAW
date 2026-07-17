@@ -347,6 +347,7 @@ export default function CodingIDE() {
   }, [activeCrew]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const composingRef = useRef(false); // IME composition guard
   const prevChatLenRef = useRef(0);
   const loadingFileRef = useRef(false);
   const openTabsRef = useRef(openTabs);
@@ -1249,7 +1250,8 @@ const sendChat = useCallback(async () => {
   }, [sendChat]);
 
   const handleChatKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+    if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return; // IME guard
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendChat();
     }
@@ -1386,7 +1388,7 @@ const sendChat = useCallback(async () => {
         }
 
         const elapsed = Date.now() - startTime;
-        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, streamResponse: apiStreamContent };
+        const item: ApiHistoryItem = { id: `req-${Date.now()}`, ts: new Date().toISOString(), method: apiMethod, url: apiUrl, status: status || 200, elapsed, headers: [...apiHeaders], body: apiBody, streamMode: apiStreamMode, streamResponse: accumulated };
         setApiHistory(prev => [item, ...prev].slice(0, 50));
         try { await fetch(`${API_BASE}/api/api-tester/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }); } catch {}
       } catch (err: any) {
@@ -1692,6 +1694,7 @@ const sendChat = useCallback(async () => {
                     setShowCrewMenu(false);
                     setActiveCrew(crew.id);
                     setChatMode(crew.mode);
+                    setChatInput(""); // clear chat input when switching crews
                     openMainTab({ id: `crew:${crew.id}`, type: "ai-crew", label: crew.title, icon: crew.emoji || "🤖", closable: true, crewId: crew.id });
                     fetch(`${API_BASE}/api/coding-crew/${crew.id}`).then(r => r.json()).then(data => {
                       setCrewProfile(prev => ({ ...prev, [crew.id]: data }));
@@ -2767,6 +2770,8 @@ const sendChat = useCallback(async () => {
                       ref={chatInputRef}
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
+                      onCompositionStart={() => { composingRef.current = true; }}
+                      onCompositionEnd={() => { composingRef.current = false; }}
                       onKeyDown={handleChatKeyDown}
                       placeholder={`問 ${crew?.title}...`}
                       className="flex-1 text-sm px-3 py-2 rounded-lg resize-none outline-none border focus:border-blue-400"
@@ -3060,7 +3065,7 @@ const sendChat = useCallback(async () => {
                 🔍 Context & Prompts
               </h3>
               <div className="flex items-center gap-3">
-                {contextDebug?.totalLength != null && (
+                {typeof contextDebug?.totalLength === "number" && (
                   <span className="text-xs text-stone-400">
                     Total: {contextDebug.totalLength.toLocaleString()} chars
                   </span>

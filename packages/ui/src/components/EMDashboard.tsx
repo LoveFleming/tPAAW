@@ -437,7 +437,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           params: {
             message: { role: "user", parts: [{ type: "text", text }] },
             context: { cwd: rootPath },
-            conversationHistory: messages.filter(m => !m._thinking),
+            conversationHistory: [...messages, { role: "user", content: text }].filter(m => !m._thinking),
             ...(model ? { metadata: { model } } : {}),
           },
           id: `em-chat-${thinkId}`,
@@ -1230,7 +1230,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           <div className="shrink-0 px-5 py-3 border-b border-stone-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-stone-800">🔍 EM Context Debug — {emContextDebug.agentId || "architect"}</h3>
             <div className="flex items-center gap-3">
-              {emContextDebug.totalLength != null && (
+              {emContextDebug.totalLength != null && typeof emContextDebug.totalLength === "number" && (
                 <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600">{emContextDebug.totalLength.toLocaleString()} chars total</span>
               )}
               <button onClick={() => setShowEmContextDebug(false)} className="text-stone-400 hover:text-stone-600 text-lg">✕</button>
@@ -1243,7 +1243,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-bold text-stone-700">📝 Base System Prompt</span>
-                {emContextDebug.baseSystemPromptLength != null && (
+                {typeof emContextDebug.baseSystemPromptLength === "number" && (
                   <span className="text-xs text-stone-400">({emContextDebug.baseSystemPromptLength.toLocaleString()} chars)</span>
                 )}
               </div>
@@ -1253,9 +1253,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               <div key={i}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-bold text-stone-700">📂 {ctx.source}</span>
-                  <span className="text-xs text-stone-400">({ctx.content?.length?.toLocaleString() || "?"} chars)</span>
+                  <span className="text-xs text-stone-400">({(typeof ctx.content === "string" ? ctx.content.length : JSON.stringify(ctx.content).length)?.toLocaleString() || "?"} chars)</span>
                 </div>
-                <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-48 overflow-y-auto border border-stone-200">{ctx.content || "(empty)"}</pre>
+                <pre className="whitespace-pre-wrap text-xs bg-stone-50 p-3 rounded-lg max-h-48 overflow-y-auto border border-stone-200">{typeof ctx.content === "string" ? ctx.content : JSON.stringify(ctx.content, null, 2) || "(empty)"}</pre>
               </div>
             ))}
           </div>

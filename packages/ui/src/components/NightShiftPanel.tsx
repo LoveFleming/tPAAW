@@ -62,7 +62,7 @@ export default function NightShiftPanel({ theme, rootPath }: { theme: any; rootP
   useEffect(() => {
     fetchStatus();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, []);
+  }, [rootPath]);
 
   // Poll while running
   useEffect(() => {
