@@ -311,18 +311,19 @@ export async function runSemgrep(projectRoot, options = {}) {
         id: r.check_id || "unknown",
         severity,
         rawSeverity,
-      confidence: r.extra?.metadata?.confidence || "UNKNOWN",
-      category: r.extra?.metadata?.category || r.extra?.metadata?.owasp || "general",
-      cwe: r.extra?.metadata?.cwe || [],
-      message: r.extra?.message || "",
-      file: r.path || "",
-      line: r.start?.line || 0,
-      column: r.start?.col || 0,
-      endLine: r.end?.line || 0,
-      snippet: r.extra?.lines || "",
-      fix: r.extra?.fix || null,
-      references: r.extra?.metadata?.references || [],
-    }));
+        confidence: r.extra?.metadata?.confidence || "UNKNOWN",
+        category: r.extra?.metadata?.category || r.extra?.metadata?.owasp || "general",
+        cwe: r.extra?.metadata?.cwe || [],
+        message: r.extra?.message || "",
+        file: r.path || "",
+        line: r.start?.line || 0,
+        column: r.start?.col || 0,
+        endLine: r.end?.line || 0,
+        snippet: r.extra?.lines || "",
+        fix: r.extra?.fix || null,
+        references: r.extra?.metadata?.references || [],
+      };
+    });
 
     const bySeverity = {};
     const byCategory = {};

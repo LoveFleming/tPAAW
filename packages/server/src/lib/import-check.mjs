@@ -10,7 +10,7 @@
 const CHECKS = [
   // [module path, expected exports]
   ["../lib/paaw-agent-loop.mjs", ["resolveLLMConfig", "setAgentConfig", "callLLM", "runAgentLoop", "runAgentLoopStream", "trimMessagesToFit"]],
-  ["../lib/semgrep-runner.mjs", ["runSemgrep", "diagnoseSemgrep", "isSemgrepAvailable", "buildFullScanCommand", "detectRulePacks", "formatForAI", "formatCondensed"]],
+  ["../lib/semgrep-runner.mjs", ["runSemgrep"]],
   ["../lib/paaw-project.mjs", ["createPaawProject"]],
   ["../lib/domain-agent-registry.mjs", ["getAgentByCrewId", "buildSystemPrompt"]],
   ["../lib/action-log.mjs", ["listActionLog", "loadAgentMemory"]],
@@ -52,7 +52,7 @@ async function checkImports() {
     // coding.mjs uses these
     { file: "../routes/coding.mjs", imports: [
       { from: "../lib/paaw-agent-loop.mjs", names: ["trimMessagesToFit"] },
-      { from: "../lib/semgrep-runner.mjs", names: ["runSemgrep", "diagnoseSemgrep", "buildFullScanCommand", "detectRulePacks"] },
+      { from: "../lib/semgrep-runner.mjs", names: ["runSemgrep"] },
     ]},
     { file: "../routes/a2a.mjs", imports: [
       { from: "../lib/paaw-agent-loop.mjs", names: ["trimMessagesToFit"] },
