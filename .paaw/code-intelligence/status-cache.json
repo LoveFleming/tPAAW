@@ -1,5 +1,5 @@
 {
-  "timestamp": 1784384140082,
+  "timestamp": 1784384941970,
   "data": {
     "architecture": {
       "score": 100,
@@ -82,7 +82,7 @@
         {
           "name": "FAQ",
           "status": "ok",
-          "detail": "7689 chars"
+          "detail": "10714 chars"
         },
         {
           "name": "Changelog",
@@ -92,7 +92,7 @@
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "3281 files"
+          "detail": "3284 files"
         }
       ]
     },
@@ -112,7 +112,7 @@
         {
           "name": "Error Handling",
           "status": "ok",
-          "detail": "57 files"
+          "detail": "58 files"
         },
         {
           "name": "Dependencies",

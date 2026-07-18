@@ -8,6 +8,7 @@ import { useI18n } from "../i18n";
 import API_BASE from "../api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import ModelSelector from "./ModelSelector";
 
 interface AgentStatus {
   status: "completed" | "failed" | "skipped" | "running";
@@ -222,23 +223,17 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
 
             {/* Model */}
             <div>
-              <div className="text-xs font-bold mb-1" style={{ color: theme.text }}>🤖 Model</div>
-              <input
-                type="text"
+              <div className="text-xs font-bold mb-1" style={{ color: theme.text }}>🤖 Primary Model</div>
+              <ModelSelector
+                feature="nightShift"
                 value={nsConfig.model?.primary || ""}
-                onChange={e => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, primary: e.target.value } })}
-                placeholder="留空用預設"
-                className="w-full text-xs px-2 py-1 rounded border"
-                style={{ borderColor: theme.borderLight, background: theme.bg, color: theme.text }}
+                onChange={(v: string) => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, primary: v } })}
               />
-              <div className="text-xs font-bold mt-2 mb-1" style={{ color: theme.text, opacity: 0.6 }}>Fallback（一行一個）</div>
-              <textarea
-                value={(nsConfig.model?.fallbacks || []).join("\n")}
-                onChange={e => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, fallbacks: e.target.value.split("\n").filter(Boolean) } })}
-                rows={3}
-                placeholder={"openrouter/z-ai/glm-5.1\nopenrouter/deepseek/deepseek-v4-flash"}
-                className="w-full text-xs px-2 py-1 rounded border resize-none"
-                style={{ borderColor: theme.borderLight, background: theme.bg, color: theme.text }}
+              <div className="text-xs font-bold mt-2 mb-1" style={{ color: theme.text, opacity: 0.6 }}>Fallback Model</div>
+              <ModelSelector
+                feature="nightShiftFallback"
+                value={nsConfig.model?.fallbacks?.[0] || ""}
+                onChange={(v: string) => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, fallbacks: v ? [v] : [] } })}
               />
             </div>
 
