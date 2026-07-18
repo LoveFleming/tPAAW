@@ -8,6 +8,7 @@
  */
 import type { Kysely } from "kysely";
 import type { PaawDB } from "@paaw/db";
+import stableStringify from "json-stable-stringify";
 import { generateId, nowISO, todayStr } from "@paaw/shared";
 import { MemoryStore } from "../memory/memory-store";
 
@@ -180,12 +181,12 @@ export class Refinery {
       userId,
       layer: "profile",
       key: "weekly-insights",
-      content: JSON.stringify({
+      content: stableStringify({
         week: summaries[summaries.length - 1]?.date,
         topIntents: Object.fromEntries(topIntents),
         totalDays: summaries.length,
         moodSummary: summaries.map(s => s.mood).join(","),
-      }),
+      }) ?? "",
       tags: ["weekly-insight"],
     });
   }

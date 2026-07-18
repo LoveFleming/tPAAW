@@ -9,8 +9,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@paaw/db": "*",
     "@paaw/shared": "*",
-    "@paaw/db": "*"
+    "json-stable-stringify": "^1.3.0"
   },
   "devDependencies": {
     "typescript": "^5.5.4"
