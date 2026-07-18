@@ -7,6 +7,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import API_BASE from "../api";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ReportListItem {
   date: string;
@@ -183,10 +185,8 @@ export default function ReportsTab({ rootPath, theme: tk }: ReportsTabProps) {
               <span className="text-sm font-bold" style={{ color: tk.text }}>🎖️ EM 報告 — {selectedDate}</span>
               <span className="text-xs" style={{ color: tk.textMuted }}>{formatSize(content.length)}</span>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              <pre className="text-sm whitespace-pre-wrap font-mono" style={{ color: tk.text, fontFamily: "ui-monospace, monospace" }}>
-                {content}
-              </pre>
+            <div className="flex-1 overflow-y-auto px-4 py-3 prose prose-sm max-w-none" style={{ color: tk.text }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
             </div>
           </>
         )}
