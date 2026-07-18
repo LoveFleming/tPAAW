@@ -170,10 +170,16 @@ export default async function codingHealthRoute(req, res) {
 
   // 7. Coding standards
   try {
-    const standardsFile = join(projRoot, ".paaw", "CODING-STANDARDS.md");
+    // Check multiple possible locations
+    const standardsPaths = [
+      join(projRoot, ".paaw", "CODING-STANDARDS.md"),
+      join(projRoot, ".paaw", "project", "CODING-STANDARDS.md"),
+    ];
+    const standardsFound = standardsPaths.find(p => existsSync(p));
     checks.standards = {
-      status: existsSync(standardsFile) ? "ok" : "warn",
-      message: existsSync(standardsFile) ? undefined : "No CODING-STANDARDS.md",
+      status: standardsFound ? "ok" : "warn",
+      path: standardsFound ? standardsFound.replace(projRoot + "/", "") : undefined,
+      message: standardsFound ? undefined : "No CODING-STANDARDS.md found",
     };
   } catch {
     checks.standards = { status: "warn" };
