@@ -1,8 +1,8 @@
 {
   "_meta": {
     "crewId": "coding.em-dashboard",
-    "lastUpdated": "2026-07-17T14:29:29.663Z",
-    "messageCount": 12
+    "lastUpdated": "2026-07-18T00:16:37.166Z",
+    "messageCount": 15
   },
   "messages": [
     {
@@ -67,6 +67,22 @@
       "content": "🎖️ EM 調度完成（沒有執行任何工作）\n\n可能原因：\n• LLM 規劃返回空（專案狀態良好）\n• LLM 回覆格式不符（不是 JSON array）\n• LLM 呼叫失敗（檢查 server log）",
       "ts": "2026-07-17T14:29:27.647Z",
       "actions": []
+    },
+    {
+      "role": "user",
+      "content": "🚀 啟動 EM 自動調度",
+      "ts": "2026-07-18T00:16:20.900Z"
+    },
+    {
+      "role": "assistant",
+      "content": "📋 **工作規劃完成，共 4 項：**\n\n  1. [high] **developer**: 清理未提交變更：提交所有未追蹤的 backup 檔案 (backup-2026-07-17*) 和已刪除的舊 backup 檔案 (backup-2026-07-13*)，並更新 .paaw/code-intelligence/status-cache.json 和 coding-memory 相關變更\n     _目前有新增和刪除的 backup 檔案未提交，違反 CODING-STANDARDS.md 規範『改完碼一定要 commit + push，不留 uncommitted local change』_\n  2. [high] **tester**: 為 packages/server/src/lib/paaw-agent-loop.mjs 中新增的 effectiveMaxTurns 邏輯撰寫單元測試，測試 runAgentLoop 和 runAgentLoopStream 在 maxTurns 未定義時的行為\n     _最近修復了 agent loop maxTurns fallback (commit 2ecb9b6)，但無對應測試覆蓋，違反 KI-002 (無自動化測試) 的高優先級議題_\n  3. [medium] **architect**: 審查 packages/server/src/lib/dependency-context.mjs (246行新增) 的架構設計，評估其與現有 paaw-agent-loop.mjs 的互動是否合理，產出 ADR 記錄設計決策\n     _dependency-context.mjs 是新增的核心模組 (來自 commit 31c7fc6 feat: P0 anti-breakage)，需確認架構邊界和風險_\n  4. [medium] **doc-writer**: 根據最近 10 個 commit (2ecb9b6 到 aaa62fc) 更新 .paaw/CHANGELOG.md，包含 EM Dashboard 修復、P0 anti-breakage 功能、Gateway 重構等變更\n     _CHANGELOG.md 最後更新為 2026-07-11，但後續有大量修復和新功能 commit 未記錄，違反 AI 自動更新知識庫的原則_",
+      "ts": "2026-07-18T00:16:35.156Z"
+    },
+    {
+      "role": "assistant",
+      "content": "⏳ **developer** 清理未提交變更：提交所有未追蹤的 backup 檔案 (backup-2026-07-17*) 和已刪除的舊 backup 檔案 (backup-2026-07-13*)，並更新 .paaw/code-intelligence/status-cache.json 和 coding-memory 相關變更",
+      "ts": "2026-07-18T00:16:35.156Z",
+      "_emProgress": true
     }
   ]
 }
