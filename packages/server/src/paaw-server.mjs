@@ -49,6 +49,7 @@ const ROUTE_MODULES = [
   "./routes/coding-features.mjs",
   "./routes/coding-night-shift.mjs",
   "./routes/coding-night-shift-config.mjs",
+  "./routes/coding-night-shift-prompts.mjs",
   "./routes/coding-health.mjs",
   "./routes/coding-reports.mjs",
   "./routes/llm-logs.mjs",

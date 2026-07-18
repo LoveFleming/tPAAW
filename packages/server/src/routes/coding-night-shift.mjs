@@ -21,134 +21,29 @@ const STATUS_FILE = "status.json";
 const REPORT_FILE = "report.md";
 
 // ── Agent task templates ──
-const AGENT_TASKS = {
-  architect: {
-    crewId: "coding.architect",
-    task: (gitLog, changedFiles, featuresSummary) => `## Night Shift Task: Architecture Review
+// ── Agent task prompts: loaded from .paaw/night-shift/prompts.json ──
+// Defaults are in coding-night-shift-prompts.mjs (getPromptsFile)
+let AGENT_TASKS = {};
 
-Today's git changes:
-\`\`\`
-${gitLog}
-\`\`\`
+async function loadAgentTasks(rootDir) {
+  const { getPromptsFile } = await import("./coding-night-shift-prompts.mjs");
+  const prompts = await getPromptsFile(rootDir);
+  AGENT_TASKS = {};
+  for (const [role, config] of Object.entries(prompts)) {
+    AGENT_TASKS[role] = {
+      crewId: config.crewId,
+      task: (gitLog, changedFiles, featuresSummary) => {
+        const fileList = Array.isArray(changedFiles) ? changedFiles.map(f => `- ${f}`).join("\n") : changedFiles;
+        return (config.task || "")
+          .replace(/\{\{gitLog\}\}/g, gitLog)
+          .replace(/\{\{changedFiles\}\}/g, fileList)
+          .replace(/\{\{featuresSummary\}\}/g, featuresSummary);
+      },
+    };
+  }
+  return AGENT_TASKS;
+}
 
-Changed files:
-${changedFiles.map(f => `- ${f}`).join("\n")}
-
-Current features:
-${featuresSummary}
-
-## Your Tasks
-1. Review today's architecture changes — are there any design concerns?
-2. Check if any decisions need to be recorded as ADRs
-3. If you see important decisions, use record_decision to log them
-4. Update ARCHITECTURE.md if the architecture changed (use update_docs)
-5. Summarize your findings briefly
-
-Use your tools (project_context, project_decisions, read_file) to understand the codebase.
-Write your findings to .paaw/night-shift/architect-report.md using write_file.`,
-  },
-  developer: {
-    crewId: "coding.developer",
-    task: (gitLog, changedFiles, featuresSummary) => `## Night Shift Task: Build & Fix
-
-Today's changed files:
-${changedFiles.map(f => `- ${f}`).join("\n")}
-
-## Your Tasks
-1. Run the build: \`cd packages/ui && npx vite build\` and \`cd packages/server && node --check src/paaw-server.mjs\`
-2. If build fails, fix the errors
-3. Run lint if available
-4. Update feature mapping for any files you changed (use project_feature_update_mapping)
-5. Commit and push any fixes with message "fix(night-shift): build/lint fixes"
-
-Use bash for commands, write_file/edit_file for fixes.
-Write a summary to .paaw/night-shift/developer-report.md using write_file.`,
-  },
-  tester: {
-    crewId: "coding.tester",
-    task: (gitLog, changedFiles, featuresSummary) => `## Night Shift Task: Test Coverage
-
-Changed files:
-${changedFiles.map(f => `- ${f}`).join("\n")}
-
-Current features:
-${featuresSummary}
-
-## Your Tasks
-1. Check if there are existing tests for the changed files
-2. Identify changed features that lack test coverage
-3. Write basic tests for critical new functionality
-4. Run existing tests to check for regressions
-5. Report test results
-
-Use read_file, grep, glob to explore tests. Use write_file to create new tests.
-Write a summary to .paaw/night-shift/tester-report.md using write_file.`,
-  },
-  "doc-writer": {
-    crewId: "coding.doc-writer",
-    task: (gitLog, changedFiles, featuresSummary) => `## Night Shift Task: Documentation Update
-
-Today's changes:
-\`\`\`
-${gitLog}
-\`\`\`
-
-Changed files:
-${changedFiles.map(f => `- ${f}`).join("\n")}
-
-Current features:
-${featuresSummary}
-
-## Your Tasks
-1. Update CHANGELOG.md with today's changes (use update_changelog)
-2. For each changed feature, update its documentation (use project_feature_update_docs)
-3. Update any README or inline docs that reference changed APIs
-4. Check if PROJECT.md needs updating
-
-Use project_feature_detail to see current docs, project_feature_update_docs to update.
-Write a summary to .paaw/night-shift/doc-writer-report.md using write_file.`,
-  },
-  qa: {
-    crewId: "coding.qa",
-    task: (gitLog, changedFiles, featuresSummary) => `## Night Shift Task: Code Review
-
-Today's changes:
-\`\`\`
-${gitLog}
-\`\`\`
-
-Changed files:
-${changedFiles.map(f => `- ${f}`).join("\n")}
-
-## Your Tasks
-1. Read each changed file and review for:
-   - Potential bugs (null checks, error handling, race conditions)
-   - Security issues (input validation, injection risks)
-   - Performance concerns
-   - Code style consistency
-2. For each issue found, create an issue using the issues API pattern (write to .paaw/issues/)
-3. Record your findings
-
-Use read_file, grep to review code. Use action_log_add to log findings.
-Write a summary to .paaw/night-shift/qa-report.md using write_file.`,
-  },
-  helpdesk: {
-    crewId: "coding.helpdesk",
-    task: (gitLog, changedFiles, featuresSummary) => `## Night Shift Task: HelpDesk & FAQ Update
-
-Today's changes:
-${changedFiles.map(f => `- ${f}`).join("\n")}
-
-## Your Tasks
-1. Check for any new error patterns in the changed code
-2. Update FAQ if new features were added that users might ask about
-3. Check .paaw/issues/ for any new issues — summarize them
-4. Update known issues list if needed
-
-Use project_issues to list issues. Use read_file to check specs.
-Write a summary to .paaw/night-shift/helpdesk-report.md using write_file.`,
-  },
-};
 
 // ── Helper: exec as promise ──
 function execAsync(cmd, opts = {}) {
@@ -442,6 +337,8 @@ Output ONLY the JSON array, no markdown fences.`;
     const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
     const { loadAgentMemory, listActionLog } = await import("../lib/action-log.mjs");
 
+    // Load prompts from config file
+    await loadAgentTasks(projRoot);
     const agentRoles = Object.entries(AGENT_TASKS);
 
     const results = await Promise.allSettled(agentRoles.map(async ([role, config]) => {
