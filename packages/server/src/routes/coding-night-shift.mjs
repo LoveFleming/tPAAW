@@ -281,11 +281,39 @@ export default async function codingNightShiftRoute(req, res) {
     const modelOverride = reqBody.model;
     const sinceDate = reqBody.since || urlObj.searchParams.get("since") || new Date().toISOString().split("T")[0];
 
+    // ── Read Night Shift config (model fallback chain) ──
+    let nsConfig = null;
+    try {
+      const nsConfigPath = join(projRoot, ".paaw", "night-shift", "config.json");
+      if (existsSync(nsConfigPath)) {
+        nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
+      }
+    } catch {}
+    // Effective model: UI model > config model.primary > providers default
+    const effectiveModel = modelOverride || nsConfig?.model?.primary || undefined;
+    const fallbackModels = nsConfig?.model?.fallbacks || [];
+
     // ── Phase 0: Refresh Feature Map ──
     console.log("[NightShift] Phase 0: Refreshing feature map...");
     try {
       const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
       const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
+
+      // ── LLM call with model fallback ──
+      async function callWithFallback(body, opts = {}) {
+        const models = [effectiveModel, ...fallbackModels].filter(Boolean);
+        for (let i = 0; i < models.length; i++) {
+          try {
+            const llm = resolveLLMConfig(PAAW_ROOT, models[i]);
+            const result = await callLLMWithRetry(llm.apiUrl, llm.headers, { ...body, model: llm.model || llm.defaultModel }, { maxRetries: 2, timeoutMs: 120000, ...opts });
+            if (result) return result;
+          } catch (err) {
+            console.log(`[NightShift] Model ${models[i]} failed: ${err.message.slice(0, 100)}`);
+            if (i === models.length - 1) throw err;
+          }
+        }
+        return null;
+      }
       const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
       if (existsSync(featuresFile)) {
         let features = JSON.parse(readSync(featuresFile, "utf-8"));
@@ -306,7 +334,7 @@ export default async function codingNightShiftRoute(req, res) {
           if (existsSync(apiSpecFile)) {
             try { apiContract = readSync(apiSpecFile, "utf-8").slice(0, 3000); } catch {}
           }
-          const llm = resolveLLMConfig(PAAW_ROOT, modelOverride);
+          const llm = resolveLLMConfig(PAAW_ROOT, effectiveModel);
           const refreshPrompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
 
 ## Current Features
@@ -336,7 +364,7 @@ Output a JSON array with updated mappings. Each element:
 
 Output ONLY the JSON array, no markdown fences.`;
           const refreshBody = { model: llm.model, messages: [{ role: "user", content: refreshPrompt }], temperature: 0.2, max_tokens: 8000, stream: false };
-          const refreshResult = await callLLMWithRetry(llm.apiUrl, llm.headers, refreshBody, { maxRetries: 3, timeoutMs: 120000, validateContent: true, sanitize: true });
+          const refreshResult = await callWithFallback(refreshBody, { validateContent: true, sanitize: true });
           const refreshContent = (refreshResult.content || "").replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
           if (refreshContent) {
             let updates;
@@ -442,7 +470,7 @@ Output ONLY the JSON array, no markdown fences.`;
           rootDir: PAAW_ROOT,  // providers.json is in PAAW_ROOT
           systemPrompt,
           agentId,
-          model: modelOverride,
+          model: effectiveModel,
           maxTurns: 15,
           timeout: 120,
           onEvent: (event) => {

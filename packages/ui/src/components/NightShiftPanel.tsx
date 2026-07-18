@@ -6,6 +6,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface AgentStatus {
   status: "completed" | "failed" | "skipped" | "running";
@@ -42,6 +44,22 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
   const [report, setReport] = useState<string>("");
   const [starting, setStarting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Config state ──
+  const [showConfig, setShowConfig] = useState(false);
+  const [nsConfig, setNsConfig] = useState<any>(null);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  const fetchConfig = async () => {
+    if (!rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath)}`);
+      const d = await res.json();
+      setNsConfig(d);
+    } catch {}
+  };
+
+  useEffect(() => { fetchConfig(); }, [rootPath]);
 
   const fetchStatus = async () => {
     try {
@@ -151,13 +169,107 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
             {nsStatus.duration && ` · ${Math.round(nsStatus.duration / 1000)}s`}
           </div>
         )}
+
+        {/* Config toggle */}
+        <div className="px-3 py-2" style={{ borderTop: `1px solid ${theme.borderLight}` }}>
+          <button
+            onClick={() => setShowConfig(!showConfig)}
+            className="text-xs flex items-center gap-1"
+            style={{ color: theme.text, opacity: 0.6 }}
+          >
+            {showConfig ? "▼" : "▶"} ⚙️ 設定
+          </button>
+        </div>
+
+        {/* Config panel */}
+        {showConfig && nsConfig && (
+          <div className="px-3 py-2 space-y-3" style={{ borderTop: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
+            {/* Schedule */}
+            <div>
+              <div className="text-xs font-bold mb-1" style={{ color: theme.text }}>⏰ 排程</div>
+              <label className="flex items-center gap-2 text-xs" style={{ color: theme.text }}>
+                <input
+                  type="checkbox"
+                  checked={nsConfig.schedule?.enabled || false}
+                  onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, enabled: e.target.checked } })}
+                />
+                每日自動執行
+              </label>
+              {nsConfig.schedule?.enabled && (
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={nsConfig.schedule?.time || "22:00"}
+                    onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, time: e.target.value } })}
+                    className="text-xs px-2 py-1 rounded border"
+                    style={{ borderColor: theme.borderLight, background: theme.bg, color: theme.text }}
+                  />
+                  <select
+                    value={nsConfig.schedule?.tz || "Asia/Taipei"}
+                    onChange={e => setNsConfig({ ...nsConfig, schedule: { ...nsConfig.schedule, tz: e.target.value } })}
+                    className="text-xs px-2 py-1 rounded border"
+                    style={{ borderColor: theme.borderLight, background: theme.bg, color: theme.text }}
+                  >
+                    <option value="Asia/Taipei">台北</option>
+                    <option value="Asia/Shanghai">上海</option>
+                    <option value="Asia/Tokyo">東京</option>
+                    <option value="America/Los_Angeles">太平洋</option>
+                    <option value="UTC">UTC</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Model */}
+            <div>
+              <div className="text-xs font-bold mb-1" style={{ color: theme.text }}>🤖 Model</div>
+              <input
+                type="text"
+                value={nsConfig.model?.primary || ""}
+                onChange={e => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, primary: e.target.value } })}
+                placeholder="留空用預設"
+                className="w-full text-xs px-2 py-1 rounded border"
+                style={{ borderColor: theme.borderLight, background: theme.bg, color: theme.text }}
+              />
+              <div className="text-xs font-bold mt-2 mb-1" style={{ color: theme.text, opacity: 0.6 }}>Fallback（一行一個）</div>
+              <textarea
+                value={(nsConfig.model?.fallbacks || []).join("\n")}
+                onChange={e => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, fallbacks: e.target.value.split("\n").filter(Boolean) } })}
+                rows={3}
+                placeholder={"openrouter/z-ai/glm-5.1\nopenrouter/deepseek/deepseek-v4-flash"}
+                className="w-full text-xs px-2 py-1 rounded border resize-none"
+                style={{ borderColor: theme.borderLight, background: theme.bg, color: theme.text }}
+              />
+            </div>
+
+            {/* Save */}
+            <button
+              onClick={async () => {
+                setSavingConfig(true);
+                try {
+                  await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath || "")}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(nsConfig),
+                  });
+                } catch {}
+                setSavingConfig(false);
+              }}
+              disabled={savingConfig}
+              className="w-full py-1.5 rounded text-xs font-medium"
+              style={{ background: theme.accentBg, color: theme.accent }}
+            >
+              {savingConfig ? "儲存中..." : "💾 儲存設定"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right: Report */}
       <div className="flex-1 overflow-y-auto">
         {report ? (
-          <div className="p-4">
-            <pre className="text-sm whitespace-pre-wrap font-sans" style={{ color: theme.text }}>{report}</pre>
+          <div className="p-4 prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center h-full gap-2" style={{ color: theme.text, opacity: 0.4 }}>

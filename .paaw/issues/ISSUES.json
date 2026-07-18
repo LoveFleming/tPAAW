@@ -45,7 +45,217 @@
       "createdAt": "2026-07-18T00:24:56.389Z",
       "updatedAt": "2026-07-18T00:24:56.389Z",
       "notes": []
+    },
+    {
+      "id": "ISS-004",
+      "title": "coding-health.mjs reads wrong issues filename (issues.json vs ISSUES.json)",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "file-naming",
+        "coding-health"
+      ],
+      "description": "## Bug: Issues check always reports 0 issues\n\n**File:** `packages/server/src/routes/coding-health.mjs` line 108\n\n**Problem:** The health check reads `.paaw/issues/issues.json` (lowercase), but the actual file created by `coding-issues.mjs` is `.paaw/issues/ISSUES.json` (uppercase). On case-sensitive filesystems (Linux production servers), this means the issues check ALWAYS returns 0 issues — a false \"healthy\" signal.\n\n**Evidence:**\n- `coding-health.mjs:108` → `join(projRoot, \".paaw\", \"issues\", \"issues.json\")` ❌ lowercase\n- `coding-issues.mjs:51` → `join(projectPath, \".paaw\", \"issues\", \"ISSUES.json\")` ✅ uppercase\n- Actual file on disk: `ISSUES.json` (confirmed via `ls`)\n\n**Impact:** The health endpoint reports `issues: { total: 0, open: 0 }` even when there are real open issues. This makes the health check unreliable for monitoring. On macOS (case-insensitive HFS+) it accidentally works, but will break on Linux deployment.\n\n**Fix:** Change line 108 to use `\"ISSUES.json\"` to match the canonical filename.",
+      "featureId": "F-health",
+      "createdAt": "2026-07-18T14:22:37.952Z",
+      "updatedAt": "2026-07-18T14:22:37.952Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-005",
+      "title": "coding-reports.mjs: DELETE route reads request body after response sent (dead code / race condition)",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "race-condition",
+        "coding-reports",
+        "night-shift"
+      ],
+      "description": "## Bug: Night Shift reads body AFTER sending HTTP response\n\n**File:** `packages/server/src/routes/coding-night-shift.mjs` (POST /api/coding-night-shift/start)\n\n**Problem:** The route calls `sendJSON(res, 200, ...)` to respond immediately, THEN later calls `await readBody(req)` to read the POST body (line ~310: `let reqBody = {}; try { reqBody = JSON.parse(await readBody(req) || \"{}\"); } catch {}`).\n\nIn Node.js HTTP, once `res.end()` is called, the request stream may have already been consumed or the socket behavior becomes undefined. Reading the body AFTER sending the response is a race condition — on fast networks or small bodies, the data may already be buffered and available, but under load or with larger payloads, `readBody` may hang or return empty.\n\n**Evidence (coding-night-shift.mjs):**\n```\nsendJSON(res, 200, { ok: true, message: \"Night shift started\", ... });  // ← response sent\n// ... timeout setup ...\nlet reqBody = {};\ntry { reqBody = JSON.parse(await readBody(req) || \"{}\"); } catch {}      // ← reads body AFTER\nconst modelOverride = reqBody.model;\nconst sinceDate = reqBody.since || ...;\n```\n\nThe `modelOverride` and `sinceDate` extracted from the body are used for the async agent execution. If the body read fails/returns empty, Night Shift runs with defaults (today's date, no model override) — silently ignoring user's model selection.\n\n**Impact:**\n- User selects a specific model in UI → Night Shift may ignore it\n- User sets a custom `since` date → may be ignored, using today instead\n- Potentially hangs the async task if body read blocks\n\n**Fix:** Read the body BEFORE calling `sendJSON`. Restructure:\n```js\nconst body = await readBody(req);\nlet reqBody = {};\ntry { reqBody = JSON.parse(body || \"{}\"); } catch {}\nsendJSON(res, 200, { ok: true, ... });\n// ... use reqBody.model, reqBody.since ...\n```",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:22:37.953Z",
+      "updatedAt": "2026-07-18T14:22:37.953Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-006",
+      "title": "coding-reports.mjs: No path traversal protection on :date parameter (DELETE/GET)",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "security",
+        "path-traversal",
+        "coding-reports"
+      ],
+      "description": "## Security: Path traversal risk in report date parameter\n\n**File:** `packages/server/src/routes/coding-reports.mjs`\n\n**Problem:** The `:date` parameter is extracted via regex `/\\/api\\/coding-reports\\/([\\d-]+)/` and used directly in `join(reportsDir, \\`${date}.md\\`)`. While the regex `[\\d-]` restricts to digits and hyphens (which is good!), there is no validation that the resolved path stays within `reportsDir`.\n\n**Current protection:** The regex `[\\d-]+` effectively blocks `..` and `/`, so this is currently safe. However, this is defense-by-coincidence — if someone later relaxes the regex or adds a new route with broader matching, the traversal becomes exploitable.\n\n**Recommendation (defense in depth):** After constructing `reportPath`, verify it's within `reportsDir`:\n```js\nconst reportPath = join(reportsDir, `${date}.md`);\nif (!reportPath.startsWith(reportsDir)) {\n  res.writeHead(400, ...);\n  res.end(JSON.stringify({ error: \"Invalid date\" }));\n  return true;\n}\n```\n\n**Severity:** Low immediate risk (regex protects), but worth hardening. Marking as medium because the same pattern is used for DELETE which deletes files.",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:22:37.954Z",
+      "updatedAt": "2026-07-18T14:22:37.954Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-007",
+      "title": "coding-health.mjs: issues 檔案路徑大小寫錯誤 (issues.json vs ISSUES.json)",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "bug",
+        "health-check"
+      ],
+      "description": "在 `packages/server/src/routes/coding-health.mjs` 第 108 行：\n\n```js\nconst issuesFile = join(projRoot, \".paaw\", \"issues\", \"issues.json\");\n```\n\n實際檔案名稱是大寫的 `ISSUES.json`（所有其他檔案都用大寫：coding-features.mjs:82, coding-issues.mjs:51, tools/index.mjs:730, paaw-agent-loop.mjs:1309 等等）。\n\n**影響：** Health Check 的 Issues 檢查永遠找不到檔案（`existsSync` 回傳 false），所以 `total` 和 `open` 永遠為 0。使用者看到健康檢查一切正常，但其實有 open issues 沒被計入。\n\n**修復：** 將第 108 行 `\"issues.json\"` 改為 `\"ISSUES.json\"`。\n\n**發現者：** Helpdesk Night Shift 2026-07-18",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:22:50.550Z",
+      "updatedAt": "2026-07-18T14:22:50.550Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-008",
+      "title": "coding-reports.mjs: dateMatch variable scope is confusing (code clarity)",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "code-quality",
+        "coding-reports"
+      ],
+      "description": "## Bug: Uninitialized variable when no list endpoint matches\n\n**File:** `packages/server/src/routes/coding-reports.mjs` lines 77, 101, 103\n\n**Problem:** `dateMatch` is assigned on line 77 inside the GET handler block scope, but the DELETE handler on line 101 references `dateMatch` which may be out of scope or undefined.\n\nLooking more carefully at the code:\n```js\n// Line 77: defined here\nconst dateMatch = url.match(/\\/api\\/coding-reports\\/([\\d-]+)/);\nif (req.method === 'GET' && dateMatch) { ... }  // line 78\n\n// Line 101: DELETE handler\nif (req.method === 'DELETE' && dateMatch) { ... }  // ← references dateMatch\n```\n\nSince `dateMatch` is declared with `const` at line 77 (function scope), the DELETE handler CAN access it. However, the regex runs unconditionally even for the `/list` endpoint, doing unnecessary work. More importantly, if the URL is `/api/coding-reports/list`, `dateMatch` will be `null` (no digits match), which is fine, but the logic is fragile.\n\n**Actual concern:** The regex `/\\/api\\/coding-reports\\/([\\d-]+)/` will ALSO match `/api/coding-reports/list` path checking — wait, no, \"list\" has no digits so it won't match. This is actually OK.\n\n**Downgrading:** This is a code clarity issue, not a bug. The variable is accessible. Recommend adding a comment or restructuring for readability.\n\n**Severity adjusted to low.**",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:22:58.741Z",
+      "updatedAt": "2026-07-18T14:22:58.741Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-009",
+      "title": "ReportsTab: ReactMarkdown renders AI-generated content (safe, but document constraints)",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "security",
+        "xss",
+        "reports-tab",
+        "ui"
+      ],
+      "description": "## Performance: ReactMarkdown renders untrusted content\n\n**File:** `packages/ui/src/components/ReportsTab.tsx`\n\n**Problem:** The Reports tab renders report content using `<ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>`. The content comes from `.paaw/overnight-reports/*.md` files which are generated by AI agents (EM, Night Shift). While ReactMarkdown is generally safe against XSS (it doesn't render raw HTML by default), there are considerations:\n\n1. **XSS via raw HTML:** ReactMarkdown v6+ does NOT render raw HTML by default (good). But if `rehype-raw` is ever added, it would be dangerous.\n2. **Prompt injection in reports:** AI-generated reports could contain markdown that tricks users (e.g., fake links, misleading formatting). This is a lower risk since reports are internal.\n\n**Current status:** Safe as implemented. ReactMarkdown sanitizes HTML by default.\n\n**Recommendation:** Document that `rehype-raw` must NEVER be added to this pipeline without sanitization. Consider adding a code comment.\n\n**Severity: low** (informational, current implementation is safe)",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:22:58.742Z",
+      "updatedAt": "2026-07-18T14:22:58.742Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-010",
+      "title": "ReportsTab: deleteReport uses stale reports array for fallback selection (works but fragile)",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "bug",
+        "ui",
+        "stale-closure",
+        "reports-tab"
+      ],
+      "description": "## Bug: ReportsTab stale closure in deleteReport selection\n\n**File:** `packages/ui/src/components/ReportsTab.tsx`\n\n**Problem:** In `deleteReport`, after deleting a report, if the deleted report was selected, the code tries to select the first remaining report:\n```js\nif (selectedDate === date) {\n  setSelectedDate(reports.find(r => r.date !== date)?.date || null);\n}\n```\n\n`reports` here is the state variable from the closure, which still contains the OLD list (before deletion). The `setReports(prev => prev.filter(...))` on the previous line updates state asynchronously, but `reports` in this scope is stale.\n\n**Impact:** Usually works because `.find(r => r.date !== date)` finds the first report that isn't the deleted one — which is still valid even in the stale list. The selected date will be correct. However, there's an edge case: if there's only ONE report and you delete it, `find` returns `undefined`, and `setSelectedDate(null)` is called — which is correct.\n\n**Actual behavior:** This works correctly in practice. The stale `reports` variable still has valid data for finding an alternative selection.\n\n**Downgrading to low/informational.** The logic is correct but relies on stale closure behavior. A cleaner approach would use the functional update pattern or `useCallback` with proper deps.\n\n**Severity: low**",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:22:58.743Z",
+      "updatedAt": "2026-07-18T14:22:58.743Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-011",
+      "title": "Night Shift runs all 6 agents in parallel without concurrency control (rate limit risk)",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "performance",
+        "night-shift",
+        "rate-limiting"
+      ],
+      "description": "## Performance: Night Shift parallel agent execution without concurrency limit\n\n**File:** `packages/server/src/routes/coding-night-shift.mjs`\n\n**Problem:** Night Shift dispatches all 6 agents using `Promise.allSettled(agentRoles.map(...))`, running all agents in parallel. Each agent calls `runAgentLoop` which makes LLM API calls with up to 15 turns and 120s timeout.\n\n**Impact:**\n- 6 concurrent LLM sessions hitting the same provider simultaneously\n- Rate limiting: Some providers (e.g., Z.AI, OpenRouter) have RPM (requests per minute) limits. 6 parallel long-running sessions may trigger 429 errors.\n- Memory: Each agent loop accumulates conversation history. 6 parallel loops can use significant memory.\n- The 10-minute global timeout may be too short if agents are queued behind rate limits.\n\n**Recommendation:**\n1. Consider a concurrency limiter (e.g., p-limit) to run 2-3 agents at a time\n2. Or add jitter/staggered start (e.g., 5s delay between agent starts)\n3. Monitor for 429 errors and add backoff retry at the Night Shift level\n\n**Severity: medium** — works for now with 6 agents, but will degrade with more agents or stricter rate limits.",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:22:58.743Z",
+      "updatedAt": "2026-07-18T14:22:58.743Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-012",
+      "title": "Feature map refresh logic duplicated in 3 files (coding-night-shift, overnight-manager, coding-features)",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "duplication",
+        "refactor",
+        "night-shift"
+      ],
+      "description": "## Performance: Night Shift Phase 0 feature map refresh duplicates code in 3 places\n\n**File:** Multiple files\n\n**Problem:** The \"scan all source files + LLM prompt to refresh feature map\" logic is duplicated nearly verbatim across:\n\n1. `packages/server/src/routes/coding-night-shift.mjs` — Phase 0 inline (~80 lines)\n2. `packages/server/src/lib/overnight-manager.mjs` — `refreshFeatureMapping()` (~80 lines)\n3. `packages/server/src/routes/coding-features.mjs` — POST /refresh-mapping (~60 lines)\n\nAll three contain the same:\n- Platform-specific `find` command (or Windows `node -e` one-liner)\n- Same LLM prompt template (50+ lines)\n- Same JSON recovery logic (brace counting)\n- Same apply-updates loop\n\n**Impact:**\n- Maintenance burden: bug fixes must be applied in 3 places\n- Inconsistency risk: the prompt in coding-features.mjs says \"All Source Files in Codebase\" without the count, while the other two include the count\n- The commit `cea2539` (\"same 3 fixes as refresh-mapping\") demonstrates this pain — a fix had to be applied repeatedly\n\n**Recommendation:** Extract to a shared function in `feature-map-validator.mjs` or a new `feature-map-refresher.mjs`:\n```js\nexport async function refreshFeatureMapping(projRoot, modelOverride) {\n  // single implementation\n}\n```\n\n**Severity: medium** — tech debt, not a bug, but high ROI refactor.",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:23:14.409Z",
+      "updatedAt": "2026-07-18T14:23:14.409Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-013",
+      "title": "UI components access err.message without type narrowing (TypeScript strict mode)",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "typescript",
+        "error-handling",
+        "ui"
+      ],
+      "description": "## Bug: NightShiftPanel uses `err.message` in alert without type narrowing\n\n**File:** `packages/ui/src/components/NightShiftPanel.tsx` line 93\n\n**Problem:**\n```tsx\n} catch (err) {\n  alert(\"Failed to start: \" + err.message);\n}\n```\n\n`err` is typed as `unknown` in TypeScript strict mode (which this project likely uses based on React/Next.js stack). Accessing `err.message` directly will cause a TypeScript error in strict mode.\n\n**Same pattern in:** `packages/ui/src/components/ReportsTab.tsx` (multiple catch blocks use `err: any` and access `err.message`)\n\n**Evidence:**\n- `ReportsTab.tsx` uses `catch (err: any)` which silences the error but is not type-safe\n- `NightShiftPanel.tsx` uses bare `catch (err)` then accesses `err.message` — will fail type check\n\n**Fix:** Use proper type narrowing:\n```tsx\n} catch (err) {\n  const msg = err instanceof Error ? err.message : String(err);\n  alert(\"Failed to start: \" + msg);\n}\n```\n\n**Severity: low** — TypeScript strict mode issue, runtime works fine.",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:23:14.410Z",
+      "updatedAt": "2026-07-18T14:23:14.410Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-014",
+      "title": "Inconsistent path query parameter fallback across route files",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "code-quality",
+        "consistency",
+        "api"
+      ],
+      "description": "## Code Quality: Inconsistent `path` query parameter handling across routes\n\n**File:** Multiple route files\n\n**Problem:** The `path` query parameter (project root) is resolved differently across routes:\n\n1. **coding-health.mjs:** `url.searchParams.get(\"path\") || PAAW_ROOT` — uses `PAAW_ROOT` constant ✓\n2. **coding-night-shift.mjs:** `urlObj.searchParams.get(\"path\") || PAAW_ROOT` — uses `PAAW_ROOT` constant ✓\n3. **coding-reports.mjs:** `urlObj.searchParams.get(\"path\") || process.env.PAAW_ROOT || process.cwd()` — uses `process.env` + `cwd()` fallback ⚠️\n4. **coding-features.mjs:** Requires `path` param, returns 400 if missing ✓ (strictest)\n\n**Impact:**\n- `coding-reports.mjs` falls back to `process.cwd()` which may not be the project root if the server is started from a different directory\n- Inconsistent behavior: some routes have PAAW_ROOT fallback, others use cwd, others require it\n\n**Recommendation:** Standardize on the pattern in coding-health.mjs. All routes should use:\n```js\nconst projRoot = parseQuery(req).path || PAAW_ROOT;\n```\nAnd ideally validate that the path is within an allowed root to prevent cross-project access.\n\n**Severity: low** — works in practice but inconsistent.",
+      "featureId": null,
+      "createdAt": "2026-07-18T14:23:14.411Z",
+      "updatedAt": "2026-07-18T14:23:14.411Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-015",
+      "title": "Critical: Health endpoint reads issues.json (lowercase) instead of ISSUES.json",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "bug",
+        "health-check",
+        "case-sensitivity"
+      ],
+      "description": "## Bug: Case-sensitivity mismatch in coding-health.mjs\n\n**File:** `packages/server/src/routes/coding-health.mjs` (line 108)\n\n**Problem:** The health endpoint reads `.paaw/issues/issues.json` (lowercase), but every other module in the codebase writes/reads `.paaw/issues/ISSUES.json` (uppercase). This was confirmed by grep:\n- `coding-issues.mjs`: uses `ISSUES.json`\n- `coding-features.mjs`: uses `ISSUES.json`\n- `paaw-agent-loop.mjs`: uses `ISSUES.json` (4 occurrences)\n- `tools/index.mjs`: uses `ISSUES.json`\n- `coding-health.mjs`: uses `issues.json` ← **WRONG**\n\n**Impact:** On case-sensitive filesystems (Linux, CI environments), the health check always reports `total: 0, open: 0` because it reads from a non-existent file. This means the health check shows a false \"ok\" status for issues, masking real problems. On macOS (default case-insensitive), it works by accident.\n\n**Fix:** Change line 108 from `join(projRoot, \".paaw\", \"issues\", \"issues.json\")` to `join(projRoot, \".paaw\", \"issues\", \"ISSUES.json\")`.\n\n**Severity:** High — health checks are used by Night Shift and EM for decision-making; wrong issue data can lead to missed work items.",
+      "featureId": "F-004",
+      "createdAt": "2026-07-18T14:23:16.561Z",
+      "updatedAt": "2026-07-18T14:23:16.561Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-016",
+      "title": "Tech Debt: Duplicated feature-map refresh logic in 3 locations",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "DRY",
+        "refactor"
+      ],
+      "description": "## DRY Violation: Feature map refresh + JSON recovery logic duplicated\n\n**Files affected:**\n1. `packages/server/src/lib/overnight-manager.mjs` — `refreshFeatureMapping()` function\n2. `packages/server/src/routes/coding-night-shift.mjs` — inline Phase 0 refresh (lines ~155-230)\n3. `packages/server/src/routes/coding-features.mjs` — `/refresh-mapping` endpoint\n\n**Problem:** All three contain nearly identical code:\n- The same LLM prompt (~30 lines) for feature mapping refresh\n- The same source-file scanning command (with Windows/macOS branching)\n- The same JSON truncation recovery logic (~20 lines of brace-counting)\n- The same update application loop\n\n**Impact:**\n- Maintenance burden: any change (e.g., prompt improvement, new file type) must be applied in 3 places\n- Risk of divergence: the 3 copies are already slightly different (overnight-manager passes `modelOverride`, night-shift uses `PAAW_ROOT` for LLM config, features route uses inline `fetch`)\n\n**Recommendation:** Extract a shared `refreshFeatureMapping(projectRoot, { modelOverride, providersFile })` function into `feature-map-validator.mjs` or a new `feature-map-refresher.mjs` module. Both overnight-manager and night-shift should call it. The coding-features route should also call it (replacing its inline implementation).\n\nThis is architecture-level — please assign to Developer (Priya) for refactoring.",
+      "featureId": "F-002",
+      "createdAt": "2026-07-18T14:23:16.562Z",
+      "updatedAt": "2026-07-18T14:23:16.562Z",
+      "notes": []
     }
   ],
-  "updatedAt": "2026-07-18T00:24:56.389Z"
+  "updatedAt": "2026-07-18T14:23:16.562Z"
 }

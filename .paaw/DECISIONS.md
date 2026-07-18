@@ -37,3 +37,75 @@
 - **決定**: Adopt the Pre-edit Dependency Context Injection pattern where: (1) Before every write_file or edit_file, getDependencyContext() is called to load CI data and format it as a human-readable string; (2) The context string is appended to the tool result, making it visible to the LLM in the same turn; (3) After the agent loop completes (both regular and stream mode), getAffectedTests() auto-runs the relevant test suite. This pattern is implemented consistently in both paaw-agent-loop.mjs and tool-engine/index.mjs. The output format includes four sections: importedBy (who depends on this file), callersOf (who calls functions in this file), imports (what this file depends on), and test files.
 - **後果**: Positive: LLM can make informed decisions about impact before modifying code; post-edit test auto-run reduces regression risk; dual integration (agent-loop + tool-engine) ensures coverage regardless of execution path. Negative: Performance concern — getDependencyContext re-reads and re-parses 4 JSON files from disk on every call (no cache); impact information is appended as text after the write result, which can make the tool response very long. Neutral: Requires Code Intelligence data to exist in .paaw/code-intelligence/ — if data doesn't exist, the module gracefully returns empty string (but doesn't auto-trigger CI build). Corrective: Three issues identified as tech debt — (1) brittle path normalization violating cross-platform standards, (2) missing cache layer causing repeated I/O, (3) dead code in getImpactSummary (unused) and convention-based test detection in getAffectedTests (logic never reaches return).
 
+## ADR-006: L3 Deterministic Validation Layer for AI-Generated Feature Maps
+- **日期**: 2026-07-18
+- **狀態**: Proposed
+- **背景**: AI agents generate feature-to-file mappings by analyzing the codebase with LLMs. LLMs can hallucinate — referencing files that don't exist, missing files, or fabricating API endpoints. Without validation, these errors silently propagate into the feature map and mislead all downstream agents (Night Shift, EM, code understanding).
+
+A new module `feature-map-validator.mjs` was introduced that performs deterministic (zero-AI) validation:
+1. **Mapping validation**: every codeFile/API/test referenced in FEATURES.json must exist on disk
+2. **Coverage check**: find orphan source files not mapped to any feature
+3. **Understanding validation**: check AI-generated text for hallucinated filenames and functions
+
+This runs as Phase 0 in both Night Shift and EM sessions, after AI refresh but before work dispatch.
+- **決定**: Adopt a "Layer 3" validation pattern: AI generates output (Layer 1), AI self-corrects (Layer 2, future), and deterministic code validates against ground truth (Layer 3). The validation layer uses filesystem scanning and regex extraction — no LLM calls — so it's fast, reliable, and immune to AI hallucination.
+
+The validator module (`feature-map-validator.mjs`) exports:
+- `scanAllSourceFiles()` — walk the project tree deterministically
+- `extractApiRoutes()` — regex-scan route files for HTTP method + path patterns
+- `validateFeatureMapping()` — cross-check FEATURES.json against disk
+- `checkCoverage()` — find unmapped files
+- `validateUnderstanding()` — detect hallucinated references in AI text
+- `runFullValidation()` — combined report
+- **後果**: - Positive: AI hallucinations in feature maps are caught before they propagate
+- Positive: Coverage gaps are quantified (orphan files, features without tests/understanding)
+- Positive: Fully deterministic, no additional LLM cost
+- Negative: Regex-based API extraction may miss dynamic routes (mitigated with wildcard matching)
+- Negative: File-existence checks don't verify semantic correctness, only physical presence
+- Neutral: Validation runs on every EM/Night Shift Phase 0, adding ~1-2 seconds
+
+## ADR-007: Untitled Decision
+- **日期**: 2026-07-18
+- **狀態**: Proposed
+- **背景**: The Night Shift and EM orchestration systems need to plan and execute multi-agent tasks. Pure-LLM approaches (planning + execution by LLM) are expensive and non-deterministic. Pure-deterministic approaches can't understand semantic context (what work needs doing).
+
+The codebase now uses a hybrid pattern in two places:
+1. **overnight-manager.mjs (EM session)**: Phase 1 deterministic context gathering (git status, diff, action log, .paaw/ files) → Phase 2 LLM planning (reads summary, outputs JSON work list) → Phase 3 deterministic execution (A2A message/send to each agent) → Phase 4 deterministic reporting
+2. **coding-night-shift.mjs**: Phase 0 feature map refresh (LLM) + L3 validation (deterministic) → parallel agent dispatch (deterministic) → report generation (deterministic)
+
+The key principle: **deterministic code handles collection and execution; LLM only does planning/understanding.** This is stated in the overnight-manager comment: "收集和執行用決定性程式，規劃用 LLM prompt".
+- **決定**: Adopt the Hybrid Deterministic+LLM Orchestration pattern as the standard for all multi-agent workflow systems. The pattern has strict phase boundaries:
+- **Deterministic phases** (collection, execution, reporting): shell commands, file reads, JSON parsing, A2A dispatch — reproducible, debuggable, zero LLM cost
+- **LLM phases** (planning, understanding): single LLM call with structured JSON output — handles ambiguity, prioritization, semantic understanding
+- **Boundary contract**: LLM output is always validated by a deterministic layer before use (e.g., JSON parse + L3 validation)
+
+This is the "opposite of fully-autonomous" — agents execute specific tasks, not open-ended exploration.
+- **後果**: - Positive: Deterministic phases are debuggable and reproducible
+- Positive: LLM cost is minimized — typically 1 planning call + N agent calls
+- Positive: Deterministic collection ensures the LLM always has accurate context
+- Negative: Phase boundaries add some latency (sequential phases)
+- Negative: LLM JSON output parsing can fail (mitigated by recovery logic + L3 validation)
+- Neutral: This pattern is now used in both overnight-manager.mjs and coding-night-shift.mjs — there is some code duplication in the Phase 0 feature map refresh logic (see tech debt ISS-002)
+
+## ADR-008: Untitled Decision
+- **日期**: 2026-07-18
+- **狀態**: Proposed
+- **背景**: Feature discovery (finding new features from unmapped source files) was previously a manual process — developers had to run Code Understanding and hope the AI grouped files well. The new `/api/coding-features/discover` endpoint automates this:
+
+1. Run L3 coverage check to find "orphan" files (source files not mapped to any feature)
+2. Send orphan list + existing feature names to LLM → LLM groups files into coherent new features
+3. Validate LLM output: every file in each new feature must exist on disk (L3 check)
+4. Create features with validated file lists
+
+This closes the loop: refresh-mapping updates existing features, discover creates new features from the unmapped remainder. Together they drive coverage toward 100%.
+- **決定**: Adopt the AI-Driven Feature Discovery pattern with mandatory L3 pre-write validation. The discover endpoint:
+- Uses `checkCoverage()` from feature-map-validator.mjs to find orphans deterministically
+- Sends orphans to LLM for semantic grouping into features
+- **Validates every file in LLM output against disk before writing** to FEATURES.json — invalid files are silently filtered out
+
+This ensures AI can never create a feature with hallucinated file paths.
+- **後果**: - Positive: Feature map coverage improves automatically; no manual intervention needed
+- Positive: Hallucinated file paths are filtered before persistence
+- Negative: If LLM omits files from its grouping, those files remain as orphans (idempotent — can re-run)
+- Neutral: Discovery is a separate call from refresh-mapping — together they form a two-step "update + discover" workflow
+

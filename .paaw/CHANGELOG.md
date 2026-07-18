@@ -28,6 +28,58 @@
 ### fixed
 - refinery.ts weeklyRefine: 以 json-stable-stringify 取代 JSON.stringify，修復 semgrep no-stringify-keys warning
 
+### added
+- Reports tab — EM report list + viewer (GET/DELETE /api/coding-reports/list, /:date) with markdown rendering
+
+### added
+- Health check endpoint (GET /api/coding-health) — checks provider config, feature map, issues, Night Shift stuck-run detection, security scan freshness, LLM activity, coding standards (checks .paaw/ and .paaw/project/)
+
+### added
+- Layer 3 feature map validation (feature-map-validator.mjs) — deterministic checks on AI output: missing files, missing APIs, duplicate assignments, orphan files, hallucinated references in AI understanding
+
+### added
+- AI feature discovery from orphan files (POST /api/coding-features/discover) — groups unmapped source files into new features with L3 validation before writing
+
+### added
+- AI understanding generation for all 9 features (POST /api/coding-features/:id/understand) — Overview, Architecture, Data Flow, Key Decisions, Test Coverage, Risks, Dependencies
+
+### added
+- Night Shift timeout protection — global 10-min timeout that force-fails stuck runs; Phase 0 feature map refresh + L3 validation before dispatching agents
+
+### added
+- EM Dashboard passes ModelSelector model to EM/Night Shift + Phase 0 feature map refresh
+
+### fixed
+- Reports tab renders markdown (ReactMarkdown + remark-gfm) instead of plain text
+
+### fixed
+- Refinery weeklyRefine: replace JSON.stringify with json-stable-stringify for deterministic output
+
+### fixed
+- Code Understanding: same 3 fixes as refresh-mapping (truncated JSON recovery, file existence validation, sanitize)
+
+### fixed
+- Health check: check .paaw/project/ for CODING-STANDARDS.md + fix issues wrapper (issues.json vs ISSUES.json)
+
+### fixed
+- Security scan: restore full language --include list, rely on --exclude data/semgrep-rules (scan JS/TS/Python/Java/Go/Ruby/PHP/C/C++/C#)
+
+### fixed
+- Security scan: only scan source code files via --include, exclude semgrep-rules dir + non-web languages + JSON/MD/data
+
+### fixed
+- UX: instant scroll to bottom instead of smooth animation; don't auto-scroll EM chat to bottom on initial load
+
+### changed
+- ## Night Shift Task: Test Coverage
+
+Changed files:
+- .paaw/CHANGELOG.md
+- .paaw/ (1 new file)
+
+### changed
+- +421 −11 lines across 8 files
+
 ## 2026-07-17
 
 ### Added

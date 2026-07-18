@@ -185,3 +185,90 @@ Git Changes Preview 是 EM Dashboard 上的一個新面板，顯示自從指定�
 **預計修復**：Developer 團隊已記錄此問題（ISS-001），需要將 `chatRes.body.on("data")` 改為 `for await (const chunk of chatRes.body)` 或 `chatRes.body.getReader()`。
 
 **暫時替代方案**：可以直接在聊天中請 AI agent 幫忙 review diff。
+
+## Reports 報告頁面是做什麼的？在哪裡可以找到？
+**Category:** features
+
+Reports（📋 報告）是 Coding IDE 側邊欄的一個新工具頁面，用來瀏覽和管理 EM 大總管自動產生的隔天報告。
+
+**位置：** Coding IDE 左側工具列，點 📋 圖示（或從選單選「Reports」）
+
+**功能：**
+- **左側列表** — 按日期排列所有 EM 報告，顯示日期、結果（✅ 成功數 / ❌ 失敗數）、檔案大小
+- **右側檢視器** — 點選報告後，以 Markdown 格式渲染完整報告內容（包含專案現況、工作清單、各 agent 結果）
+- **刪除報告** — 每筆報告右側有 ✕ 按鈕可刪除
+- **重新載入** — 底部有 🔄 按鈕可刷新列表
+
+**報告來源：** 每次 EM 自動調度（🚀 EM 自動調度）完成後，會自動在 `.paaw/overnight-reports/` 產生一份當天日期的報告。
+
+**對應 API：**
+- `GET /api/coding-reports/list` — 列出所有報告
+- `GET /api/coding-reports/:date` — 取得單一報告內容
+- `DELETE /api/coding-reports/:date` — 刪除報告
+
+## 什麼是 Feature Map Validation（L3 驗證）？它跟 AI 有什麼不同？
+**Category:** features
+
+Feature Map Validation（L3 驗證）是一個**決定性**（deterministic）的檢查機制，用來驗證 AI 產生的 Feature Map 是否與實際程式碼相符。
+
+**核心原則：** AI 可以產生幻覺（hallucinate），但程式碼不會說謊。L3 驗證不依賴 AI，純粹用檔案系統掃描和正則匹配來檢查。
+
+**檢查項目：**
+1. **檔案存在性** — FEATURES.json 裡每個 codeFile 是否真的存在於磁碟上
+2. **API 存在性** — 每個標記的 API endpoint 是否真的在 route 檔案中找到
+3. **測試檔案存在性** — 測試檔案路徑是否正確
+4. **覆蓋率分析** — 找出「孤兒檔案」（未被歸類到任何 feature 的原始碼）
+5. **重複歸類** — 同一個檔案被分配到多個 feature
+6. **AI 理解驗證** — AI 寫的理解文字是否引用了不存在的檔案或函數（需 tree-sitter）
+
+**什麼時候會跑：**
+- Night Shift Phase 0（AI 刷新 Feature Map 後自動驗證）
+- EM 自動調度 Phase 0
+- 手動觸發：`GET /api/coding-features/validate`
+
+**相關功能：** 「Feature Discovery」可以從孤兒檔案中自動發現新 feature（`POST /api/coding-features/discover`）
+
+## Health Check（健康檢查）endpoint 是做什麼的？怎麼用？
+**Category:** features
+
+Health Check 是一個系統健康檢查 API，會檢查 Coding App 的所有子系統並回報狀態。
+
+**使用方式：**
+```
+GET /api/coding-health?path=/your/project/path
+```
+
+**檢查項目（7 項）：**
+1. **Provider** — AI 供應商設定是否正確（API key、model）
+2. **Feature Map** — Feature 數量、AI 理解覆蓋率、是否有檔案遺失
+3. **Issues** — Issue 數量、未解決數量
+4. **Night Shift** — 上次執行狀態，**偵測卡住的執行**（status=running 超過 1 小時會標記 fail）
+5. **Security** — 安全掃描結果新鮮度（超過 7 天會警告）
+6. **LLM Activity** — 24 小時內 LLM 活動量
+7. **Coding Standards** — CODING-STANDARDS.md 是否存在
+
+**回傳格式：** 每項檢查有 `status`（ok / warn / fail）、相關數據、和 `message`（有問題時的說明）。
+
+**常見用途：** 部署後快速確認環境是否健康、排查「為什麼 AI 功能不工作」。
+
+## Health Check 顯示 Issues 數量為 0，但 ISSUES.json 明明有資料？
+**Category:** troubleshooting
+
+Health Check (`GET /api/coding-health`) 顯示 Issues 數量為 0，但 `.paaw/issues/ISSUES.json` 裡明明有 issue。
+
+**原因：** `coding-health.mjs` 第 108 行寫了小寫的 `issues.json`，但實際檔案名稱是大寫的 `ISSUES.json`。在 macOS/Linux 上這不影響（大小寫敏感但 `existsSync` 找不到小寫檔），所以 health check 找不到檔案，誤以為沒有 issue。
+
+**影響：** Health Check 的 Issues 檢查項永遠顯示 `total: 0, open: 0`，不會正確反映實際 issue 數量。
+
+**預計修復：** Developer (Priya) 需要將 `coding-health.mjs` 第 108 行的 `issues.json` 改為 `ISSUES.json`。此問題已開立 ISS-004 追蹤。
+
+## Health Check 顯示 Issues 數量為 0，但 ISSUES.json 明明有資料？
+**Category:** troubleshooting
+
+Health Check (`GET /api/coding-health`) 顯示 Issues 數量為 0，但 `.paaw/issues/ISSUES.json` 裡明明有 issue。
+
+**原因：** `coding-health.mjs` 第 108 行寫了小寫的 `issues.json`，但實際檔案名稱是大寫的 `ISSUES.json`。在大小寫敏感的檔案系統上 `existsSync` 找不到小寫檔，所以 health check 找不到檔案，誤以為沒有 issue。
+
+**影響：** Health Check 的 Issues 檢查項永遠顯示 `total: 0, open: 0`，不會正確反映實際 issue 數量。
+
+**預計修復：** Developer (Priya) 需要將 `coding-health.mjs` 第 108 行的 `issues.json` 改為 `ISSUES.json`。此問題已開立 **ISS-007** 追蹤。
