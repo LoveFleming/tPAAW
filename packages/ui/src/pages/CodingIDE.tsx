@@ -42,6 +42,7 @@ import IssueTracker from "../components/IssueTracker";
 import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
 import NightShiftPanel from "../components/NightShiftPanel";
+import ReportsTab from "../components/ReportsTab";
 import SecurityTab from "../components/SecurityTab";
 import FileViewer from "../pages/FileViewer";
 
@@ -66,7 +67,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security" | "reports";
 
 interface MainTab {
   id: string;
@@ -1908,6 +1909,13 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:security") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:security" ? tk.toolbarActive : "transparent"; }}
           title="Security Scan">🔒 Security</button>
+
+        <button onClick={() => openMainTab({ id: "tool:reports", type: "reports", label: "Reports", icon: "📋", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:reports" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:reports") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:reports") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:reports" ? tk.toolbarActive : "transparent"; }}
+          title="EM Reports">📋 Reports</button>
       </div>
 
       {/* ── Main Content ── */}
@@ -2824,16 +2832,8 @@ const sendChat = useCallback(async () => {
                   }
                 }}
                 onOpenReportTab={(reportId) => {
-                  // Open the appropriate report tab based on reportId
-                  const reportTabMap: Record<string, { type: string; label: string; icon: string }> = {
-                    "security": { type: "security", label: "Security Report", icon: "🔒" },
-                    "code-intelligence": { type: "features", label: "Code Intelligence", icon: "🗺️" },
-                    "test-intelligence": { type: "features", label: "Test Intelligence", icon: "🧪" },
-                    "change-intelligence": { type: "features", label: "Change Intelligence", icon: "🔄" },
-                    "em-report": { type: "em-dashboard", label: "EM Dashboard", icon: "🎖️" },
-                  };
-                  const tabInfo = reportTabMap[reportId] || reportTabMap["em-report"];
-                  openMainTab({ id: `report:${reportId}`, type: tabInfo.type as any, label: tabInfo.label, icon: tabInfo.icon, closable: true });
+                  // Open the Reports tab
+                  openMainTab({ id: "tool:reports", type: "reports", label: "Reports", icon: "📋", closable: true });
                 }}
               />
             </div>
@@ -2894,6 +2894,14 @@ const sendChat = useCallback(async () => {
                   rootPath={rootPath}
                   model={emModel}
                 />
+              </div>
+            )}
+
+            {/* === Reports Tab === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "reports") && rootPath && (
+              <div key="tool:reports" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "reports" ? undefined : "none" }}>
+                <ReportsTab rootPath={rootPath} theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text, textMuted: tk.textMuted }} />
               </div>
             )}
 

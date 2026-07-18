@@ -25,6 +25,9 @@
 ### changed
 - +309 −111 lines across 7 files
 
+### fixed
+- refinery.ts weeklyRefine: 以 json-stable-stringify 取代 JSON.stringify，修復 semgrep no-stringify-keys warning
+
 ## 2026-07-17
 
 ### Added
