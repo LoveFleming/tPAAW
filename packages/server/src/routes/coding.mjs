@@ -1390,6 +1390,7 @@ export default async function projectRoute(req, res) {
       const body = JSON.parse(await readBody(req));
       const stepId = body.step;
       const skipContext = body.skipContext === true; // if true, don't load accumulated context
+      const cuModelOverride = body.model || null;
 
       const ALL_STEPS = [
         { id: "scan", name: "🔍 掃描專案結構", promptFile: "scan-project.md" },
@@ -1434,7 +1435,7 @@ export default async function projectRoute(req, res) {
           projectContext += `Package: ${pkg.name || "unknown"}\nDependencies: ${Object.keys(pkg.dependencies || {}).join(", ")}\n`;
         } catch {}
         try {
-          const treeOutput = await scanProjectFiles(root, 500);
+          const treeOutput = await scanProjectFiles(root);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
         try {
@@ -1641,6 +1642,7 @@ export default async function projectRoute(req, res) {
         // Call LLM with longer timeout for single step
         try {
           const result = await callProjectLLM({
+            model: cuModelOverride || undefined,
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0.2,
             maxTokens: step.id === "feature-map" ? 16000 : 4000,
@@ -1804,6 +1806,17 @@ export default async function projectRoute(req, res) {
           sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
           try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
         }
+        // If this was the feature-map step, run L3 validation
+        if (stepId === "feature-map") {
+          try {
+            const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
+            const validation = await runFullValidation(root, { skipUnderstanding: true });
+            if (validation.ok) {
+              const s = validation.summary;
+              sendEvent("info", { message: `L3 validation: ${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans` });
+            }
+          } catch {}
+        }
         sendEvent("done", { message: "Step complete" });
       } catch (err) {
         sendEvent("error", { error: err.message });
@@ -1846,6 +1859,10 @@ export default async function projectRoute(req, res) {
         // Ensure .paaw/ exists
         await paaw.init();
 
+        // Read model override from request body
+        let cuModelOverride = null;
+        try { const cuBody = JSON.parse(await readBody(req) || "{}"); cuModelOverride = cuBody.model || null; } catch {}
+
         // Gather project info for context
         let projectContext = `Project root: ${root}\n`;
         try {
@@ -1855,7 +1872,7 @@ export default async function projectRoute(req, res) {
 
         // Get file tree
         try {
-          const treeOutput = await scanProjectFiles(root, 500);
+          const treeOutput = await scanProjectFiles(root);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
@@ -2020,6 +2037,7 @@ export default async function projectRoute(req, res) {
           // Call LLM
           try {
             const result = await callProjectLLM({
+              model: cuModelOverride || undefined,
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
               maxTokens: step.id === "feature-map" ? 16000 : 4000,
@@ -2180,6 +2198,29 @@ export default async function projectRoute(req, res) {
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
             try { await paaw.setCuStepStatus(step.id, "error", { error: err.message }); } catch {}
           }
+        }
+
+        // ── L3 Validation after all steps complete ──
+        sendEvent("step_start", { step: "validate", name: "🔍 L3 驗證 Feature Map" });
+        try {
+          const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
+          const validation = await runFullValidation(root, { skipUnderstanding: true });
+          if (validation.ok) {
+            const s = validation.summary;
+            sendEvent("step_done", {
+              step: "validate",
+              name: "🔍 L3 驗證 Feature Map",
+              summary: `${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans`,
+              validation: s,
+            });
+            if (s.mappingErrors > 0) {
+              sendEvent("warning", { message: `Feature Map 有 ${s.mappingErrors} 個錯誤（檔案不存在），建議重新執行 Feature Map 步驟` });
+            }
+          } else {
+            sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: validation.error || "Skipped" });
+          }
+        } catch (err) {
+          sendEvent("step_done", { step: "validate", name: "🔍 L3 驗證", summary: `Skipped: ${err.message}` });
         }
 
         sendEvent("done", { message: "Code Understanding complete" });
@@ -2394,7 +2435,7 @@ export default async function projectRoute(req, res) {
           projectContext += `Package: ${pkg.name || "unknown"}\n`;
         } catch {}
         try {
-          const treeOutput = await scanProjectFiles(root, 500);
+          const treeOutput = await scanProjectFiles(root);
           projectContext += `\nFile tree:\n${treeOutput}`;
         } catch {}
 
@@ -2709,12 +2750,17 @@ function runShellCmd(command, cwd, timeoutMs = 10_000) {
 }
 
 // ── Cross-platform file tree scan (Windows has no Unix 'find') ──
-function scanProjectFiles(cwd, maxFiles = 200) {
+function scanProjectFiles(cwd, maxFiles = 0) {
   const isWin = process.platform === "win32";
+  // Only scan source code files — no JSON/MD/data files
+  // maxFiles=0 means no limit (scan all)
+  const limitPart = maxFiles > 0 ? `.slice(0,${maxFiles})` : "";
+  const headPart = maxFiles > 0 ? ` | head -${maxFiles}` : "";
+  const winSlice = maxFiles > 0 ? `f.slice(0,${maxFiles})` : "f";
   const cmd = isWin
-    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx|json|md)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.slice(0,${maxFiles}).join('\\n'))"`
-    : "find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -path '*/dist/*' -not -name '*.map' | head -" + maxFiles;
-  return runShellCmd(cmd, cwd, 15_000);
+    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.includes('build')&&!e.includes('coverage')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|cjs|jsx|py|java|go|rb|php)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(${winSlice}.join('\\n'))"`
+    : "find . -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.cjs' -o -name '*.jsx' -o -name '*.py' -o -name '*.java' -o -name '*.go' -o -name '*.rb' -o -name '*.php' \) -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.paaw/*' -not -path '*/dist/*' -not -path '*/build/*' -not -path '*/coverage/*' -not -path '*/data/semgrep-rules/*'" + headPart;
+  return runShellCmd(cmd, cwd, 30_000);
 }
 
 // ── Collect Project Health ──

@@ -478,7 +478,7 @@ export default function CodingIDE() {
     setAiInitSteps(steps.map(s => ({ ...s, status: "pending" as const })));
 
     try {
-      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/coding-project/ai-initial?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: emModel || undefined }) });
       if (!res.ok || !res.body) {
         setAiInitSteps(prev => prev.map(s => ({ ...s, status: "error" as const, error: `HTTP ${res.status}` })));
         setAiInitializing(false); return;
