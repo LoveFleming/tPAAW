@@ -2926,25 +2926,19 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === Developer Tab === (keep mounted, hide with CSS) */}
+            {/* === Developer Tab === placeholder (existing AI Crew has Priya) */}
             {mainTabs.some(t => t.type === "developer") && rootPath && (
               <div key="tool:developer" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "developer" ? undefined : "none" }}>
-                <DeveloperPanel
-                  rootPath={rootPath}
-                  theme={{
-                    bg: tk.bg,
-                    bgMuted: tk.bgMuted,
-                    borderLight: tk.borderLight,
-                    accent: tk.accent,
-                    accentBg: tk.accentBg,
-                    text: tk.text,
-                    textMuted: tk.textMuted,
-                    hover: tk.toolbarHover,
-                  }}
-                  model={emModel}
-                  onModelChange={setEmModel}
-                />
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
+                  <div className="text-5xl">👩‍💻</div>
+                  <h2 className="text-lg font-bold text-stone-600">Developer Orchestrator</h2>
+                  <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
+                    Phase 0-4 orchestrator 已建構完成。<br/>
+                    API: POST /api/coding-developer/run<br/>
+                    整合到 Priya 的工作流程中——待配置。
+                  </p>
+                </div>
               </div>
             )}
 
