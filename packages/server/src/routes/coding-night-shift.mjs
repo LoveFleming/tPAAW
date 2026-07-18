@@ -256,6 +256,25 @@ export default async function codingNightShiftRoute(req, res) {
     // Respond immediately — run async
     sendJSON(res, 200, { ok: true, message: "Night shift started", startedAt: status.startedAt });
 
+    // ── Global timeout: if night shift runs > 10 minutes, force-fail ──
+    const NIGHT_SHIFT_TIMEOUT_MS = 10 * 60 * 1000; // 10 min
+    const timeoutId = setTimeout(() => {
+      try {
+        const currentStatus = JSON.parse(readSync(join(nsDir, STATUS_FILE), "utf-8"));
+        if (currentStatus.status === "running") {
+          currentStatus.status = "failed";
+          currentStatus.completedAt = new Date().toISOString();
+          currentStatus.duration = Date.now() - startTime;
+          currentStatus.error = `Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s`;
+          writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(currentStatus, null, 2));
+          console.error(`[NightShift] Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s, force-failed`);
+        }
+      } catch {}
+    }, NIGHT_SHIFT_TIMEOUT_MS);
+
+    // Ensure timeout is cleared when done
+    const originalClearTimer = () => clearTimeout(timeoutId);
+
     // Gather context
     let reqBody = {};
     try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
@@ -372,6 +391,7 @@ Output ONLY the JSON array, no markdown fences.`;
       status.report = "## Night Shift Report\n\nℹ️ No changes today. Nothing to review.";
       writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(status, null, 2));
       writeFileSync(join(nsDir, REPORT_FILE), status.report);
+      clearTimeout(timeoutId);
       return true;
     }
 
@@ -497,6 +517,7 @@ Output ONLY the JSON array, no markdown fences.`;
     writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(status, null, 2));
     writeFileSync(join(nsDir, REPORT_FILE), report);
 
+    clearTimeout(timeoutId);
     console.log(`[NightShift] Complete in ${status.duration}ms`);
     return true;
   }

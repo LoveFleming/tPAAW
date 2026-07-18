@@ -1,7 +1,9 @@
 {
   "startedAt": "2026-07-16T15:46:45.521Z",
-  "status": "running",
+  "status": "failed",
   "agents": {},
   "totalAgents": 6,
-  "completedAgents": 0
+  "completedAgents": 0,
+  "completedAt": "2026-07-17T00:00:00.000Z",
+  "error": "Timed out \u2014 Phase 0 feature map refresh likely hung on LLM call. Auto-reset by health check."
 }
