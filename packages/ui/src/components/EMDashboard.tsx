@@ -217,11 +217,14 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         const data = await res.json();
         if (data.messages?.length > 0) {
           setMessages(data.messages);
+          prevMsgLenRef.current = data.messages.length; // don't auto-scroll on initial load
         } else {
           setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
+          prevMsgLenRef.current = 1; // don't auto-scroll on initial greeting
         }
       } catch {
         setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
+        prevMsgLenRef.current = 1;
       }
       setMessagesLoaded(true);
     })();
