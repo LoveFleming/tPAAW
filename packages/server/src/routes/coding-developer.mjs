@@ -6,6 +6,7 @@
  */
 
 import { runDeveloper } from '../lib/agents/developer/orchestrator.mjs';
+import { readBody } from './shared.mjs';
 
 let running = false;
 let lastResult = null;

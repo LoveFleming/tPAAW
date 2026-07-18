@@ -239,7 +239,17 @@ async function executeTask(llm, systemPrompt, task, plan, ctx, projectRoot, onPr
     };
 
     const response = await llm.call(body);
-    if (!response) break;
+    if (!response) {
+      messages.push({ role: 'user', content: 'LLM 回應為空。請用 TOOL: 格式回覆。' });
+      continue;
+    }
+
+    // DEBUG: log response to file for debugging
+    if (process.env.DEV_ORCH_DEBUG) {
+      const { appendFileSync } = await import('node:fs');
+      appendFileSync('/tmp/dev-orchestrator-debug.log',
+        `\n=== Turn ${turns} ===\n${response.slice(0, 500)}\n`);
+    }
 
     messages.push({ role: 'assistant', content: response });
 
@@ -345,11 +355,22 @@ async function executeTask(llm, systemPrompt, task, plan, ctx, projectRoot, onPr
           continue;
         }
         try {
-          const content = await readFile(fullPath, 'utf-8');
-          const truncated = content.length > 5000 ? content.slice(0, 5000) + '\n...(truncated)' : content;
+          let content = await readFile(fullPath, 'utf-8');
+          
+          // Support START/END line range
+          if (action.startLine || action.endLine) {
+            const allLines = content.split('\n');
+            const start = (action.startLine || 1) - 1;
+            const end = action.endLine || allLines.length;
+            content = allLines.slice(start, end).join('\n');
+          }
+          
+          // Truncate large files (but allow up to 8000 chars for code reading)
+          const MAX = 8000;
+          const truncated = content.length > MAX ? content.slice(0, MAX) + '\n...(truncated, use START/END to read more)' : content;
           messages.push({
             role: 'user',
-            content: `📄 ${action.path}:\n\`\`\`\n${truncated}\n\`\`\``,
+            content: `📄 ${action.path}${action.startLine ? `:${action.startLine}-${action.endLine || ''}` : ''}:\n\`\`\`\n${truncated}\n\`\`\``,
           });
         } catch (err) {
           messages.push({ role: 'user', content: `❌ 讀取失敗: ${err.message}` });
@@ -407,48 +428,58 @@ async function executeTask(llm, systemPrompt, task, plan, ctx, projectRoot, onPr
 
 function buildExecutePrompt(task, plan, ctx) {
   const planSummary = plan ? `已批准的計劃：
-${JSON.stringify(plan, null, 2)}` : '無結構化計劃（直接執行）';
+${JSON.stringify(plan, null, 2)}` : '直接執行需求。';
 
   return `## 需求
 ${task}
 
-## ${planSummary}
+## 計劃
+${planSummary}
 
 ## 執行規則
-使用以下工具完成任務。每次回覆只做一個操作：
 
-- write_file: 寫入新檔案或完整覆蓋
-  回覆格式: TOOL: write_file
-  PATH: 相對路徑
-  CONTENT:
-  \`\`\`
-  檔案內容
-  \`\`\`
+你必須用以下格式回覆（每次只做一個操作）。
 
-- edit_file: 修改現有檔案的一部分
-  回覆格式: TOOL: edit_file
-  PATH: 相對路徑
-  OLD:
-  \`\`\`
-  要替換的原文
-  \`\`\`
-  NEW:
-  \`\`\`
-  替換後的新文
-  \`\`\`
+### 寫入新檔案或完整覆蓋
+\`\`\`
+TOOL: write_file
+PATH: packages/ui/src/pages/Example.tsx
+\`\`\`file
+檔案完整內容
+\`\`\`
 
-- read_file: 讀取檔案內容
-  回覆格式: TOOL: read_file
-  PATH: 相對路徑
+### 修改現有檔案的一部分
+\`\`\`
+TOOL: edit_file
+PATH: packages/ui/src/pages/Example.tsx
+OLD:
+\`\`\`
+要替換的原文
+\`\`\`
+NEW:
+\`\`\`
+替換後的新文
+\`\`\`
 
-- bash: 執行 shell 命令
-  回覆格式: TOOL: bash
-  CMD: 命令內容
+### 讀取檔案
+\`\`\`
+TOOL: read_file
+PATH: packages/ui/src/pages/Example.tsx
+\`\`\`
 
-- done: 完成所有工作
-  回覆格式: TOOL: done
-  SUMMARY: 完成說明
+### 執行命令
+\`\`\`
+TOOL: bash
+CMD: npm run build
+\`\`\`
 
+### 完成
+\`\`\`
+TOOL: done
+SUMMARY: 完成說明
+\`\`\`
+
+⚠️ 重要：每次回覆必須以 \`TOOL: \` 開頭。不要解釋你要做什麼，直接做。
 開始執行。`;
 }
 
@@ -589,12 +620,39 @@ export async function runDeveloper(opts) {
   if (!projectRoot) throw new Error('projectRoot is required');
 
   // ── Resolve LLM config ──
+  // If model looks like "provider/model" where provider is a known provider,
+  // pass as-is. Otherwise, pass null to use default model.
   const { resolveLLMConfig } = await import('../../paaw-agent-loop.mjs');
   const { callLLMWithRetry } = await import('../../llm-utils.mjs');
-  const llmConfig = resolveLLMConfig(projectRoot, modelOverride);
+
+  // Read provider config to check known providers
+  let knownProviders = [];
+  try {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const cfgPath = resolve(projectRoot, 'data/config/providers.json');
+    const cfg = JSON.parse(readFileSync(cfgPath, 'utf-8'));
+    knownProviders = Object.keys(cfg.providers || {});
+  } catch { /* */ }
+
+  let safeModelOverride = modelOverride;
+  if (modelOverride && modelOverride.includes('/')) {
+    const providerPart = modelOverride.split('/')[0];
+    if (!knownProviders.includes(providerPart)) {
+      // It's a model ID like "google/gemini-2.5-flash" for OpenRouter
+      // Don't pass it as override — resolveLLMConfig would misparse it
+      // Instead, let it use default and override the model field directly
+      safeModelOverride = null;
+    }
+  }
+
+  const llmConfig = resolveLLMConfig(projectRoot, safeModelOverride);
+
+  // If we skipped override but have a model ID, use it directly
+  const effectiveModel = (safeModelOverride ? llmConfig.model : (modelOverride || llmConfig.model || llmConfig.defaultModel));
 
   const llm = {
-    model: llmConfig.model || llmConfig.defaultModel,
+    model: effectiveModel,
     call: async (body) => {
       const result = await callLLMWithRetry(llmConfig.apiUrl, llmConfig.headers, body, {
         timeoutMs: 600_000,
@@ -736,45 +794,48 @@ function parseJSON(text) {
 
 function parseAction(response) {
   if (!response || typeof response !== 'string') return null;
-  const lines = response.split('\n');
-
-  // Find TOOL: line
-  const toolLine = lines.find(l => l.match(/^TOOL:\s*(\w+)/i));
-  if (!toolLine) {
-    // Check if response contains "done" naturally
-    if (/^(DONE|COMPLETE|完成)/i.test(response.trim())) {
-      return { type: 'done', summary: response.slice(0, 200) };
+  // Strip leading markdown code fences if the whole response is fenced
+  let text = response.trim();
+  
+  // Find TOOL: line anywhere in response
+  const toolMatch = text.match(/^TOOL:\s*(\w+)/im) || text.match(/\nTOOL:\s*(\w+)/im);
+  if (!toolMatch) {
+    // Check if response contains natural language completion
+    if (/^(DONE|COMPLETE|完成|我已經完成|修改完畢)/i.test(text.trim())) {
+      return { type: 'done', summary: text.slice(0, 200) };
     }
     return null;
   }
 
-  const type = toolLine.match(/TOOL:\s*(\w+)/i)[1].toLowerCase();
+  const type = toolMatch[1].toLowerCase();
+  const lines = text.split('\n');
   const getVal = (key) => {
     const line = lines.find(l => new RegExp(`^${key}:`, 'i').test(l));
     return line ? line.replace(new RegExp(`^${key}:\\s*`, 'i'), '').trim() : null;
   };
 
-  // Extract content between code fences
+  // Extract content between code fences (or until next TOOL:/KEY: line)
   const extractBlock = (startKey) => {
     const startIdx = lines.findIndex(l => new RegExp(`^${startKey}:`, 'i').test(l));
     if (startIdx === -1) return null;
     let content = [];
     let inFence = false;
+    let foundFence = false;
     for (let i = startIdx + 1; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('```')) {
-        if (!inFence) { inFence = true; continue; }
+      const trimmed = lines[i].trim();
+      if (trimmed.startsWith('```')) {
+        if (!inFence) { inFence = true; foundFence = true; continue; }
         else { break; }
       }
-      if (inFence) content.push(lines[i]);
-    }
-    // If no fence found, take rest until next KEY: line
-    if (content.length === 0) {
-      for (let i = startIdx + 1; i < lines.length; i++) {
-        if (/^[A-Z]+:/.test(lines[i])) break;
+      if (inFence) {
+        content.push(lines[i]);
+      } else if (!foundFence) {
+        // No fence — stop at next TOOL: or KEY: line
+        if (/^TOOL:/.test(trimmed) || /^[A-Z]{3,}:/.test(trimmed)) break;
         content.push(lines[i]);
       }
     }
-    return content.join('\n');
+    return content.join('\n').trim();
   };
 
   switch (type) {
@@ -797,6 +858,8 @@ function parseAction(response) {
       return {
         type: 'read_file',
         path: getVal('PATH'),
+        startLine: getVal('START') ? parseInt(getVal('START')) : null,
+        endLine: getVal('END') ? parseInt(getVal('END')) : null,
       };
 
     case 'bash':

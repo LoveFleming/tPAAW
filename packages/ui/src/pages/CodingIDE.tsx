@@ -66,7 +66,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security" | "developer";
 
 interface MainTab {
   id: string;
@@ -1675,6 +1675,16 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
+        {/* 👩‍💻 Dev */}
+        <button
+          className="flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ml-1"
+          style={{ color: tk.toolbarText }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = tk.toolbarHover}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}
+        >
+          <span className="text-xs">👩‍💻</span> Dev
+        </button>
+
         {/* 🤖 AI dropdown (AI Crew menu) */}
         <div className="relative ml-1">
           <button onClick={() => setShowCrewMenu(!showCrewMenu)}
@@ -1908,6 +1918,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:security") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:security" ? tk.toolbarActive : "transparent"; }}
           title="Security Scan">🔒 Security</button>
+        <button onClick={() => openMainTab({ id: "tool:developer", type: "developer", label: "Developer", icon: "👩‍💻", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:developer" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:developer") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:developer") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:developer" ? tk.toolbarActive : "transparent"; }}
+          title="Developer">👩‍💻 Developer</button>
       </div>
 
       {/* ── Main Content ── */}
@@ -2906,6 +2922,20 @@ const sendChat = useCallback(async () => {
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
                 />
+              </div>
+            )}
+
+            {/* === Developer Tab === (keep mounted, hide with CSS) */}
+            {mainTabs.some(t => t.type === "developer") && rootPath && (
+              <div key="tool:developer" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "developer" ? undefined : "none" }}>
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
+                  <div className="text-5xl">👩‍💻</div>
+                  <h2 className="text-lg font-bold text-stone-600">Developer</h2>
+                  <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
+                    Developer tools and utilities coming soon.
+                  </p>
+                </div>
               </div>
             )}
 
