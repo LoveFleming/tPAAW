@@ -187,9 +187,8 @@ export function detectRulePacks(projectRoot) {
 // ── Command building ──
 
 // ── Universal scan filter ──
-// Only scan web/source code extensions relevant to PAAW projects.
-// NOTE: semgrep rule files (.py/.java/.go/.rb) inside data/semgrep-rules/ are EXAMPLES, not project code.
-// They are excluded via the directory exclude below.
+// Scan all common source code extensions — works for any project (JS/TS/Python/Java/Go/etc).
+// Rule example files inside data/semgrep-rules/ are excluded via directory exclude below.
 const SOURCE_INCLUDES = [
   "--include '*.js'",
   "--include '*.mjs'",
@@ -197,6 +196,14 @@ const SOURCE_INCLUDES = [
   "--include '*.jsx'",
   "--include '*.ts'",
   "--include '*.tsx'",
+  "--include '*.py'",
+  "--include '*.java'",
+  "--include '*.go'",
+  "--include '*.rb'",
+  "--include '*.php'",
+  "--include '*.c'",
+  "--include '*.cpp'",
+  "--include '*.cs'",
 ].join(" ");
 
 function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
