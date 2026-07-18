@@ -646,5 +646,176 @@ Output ONLY the JSON array, no markdown fences.`;
     return true;
   }
 
+  // ── POST /api/coding-features/discover — AI discovers new features from orphan files ──
+  if (url === "/api/coding-features/discover" && method === "POST") {
+    let body = {};
+    try { body = JSON.parse(await readBody(req)); } catch {}
+    const features = await loadFeatures(projRoot);
+
+    // Load provider config
+    let providerConfig;
+    try { providerConfig = JSON.parse(readSync(providersFile, "utf-8")); } catch {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Provider config not found" }));
+      return true;
+    }
+    const providerId = providerConfig.active || "zai";
+    const model = body.model || resolveDefaultModel(providerConfig);
+    const provider = providerConfig.providers?.[providerId];
+    if (!provider?.apiKey || provider.apiKey === "na") {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "No AI provider configured" }));
+      return true;
+    }
+
+    // Find orphan files using L3 validator
+    const { checkCoverage, scanAllSourceFiles } = await import("../lib/feature-map-validator.mjs");
+    const coverage = checkCoverage(projRoot, features);
+    const orphans = coverage.orphans;
+
+    if (orphans.length === 0) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: "No orphan files — all source files are mapped", created: 0 }));
+      return true;
+    }
+
+    // Get existing feature names so AI doesn't duplicate
+    const existingNames = features.map(f => ({ id: f.id, name: f.name, description: f.description }));
+    const nextId = `F-${String(features.length + 1).padStart(3, "0")}`;
+
+    const prompt = `You are a software architect analyzing unmapped source files in a codebase.
+
+## Existing Features (DO NOT duplicate these)
+${JSON.stringify(existingNames, null, 2)}
+
+## Unmapped Source Files (${orphans.length} files)
+${orphans.join("\n")}
+
+## Task
+Group these unmapped files into NEW features. Each feature should be a coherent functional unit.
+
+Rules:
+1. Group files that work together into the same feature
+2. Give each feature a clear name and 1-sentence description
+3. DO NOT create a feature that overlaps with existing features
+4. Small related files can share a feature
+5. Don't over-split — prefer fewer features with more files over many tiny features
+6. Config files, utils, and shared types can be grouped as "Shared Infrastructure"
+7. Every unmapped file MUST appear in exactly one new feature
+
+Output a JSON array of new features:
+[
+  {
+    "name": "Feature Name",
+    "description": "What this feature does",
+    "codeFiles": ["path/to/file.ts", ...],
+    "tests": ["path/to/test.ts", ...],
+    "tags": ["tag1", "tag2"]
+  }
+]
+
+Output ONLY the JSON array, no markdown fences.`;
+
+    const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${provider.apiKey}`,
+      ...(providerId === "openrouter" ? { "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" } : {}),
+    };
+
+    try {
+      const llmRes = await fetch(apiUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: 8000 }),
+      });
+      const llmData = await llmRes.json();
+      const content = llmData.choices?.[0]?.message?.content || "";
+      const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+
+      if (!cleanJson) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "AI 回應為空" }));
+        return true;
+      }
+
+      let newFeatures;
+      try {
+        newFeatures = JSON.parse(cleanJson);
+      } catch (parseErr) {
+        // Recovery: find last complete object
+        let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+        for (let i = 0; i < cleanJson.length; i++) {
+          const c = cleanJson[i];
+          if (esc) { esc = false; continue; }
+          if (c === '\\') { esc = true; continue; }
+          if (c === '"') { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (c === '{') braceCount++;
+          if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+        }
+        if (lastComplete === 0) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `AI discovery failed: no valid JSON (${parseErr.message})` }));
+          return true;
+        }
+        const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
+        try {
+          newFeatures = JSON.parse(recovered);
+        } catch (recoverErr) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `AI discovery failed: truncated JSON (${recoverErr.message})` }));
+          return true;
+        }
+      }
+
+      if (!Array.isArray(newFeatures)) throw new Error("AI did not return an array");
+
+      // Create new features
+      let createdCount = 0;
+      const allFiles = new Set(scanAllSourceFiles(projRoot));
+      for (const nf of newFeatures) {
+        // Validate: all codeFiles must exist on disk (L3 check before writing!)
+        const validFiles = (nf.codeFiles || []).filter(f => {
+          const norm = f.replace(/^\.\//, "").replace(/\\/g, "/");
+          return allFiles.has(norm);
+        });
+        const validTests = (nf.tests || []).filter(f => {
+          const norm = f.replace(/^\.\//, "").replace(/\\/g, "/");
+          return allFiles.has(norm);
+        });
+
+        const fid = `F-${String(features.length + 1).padStart(3, "0")}`;
+        features.push({
+          id: fid,
+          name: nf.name || "Unnamed Feature",
+          description: nf.description || "",
+          status: "active",
+          codeFiles: validFiles,
+          apis: [],
+          tests: validTests,
+          runbooks: [],
+          issues: [],
+          tags: nf.tags || [],
+          aiUnderstanding: "",
+          aiUnderstandingAt: null,
+          documentation: "",
+          docsUpdatedAt: null,
+          createdAt: now(),
+          updatedAt: now(),
+        });
+        createdCount++;
+      }
+
+      await saveFeatures(projRoot, features);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, created: createdCount, totalFeatures: features.length, orphansBefore: orphans.length, features: newFeatures }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `AI discovery failed: ${err.message}` }));
+    }
+    return true;
+  }
+
   return false;
 }
