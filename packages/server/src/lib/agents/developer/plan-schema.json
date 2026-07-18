@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "required": ["summary", "files"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "一句話說明要做什麼"
+    },
+    "files": {
+      "type": "array",
+      "description": "預計要修改的檔案清單",
+      "items": {
+        "type": "object",
+        "required": ["path", "action", "reason"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "相對於專案根目錄的檔案路徑"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["create", "modify", "delete"]
+          },
+          "reason": {
+            "type": "string",
+            "description": "為什麼需要動這個檔案"
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "可能影響到的其他模組或功能"
+    },
+    "approach": {
+      "type": "string",
+      "description": "簡述實作策略"
+    }
+  }
+}

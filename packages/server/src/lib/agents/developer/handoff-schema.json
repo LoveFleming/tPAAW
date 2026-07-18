@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "required": ["status", "task", "filesChanged", "buildPassed", "testsPassed"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed", "blocked"]
+    },
+    "task": {
+      "type": "string",
+      "description": "原始需求"
+    },
+    "filesChanged": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "linesAdded": {
+      "type": "number"
+    },
+    "linesRemoved": {
+      "type": "number"
+    },
+    "buildPassed": {
+      "type": "boolean"
+    },
+    "testsPassed": {
+      "type": "boolean"
+    },
+    "typeCheckPassed": {
+      "type": "boolean",
+      "description": "tsc / mypy 等型別檢查結果（無則省略）"
+    },
+    "planMatch": {
+      "type": "boolean",
+      "description": "實際改動是否與 plan 一致"
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "readyFor": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["tester", "qa", "doc_writer"]
+      },
+      "description": "建議後續流程，由 EM 最終決定"
+    },
+    "commitHash": {
+      "type": "string",
+      "description": "git commit hash，空字串表示未 commit"
+    },
+    "guardrail": {
+      "type": "object",
+      "description": "護欄報告摘要"
+    }
+  }
+}
