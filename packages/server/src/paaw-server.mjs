@@ -50,6 +50,7 @@ const ROUTE_MODULES = [
   "./routes/coding-night-shift.mjs",
   "./routes/coding-health.mjs",
   "./routes/coding-developer.mjs",
+  "./routes/coding-tester.mjs",
   "./routes/llm-logs.mjs",
 ];
 
