@@ -2892,6 +2892,7 @@ const sendChat = useCallback(async () => {
                 <NightShiftPanel
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   rootPath={rootPath}
+                  model={emModel}
                 />
               </div>
             )}

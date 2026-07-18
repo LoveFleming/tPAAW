@@ -7,7 +7,9 @@
       "codeFiles": [
         "packages/server/src/routes/agent-crew.mjs",
         "packages/server/src/lib/agent-engine.mjs",
-        "packages/server/src/lib/crew-manager.mjs"
+        "packages/server/src/lib/crew-manager.mjs",
+        "packages/server/src/lib/paaw-agent-loop.mjs",
+        "packages/server/src/lib/dependency-context.mjs"
       ],
       "apis": [
         {
@@ -31,7 +33,9 @@
           "file": "packages/server/src/routes/agent-crew.mjs"
         }
       ],
-      "tests": [],
+      "tests": [
+        "tests/unit/agent-loop-max-turns.test.mjs"
+      ],
       "runbooks": [],
       "tags": [
         "core",
@@ -44,7 +48,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "updatedAt": "2026-07-18T00:25:15.257Z"
     },
     {
       "name": "Feature Mapping",
@@ -120,7 +124,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-12T13:57:02.576Z"
+      "updatedAt": "2026-07-18T00:23:31.730Z"
     },
     {
       "name": "Code Health",
@@ -286,5 +290,5 @@
       "updatedAt": "2026-07-12T13:57:02.576Z"
     }
   ],
-  "updatedAt": "2026-07-12T13:57:02.576Z"
+  "updatedAt": "2026-07-18T00:25:15.257Z"
 }

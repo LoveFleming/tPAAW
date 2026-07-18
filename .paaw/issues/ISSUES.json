@@ -29,7 +29,23 @@
       "createdAt": "2026-07-16T15:48:30.345Z",
       "updatedAt": "2026-07-16T15:48:30.345Z",
       "notes": []
+    },
+    {
+      "id": "ISS-003",
+      "title": "dependency-context.mjs: 跨平台路徑正規化違反標準、無快取、dead code",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "cross-platform",
+        "performance"
+      ],
+      "description": "從架構審查 dependency-context.mjs 發現三個技術債：\n1. [P0] 路徑正規化寫死 replace(cwd + \"/\", \"\") 和 replace(/^\\//, \"\")，未使用專案標準的 split(/[\\\\/]/)，在 Windows 上可能出錯\n2. [P1] 每次 getDependencyContext 呼叫都重新讀取 4 個 JSON 檔（無 module-level cache），agent loop 內連續 edit 10 個檔案 = 40 次 I/O\n3. [P2] getImpactSummary (35行) 完全無人引用，是 dead code\n4. [P3] getAffectedTests 內的 convention-based test detection 邏輯有變數但從未加入 return set，形同 dead code",
+      "featureId": null,
+      "createdAt": "2026-07-18T00:24:56.389Z",
+      "updatedAt": "2026-07-18T00:24:56.389Z",
+      "notes": []
     }
   ],
-  "updatedAt": "2026-07-16T15:48:30.345Z"
+  "updatedAt": "2026-07-18T00:24:56.389Z"
 }

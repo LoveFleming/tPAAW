@@ -147,9 +147,9 @@ function buildSituationReport(ctx) {
 
 // ── Layer 2: LLM Work Planning ──
 
-async function planWorkList(situationReport, rootDir) {
+async function planWorkList(situationReport, rootDir, modelOverride) {
   const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
-  const llm = resolveLLMConfig(rootDir);
+  const llm = resolveLLMConfig(rootDir, modelOverride);
 
   const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (武大安)。
 
@@ -234,11 +234,179 @@ async function planWorkList(situationReport, rootDir) {
   }
 }
 
+// ── Phase 0 Helper: Refresh Feature Mapping ──
+
+async function refreshFeatureMapping(projRoot, modelOverride) {
+  const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
+  const { callLLMWithRetry } = await import("./llm-utils.mjs");
+  const { exec } = await import("child_process");
+
+  // Load existing features
+  const paaw = new PaawProject(projRoot);
+  const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
+  if (!existsSync(featuresFile)) {
+    return { ok: false, error: "No FEATURES.json found. Run Code Understanding first." };
+  }
+  let features;
+  try {
+    features = JSON.parse(readFileSync(featuresFile, "utf-8"));
+    if (!Array.isArray(features) || features.length === 0) {
+      return { ok: false, error: "No features to update." };
+    }
+  } catch (err) {
+    return { ok: false, error: `Failed to load features: ${err.message}` };
+  }
+
+  // Resolve LLM config
+  let llm;
+  try {
+    llm = resolveLLMConfig(projRoot, modelOverride);
+  } catch (err) {
+    return { ok: false, error: `LLM config error: ${err.message}` };
+  }
+
+  // Scan ALL source files (no limit)
+  const isWin = process.platform === "win32";
+  const scanCmd = isWin
+    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"`
+    : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*'";
+  const allFiles = await new Promise((resolve) => {
+    exec(scanCmd, { cwd: projRoot, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+      resolve(stdout.trim().split("\n").filter(Boolean));
+    });
+  });
+
+  if (allFiles.length === 0) {
+    return { ok: false, error: "No source files found." };
+  }
+
+  // Read API contract if exists
+  let apiContract = "";
+  const apiSpecFile = join(projRoot, ".paaw", "specs", "api-contract.md");
+  if (existsSync(apiSpecFile)) {
+    try { apiContract = readFileSync(apiSpecFile, "utf-8").slice(0, 3000); } catch {}
+  }
+
+  const prompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
+
+## Current Features
+${JSON.stringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })), null, 2)}
+
+## All Source Files in Codebase (${allFiles.length} files)
+${allFiles.join("\n")}
+
+## API Contract
+${apiContract || "(not available)"}
+
+## Task
+For EACH feature, review its current file mappings and update them based on what files actually exist now.
+
+Rules:
+1. If files were renamed/moved, update the paths
+2. If new files belong to this feature, add them
+3. If mapped files no longer exist, remove them
+4. Check API endpoints — add new ones, remove deleted ones
+5. Check test files — add new ones, remove deleted ones
+6. Check runbooks — same
+7. Do NOT change feature id, name, description, or status
+8. Do NOT invent files that don't exist in the file list above
+
+Output a JSON array with updated mappings. Each element:
+{ "id": "F-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
+
+Output ONLY the JSON array, no markdown fences.`;
+
+  try {
+    const body = {
+      model: llm.model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 8000,
+      stream: false,
+    };
+    const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
+      maxRetries: 3,
+      timeoutMs: 120000,
+      validateContent: true,
+      sanitize: true,
+    });
+    const content = result.content || "";
+    const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+    if (!cleanJson) {
+      return { ok: false, error: "AI 回應為空" };
+    }
+
+    let updates;
+    try {
+      updates = JSON.parse(cleanJson);
+    } catch {
+      // Recovery: find last complete object
+      let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+      for (let i = 0; i < cleanJson.length; i++) {
+        const c = cleanJson[i];
+        if (esc) { esc = false; continue; }
+        if (c === '\\') { esc = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (c === '{') braceCount++;
+        if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+      }
+      if (lastComplete === 0) {
+        return { ok: false, error: "No valid JSON in AI response" };
+      }
+      const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
+      try {
+        updates = JSON.parse(recovered);
+      } catch {
+        return { ok: false, error: "Truncated JSON, could not recover" };
+      }
+    }
+
+    if (!Array.isArray(updates)) throw new Error("AI did not return an array");
+
+    // Apply updates
+    let updatedCount = 0;
+    const now = new Date().toISOString();
+    for (const upd of updates) {
+      const idx = features.findIndex(f => f.id === upd.id);
+      if (idx < 0) continue;
+      if (upd.codeFiles) features[idx].codeFiles = upd.codeFiles;
+      if (upd.apis) features[idx].apis = upd.apis;
+      if (upd.tests) features[idx].tests = upd.tests;
+      if (upd.runbooks) features[idx].runbooks = upd.runbooks;
+      features[idx].updatedAt = now;
+      updatedCount++;
+    }
+
+    // Save features
+    const featuresDir = join(projRoot, ".paaw", "features");
+    if (!existsSync(featuresDir)) mkdirSync(featuresDir, { recursive: true });
+    writeFileSync(featuresFile, JSON.stringify(features, null, 2), "utf-8");
+
+    return { ok: true, updated: updatedCount, total: features.length };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 // ── Main: Run EM Session ──
 
 export async function runEMSession(opts = {}) {
-  const { rootDir, baseUrl = "http://127.0.0.1:4097", since } = opts;
+  const { rootDir, baseUrl = "http://127.0.0.1:4097", since, modelOverride } = opts;
   const sendSSE = opts.sendSSE || (() => {});
+
+  // ── Phase 0: Feature Map Refresh (deterministic + AI) ──
+  sendSSE("info", { message: "🗺️ Phase 0: 更新 Feature Map..." });
+  try {
+    const refreshed = await refreshFeatureMapping(rootDir, modelOverride);
+    if (refreshed.ok) {
+      sendSSE("info", { message: `🗺️ Feature Map 已更新：${refreshed.updated}/${refreshed.total} features` });
+    } else {
+      sendSSE("warning", { message: `🗺️ Feature Map 更新失敗：${refreshed.error || 'unknown'}` });
+    }
+  } catch (err) {
+    sendSSE("warning", { message: `🗺️ Feature Map 更新略過：${err.message}` });
+  }
 
   // ── Phase 1: Deterministic gathering ──
   sendSSE("info", { message: "🎖️ EM 啟動，收集專案狀態..." });
@@ -252,7 +420,7 @@ export async function runEMSession(opts = {}) {
 
   // ── Phase 2: LLM planning ──
   sendSSE("info", { message: "🧠 規劃工作清單中..." });
-  const workList = await planWorkList(situationReport, rootDir);
+  const workList = await planWorkList(situationReport, rootDir, modelOverride);
 
   if (!workList.length) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });

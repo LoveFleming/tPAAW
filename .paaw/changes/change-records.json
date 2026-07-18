@@ -1,0 +1,14 @@
+[
+  {
+    "id": "CHG-001",
+    "title": "新增 effectiveMaxTurns 單元測試",
+    "type": "test",
+    "description": "為 packages/server/src/lib/paaw-agent-loop.mjs 中的 effectiveMaxTurns 邏輯撰寫 25 個單元測試，驗證 nullish coalescing 公式 (maxTurns ?? agentCfg.maxTurns) 在各種邊界條件下的行為。測試涵蓋：undefined、null、明確值、0、NaN、loadAgentConfig 拋錯、config 不完整、以及 runAgentLoopStream 使用相同公式。",
+    "files": [
+      "tests/unit/agent-loop-max-turns.test.mjs"
+    ],
+    "impact": "無。純測試新增，不影響生產程式碼。",
+    "testsRan": "npx vitest run tests/unit/agent-loop-max-turns.test.mjs — 25 passed",
+    "createdAt": "2026-07-18T00:23:12.767Z"
+  }
+]

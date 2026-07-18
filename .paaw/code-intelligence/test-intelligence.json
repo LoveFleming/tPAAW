@@ -41,6 +41,18 @@
       "functionNames": []
     },
     {
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "type": "unit",
+      "functionCount": 5,
+      "functionNames": [
+        "compute",
+        "compute",
+        "testLoop",
+        "testLoop",
+        "testLoop"
+      ]
+    },
+    {
       "file": "tests/unit/ai-settings.test.mjs",
       "type": "unit",
       "functionCount": 1,
@@ -114,6 +126,12 @@
       "testFile": "tests/e2e/05-api.spec.ts",
       "testType": "e2e",
       "functionCount": 0,
+      "matches": []
+    },
+    {
+      "testFile": "tests/unit/agent-loop-max-turns.test.mjs",
+      "testType": "unit",
+      "functionCount": 5,
       "matches": []
     },
     {
@@ -204,7 +222,7 @@
   "coverageGaps": [
     {
       "file": "packages/server/src/routes/a2a.mjs",
-      "functionCount": 26,
+      "functionCount": 25,
       "exportCount": 1
     },
     {
@@ -243,6 +261,11 @@
       "exportCount": 0
     },
     {
+      "file": "packages/server/src/tools/index.mjs",
+      "functionCount": 15,
+      "exportCount": 3
+    },
+    {
       "file": "packages/ui/src/components/JsonViewer.tsx",
       "functionCount": 15,
       "exportCount": 1
@@ -253,19 +276,14 @@
       "exportCount": 1
     },
     {
-      "file": "packages/server/src/tools/index.mjs",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
       "functionCount": 14,
-      "exportCount": 3
+      "exportCount": 7
     },
     {
       "file": "packages/ui/src/pages/ChatView.tsx",
       "functionCount": 14,
       "exportCount": 2
-    },
-    {
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "functionCount": 13,
-      "exportCount": 5
     },
     {
       "file": "packages/server/src/routes/backup.mjs",
@@ -290,7 +308,7 @@
     {
       "file": "packages/server/src/routes/shared.mjs",
       "functionCount": 12,
-      "exportCount": 60
+      "exportCount": 59
     },
     {
       "file": "packages/ui/src/components/SidebarFileTree.tsx",
@@ -308,14 +326,14 @@
       "exportCount": 7
     },
     {
+      "file": "packages/server/src/lib/llm-utils.mjs",
+      "functionCount": 11,
+      "exportCount": 6
+    },
+    {
       "file": "packages/server/src/routes/coding-features.mjs",
       "functionCount": 11,
       "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/llm-utils.mjs",
-      "functionCount": 10,
-      "exportCount": 6
     },
     {
       "file": "packages/ui/src/components/FeatureMap.tsx",
@@ -368,6 +386,11 @@
       "exportCount": 1
     },
     {
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "functionCount": 8,
+      "exportCount": 1
+    },
+    {
       "file": "packages/ui/src/pages/GanttChart.tsx",
       "functionCount": 8,
       "exportCount": 1
@@ -403,6 +426,11 @@
       "exportCount": 1
     },
     {
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "functionCount": 7,
+      "exportCount": 1
+    },
+    {
       "file": "packages/server/src/routes/tools.mjs",
       "functionCount": 7,
       "exportCount": 1
@@ -433,9 +461,14 @@
       "exportCount": 4
     },
     {
-      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "file": "packages/server/src/lib/context-providers.mjs",
       "functionCount": 6,
-      "exportCount": 4
+      "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/paaw-project.mjs",
+      "functionCount": 6,
+      "exportCount": 2
     },
     {
       "file": "packages/ui/src/components/BrowserPreview.tsx",
@@ -446,11 +479,6 @@
       "file": "packages/ui/src/components/ChatMessages.tsx",
       "functionCount": 6,
       "exportCount": 2
-    },
-    {
-      "file": "packages/ui/src/components/EMDashboard.tsx",
-      "functionCount": 6,
-      "exportCount": 1
     },
     {
       "file": "packages/ui/src/components/PaawTree.tsx",
@@ -476,16 +504,6 @@
       "file": "packages/db/src/connection.ts",
       "functionCount": 5,
       "exportCount": 5
-    },
-    {
-      "file": "packages/server/src/lib/context-providers.mjs",
-      "functionCount": 5,
-      "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/paaw-project.mjs",
-      "functionCount": 5,
-      "exportCount": 2
     },
     {
       "file": "packages/ui/src/components/AgentMemoryPanel.tsx",
@@ -521,6 +539,11 @@
       "file": "packages/engine/src/runner/index.ts",
       "functionCount": 4,
       "exportCount": 6
+    },
+    {
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "functionCount": 4,
+      "exportCount": 3
     },
     {
       "file": "packages/server/src/routes/assistant.mjs",
@@ -608,6 +631,11 @@
       "exportCount": 0
     },
     {
+      "file": "packages/server/src/lib/tool-engine/provider.mjs",
+      "functionCount": 3,
+      "exportCount": 2
+    },
+    {
       "file": "packages/server/src/routes/chat.mjs",
       "functionCount": 3,
       "exportCount": 1
@@ -619,6 +647,11 @@
     },
     {
       "file": "packages/ui/src/components/DecisionLog.tsx",
+      "functionCount": 3,
+      "exportCount": 1
+    },
+    {
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
       "functionCount": 3,
       "exportCount": 1
     },
@@ -666,11 +699,6 @@
       "file": "packages/server/src/lib/change-intelligence.mjs",
       "functionCount": 2,
       "exportCount": 1
-    },
-    {
-      "file": "packages/server/src/lib/tool-engine/provider.mjs",
-      "functionCount": 2,
-      "exportCount": 2
     },
     {
       "file": "packages/server/src/routes/api-tester.mjs",
@@ -746,6 +774,11 @@
       "file": "packages/engine/src/workflow/index.ts",
       "functionCount": 1,
       "exportCount": 1
+    },
+    {
+      "file": "packages/server/src/lib/import-check.mjs",
+      "functionCount": 1,
+      "exportCount": 0
     },
     {
       "file": "packages/server/src/lib/paaw-snapshot.mjs",
@@ -988,17 +1021,25 @@
       "exportCount": 0
     }
   ],
-  "featureToTests": [],
+  "featureToTests": [
+    {
+      "featureId": "F-001",
+      "featureName": "Agent Management",
+      "tests": [
+        "tests/unit/agent-loop-max-turns.test.mjs"
+      ]
+    }
+  ],
   "stats": {
-    "totalTestFiles": 10,
+    "totalTestFiles": 11,
     "byType": {
-      "unit": 5,
+      "unit": 6,
       "integration": 0,
       "e2e": 5
     },
     "totalMappings": 3,
-    "coverageGapFiles": 157,
-    "coverageRate": "1.9%",
-    "featureTestCoverage": 0
+    "coverageGapFiles": 160,
+    "coverageRate": "1.8%",
+    "featureTestCoverage": 1
   }
 }

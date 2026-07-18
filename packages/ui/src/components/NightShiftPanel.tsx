@@ -36,7 +36,7 @@ const AGENT_INFO: Record<string, { icon: string; label: string }> = {
   helpdesk: { icon: "🎫", label: "Helpdesk" },
 };
 
-export default function NightShiftPanel({ theme, rootPath }: { theme: any; rootPath?: string }) {
+export default function NightShiftPanel({ theme, rootPath, model }: { theme: any; rootPath?: string; model?: string }) {
   const { t } = useI18n();
   const [nsStatus, setNsStatus] = useState<NightShiftStatus | null>(null);
   const [report, setReport] = useState<string>("");
@@ -84,7 +84,7 @@ export default function NightShiftPanel({ theme, rootPath }: { theme: any; rootP
     setStarting(true);
     setReport("");
     try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: model || undefined }) });
       const data = await res.json();
       if (data.ok) {
         await fetchStatus();

@@ -545,7 +545,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const res = await fetch(`${API_BASE}/api/coding-crew/em-run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd: rootPath, since: emSinceDate }),
+        body: JSON.stringify({ cwd: rootPath, since: emSinceDate, model: model || undefined }),
       });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();

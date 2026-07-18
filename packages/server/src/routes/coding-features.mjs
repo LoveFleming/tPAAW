@@ -512,10 +512,10 @@ export default async function codingFeaturesRoute(req, res) {
     const { exec: execCb } = await import("child_process");
     const isWin = process.platform === "win32";
     const scanCmd = isWin
-      ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.slice(0,200).join('\\n'))"`
-      : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*' | head -200";
+      ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"`
+      : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*'";
     const scanFiles = () => new Promise((resolve) => {
-      execCb(scanCmd, { cwd: projRoot, maxBuffer: 2*1024*1024 }, (err, stdout) => {
+      execCb(scanCmd, { cwd: projRoot, maxBuffer: 10*1024*1024 }, (err, stdout) => {
         resolve(stdout.trim().split("\n").filter(Boolean));
       });
     });
@@ -568,7 +568,7 @@ Output ONLY the JSON array, no markdown fences.`;
       const llmRes = await fetch(apiUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: 3000 }),
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: 8000 }),
       });
       const llmData = await llmRes.json();
       const content = llmData.choices?.[0]?.message?.content || "";

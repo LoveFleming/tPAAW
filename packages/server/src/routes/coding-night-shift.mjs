@@ -259,7 +259,108 @@ export default async function codingNightShiftRoute(req, res) {
     // Gather context
     let reqBody = {};
     try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
+    const modelOverride = reqBody.model;
     const sinceDate = reqBody.since || urlObj.searchParams.get("since") || new Date().toISOString().split("T")[0];
+
+    // ── Phase 0: Refresh Feature Map ──
+    console.log("[NightShift] Phase 0: Refreshing feature map...");
+    try {
+      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
+      const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
+      const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
+      if (existsSync(featuresFile)) {
+        let features = JSON.parse(readSync(featuresFile, "utf-8"));
+        if (Array.isArray(features) && features.length > 0) {
+          // Scan ALL source files
+          const { exec: execCb } = await import("child_process");
+          const isWin = process.platform === "win32";
+          const scanCmd = isWin
+            ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"`
+            : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*'";
+          const allFiles = await new Promise((resolve) => {
+            execCb(scanCmd, { cwd: projRoot, maxBuffer: 10*1024*1024 }, (err, stdout) => {
+              resolve(stdout.trim().split("\n").filter(Boolean));
+            });
+          });
+          let apiContract = "";
+          const apiSpecFile = join(projRoot, ".paaw", "specs", "api-contract.md");
+          if (existsSync(apiSpecFile)) {
+            try { apiContract = readSync(apiSpecFile, "utf-8").slice(0, 3000); } catch {}
+          }
+          const llm = resolveLLMConfig(PAAW_ROOT, modelOverride);
+          const refreshPrompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
+
+## Current Features
+${JSON.stringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })), null, 2)}
+
+## All Source Files in Codebase (${allFiles.length} files)
+${allFiles.join("\n")}
+
+## API Contract
+${apiContract || "(not available)"}
+
+## Task
+For EACH feature, review its current file mappings and update them based on what files actually exist now.
+
+Rules:
+1. If files were renamed/moved, update the paths
+2. If new files belong to this feature, add them
+3. If mapped files no longer exist, remove them
+4. Check API endpoints — add new ones, remove deleted ones
+5. Check test files — add new ones, remove deleted ones
+6. Check runbooks — same
+7. Do NOT change feature id, name, description, or status
+8. Do NOT invent files that don't exist in the file list above
+
+Output a JSON array with updated mappings. Each element:
+{ "id": "F-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
+
+Output ONLY the JSON array, no markdown fences.`;
+          const refreshBody = { model: llm.model, messages: [{ role: "user", content: refreshPrompt }], temperature: 0.2, max_tokens: 8000, stream: false };
+          const refreshResult = await callLLMWithRetry(llm.apiUrl, llm.headers, refreshBody, { maxRetries: 3, timeoutMs: 120000, validateContent: true, sanitize: true });
+          const refreshContent = (refreshResult.content || "").replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
+          if (refreshContent) {
+            let updates;
+            try { updates = JSON.parse(refreshContent); } catch {
+              // Recovery: find last complete object
+              let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
+              for (let i = 0; i < refreshContent.length; i++) {
+                const c = refreshContent[i];
+                if (esc) { esc = false; continue; }
+                if (c === '\\') { esc = true; continue; }
+                if (c === '"') { inStr = !inStr; continue; }
+                if (inStr) continue;
+                if (c === '{') braceCount++;
+                if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
+              }
+              if (lastComplete > 0) {
+                const recovered = refreshContent.substring(0, lastComplete + 1).trim() + '\n]';
+                try { updates = JSON.parse(recovered); } catch {}
+              }
+            }
+            if (Array.isArray(updates)) {
+              let updatedCount = 0;
+              const nowTs = new Date().toISOString();
+              for (const upd of updates) {
+                const idx = features.findIndex(f => f.id === upd.id);
+                if (idx < 0) continue;
+                if (upd.codeFiles) features[idx].codeFiles = upd.codeFiles;
+                if (upd.apis) features[idx].apis = upd.apis;
+                if (upd.tests) features[idx].tests = upd.tests;
+                if (upd.runbooks) features[idx].runbooks = upd.runbooks;
+                features[idx].updatedAt = nowTs;
+                updatedCount++;
+              }
+              writeFileSync(featuresFile, JSON.stringify(features, null, 2), "utf-8");
+              console.log(`[NightShift] Feature map refreshed: ${updatedCount}/${features.length} features updated`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[NightShift] Feature map refresh failed:", err.message);
+    }
+
     const { gitLog, changedFiles, diffStat, commitCount } = await getChangesSince(projRoot, sinceDate);
     const featuresSummary = getFeatureSummaryText(projRoot);
 
@@ -306,6 +407,7 @@ export default async function codingNightShiftRoute(req, res) {
           rootDir: PAAW_ROOT,  // providers.json is in PAAW_ROOT
           systemPrompt,
           agentId,
+          model: modelOverride,
           maxTurns: 15,
           timeout: 120,
           onEvent: (event) => {
