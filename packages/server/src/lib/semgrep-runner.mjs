@@ -187,9 +187,9 @@ export function detectRulePacks(projectRoot) {
 // ── Command building ──
 
 // ── Universal scan filter ──
-// Instead of trying to exclude every non-source file/dir (which varies per project),
-// we use --include to ONLY scan known source code extensions.
-// This works across ALL projects regardless of directory structure.
+// Only scan web/source code extensions relevant to PAAW projects.
+// NOTE: semgrep rule files (.py/.java/.go/.rb) inside data/semgrep-rules/ are EXAMPLES, not project code.
+// They are excluded via the directory exclude below.
 const SOURCE_INCLUDES = [
   "--include '*.js'",
   "--include '*.mjs'",
@@ -197,14 +197,6 @@ const SOURCE_INCLUDES = [
   "--include '*.jsx'",
   "--include '*.ts'",
   "--include '*.tsx'",
-  "--include '*.py'",
-  "--include '*.java'",
-  "--include '*.go'",
-  "--include '*.rb'",
-  "--include '*.php'",
-  "--include '*.c'",
-  "--include '*.cpp'",
-  "--include '*.cs'",
 ].join(" ");
 
 function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
@@ -231,6 +223,7 @@ export function buildFullScanCommand(projectRoot) {
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",
+    "--exclude data/semgrep-rules",
   ].join(" ");
   return buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
 }
@@ -296,6 +289,7 @@ export async function runSemgrep(projectRoot, options = {}) {
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",
+    "--exclude data/semgrep-rules",
   ].join(" ");
 
   const semgrepBin = process.env.SEMGREP_PATH || "semgrep";
