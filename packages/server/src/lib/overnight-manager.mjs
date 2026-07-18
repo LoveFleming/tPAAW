@@ -395,7 +395,7 @@ export async function runEMSession(opts = {}) {
   const { rootDir, baseUrl = "http://127.0.0.1:4097", since, modelOverride } = opts;
   const sendSSE = opts.sendSSE || (() => {});
 
-  // ── Phase 0: Feature Map Refresh (deterministic + AI) ──
+  // ── Phase 0: Feature Map Refresh + L3 Validation ──
   sendSSE("info", { message: "🗺️ Phase 0: 更新 Feature Map..." });
   try {
     const refreshed = await refreshFeatureMapping(rootDir, modelOverride);
@@ -406,6 +406,28 @@ export async function runEMSession(opts = {}) {
     }
   } catch (err) {
     sendSSE("warning", { message: `🗺️ Feature Map 更新略過：${err.message}` });
+  }
+
+  // L3 Validation: verify AI output against ground truth
+  sendSSE("info", { message: "🔍 Phase 0: 驗證 Feature Map..." });
+  try {
+    const { runFullValidation } = await import("./feature-map-validator.mjs");
+    const validation = await runFullValidation(rootDir);
+    if (validation.ok) {
+      const s = validation.summary;
+      sendSSE("info", {
+        message: `🔍 Feature Map 驗證：${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphan files`,
+        validation: s,
+      });
+      if (s.mappingErrors > 0) {
+        sendSSE("warning", { message: `⚠️ Feature Map 有 ${s.mappingErrors} 個錯誤（檔案不存在），建議重新刷新` });
+      }
+      if (s.coveragePct < 30) {
+        sendSSE("warning", { message: `⚠️ Feature Map 覆蓋率只有 ${s.coveragePct}%，大部分檔案沒有被歸類` });
+      }
+    }
+  } catch (err) {
+    sendSSE("warning", { message: `🔍 Feature Map 驗證略過：${err.message}` });
   }
 
   // ── Phase 1: Deterministic gathering ──

@@ -232,6 +232,20 @@ export default async function codingFeaturesRoute(req, res) {
     return true;
   }
 
+  // ── GET /api/coding-features/validate — Layer 3 validation ──
+  if (url === "/api/coding-features/validate" && method === "GET") {
+    try {
+      const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
+      const result = await runFullValidation(projRoot);
+      res.writeHead(result.ok ? 200 : 400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // ── GET /api/coding-features/stats ──
   if (url === "/api/coding-features/stats" && method === "GET") {
     const features = await loadFeatures(projRoot);

@@ -380,6 +380,21 @@ Output ONLY the JSON array, no markdown fences.`;
       console.error("[NightShift] Feature map refresh failed:", err.message);
     }
 
+    // ── L3 Validation: verify AI feature map output ──
+    try {
+      const { runFullValidation } = await import("../lib/feature-map-validator.mjs");
+      const validation = await runFullValidation(projRoot);
+      if (validation.ok) {
+        const s = validation.summary;
+        console.log(`[NightShift] L3 validation: ${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphans`);
+        if (s.mappingErrors > 0) {
+          console.warn(`[NightShift] ⚠️ Feature map has ${s.mappingErrors} mapping errors — files referenced but not found`);
+        }
+      }
+    } catch (err) {
+      console.error("[NightShift] L3 validation failed:", err.message);
+    }
+
     const { gitLog, changedFiles, diffStat, commitCount } = await getChangesSince(projRoot, sinceDate);
     const featuresSummary = getFeatureSummaryText(projRoot);
 

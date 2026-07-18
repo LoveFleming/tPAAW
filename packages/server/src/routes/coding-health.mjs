@@ -77,6 +77,25 @@ export default async function codingHealthRoute(req, res) {
         checks.featureMap.status = "warn";
         checks.featureMap.message = "No AI understanding generated for any feature";
       }
+      // Quick validation: check if referenced files exist
+      let missingFiles = 0;
+      const allSourceFiles = new Set();
+      try {
+        const { scanAllSourceFiles } = await import("../lib/feature-map-validator.mjs");
+        const files = scanAllSourceFiles(projRoot);
+        files.forEach(f => allSourceFiles.add(f));
+        for (const feat of features) {
+          for (const cf of feat.codeFiles || []) {
+            const norm = cf.replace(/^\.\//, "").replace(/\\/g, "/");
+            if (!allSourceFiles.has(norm)) missingFiles++;
+          }
+        }
+      } catch {}
+      if (missingFiles > 0) {
+        checks.featureMap.status = "warn";
+        checks.featureMap.missingFiles = missingFiles;
+        checks.featureMap.message = `${missingFiles} mapped files not found on disk — feature map is stale`;
+      }
     } else {
       checks.featureMap = { status: "warn", message: "FEATURES.json not found" };
     }
