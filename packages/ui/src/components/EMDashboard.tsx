@@ -204,6 +204,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const prevMsgLenRef = useRef(0);
   const composingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,14 +218,11 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         const data = await res.json();
         if (data.messages?.length > 0) {
           setMessages(data.messages);
-          prevMsgLenRef.current = data.messages.length; // don't auto-scroll on initial load
         } else {
           setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
-          prevMsgLenRef.current = 1; // don't auto-scroll on initial greeting
         }
       } catch {
         setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
-        prevMsgLenRef.current = 1;
       }
       setMessagesLoaded(true);
     })();
@@ -408,10 +406,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     prevRunningRef.current = !!isRunning;
   }, [codeUnderstanding?.running, loadPersistedSteps, refreshData]);
 
-  // Only auto-scroll when NEW messages arrive (not on tab switch)
+  // Auto-scroll to bottom instantly (no smooth animation flicker)
   useEffect(() => {
     if (messages.length > prevMsgLenRef.current) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Use direct scrollTop for instant jump, avoid smooth scroll animation
+      const el = chatScrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
     }
     prevMsgLenRef.current = messages.length;
   }, [messages]);
@@ -828,7 +828,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
         )}
 
         {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
+        <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
           {messages.map((msg, i) => (
             <div key={i} className="mb-3 flex gap-2.5">
               {/* Avatar */}
@@ -867,7 +867,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                               content: `🔧 已派交 **${action.crewId}** 處理：${(action.prompt || "").slice(0, 60)}...`,
                               ts: new Date().toISOString(),
                             }]);
-                            chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                            const el2 = chatScrollRef.current;
+                            if (el2) el2.scrollTop = el2.scrollHeight;
                             }
                             if (action.type === "openReport" && action.reportId) {
                               // Open report tab
