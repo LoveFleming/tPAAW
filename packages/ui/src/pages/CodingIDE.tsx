@@ -2942,8 +2942,8 @@ const sendChat = useCallback(async () => {
                     textMuted: tk.textMuted,
                     hover: tk.toolbarHover,
                   }}
-                  model={model}
-                  onModelChange={setModel}
+                  model={emModel}
+                  onModelChange={setEmModel}
                 />
               </div>
             )}
