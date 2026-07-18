@@ -42,6 +42,7 @@ import IssueTracker from "../components/IssueTracker";
 import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
 import NightShiftPanel from "../components/NightShiftPanel";
+import DeveloperPanel from "../components/DeveloperPanel";
 import SecurityTab from "../components/SecurityTab";
 import FileViewer from "../pages/FileViewer";
 
@@ -2929,13 +2930,21 @@ const sendChat = useCallback(async () => {
             {mainTabs.some(t => t.type === "developer") && rootPath && (
               <div key="tool:developer" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "developer" ? undefined : "none" }}>
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
-                  <div className="text-5xl">👩‍💻</div>
-                  <h2 className="text-lg font-bold text-stone-600">Developer</h2>
-                  <p className="text-stone-400 text-sm text-center max-w-md leading-relaxed">
-                    Developer tools and utilities coming soon.
-                  </p>
-                </div>
+                <DeveloperPanel
+                  rootPath={rootPath}
+                  theme={{
+                    bg: tk.bg,
+                    bgMuted: tk.bgMuted,
+                    borderLight: tk.borderLight,
+                    accent: tk.accent,
+                    accentBg: tk.accentBg,
+                    text: tk.text,
+                    textMuted: tk.textMuted,
+                    hover: tk.toolbarHover,
+                  }}
+                  model={model}
+                  onModelChange={setModel}
+                />
               </div>
             )}
 
