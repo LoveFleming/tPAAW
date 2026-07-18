@@ -186,6 +186,27 @@ export function detectRulePacks(projectRoot) {
 
 // ── Command building ──
 
+// ── Universal scan filter ──
+// Instead of trying to exclude every non-source file/dir (which varies per project),
+// we use --include to ONLY scan known source code extensions.
+// This works across ALL projects regardless of directory structure.
+const SOURCE_INCLUDES = [
+  "--include '*.js'",
+  "--include '*.mjs'",
+  "--include '*.cjs'",
+  "--include '*.jsx'",
+  "--include '*.ts'",
+  "--include '*.tsx'",
+  "--include '*.py'",
+  "--include '*.java'",
+  "--include '*.go'",
+  "--include '*.rb'",
+  "--include '*.php'",
+  "--include '*.c'",
+  "--include '*.cpp'",
+  "--include '*.cs'",
+].join(" ");
+
 function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
   const semgrepBin = process.env.SEMGREP_PATH || "semgrep";
   const bin = safePath(semgrepBin).includes(" ") ? `"${safePath(semgrepBin)}"` : safePath(semgrepBin);
@@ -196,7 +217,7 @@ function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
     return sp.includes(" ") ? `--config "${sp}"` : `--config ${sp}`;
   }).join(" ");
 
-  const cmd = `${bin} --metrics off --json ${configArgs} ${excludeArgs} --quiet ${root}`;
+  const cmd = `${bin} --metrics off --json ${configArgs} ${SOURCE_INCLUDES} ${excludeArgs} --quiet ${root}`;
   LOG("buildSemgrepCmd:", cmd);
   return cmd;
 }
@@ -207,13 +228,9 @@ export function buildFullScanCommand(projectRoot) {
   const excludeArgs = [
     "--exclude node_modules",
     "--exclude .git",
-    "--exclude .paaw",
-    "--exclude data/semgrep-rules",
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",
-    "--exclude '*.min.js'",
-    "--exclude '*.map'",
   ].join(" ");
   return buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
 }
@@ -276,13 +293,9 @@ export async function runSemgrep(projectRoot, options = {}) {
   const excludeArgs = [
     "--exclude node_modules",
     "--exclude .git",
-    "--exclude .paaw",
-    "--exclude data/semgrep-rules",
     "--exclude dist",
     "--exclude build",
     "--exclude coverage",
-    "--exclude '*.min.js'",
-    "--exclude '*.map'",
   ].join(" ");
 
   const semgrepBin = process.env.SEMGREP_PATH || "semgrep";
