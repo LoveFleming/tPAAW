@@ -30,6 +30,22 @@ import { verifyAfterWrite, verifyTests } from './post-hooks.mjs';
 const MAX_EXECUTE_TURNS = 30;
 const COMMIT_PREFIX = 'test(divya)';
 
+// ─── Session State (abort/rollback) ─────────────────────────
+let _abortFlag = false;
+let _snapshotHash = null;
+
+export function abortTesterExecution() {
+  _abortFlag = true;
+}
+
+export function getTesterSnapshot() {
+  return _snapshotHash;
+}
+
+function resetTesterSession() {
+  _abortFlag = false;
+}
+
 // ─── Phase 0: Context ──────────────────────────────────────────
 
 async function gatherTesterContext(projectRoot, projectLangs, targetFiles) {
@@ -177,6 +193,11 @@ async function executeTask(llm, systemPrompt, executePrompt, projectRoot, projec
 
   while (turns < MAX_EXECUTE_TURNS) {
     turns++;
+
+    if (_abortFlag) {
+      return { changedFiles, log, completed: false, turns, reason: 'Aborted by user' };
+    }
+
     if (onProgress) onProgress({ phase: 'execute', turn: turns, changedFiles });
 
     const body = {
@@ -187,6 +208,11 @@ async function executeTask(llm, systemPrompt, executePrompt, projectRoot, projec
     };
 
     const response = await llm.call(body);
+
+    if (_abortFlag) {
+      return { changedFiles, log, completed: false, turns, reason: 'Aborted by user' };
+    }
+
     if (!response) {
       messages.push({ role: 'user', content: 'LLM 回應為空。請用 TOOL: 格式回覆。' });
       continue;
@@ -342,6 +368,12 @@ export async function runTester(opts) {
   if (!task) throw new Error('task is required');
   if (!projectRoot) throw new Error('projectRoot is required');
 
+  // ── Snapshot for rollback ──
+  resetTesterSession();
+  try {
+    _snapshotHash = execSync('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8', timeout: 5000 }).trim();
+  } catch { _snapshotHash = null; }
+
   // Resolve LLM
   const { resolveLLMConfig } = await import('../../paaw-agent-loop.mjs');
   const { callLLMWithRetry } = await import('../../llm-utils.mjs');
@@ -402,7 +434,7 @@ export async function runTester(opts) {
   if (onProgress) onProgress({ phase: 'handoff', status: 'creating report' });
   const handoff = createHandoff(task, execResult.changedFiles, verifyResult, plan);
 
-  if (!skipCommit && handoff.testFilesWritten.length > 0) {
+  if (!skipCommit && handoff.testFilesWritten.length > 0 && !_abortFlag) {
     handoff.commitHash = await commitAndPush(projectRoot, task, handoff);
   }
 

@@ -34,6 +34,22 @@ const MAX_VERIFY_RETRIES = 3;
 const MAX_EXECUTE_TURNS = 40;     // 最多 40 輪 AI 行動
 const COMMIT_PREFIX = 'dev(priya)';
 
+// ─── Session State (abort/rollback) ─────────────────────────
+let _abortFlag = false;
+let _snapshotHash = null;
+
+export function abortExecution() {
+  _abortFlag = true;
+}
+
+export function getSessionSnapshot() {
+  return _snapshotHash;
+}
+
+function resetSessionState() {
+  _abortFlag = false;
+}
+
 // ─── Phase 0: L1 事實注入 ──────────────────────────────────────
 
 async function gatherDeveloperContext(projectRoot, projectLangs) {
@@ -228,6 +244,11 @@ async function executeTask(llm, systemPrompt, task, plan, ctx, projectRoot, onPr
 
   while (turns < MAX_EXECUTE_TURNS) {
     turns++;
+
+    if (_abortFlag) {
+      return { changedFiles, log, completed: false, turns, reason: 'Aborted by user' };
+    }
+
     if (onProgress) onProgress({ phase: 'execute', turn: turns, changedFiles });
 
     // AI 決定下一步
@@ -239,6 +260,11 @@ async function executeTask(llm, systemPrompt, task, plan, ctx, projectRoot, onPr
     };
 
     const response = await llm.call(body);
+
+    if (_abortFlag) {
+      return { changedFiles, log, completed: false, turns, reason: 'Aborted by user' };
+    }
+
     if (!response) {
       messages.push({ role: 'user', content: 'LLM 回應為空。請用 TOOL: 格式回覆。' });
       continue;
@@ -519,11 +545,11 @@ async function verifyChanges(projectRoot, projectLangs, changedFiles, plan) {
 
 // ─── Phase 4: Handoff ──────────────────────────────────────────
 
-async function createHandoff(task, changedFiles, verifyResult, plan, guardrailReport) {
+async function createHandoff(task, changedFiles, verifyResult, plan, guardrailReport, aborted = false) {
   const allPassed = verifyResult.buildPassed && verifyResult.testPassed;
 
   return {
-    status: allPassed ? 'completed' : 'failed',
+    status: aborted ? 'aborted' : (allPassed ? 'completed' : 'failed'),
     task,
     filesChanged: changedFiles,
     linesAdded: verifyResult.linesAdded || 0,
@@ -619,6 +645,12 @@ export async function runDeveloper(opts) {
   if (!task) throw new Error('task is required');
   if (!projectRoot) throw new Error('projectRoot is required');
 
+  // ── Snapshot for abort/rollback ──
+  resetSessionState();
+  try {
+    _snapshotHash = execSync('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8', timeout: 5000 }).trim();
+  } catch { _snapshotHash = null; }
+
   // ── Resolve LLM config ──
   // If model looks like "provider/model" where provider is a known provider,
   // pass as-is. Otherwise, pass null to use default model.
@@ -692,6 +724,7 @@ export async function runDeveloper(opts) {
   // 如果 build/test 失敗，退回 Phase 2 修（最多 MAX_VERIFY_RETRIES 次）
   let verifyRetries = 0;
   while (!verifyResult.buildPassed && verifyRetries < MAX_VERIFY_RETRIES && execResult.completed) {
+    if (_abortFlag) break;
     verifyRetries++;
     if (onProgress) onProgress({ phase: 'verify-retry', attempt: verifyRetries });
 
@@ -704,10 +737,10 @@ export async function runDeveloper(opts) {
 
   // ── Phase 4: Handoff ──
   if (onProgress) onProgress({ phase: 'handoff', status: 'creating report' });
-  const handoff = await createHandoff(task, execResult.changedFiles, verifyResult, plan, null);
+  const handoff = await createHandoff(task, execResult.changedFiles, verifyResult, plan, null, _abortFlag);
 
-  // Commit + push（除非 skipCommit）
-  if (!skipCommit && handoff.filesChanged.length > 0) {
+  // Commit + push（除非 skipCommit 或被中斷）
+  if (!skipCommit && handoff.filesChanged.length > 0 && !_abortFlag) {
     const hash = await commitAndPush(projectRoot, task, handoff);
     handoff.commitHash = hash;
   }
