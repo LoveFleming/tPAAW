@@ -297,7 +297,7 @@ export default function DeveloperPanel({ rootPath, theme: tk, model, onModelChan
             <span className="text-lg">💻</span>
             <span className="font-bold text-sm" style={{ color: tk.text }}>Marcus · Developer</span>
           </div>
-          {model && onModelChange && <ModelSelector feature="codingIDE" value={model} onChange={onModelChange} />}}
+          {model && onModelChange && <ModelSelector feature="codingIDE" value={model} onChange={onModelChange} />}
         </div>
 
         {/* Chat messages */}
