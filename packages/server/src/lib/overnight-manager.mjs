@@ -49,25 +49,38 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
     id: `em-${agentId}-${Date.now()}`,
   };
 
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    const res = await fetch(`${baseUrl}/a2a/${agentId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    const data = await res.json();
+  const url = `${baseUrl}/a2a/${agentId}`;
 
-    if (data.error) return { success: false, content: "", error: data.error.message };
-    const artifacts = data.result?.artifacts || [];
-    const texts = artifacts.flatMap(a => a.parts || []).filter(p => p.type === "text" || p.kind === "text").map(p => p.text);
-    return { success: true, content: texts.join("\n") || "(no output)" };
-  } catch (err) {
-    return { success: false, content: "", error: err.message };
+  // Retry on fetch errors (network glitches, transient connection resets)
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      const data = await res.json();
+
+      if (data.error) return { success: false, content: "", error: data.error.message };
+      const artifacts = data.result?.artifacts || [];
+      const texts = artifacts.flatMap(a => a.parts || []).filter(p => p.type === "text" || p.kind === "text").map(p => p.text);
+      return { success: true, content: texts.join("\n") || "(no output)" };
+    } catch (err) {
+      const isFetchErr = err.message && (err.message.includes("fetch failed") || err.message.includes("ECONNRESET") || err.message.includes("aborted"));
+      if (isFetchErr && attempt < maxRetries) {
+        console.log(`[EM] a2aCallAgent ${agentId}: fetch failed (attempt ${attempt + 1}), retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      return { success: false, content: "", error: err.message };
+    }
   }
+  return { success: false, content: "", error: "Max retries exceeded" };
 }
 
 // ── LLM Work Planning（EM 模式用） ──

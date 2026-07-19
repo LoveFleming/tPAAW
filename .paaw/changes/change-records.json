@@ -10,5 +10,17 @@
     "impact": "無。純測試新增，不影響生產程式碼。",
     "testsRan": "npx vitest run tests/unit/agent-loop-max-turns.test.mjs — 25 passed",
     "createdAt": "2026-07-18T00:23:12.767Z"
+  },
+  {
+    "id": "CHG-002",
+    "title": "Add 54 unit tests for night-shift-shared.mjs",
+    "type": "feature",
+    "description": "撰寫 54 個單元測試涵蓋 night-shift-shared.mjs 全部 8 個 exported function（gatherContext, buildSituationReport, saveNightShiftReport, listNightShiftReports, readNightShiftReport, deleteNightShiftReport, refreshFeatureMapping, validateFeatureMap），包含正常路徑、邊界條件、錯誤處理",
+    "files": [
+      "tests/unit/night-shift-shared.test.mjs"
+    ],
+    "impact": "新增測試檔案，不影響現有功能。所有 54 個測試通過，既有 5 個測試套件未受影響。",
+    "testsRan": "npx vitest run tests/unit/night-shift-shared.test.mjs --no-coverage — 54/54 passed (26ms). Also verified no regression on all 5 existing test suites.",
+    "createdAt": "2026-07-19T01:34:55.006Z"
   }
 ]

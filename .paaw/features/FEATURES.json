@@ -245,10 +245,13 @@
       "codeFiles": [
         "packages/server/src/lib/overnight-manager.mjs",
         "packages/server/src/routes/coding-night-shift.mjs",
-        "packages/ui/src/components/NightShiftPanel.tsx"
+        "packages/ui/src/components/NightShiftPanel.tsx",
+        "packages/server/src/lib/night-shift-shared.mjs"
       ],
       "apis": [],
-      "tests": [],
+      "tests": [
+        "tests/unit/night-shift-shared.test.mjs"
+      ],
       "runbooks": [],
       "tags": [
         "ai",
@@ -261,7 +264,7 @@
       "documentation": "",
       "docsUpdatedAt": null,
       "createdAt": "2026-07-12T13:57:02.576Z",
-      "updatedAt": "2026-07-18T06:44:32.768Z"
+      "updatedAt": "2026-07-19T01:35:10.388Z"
     },
     {
       "name": ".paaw Knowledge Store",
@@ -664,5 +667,5 @@
       "updatedAt": "2026-07-18T06:51:52.802Z"
     }
   ],
-  "updatedAt": "2026-07-18T14:23:21.477Z"
+  "updatedAt": "2026-07-19T01:35:10.388Z"
 }
