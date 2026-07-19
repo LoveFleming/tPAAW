@@ -4,8 +4,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import MarkdownText from "./MarkdownText";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
 
@@ -307,7 +306,7 @@ export default function ProjectAiPanel({ context, initialPrompt, tk, onClose }: 
             }>
               {msg.role === "assistant" ? (
                 <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content || "…"}</ReactMarkdown>
+                  <MarkdownText>{msg.content || "…"}</MarkdownText>
                 </div>
               ) : (
                 <span>{msg.content}</span>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import Icon from "./Icon";
+import MarkdownText from "./MarkdownText";
 
 // ── Types ──
 
@@ -397,8 +398,8 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
                 )}
                 {/* Content */}
                 {msg.content && (
-                  <div className="text-base text-stone-200 whitespace-pre-wrap break-words">
-                    {msg.content}
+                  <div className="text-base text-stone-200 break-words">
+                    <MarkdownText className="md-dark">{msg.content}</MarkdownText>
                   </div>
                 )}
               </div>

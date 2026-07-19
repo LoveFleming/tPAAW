@@ -10,6 +10,7 @@ import API_BASE from "../api";
 import ChatMessages from "./ChatMessages"; // kept for reference — EM chat now uses custom rich renderer
 import ModelSelector from "./ModelSelector";
 import { cn } from "../utils";
+import MarkdownText from "./MarkdownText";
 
 interface ChatMessage {
   role: string;
@@ -903,11 +904,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 {msg.role === "user" ? (
                   <span className="inline-block px-3 py-1.5 rounded-2xl text-sm bg-stone-50 text-stone-700 max-w-[80%] whitespace-pre-wrap">{msg.content}</span>
                 ) : (
-                  <div className="px-4 py-2.5 rounded-2xl bg-white shadow-sm border border-stone-100 text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">
-                  <div dangerouslySetInnerHTML={{ __html: msg.content
-                    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-                    .replace(/\n/g, "<br/>")
-                  }} />
+                  <div className="px-4 py-2.5 rounded-2xl bg-white shadow-sm border border-stone-100 text-sm text-stone-700 leading-relaxed">
+                  <MarkdownText>{msg.content}</MarkdownText>
                   {/* Rich action buttons */}
                   {msg.actions && msg.actions.length > 0 && (
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
