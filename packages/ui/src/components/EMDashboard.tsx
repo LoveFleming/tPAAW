@@ -821,7 +821,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
             title="查看歷史對話"
           >
-            📜 ({emSessions.filter(s => !s.isActive).length})
+            📜
           </button>
         </div>
 
@@ -861,15 +861,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                     <span className="text-sm font-medium text-stone-700 truncate flex-1">
                       {s.isActive && "🟢 "}{s.title || "未命名對話"}
                     </span>
-                    <span className="text-[10px] text-stone-400 ml-2 shrink-0">
-                      {s.messageCount} 則
-                    </span>
+                    {s.lastUpdated && (
+                      <span className="text-[10px] text-stone-400 ml-2 shrink-0">
+                        {new Date(s.lastUpdated).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    )}
                   </div>
-                  {s.lastUpdated && (
-                    <div className="text-[10px] text-stone-400">
-                      {new Date(s.lastUpdated).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                  )}
                 </button>
               ))
             )}
