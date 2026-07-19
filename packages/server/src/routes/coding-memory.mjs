@@ -102,9 +102,6 @@ export default async function codingMemoryRoute(req, res) {
       const existingAgentIds = new Set(existingFiles.map(f => f.replace(/\.md$/, "")));
       const allAgentIds = new Set([...crewAgentIds, ...existingAgentIds]);
 
-      // Exclude EM 大總管 — it's a manager, not a coding agent with memory
-      allAgentIds.delete("em");
-
       const memories = [];
       for (const agentId of allAgentIds) {
         const crew = crews[agentId] || null;

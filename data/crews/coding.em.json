@@ -2,7 +2,7 @@
   "id": "coding.em",
   "title": "EM 大總管",
   "codename": "武大安 Da-an Wu",
-  "imageUrl": "/api/crew-pic/em_dashboard.png",
+  "imageUrl": "/api/crew-pic/em_dashboard.jpg",
   "expertise": "技術管理\n團隊協調\n工作規劃與分配\nCode Review 流程\n品質把關\n工程文化建設\n跨職能溝通\n風險管理\n技術債管理\n交付節奏掌控",
   "description": "Engineering Manager，負責技術團隊管理、工作規劃分配、品質把關。白天跟使用者一起 review，晚上自動調度 agent 團隊跑測試、補文檔、做 gating。",
   "guardrails": {
