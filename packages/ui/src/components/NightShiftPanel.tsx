@@ -95,8 +95,8 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
 
   useEffect(() => { fetchConfig(); }, [rootPath]);
 
-  // ── Fetch status ──
-  const fetchStatus = async () => {
+  // ── Fetch status (memoized so polling interval uses stable reference) ──
+  const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/coding-night-shift/status${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
       const data = await res.json();
@@ -104,21 +104,25 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
     } catch (err) {
       console.error("[NightShift] status error:", err);
     }
-  };
+  }, [rootPath]);
 
+  // Initial fetch + cleanup on rootPath change
   useEffect(() => {
     fetchStatus();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [rootPath]);
+  }, [fetchStatus]);
 
-  // Poll while running
+  // Poll while running — clean up when status leaves "running"
   useEffect(() => {
     if (nsStatus?.status === "running") {
+      // Guard: don't create duplicate intervals
+      if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(fetchStatus, 3000);
     } else {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     }
-  }, [nsStatus?.status]);
+    // fetchStatus changes when rootPath changes, so this also cleans up on path change
+  }, [nsStatus?.status, fetchStatus]);
 
   // Fetch report when completed
   useEffect(() => {

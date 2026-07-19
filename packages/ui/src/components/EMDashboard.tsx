@@ -70,6 +70,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Night Shift State ──
   const [nsRunning, setNsRunning] = useState(false);
   const [nsStatus, setNsStatus] = useState<string>("");
+  const nightShiftPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up night shift poll on unmount
+  useEffect(() => {
+    return () => { if (nightShiftPollRef.current) clearInterval(nightShiftPollRef.current); };
+  }, []);
   // emSinceDate/nsSinceDate removed — EM works from commit changes, user can give time commands in chat
 
   const startNightShift = async () => {
@@ -101,12 +107,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     const agentEmojis: Record<string,string> = { architect: "🏗️", developer: "💻", tester: "🧪", "doc-writer": "📝", qa: "🔍", helpdesk: "🎫" };
     let prevCompleted = 0;
     let progressMsg = "🌙 Night Shift 啟動中...";
-    const poll = setInterval(async () => {
+    nightShiftPollRef.current = setInterval(async () => {
       try {
         const sr = await fetch(`${API_BASE}/api/coding-night-shift/status${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
         const sd = await sr.json();
         if (sd.status === "completed") {
-          clearInterval(poll);
+          if (nightShiftPollRef.current) { clearInterval(nightShiftPollRef.current); nightShiftPollRef.current = null; }
           setNsRunning(false);
           const done = sd.completedAgents || 0;
           const total = sd.totalAgents || 6;
@@ -160,6 +166,26 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               return [...prev, { role: "assistant", content: progressMsg, ts: new Date().toISOString(), _nsProgress: true } as any];
             });
           }
+        } else if (sd.status === "failed" || sd.status === "interrupted" || sd.status === "error") {
+          // Terminal states — stop polling
+          if (nightShiftPollRef.current) { clearInterval(nightShiftPollRef.current); nightShiftPollRef.current = null; }
+          setNsRunning(false);
+          const errMsg = sd.error || sd.message || sd.status;
+          setNsStatus(`❌ Night Shift 終止: ${errMsg.slice(0, 100)}`);
+          setMessages(prev => {
+            const lastNs = [...prev].reverse().findIndex(m => (m as any)._nsProgress);
+            if (lastNs >= 0) {
+              const idx = prev.length - 1 - lastNs;
+              const updated = [...prev];
+              updated[idx] = { role: "assistant", content: `❌ Night Shift 終止 (${sd.status})
+
+${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any;
+              return updated;
+            }
+            return [...prev, { role: "assistant", content: `❌ Night Shift 終止 (${sd.status})
+
+${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
+          });
         }
       } catch {}
     }, 5000);
