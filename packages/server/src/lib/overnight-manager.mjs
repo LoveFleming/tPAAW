@@ -1,21 +1,38 @@
 /**
- * Overnight Manager — Engineering Manager 自動調度
+ * Overnight Manager — Engineering Manager 自動調度 + Night Shift Parallel
  *
  * 設計原則：
  *   收集和執行用決定性程式，規劃用 LLM prompt
  *
- * 流程：
- *   1. 【決定性】收集 context（git diff, action log, .paaw/ TODO）
+ * 兩種模式：
+ *   mode: "em"       → EM 先讀現況 → LLM 規劃 → A2A 調度 agent（聰明但慢）
+ *   mode: "parallel" → 全員平行跑，固定 6 agent（快但固定）
+ *
+ * 共用邏輯在 night-shift-shared.mjs
+ *
+ * 流程（EM 模式）：
+ *   1. 【決定性】收集 context
  *   2. 【決定性】整理成「現況摘要」
  *   3. 【LLM】讀摘要 → 規劃工作清單
  *   4. 【決定性】逐一 A2A message/send → agent 執行
  *   5. 【決定性】收集結果 → 寫報告
+ *
+ * 流程（Parallel 模式）：
+ *   1. 【決定性】收集 context
+ *   2. 【決定性】所有 agent 平行跑（用 runAgentLoop）
+ *   3. 【決定性】收集結果 → 寫報告
  */
 
-import { listActionLog, addActionLog } from "./action-log.mjs";
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
+import { addActionLog } from "./action-log.mjs";
+import { writeFileSync, existsSync } from "fs";
 import { join } from "path";
-import { PaawProject } from "./paaw-project.mjs";
+import {
+  gatherContext,
+  buildSituationReport,
+  refreshFeatureMapping,
+  validateFeatureMap,
+  saveNightShiftReport,
+} from "./night-shift-shared.mjs";
 
 // ── A2A Client ──
 
@@ -53,102 +70,11 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
   }
 }
 
-// ── Layer 1: Deterministic Context Gathering ──
+// ── LLM Work Planning（EM 模式用） ──
 
-async function gatherContext(rootDir, sinceDate) {
-  const { execSync } = await import("child_process");
-  const safeDir = JSON.stringify(rootDir);
-  const summary = {};
-  const since = sinceDate || new Date().toISOString().split("T")[0];
-  const sinceArg = since.includes("T") ? since : `${since}T00:00:00`;
-
-  // 1. Git status (what changed, what's uncommitted)
-  try {
-    summary.gitStatus = execSync(`cd ${safeDir} && git status --short`, { encoding: "utf-8", timeout: 10000 }).trim();
-  } catch { summary.gitStatus = ""; }
-
-  // 2. Git diff stat since date
-  try {
-    const commitCount = parseInt(execSync(`cd ${safeDir} && git log --since="${sinceArg}" --oneline 2>/dev/null | wc -l`, { encoding: "utf-8", timeout: 10000 }).trim()) || 5;
-    summary.gitDiffStat = execSync(`cd ${safeDir} && git diff --stat HEAD~${Math.min(commitCount, 50)}`, { encoding: "utf-8", timeout: 10000 }).trim();
-  } catch { summary.gitDiffStat = ""; }
-
-  // 3. Recent commits since date
-  try {
-    summary.recentCommits = execSync(`cd ${safeDir} && git log --since="${sinceArg}" --oneline -20`, { encoding: "utf-8", timeout: 10000 }).trim();
-  } catch { summary.recentCommits = ""; }
-
-  // 4. Unpushed commits
-  try {
-    summary.unpushed = execSync(`cd ${safeDir} && git log --oneline origin/dev..HEAD 2>/dev/null || echo ""`, { encoding: "utf-8", timeout: 10000 }).trim();
-  } catch { summary.unpushed = ""; }
-
-  // 5. Action log (change water level — only real changes)
-  const actionLog = await listActionLog({ cwd: rootDir, limit: 20, maxChars: 3000 });
-  summary.actionLog = actionLog.text;
-
-  // 6. .paaw/ context files
-  const paaw = new PaawProject(rootDir);
-  summary.paawContext = "";
-  for (const f of ["PROJECT.md", "STATUS.md", "DECISIONS.md", "CODING-STANDARDS.md", "CHANGELOG.md", "KNOWN-ISSUES.md", "NEXT-ACTIONS.md", "AI-OPERATING-GUIDE.md"]) {
-    const fp = paaw._resolvePath(f);
-    if (existsSync(fp)) {
-      const content = readFileSync(fp, "utf-8").slice(0, 2000);
-      summary.paawContext += `\n### ${f}\n${content}\n`;
-    }
-  }
-
-  // 7. Build health (quick check)
-  try {
-    execSync(`cd ${safeDir} && node -e "require('./packages/server/src/paaw-server.mjs')" 2>&1 || true`, { encoding: "utf-8", timeout: 15000 });
-    summary.buildHealth = "OK (server module loads)";
-  } catch {
-    summary.buildHealth = "Check needed";
-  }
-
-  return summary;
-}
-
-// ── Layer 1: Build "現況摘要" (deterministic) ──
-
-function buildSituationReport(ctx) {
-  let report = `## 專案現況摘要\n\n`;
-
-  if (ctx.gitStatus) {
-    report += `### Git Status（未提交變更）\n\`\`\`\n${ctx.gitStatus}\n\`\`\`\n\n`;
-  } else {
-    report += `### Git Status\n工作目錄乾淨，沒有未提交變更。\n\n`;
-  }
-
-  if (ctx.gitDiffStat) {
-    report += `### 最近 5 commit 的 diff stat\n\`\`\`\n${ctx.gitDiffStat}\n\`\`\`\n\n`;
-  }
-
-  if (ctx.recentCommits) {
-    report += `### 最近 10 個 commit\n\`\`\`\n${ctx.recentCommits}\n\`\`\`\n\n`;
-  }
-
-  if (ctx.unpushed) {
-    report += `### ⚠️ 未 Push 的 commit\n\`\`\`\n${ctx.unpushed}\n\`\`\`\n\n`;
-  }
-
-  if (ctx.actionLog) {
-    report += `### Action Log（Change 水位 — 最近 20 條 agent 變更紀錄）\n${ctx.actionLog}\n\n`;
-  } else {
-    report += `### Action Log\n目前沒有 agent 變更紀錄。\n\n`;
-  }
-
-  if (ctx.paawContext) {
-    report += `### 專案知識\n${ctx.paawContext}\n`;
-  }
-
-  return report;
-}
-
-// ── Layer 2: LLM Work Planning ──
-
-async function planWorkList(situationReport, rootDir, modelOverride) {
+async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = []) {
   const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
+  const { callLLMWithRetry } = await import("./llm-utils.mjs");
   const llm = resolveLLMConfig(rootDir, modelOverride);
 
   const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (武大安)。
@@ -167,7 +93,7 @@ async function planWorkList(situationReport, rootDir, modelOverride) {
 
 ## 規劃原則
 1. **從 change 水位出發** — 看 action log 裡最近的變更，找出未完成的工作或遺漏
-2. **有未 push 的 commit** → 優先指派 developer 確認 + push
+2. **有未 push 的 commit** → 報告中標注，但**不指派 push**（push 只由人執行）
 3. **有未提交的變更** → 評估是否需要 developer 補完
 4. **缺少測試** → 指派 tester 補測試
 5. **缺少文檔** → 指派 doc-writer 補文檔
@@ -196,21 +122,47 @@ async function planWorkList(situationReport, rootDir, modelOverride) {
     { role: "user", content: situationReport },
   ];
 
+  // ── LLM call with model fallback ──
+  async function callWithFallback(body, opts = {}) {
+    const models = [modelOverride, ...fallbackModels].filter(Boolean);
+    if (models.length === 0) {
+      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
+        maxRetries: 3,
+        timeoutMs: 60000,
+        validateContent: true,
+        sanitize: true,
+        ...opts,
+      });
+      return result;
+    }
+    for (let i = 0; i < models.length; i++) {
+      try {
+        const m = resolveLLMConfig(rootDir, models[i]);
+        const result = await callLLMWithRetry(m.apiUrl, m.headers, { ...body, model: m.model || m.defaultModel }, {
+          maxRetries: 2,
+          timeoutMs: 60000,
+          validateContent: true,
+          sanitize: true,
+          ...opts,
+        });
+        if (result) return result;
+      } catch (err) {
+        console.log(`[EM] Model ${models[i]} failed: ${err.message.slice(0, 100)}`);
+        if (i === models.length - 1) throw err;
+      }
+    }
+    return null;
+  }
+
   try {
-    const { callLLMWithRetry } = await import("./llm-utils.mjs");
     const body = {
       model: llm.model,
       messages,
       max_tokens: 8192,
       stream: false,
     };
-    const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
-      maxRetries: 3,
-      timeoutMs: 60000,
-      validateContent: true,
-      sanitize: true,
-    });
-    const text = result.content || "";
+    const result = await callWithFallback(body);
+    const text = result?.content || "";
     console.log("[EM] planWorkList LLM response length:", text.length);
     console.log("[EM] planWorkList LLM response preview:", text.slice(0, 500));
     const match = text.match(/\[[\s\S]*\]/);
@@ -221,214 +173,43 @@ async function planWorkList(situationReport, rootDir, modelOverride) {
         return list.filter(item => item.agent && item.task);
       } catch (parseErr) {
         console.error("[EM] planWorkList JSON parse failed:", parseErr.message);
-        console.log("[EM] matched text:", match[0].slice(0, 300));
         return [];
       }
     }
     console.error("[EM] planWorkList: no JSON array found in LLM response");
-    console.log("[EM] full response:", text.slice(0, 1000));
     return [];
   } catch (err) {
-    console.error("[EM] planWorkList error:", err.message, err.stack?.slice(0, 300));
+    console.error("[EM] planWorkList error:", err.message);
     return [];
   }
 }
 
-// ── Phase 0 Helper: Refresh Feature Mapping ──
+// ── Phase 0: Feature Map Refresh + Validation（共用） ──
 
-async function refreshFeatureMapping(projRoot, modelOverride) {
-  const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
-  const { callLLMWithRetry } = await import("./llm-utils.mjs");
-  const { exec } = await import("child_process");
-
-  // Load existing features
-  const paaw = new PaawProject(projRoot);
-  const featuresFile = join(projRoot, ".paaw", "features", "FEATURES.json");
-  if (!existsSync(featuresFile)) {
-    return { ok: false, error: "No FEATURES.json found. Run Code Understanding first." };
-  }
-  let features;
-  try {
-    features = JSON.parse(readFileSync(featuresFile, "utf-8"));
-    if (!Array.isArray(features) || features.length === 0) {
-      return { ok: false, error: "No features to update." };
-    }
-  } catch (err) {
-    return { ok: false, error: `Failed to load features: ${err.message}` };
-  }
-
-  // Resolve LLM config
-  let llm;
-  try {
-    llm = resolveLLMConfig(projRoot, modelOverride);
-  } catch (err) {
-    return { ok: false, error: `LLM config error: ${err.message}` };
-  }
-
-  // Scan ALL source files (no limit)
-  const isWin = process.platform === "win32";
-  const scanCmd = isWin
-    ? `node -e "const{readdirSync:r,statSync:s}=require('fs');const{join:j}=require('path');function walk(d,a){for(const e of r(d)){const p=j(d,e);try{if(s(p).isDirectory()){if(!e.includes('node_modules')&&!e.includes('dist')&&!e.startsWith('.'))walk(p,a)}else if(/\.(ts|tsx|mjs|js|jsx)$/.test(e))a.push(p.replace(/\\\\/g,'/'))}}catch{}}const f=[];walk('.',f);console.log(f.join('\\n'))"`
-    : "find . -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' -o -name '*.js' -o -name '*.jsx' \\) -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.paaw/*'";
-  const allFiles = await new Promise((resolve) => {
-    exec(scanCmd, { cwd: projRoot, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
-      resolve(stdout.trim().split("\n").filter(Boolean));
-    });
-  });
-
-  if (allFiles.length === 0) {
-    return { ok: false, error: "No source files found." };
-  }
-
-  // Read API contract if exists
-  let apiContract = "";
-  const apiSpecFile = join(projRoot, ".paaw", "specs", "api-contract.md");
-  if (existsSync(apiSpecFile)) {
-    try { apiContract = readFileSync(apiSpecFile, "utf-8").slice(0, 3000); } catch {}
-  }
-
-  const prompt = `You are a code analyst. Update the file mappings for existing features based on the current codebase.
-
-## Current Features
-${JSON.stringify(features.map(f => ({ id: f.id, name: f.name, description: f.description, currentCodeFiles: f.codeFiles, currentApis: f.apis, currentTests: f.tests, currentRunbooks: f.runbooks })), null, 2)}
-
-## All Source Files in Codebase (${allFiles.length} files)
-${allFiles.join("\n")}
-
-## API Contract
-${apiContract || "(not available)"}
-
-## Task
-For EACH feature, review its current file mappings and update them based on what files actually exist now.
-
-Rules:
-1. If files were renamed/moved, update the paths
-2. If new files belong to this feature, add them
-3. If mapped files no longer exist, remove them
-4. Check API endpoints — add new ones, remove deleted ones
-5. Check test files — add new ones, remove deleted ones
-6. Check runbooks — same
-7. Do NOT change feature id, name, description, or status
-8. Do NOT invent files that don't exist in the file list above
-
-Output a JSON array with updated mappings. Each element:
-{ "id": "F-001", "codeFiles": [...], "apis": [{"method":"GET","path":"/api/x","file":"src/x.mjs"}], "tests": [...], "runbooks": [...] }
-
-Output ONLY the JSON array, no markdown fences.`;
-
-  try {
-    const body = {
-      model: llm.model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-      max_tokens: 8000,
-      stream: false,
-    };
-    const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
-      maxRetries: 3,
-      timeoutMs: 120000,
-      validateContent: true,
-      sanitize: true,
-    });
-    const content = result.content || "";
-    const cleanJson = content.replace(/^\s*```(?:json)?\s*\n?/m, "").replace(/\n?```\s*$/m, "").trim();
-    if (!cleanJson) {
-      return { ok: false, error: "AI 回應為空" };
-    }
-
-    let updates;
-    try {
-      updates = JSON.parse(cleanJson);
-    } catch {
-      // Recovery: find last complete object
-      let lastComplete = 0, braceCount = 0, inStr = false, esc = false;
-      for (let i = 0; i < cleanJson.length; i++) {
-        const c = cleanJson[i];
-        if (esc) { esc = false; continue; }
-        if (c === '\\') { esc = true; continue; }
-        if (c === '"') { inStr = !inStr; continue; }
-        if (inStr) continue;
-        if (c === '{') braceCount++;
-        if (c === '}') { braceCount--; if (braceCount === 0) lastComplete = i; }
-      }
-      if (lastComplete === 0) {
-        return { ok: false, error: "No valid JSON in AI response" };
-      }
-      const recovered = cleanJson.substring(0, lastComplete + 1).trim() + '\n]';
-      try {
-        updates = JSON.parse(recovered);
-      } catch {
-        return { ok: false, error: "Truncated JSON, could not recover" };
-      }
-    }
-
-    if (!Array.isArray(updates)) throw new Error("AI did not return an array");
-
-    // Apply updates
-    let updatedCount = 0;
-    const now = new Date().toISOString();
-    for (const upd of updates) {
-      const idx = features.findIndex(f => f.id === upd.id);
-      if (idx < 0) continue;
-      if (upd.codeFiles) features[idx].codeFiles = upd.codeFiles;
-      if (upd.apis) features[idx].apis = upd.apis;
-      if (upd.tests) features[idx].tests = upd.tests;
-      if (upd.runbooks) features[idx].runbooks = upd.runbooks;
-      features[idx].updatedAt = now;
-      updatedCount++;
-    }
-
-    // Save features
-    const featuresDir = join(projRoot, ".paaw", "features");
-    if (!existsSync(featuresDir)) mkdirSync(featuresDir, { recursive: true });
-    writeFileSync(featuresFile, JSON.stringify(features, null, 2), "utf-8");
-
-    return { ok: true, updated: updatedCount, total: features.length };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
-}
-
-// ── Main: Run EM Session ──
-
-export async function runEMSession(opts = {}) {
-  const { rootDir, baseUrl = "http://127.0.0.1:4097", since, modelOverride } = opts;
-  const sendSSE = opts.sendSSE || (() => {});
-
-  // ── Phase 0: Feature Map Refresh + L3 Validation ──
+async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
+  // Feature Map refresh
   sendSSE("info", { message: "🗺️ Phase 0: 更新 Feature Map..." });
   try {
-    const refreshed = await refreshFeatureMapping(rootDir, modelOverride);
-    if (refreshed.ok) {
-      sendSSE("info", { message: `🗺️ Feature Map 已更新：${refreshed.updated}/${refreshed.total} features` });
-    } else {
+    const refreshed = await refreshFeatureMapping(rootDir, modelOverride, fallbackModels, sendSSE);
+    if (!refreshed.ok) {
       sendSSE("warning", { message: `🗺️ Feature Map 更新失敗：${refreshed.error || 'unknown'}` });
     }
   } catch (err) {
     sendSSE("warning", { message: `🗺️ Feature Map 更新略過：${err.message}` });
   }
 
-  // L3 Validation: verify AI output against ground truth
+  // L3 Validation
   sendSSE("info", { message: "🔍 Phase 0: 驗證 Feature Map..." });
-  try {
-    const { runFullValidation } = await import("./feature-map-validator.mjs");
-    const validation = await runFullValidation(rootDir);
-    if (validation.ok) {
-      const s = validation.summary;
-      sendSSE("info", {
-        message: `🔍 Feature Map 驗證：${s.mappingErrors} errors, ${s.coveragePct}% coverage, ${s.orphanFiles} orphan files`,
-        validation: s,
-      });
-      if (s.mappingErrors > 0) {
-        sendSSE("warning", { message: `⚠️ Feature Map 有 ${s.mappingErrors} 個錯誤（檔案不存在），建議重新刷新` });
-      }
-      if (s.coveragePct < 30) {
-        sendSSE("warning", { message: `⚠️ Feature Map 覆蓋率只有 ${s.coveragePct}%，大部分檔案沒有被歸類` });
-      }
-    }
-  } catch (err) {
-    sendSSE("warning", { message: `🔍 Feature Map 驗證略過：${err.message}` });
-  }
+  await validateFeatureMap(rootDir, sendSSE);
+}
+
+// ── EM Mode: Run EM Session ──
+
+export async function runEMSession(opts = {}) {
+  const { rootDir, baseUrl = "http://127.0.0.1:4097", since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+
+  // ── Phase 0 ──
+  await runPhase0(rootDir, modelOverride, fallbackModels, sendSSE);
 
   // ── Phase 1: Deterministic gathering ──
   sendSSE("info", { message: "🎖️ EM 啟動，收集專案狀態..." });
@@ -437,18 +218,17 @@ export async function runEMSession(opts = {}) {
   sendSSE("info", { message: `📊 現況摘要收集完成` });
 
   if (ctx.unpushed) {
-    sendSSE("warning", { message: `⚠️ 發現 ${ctx.unpushed.split("\n").length} 個未 push 的 commit` });
+    sendSSE("warning", { message: `⚠️ 發現 ${ctx.unpushed.split("\n").length} 個未 push 的 commit（push 由人決定）` });
   }
 
   // ── Phase 2: LLM planning ──
   sendSSE("info", { message: "🧠 規劃工作清單中..." });
-  const workList = await planWorkList(situationReport, rootDir, modelOverride);
+  const workList = await planWorkList(situationReport, rootDir, modelOverride, fallbackModels);
 
   if (!workList.length) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
-    sendSSE("info", { message: "ℹ️ 這可能代表 LLM 規劃返回空，或專案狀態良好。查看 server log 取得詳細資訊。" });
-    const report = generateReport([], [], situationReport);
-    await saveReport(rootDir, report);
+    const report = generateEMReport([], [], situationReport);
+    saveNightShiftReport(rootDir, report, "em");
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, workList: [], results: [] };
   }
@@ -479,10 +259,10 @@ export async function runEMSession(opts = {}) {
     }
   }
 
-  // ── Phase 4: Deterministic reporting ──
+  // ── Phase 4: Report ──
   sendSSE("info", { message: "📝 產生報告中..." });
-  const report = generateReport(workList, results, situationReport);
-  await saveReport(rootDir, report);
+  const report = generateEMReport(workList, results, situationReport);
+  saveNightShiftReport(rootDir, report, "em");
   sendSSE("report", { report });
 
   // EM records a summary change
@@ -503,9 +283,118 @@ export async function runEMSession(opts = {}) {
   return { report, workList, results };
 }
 
-// ── Report Generation ──
+// ── Parallel Mode: Run all agents in parallel ──
 
-function generateReport(workList, results, situationReport) {
+export async function runParallelSession(opts = {}) {
+  const { rootDir, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+  const { resolve } = await import("path");
+  const { fileURLToPath } = await import("url");
+  const PAAW_ROOT = resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..");
+
+  // ── Phase 0 ──
+  await runPhase0(rootDir, modelOverride, fallbackModels, sendSSE);
+
+  // ── Phase 1: Gather context ──
+  sendSSE("info", { message: "🌙 Night Shift 啟動，收集變更..." });
+  const ctx = await gatherContext(rootDir, since);
+
+  if (ctx.changedFiles.length === 0 && !ctx.gitLog) {
+    sendSSE("info", { message: "ℹ️ 沒有變更，無需審查。" });
+    const report = `# 🌙 Night Shift Report\n\n**Date:** ${new Date().toISOString().slice(0, 10)}\n\nℹ️ No changes today. Nothing to review.`;
+    saveNightShiftReport(rootDir, report, "parallel");
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
+    return { report, results: [] };
+  }
+
+  sendSSE("info", { message: `📊 ${ctx.changedFiles.length} files changed, ${ctx.commitCount} commits` });
+
+  // ── Phase 2: Load prompts + run all agents in parallel ──
+  const { getPromptsFile } = await import("../routes/coding-night-shift-prompts.mjs");
+  const prompts = await getPromptsFile(rootDir);
+  const { runAgentLoop } = await import("./paaw-agent-loop.mjs");
+  const { loadAgentMemory, listActionLog } = await import("./action-log.mjs");
+  const { readFileSync } = await import("fs");
+
+  const agentRoles = Object.entries(prompts);
+  sendSSE("info", { message: `🚀 啟動 ${agentRoles.length} 個 agent...` });
+
+  const effectiveModel = modelOverride || undefined;
+
+  const results = await Promise.allSettled(agentRoles.map(async ([role, config]) => {
+    const crewFile = join(PAAW_ROOT, "data", "crews", `${config.crewId}.json`);
+    let crew = null;
+    try { crew = JSON.parse(readFileSync(crewFile, "utf-8")); } catch {}
+
+    const fileList = ctx.changedFiles.map(f => `- ${f}`).join("\n");
+    const taskPrompt = (config.task || "")
+      .replace(/\{\{gitLog\}\}/g, ctx.gitLog || "(none)")
+      .replace(/\{\{changedFiles\}\}/g, fileList)
+      .replace(/\{\{featuresSummary\}\}/g, ctx.featuresSummary || "(none)");
+
+    // Load agent memory + action log
+    let memoryText = "";
+    try { memoryText = await loadAgentMemory(rootDir, config.crewId) || ""; } catch {}
+    let actionLogText = "";
+    try { actionLogText = (await listActionLog(rootDir, 5)).map(e => `- ${e.agentId}: ${e.action}`).join("\n"); } catch {}
+
+    const systemPrompt = (crew?.rolePrompt || "") +
+      (memoryText ? `\n\n## Your Long-term Memory\n${memoryText}` : "") +
+      (actionLogText ? `\n\n## Recent Action Log\n${actionLogText}` : "");
+
+    try {
+      const result = await runAgentLoop({
+        prompt: taskPrompt,
+        cwd: rootDir,
+        rootDir: PAAW_ROOT,
+        systemPrompt,
+        agentId: config.crewId,
+        model: effectiveModel,
+        maxTurns: 15,
+        timeout: 120,
+        onEvent: (event) => {
+          if (event.type === "tool_call") {
+            console.log(`[NightShift:${role}] tool: ${event.name}`);
+          }
+        },
+      });
+
+      // Read agent's report file if it wrote one
+      const reportFile = join(rootDir, ".paaw", "night-shift", `${role}-report.md`);
+      let agentReport = "";
+      if (existsSync(reportFile)) {
+        agentReport = readFileSync(reportFile, "utf-8");
+      }
+
+      return {
+        role,
+        status: "completed",
+        codename: crew?.codename,
+        result: typeof result === "string" ? result.slice(-500) : "ok",
+        report: agentReport.slice(0, 2000) || (typeof result === "string" ? result.slice(-500) : "done"),
+      };
+    } catch (err) {
+      console.error(`[NightShift:${role}] failed:`, err.message);
+      return { role, status: "failed", codename: crew?.codename, error: err.message };
+    }
+  }));
+
+  // ── Phase 3: Generate report ──
+  sendSSE("info", { message: "📝 產生報告中..." });
+  const agentResults = results.map(r => r.status === "fulfilled" ? r.value : { role: "unknown", status: "failed", error: r.reason?.message });
+  const report = generateParallelReport(agentResults, ctx);
+  saveNightShiftReport(rootDir, report, "parallel");
+  sendSSE("report", { report });
+
+  const succeeded = agentResults.filter(r => r.status === "completed").length;
+  const failed = agentResults.filter(r => r.status === "failed").length;
+  sendSSE("done", { totalTasks: agentResults.length, succeeded, failed });
+
+  return { report, results: agentResults };
+}
+
+// ── Report Generators ──
+
+function generateEMReport(workList, results, situationReport) {
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const succeeded = results.filter(r => r.success).length;
@@ -514,8 +403,8 @@ function generateReport(workList, results, situationReport) {
   let report = `# 🎖️ Engineering Manager 報告\n\n`;
   report += `**日期：** ${dateStr}\n`;
   report += `**時間：** ${now.toTimeString().slice(0, 8)}\n`;
-  report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n\n`;
-  report += `---\n\n## 📊 專案現況\n\n${situationReport}\n\n---\n\n## 📋 工作清單\n\n`;
+  report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n`;
+  report += `**模式：** EM 智慧調度\n\n---\n\n## 📊 專案現況\n\n${situationReport}\n\n---\n\n## 📋 工作清單\n\n`;
 
   for (let i = 0; i < workList.length; i++) {
     const w = workList[i];
@@ -535,9 +424,75 @@ function generateReport(workList, results, situationReport) {
   return report;
 }
 
-async function saveReport(rootDir, report) {
-  const dir = join(rootDir, ".paaw", "overnight-reports");
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const dateStr = new Date().toISOString().slice(0, 10);
-  writeFileSync(join(dir, `${dateStr}.md`), report, "utf-8");
+function generateParallelReport(agentResults, ctx) {
+  const now = new Date();
+  const crewLabels = {
+    architect: "🏛️ 林曉薇 (Architect)",
+    developer: "💻 Priya (Developer)",
+    tester: "🧪 Divya (Tester)",
+    "doc-writer": "📝 Megan (Doc Writer)",
+    qa: "🔍 武大安 (QA)",
+    helpdesk: "🎫 小春 (Helpdesk)",
+  };
+
+  const succeeded = agentResults.filter(r => r.status === "completed").length;
+  const failed = agentResults.filter(r => r.status === "failed").length;
+
+  let report = `# 🌙 Night Shift Report\n\n`;
+  report += `**Date:** ${now.toLocaleDateString("zh-TW")}\n`;
+  report += `**Time:** ${now.toTimeString().slice(0, 8)}\n`;
+  report += `**Result:** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${agentResults.length} 總計\n`;
+  report += `**Mode:** 全員平行\n\n`;
+  report += `**Changes:** ${ctx.changedFiles.length} files, ${ctx.commitCount} commits since ${ctx.since || "today"}\n\n---\n\n`;
+
+  for (const [role, label] of Object.entries(crewLabels)) {
+    const agentResult = agentResults.find(r => r.role === role);
+    if (!agentResult) {
+      report += `### ${label}\n⚠️ Not executed.\n\n---\n\n`;
+      continue;
+    }
+    const icon = agentResult.status === "completed" ? "✅" : agentResult.status === "failed" ? "❌" : "⏭️";
+    report += `### ${label} ${icon}\n`;
+    if (agentResult.report) {
+      report += `${agentResult.report}\n\n`;
+    } else if (agentResult.error) {
+      report += `Error: ${agentResult.error}\n\n`;
+    } else {
+      report += `${agentResult.result || "No output"}\n\n`;
+    }
+    report += `---\n\n`;
+  }
+
+  // Git info
+  if (ctx.gitLog) {
+    report += `## 📋 Commits\n\`\`\`\n${ctx.gitLog}\n\`\`\`\n`;
+  }
+  if (ctx.changedFiles.length > 0) {
+    report += `\n## 📁 Changed Files\n${ctx.changedFiles.map(f => `- \`${f}\``).join("\n")}\n`;
+  }
+  if (ctx.unpushed) {
+    report += `\n## ⚠️ 未 Push 的 Commit\n\`\`\`\n${ctx.unpushed}\n\`\`\`\n\n**Push 由人決定，AI 不自動 push。**\n`;
+  }
+
+  return report;
+}
+
+// ── Main entry: run session by mode ──
+
+/**
+ * @param {object} opts
+ * @param {string} opts.mode - "em" | "parallel" (default: "em")
+ * @param {string} opts.rootDir - Project root
+ * @param {string} opts.baseUrl - A2A base URL (EM mode only)
+ * @param {string} opts.since - Since date
+ * @param {string} opts.modelOverride - Model override
+ * @param {string[]} opts.fallbackModels - Fallback models
+ * @param {function} opts.sendSSE - SSE callback
+ */
+export async function runNightShift(opts = {}) {
+  const mode = opts.mode || "em";
+  if (mode === "parallel") {
+    return runParallelSession(opts);
+  }
+  return runEMSession(opts);
 }

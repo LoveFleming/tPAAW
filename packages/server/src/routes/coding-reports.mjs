@@ -1,121 +1,74 @@
 /**
- * coding-reports.mjs — EM Reports API
+ * coding-reports.mjs — Night Shift 報告 API（統一版）
  *
- * GET /api/coding-reports/list?path=...        — 列出所有報告
- * GET /api/coding-reports/:date?path=...       — 取得單一報告內容
- * DELETE /api/coding-reports/:date?path=...    — 刪除報告
+ * GET    /api/coding-reports/list?path=...        — 列出所有報告
+ * GET    /api/coding-reports/:date?path=...       — 取得單一報告內容
+ * DELETE /api/coding-reports/:date?path=...       — 刪除報告
+ *
+ * 報告來源：
+ *   - .paaw/night-shift/reports/ （新，EM + Parallel 共用）
+ *   - .paaw/overnight-reports/   （舊，向後相容）
+ *
+ * 核心邏輯在 lib/night-shift-shared.mjs
  */
 
-import { readFile, readdir, unlink, stat } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { listNightShiftReports, readNightShiftReport, deleteNightShiftReport } from "../lib/night-shift-shared.mjs";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 export default async function codingReportsRoutes(req, res) {
   const url = req.url || '';
   const urlObj = new URL(url, 'http://localhost');
   const rootDir = urlObj.searchParams.get('path') || process.env.PAAW_ROOT || process.cwd();
-  const reportsDir = join(rootDir, '.paaw', 'overnight-reports');
+
+  const sendJSON = (code, data) => {
+    res.writeHead(code, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
+  };
 
   // GET /api/coding-reports/list
   if (req.method === 'GET' && url.includes('/api/coding-reports/list')) {
     try {
-      if (!existsSync(reportsDir)) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ reports: [] }));
-        return true;
-      }
-
-      const files = await readdir(reportsDir);
-      const reports = [];
-
-      for (const file of files) {
-        if (!file.endsWith('.md')) continue;
-        const date = file.replace('.md', '');
-        const fullPath = join(reportsDir, file);
-        const stats = await stat(fullPath);
-
-        // Read first few lines for summary
-        let summary = '';
-        let resultLine = '';
-        try {
-          const content = await readFile(fullPath, 'utf-8');
-          const lines = content.split('\n');
-          // Extract result from header (e.g. "**結果：** ✅ 3 成功 / ❌ 1 失敗")
-          const resultMatch = lines.find(l => l.includes('**結果'));
-          if (resultMatch) resultLine = resultMatch.replace(/\*\*/g, '').trim();
-          // First paragraph after project status as summary
-          const summaryStart = lines.findIndex(l => l.startsWith('## 📊') || l.startsWith('## 專案'));
-          if (summaryStart >= 0) {
-            summary = lines.slice(summaryStart + 1, summaryStart + 4).join(' ').trim().slice(0, 200);
-          }
-        } catch {}
-
-        reports.push({
-          date,
-          filename: file,
-          size: stats.size,
-          modified: stats.mtime.toISOString(),
-          result: resultLine,
-          summary,
-        });
-      }
-
-      // Sort by date descending
-      reports.sort((a, b) => b.date.localeCompare(a.date));
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ reports, total: reports.length }));
-      return true;
+      const reports = await listNightShiftReports(rootDir);
+      sendJSON(200, { reports, total: reports.length });
     } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-      return true;
+      sendJSON(500, { error: err.message });
     }
+    return true;
   }
 
-  // GET /api/coding-reports/:date
+  // GET/DELETE /api/coding-reports/:date
   const dateMatch = url.match(/\/api\/coding-reports\/([\d-]+)/);
-  if (req.method === 'GET' && dateMatch) {
-    try {
-      const date = dateMatch[1];
-      const reportPath = join(reportsDir, `${date}.md`);
+  if (dateMatch) {
+    const date = dateMatch[1];
 
-      if (!existsSync(reportPath)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Report ${date} not found` }));
-        return true;
+    // GET
+    if (req.method === 'GET') {
+      try {
+        const content = await readNightShiftReport(rootDir, date);
+        if (content === null) {
+          sendJSON(404, { error: `Report ${date} not found` });
+        } else {
+          sendJSON(200, { date, content });
+        }
+      } catch (err) {
+        sendJSON(500, { error: err.message });
       }
-
-      const content = await readFile(reportPath, 'utf-8');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ date, content }));
-      return true;
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
       return true;
     }
-  }
 
-  // DELETE /api/coding-reports/:date
-  if (req.method === 'DELETE' && dateMatch) {
-    try {
-      const date = dateMatch[1];
-      const reportPath = join(reportsDir, `${date}.md`);
-
-      if (!existsSync(reportPath)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Report ${date} not found` }));
-        return true;
+    // DELETE
+    if (req.method === 'DELETE') {
+      try {
+        const deleted = await deleteNightShiftReport(rootDir, date);
+        if (!deleted) {
+          sendJSON(404, { error: `Report ${date} not found` });
+        } else {
+          sendJSON(200, { deleted: true, date });
+        }
+      } catch (err) {
+        sendJSON(500, { error: err.message });
       }
-
-      await unlink(reportPath);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ deleted: true, date }));
-      return true;
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
       return true;
     }
   }

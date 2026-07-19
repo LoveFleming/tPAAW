@@ -6,9 +6,10 @@
  *
  * 設定存在 .paaw/night-shift/config.json:
  * {
+ *   "mode": "em",  // "em" = EM 智慧調度, "parallel" = 全員平行
  *   "schedule": { "enabled": true, "time": "22:00", "tz": "Asia/Taipei" },
- *   "model": { "primary": "zai/glm-5.1", "fallbacks": ["openrouter/z-ai/glm-5.1", "openrouter/deepseek/deepseek-v4-flash"] },
- *   "tasks": ["security-scan", "feature-map-refresh", "code-intelligence", "test-intelligence", "change-intelligence"]
+ *   "model": { "primary": "zai/glm-5.1", "fallbacks": ["openrouter/z-ai/glm-5.1"] },
+ *   "tasks": ["feature-map-refresh", "security-scan", "code-intelligence", "test-intelligence", "change-intelligence"]
  * }
  */
 
@@ -17,6 +18,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DEFAULT_CONFIG = {
+  mode: 'em',  // "em" = EM 智慧調度, "parallel" = 全員平行
   schedule: {
     enabled: false,
     time: '22:00',
@@ -82,6 +84,7 @@ export default async function nightShiftConfigRoutes(req, res) {
       // Merge with existing config
       const existing = await getConfig(rootDir);
       const merged = {
+        mode: body.mode || existing.mode || 'em',
         schedule: { ...existing.schedule, ...(body.schedule || {}) },
         model: { ...existing.model, ...(body.model || {}) },
         tasks: body.tasks || existing.tasks,
