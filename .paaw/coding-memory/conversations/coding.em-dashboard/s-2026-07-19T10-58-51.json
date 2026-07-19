@@ -1,0 +1,27 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "🎖️ 新對話已開啟。告訴我你想做什麼！",
+      "ts": "2026-07-19T05:06:17.261Z"
+    },
+    {
+      "role": "user",
+      "content": "hello",
+      "ts": "2026-07-19T05:06:24.493Z"
+    },
+    {
+      "role": "assistant",
+      "content": "哈囉！我是陳哲宇 (Ethan)，你的 Engineering Manager 👋\n\n從最近的交接紀錄看，團隊剛完成一輪 **Night Shift 統一重構**的工作：\n\n| 時間 | Agent | 做了什麼 | 結果 |\n|---|---|---|---|\n| 03:02 | 📝 Doc Writer | 更新 CHANGELOG，記錄 Night Shift 重構 | ✅ 完成 |\n| 02:58 | 🏛️ Architect | Night Shift 三模組邊界審查，產出 ADR-010 | ✅ 完成 |\n| 02:46 | 💻 Developer | 修復 QA 發現的 3 項 regression | ✅ 完成 |\n| 01:56 | 🩺 QA | Code Review 發現 3 項 regression | ⚠️ 回報問題 |\n| 01:34 | 🧪 Tester | 為 night-shift-shared 寫了 54 個單元測試 | ✅ 完成 |\n\n---\n\n有什麼我可以幫你的嗎？例如：\n\n- 🔍 **「跑 EM 自動調度」** — 我分析現況，規劃並派工給團隊\n- 📊 **「最近怎麼樣」** — 我給你一份進度報告\n- 🐛 **「幫我叫 Priya 修 XXX」** — 我直接派工給 Developer\n- 🏗️ **「叫林曉薇審查 XXX」** — 我派架構審查給 Architect\n\n想做什麼，跟我說就好！",
+      "ts": "2026-07-19T05:06:35.413Z"
+    }
+  ],
+  "_meta": {
+    "crewId": "coding.em-dashboard",
+    "lastUpdated": "2026-07-19T10:58:40.859Z",
+    "messageCount": 3,
+    "archivedAt": "2026-07-19T10:58:51.469Z",
+    "title": "hello",
+    "sessionId": "s-2026-07-19T10-58-51"
+  }
+}

@@ -19,7 +19,7 @@
  */
 
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
-import { existsSync, readFileSync as readSync } from "fs";
+import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync } from "fs";
 import { exec as execCb } from "child_process";
 import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";

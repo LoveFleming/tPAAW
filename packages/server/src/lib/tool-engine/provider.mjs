@@ -14,7 +14,7 @@ import { dirname, resolve as pathResolve, join } from 'path'
 import { existsSync, mkdirSync, appendFileSync } from 'fs'
 
 const __providerDir = dirname(fileURLToPath(import.meta.url))
-const PAAW_ROOT = pathResolve(__providerDir, '../../../../../')
+const PAAW_ROOT = pathResolve(__providerDir, '../../../../')
 
 /** Append an LLM log entry to data/llm-logs/YYYY-MM-DD.jsonl */
 function _llmLog(entry) {

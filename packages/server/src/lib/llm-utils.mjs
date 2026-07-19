@@ -502,7 +502,7 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
 }
 
 // ── LLM Log Writer (shared by callLLMWithRetry and callLLM) ──
-const _PAAW_ROOT = resolve(fileURLToPath(import.meta.url), "../../../../");
+const _PAAW_ROOT = resolve(dirname(__filename), "../../../../");
 
 function _writeLlmLog(entry) {
   try {
