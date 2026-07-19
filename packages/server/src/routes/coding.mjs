@@ -793,6 +793,15 @@ export default async function projectRoute(req, res) {
     const { cwd, since, model } = JSON.parse(body || "{}");
     const rootDir = cwd || projectPath || PAAW_ROOT;
 
+    // Load night-shift config for model settings
+    let nsConfig = null;
+    try {
+      const nsConfigPath = join(rootDir, ".paaw", "night-shift", "config.json");
+      if (existsSync(nsConfigPath)) nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
+    } catch {}
+    const modelOverride = model || nsConfig?.model?.primary || undefined;
+    const fallbackModels = nsConfig?.model?.fallbacks || [];
+
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -811,7 +820,7 @@ export default async function projectRoute(req, res) {
     try {
       const { runEMSession } = await import("../lib/overnight-manager.mjs");
       sendSSE("start", { message: "🎖️ EM Session 啟動", ts: new Date().toISOString() });
-      const { report, workList, results } = await runEMSession({ rootDir, sendSSE, since, modelOverride: model });
+      const { report, workList, results } = await runEMSession({ rootDir, sendSSE, since, modelOverride, fallbackModels });
       sendSSE("complete", { workList, results, report });
     } catch (err) {
       console.error("[EM] error:", err);

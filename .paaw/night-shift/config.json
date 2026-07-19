@@ -1,13 +1,13 @@
 {
+  "mode": "em",
   "schedule": {
     "enabled": true,
     "time": "22:30",
     "tz": "Asia/Taipei"
   },
   "model": {
-    "primary": "",
+    "primary": "zai/glm-5.1",
     "fallbacks": [
-      "openrouter/z-ai/glm-5.1",
       "openrouter/deepseek/deepseek-v4-flash"
     ]
   },

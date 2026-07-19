@@ -1,8 +1,8 @@
 {
   "_meta": {
     "crewId": "coding.em-dashboard",
-    "lastUpdated": "2026-07-19T01:26:03.816Z",
-    "messageCount": 21
+    "lastUpdated": "2026-07-19T01:27:39.816Z",
+    "messageCount": 24
   },
   "messages": [
     {
@@ -119,6 +119,22 @@
       "role": "user",
       "content": "🌙 啟動 Night Shift",
       "ts": "2026-07-19T01:21:39.716Z"
+    },
+    {
+      "role": "user",
+      "content": "🚀 啟動 EM 自動調度",
+      "ts": "2026-07-19T01:27:02.920Z"
+    },
+    {
+      "role": "assistant",
+      "content": "📋 **工作規劃完成，共 4 項：**\n\n  1. [high] **tester**: 為 packages/server/src/lib/night-shift-shared.mjs（全新 463 行共享模組）撰寫單元測試，涵蓋所有 export 的函式，包含正常路徑與邊界情況。測試檔案放在 tests/unit/night-shift-shared.test.mjs。\n     _night-shift-shared.mjs 是全新檔案且被 overnight-manager 和 coding-night-shift 兩個模組依賴，零測試覆蓋風險極高。_\n  2. [high] **qa**: 完成 Night Shift 統一重構的 code review，重點檢查三件事：(1) coding-night-shift.mjs（508 行變更）是否有殘留的死代碼或未使用的 import，(2) CodingIDE.tsx 是否仍有對已刪除 ReportsTab.tsx 的引用，(3) overnight-manager.mjs（581 行變更）的 rewrite 是否有遺漏的 function signature 不一致。\n     _14:21 啟動的 QA review 未見完成記錄，而這次重構涉及 22 檔案、+1258/-1454 行的大規模變更，需要確認沒有遺留問題。_\n  3. [medium] **architect**: 審查 Night Shift + EM overnight + Reports 三系統統一後的模組邊界：確認 night-shift-shared.mjs（共享邏輯）、overnight-manager.mjs（排程管理）、coding-night-shift.mjs（API route）、coding-reports.mjs（報告 route）之間的職責分離是否清晰，有無循環依賴或職責洩漏。產出 ADR 記錄設計決策。\n     _三個獨立系統被合併為一個，模組邊界的新設計需要架構層級的審查與記錄，避免後續維護時職責混淆。_\n  4. [medium] **doc-writer**: 根據 git log 更新 .paaw/CHANGELOG.md，補齊 2026-07-18 ~ 07-19 的 7 筆 commit（從 eaa7aa4「add commit-only-no-push hard rule」到 f1851c8「ModelSelector dropdown fix」），重點描述 Night Shift 統一重構的 Added/Changed/Removed 項目。\n     _CHANGELOG.md 目前只記錄到 07-17，而 07-18/07-19 進行了專案近期最大規模的重構，文檔需要同步更新。_",
+      "ts": "2026-07-19T01:27:37.488Z"
+    },
+    {
+      "role": "assistant",
+      "content": "⏳ **tester** 為 packages/server/src/lib/night-shift-shared.mjs（全新 463 行共享模組）撰寫單元測試，涵蓋所有 export 的函式，包含正常路徑與邊界情況。測試檔案放在 tests/unit/night-shift-shared.test.mjs。",
+      "ts": "2026-07-19T01:27:37.488Z",
+      "_emProgress": true
     }
   ]
 }

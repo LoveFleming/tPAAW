@@ -10,6 +10,7 @@
     "skillBuilder": "zai/glm-5.1",
     "undefined": "zai/glm-5.1",
     "codingIDE": "zai/glm-5.1",
-    "nightShift": "zai/glm-5.1"
+    "nightShift": "zai/glm-5.1",
+    "nightShiftFallback": "openrouter/deepseek/deepseek-v4-flash"
   }
 }
