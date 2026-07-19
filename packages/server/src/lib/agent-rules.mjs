@@ -25,26 +25,26 @@ export const AGENT_RULES = `
     type(scope): 一句話描述
 
 Types（選一個）：
-- `feat` — 新功能
-- `fix` — 修 bug
-- `refactor` — 重構（不改行為）
-- `docs` — 文件
-- `test` — 測試
-- `chore` — 雜務（dependency update、設定等）
-- `style` — 格式調整（不影響程式邏輯）
-- `perf` — 效能改善
+- \`feat\` — 新功能
+- \`fix\` — 修 bug
+- \`refactor\` — 重構（不改行為）
+- \`docs\` — 文件
+- \`test\` — 測試
+- \`chore\` — 雜務（dependency update、設定等）
+- \`style\` — 格式調整（不影響程式邏輯）
+- \`perf\` — 效能改善
 
 規則：
 - 第一行不超過 72 字
 - 用英文寫
 - 描述「改了什麼」，不要描述「為什麼」（為什麼放 body）
 - 如果改了多個東西，拆成多個 commit
-- commit 前先 `git diff` 確認改了什麼，確保 message 跟實際改動一致
+- commit 前先 \`git diff\` 確認改了什麼，確保 message 跟實際改動一致
 
 範例：
-- `feat(api-tester): group endpoints by path segment`
-- `fix(chat): provider resolution for deepseek model ID`
-- `refactor(tools): shared tool registry for all agent loops`
+- \`feat(api-tester): group endpoints by path segment\`
+- \`fix(chat): provider resolution for deepseek model ID\`
+- \`refactor(tools): shared tool registry for all agent loops\`
 
 ### 📋 工作量大時先展開計劃
 當你判斷任務需要多步驟、跨檔案、或涉及架構改動時：
