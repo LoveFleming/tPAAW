@@ -31,6 +31,7 @@ import API_BASE from "../api";
 import DirectoryExplorer from "../components/DirectoryExplorer";
 import SidebarFileTree from "../components/SidebarFileTree";
 import EMDashboard from "../components/EMDashboard";
+import DiffViewer from "../components/DiffViewer";
 import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
 import BrowserPreview from "../components/BrowserPreview";
@@ -546,6 +547,7 @@ export default function CodingIDE() {
   const [gitTab, setGitTab] = useState<"status" | "log" | "diff" | "blame" | "review">("status");
   const [gitCommitMsg, setGitCommitMsg] = useState("");
   const [gitActionMsg, setGitActionMsg] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [gitReviews, setGitReviews] = useState<{ id: string; ts: string; comment: string; branch?: string; files?: string[] }[]>([]);
 
   // ── API Tester State ──
@@ -2096,11 +2098,29 @@ const sendChat = useCallback(async () => {
                           refreshGitStatus(); refreshGitLog();
                         } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
                       }} className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">⬇ Pull</button>
+                      {/* Commit Selected — stages only checked files */}
+                      <button onClick={async () => {
+                        const files = Array.from(selectedFiles);
+                        if (files.length === 0) { setGitActionMsg("⚠️ No files selected — check boxes below"); return; }
+                        if (!gitCommitMsg.trim()) { setGitActionMsg("⚠️ Enter commit message first"); return; }
+                        setGitActionMsg(`Staging ${files.length} file(s)...`);
+                        const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
+                        const addData = await addRes.json();
+                        if (!addData.ok) { setGitActionMsg(`❌ Stage failed: ${addData.error}`); return; }
+                        setGitActionMsg("Committing...");
+                        const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: gitCommitMsg.trim() }) });
+                        const commitData = await commitRes.json();
+                        if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
+                        setGitActionMsg(`✅ Committed ${files.length} file(s): ${commitData.output || commitData.message}`);
+                        setGitCommitMsg("");
+                        setSelectedFiles(new Set());
+                        refreshGitStatus(); refreshGitLog();
+                      }} disabled={selectedFiles.size === 0} className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-40">✅ Commit ({selectedFiles.size})</button>
+                      {/* Commit All */}
                       <button onClick={async () => {
                         if (!gitStatus?.staged?.length && !gitStatus?.unstaged?.length && !gitStatus?.untracked?.length) {
                           setGitActionMsg("Nothing to commit"); return;
                         }
-                        // Stage all
                         const files = gitStatus.all?.map(f => f.path) || ["."];
                         setGitActionMsg("Staging...");
                         const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath!)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
@@ -2113,8 +2133,10 @@ const sendChat = useCallback(async () => {
                         if (!commitData.ok) { setGitActionMsg(`❌ Commit failed: ${commitData.error}`); refreshGitStatus(); return; }
                         setGitActionMsg(`✅ ${commitData.output || commitData.message}`);
                         setGitCommitMsg("");
+                        setSelectedFiles(new Set());
                         refreshGitStatus(); refreshGitLog();
-                      }} className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">✅ Commit All</button>
+                      }} className="text-xs px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors">📦 All</button>
+                      {/* Push */}
                       <button onClick={async () => {
                         setGitActionMsg("Pushing...");
                         try {
@@ -2143,14 +2165,32 @@ const sendChat = useCallback(async () => {
                       </div>
                     )}
                     {gitStatus ? (<>
+                    {/* Select All / Deselect All */}
+                    {(gitStatus.unstaged.length > 0 || gitStatus.untracked.length > 0 || gitStatus.staged.length > 0) && (
+                      <div className="flex items-center gap-2 pb-1">
+                        <button onClick={() => {
+                          const all = new Set<string>();
+                          gitStatus.staged.forEach(f => all.add(f.path));
+                          gitStatus.unstaged.forEach(f => all.add(f.path));
+                          gitStatus.untracked.forEach(f => all.add(f.path));
+                          setSelectedFiles(all);
+                        }} className="text-xs text-blue-500 hover:underline">Select All</button>
+                        <button onClick={() => setSelectedFiles(new Set())} className="text-xs text-stone-400 hover:underline">Clear</button>
+                        <span className="text-xs text-stone-400">{selectedFiles.size} selected</span>
+                      </div>
+                    )}
                     {gitStatus.staged.length > 0 && (
                       <div>
                         <div className="text-xs font-bold text-emerald-500 mb-1">{tt('vibe.gitStaged')} ({gitStatus.staged.length})</div>
                         {gitStatus.staged.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs hover:bg-stone-50 px-1 rounded cursor-pointer"
-                            onClick={() => { loadGitDiff(f.path, true); setGitTab("diff"); setActiveSubPanel("diff"); }}>
-                            <span className="text-xs font-bold text-emerald-500 w-4">{f.status}</span>
-                            <span className="text-stone-600 truncate flex-1">{f.path}</span>
+                          <div key={i} className="flex items-center gap-1.5 py-0.5 text-xs hover:bg-stone-50 px-1 rounded group">
+                            <input type="checkbox" checked={selectedFiles.has(f.path)} onChange={() => {
+                              const next = new Set(selectedFiles);
+                              next.has(f.path) ? next.delete(f.path) : next.add(f.path);
+                              setSelectedFiles(next);
+                            }} className="w-3 h-3 shrink-0" />
+                            <span className="text-xs font-bold text-emerald-500 w-4 shrink-0">{f.status}</span>
+                            <span className="text-stone-600 truncate flex-1 cursor-pointer" onClick={() => { loadGitDiff(f.path, true); setGitTab("diff"); setActiveSubPanel("diff"); }}>{f.path}</span>
                           </div>
                         ))}
                       </div>
@@ -2159,10 +2199,14 @@ const sendChat = useCallback(async () => {
                       <div>
                         <div className="text-xs font-bold text-amber-500 mb-1">{tt('vibe.gitUnstaged')} ({gitStatus.unstaged.length})</div>
                         {gitStatus.unstaged.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs hover:bg-stone-50 px-1 rounded cursor-pointer"
-                            onClick={() => { loadGitDiff(f.path, false); setGitTab("diff"); setActiveSubPanel("diff"); }}>
-                            <span className="text-xs font-bold text-amber-500 w-4">{f.status}</span>
-                            <span className="text-stone-600 truncate flex-1">{f.path}</span>
+                          <div key={i} className="flex items-center gap-1.5 py-0.5 text-xs hover:bg-stone-50 px-1 rounded group">
+                            <input type="checkbox" checked={selectedFiles.has(f.path)} onChange={() => {
+                              const next = new Set(selectedFiles);
+                              next.has(f.path) ? next.delete(f.path) : next.add(f.path);
+                              setSelectedFiles(next);
+                            }} className="w-3 h-3 shrink-0" />
+                            <span className="text-xs font-bold text-amber-500 w-4 shrink-0">{f.status}</span>
+                            <span className="text-stone-600 truncate flex-1 cursor-pointer" onClick={() => { loadGitDiff(f.path, false); setGitTab("diff"); setActiveSubPanel("diff"); }}>{f.path}</span>
                           </div>
                         ))}
                       </div>
@@ -2171,9 +2215,14 @@ const sendChat = useCallback(async () => {
                       <div>
                         <div className="text-xs font-bold text-stone-400 mb-1">{tt('vibe.gitUntracked')} ({gitStatus.untracked.length})</div>
                         {gitStatus.untracked.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2 py-0.5 text-xs px-1">
-                            <span className="text-xs font-bold text-stone-400 w-4">?</span>
-                            <span className="text-stone-500 truncate">{f.path}</span>
+                          <div key={i} className="flex items-center gap-1.5 py-0.5 text-xs hover:bg-stone-50 px-1 rounded group">
+                            <input type="checkbox" checked={selectedFiles.has(f.path)} onChange={() => {
+                              const next = new Set(selectedFiles);
+                              next.has(f.path) ? next.delete(f.path) : next.add(f.path);
+                              setSelectedFiles(next);
+                            }} className="w-3 h-3 shrink-0" />
+                            <span className="text-xs font-bold text-stone-400 w-4 shrink-0">?</span>
+                            <span className="text-stone-500 truncate flex-1">{f.path}</span>
                           </div>
                         ))}
                       </div>
@@ -2211,9 +2260,7 @@ const sendChat = useCallback(async () => {
                       <button onClick={generateAiComment} disabled={!gitDiff} className="text-xs px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>🤖 AI Review</button>
                     </div>
                     {gitDiff ? (
-                      <pre className="p-3 text-sm font-mono leading-5 overflow-x-auto">
-                        <code dangerouslySetInnerHTML={{ __html: highlightedDiff }} />
-                      </pre>
+                      <DiffViewer diffText={gitDiff} />
                     ) : (
                       <div className="flex items-center justify-center h-full text-xs text-stone-400">{tt('vibe.gitNoChanges')}</div>
                     )}
