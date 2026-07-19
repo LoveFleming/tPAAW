@@ -775,7 +775,7 @@ function AppInner() {
               <div>
                 <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":appbuilder")} label={t("sidebar.appBuilder")} onClick={openAppBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":wf-editor")} label="Workflow Builder" onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                {/* <NavItem active={activePage.endsWith(":wf-editor")} label="Workflow Builder" onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} /> */}
               </div>
             </SidebarSection>
 
