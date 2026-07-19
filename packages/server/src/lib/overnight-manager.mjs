@@ -37,15 +37,21 @@ import {
 // ── A2A Client ──
 
 export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
-  const { cwd, timeout = 1800000 } = opts;
+  const { cwd, timeout = 1800000, modelOverride } = opts;
+
+  const params = {
+    message: { role: "user", parts: [{ type: "text", text: message }] },
+    context: { cwd },
+  };
+  // Pass model override so A2A agents use the configured model, not the global default
+  if (modelOverride) {
+    params.metadata = { model: modelOverride };
+  }
 
   const body = {
     jsonrpc: "2.0",
     method: "message/send",
-    params: {
-      message: { role: "user", parts: [{ type: "text", text: message }] },
-      context: { cwd },
-    },
+    params,
     id: `em-${agentId}-${Date.now()}`,
   };
 
@@ -278,6 +284,7 @@ export async function runEMSession(opts = {}) {
     const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
       cwd: rootDir,
       timeout: 1800000,
+      modelOverride,
     });
 
     results.push({ ...task, ...result });
