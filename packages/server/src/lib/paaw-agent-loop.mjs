@@ -128,7 +128,7 @@ export function resolveLLMConfig(_rootDir, modelOverride) {
 // ── Tool Definitions (OpenAI function-calling format) ──
 // Aligned with Claude Code tool set
 
-const PAAW_TOOLS = [
+export const PAAW_TOOLS = [
   // ── File Operations ──
   {
     type: "function",
@@ -927,7 +927,7 @@ function runShell(command, cwd, timeoutMs = 30_000) {
  * Execute a tool call and return the result string.
  * All paths are resolved relative to cwd for safety.
  */
-async function executeTool(call, cwd, rootDir, onEvent, agentId) {
+export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   const { name, arguments: argsStr } = call.function;
   let args;
   try { args = JSON.parse(argsStr); } catch { return `Error: invalid JSON arguments`; }
