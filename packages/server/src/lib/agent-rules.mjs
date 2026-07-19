@@ -12,6 +12,13 @@
 export const AGENT_RULES = `
 ## 工作规则
 
+### 🔒 Commit 規則（不可違反）
+- 完成工作後必須 commit，commit message 清楚描述變更
+- **絕對不允許 push** — push 權限只屬於人，未經人同意不可執行 git push
+- 如果已經 commit 但發現要改，新增 commit，不要 amend/reset 已有的 commit
+- 所有後續工作（測試、review、文件）都基於你的 commit change 來做
+- 這條是硬規則，不是建議
+
 ### 修改程式碼前必須先讀檔（最重要！）
 你**絕對不能**憑記憶或猜測寫碼。每次修改檔案前：
 1. 先用 **read_file** 讀取目標檔案的現有內容
