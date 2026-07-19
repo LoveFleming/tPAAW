@@ -217,18 +217,34 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
         <div className="px-3 py-2" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: tk.bgMuted }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold" style={{ color: tk.text }}>🌙 {t("nightShift.title")}</span>
-            <button
-              onClick={handleStart}
-              disabled={starting || isRunning}
-              className="text-xs px-2 py-1 rounded font-medium"
-              style={{
-                background: isRunning ? tk.bgMuted : tk.accentBg,
-                color: isRunning ? tk.text : tk.accent,
-                opacity: isRunning ? 0.5 : 1,
-              }}
-            >
-              {isRunning ? `⏳ ${progress}` : `🚀 ${t("nightShift.start")}`}
-            </button>
+            <div className="flex items-center gap-1">
+              {isRunning && (
+                <button
+                  onClick={async () => {
+                    if (!confirm("強制重置狀態？（適用於 server 中斷後卡住的狀態）")) return;
+                    try {
+                      await fetch(`${API_BASE}/api/coding-night-shift/reset${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, { method: "POST" });
+                      await fetchStatus();
+                    } catch {}
+                  }}
+                  className="text-xs px-2 py-1 rounded font-medium"
+                  style={{ background: "rgba(239,68,68,0.1)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.3)" }}
+                  title="強制重置卡住的狀態"
+                >🔄 重置</button>
+              )}
+              <button
+                onClick={handleStart}
+                disabled={starting || isRunning}
+                className="text-xs px-2 py-1 rounded font-medium"
+                style={{
+                  background: isRunning ? tk.bgMuted : tk.accentBg,
+                  color: isRunning ? tk.text : tk.accent,
+                  opacity: isRunning ? 0.5 : 1,
+                }}
+              >
+                {isRunning ? `⏳ ${progress}` : `🚀 ${t("nightShift.start")}`}
+              </button>
+            </div>
           </div>
 
           {/* Mode toggle */}

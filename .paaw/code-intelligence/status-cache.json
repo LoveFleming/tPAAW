@@ -1,5 +1,5 @@
 {
-  "timestamp": 1784424176078,
+  "timestamp": 1784425294510,
   "data": {
     "architecture": {
       "score": 100,
@@ -62,7 +62,7 @@
         {
           "name": "Unit Tests",
           "status": "partial",
-          "detail": "10 test file(s)"
+          "detail": "11 test file(s)"
         },
         {
           "name": "E2E Tests",
@@ -92,7 +92,7 @@
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "3294 files"
+          "detail": "3299 files"
         }
       ]
     },
@@ -107,7 +107,7 @@
         {
           "name": "Git Status",
           "status": "warn",
-          "detail": "3 uncommitted"
+          "detail": "1 uncommitted"
         },
         {
           "name": "Error Handling",

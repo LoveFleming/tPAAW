@@ -160,6 +160,26 @@ export default async function codingNightShiftRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-night-shift/reset — Force reset stuck status ──
+  if (urlObj.pathname === "/api/coding-night-shift/reset" && method === "POST") {
+    const statusFile = join(projRoot, NIGHT_SHIFT_DIR, STATUS_FILE);
+    if (existsSync(statusFile)) {
+      try {
+        const current = JSON.parse(readSync(statusFile, "utf-8"));
+        current.status = "interrupted";
+        current.completedAt = new Date().toISOString();
+        current.error = "Manually reset by user";
+        writeFileSync(statusFile, JSON.stringify(current, null, 2));
+        sendJSON(res, 200, { ok: true, message: "Status reset" });
+      } catch {
+        sendJSON(res, 500, { error: "Failed to reset status" });
+      }
+    } else {
+      sendJSON(res, 200, { ok: true, message: "No status file to reset" });
+    }
+    return true;
+  }
+
   // ── GET /api/coding-night-shift/last-run ──
   if (urlObj.pathname === "/api/coding-night-shift/last-run" && method === "GET") {
     let lastRunAt = null;
