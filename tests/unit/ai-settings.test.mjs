@@ -35,12 +35,17 @@ describe("AI Settings — Required Files", () => {
 
   describe("Skill Builder files (skill-builder/)", () => {
     it("should have builder-rules.md", async () => {
-      const content = await readFileFrom("skill-builder", "builder-rules.md");
+      const content = await readFileFrom("skill-builder/build", "builder-rules.md");
       expect(content).toBeTruthy();
     });
 
     it("should have test-rules.md", async () => {
-      const content = await readFileFrom("skill-builder", "test-rules.md");
+      const content = await readFileFrom("skill-builder/test", "test-rules.md");
+      expect(content).toBeTruthy();
+    });
+
+    it("should have generate-rules.md", async () => {
+      const content = await readFileFrom("skill-builder/generate", "generate-rules.md");
       expect(content).toBeTruthy();
     });
   });
