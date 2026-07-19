@@ -109,3 +109,39 @@ This ensures AI can never create a feature with hallucinated file paths.
 - Negative: If LLM omits files from its grouping, those files remain as orphans (idempotent — can re-run)
 - Neutral: Discovery is a separate call from refresh-mapping — together they form a two-step "update + discover" workflow
 
+## ADR-009: ADR-010: Night Shift 三模組職責邊界與分層策略
+- **日期**: 2026-07-19
+- **狀態**: Proposed
+- **背景**: Night Shift 統一重構將原本散落的邏輯拆分為三個模組：overnight-manager.mjs（引擎層）、night-shift-shared.mjs（共用工具層）、coding-night-shift.mjs（route 層）。需要記錄此分層決策的設計原理，以及審查中發現的 4 項技術債（反向依賴、legacy bypass、重複邏輯、路徑計算違規）。
+- **決定**: 採用三層分離架構：
+
+1. **Route 層**（coding-night-shift.mjs）— 只負責 HTTP 處理、status 管理、SSE relay。不包含業務邏輯。
+2. **Engine 層**（overnight-manager.mjs）— 排程與執行引擎。EM 模式用 LLM 規劃 + A2A 調度；Parallel 模式用 Promise.allSettled 平行執行。可包含報告生成（因報告格式與模式強耦合）。
+3. **Shared 層**（night-shift-shared.mjs）— 純共用工具，無副作用依賴。context 收集、feature map 刷新、驗證、報告存取。
+
+依賴方向必須單向：Route → Engine → Shared。Engine 不可 import Route 層。
+
+主要消費者：
+- coding-night-shift.mjs（統一入口）
+- coding-reports.mjs（報告 API，只依賴 Shared 層）
+- coding.mjs（legacy，應 deprecate）
+
+無循環依賴 — 三模組之間依賴方向嚴格單向。
+- **後果**: 正面：
+- 職責分離清晰，route/engine/shared 三層各司其職
+- 共用邏輯集中（gatherContext、saveNightShiftReport 不再兩邊複製）
+- coding-reports.mjs 可單獨依賴 Shared 層而不觸碰 Engine
+- 無循環依賴，依賴圖是 DAG
+
+負面（技術債，需後續處理）：
+- Engine→Route 反向依賴（getPromptsFile），打破分層原則
+- coding.mjs legacy route 繞過統一入口，缺少 status/timeout 保護
+- callWithFallback 在兩處重複，維護時容易不同步
+- Parallel 模組手動計算 PAAW_ROOT 違反跨平台 coding standard
+
+待改進項目（建議優先序）：
+1. P1: getPromptsFile 下沉到 lib 層
+2. P2: deprecate /api/coding-crew/em-run，統一入口
+3. P3: 抽取 callWithFallback 到 llm-utils.mjs
+4. P4: Parallel 模組改用 shared.mjs 的 PAAW_ROOT
+

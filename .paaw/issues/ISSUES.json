@@ -313,7 +313,55 @@
       "createdAt": "2026-07-19T01:56:25.814Z",
       "updatedAt": "2026-07-19T01:56:25.814Z",
       "notes": []
+    },
+    {
+      "id": "ISS-020",
+      "title": "overnight-manager.mjs 反向依賴 route 層 (getPromptsFile)",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "architecture",
+        "night-shift"
+      ],
+      "description": "overnight-manager.mjs:354 動態 import ../routes/coding-night-shift-prompts.mjs 的 getPromptsFile，造成 lib→route 反向依賴，違反分層原則。\n\n修正方向：將 getPromptsFile 下沉到 night-shift-shared.mjs 或獨立的 lib/night-shift-prompts.mjs。\n\nADR: ADR-010",
+      "featureId": "F-night-shift",
+      "createdAt": "2026-07-19T02:57:56.953Z",
+      "updatedAt": "2026-07-19T02:57:56.953Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-021",
+      "title": "coding.mjs legacy /api/coding-crew/em-run 繞過統一入口",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "architecture",
+        "night-shift"
+      ],
+      "description": "coding.mjs:787 的 /api/coding-crew/em-run 直接呼叫 runEMSession，繞過 coding-night-shift.mjs 統一入口。導致：無 status.json 追蹤、無 timeout 保護、無 atomic status 寫入的 race condition 防護。\n\n修正方向：deprecate 此 endpoint，redirect 到 /api/coding-night-shift/start。\n\nADR: ADR-010",
+      "featureId": "F-night-shift",
+      "createdAt": "2026-07-19T02:57:56.954Z",
+      "updatedAt": "2026-07-19T02:57:56.954Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-022",
+      "title": "callWithFallback 在 overnight-manager 和 night-shift-shared 重複",
+      "priority": "low",
+      "status": "open",
+      "labels": [
+        "tech-debt",
+        "DRY",
+        "night-shift"
+      ],
+      "description": "overnight-manager.mjs:95-126 和 night-shift-shared.mjs:164-195 各有一份幾乎完全相同的 callWithFallback inner function。維護時容易不同步。\n\n修正方向：抽取到 llm-utils.mjs 作為 callLLMWithModelFallback() 共用函式。\n\nADR: ADR-010",
+      "featureId": "F-night-shift",
+      "createdAt": "2026-07-19T02:57:56.955Z",
+      "updatedAt": "2026-07-19T02:57:56.955Z",
+      "notes": []
     }
   ],
-  "updatedAt": "2026-07-19T02:45:49.086Z"
+  "updatedAt": "2026-07-19T02:57:56.955Z"
 }
