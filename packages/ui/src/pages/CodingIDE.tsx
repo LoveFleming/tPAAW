@@ -548,6 +548,7 @@ export default function CodingIDE() {
   const [gitCommitMsg, setGitCommitMsg] = useState("");
   const [gitActionMsg, setGitActionMsg] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [aiCommitLoading, setAiCommitLoading] = useState(false);
   const [gitReviews, setGitReviews] = useState<{ id: string; ts: string; comment: string; branch?: string; files?: string[] }[]>([]);
 
   // ── API Tester State ──
@@ -2149,10 +2150,54 @@ const sendChat = useCallback(async () => {
                     </div>
                     {/* Commit message input */}
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          if (!rootPath) return;
+                          setAiCommitLoading(true);
+                          try {
+                            // Get diff — either for selected files or all
+                            let diffText = "";
+                            const selFiles = Array.from(selectedFiles);
+                            if (selFiles.length > 0) {
+                              // Fetch diff for each selected file
+                              for (const fp of selFiles) {
+                                const r = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(fp)}`);
+                                const d = await r.json();
+                                if (d.diff) diffText += d.diff + "\n";
+                              }
+                            } else {
+                              // Use full diff
+                              diffText = gitDiff;
+                              if (!diffText) {
+                                const r = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
+                                const d = await r.json();
+                                diffText = d.diff || "";
+                              }
+                            }
+                            if (!diffText) { setGitActionMsg("⚠️ No diff to analyze"); setAiCommitLoading(false); return; }
+                            const res = await fetch(`${API_BASE}/api/vibe-git/ai-commit-msg?path=${encodeURIComponent(rootPath)}`, {
+                              method: "POST", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ diff: diffText, files: selFiles.length > 0 ? selFiles : undefined }),
+                            });
+                            const data = await res.json();
+                            if (data.message) {
+                              setGitCommitMsg(data.message);
+                              setGitActionMsg("✅ AI generated commit message");
+                            } else {
+                              setGitActionMsg("⚠️ AI couldn't generate a message");
+                            }
+                          } catch (e: any) { setGitActionMsg(`❌ ${e.message}`); }
+                          setAiCommitLoading(false);
+                        }}
+                        disabled={aiCommitLoading}
+                        className="text-xs px-2 py-1.5 rounded shrink-0 transition-colors"
+                        style={{ backgroundColor: '#f3e8ff', color: '#7c3aed' }}
+                        title="AI generate commit message from diff"
+                      >{aiCommitLoading ? "⏳" : "🤖"}</button>
                       <input
                         value={gitCommitMsg}
                         onChange={e => setGitCommitMsg(e.target.value)}
-                        placeholder="Commit message..."
+                        placeholder="Commit message... (🤖 = AI generate)"
                         className="flex-1 text-xs px-2 py-1.5 rounded border border-stone-200 focus:border-stone-400 focus:outline-none bg-white text-stone-700"
                         onKeyDown={e => { if (e.key === "Enter" && gitCommitMsg.trim()) { (e.target as HTMLElement).parentElement?.querySelector?.('[data-commit-btn]')?.dispatchEvent(new MouseEvent('click')); } }}
                       />

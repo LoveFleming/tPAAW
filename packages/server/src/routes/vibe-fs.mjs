@@ -302,6 +302,65 @@ export default async function vibeFsRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/vibe-git/ai-commit-msg ──
+  // Generates a commit message from staged/selected diff
+  if (req.method === "POST" && req.url?.startsWith("/api/vibe-git/ai-commit-msg")) {
+    const params = new URL(req.url, "http://localhost").searchParams;
+    const cwd = params.get("path");
+    if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
+    let body;
+    try { body = JSON.parse(await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); })); } catch { res.writeHead(400); res.end("Invalid JSON"); return true; }
+    const { diff, files } = body;
+
+    if (!diff || diff.trim().length === 0) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "" }));
+      return true;
+    }
+
+    const prompt = `You are an expert software engineer. Analyze the following git diff and write a concise commit message.
+
+Rules:
+- Use conventional commit format: type(scope): description
+- Types: feat, fix, refactor, docs, test, chore, style, perf, build, ci
+- Keep the first line under 72 characters
+- If the change is complex, add a blank line then a brief body (2-3 lines max)
+- Write in English
+- Do NOT wrap in code blocks or quotes — just the raw message
+
+${files?.length ? "## Files\n" + files.map(f => `- ${f}`).join("\n") + "\n" : ""}
+## Diff
+\`\`\`diff
+${diff.slice(0, 6000)}
+\`\`\`
+
+Respond with ONLY the commit message, nothing else.`;
+
+    try {
+      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
+      const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
+      const llm = resolveLLMConfig(cwd);
+
+      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
+        model: llm.model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+        temperature: 0.3,
+        stream: false,
+      }, { maxRetries: 2, timeoutMs: 30_000 });
+
+      let msg = result.content || "";
+      // Strip code block wrapping if present
+      msg = msg.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/, "").trim();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: msg }));
+    } catch (err) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "", error: err.message }));
+    }
+    return true;
+  }
+
   // ── GET /api/pick-directory ──
   if (req.method === "GET" && req.url === "/api/pick-directory") {
     try {
