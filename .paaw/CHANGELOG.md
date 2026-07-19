@@ -1,21 +1,64 @@
 # Changelog
 
 ## 2026-07-19
-### changed
-- code changes (1 modified)
 
+### Added
+- **Night Shift 統一系統** — 合併 EM overnight + Night Shift + Reports Tab 為單一系統，報告統一儲存至 `.paaw/night-shift/reports/YYYY-MM-DD.md`
+  - `lib/night-shift-shared.mjs`（新檔）— 共享 context gathering、feature map refresh、validation、統一報告儲存
+  - `lib/overnight-manager.mjs` 重構 — 支援 `mode='em'` 和 `mode='parallel'`，使用 shared module（移除重複的 feature map refresh）
+  - `routes/coding-night-shift.mjs` 簡化為 thin route layer，委派至 `overnight-manager.runNightShift({ mode })`
+  - `routes/coding-reports.mjs` 改用 shared module 讀取統一報告目錄
+  - `routes/coding-night-shift-config.mjs` 新增 `mode` 欄位（em | parallel）
+  - `NightShiftPanel.tsx` 全面重寫 — mode selector（EM / Parallel）、整合 reports list + viewer、config panel
+- **EM 大總管專屬 crew + A2A endpoint** — 不再借用 architect endpoint
+  - `data/crews/coding.em.json`（武大安 EM）
+  - `data/ai-settings/em/system-prompt.md`
+  - A2A endpoint `/a2a/em`（domain-agent-registry 註冊）
+  - `buildSystemPrompt` 優先讀取 `ai-settings/{agentId}/system-prompt.md`，再 fallback 至 `crew.rolePrompt`
+- **EM 新對話功能** — 歸檔當前對話 + session history dropdown
+  - `POST /new-session` — 歸檔當前對話並開新 session
+  - 📜 (N) dropdown — 顯示所有 sessions（active + history），歷史 session 唯讀
+  - active session 自動儲存，歷史 session 不覆寫
+- **Night Shift force reset** — `POST /api/coding-night-shift/reset`，狀態卡在 `running` 時可手動重置為 `interrupted`
+- **Night Shift 分階段 console.log** — server terminal 顯示 EM / Parallel 每個 phase（Phase 0–4）的執行進度與結果
+- **EM work plan structured markdown** — work plan 改為結構化 markdown（`##` + `###` heading + priority/agent icon），透過 ReactMarkdown 渲染
+- **night-shift-shared.mjs 單元測試** — 54 個測試涵蓋全部 8 個 exported function（gatherContext、buildSituationReport、saveNightShiftReport、listNightShiftReports、readNightShiftReport、deleteNightShiftReport、refreshFeatureMapping、validateFeatureMap）
 
+### Changed
+- **EM Dashboard 大幅簡化** — 移除多個面板，右側僅保留 Code Health + Project Knowledge
+  - 移除 date picker、GitChangesPreview panel、last-run info（EM chat 改從 commit changes 直接運作）
+  - 移除 Project Status card（含 StatusRow component、git status API call）
+  - 移除 Agent Activity panel（action log）+ Overnight Report panel（報告檢視 + dispatch 按鈕）
+- **EM auto-dispatch 讀取 night-shift config model** — `coding.mjs` em-run endpoint 原先只使用 UI props model，現改讀 `.paaw/night-shift/config.json` 的 `modelOverride` + `fallbackModels`
+- **A2A agent dispatch 傳遞 model override** — `a2aCallAgent()` 透過 `params.metadata.model` 傳遞 model override（原先完全未傳，導致所有 EM dispatched agents 使用 DeepSeek 而非配置的 zai/glm）
+- **A2A agent call 失敗重試** — `fetch failed` / `ECONNRESET` 等 transient 錯誤自動重試（最多 2 次，間隔 3 秒）
+- **ModelSelector dropdown 向上展開** — Night Shift config panel 位於 sidebar 底部，dropdown 改為 `bottom-full` 避免被裁切
 
-> 由 PAAW AI-Native IDE 自動維護。每次 AI 完成任務後自動追加變更記錄。
+### Removed
+- `ReportsTab.tsx` — 功能已合併至 NightShiftPanel
+- EM Dashboard — date picker UI、GitChangesPreview panel、Project Status card（含 StatusRow）、Agent Activity panel、Overnight Report panel
+- Legacy `overnight-reports` backward compatibility — 移除 `.paaw/overnight-reports/` 雙位置檢查，list/read/delete 只讀 `.paaw/night-shift/reports/`
+- EM session list message count badge
 
-### changed
-- +34 −9 lines across 5 files
+### Commits
+- `19e1963` feat: unify Night Shift + EM overnight + Reports into single system
+- `4c11c19` refactor: remove legacy overnight-reports backward compat
+- `89ec3e7` refactor: simplify EM Dashboard — remove date picker, git changes panel, last-run info
+- `afe8b0d` refactor: remove Project Status card from EM Dashboard
+- `e0815bb` refactor: remove Agent Activity + Overnight Report from EM Dashboard
+- `f1851c8` fix: ModelSelector dropdown opens upward (bottom-full) to avoid clipping
+- `4b9f16c` fix: EM auto-dispatch now reads night-shift config for model settings
+- `7803170` test: add 54 unit tests for night-shift-shared.mjs
+- `5d8350c` fix: A2A agent call now retries on fetch failed (up to 2 retries)
+- `ea05ec2` feat: add force reset button for stuck Night Shift status
+- `1635bc5` feat: add console.log for every Night Shift phase (EM + Parallel)
+- `3a8ed8a` fix: A2A agent dispatch now passes model override via metadata
+- `f12cb0e` style: EM work plan now renders as structured markdown with icons
+- `63c3254` feat: EM 大總管 gets own crew, ai-settings prompt, and A2A endpoint
+- `71c3370` feat: EM 新對話 now archives active + sessions history dropdown
+- `5b80c26` fix: remove message count badge from EM session list
 
-### changed
-- code changes (1 new file)
-
-### changed
-- +7700 −2868 lines across 14 files
+---
 
 ## 2026-07-18
 
@@ -30,70 +73,6 @@
 - `0f868bc` chore: cleanup old backups and add new backup 2026-07-17
 
 ---
-
-### changed
-- 完整重構 CHANGELOG.md — 根據 git log (aaa62fc~2ecb9b6) 補齊 2026-07-17 共 20 筆 commit 的變更記錄，涵蓋 P0 anti-breakage、PAAW Gateway、EM Dashboard 修復群組、程式碼審計批量修復等
-
-### changed
-- code changes (1 new file)
-
-### changed
-- +309 −111 lines across 7 files
-
-### fixed
-- refinery.ts weeklyRefine: 以 json-stable-stringify 取代 JSON.stringify，修復 semgrep no-stringify-keys warning
-
-### added
-- Reports tab — EM report list + viewer (GET/DELETE /api/coding-reports/list, /:date) with markdown rendering
-
-### added
-- Health check endpoint (GET /api/coding-health) — checks provider config, feature map, issues, Night Shift stuck-run detection, security scan freshness, LLM activity, coding standards (checks .paaw/ and .paaw/project/)
-
-### added
-- Layer 3 feature map validation (feature-map-validator.mjs) — deterministic checks on AI output: missing files, missing APIs, duplicate assignments, orphan files, hallucinated references in AI understanding
-
-### added
-- AI feature discovery from orphan files (POST /api/coding-features/discover) — groups unmapped source files into new features with L3 validation before writing
-
-### added
-- AI understanding generation for all 9 features (POST /api/coding-features/:id/understand) — Overview, Architecture, Data Flow, Key Decisions, Test Coverage, Risks, Dependencies
-
-### added
-- Night Shift timeout protection — global 10-min timeout that force-fails stuck runs; Phase 0 feature map refresh + L3 validation before dispatching agents
-
-### added
-- EM Dashboard passes ModelSelector model to EM/Night Shift + Phase 0 feature map refresh
-
-### fixed
-- Reports tab renders markdown (ReactMarkdown + remark-gfm) instead of plain text
-
-### fixed
-- Refinery weeklyRefine: replace JSON.stringify with json-stable-stringify for deterministic output
-
-### fixed
-- Code Understanding: same 3 fixes as refresh-mapping (truncated JSON recovery, file existence validation, sanitize)
-
-### fixed
-- Health check: check .paaw/project/ for CODING-STANDARDS.md + fix issues wrapper (issues.json vs ISSUES.json)
-
-### fixed
-- Security scan: restore full language --include list, rely on --exclude data/semgrep-rules (scan JS/TS/Python/Java/Go/Ruby/PHP/C/C++/C#)
-
-### fixed
-- Security scan: only scan source code files via --include, exclude semgrep-rules dir + non-web languages + JSON/MD/data
-
-### fixed
-- UX: instant scroll to bottom instead of smooth animation; don't auto-scroll EM chat to bottom on initial load
-
-### changed
-- ## Night Shift Task: Test Coverage
-
-Changed files:
-- .paaw/CHANGELOG.md
-- .paaw/ (1 new file)
-
-### changed
-- +421 −11 lines across 8 files
 
 ## 2026-07-17
 
