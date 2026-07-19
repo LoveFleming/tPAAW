@@ -230,6 +230,31 @@ const DOMAIN_AGENTS = {
       },
     ],
   },
+
+  em: {
+    agentId: "em",
+    crewId: "coding.em",
+    name: "武大安 EM 大總管",
+    description: "Engineering Manager — 工作規劃、團隊調度、品質把關、夜間自動調度",
+    contextProviders: ["project", "decisions", "codeIntelligence"],
+    tools: null,
+    maxTurns: 20,
+
+    skills: [
+      {
+        id: "em-dispatch",
+        name: "自動調度",
+        description: "分析現況，規劃工作清單，派工給團隊",
+        tags: ["em", "planning", "dispatch"],
+      },
+      {
+        id: "em-report",
+        name: "狀態報告",
+        description: "讀取 action log 和 git status，報告專案現況",
+        tags: ["em", "report", "status"],
+      },
+    ],
+  },
 };
 
 // ── Public API ──
@@ -272,7 +297,16 @@ export async function buildSystemPrompt(agentId, opts = {}) {
 
   const parts = [];
 
-  // 1. Crew rolePrompt
+  // 0. If ai-settings/{agentId}/system-prompt.md exists, use it as base prompt
+  const aiSettingsPromptPath = resolve(PAAW_ROOT, "data", "ai-settings", agentId, "system-prompt.md");
+  if (existsSync(aiSettingsPromptPath)) {
+    try {
+      const promptText = readSync(aiSettingsPromptPath, "utf-8").trim();
+      if (promptText) parts.push(promptText);
+    } catch {}
+  }
+
+  // 1. Crew rolePrompt (fallback if no ai-settings prompt)
   if (crew.rolePrompt) parts.push(crew.rolePrompt);
 
   // 1b. Expertise & Guardrails (if defined separately on crew JSON)

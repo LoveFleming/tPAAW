@@ -392,7 +392,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     setMessages(prev => [...prev, { role: "assistant", content: "🎖️ 規劃中...", ts: new Date().toISOString(), _thinking: true }]);
 
     try {
-      const res = await fetch(`${API_BASE}/a2a/architect`, {
+      const res = await fetch(`${API_BASE}/a2a/em`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -744,7 +744,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           <button
             onClick={async () => {
               try {
-                const res = await fetch(`${API_BASE}/a2a/architect/system-prompt${rootPath ? `?cwd=${encodeURIComponent(rootPath)}` : ""}`);
+                const res = await fetch(`${API_BASE}/a2a/em/system-prompt${rootPath ? `?cwd=${encodeURIComponent(rootPath)}` : ""}`);
                 const data = await res.json();
                 setEmContextDebug(data);
                 setShowEmContextDebug(true);
@@ -780,6 +780,19 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             {nsRunning ? `⏳ ${nsStatus}` : "🌙 Night Shift"}
           </button>
           {!nsRunning && nsStatus && <span className="text-xs text-indigo-600">{nsStatus}</span>}
+          <button
+            onClick={() => {
+              if (messages.length > 0 && !confirm("開啟新對話？目前對話會清空。")) return;
+              setMessages([]);
+              setEmLog([]);
+              // Clear persisted conversation
+              try { localStorage.removeItem("em-conversation"); } catch {}
+            }}
+            className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+            title="開啟新對話"
+          >
+            ✨ 新對話
+          </button>
         </div>
 
         {/* EM running progress */}
