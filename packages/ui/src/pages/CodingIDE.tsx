@@ -564,6 +564,7 @@ export default function CodingIDE() {
   const [apiStreamInfo, setApiStreamInfo] = useState<{ status: number; statusText: string; contentType: string } | null>(null);
   const [projectApis, setProjectApis] = useState<{ method: string; path: string; file: string }[]>([]);
   const [projectApiExamples, setProjectApiExamples] = useState<{ method: string; endpoint: string; description: string; request: any; response: any }[]>([]);
+  const [apiGroupCollapsed, setApiGroupCollapsed] = useState<Record<string, boolean>>({});
   const apiStreamAbortRef = useRef<AbortController | null>(null);
 
   // ── Coding Behavior Tracking ──
@@ -2393,19 +2394,48 @@ const sendChat = useCallback(async () => {
                         {ex.method} {ex.endpoint.length > 22 ? `…${ex.endpoint.slice(-19)}` : ex.endpoint}
                       </button>
                     ))}
-                    {/* Fallback: project API routes (no examples) */}
-                    {projectApiExamples.length === 0 && projectApis.length > 0 && projectApis.slice(0, 15).map((api, i) => (
-                      <button key={`proj-${i}`} onClick={() => {
-                        const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
-                        setApiUrl(`${base}${api.path}`);
-                        setApiMethod(api.method || "GET");
-                        setApiStreamMode(false);
-                      }}
-                        className="text-xs px-2 py-0.5 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50"
-                        title={api.file || api.path}>
-                        {api.method} {api.path.length > 25 ? `…${api.path.slice(-22)}` : api.path}
-                      </button>
-                    ))}
+                    {/* Fallback: project API routes grouped by path segment */}
+                    {projectApiExamples.length === 0 && projectApis.length > 0 && (() => {
+                      // Group APIs by first path segment
+                      const groups: Record<string, typeof projectApis> = {};
+                      for (const api of projectApis) {
+                        const parts = api.path.replace(/^\/+/, "").split("/");
+                        const group = parts.length > 1 ? parts[0] : "root";
+                        if (!groups[group]) groups[group] = [];
+                        groups[group].push(api);
+                      }
+                      const groupNames = Object.keys(groups).sort();
+                      return groupNames.map(gName => {
+                        const apis = groups[gName];
+                        const collapsed = apiGroupCollapsed[gName] !== false; // default collapsed
+                        return (
+                          <div key={`grp-${gName}`} className="mb-1">
+                            <button onClick={() => setApiGroupCollapsed(prev => ({ ...prev, [gName]: !collapsed }))}
+                              className="text-xs font-semibold text-stone-500 hover:text-stone-700 flex items-center gap-1 mb-0.5">
+                              <span className="text-[10px]">{collapsed ? "▸" : "▾"}</span>
+                              <span className="text-blue-500">/{gName}</span>
+                              <span className="text-stone-400 font-normal">({apis.length})</span>
+                            </button>
+                            {!collapsed && (
+                              <div className="flex flex-wrap gap-1 ml-3 mb-1">
+                                {apis.map((api, i) => (
+                                  <button key={`proj-${gName}-${i}`} onClick={() => {
+                                    const base = rootPath ? `http://localhost:${new URL(API_BASE).port}` : API_BASE;
+                                    setApiUrl(`${base}${api.path}`);
+                                    setApiMethod(api.method || "GET");
+                                    setApiStreamMode(false);
+                                  }}
+                                    className="text-xs px-2 py-0.5 rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50"
+                                    title={api.file || api.path}>
+                                    {api.method} {api.path.length > 30 ? `…${api.path.slice(-27)}` : api.path}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                     {/* Generic test endpoints */}
                     {projectApiExamples.length === 0 && projectApis.length === 0 && (
                       <span className="text-xs text-stone-400 italic">No project APIs found — run CU init first</span>
