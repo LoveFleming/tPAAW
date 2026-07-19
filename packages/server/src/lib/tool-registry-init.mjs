@@ -97,3 +97,42 @@ export async function initAllTools() {
 export function registerTool(entry) {
   toolRegistry.register(entry);
 }
+
+/**
+ * Merge shared registry tools into a ToolEngine instance.
+ * Call this AFTER constructing ToolEngine, BEFORE running it.
+ *
+ * Tools already registered in ToolEngine (by name) are NOT overwritten.
+ * Only new tools from the shared registry are injected.
+ *
+ * @param {import("../tool-engine/index.mjs").ToolEngine} engine
+ * @param {object} ctx — context to pass to registry handlers { cwd, rootDir, agentId, ... }
+ */
+export function injectRegistryTools(engine, ctx = {}) {
+  if (!toolRegistry.initialized) return;
+
+  const existingNames = new Set(engine.registry.listNames());
+  const allDefs = toolRegistry.getDefinitions();
+  let added = 0;
+
+  for (const def of allDefs) {
+    const name = def.function?.name;
+    if (!name || existingNames.has(name)) continue;
+
+    engine.registerTool({
+      name,
+      description: def.function?.description || name,
+      parameters: def.function?.parameters || { type: "object", properties: {} },
+      execute: async (args, execCtx) => {
+        const mergedCtx = { ...ctx, ...execCtx, cwd: execCtx?.cwd || ctx.cwd };
+        const result = await toolRegistry.execute(name, args, mergedCtx);
+        return typeof result === "string" ? result : JSON.stringify(result);
+      },
+    });
+    added++;
+  }
+
+  if (added > 0) {
+    console.log(`[ToolRegistry] Injected ${added} tools into ToolEngine (total: ${engine.registry.listNames().length})`);
+  }
+}

@@ -206,6 +206,10 @@ export default async function chatRoutes(req, res) {
         caller: 'chat',
       })
 
+      // Inject shared registry tools (project_api_history, agent_memory, etc.)
+      const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
+      injectRegistryTools(engine, { cwd: rootPath, rootDir: rootPath, agentId: 'assistant' });
+
       // ── 執行 ReAct loop，stream 給前端 ──
       let fullText = ''
       let toolsUsed = []

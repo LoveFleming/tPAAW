@@ -392,6 +392,10 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
     caller: "a2a",
   });
 
+  // Inject shared registry tools
+  const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
+  injectRegistryTools(engine, { cwd: rootPath, rootDir: rootPath, agentId: "a2a-server" });
+
   // Convert A2A message → chat messages format
   const userText = typeof message === "string" ? message : extractText(message);
   const messages = [{ role: "user", content: userText }];
@@ -476,6 +480,10 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
     sessionKey: "a2a-helpdesk",
     agentId: "a2a-helpdesk",
   });
+
+  // Inject shared registry tools
+  const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
+  injectRegistryTools(engine, { cwd: rootPath, rootDir: rootPath, agentId: "a2a-helpdesk" });
 
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;

@@ -149,6 +149,10 @@ async function runHelpDeskSkill(conversation, modelOverride, options = {}) {
     agentId: "helpdesk-skill",
   });
 
+  // Inject shared registry tools
+  const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
+  injectRegistryTools(engine, { cwd: rootPath, rootDir: rootPath, agentId: "helpdesk-skill" });
+
     // knowledgeBase already loaded via cache
 
   const systemPrompt = `${skillMd}
