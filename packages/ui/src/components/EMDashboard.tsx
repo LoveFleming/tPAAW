@@ -41,12 +41,6 @@ interface ActionLogEntry {
   priority?: string;
 }
 
-interface ProjectStatus {
-  gitStatus: string;
-  recentCommits: string;
-  unpushed: string;
-}
-
 interface CodeScoreItem {
   name: string;
   status: string;
@@ -227,7 +221,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   }, [messages, rootPath, messagesLoaded]);
 
   // ── Project Status ──
-  const [status, setStatus] = useState<ProjectStatus | null>(null);
+  // Project status state removed — was only for git/unpushed display
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
   const [report, setReport] = useState<string | null>(null);
   const [emRunning, setEmRunning] = useState(false);
@@ -329,13 +323,11 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     if (!rootPath) return;
     setCodeStatusLoading(true);
     // Fire all requests in parallel
-    const [gitRes, logRes, codeRes, reportRes] = await Promise.allSettled([
-      fetch(`${API_BASE}/api/vibe-git/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
+    const [logRes, codeRes, reportRes] = await Promise.allSettled([
       fetch(`${API_BASE}/api/coding-crew/action-log?limit=15`).then(r => r.json()),
       fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
       fetch(`${API_BASE}/api/coding-crew/overnight-report?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
     ]);
-    if (gitRes.status === "fulfilled") setStatus(prev => ({ ...prev, gitStatus: gitRes.value.summary || "clean", recentCommits: "", unpushed: "" }));
     if (logRes.status === "fulfilled") setActionLog(logRes.value.entries || []);
     if (codeRes.status === "fulfilled") setCodeStatus(codeRes.value);
     setCodeStatusLoading(false);
@@ -906,17 +898,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
       {/* ════════ RIGHT: Overview Panels (40%) ════════ */}
       <div className="w-[40%] min-w-[280px] max-w-[480px] flex flex-col overflow-y-auto" style={{ scrollbarWidth: "thin", backgroundColor: tk.bgMuted }}>
-        {/* ── Project Status Card ── */}
-        <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-          <h3 className="text-sm font-bold text-stone-700 mb-2 flex items-center gap-1.5">
-            <span>📊</span> Project Status
-          </h3>
-          <div className="space-y-1.5">
-            <StatusRow icon="📦" label="Path" value={rootPath.split("/").slice(-2).join("/")} ok />
-          </div>
-        </div>
-
-        {/* ── Git Changes Preview ── */}
+        {/* Project Status + Git Changes Preview removed */}
         {/* Git Changes Preview removed — EM chat works from commit changes directly */}
 
         {/* ── Code Health (from Code Understanding) ── */}
@@ -1252,18 +1234,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       </div>
     )}
     </>
-  );
-}
-
-// ── Helper: Status Row ──
-function StatusRow({ icon, label, value, ok }: { icon: string; label: string; value: string; ok?: boolean }) {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span>{icon}</span>
-      <span className="font-semibold text-stone-500 w-16 shrink-0">{label}</span>
-      <span className={cn("truncate flex-1", ok ? "text-green-600" : "text-amber-600")} title={value}>{value}</span>
-      <span className="shrink-0">{ok ? "✅" : "⚠️"}</span>
-    </div>
   );
 }
 
