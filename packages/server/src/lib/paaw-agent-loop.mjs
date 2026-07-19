@@ -797,6 +797,29 @@ export const PAAW_TOOLS = [
       },
     },
   },
+
+  // ── Project Run Command (shell exec for build/test/lint) ──
+  {
+    type: "function",
+    function: {
+      name: "project_run_command",
+      description: "Run a shell command in the project directory (build, test, lint, etc.). ONLY safe commands allowed. Use after writing code to verify it compiles/tests pass.\n\nAllowed command prefixes: npm, npx, yarn, pnpm, node, npx tsc, mvn, gradle, python, python3, py, pip, cargo, go, make, dotnet.\n\nBlocked: rm, del, rmdir, git push, git reset, git rebase, sudo, curl, wget, >, |, ;, &&, ||.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description: "The shell command to run (e.g. 'npm run build', 'npm test', 'npx tsc --noEmit', 'mvn compile').",
+          },
+          timeout_seconds: {
+            type: "number",
+            description: "Timeout in seconds. Default: 60, max: 300.",
+          },
+        },
+        required: ["command"],
+      },
+    },
+  },
 ];
 
 // ── Shell Execution Helper ──
@@ -2128,6 +2151,59 @@ ${changedApis}`;
         }
       }
 
+      // ══════════════════════════════════════════
+      // ── Project Run Command (shell exec) ──
+      // ══════════════════════════════════════════
+      case "project_run_command": {
+        const cmd = args.command;
+        if (!cmd || typeof cmd !== "string") {
+          return "Error: 'command' parameter is required.";
+        }
+
+        // ── Safety: whitelist command prefixes ──
+        const ALLOWED_PREFIXES = [
+          "npm", "npx", "yarn", "pnpm", "node", "tsc",
+          "mvn", "gradle", "gradlew",
+          "python", "python3", "py", "pip", "pip3",
+          "cargo", "go", "make", "dotnet",
+        ];
+        const cmdTrimmed = cmd.trim();
+        const firstWord = cmdTrimmed.split(/\s+/)[0];
+        if (!ALLOWED_PREFIXES.includes(firstWord)) {
+          return `Error: command '${firstWord}' is not allowed. Allowed: ${ALLOWED_PREFIXES.join(", ")}.`;
+        }
+
+        // ── Safety: block dangerous patterns ──
+        const DANGER_PATTERNS = [
+          /\brm\b/i, /\bdel\b/i, /\brmdir\b/i,
+          /git\s+push/i, /git\s+reset/i, /git\s+rebase/i,
+          /\bsudo\b/i, /\bcurl\b/i, /\bwget\b/i,
+          /\bdd\b/i, /\bmkfs\b/i,
+          />/i, /\|/i, /;/i, /&&/i, /\|\|/i,
+        ];
+        for (const pattern of DANGER_PATTERNS) {
+          if (pattern.test(cmdTrimmed)) {
+            return `Error: command contains blocked pattern: ${pattern.source}`;
+          }
+        }
+
+        const timeoutSec = Math.min(args.timeout_seconds || 60, 300);
+        const timeoutMs = timeoutSec * 1000;
+
+        if (onEvent) onEvent({ type: "tool_start", name, args: { command: cmdTrimmed, timeout: timeoutSec } });
+
+        const output = await runShell(cmdTrimmed, rootDir, timeoutMs);
+
+        // Truncate output to prevent context overflow
+        const MAX_OUTPUT = 8000;
+        const truncated = output.length > MAX_OUTPUT
+          ? output.slice(0, MAX_OUTPUT) + `\n\n... (output truncated, ${output.length - MAX_OUTPUT} more chars)`
+          : output;
+
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${cmdTrimmed.length} chars output` });
+        return `$ ${cmdTrimmed}\n${truncated}`;
+      }
+
       default:
         return `Error: unknown tool '${name}'`;
     }
@@ -2393,6 +2469,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
 - **project_runbook** — Get troubleshooting runbooks by error code or keyword (Helpdesk agent)
 - **project_faq** — Read/search/add Helpdesk FAQ entries\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
 - **project_api_history** — Get real API request/response pairs from API Tester. Use to write E2E tests based on actual traffic.
+- **project_run_command** — Run shell commands (npm test, npm run build, npx tsc --noEmit, mvn compile, etc.). Use AFTER writing code to verify it compiles and tests pass. Safe commands only, with timeout.
 ### CU Maintenance (after code changes)
 - **cu_refresh** — Refresh specific CU steps after code changes. Default: deterministic steps only (fast, no LLM). Add LLM steps only if architecture/APIs changed.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
