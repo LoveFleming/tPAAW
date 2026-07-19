@@ -1375,3 +1375,104 @@
   ]
 }
 ---
+{
+  "ts": "2026-07-19T05:06:24.525Z",
+  "route": "A2A message/stream",
+  "agentId": "em",
+  "model": "zai/glm-5.1",
+  "systemPromptLength": 48480,
+  "systemPromptPreview": "# EM 大總管 — System Prompt\n\n你是 Engineering Manager (EM)，名叫陳哲宇 (Ethan)。\n\n## 你的角色\n\n你是技術主管，不是執行者。你管理 AI Coding Team，負責規劃、分配、追蹤工作。\n\n## 你的職責\n\n1. **工作規劃** — 讀現況摘要，判斷什麼需要做，分配給合適的 agent\n2. **團隊協調** — 確保 agent 之間順利交接，不重複工作\n3. **品質把關** — 確保每次變更都有測試、文檔、code review\n4. **風險管理** — 識別技術債、安全風險、架構問題\n5. **進度追蹤** — 記錄誰做了什麼，結果如何\n6. **溝通橋樑** — 向人報告結果，向 AI 團隊傳達需求\n\n## 你管理的 Agent 團隊\n\n| Agent | 代號 | 專長 |\n|---|---|---|\n| 🏛️ Architect | 林曉薇 | 架構審查、技術決策 (ADR)、風險評估 |\n| 💻 Developer | Priya | 寫程式、修 bug、refactor、實作功能 |\n| 🧪 Te",
+  "actionLogInjected": "[03:02] em/decide: EM session 完成：調度 4 項工作，成功 2 項 [adr]\n[03:02] doc-writer/review: 根據 git log 19e1963..5b80c26 的 16 個 commit 更新 CHANGELOG 2026-07-19 — Night Shift 統一重構完整記錄 → .paaw/CHANGELOG.md [created]\n[02:58] architect/review: Night Shift 三模組邊界審查完成，產出 ADR-010 + 開立 3 個技術債 issue → packages/server/src",
+  "agentMemoryInjected": "(none)",
+  "conversationHistoryCount": 2,
+  "cleanHistoryCount": 2,
+  "currentMessage": "hello",
+  "totalMessages": 4,
+  "messagesSummary": [
+    {
+      "role": "system",
+      "contentLength": 48480,
+      "preview": "# EM 大總管 — System Prompt\n\n你是 Engineering Manager (EM)，名叫陳哲宇 (Ethan)。\n\n## 你的角色\n\n你是技術主管，不是執行者。你管理 AI Coding Team，負責規劃、分配、追"
+    },
+    {
+      "role": "assistant",
+      "contentLength": 20,
+      "preview": "🎖️ 新對話已開啟。告訴我你想做什麼！"
+    },
+    {
+      "role": "user",
+      "contentLength": 5,
+      "preview": "hello"
+    },
+    {
+      "role": "user",
+      "contentLength": 5,
+      "preview": "hello"
+    }
+  ]
+}
+---
+{
+  "ts": "2026-07-19T05:08:52.511Z",
+  "route": "A2A message/stream",
+  "agentId": "developer",
+  "model": "zai/glm-5.1",
+  "systemPromptLength": 49766,
+  "systemPromptPreview": "你是全端開發工程師 (Developer)，名叫普里亞·夏爾馬 (Priya Sharma)。\n\n## 你的職責\n\n1. **功能實作** — 根據需求和架構決策，實作新功能、API、UI 組件\n2. **Bug 修復** — 排查、定位、修復程式 bug\n3. **重構** — 改善程式碼結構、可讀性、效能，不改變外部行為\n4. **程式碼品質** — 遵守 CODING-STANDARDS.md，寫出可維護的程式碼\n5. **技術評估** — 評估實作方案的可行性和工作量\n6. **Code Integration** — 整合前後端、處理依賴衝突、解決合併衝突\n\n## 你的專業範圍\n\n- TypeScript / JavaScript / React / Node.js 全端開發\n- 後端 API 開發（REST、GraphQL、WebSocket）\n- 前端 UI 開發（React hooks、component design、state management）\n- 資料庫操作（SQL、ORM、migration）\n- 程式碼重構與技術債清理\n- Bug 排查與修復（讀 cod",
+  "actionLogInjected": "[03:02] em/decide: EM session 完成：調度 4 項工作，成功 2 項 [adr]\n[03:02] doc-writer/review: 根據 git log 19e1963..5b80c26 的 16 個 commit 更新 CHANGELOG 2026-07-19 — Night Shift 統一重構完整記錄 → .paaw/CHANGELOG.md [created]\n[02:58] architect/review: Night Shift 三模組邊界審查完成，產出 ADR-010 + 開立 3 個技術債 issue → packages/server/src",
+  "agentMemoryInjected": "# 我的記憶\n\n## 專案慣例\n- **Commit 規則**：完成後必須 commit，但**絕對不允許 push**。commit message 用 conventional format（fix:, feat:, refactor: 等）\n- **Coding Standards**：路徑處理必須用 fileURLToPath + shared.mjs 的 PAAW_ROOT，前端 path 必須 normalizePath()。IME composition 必須用 useRef 處理。\n- **修改前必須 read_file**：即使 system prompt 有 Symbol ",
+  "conversationHistoryCount": 0,
+  "cleanHistoryCount": 0,
+  "currentMessage": "幫我把 leftside menu builder 下 workflow builder item 隱藏起來",
+  "totalMessages": 2,
+  "messagesSummary": [
+    {
+      "role": "system",
+      "contentLength": 49766,
+      "preview": "你是全端開發工程師 (Developer)，名叫普里亞·夏爾馬 (Priya Sharma)。\n\n## 你的職責\n\n1. **功能實作** — 根據需求和架構決策，實作新功能、API、UI 組件\n2. **Bug 修復** — 排查、定位、"
+    },
+    {
+      "role": "user",
+      "contentLength": 54,
+      "preview": "幫我把 leftside menu builder 下 workflow builder item 隱藏起來"
+    }
+  ]
+}
+---
+{
+  "ts": "2026-07-19T05:11:50.016Z",
+  "route": "A2A message/stream",
+  "agentId": "developer",
+  "model": "zai/glm-5.1",
+  "systemPromptLength": 49757,
+  "systemPromptPreview": "你是全端開發工程師 (Developer)，名叫普里亞·夏爾馬 (Priya Sharma)。\n\n## 你的職責\n\n1. **功能實作** — 根據需求和架構決策，實作新功能、API、UI 組件\n2. **Bug 修復** — 排查、定位、修復程式 bug\n3. **重構** — 改善程式碼結構、可讀性、效能，不改變外部行為\n4. **程式碼品質** — 遵守 CODING-STANDARDS.md，寫出可維護的程式碼\n5. **技術評估** — 評估實作方案的可行性和工作量\n6. **Code Integration** — 整合前後端、處理依賴衝突、解決合併衝突\n\n## 你的專業範圍\n\n- TypeScript / JavaScript / React / Node.js 全端開發\n- 後端 API 開發（REST、GraphQL、WebSocket）\n- 前端 UI 開發（React hooks、component design、state management）\n- 資料庫操作（SQL、ORM、migration）\n- 程式碼重構與技術債清理\n- Bug 排查與修復（讀 cod",
+  "actionLogInjected": "[05:09] developer/fix: 隱藏 sidebar Build section 的 Workflow Builder NavItem → packages/ui/src/App.tsx [fixed]\n[03:02] em/decide: EM session 完成：調度 4 項工作，成功 2 項 [adr]\n[03:02] doc-writer/review: 根據 git log 19e1963..5b80c26 的 16 個 commit 更新 CHANGELOG 2026-07-19 — Night Shift 統一重構完整記錄 → .paaw/CHANGELOG.md",
+  "agentMemoryInjected": "# 我的記憶\n\n## 專案慣例\n- **Commit 規則**：完成後必須 commit，但**絕對不允許 push**。commit message 用 conventional format（fix:, feat:, refactor: 等）\n- **Coding Standards**：路徑處理必須用 fileURLToPath + shared.mjs 的 PAAW_ROOT，前端 path 必須 normalizePath()。IME composition 必須用 useRef 處理。\n- **修改前必須 read_file**：即使 system prompt 有 Symbol ",
+  "conversationHistoryCount": 2,
+  "cleanHistoryCount": 2,
+  "currentMessage": "幫我把 leftside menu execution 下 workflows item 隱藏起來",
+  "totalMessages": 4,
+  "messagesSummary": [
+    {
+      "role": "system",
+      "contentLength": 49757,
+      "preview": "你是全端開發工程師 (Developer)，名叫普里亞·夏爾馬 (Priya Sharma)。\n\n## 你的職責\n\n1. **功能實作** — 根據需求和架構決策，實作新功能、API、UI 組件\n2. **Bug 修復** — 排查、定位、"
+    },
+    {
+      "role": "user",
+      "contentLength": 54,
+      "preview": "幫我把 leftside menu builder 下 workflow builder item 隱藏起來"
+    },
+    {
+      "role": "assistant",
+      "contentLength": 2522,
+      "preview": "完成了！✅\n\n我已將左側選單 \"Build\" 區塊下的 **Workflow Builder** 項目隱藏起來了。\n\n**做了什麼：**\n- 將 `packages/ui/src/App.tsx` 第 778 行的 Workflow Bui"
+    },
+    {
+      "role": "user",
+      "contentLength": 49,
+      "preview": "幫我把 leftside menu execution 下 workflows item 隱藏起來"
+    }
+  ]
+}
+---
