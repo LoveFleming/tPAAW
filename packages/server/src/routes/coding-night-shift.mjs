@@ -2,6 +2,7 @@
  * Coding Night Shift — HTTP Routes
  *
  * POST   /api/coding-night-shift/start           — 啟動（body: { mode, model, since }）
+ * POST   /api/coding-night-shift/reset            — Force reset stuck status
  * GET    /api/coding-night-shift/status           — 最新執行狀態
  * GET    /api/coding-night-shift/report           — 最新報告（markdown）
  * GET    /api/coding-night-shift/last-run         — 上次執行時間 + 模式
@@ -23,6 +24,39 @@ const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 const NIGHT_SHIFT_DIR = ".paaw/night-shift";
 const STATUS_FILE = "status.json";
 const REPORT_FILE = "report.md";
+
+/**
+ * Atomically read-modify-write status.json with a mutator function.
+ *
+ * This centralizes ALL status writes to prevent race conditions between
+ * the async Night Shift run (sendSSE callback), the global timeout handler,
+ * the error handler, and the /reset endpoint.
+ *
+ * Rules enforced:
+ *   - If the current status is "interrupted", progress updates are silently
+ *     skipped so they don't overwrite a user's reset.
+ *   - The mutator receives the current status object and should return the
+ *     modified object (or null to cancel the write).
+ */
+function updateStatusFile(statusPath, mutator) {
+  try {
+    if (!existsSync(statusPath)) return null;
+    const current = JSON.parse(readSync(statusPath, "utf-8"));
+
+    // If the session was interrupted, don't allow progress updates to clobber it.
+    // Only the /reset endpoint writes "interrupted"; we respect it.
+    if (current.status === "interrupted") return null;
+
+    const updated = mutator(current);
+    if (!updated) return null; // mutator can return null to cancel
+
+    writeFileSync(statusPath, JSON.stringify(updated, null, 2));
+    return updated;
+  } catch (err) {
+    console.error("[NightShift] updateStatusFile error:", err.message);
+    return null;
+  }
+}
 
 export default async function codingNightShiftRoute(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
@@ -81,18 +115,21 @@ export default async function codingNightShiftRoute(req, res) {
 
     // ── Global timeout: 10 min ──
     const NIGHT_SHIFT_TIMEOUT_MS = 10 * 60 * 1000;
+    const statusPath = join(nsDir, STATUS_FILE);
     const timeoutId = setTimeout(() => {
-      try {
-        const currentStatus = JSON.parse(readSync(join(nsDir, STATUS_FILE), "utf-8"));
-        if (currentStatus.status === "running") {
-          currentStatus.status = "failed";
-          currentStatus.completedAt = new Date().toISOString();
-          currentStatus.duration = Date.now() - startTime;
-          currentStatus.error = `Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s`;
-          writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(currentStatus, null, 2));
-          console.error(`[NightShift] Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s`);
-        }
-      } catch {}
+      const updated = updateStatusFile(statusPath, (current) => {
+        if (current.status !== "running") return null; // already completed/failed/interrupted
+        return {
+          ...current,
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          duration: Date.now() - startTime,
+          error: `Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s`,
+        };
+      });
+      if (updated) {
+        console.error(`[NightShift] Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s`);
+      }
     }, NIGHT_SHIFT_TIMEOUT_MS);
 
     // ── Run via overnight-manager ──
@@ -104,20 +141,22 @@ export default async function codingNightShiftRoute(req, res) {
         console.log(`[NightShift:${mode}] ${type}:`, typeof data === "string" ? data : JSON.stringify(data).slice(0, 200));
 
         if (type === "task_start" || type === "task_done" || type === "task_error") {
-          try {
-            const currentStatus = JSON.parse(readSync(join(nsDir, STATUS_FILE), "utf-8"));
-            if (!currentStatus.agents) currentStatus.agents = {};
+          updateStatusFile(statusPath, (current) => {
             const agentKey = data.agent || `task-${data.index}`;
-            currentStatus.agents[agentKey] = {
+            const agents = { ...(current.agents || {}) };
+            agents[agentKey] = {
               status: type === "task_done" ? "completed" : type === "task_error" ? "failed" : "running",
               ...(data.preview ? { report: data.preview } : {}),
               ...(data.error ? { error: data.error } : {}),
             };
-            if (type === "task_done" || type === "task_error") {
-              currentStatus.completedAgents = (currentStatus.completedAgents || 0) + 1;
-            }
-            writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(currentStatus, null, 2));
-          } catch {}
+            return {
+              ...current,
+              agents,
+              completedAgents: (type === "task_done" || type === "task_error")
+                ? (current.completedAgents || 0) + 1
+                : (current.completedAgents || 0),
+            };
+          });
         }
       };
 
@@ -131,28 +170,35 @@ export default async function codingNightShiftRoute(req, res) {
         sendSSE,
       });
 
-      // Update final status
-      const finalStatus = JSON.parse(readSync(join(nsDir, STATUS_FILE), "utf-8"));
-      finalStatus.status = "completed";
-      finalStatus.completedAt = new Date().toISOString();
-      finalStatus.duration = Date.now() - startTime;
-      finalStatus.report = result.report;
-      writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(finalStatus, null, 2));
+      // Update final status (only if not interrupted by user)
+      updateStatusFile(statusPath, (current) => {
+        if (current.status === "interrupted") return null; // user reset — respect it
+        return {
+          ...current,
+          status: "completed",
+          completedAt: new Date().toISOString(),
+          duration: Date.now() - startTime,
+          report: result.report,
+        };
+      });
 
       // Save latest report for quick access
       writeFileSync(join(nsDir, REPORT_FILE), result.report, "utf-8");
 
-      console.log(`[NightShift] Complete in ${finalStatus.duration}ms (mode: ${mode})`);
+      const finalDuration = Date.now() - startTime;
+      console.log(`[NightShift] Complete in ${finalDuration}ms (mode: ${mode})`);
     } catch (err) {
       console.error("[NightShift] Error:", err.message, err.stack?.slice(0, 300));
-      try {
-        const currentStatus = JSON.parse(readSync(join(nsDir, STATUS_FILE), "utf-8"));
-        currentStatus.status = "failed";
-        currentStatus.completedAt = new Date().toISOString();
-        currentStatus.duration = Date.now() - startTime;
-        currentStatus.error = err.message;
-        writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(currentStatus, null, 2));
-      } catch {}
+      updateStatusFile(statusPath, (current) => {
+        if (current.status === "interrupted") return null; // user reset — respect it
+        return {
+          ...current,
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          duration: Date.now() - startTime,
+          error: err.message,
+        };
+      });
     } finally {
       clearTimeout(timeoutId);
     }
