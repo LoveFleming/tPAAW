@@ -831,22 +831,6 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/coding-crew/overnight-report — Get latest report ──
-  if (url.startsWith("/api/coding-crew/overnight-report") && method === "GET") {
-    const params = new URL(url, "http://localhost").searchParams;
-    const date = params.get("date") || new Date().toISOString().slice(0, 10);
-    const rootDir = projectPath || PAAW_ROOT;
-    const reportPath = join(rootDir, ".paaw", "overnight-reports", `${date}.md`);
-    if (!existsSync(reportPath)) {
-      sendJSON(res, 200, { exists: false, report: null });
-      return true;
-    }
-    const { readFile: rf } = await import("fs/promises");
-    const report = await rf(reportPath, "utf-8");
-    sendJSON(res, 200, { exists: true, report, date });
-    return true;
-  }
-
   if (!projectPath) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));
