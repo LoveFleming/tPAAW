@@ -195,9 +195,10 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     })();
   }, [rootPath, messagesLoaded]);
 
-  // Save EM chat (debounced)
+  // Save EM chat (debounced) — only when viewing active session
   useEffect(() => {
     if (!rootPath || !messagesLoaded || messages.length === 0) return;
+    if (activeSessionId !== "active") return; // Don't save when viewing history
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
@@ -214,6 +215,22 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Project Status ──
   // Project status state removed — was only for git/unpushed display
   // actionLog/report state removed — Night Shift tab handles both
+
+  // ── EM Sessions (active + history) ──
+  const [emSessions, setEmSessions] = useState<{ sessionId: string; title: string; messageCount: number; lastUpdated: string | null; isActive?: boolean }[]>([]);
+  const [showSessions, setShowSessions] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string>("active");
+
+  const fetchEmSessions = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}/sessions?cwd=${encodeURIComponent(rootPath)}`);
+      const d = await res.json();
+      setEmSessions(d.sessions || []);
+    } catch {}
+  }, [rootPath]);
+
+  useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
@@ -781,19 +798,83 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           </button>
           {!nsRunning && nsStatus && <span className="text-xs text-indigo-600">{nsStatus}</span>}
           <button
-            onClick={() => {
-              if (messages.length > 0 && !confirm("開啟新對話？目前對話會清空。")) return;
-              setMessages([]);
-              setEmLog([]);
-              // Clear persisted conversation
-              try { localStorage.removeItem("em-conversation"); } catch {}
+            onClick={async () => {
+              if (messages.length <= 1) return; // only greeting, nothing to archive
+              try {
+                // Archive active conversation + start new
+                await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}/new-session?cwd=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                // Reset UI
+                setMessages([{ role: "assistant", content: "🎖️ 新對話已開啟。告訴我你想做什麼！", ts: new Date().toISOString() }]);
+                setActiveSessionId("active");
+                await fetchEmSessions();
+              } catch (e: any) {
+                alert("切換新對話失敗: " + e.message);
+              }
             }}
             className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
-            title="開啟新對話"
+            title="將目前對話存入歷史，開啟新對話"
           >
             ✨ 新對話
           </button>
+          <button
+            onClick={() => { setShowSessions(!showSessions); if (!showSessions) fetchEmSessions(); }}
+            className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+            title="查看歷史對話"
+          >
+            📜 ({emSessions.filter(s => !s.isActive).length})
+          </button>
         </div>
+
+        {/* EM sessions dropdown */}
+        {showSessions && (
+          <div className="absolute z-50 mt-1 w-80 bg-white rounded-lg shadow-2xl border border-stone-200 max-h-96 overflow-y-auto" style={{ right: 8 }}>
+            <div className="px-3 py-2 border-b border-stone-100 flex items-center justify-between">
+              <span className="text-sm font-bold text-stone-700">📜 對話歷史</span>
+              <button onClick={() => setShowSessions(false)} className="text-xs text-stone-400 hover:text-stone-600">✕</button>
+            </div>
+            {emSessions.length === 0 ? (
+              <div className="px-3 py-4 text-center text-sm text-stone-400">暫無歷史對話</div>
+            ) : (
+              emSessions.map(s => (
+                <button
+                  key={s.sessionId}
+                  onClick={async () => {
+                    if (s.isActive) {
+                      // Already active, just reload
+                      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}?cwd=${encodeURIComponent(rootPath)}`);
+                      const d = await res.json();
+                      setMessages(d.messages || []);
+                      setActiveSessionId("active");
+                    } else {
+                      // Load historical session
+                      const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}/sessions/${encodeURIComponent(s.sessionId)}?cwd=${encodeURIComponent(rootPath)}`);
+                      const d = await res.json();
+                      setMessages(d.messages || []);
+                      setActiveSessionId(s.sessionId);
+                    }
+                    setShowSessions(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-stone-50 border-b border-stone-50 transition-colors"
+                  style={{ background: activeSessionId === s.sessionId ? "#fef3c7" : undefined }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-stone-700 truncate flex-1">
+                      {s.isActive && "🟢 "}{s.title || "未命名對話"}
+                    </span>
+                    <span className="text-[10px] text-stone-400 ml-2 shrink-0">
+                      {s.messageCount} 則
+                    </span>
+                  </div>
+                  {s.lastUpdated && (
+                    <div className="text-[10px] text-stone-400">
+                      {new Date(s.lastUpdated).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
 
         {/* EM running progress */}
         {emLog.length > 0 && (
