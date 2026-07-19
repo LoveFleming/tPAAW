@@ -539,37 +539,54 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
             // plan — show work list
             if (d.workList) {
-              const planText = d.workList.map((w: any, i: number) =>
-                `  ${i + 1}. [${w.priority}] **${w.agent}**: ${w.task}${w.reason ? `\n     _${w.reason}_` : ""}`
-              ).join("\n");
+              const priorityIcon: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
+              const agentIcon: Record<string, string> = {
+                architect: "🏛️", developer: "💻", tester: "🧪",
+                "doc-writer": "📝", qa: "🩺", helpdesk: "🌸",
+              };
+              const planText = d.workList.map((w: any, i: number) => {
+                const pi = priorityIcon[w.priority as string] || "⚪";
+                const ai = agentIcon[w.agent as string] || "🔧";
+                return `### ${pi} ${i + 1}. ${ai} ${w.agent}\n\n**任務：** ${w.task}\n${w.reason ? `\n> 💡 ${w.reason}\n` : ""}`;
+              }).join("\n---\n\n");
               setMessages(prev => [...prev, {
                 role: "assistant",
-                content: `📋 **工作規劃完成，共 ${d.workList.length} 項：**\n\n${planText}`,
+                content: `## 📋 工作規劃\n\n共 **${d.workList.length}** 項工作：\n\n---\n\n${planText}`,
                 ts: new Date().toISOString(),
               }]);
             }
 
             // task_start — agent starting work
             if (d.agent && d.task && d.preview === undefined && d.error === undefined) {
+              const agentIcon: Record<string, string> = {
+                architect: "🏛️", developer: "💻", tester: "🧪",
+                "doc-writer": "📝", qa: "🩺", helpdesk: "🌸",
+              };
+              const ai = agentIcon[d.agent as string] || "🔧";
               setMessages(prev => [...prev, {
                 role: "assistant",
-                content: `⏳ **${d.agent}** ${d.task}`,
+                content: `### ⏳ ${ai} ${d.agent} 執行中...\n\n${d.task}\n\n\`[${d.index}/${d.total}]\``,
                 ts: new Date().toISOString(),
                 _emProgress: true,
-              }]);
+              } as any]);
               logLines.push(`▶ [${d.index}/${d.total}] ${d.agent}: ${d.task}`);
               setEmLog([...logLines]);
             }
 
             // task_done — agent finished
             if (d.agent && d.preview !== undefined) {
+              const agentIcon: Record<string, string> = {
+                architect: "🏛️", developer: "💻", tester: "🧪",
+                "doc-writer": "📝", qa: "🩺", helpdesk: "🌸",
+              };
+              const ai = agentIcon[d.agent as string] || "🔧";
               completedSteps.push({ stepId: d.agent, name: d.agent, summary: d.preview });
               setMessages(prev => {
                 const lastProg = [...prev].reverse().findIndex(m => m._emProgress);
                 if (lastProg >= 0) {
                   const idx = prev.length - 1 - lastProg;
                   const updated = [...prev];
-                  updated[idx] = { role: "assistant", content: `✅ **${d.agent}** — ${d.preview.slice(0, 200)}`, ts: new Date().toISOString() } as any;
+                  updated[idx] = { role: "assistant", content: `### ✅ ${ai} ${d.agent} 完成\n\n${d.preview.slice(0, 300)}`, ts: new Date().toISOString() } as any;
                   return updated;
                 }
                 return [...prev, { role: "assistant", content: `✅ **${d.agent}** — ${d.preview.slice(0, 200)}`, ts: new Date().toISOString() } as any];
