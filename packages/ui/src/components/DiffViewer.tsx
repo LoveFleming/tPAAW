@@ -222,3 +222,4 @@ function DiffLineRow({ line, colors }: { line: DiffLine; colors: any }) {
 }
 
 export default DiffViewer;
+// END
