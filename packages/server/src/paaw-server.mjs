@@ -157,6 +157,16 @@ const server = createServer(async (req, res) => {
 
 // ── Start ──
 await loadRoutes();
+
+// ── Initialize shared tool registry ──
+try {
+  const { initLoopATools } = await import("./lib/tool-registry-init.mjs");
+  initLoopATools();
+  console.log("[PAAW] Tool registry initialized");
+} catch (err) {
+  console.warn("[PAAW] Tool registry init failed (non-blocking):", err.message);
+}
+
 setupWebSocket();   // WebSocket on port 4098
 
 server.listen(PORT, async () => {

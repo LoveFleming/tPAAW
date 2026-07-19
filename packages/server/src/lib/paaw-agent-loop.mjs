@@ -33,6 +33,7 @@ import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWith
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 import { resolveDefaultModel } from "./llm-utils.mjs";
+import { toolRegistry } from "./tool-registry.mjs";
 
 // ── Types ──
 
@@ -2498,7 +2499,7 @@ export async function runAgentLoop(config) {
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, PAAW_TOOLS, false, (evt, data) => {
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
       });
     } catch (err) {
@@ -2552,7 +2553,11 @@ export async function runAgentLoop(config) {
 
     // Execute each tool call
     for (const call of toolCalls) {
-      const toolResult = await executeTool(call, cwd, rootDir, onEvent, agentId);
+      const _toolName = call.function?.name;
+      const _ctx = { cwd, rootDir, onEvent, agentId };
+      const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName)
+        ? String(await toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), _ctx))
+        : await executeTool(call, cwd, rootDir, onEvent, agentId);
       toolCallLog.push({
         turn: i + 1,
         name: call.function.name,
@@ -2735,7 +2740,7 @@ export async function runAgentLoopStream(config, res) {
     let response;
     let usedLlm = llm;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, PAAW_TOOLS, false, sendSSE);
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE);
     } catch (err) {
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
@@ -2743,7 +2748,7 @@ export async function runAgentLoopStream(config, res) {
           console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
           sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
           try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, PAAW_TOOLS, false, sendSSE);
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE);
             usedLlm = fb;
             break;
           } catch (fbErr) {
@@ -2826,7 +2831,11 @@ export async function runAgentLoopStream(config, res) {
       try { args = JSON.parse(call.function.arguments); } catch { args = {}; }
       sendSSE("tool", { name: call.function.name, args });
 
-      const toolResult = await executeTool(call, cwd, rootDir, null, agentId);
+      const _toolName2 = call.function?.name;
+      const _ctx2 = { cwd, rootDir, onEvent: null, agentId };
+      const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName2)
+        ? String(await toolRegistry.execute(_toolName2, args, _ctx2))
+        : await executeTool(call, cwd, rootDir, null, agentId);
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 
       // Track modified files for post-edit verification
