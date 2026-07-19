@@ -1,5 +1,5 @@
 {
-  "timestamp": 1784432249876,
+  "timestamp": 1784433123944,
   "data": {
     "architecture": {
       "score": 100,
@@ -92,7 +92,7 @@
         {
           "name": "Tracked Files",
           "status": "info",
-          "detail": "3321 files"
+          "detail": "3322 files"
         }
       ]
     },
@@ -107,7 +107,7 @@
         {
           "name": "Git Status",
           "status": "warn",
-          "detail": "1 uncommitted"
+          "detail": "6 uncommitted"
         },
         {
           "name": "Error Handling",

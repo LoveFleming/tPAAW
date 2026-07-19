@@ -96,7 +96,7 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
   const { callLLMWithRetry } = await import("./llm-utils.mjs");
   const llm = resolveLLMConfig(rootDir, modelOverride);
 
-  const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (武大安)。
+  const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (陳哲宇 Ethan)。
 
 ## 你的角色
 你是技術主管，不是執行者。你讀現況摘要，判斷什麼需要做，分配給合適的 agent。

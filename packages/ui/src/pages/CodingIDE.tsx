@@ -419,6 +419,7 @@ export default function CodingIDE() {
     { id: "coding.doc-writer", emoji: "📝", title: "梅根 Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
     { id: "coding.helpdesk", emoji: "🌸", title: "小春 Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
     { id: "coding.qa", emoji: "🩺", title: "武大安 QA", mode: "chat" as const, agentId: "qa" },
+    { id: "coding.em", emoji: "🎖️", title: "陳哲宇 EM 大總管", mode: "chat" as const, agentId: "em" },
   ];
 
   // ── EM Orchestration State ──
@@ -1088,6 +1089,7 @@ const sendChat = useCallback(async () => {
           "coding.tester": "tester",
           "coding.doc-writer": "doc-writer",
           "coding.qa": "qa",
+          "coding.em": "em",
         };
         const a2aAgentId = CREW_TO_AGENT[activeCrew || ""] || activeCrew?.replace(/^coding\./, "") || "architect";
         const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
@@ -1703,6 +1705,11 @@ const sendChat = useCallback(async () => {
                 <div key={crew.id} className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 truncate">
                   <button onClick={() => {
                     setShowCrewMenu(false);
+                    if (crew.id === "coding.em") {
+                      // EM opens the EM Dashboard tab (already exists as non-closable first tab)
+                      setActiveMainTabId(DASHBOARD_TAB_ID);
+                      return;
+                    }
                     setActiveCrew(crew.id);
                     setChatMode(crew.mode);
                     setChatInput(""); // clear chat input when switching crews

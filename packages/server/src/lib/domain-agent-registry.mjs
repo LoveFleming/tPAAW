@@ -234,7 +234,7 @@ const DOMAIN_AGENTS = {
   em: {
     agentId: "em",
     crewId: "coding.em",
-    name: "武大安 EM 大總管",
+    name: "陳哲宇 EM 大總管",
     description: "Engineering Manager — 工作規劃、團隊調度、品質把關、夜間自動調度",
     contextProviders: ["project", "decisions", "codeIntelligence"],
     tools: null,

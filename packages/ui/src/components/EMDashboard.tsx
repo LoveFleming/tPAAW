@@ -67,6 +67,14 @@ interface EMDashboardProps {
 }
 
 export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenReportTab, model, onModelChange }: EMDashboardProps) {
+  // ── EM Profile (avatar from crew API) ──
+  const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
+  useEffect(() => {
+    fetch(`${API_BASE}/api/coding-crew/coding.em`).then(r => r.json()).then(d => {
+      setEmProfile({ codename: d.codename, imageUrl: d.imageUrl, emoji: d.emoji });
+    }).catch(() => {});
+  }, []);
+
   // ── Night Shift State ──
   const [nsRunning, setNsRunning] = useState(false);
   const [nsStatus, setNsStatus] = useState<string>("");
@@ -213,10 +221,10 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
         if (data.messages?.length > 0) {
           setMessages(data.messages);
         } else {
-          setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
+          setMessages([{ role: "assistant", content: "🎖️ 我是陳哲宇 Ethan，EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
         }
       } catch {
-        setMessages([{ role: "assistant", content: "🎖️ 我是 EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
+        setMessages([{ role: "assistant", content: "🎖️ 我是陳哲宇 Ethan，EM 大總管。我可以幫你規劃工作、調度 agent、審查進度。\n\n告訴我你想做什麼，或點「🚀 EM 自動調度」讓我自動規劃。", ts: new Date().toISOString() }]);
       }
       setMessagesLoaded(true);
     })();
@@ -781,8 +789,12 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
       <div className="flex-1 flex flex-col min-w-0 border-r" style={{ borderColor: tk.borderLight }}>
         {/* Header */}
         <div className="flex items-center gap-2 px-5 py-2.5 border-b" style={{ borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
-          <span className="text-lg">🎖️</span>
-          <span className="text-sm font-bold text-stone-700">EM 大總管</span>
+          {emProfile.imageUrl ? (
+            <img src={`${API_BASE}${emProfile.imageUrl}`} className="w-7 h-7 rounded-full object-cover" style={{ border: "1px solid #8b5cf633" }} />
+          ) : (
+            <span className="text-lg">🎖️</span>
+          )}
+          <span className="text-sm font-bold text-stone-700">{emProfile.codename || "EM 大總管"}</span>
           <span className="text-sm text-stone-400">Engineering Manager</span>
           <div className="flex-1" />
           <button
@@ -918,6 +930,8 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
               <div className="flex-shrink-0 mt-0.5">
                 {msg.role === "user" ? (
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>你</div>
+                ) : emProfile.imageUrl ? (
+                  <img src={`${API_BASE}${emProfile.imageUrl}`} className="w-7 h-7 rounded-full object-cover" style={{ border: "1px solid #8b5cf633" }} />
                 ) : (
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: "#8b5cf622", border: "1px solid #8b5cf633" }}>🎖️</div>
                 )}
@@ -925,7 +939,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
               {/* Bubble */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-medium text-stone-600">{msg.role === "user" ? "你" : "EM 大總管"}</span>
+                  <span className="text-xs font-medium text-stone-600">{msg.role === "user" ? "你" : (emProfile.codename || "EM 大總管")}</span>
                 </div>
                 {msg.role === "user" ? (
                   <span className="inline-block px-3 py-1.5 rounded-2xl text-sm bg-stone-50 text-stone-700 max-w-[80%] whitespace-pre-wrap">{msg.content}</span>
@@ -995,7 +1009,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                 if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
               }}
-              placeholder="跟 EM 大總管對話... (Enter 送出, Shift+Enter 換行)"
+              placeholder={`跟 ${emProfile.codename || "EM 大總管"}對話... (Enter 送出, Shift+Enter 換行)`}
               rows={1}
               className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               style={{ borderColor: tk.borderLight, backgroundColor: tk.bg }}
