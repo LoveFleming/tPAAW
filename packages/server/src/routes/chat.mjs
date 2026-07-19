@@ -117,9 +117,10 @@ export default async function chatRoutes(req, res) {
       if (model.includes("/")) {
         const idx = model.indexOf("/");
         const modelProviderHint = model.slice(0, idx);
-        model = model.slice(idx + 1);
-        // Only use model's provider hint if client did NOT explicitly specify a provider
-        if (!requestedProvider) {
+        // Only split if the hint is a known provider; otherwise keep full model ID
+        // (e.g. "deepseek/deepseek-v4-flash" is an OpenRouter model, not provider "deepseek")
+        if (!requestedProvider && providerConfig.providers[modelProviderHint]) {
+          model = model.slice(idx + 1);
           resolvedProviderId = modelProviderHint;
         }
       }
@@ -184,7 +185,7 @@ export default async function chatRoutes(req, res) {
       // ── 建立 Tool Engine（含 Security Kernel）──
       const { ToolEngine } = await import("../lib/tool-engine/index.mjs")
       const engine = new ToolEngine({
-        cwd: rootPath,
+        cwd: PAAW_ROOT,
         provider: {
           id: resolvedProviderId,
           baseURL: resolvedProvider.baseURL,
@@ -208,7 +209,7 @@ export default async function chatRoutes(req, res) {
 
       // Inject shared registry tools (project_api_history, agent_memory, etc.)
       const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
-      injectRegistryTools(engine, { cwd: rootPath, rootDir: rootPath, agentId: 'assistant' });
+      injectRegistryTools(engine, { cwd: PAAW_ROOT, rootDir: PAAW_ROOT, agentId: 'assistant' });
 
       // ── 執行 ReAct loop，stream 給前端 ──
       let fullText = ''

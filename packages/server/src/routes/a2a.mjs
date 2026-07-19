@@ -371,7 +371,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
   // executors from cache
 
   const engine = new ToolEngine({
-    cwd: rootPath,
+    cwd: PAAW_ROOT,
     provider: {
       id: providerId,
       baseURL: provider.baseURL,
@@ -394,7 +394,7 @@ async function runAgentLoop({ message, systemPrompt, onChunk }) {
 
   // Inject shared registry tools
   const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
-  injectRegistryTools(engine, { cwd: rootPath, rootDir: rootPath, agentId: "a2a-server" });
+  injectRegistryTools(engine, { cwd: PAAW_ROOT, rootDir: PAAW_ROOT, agentId: "a2a-server" });
 
   // Convert A2A message → chat messages format
   const userText = typeof message === "string" ? message : extractText(message);
@@ -464,7 +464,7 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
   }
 
   const engine = new ToolEngine({
-    cwd: rootPath,
+    cwd: PAAW_ROOT,
     provider: {
       id: providerId,
       baseURL: provider.baseURL,
@@ -483,7 +483,7 @@ async function runHelpDeskViaA2A(conversation, { onProgress, modelOverride, task
 
   // Inject shared registry tools
   const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
-  injectRegistryTools(engine, { cwd: rootPath, rootDir: rootPath, agentId: "a2a-helpdesk" });
+  injectRegistryTools(engine, { cwd: PAAW_ROOT, rootDir: PAAW_ROOT, agentId: "a2a-helpdesk" });
 
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
