@@ -84,35 +84,17 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   // ── Night Shift State ──
   const [nsRunning, setNsRunning] = useState(false);
   const [nsStatus, setNsStatus] = useState<string>("");
-  const [nsSinceDate, setNsSinceDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [emSinceDate, setEmSinceDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [lastRunInfo, setLastRunInfo] = useState<{ lastRunAt: string | null; lastRunBy: string | null; since: string; hasRun: boolean } | null>(null);
-
-  // Auto-detect last EM/Night Shift run time on mount
-  useEffect(() => {
-    if (!rootPath) return;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/coding-night-shift/last-run?path=${encodeURIComponent(rootPath)}`);
-        const data = await res.json();
-        setLastRunInfo(data);
-        if (data.hasRun && data.since) {
-          setEmSinceDate(data.since);
-          setNsSinceDate(data.since);
-        }
-      } catch {}
-    })();
-  }, [rootPath]);
+  // emSinceDate/nsSinceDate removed — EM works from commit changes, user can give time commands in chat
 
   const startNightShift = async () => {
     setNsRunning(true);
     setNsStatus("啟動中...");
     setMessages(prev => [...prev, { role: "user", content: "🌙 啟動 Night Shift", ts: new Date().toISOString() }]);
     try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}&since=${nsSinceDate}` : `?since=${nsSinceDate}`}`, {
+      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ since: nsSinceDate }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (data.ok) {
@@ -548,7 +530,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       const res = await fetch(`${API_BASE}/api/coding-crew/em-run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd: rootPath, since: emSinceDate, model: model || undefined }),
+        body: JSON.stringify({ cwd: rootPath, model: model || undefined }),
       });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -786,17 +768,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           {onModelChange && (
             <ModelSelector feature="codingIDE" value={model || ""} onChange={onModelChange} />
           )}
-          {/* Date range for EM & Night Shift */}
-          <div className="flex items-center gap-1 text-xs">
-            <span className="text-stone-400">從</span>
-            <input
-              type="date"
-              value={emSinceDate}
-              onChange={e => { setEmSinceDate(e.target.value); setNsSinceDate(e.target.value); }}
-              className="text-xs px-1.5 py-0.5 rounded border border-stone-300 bg-white text-stone-700"
-              title="查看從這天開始的 git 變更"
-            />
-          </div>
+          {/* EM auto dispatch */}
           <button
             onClick={runEM}
             disabled={emRunning}
@@ -810,7 +782,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             disabled={nsRunning}
             className={cn("text-sm px-3 py-1 rounded-md font-bold flex items-center gap-1",
               nsRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700")}
-            title={`掃描 ${nsSinceDate} 以來的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review`}
+            title="掃描今天的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review"
           >
             {nsRunning ? `⏳ ${nsStatus}` : "🌙 Night Shift"}
           </button>
@@ -940,14 +912,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
             <span>📊</span> Project Status
           </h3>
           <div className="space-y-1.5">
-            <StatusRow icon="📁" label="Git" value={status?.gitStatus || "checking..."} ok={!status?.gitStatus?.includes("modified") && !status?.gitStatus?.includes("Untracked")} />
-            <StatusRow icon="🔄" label="Unpushed" value={status?.unpushed || "none"} ok={!status?.unpushed} />
             <StatusRow icon="📦" label="Path" value={rootPath.split("/").slice(-2).join("/")} ok />
           </div>
         </div>
 
         {/* ── Git Changes Preview ── */}
-        <GitChangesPreview rootPath={rootPath} tk={tk} since={emSinceDate} />
+        {/* Git Changes Preview removed — EM chat works from commit changes directly */}
 
         {/* ── Code Health (from Code Understanding) ── */}
         <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
@@ -1297,76 +1267,8 @@ function StatusRow({ icon, label, value, ok }: { icon: string; label: string; va
   );
 }
 
-// ── Git Changes Preview Panel ──
-function GitChangesPreview({ rootPath, tk, since }: { rootPath: string; tk: any; since: string }) {
-  const [changes, setChanges] = useState<{ commits: string[]; changedFiles: string[]; commitCount: number; diffStat: string } | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const fetchChanges = useCallback(async () => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/vibe-git/changes-since?path=${encodeURIComponent(rootPath)}&since=${since}`);
-      const data = await res.json();
-      setChanges(data);
-    } catch {}
-    setLoading(false);
-  }, [rootPath, since]);
-
-  useEffect(() => { fetchChanges(); }, [fetchChanges]);
-
-  return (
-    <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
-          <span>🔀</span> Git Changes
-        </h3>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-stone-400">since {since}</span>
-          <button onClick={fetchChanges} className="text-xs text-stone-400 hover:text-stone-600">🔄</button>
-        </div>
-      </div>
-      {loading ? (
-        <div className="text-xs text-stone-400 animate-pulse">Loading...</div>
-      ) : changes ? (
-        <div className="space-y-2">
-          <div className="text-xs text-stone-600">
-            <span className="font-bold text-blue-600">{changes.commitCount}</span> commits · <span className="font-bold text-amber-600">{changes.changedFiles.length}</span> files changed
-          </div>
-          {changes.commits.length > 0 && (
-            <div className="max-h-32 overflow-y-auto space-y-0.5">
-              {changes.commits.slice(0, 10).map((c, i) => (
-                <div key={i} className="text-[10px] text-stone-500 font-mono truncate">{c}</div>
-              ))}
-              {changes.commits.length > 10 && <div className="text-[10px] text-stone-400">... +{changes.commits.length - 10} more</div>}
-            </div>
-          )}
-          {changes.changedFiles.length > 0 && (
-            <details>
-              <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-700">📁 Changed files ({changes.changedFiles.length})</summary>
-              <div className="max-h-24 overflow-y-auto mt-1 space-y-0.5">
-                {changes.changedFiles.map((f, i) => (
-                  <div key={i} className="text-[10px] text-stone-500 truncate">{f}</div>
-                ))}
-              </div>
-            </details>
-          )}
-          {changes.diffStat && (
-            <details>
-              <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-700">📊 Diff stat</summary>
-              <pre className="text-[10px] text-stone-500 mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap">{changes.diffStat}</pre>
-            </details>
-          )}
-          {changes.commitCount === 0 && changes.changedFiles.length === 0 && (
-            <div className="text-xs text-stone-400">No changes since {since}</div>
-          )}
-        </div>
-      ) : (
-        <div className="text-xs text-stone-400">Unable to load</div>
-      )}
-    </div>
-  );
-}
+// ── Git Changes Preview Panel removed ──
+// EM chat works from commit changes directly, no need for a separate panel
 
 // ── 專案知識面板 (Project Knowledge) ──
 interface KnowledgeFile {
