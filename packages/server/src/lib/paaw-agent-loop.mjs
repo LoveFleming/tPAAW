@@ -626,6 +626,24 @@ const PAAW_TOOLS = [
     },
   },
 
+  // ── API Tester History ──
+  {
+    type: "function",
+    function: {
+      name: "project_api_history",
+      description: "Get API Tester history — real request/response pairs captured from the API Tester UI. Each entry includes method, url, status, headers, request body, and full response. Use this to understand actual API behavior, write E2E tests based on real traffic, or verify API contracts.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Max entries to return (default: 20, max: 50). Most recent first." },
+          method: { type: "string", description: "Filter by HTTP method (GET, POST, PUT, etc.)." },
+          path_contains: { type: "string", description: "Filter by URL substring (e.g. '/a2a' or '/coding-crew')." },
+          include_response: { type: "boolean", description: "Include full response body (default: true). Set false for a compact summary list." },
+        },
+      },
+    },
+  },
+
   // ── CU Refresh ──
   {
     type: "function",
@@ -1767,6 +1785,60 @@ ${changedApis}`;
       }
 
       // ══════════════════════════════════════════
+      // ── API Tester History ──
+      // ══════════════════════════════════════════
+      case "project_api_history": {
+        const PAAW_ROOT2 = rootDir;
+        const histFile = join(PAAW_ROOT2, "data", "api-tester-history.json");
+        try {
+          if (!existsSync(histFile)) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: "no history" });
+            return "No API Tester history found. Use the API Tester in Coding App to make requests first.";
+          }
+          const raw = JSON.parse(readSync(histFile, "utf-8"));
+          let items = Array.isArray(raw) ? raw : (raw.history || []);
+          // Apply filters
+          if (args.method) items = items.filter(i => i.method?.toUpperCase() === args.method.toUpperCase());
+          if (args.path_contains) {
+            const needle = args.path_contains.toLowerCase();
+            items = items.filter(i => i.url?.toLowerCase().includes(needle));
+          }
+          const limit = Math.min(args.limit || 20, 50);
+          items = items.slice(0, limit);
+          const includeResp = args.include_response !== false;
+          if (items.length === 0) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: "empty" });
+            return "No API history entries match your filters.";
+          }
+          const formatted = items.map((item, idx) => {
+            const lines = [
+              `### ${idx + 1}. ${item.method} ${item.url}`,
+              `- Status: ${item.status} | Elapsed: ${item.elapsed}ms | Time: ${item.ts}`,
+            ];
+            if (item.headers?.length) {
+              const hdrs = item.headers.filter(h => h.enabled !== false).map(h => `  ${h.key}: ${h.value}`).join("\n");
+              lines.push(`- Request Headers:\n${hdrs}`);
+            }
+            if (item.body) lines.push(`- Request Body:\n\`\`\`json\n${item.body}\n\`\`\``);
+            if (includeResp && item.response) {
+              const r = item.response;
+              lines.push(`- Response (${r.status} ${r.statusText || ""}, ${r.size || 0} bytes, ${r.elapsed || 0}ms):`);
+              const body = r.body || "";
+              lines.push(`\`\`\`json\n${body.slice(0, 2000)}${body.length > 2000 ? "\n... (truncated)" : ""}\n\`\`\``);
+            } else if (!includeResp) {
+              lines.push(`- Response: ${item.response?.status || "?"} ${(item.response?.body || "").slice(0, 100)}...`);
+            }
+            if (item.streamMode) lines.push(`- ⚡ Stream mode`);
+            return lines.join("\n");
+          });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${items.length} entries` });
+          return `API Tester History (${items.length} entries${args.method ? `, filtered: ${args.method}` : ""}${args.path_contains ? `, path contains: '${args.path_contains}'` : ""}):\n\n${formatted.join("\n\n---\n\n")}`;
+        } catch (err) {
+          return `Error reading API history: ${err.message}`;
+        }
+      }
+
+      // ══════════════════════════════════════════
       // ── CU Refresh (incremental, not full overwrite) ──
       // ══════════════════════════════════════════
 
@@ -2317,6 +2389,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
 - **project_change_record** — Record what you changed, why, impact (for AI agent handover)
 - **project_runbook** — Get troubleshooting runbooks by error code or keyword (Helpdesk agent)
 - **project_faq** — Read/search/add Helpdesk FAQ entries\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
+- **project_api_history** — Get real API request/response pairs from API Tester. Use to write E2E tests based on actual traffic.
 ### CU Maintenance (after code changes)
 - **cu_refresh** — Refresh specific CU steps after code changes. Default: deterministic steps only (fast, no LLM). Add LLM steps only if architecture/APIs changed.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
