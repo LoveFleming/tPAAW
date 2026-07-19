@@ -281,6 +281,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     validateContent = true,
     sanitize = true,
+    agentId = null,
   } = opts;
   const _startTime = Date.now();
   const _callId = `llm-${_startTime}-${Math.random().toString(36).slice(2, 8)}`;
@@ -290,6 +291,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     id: _callId,
     ts: new Date(_startTime).toISOString(),
     phase: "request",
+    agentId: agentId || opts.caller || null,
     model: body.model || "?",
     stream: false,
     apiUrl: apiUrl.replace(/\/v.*$/, "/..."),
@@ -359,6 +361,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         id: _callId,
         ts: new Date().toISOString(),
         phase: "response",
+        agentId: agentId || opts.caller || null,
         model: body.model || "?",
         stream: false,
         durationMs: Date.now() - _startTime,
@@ -389,6 +392,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
         id: _callId,
         ts: new Date().toISOString(),
         phase: "response",
+        agentId: agentId || opts.caller || null,
         model: body.model || "?",
         stream: false,
         durationMs: Date.now() - _startTime,

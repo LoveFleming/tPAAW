@@ -66,6 +66,12 @@
 ### changed
 - +129 −36 lines across 4 files
 
+### changed
+- 請使用剛 build 好的 Skill（data/skills/building/translate/package/SKILL.md）執行以下使用者輸入，驗證 (1 new file)
+
+### changed
+- +108 −35 lines across 4 files
+
 ## 2026-07-18
 
 ### Added

@@ -16,3 +16,9 @@
 ## 🗂️ 專案脈絡
 
 ## 🔧 備忘
+
+## 近期待辦
+- 下週有 demo，已建立 demo-prep app 來管理 checklist 和相關連結
+
+## 備忘
+- 使用者在 demo-prep app 加了 6 項基本 checklist，之後可能還會加連結，先這樣放著

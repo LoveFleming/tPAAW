@@ -318,7 +318,7 @@
       "id": "ISS-020",
       "title": "overnight-manager.mjs 反向依賴 route 層 (getPromptsFile)",
       "priority": "high",
-      "status": "open",
+      "status": "in-progress",
       "labels": [
         "tech-debt",
         "architecture",
@@ -327,8 +327,13 @@
       "description": "overnight-manager.mjs:354 動態 import ../routes/coding-night-shift-prompts.mjs 的 getPromptsFile，造成 lib→route 反向依賴，違反分層原則。\n\n修正方向：將 getPromptsFile 下沉到 night-shift-shared.mjs 或獨立的 lib/night-shift-prompts.mjs。\n\nADR: ADR-010",
       "featureId": "F-night-shift",
       "createdAt": "2026-07-19T02:57:56.953Z",
-      "updatedAt": "2026-07-19T02:57:56.953Z",
-      "notes": []
+      "updatedAt": "2026-07-19T11:21:29.247Z",
+      "notes": [
+        {
+          "text": "App 已建立，等待使用者填入資料",
+          "date": "2026-07-19T11:21:29.247Z"
+        }
+      ]
     },
     {
       "id": "ISS-021",
@@ -361,7 +366,49 @@
       "createdAt": "2026-07-19T02:57:56.955Z",
       "updatedAt": "2026-07-19T02:57:56.955Z",
       "notes": []
+    },
+    {
+      "id": "ISS-023",
+      "title": "🎯 建立 demo-prep App",
+      "priority": "high",
+      "status": "open",
+      "labels": [
+        "feature"
+      ],
+      "description": "建立 demo-prep app 來管理 demo 預演 checklist 和相關連結",
+      "featureId": null,
+      "createdAt": "2026-07-19T11:21:29.240Z",
+      "updatedAt": "2026-07-19T11:21:29.240Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-024",
+      "title": "📋 填入 demo checklist",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "feature"
+      ],
+      "description": "在 demo-prep app 中新增 demo checklist 項目（e.g. 檢查麥克風、投影片、網路等）",
+      "featureId": null,
+      "createdAt": "2026-07-19T11:21:29.241Z",
+      "updatedAt": "2026-07-19T11:21:29.241Z",
+      "notes": []
+    },
+    {
+      "id": "ISS-025",
+      "title": "🔗 填入 demo 相關連結",
+      "priority": "medium",
+      "status": "open",
+      "labels": [
+        "feature"
+      ],
+      "description": "在 demo-prep app 中新增 demo 相關的連結（如 demo 用的工具、參考資料等）",
+      "featureId": null,
+      "createdAt": "2026-07-19T11:21:29.241Z",
+      "updatedAt": "2026-07-19T11:21:29.241Z",
+      "notes": []
     }
   ],
-  "updatedAt": "2026-07-19T02:57:56.955Z"
+  "updatedAt": "2026-07-19T11:21:29.247Z"
 }

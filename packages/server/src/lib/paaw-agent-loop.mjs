@@ -2235,7 +2235,7 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
 
 // ── LLM API Call ──
 
-export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null) {
+export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null) {
   console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}`);
   const body = {
     model,
@@ -2332,6 +2332,8 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
     timeoutMs: LLM_CALL_TIMEOUT_MS,
     validateContent: true,
     sanitize: true,
+    agentId: agentId,
+    caller: agentId,
     onRetry: (info) => {
       if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
     },
@@ -2501,7 +2503,7 @@ export async function runAgentLoop(config) {
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
-      });
+      }, agentId);
     } catch (err) {
       finalContent = `LLM API error: ${err.message}`;
       if (onEvent) onEvent({ type: "error", error: err.message });
@@ -2740,7 +2742,7 @@ export async function runAgentLoopStream(config, res) {
     let response;
     let usedLlm = llm;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE);
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE, agentId);
     } catch (err) {
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
@@ -2748,7 +2750,7 @@ export async function runAgentLoopStream(config, res) {
           console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
           sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
           try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE);
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE, agentId);
             usedLlm = fb;
             break;
           } catch (fbErr) {
@@ -2862,7 +2864,7 @@ export async function runAgentLoopStream(config, res) {
         role: "user",
         content: "你已經收集了足夠的資訊。現在請根據你看到的內容，直接給出完整的回答。不要使用任何工具。",
       });
-      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE);
+      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId);
       const finalContent = finalResponse.choices?.[0]?.message?.content || "";
       if (finalContent) {
         sendSSE("content", { content: finalContent, done: true });

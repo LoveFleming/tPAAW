@@ -1,0 +1,57 @@
+{
+  "id": "demo_prep",
+  "name": "demo-prep",
+  "icon": "🎯",
+  "description": "Demo 預演準備 App，管理 demo checklist 和相關連結",
+  "type": "data",
+  "dataShape": "object",
+  "schema": {
+    "type": "object",
+    "required": [
+      "type",
+      "title"
+    ],
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "checklist",
+          "link"
+        ],
+        "description": "項目類型：checklist 或 link"
+      },
+      "title": {
+        "type": "string",
+        "description": "項目名稱"
+      },
+      "done": {
+        "type": "boolean",
+        "description": "checklist 完成與否（僅 checklist 類型使用）"
+      },
+      "url": {
+        "type": "string",
+        "description": "連結網址（link 類型使用）"
+      },
+      "description": {
+        "type": "string",
+        "description": "備註或描述"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "標籤"
+      }
+    }
+  },
+  "execSchema": null,
+  "triggers": [
+    "demo",
+    "預演",
+    "demo-prep"
+  ],
+  "aiPrompt": "demo-prep 的資料管理，包含 demo checklist 和 demo 相關連結",
+  "status": "published",
+  "createdAt": "2026-07-19T11:21:29.235Z"
+}
