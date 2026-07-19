@@ -5,9 +5,7 @@
  * GET    /api/coding-reports/:date?path=...       — 取得單一報告內容
  * DELETE /api/coding-reports/:date?path=...       — 刪除報告
  *
- * 報告來源：
- *   - .paaw/night-shift/reports/ （新，EM + Parallel 共用）
- *   - .paaw/overnight-reports/   （舊，向後相容）
+ * 報告來源：.paaw/night-shift/reports/
  *
  * 核心邏輯在 lib/night-shift-shared.mjs
  */

@@ -372,8 +372,7 @@ export async function validateFeatureMap(projRoot, sendSSE) {
 // ── Unified Report Storage ──
 
 /**
- * Save report to unified location: .paaw/night-shift/reports/YYYY-MM-DD.md
- * Also updates status.json with the report reference
+ * Save report to .paaw/night-shift/reports/YYYY-MM-DD.md
  */
 export function saveNightShiftReport(rootDir, report, mode = "em") {
   const reportsDir = join(rootDir, ".paaw", "night-shift", "reports");
@@ -381,121 +380,61 @@ export function saveNightShiftReport(rootDir, report, mode = "em") {
   const dateStr = new Date().toISOString().slice(0, 10);
   const filename = `${dateStr}.md`;
   writeFileSync(join(reportsDir, filename), report, "utf-8");
-
-  // Also keep a latest copy for backward compat
-  const latestDir = join(rootDir, ".paaw", "night-shift");
-  if (existsSync(latestDir)) {
-    writeFileSync(join(latestDir, "report.md"), report, "utf-8");
-  }
-
   return { filename, path: join(reportsDir, filename), dateStr, mode };
 }
 
 /**
- * List all night shift reports from .paaw/night-shift/reports/
- * Also includes legacy overnight-reports/ for backward compat
+ * List all reports from .paaw/night-shift/reports/
  */
 export async function listNightShiftReports(rootDir) {
   const { readdir, stat, readFile } = await import("fs/promises");
   const reports = [];
-  const seen = new Set();
 
-  // New location: .paaw/night-shift/reports/
-  const newDir = join(rootDir, ".paaw", "night-shift", "reports");
-  if (existsSync(newDir)) {
-    try {
-      const files = await readdir(newDir);
-      for (const file of files) {
-        if (!file.endsWith(".md")) continue;
-        const date = file.replace(".md", "");
-        if (seen.has(date)) continue;
-        seen.add(date);
-        const fullPath = join(newDir, file);
-        const stats = await stat(fullPath);
-        const content = await readFile(fullPath, "utf-8");
-        reports.push({
-          date,
-          filename: file,
-          path: fullPath,
-          size: stats.size,
-          modified: stats.mtime.toISOString(),
-          ...extractReportMetadata(content),
-        });
-      }
-    } catch {}
-  }
+  const dir = join(rootDir, ".paaw", "night-shift", "reports");
+  if (!existsSync(dir)) return reports;
 
-  // Legacy location: .paaw/overnight-reports/ (backward compat)
-  const legacyDir = join(rootDir, ".paaw", "overnight-reports");
-  if (existsSync(legacyDir)) {
-    try {
-      const files = await readdir(legacyDir);
-      for (const file of files) {
-        if (!file.endsWith(".md")) continue;
-        const date = file.replace(".md", "");
-        if (seen.has(date)) continue;
-        seen.add(date);
-        const fullPath = join(legacyDir, file);
-        const stats = await stat(fullPath);
-        const content = await readFile(fullPath, "utf-8");
-        reports.push({
-          date,
-          filename: file,
-          path: fullPath,
-          size: stats.size,
-          modified: stats.mtime.toISOString(),
-          ...extractReportMetadata(content),
-        });
-      }
-    } catch {}
-  }
+  try {
+    const files = await readdir(dir);
+    for (const file of files) {
+      if (!file.endsWith(".md")) continue;
+      const date = file.replace(".md", "");
+      const fullPath = join(dir, file);
+      const stats = await stat(fullPath);
+      const content = await readFile(fullPath, "utf-8");
+      reports.push({
+        date,
+        filename: file,
+        path: fullPath,
+        size: stats.size,
+        modified: stats.mtime.toISOString(),
+        ...extractReportMetadata(content),
+      });
+    }
+  } catch {}
 
-  // Sort by date descending
   reports.sort((a, b) => b.date.localeCompare(a.date));
   return reports;
 }
 
 /**
- * Read a specific report by date (checks new dir first, then legacy)
+ * Read a specific report by date
  */
 export async function readNightShiftReport(rootDir, date) {
   const { readFile } = await import("fs/promises");
-
-  // New location first
-  const newPath = join(rootDir, ".paaw", "night-shift", "reports", `${date}.md`);
-  if (existsSync(newPath)) {
-    return await readFile(newPath, "utf-8");
-  }
-
-  // Legacy location
-  const legacyPath = join(rootDir, ".paaw", "overnight-reports", `${date}.md`);
-  if (existsSync(legacyPath)) {
-    return await readFile(legacyPath, "utf-8");
-  }
-
-  return null;
+  const filePath = join(rootDir, ".paaw", "night-shift", "reports", `${date}.md`);
+  if (!existsSync(filePath)) return null;
+  return await readFile(filePath, "utf-8");
 }
 
 /**
- * Delete a report by date (checks both locations)
+ * Delete a report by date
  */
 export async function deleteNightShiftReport(rootDir, date) {
   const { unlink } = await import("fs/promises");
-  let deleted = false;
-
-  const newPath = join(rootDir, ".paaw", "night-shift", "reports", `${date}.md`);
-  if (existsSync(newPath)) {
-    await unlink(newPath);
-    deleted = true;
-  }
-
-  const legacyPath = join(rootDir, ".paaw", "overnight-reports", `${date}.md`);
-  if (existsSync(legacyPath)) {
-    await unlink(legacyPath);
-    deleted = true;
-  }
-
-  return deleted;
+  const filePath = join(rootDir, ".paaw", "night-shift", "reports", `${date}.md`);
+  if (!existsSync(filePath)) return false;
+  await unlink(filePath);
+  return true;
 }
 
 // ── Helper: extract metadata from report content ──

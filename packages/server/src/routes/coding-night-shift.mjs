@@ -139,7 +139,7 @@ export default async function codingNightShiftRoute(req, res) {
       finalStatus.report = result.report;
       writeFileSync(join(nsDir, STATUS_FILE), JSON.stringify(finalStatus, null, 2));
 
-      // Also save report.md for backward compat
+      // Save latest report for quick access
       writeFileSync(join(nsDir, REPORT_FILE), result.report, "utf-8");
 
       console.log(`[NightShift] Complete in ${finalStatus.duration}ms (mode: ${mode})`);
