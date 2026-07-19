@@ -32,15 +32,6 @@ interface ChatAction {
   findingIndex?: number; // specific finding to highlight
 }
 
-interface ActionLogEntry {
-  ts: string;
-  agent: string;
-  action: string;
-  summary: string;
-  result: string;
-  priority?: string;
-}
-
 interface CodeScoreItem {
   name: string;
   status: string;
@@ -222,8 +213,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   // ── Project Status ──
   // Project status state removed — was only for git/unpushed display
-  const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
-  const [report, setReport] = useState<string | null>(null);
+  // actionLog/report state removed — Night Shift tab handles both
   const [emRunning, setEmRunning] = useState(false);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
@@ -323,15 +313,12 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
     if (!rootPath) return;
     setCodeStatusLoading(true);
     // Fire all requests in parallel
-    const [logRes, codeRes, reportRes] = await Promise.allSettled([
-      fetch(`${API_BASE}/api/coding-crew/action-log?limit=15`).then(r => r.json()),
+    const [codeRes] = await Promise.allSettled([
       fetch(`${API_BASE}/api/coding-project/status?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
-      fetch(`${API_BASE}/api/coding-crew/overnight-report?path=${encodeURIComponent(rootPath)}`).then(r => r.json()),
     ]);
-    if (logRes.status === "fulfilled") setActionLog(logRes.value.entries || []);
+    // codeRes intentionally ignored — just keeping the pattern for future use
     if (codeRes.status === "fulfilled") setCodeStatus(codeRes.value);
     setCodeStatusLoading(false);
-    if (reportRes.status === "fulfilled") setReport(reportRes.value.exists ? reportRes.value.report : null);
   }, [rootPath]);
 
   useEffect(() => { refreshData(); }, [refreshData]);
@@ -615,10 +602,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               }
             }
 
-            // report content
-            if (d.report) {
-              setReport(d.report);
-            }
+            // report content — now in Night Shift tab, not displayed here
 
             // ── Legacy CU step events (security-scan, code-intelligence, etc.) ──
             if (d.step && d.message && d.summary === undefined) {
@@ -975,116 +959,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           )}
         </div>
 
-        {/* ── Agent Activity (Action Log) ── */}
-        <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
-              <span>⚡</span> Agent Activity
-            </h3>
-            <button onClick={refreshData} className="text-sm text-stone-400 hover:text-stone-600">↻</button>
-          </div>
-          {actionLog.length === 0 ? (
-            <p className="text-sm text-stone-400 py-2">尚無 agent 活動紀錄</p>
-          ) : (
-            <div className="space-y-1.5">
-              {actionLog.slice(0, 10).map((entry, i) => (
-                <div key={i} className="flex items-start gap-2 text-sm">
-                  <span className="text-stone-300 shrink-0">{entry.ts?.slice(11, 16) || "--:--"}</span>
-                  <span className="shrink-0 font-semibold" style={{
-                    color: entry.agent === "architect" ? "#DC2626" :
-                           entry.agent === "developer" ? "#0891B2" :
-                           entry.agent === "tester" ? "#BE185D" :
-                           entry.agent === "doc-writer" ? "#D97706" :
-                           entry.agent === "qa" ? "#059669" :
-                           entry.agent === "em" ? "#6D28D9" :
-                           "#78716C"
-                  }}>
-                    {entry.agent}
-                  </span>
-                  <span className="text-stone-600 truncate flex-1" title={entry.summary}>{entry.summary}</span>
-                  <span className="shrink-0 text-stone-300">[{entry.result}]</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── Overnight Report ── */}
-        <div className="px-4 py-3 border-b" style={{ borderColor: tk.borderLight }}>
-          <h3 className="text-sm font-bold text-stone-700 mb-2 flex items-center gap-1.5">
-            <span>📅</span> 隔天報告
-          </h3>
-          {report ? (
-            <details open>
-              <summary className="text-sm text-amber-700 cursor-pointer hover:text-amber-800">
-                {report.split("\n")[0]?.replace(/^#\s*/, "") || "View report"}
-              </summary>
-              <pre className="mt-2 text-sm text-stone-600 whitespace-pre-wrap max-h-60 overflow-y-auto bg-white rounded p-2 border" style={{ borderColor: tk.borderLight }}>
-                {report}
-              </pre>
-              {/* Post-report actions */}
-              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                <button
-                  onClick={async () => {
-                    if (!confirm('確認 Commit & Push 所有 agent 產生的變更？')) return;
-                    try {
-                      const addRes = await fetch(`${API_BASE}/api/vibe-git/add?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files: ["."] }) });
-                      const addData = await addRes.json();
-                      if (!addData.ok) { alert(`Stage failed: ${addData.error}`); return; }
-                      const commitRes = await fetch(`${API_BASE}/api/vibe-git/commit?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: `feat: EM auto dispatch ${new Date().toISOString().split("T")[0]}` }) });
-                      const commitData = await commitRes.json();
-                      if (!commitData.ok) { alert(`Commit failed: ${commitData.error}`); return; }
-                      const pushRes = await fetch(`${API_BASE}/api/vibe-git/push?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-                      const pushData = await pushRes.json();
-                      if (!pushData.ok) { alert(`Push failed: ${pushData.error}`); return; }
-                      alert(`✅ Pushed! ${pushData.output || pushData.message}`);
-                      refreshData();
-                    } catch (e: any) { alert(`❌ ${e.message}`); }
-                  }}
-                  className="text-xs px-3 py-1.5 rounded bg-purple-600 text-white hover:bg-purple-700 font-bold"
-                >⬆ Commit & Push</button>
-                {[['architect','🏗️'],['developer','💻'],['tester','🧪'],['doc-writer','📝'],['qa','🔍'],['helpdesk','🎫']].map(([agent,emoji]) => (
-                  <button
-                    key={agent}
-                    onClick={() => {
-                      const task = prompt(`${emoji} 叫 ${agent} 做什麼？`);
-                      if (!task) return;
-                      setMessages(prev => [...prev, { role: "user", content: `叫 ${agent} ${task}`, ts: new Date().toISOString() }]);
-                      // Dispatch via A2A
-                      (async () => {
-                        setLoading(true);
-                        try {
-                          const res = await fetch(`${API_BASE}/a2a/${agent}`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              jsonrpc: "2.0",
-                              method: "message/send",
-                              params: {
-                                message: { role: "user", parts: [{ type: "text", text: task }] },
-                                context: { cwd: rootPath },
-                              },
-                              id: `em-dispatch-${agent}-${Date.now()}`,
-                            }),
-                          });
-                          const data = await res.json();
-                          const content = data.result?.artifacts?.flatMap((a: any) => (a.parts || []).filter((p: any) => p.type === "text" || p.kind === "text").map((p: any) => p.text)).join("\n") || "(no output)";
-                          setMessages(prev => [...prev, { role: "assistant", content: `${emoji} **${agent}** 完成:\n${content.slice(0, 1000)}`, ts: new Date().toISOString() }]);
-                        } catch (e: any) {
-                          setMessages(prev => [...prev, { role: "assistant", content: `❌ ${agent} failed: ${e.message}`, ts: new Date().toISOString() }]);
-                        }
-                        setLoading(false);
-                      })();
-                    }}
-                    className="text-xs px-1.5 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200"
-                  >{emoji}</button>
-                ))}
-              </div>
-            </details>
-          ) : (
-            <p className="text-sm text-stone-400 py-2">尚無隔天報告。點「🚀 EM 自動調度」產生。</p>
-          )}
-        </div>
+        {/* Agent Activity + Overnight Report removed — Night Shift tab handles reports */}
 
         {/* ── 專案知識面板 (Project Knowledge) ── */}
         <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} />
