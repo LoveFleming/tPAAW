@@ -260,7 +260,7 @@
       "id": "ISS-017",
       "title": "Race condition: Force reset 與 async Night Shift run 的 status.json 競態",
       "priority": "high",
-      "status": "open",
+      "status": "resolved",
       "labels": [
         "bug",
         "race-condition",
@@ -269,14 +269,19 @@
       "description": "在 coding-night-shift.mjs 中，當使用者點擊 Force Reset 按鈕將 status 設為 \"interrupted\" 後，背景 async run 的 sendSSE callback 和 10-min timeout handler 仍然會繼續寫入 status.json，可能蓋回 \"running\" 或 \"failed\"。\n\n修復方向：在 sendSSE callback 和 timeout handler 中，寫入 status.json 前先檢查 currentStatus.status 是否仍為 \"running\"，若不是則直接 return。\n\n詳見 QA Code Review 2026-07-19 報告。",
       "featureId": "F-003",
       "createdAt": "2026-07-19T01:56:25.812Z",
-      "updatedAt": "2026-07-19T01:56:25.812Z",
-      "notes": []
+      "updatedAt": "2026-07-19T02:45:49.085Z",
+      "notes": [
+        {
+          "text": "Fixed in commit d8e5d73: Introduced updateStatusFile() atomic write helper that centralizes all status.json writes. All progress updates now check for \"interrupted\" state and refuse to clobber it. The /reset endpoint is respected.",
+          "date": "2026-07-19T02:45:49.085Z"
+        }
+      ]
     },
     {
       "id": "ISS-018",
       "title": "Legacy route /api/coding-crew/overnight-report 仍指向已不寫入的 .paaw/overnight-reports/",
       "priority": "high",
-      "status": "open",
+      "status": "resolved",
       "labels": [
         "bug",
         "regression",
@@ -285,8 +290,13 @@
       "description": "coding.mjs 第 839 行的 GET /api/coding-crew/overnight-report 路由仍然讀取 .paaw/overnight-reports/，但重構後的 night-shift-shared.mjs 已移除所有 backward compat 程式碼，報告統一寫入 .paaw/night-shift/reports/。\n\n影響：所有呼叫舊 API 的程式（如 EMDashboard 的 onOpenReportTab）都會返回 { exists: false }。\n\n修復方向：將此路由指向新的 .paaw/night-shift/reports/ 路徑，或移除該路由並導向 /api/coding-night-shift/report。",
       "featureId": "F-003",
       "createdAt": "2026-07-19T01:56:25.814Z",
-      "updatedAt": "2026-07-19T01:56:25.814Z",
-      "notes": []
+      "updatedAt": "2026-07-19T02:45:49.086Z",
+      "notes": [
+        {
+          "text": "Fixed in commit 9441c67: Removed dead legacy route /api/coding-crew/overnight-report from coding.mjs. It referenced non-existent .paaw/overnight-reports/ directory and called undefined sendJSON function. Frontend had zero references to this endpoint.",
+          "date": "2026-07-19T02:45:49.086Z"
+        }
+      ]
     },
     {
       "id": "ISS-019",
@@ -305,5 +315,5 @@
       "notes": []
     }
   ],
-  "updatedAt": "2026-07-19T01:56:25.814Z"
+  "updatedAt": "2026-07-19T02:45:49.086Z"
 }

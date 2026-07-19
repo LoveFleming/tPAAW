@@ -1355,6 +1355,31 @@
     },
     {
       "type": "function",
+      "name": "git",
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectRoot, args)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "buildChangeIntelligence",
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectRoot, options = {})",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "buildChangeIntelligence",
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
       "name": "buildCallGraph",
       "file": "packages/server/src/lib/code-intelligence.mjs",
       "kind": "function",
@@ -1547,10 +1572,76 @@
       "callCount": 0
     },
     {
+      "type": "function",
+      "name": "codeIntelligenceProvider",
+      "file": "packages/server/src/lib/context-providers.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "({ cwd } = {})",
+      "callCount": 0
+    },
+    {
       "type": "export",
       "name": "contextProviders",
       "file": "packages/server/src/lib/context-providers.mjs",
       "kind": "variable",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "_loadCI",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cwd)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getDependencyContext",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cwd, filePath)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getAffectedTests",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cwd, changedFiles)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getImpactSummary",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(cwd, filePath)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "getDependencyContext",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getAffectedTests",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "getImpactSummary",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "kind": "function",
       "isDefault": false
     },
     {
@@ -1683,6 +1774,129 @@
     },
     {
       "type": "function",
+      "name": "scanAllSourceFiles",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectRoot)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(dir)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "extractApiRoutes",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectRoot)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "scanRoutes",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(dir)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "validateFeatureMapping",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectRoot, features)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "checkCoverage",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectRoot, features)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "validateUnderstanding",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectRoot, feature, parsedProject)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "runFullValidation",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectRoot, options = {})",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "scanAllSourceFiles",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "extractApiRoutes",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "validateFeatureMapping",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "checkCoverage",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "validateUnderstanding",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "runFullValidation",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "checkImports",
+      "file": "packages/server/src/lib/import-check.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "resolveDefaultModel",
       "file": "packages/server/src/lib/llm-utils.mjs",
       "kind": "function",
@@ -1772,6 +1986,15 @@
       "callCount": 0
     },
     {
+      "type": "function",
+      "name": "_writeLlmLog",
+      "file": "packages/server/src/lib/llm-utils.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(entry)",
+      "callCount": 0
+    },
+    {
       "type": "export",
       "name": "resolveDefaultModel",
       "file": "packages/server/src/lib/llm-utils.mjs",
@@ -1815,6 +2038,161 @@
     },
     {
       "type": "function",
+      "name": "gatherContext",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(rootDir, sinceDate)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "getFeatureSummaryText",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(rootDir)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "buildSituationReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(ctx)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "refreshFeatureMapping",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projRoot, modelOverride, fallbackModels = [], sendSSE)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "callWithFallback",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(body, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "validateFeatureMap",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projRoot, sendSSE)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "saveNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(rootDir, report, mode = \"em\")",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "listNightShiftReports",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(rootDir)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(rootDir, date)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "deleteNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(rootDir, date)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "extractReportMetadata",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(content)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "gatherContext",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "buildSituationReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "refreshFeatureMapping",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "validateFeatureMap",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "saveNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "listNightShiftReports",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "readNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "deleteNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "function",
       "name": "a2aCallAgent",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "kind": "function",
@@ -1824,29 +2202,29 @@
     },
     {
       "type": "function",
-      "name": "gatherContext",
-      "file": "packages/server/src/lib/overnight-manager.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(rootDir)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "buildSituationReport",
-      "file": "packages/server/src/lib/overnight-manager.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(ctx)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
       "name": "planWorkList",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "kind": "function",
       "async": true,
-      "params": "(situationReport, rootDir)",
+      "params": "(situationReport, rootDir, modelOverride, fallbackModels = [])",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "callWithFallback",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(body, opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "runPhase0",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(rootDir, modelOverride, fallbackModels, sendSSE)",
       "callCount": 0
     },
     {
@@ -1860,7 +2238,16 @@
     },
     {
       "type": "function",
-      "name": "generateReport",
+      "name": "runParallelSession",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(opts = {})",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "generateEMReport",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "kind": "function",
       "async": false,
@@ -1869,11 +2256,20 @@
     },
     {
       "type": "function",
-      "name": "saveReport",
+      "name": "generateParallelReport",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(agentResults, ctx)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "runNightShift",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "kind": "function",
       "async": true,
-      "params": "(rootDir, report)",
+      "params": "(opts = {})",
       "callCount": 0
     },
     {
@@ -1891,154 +2287,16 @@
       "isDefault": false
     },
     {
-      "type": "function",
-      "name": "loadProviderConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(rootDir)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "resolveLLMConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(rootDir, modelOverride)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "setAgentConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(cfg)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "runShell",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(command, cwd, timeoutMs = 30_000)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "executeTool",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(call, cwd, rootDir, onEvent, agentId)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "resolvePath",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p)",
-      "callCount": 2
-    },
-    {
-      "type": "function",
-      "name": "isPathAllowed",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(p, write = false)",
-      "callCount": 13
-    },
-    {
-      "type": "function",
-      "name": "startsWith",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(target, prefix)",
-      "callCount": 5
-    },
-    {
-      "type": "function",
-      "name": "callLLM",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(apiUrl, headers, model, messages, tools, stream = false, onEvent = null)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "buildSystemPrompt",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "({ cwd, skillMd, customPrompt, params, paawContext })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "runAgentLoop",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(config)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "runAgentLoopStream",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "async": true,
-      "params": "(config, res)",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "sendSSE",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(event, data)",
-      "callCount": 2
-    },
-    {
       "type": "export",
-      "name": "resolveLLMConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "name": "runParallelSession",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
       "kind": "function",
       "isDefault": false
     },
     {
       "type": "export",
-      "name": "setAgentConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "callLLM",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "runAgentLoop",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "kind": "function",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "runAgentLoopStream",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "name": "runNightShift",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
       "kind": "function",
       "isDefault": false
     },
@@ -2071,6 +2329,15 @@
     },
     {
       "type": "function",
+      "name": "countFiles",
+      "file": "packages/server/src/lib/paaw-project.mjs",
+      "kind": "arrow",
+      "async": true,
+      "params": "(dir)",
+      "callCount": 6
+    },
+    {
+      "type": "function",
       "name": "walk",
       "file": "packages/server/src/lib/paaw-project.mjs",
       "kind": "arrow",
@@ -2095,6 +2362,9 @@
         "constructor",
         "exists",
         "init",
+        "_migrateFlatFiles",
+        "_scanFiles",
+        "_resolvePath",
         "readFile",
         "writeFile",
         "loadContext",
@@ -2113,6 +2383,8 @@
         "addDecision",
         "logApiCall",
         "generateProjectOverview",
+        "getCuStatus",
+        "setCuStepStatus",
         "computeStatus",
         "listTree"
       ]
@@ -2268,6 +2540,60 @@
     },
     {
       "type": "function",
+      "name": "LOG",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(...args)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "LOG_ERR",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(...args)",
+      "callCount": 3
+    },
+    {
+      "type": "function",
+      "name": "safePath",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(p)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_semgrepEnv",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "scanSourceExtensions",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectRoot, maxDepth = 4)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "walk",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(dir, depth)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "detectRulePacks",
       "file": "packages/server/src/lib/semgrep-runner.mjs",
       "kind": "function",
@@ -2277,16 +2603,34 @@
     },
     {
       "type": "function",
-      "name": "has",
+      "name": "buildSemgrepCmd",
       "file": "packages/server/src/lib/semgrep-runner.mjs",
-      "kind": "arrow",
+      "kind": "function",
       "async": false,
-      "params": "(ext)",
-      "callCount": 2
+      "params": "(projectRoot, rulePacks, excludeArgs)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "buildFullScanCommand",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(projectRoot)",
+      "callCount": 0
     },
     {
       "type": "function",
       "name": "isSemgrepAvailable",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "diagnoseSemgrep",
       "file": "packages/server/src/lib/semgrep-runner.mjs",
       "kind": "function",
       "async": false,
@@ -2322,7 +2666,28 @@
     },
     {
       "type": "export",
+      "name": "detectRulePacks",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "buildFullScanCommand",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
       "name": "isSemgrepAvailable",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "function",
+      "isDefault": false
+    },
+    {
+      "type": "export",
+      "name": "diagnoseSemgrep",
       "file": "packages/server/src/lib/semgrep-runner.mjs",
       "kind": "function",
       "isDefault": false
@@ -2347,6 +2712,18 @@
       "file": "packages/server/src/lib/semgrep-runner.mjs",
       "kind": "function",
       "isDefault": false
+    },
+    {
+      "type": "component",
+      "name": "LOG",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "arrow"
+    },
+    {
+      "type": "component",
+      "name": "LOG_ERR",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "kind": "arrow"
     },
     {
       "type": "class",
@@ -2375,6 +2752,40 @@
       "name": "JsonTaskPersistence",
       "file": "packages/server/src/lib/task-persistence.mjs",
       "kind": "class",
+      "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "classifyTestType",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(fileName, filePath, content = \"\")",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "findTestedFunctions",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(testFile, productionFile)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "buildTestIntelligence",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(projectRoot, paawRoot)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "buildTestIntelligence",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "kind": "function",
       "isDefault": false
     },
     {
@@ -2465,6 +2876,15 @@
       "file": "packages/server/src/lib/tool-engine/index.mjs",
       "kind": "function",
       "isDefault": false
+    },
+    {
+      "type": "function",
+      "name": "_llmLog",
+      "file": "packages/server/src/lib/tool-engine/provider.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(entry)",
+      "callCount": 0
     },
     {
       "type": "function",
@@ -2649,6 +3069,15 @@
       "kind": "function",
       "async": true,
       "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "cleanConversationHistory",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(conversationHistory)",
       "callCount": 0
     },
     {
@@ -2857,24 +3286,6 @@
       "async": true,
       "params": "(req, res)",
       "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "estimateTokens",
-      "file": "packages/server/src/routes/a2a.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(text)",
-      "callCount": 1
-    },
-    {
-      "type": "function",
-      "name": "estimateTokens",
-      "file": "packages/server/src/routes/a2a.mjs",
-      "kind": "arrow",
-      "async": false,
-      "params": "(text)",
-      "callCount": 1
     },
     {
       "type": "function",
@@ -3595,6 +4006,40 @@
     },
     {
       "type": "function",
+      "name": "sendJSON",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(res, code, data)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "parsePath",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(req)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "codingHealthRoute",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(req, res)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "codingHealthRoute",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "function",
       "name": "parseQuery",
       "file": "packages/server/src/routes/coding-issues.mjs",
       "kind": "function",
@@ -3708,38 +4153,112 @@
     },
     {
       "type": "function",
-      "name": "execAsync",
-      "file": "packages/server/src/routes/coding-night-shift.mjs",
-      "kind": "function",
-      "async": false,
-      "params": "(cmd, opts = {})",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "getTodayChanges",
-      "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "name": "getConfig",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
       "kind": "function",
       "async": true,
-      "params": "(cwd)",
+      "params": "(rootDir)",
       "callCount": 0
     },
     {
       "type": "function",
-      "name": "getFeatureSummaryText",
-      "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "name": "saveConfig",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
       "kind": "function",
-      "async": false,
-      "params": "(cwd)",
+      "async": true,
+      "params": "(rootDir, config)",
       "callCount": 0
     },
     {
       "type": "function",
-      "name": "loadCrewMember",
+      "name": "nightShiftConfigRoutes",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(req, res)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "nightShiftConfigRoutes",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-night-shift/config",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "method": "GET",
+      "path": "/api/coding-night-shift/config"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-night-shift/config",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "method": "POST",
+      "path": "/api/coding-night-shift/config"
+    },
+    {
+      "type": "function",
+      "name": "getPromptsFile",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(rootDir)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "nightShiftPromptsRoutes",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(req, res)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "nightShiftPromptsRoutes",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "export",
+      "name": "getPromptsFile",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "kind": "named",
+      "isDefault": false
+    },
+    {
+      "type": "route",
+      "name": "GET /api/coding-night-shift/prompts",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "method": "GET",
+      "path": "/api/coding-night-shift/prompts"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-night-shift/prompts",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "method": "POST",
+      "path": "/api/coding-night-shift/prompts"
+    },
+    {
+      "type": "route",
+      "name": "POST /api/coding-night-shift/prompts/reset",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "method": "POST",
+      "path": "/api/coding-night-shift/prompts/reset"
+    },
+    {
+      "type": "function",
+      "name": "updateStatusFile",
       "file": "packages/server/src/routes/coding-night-shift.mjs",
       "kind": "function",
       "async": false,
-      "params": "(cwd, crewId)",
+      "params": "(statusPath, mutator)",
       "callCount": 0
     },
     {
@@ -3770,9 +4289,43 @@
       "callCount": 3
     },
     {
+      "type": "function",
+      "name": "sendSSE",
+      "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(type, data)",
+      "callCount": 4
+    },
+    {
       "type": "export",
       "name": "codingNightShiftRoute",
       "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "function",
+      "name": "codingReportsRoutes",
+      "file": "packages/server/src/routes/coding-reports.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(req, res)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "sendJSON",
+      "file": "packages/server/src/routes/coding-reports.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(code, data)",
+      "callCount": 3
+    },
+    {
+      "type": "export",
+      "name": "codingReportsRoutes",
+      "file": "packages/server/src/routes/coding-reports.mjs",
       "kind": "function",
       "isDefault": true
     },
@@ -4310,6 +4863,76 @@
     },
     {
       "type": "function",
+      "name": "ensureLogDir",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "_callerToAgentId",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(caller)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "parseLogs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(dateStr)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "parseAllLogs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(days = 7)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "pairLogs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "async": false,
+      "params": "(logs)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "llmLogsRoute",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(req, res)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "readBody",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "async": true,
+      "params": "(req)",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "llmLogsRoute",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "function",
       "name": "getSystemPrompt",
       "file": "packages/server/src/routes/mindmap.mjs",
       "kind": "function",
@@ -4840,13 +5463,6 @@
     {
       "type": "export",
       "name": "SKILLS_ROOT",
-      "file": "packages/server/src/routes/shared.mjs",
-      "kind": "named",
-      "isDefault": false
-    },
-    {
-      "type": "export",
-      "name": "DOCS_ROOT",
       "file": "packages/server/src/routes/shared.mjs",
       "kind": "named",
       "isDefault": false
@@ -5699,6 +6315,15 @@
     },
     {
       "type": "function",
+      "name": "_issuesFile",
+      "file": "packages/server/src/tools/index.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(cwd)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
       "name": "loadWorkspaces",
       "file": "packages/server/src/tools/index.mjs",
       "kind": "function",
@@ -6467,8 +7092,8 @@
       "file": "packages/ui/src/components/ChatMessages.tsx",
       "kind": "arrow",
       "async": false,
-      "params": "({\n  messages,\n  accent = \"#10b981\",\n  accentHover,\n  assistantName = \"AI\",\n  userName = \"你\",\n  assistantAvatar,\n  assistantEmoji,\n  loading = false,\n  activeTools = [],\n  userMarkdown = false,\n  onDeepLink,\n  endRef,\n  className = \"\",\n})",
-      "callCount": 5
+      "params": "({\n  messages,\n  accent = \"#10b981\",\n  accentHover,\n  assistantName = \"AI\",\n  userName = \"你\",\n  assistantAvatar,\n  assistantEmoji,\n  loading = false,\n  activeTools = [],\n  agentAction = \"\",\n  userMarkdown = false,\n  onDeepLink,\n  endRef,\n  className = \"\",\n})",
+      "callCount": 6
     },
     {
       "type": "export",
@@ -6674,8 +7299,17 @@
       "file": "packages/ui/src/components/EMDashboard.tsx",
       "kind": "function",
       "async": false,
-      "params": "({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew }: EMDashboardProps)",
+      "params": "({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenReportTab, model, onModelChange }: EMDashboardProps)",
       "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "startNightShift",
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "()",
+      "callCount": 56
     },
     {
       "type": "function",
@@ -6684,7 +7318,7 @@
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 40
+      "callCount": 64
     },
     {
       "type": "function",
@@ -6693,20 +7327,11 @@
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 28
+      "callCount": 66
     },
     {
       "type": "function",
-      "name": "StatusRow",
-      "file": "packages/ui/src/components/EMDashboard.tsx",
-      "kind": "function",
-      "async": false,
-      "params": "({ icon, label, value, ok }: { icon: string; label: string; value: string; ok?: boolean })",
-      "callCount": 0
-    },
-    {
-      "type": "function",
-      "name": "HandoffStatusPanel",
+      "name": "ProjectKnowledgePanel",
       "file": "packages/ui/src/components/EMDashboard.tsx",
       "kind": "function",
       "async": false,
@@ -6720,7 +7345,7 @@
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 9
+      "callCount": 12
     },
     {
       "type": "export",
@@ -6737,13 +7362,7 @@
     },
     {
       "type": "component",
-      "name": "StatusRow",
-      "file": "packages/ui/src/components/EMDashboard.tsx",
-      "kind": "function"
-    },
-    {
-      "type": "component",
-      "name": "HandoffStatusPanel",
+      "name": "ProjectKnowledgePanel",
       "file": "packages/ui/src/components/EMDashboard.tsx",
       "kind": "function"
     },
@@ -7492,6 +8111,68 @@
     },
     {
       "type": "function",
+      "name": "formatDuration",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(ms: number | null)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "formatTokens",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "(n: number)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "LlmLogTab",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "()",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "LlmLogTab",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "component",
+      "name": "LlmLogTab",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "function",
+      "name": "MarkdownText",
+      "file": "packages/ui/src/components/MarkdownText.tsx",
+      "kind": "function",
+      "async": false,
+      "params": "({ children, className = \"\" }: { children: string; className?: string })",
+      "callCount": 0
+    },
+    {
+      "type": "export",
+      "name": "MarkdownText",
+      "file": "packages/ui/src/components/MarkdownText.tsx",
+      "kind": "function",
+      "isDefault": true
+    },
+    {
+      "type": "component",
+      "name": "MarkdownText",
+      "file": "packages/ui/src/components/MarkdownText.tsx",
+      "kind": "function"
+    },
+    {
+      "type": "function",
       "name": "ensurePrefsLoaded",
       "file": "packages/ui/src/components/ModelSelector.tsx",
       "kind": "function",
@@ -7617,17 +8298,17 @@
       "file": "packages/ui/src/components/NightShiftPanel.tsx",
       "kind": "function",
       "async": false,
-      "params": "({ theme }: { theme: any })",
+      "params": "({ theme, rootPath, model }: { theme: any; rootPath?: string; model?: string })",
       "callCount": 0
     },
     {
       "type": "function",
-      "name": "fetchStatus",
+      "name": "fetchConfig",
       "file": "packages/ui/src/components/NightShiftPanel.tsx",
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 7
+      "callCount": 5
     },
     {
       "type": "function",
@@ -7636,7 +8317,34 @@
       "kind": "arrow",
       "async": true,
       "params": "()",
-      "callCount": 7
+      "callCount": 10
+    },
+    {
+      "type": "function",
+      "name": "deleteReport",
+      "file": "packages/ui/src/components/NightShiftPanel.tsx",
+      "kind": "arrow",
+      "async": true,
+      "params": "(date: string, e: React.MouseEvent)",
+      "callCount": 8
+    },
+    {
+      "type": "function",
+      "name": "formatDate",
+      "file": "packages/ui/src/components/NightShiftPanel.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(iso: string)",
+      "callCount": 1
+    },
+    {
+      "type": "function",
+      "name": "formatSize",
+      "file": "packages/ui/src/components/NightShiftPanel.tsx",
+      "kind": "arrow",
+      "async": false,
+      "params": "(bytes: number)",
+      "callCount": 2
     },
     {
       "type": "export",
@@ -11735,6 +12443,51 @@
     },
     {
       "type": "function",
+      "name": "compute",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(maxTurns, agentCfg)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "compute",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(timeout, agentCfg)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "testLoop",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(effectiveMaxTurns)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "testLoop",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(effectiveMaxTurns)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
+      "name": "testLoop",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "kind": "arrow",
+      "async": false,
+      "params": "(effectiveMaxTurns)",
+      "callCount": 0
+    },
+    {
+      "type": "function",
       "name": "readFileFrom",
       "file": "tests/unit/ai-settings.test.mjs",
       "kind": "function",
@@ -11780,24 +12533,6 @@
         "async": false,
         "params": "(text: string)",
         "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "estimateTokens",
-        "file": "packages/server/src/routes/a2a.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(text)",
-        "callCount": 1
-      },
-      {
-        "type": "function",
-        "name": "estimateTokens",
-        "file": "packages/server/src/routes/a2a.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(text)",
-        "callCount": 1
       }
     ],
     "truncateToTokens": [
@@ -12996,15 +13731,6 @@
       {
         "type": "function",
         "name": "loadProviderConfig",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(rootDir)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "loadProviderConfig",
         "file": "packages/server/src/routes/mindmap.mjs",
         "kind": "function",
         "async": false,
@@ -13316,6 +14042,15 @@
       {
         "type": "function",
         "name": "readBody",
+        "file": "packages/server/src/routes/llm-logs.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(req)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "readBody",
         "file": "packages/server/src/routes/shared.mjs",
         "kind": "function",
         "async": false,
@@ -13592,6 +14327,35 @@
         "path": "/api/update/status"
       }
     ],
+    "git": [
+      {
+        "type": "function",
+        "name": "git",
+        "file": "packages/server/src/lib/change-intelligence.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectRoot, args)",
+        "callCount": 0
+      }
+    ],
+    "buildChangeIntelligence": [
+      {
+        "type": "function",
+        "name": "buildChangeIntelligence",
+        "file": "packages/server/src/lib/change-intelligence.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectRoot, options = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildChangeIntelligence",
+        "file": "packages/server/src/lib/change-intelligence.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
     "buildCallGraph": [
       {
         "type": "function",
@@ -13806,12 +14570,88 @@
         "callCount": 0
       }
     ],
+    "codeIntelligenceProvider": [
+      {
+        "type": "function",
+        "name": "codeIntelligenceProvider",
+        "file": "packages/server/src/lib/context-providers.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "({ cwd } = {})",
+        "callCount": 0
+      }
+    ],
     "contextProviders": [
       {
         "type": "export",
         "name": "contextProviders",
         "file": "packages/server/src/lib/context-providers.mjs",
         "kind": "variable",
+        "isDefault": false
+      }
+    ],
+    "_loadCI": [
+      {
+        "type": "function",
+        "name": "_loadCI",
+        "file": "packages/server/src/lib/dependency-context.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cwd)",
+        "callCount": 0
+      }
+    ],
+    "getDependencyContext": [
+      {
+        "type": "function",
+        "name": "getDependencyContext",
+        "file": "packages/server/src/lib/dependency-context.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cwd, filePath)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getDependencyContext",
+        "file": "packages/server/src/lib/dependency-context.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "getAffectedTests": [
+      {
+        "type": "function",
+        "name": "getAffectedTests",
+        "file": "packages/server/src/lib/dependency-context.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cwd, changedFiles)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getAffectedTests",
+        "file": "packages/server/src/lib/dependency-context.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "getImpactSummary": [
+      {
+        "type": "function",
+        "name": "getImpactSummary",
+        "file": "packages/server/src/lib/dependency-context.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(cwd, filePath)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getImpactSummary",
+        "file": "packages/server/src/lib/dependency-context.mjs",
+        "kind": "function",
         "isDefault": false
       }
     ],
@@ -13954,15 +14794,6 @@
       {
         "type": "function",
         "name": "buildSystemPrompt",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "({ cwd, skillMd, customPrompt, params, paawContext })",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "buildSystemPrompt",
         "file": "packages/ui/src/types/index.ts",
         "kind": "function",
         "async": false,
@@ -13984,6 +14815,183 @@
         "file": "packages/server/src/lib/domain-agent-registry.mjs",
         "kind": "named",
         "isDefault": false
+      }
+    ],
+    "scanAllSourceFiles": [
+      {
+        "type": "function",
+        "name": "scanAllSourceFiles",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectRoot)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "scanAllSourceFiles",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "walk": [
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(dir)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/server/src/lib/paaw-project.mjs",
+        "kind": "arrow",
+        "async": true,
+        "params": "(dirPath, parentNode, depth = 0)",
+        "callCount": 9
+      },
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(dir, depth)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/ui/src/components/JsonViewer.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(v: unknown, path: string)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "walk",
+        "file": "packages/ui/src/components/JsonViewer.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(v: unknown, p: string)",
+        "callCount": 0
+      }
+    ],
+    "extractApiRoutes": [
+      {
+        "type": "function",
+        "name": "extractApiRoutes",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectRoot)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "extractApiRoutes",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "scanRoutes": [
+      {
+        "type": "function",
+        "name": "scanRoutes",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(dir)",
+        "callCount": 0
+      }
+    ],
+    "validateFeatureMapping": [
+      {
+        "type": "function",
+        "name": "validateFeatureMapping",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectRoot, features)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "validateFeatureMapping",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "checkCoverage": [
+      {
+        "type": "function",
+        "name": "checkCoverage",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectRoot, features)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "checkCoverage",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "validateUnderstanding": [
+      {
+        "type": "function",
+        "name": "validateUnderstanding",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectRoot, feature, parsedProject)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "validateUnderstanding",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "runFullValidation": [
+      {
+        "type": "function",
+        "name": "runFullValidation",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectRoot, options = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "runFullValidation",
+        "file": "packages/server/src/lib/feature-map-validator.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "checkImports": [
+      {
+        "type": "function",
+        "name": "checkImports",
+        "file": "packages/server/src/lib/import-check.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "()",
+        "callCount": 0
       }
     ],
     "resolveDefaultModel": [
@@ -14138,6 +15146,203 @@
         "isDefault": false
       }
     ],
+    "_writeLlmLog": [
+      {
+        "type": "function",
+        "name": "_writeLlmLog",
+        "file": "packages/server/src/lib/llm-utils.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(entry)",
+        "callCount": 0
+      }
+    ],
+    "gatherContext": [
+      {
+        "type": "function",
+        "name": "gatherContext",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(rootDir, sinceDate)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "gatherContext",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "getFeatureSummaryText": [
+      {
+        "type": "function",
+        "name": "getFeatureSummaryText",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(rootDir)",
+        "callCount": 0
+      }
+    ],
+    "buildSituationReport": [
+      {
+        "type": "function",
+        "name": "buildSituationReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(ctx)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildSituationReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "refreshFeatureMapping": [
+      {
+        "type": "function",
+        "name": "refreshFeatureMapping",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projRoot, modelOverride, fallbackModels = [], sendSSE)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "refreshFeatureMapping",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "callWithFallback": [
+      {
+        "type": "function",
+        "name": "callWithFallback",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(body, opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "callWithFallback",
+        "file": "packages/server/src/lib/overnight-manager.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(body, opts = {})",
+        "callCount": 0
+      }
+    ],
+    "validateFeatureMap": [
+      {
+        "type": "function",
+        "name": "validateFeatureMap",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projRoot, sendSSE)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "validateFeatureMap",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "saveNightShiftReport": [
+      {
+        "type": "function",
+        "name": "saveNightShiftReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(rootDir, report, mode = \"em\")",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "saveNightShiftReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "listNightShiftReports": [
+      {
+        "type": "function",
+        "name": "listNightShiftReports",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(rootDir)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "listNightShiftReports",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "readNightShiftReport": [
+      {
+        "type": "function",
+        "name": "readNightShiftReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(rootDir, date)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "readNightShiftReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "deleteNightShiftReport": [
+      {
+        "type": "function",
+        "name": "deleteNightShiftReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(rootDir, date)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "deleteNightShiftReport",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "extractReportMetadata": [
+      {
+        "type": "function",
+        "name": "extractReportMetadata",
+        "file": "packages/server/src/lib/night-shift-shared.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(content)",
+        "callCount": 0
+      }
+    ],
     "a2aCallAgent": [
       {
         "type": "function",
@@ -14156,28 +15361,6 @@
         "isDefault": false
       }
     ],
-    "gatherContext": [
-      {
-        "type": "function",
-        "name": "gatherContext",
-        "file": "packages/server/src/lib/overnight-manager.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(rootDir)",
-        "callCount": 0
-      }
-    ],
-    "buildSituationReport": [
-      {
-        "type": "function",
-        "name": "buildSituationReport",
-        "file": "packages/server/src/lib/overnight-manager.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(ctx)",
-        "callCount": 0
-      }
-    ],
     "planWorkList": [
       {
         "type": "function",
@@ -14185,7 +15368,18 @@
         "file": "packages/server/src/lib/overnight-manager.mjs",
         "kind": "function",
         "async": true,
-        "params": "(situationReport, rootDir)",
+        "params": "(situationReport, rootDir, modelOverride, fallbackModels = [])",
+        "callCount": 0
+      }
+    ],
+    "runPhase0": [
+      {
+        "type": "function",
+        "name": "runPhase0",
+        "file": "packages/server/src/lib/overnight-manager.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(rootDir, modelOverride, fallbackModels, sendSSE)",
         "callCount": 0
       }
     ],
@@ -14207,10 +15401,28 @@
         "isDefault": false
       }
     ],
-    "generateReport": [
+    "runParallelSession": [
       {
         "type": "function",
-        "name": "generateReport",
+        "name": "runParallelSession",
+        "file": "packages/server/src/lib/overnight-manager.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(opts = {})",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "runParallelSession",
+        "file": "packages/server/src/lib/overnight-manager.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "generateEMReport": [
+      {
+        "type": "function",
+        "name": "generateEMReport",
         "file": "packages/server/src/lib/overnight-manager.mjs",
         "kind": "function",
         "async": false,
@@ -14218,216 +15430,33 @@
         "callCount": 0
       }
     ],
-    "saveReport": [
+    "generateParallelReport": [
       {
         "type": "function",
-        "name": "saveReport",
+        "name": "generateParallelReport",
+        "file": "packages/server/src/lib/overnight-manager.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(agentResults, ctx)",
+        "callCount": 0
+      }
+    ],
+    "runNightShift": [
+      {
+        "type": "function",
+        "name": "runNightShift",
         "file": "packages/server/src/lib/overnight-manager.mjs",
         "kind": "function",
         "async": true,
-        "params": "(rootDir, report)",
-        "callCount": 0
-      }
-    ],
-    "resolveLLMConfig": [
-      {
-        "type": "function",
-        "name": "resolveLLMConfig",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(rootDir, modelOverride)",
+        "params": "(opts = {})",
         "callCount": 0
       },
       {
         "type": "export",
-        "name": "resolveLLMConfig",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+        "name": "runNightShift",
+        "file": "packages/server/src/lib/overnight-manager.mjs",
         "kind": "function",
         "isDefault": false
-      }
-    ],
-    "setAgentConfig": [
-      {
-        "type": "function",
-        "name": "setAgentConfig",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(cfg)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "setAgentConfig",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "isDefault": false
-      }
-    ],
-    "runShell": [
-      {
-        "type": "function",
-        "name": "runShell",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(command, cwd, timeoutMs = 30_000)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "runShell",
-        "file": "packages/server/src/lib/paaw-project.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(command, cwd, timeoutMs = 10_000)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "runShell",
-        "file": "packages/server/src/lib/paaw-snapshot.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(command, cwd, timeoutMs = 10_000)",
-        "callCount": 0
-      }
-    ],
-    "executeTool": [
-      {
-        "type": "function",
-        "name": "executeTool",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(call, cwd, rootDir, onEvent, agentId)",
-        "callCount": 0
-      }
-    ],
-    "resolvePath": [
-      {
-        "type": "function",
-        "name": "resolvePath",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p)",
-        "callCount": 2
-      }
-    ],
-    "isPathAllowed": [
-      {
-        "type": "function",
-        "name": "isPathAllowed",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(p, write = false)",
-        "callCount": 13
-      }
-    ],
-    "startsWith": [
-      {
-        "type": "function",
-        "name": "startsWith",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(target, prefix)",
-        "callCount": 5
-      }
-    ],
-    "callLLM": [
-      {
-        "type": "function",
-        "name": "callLLM",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(apiUrl, headers, model, messages, tools, stream = false, onEvent = null)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "callLLM",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "isDefault": false
-      },
-      {
-        "type": "function",
-        "name": "callLLM",
-        "file": "packages/server/src/routes/distill.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(systemPrompt, userPrompt, maxTokens = 4096, modelOverride)",
-        "callCount": 0
-      }
-    ],
-    "runAgentLoop": [
-      {
-        "type": "function",
-        "name": "runAgentLoop",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(config)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "runAgentLoop",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "isDefault": false
-      },
-      {
-        "type": "function",
-        "name": "runAgentLoop",
-        "file": "packages/server/src/routes/a2a.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "({ message, systemPrompt, onChunk })",
-        "callCount": 0
-      }
-    ],
-    "runAgentLoopStream": [
-      {
-        "type": "function",
-        "name": "runAgentLoopStream",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "async": true,
-        "params": "(config, res)",
-        "callCount": 0
-      },
-      {
-        "type": "export",
-        "name": "runAgentLoopStream",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "function",
-        "isDefault": false
-      }
-    ],
-    "sendSSE": [
-      {
-        "type": "function",
-        "name": "sendSSE",
-        "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(event, data)",
-        "callCount": 2
-      },
-      {
-        "type": "function",
-        "name": "sendSSE",
-        "file": "packages/server/src/routes/crew.mjs",
-        "kind": "arrow",
-        "async": false,
-        "params": "(obj)",
-        "callCount": 2
       }
     ],
     "today": [
@@ -14452,33 +15481,35 @@
         "callCount": 0
       }
     ],
-    "walk": [
+    "runShell": [
       {
         "type": "function",
-        "name": "walk",
+        "name": "runShell",
+        "file": "packages/server/src/lib/paaw-project.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(command, cwd, timeoutMs = 10_000)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "runShell",
+        "file": "packages/server/src/lib/paaw-snapshot.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(command, cwd, timeoutMs = 10_000)",
+        "callCount": 0
+      }
+    ],
+    "countFiles": [
+      {
+        "type": "function",
+        "name": "countFiles",
         "file": "packages/server/src/lib/paaw-project.mjs",
         "kind": "arrow",
         "async": true,
-        "params": "(dirPath, parentNode, depth = 0)",
-        "callCount": 9
-      },
-      {
-        "type": "function",
-        "name": "walk",
-        "file": "packages/ui/src/components/JsonViewer.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(v: unknown, path: string)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "walk",
-        "file": "packages/ui/src/components/JsonViewer.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(v: unknown, p: string)",
-        "callCount": 0
+        "params": "(dir)",
+        "callCount": 6
       }
     ],
     "createPaawProject": [
@@ -14508,6 +15539,9 @@
           "constructor",
           "exists",
           "init",
+          "_migrateFlatFiles",
+          "_scanFiles",
+          "_resolvePath",
           "readFile",
           "writeFile",
           "loadContext",
@@ -14526,6 +15560,8 @@
           "addDecision",
           "logApiCall",
           "generateProjectOverview",
+          "getCuStatus",
+          "setCuStepStatus",
           "computeStatus",
           "listTree"
         ]
@@ -14676,6 +15712,73 @@
         "isDefault": false
       }
     ],
+    "LOG": [
+      {
+        "type": "function",
+        "name": "LOG",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(...args)",
+        "callCount": 3
+      },
+      {
+        "type": "component",
+        "name": "LOG",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "arrow"
+      }
+    ],
+    "LOG_ERR": [
+      {
+        "type": "function",
+        "name": "LOG_ERR",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(...args)",
+        "callCount": 3
+      },
+      {
+        "type": "component",
+        "name": "LOG_ERR",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "arrow"
+      }
+    ],
+    "safePath": [
+      {
+        "type": "function",
+        "name": "safePath",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(p)",
+        "callCount": 0
+      }
+    ],
+    "_semgrepEnv": [
+      {
+        "type": "function",
+        "name": "_semgrepEnv",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      }
+    ],
+    "scanSourceExtensions": [
+      {
+        "type": "function",
+        "name": "scanSourceExtensions",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectRoot, maxDepth = 4)",
+        "callCount": 0
+      }
+    ],
     "detectRulePacks": [
       {
         "type": "function",
@@ -14685,17 +15788,42 @@
         "async": false,
         "params": "(projectRoot)",
         "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "detectRulePacks",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "isDefault": false
       }
     ],
-    "has": [
+    "buildSemgrepCmd": [
       {
         "type": "function",
-        "name": "has",
+        "name": "buildSemgrepCmd",
         "file": "packages/server/src/lib/semgrep-runner.mjs",
-        "kind": "arrow",
+        "kind": "function",
         "async": false,
-        "params": "(ext)",
-        "callCount": 2
+        "params": "(projectRoot, rulePacks, excludeArgs)",
+        "callCount": 0
+      }
+    ],
+    "buildFullScanCommand": [
+      {
+        "type": "function",
+        "name": "buildFullScanCommand",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(projectRoot)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildFullScanCommand",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "isDefault": false
       }
     ],
     "isSemgrepAvailable": [
@@ -14711,6 +15839,24 @@
       {
         "type": "export",
         "name": "isSemgrepAvailable",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
+    "diagnoseSemgrep": [
+      {
+        "type": "function",
+        "name": "diagnoseSemgrep",
+        "file": "packages/server/src/lib/semgrep-runner.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "diagnoseSemgrep",
         "file": "packages/server/src/lib/semgrep-runner.mjs",
         "kind": "function",
         "isDefault": false
@@ -14833,6 +15979,46 @@
         "isDefault": false
       }
     ],
+    "classifyTestType": [
+      {
+        "type": "function",
+        "name": "classifyTestType",
+        "file": "packages/server/src/lib/test-intelligence.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(fileName, filePath, content = \"\")",
+        "callCount": 0
+      }
+    ],
+    "findTestedFunctions": [
+      {
+        "type": "function",
+        "name": "findTestedFunctions",
+        "file": "packages/server/src/lib/test-intelligence.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(testFile, productionFile)",
+        "callCount": 0
+      }
+    ],
+    "buildTestIntelligence": [
+      {
+        "type": "function",
+        "name": "buildTestIntelligence",
+        "file": "packages/server/src/lib/test-intelligence.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(projectRoot, paawRoot)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "buildTestIntelligence",
+        "file": "packages/server/src/lib/test-intelligence.mjs",
+        "kind": "function",
+        "isDefault": false
+      }
+    ],
     "looksLikeFakeToolCall": [
       {
         "type": "function",
@@ -14896,6 +16082,17 @@
         "kind": "function",
         "async": true,
         "params": "(toolName, args, result, registry)",
+        "callCount": 0
+      }
+    ],
+    "_llmLog": [
+      {
+        "type": "function",
+        "name": "_llmLog",
+        "file": "packages/server/src/lib/tool-engine/provider.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(entry)",
         "callCount": 0
       }
     ],
@@ -15002,6 +16199,17 @@
         "kind": "function",
         "async": true,
         "params": "()",
+        "callCount": 0
+      }
+    ],
+    "cleanConversationHistory": [
+      {
+        "type": "function",
+        "name": "cleanConversationHistory",
+        "file": "packages/server/src/routes/a2a.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(conversationHistory)",
         "callCount": 0
       }
     ],
@@ -15151,10 +16359,28 @@
       {
         "type": "function",
         "name": "sendJSON",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(res, code, data)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "sendJSON",
         "file": "packages/server/src/routes/coding-night-shift.mjs",
         "kind": "arrow",
         "async": false,
         "params": "(res, code, data)",
+        "callCount": 3
+      },
+      {
+        "type": "function",
+        "name": "sendJSON",
+        "file": "packages/server/src/routes/coding-reports.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(code, data)",
         "callCount": 3
       }
     ],
@@ -15299,6 +16525,17 @@
         "kind": "function",
         "async": false,
         "params": "(req)",
+        "callCount": 0
+      }
+    ],
+    "runAgentLoop": [
+      {
+        "type": "function",
+        "name": "runAgentLoop",
+        "file": "packages/server/src/routes/a2a.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "({ message, systemPrompt, onChunk })",
         "callCount": 0
       }
     ],
@@ -15995,6 +17232,15 @@
       {
         "type": "function",
         "name": "saveConfig",
+        "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(rootDir, config)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "saveConfig",
         "file": "packages/server/src/routes/distill.mjs",
         "kind": "function",
         "async": false,
@@ -16329,6 +17575,35 @@
         "callCount": 5
       }
     ],
+    "parsePath": [
+      {
+        "type": "function",
+        "name": "parsePath",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(req)",
+        "callCount": 0
+      }
+    ],
+    "codingHealthRoute": [
+      {
+        "type": "function",
+        "name": "codingHealthRoute",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(req, res)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "codingHealthRoute",
+        "file": "packages/server/src/routes/coding-health.mjs",
+        "kind": "function",
+        "isDefault": true
+      }
+    ],
     "loadIssues": [
       {
         "type": "function",
@@ -16420,47 +17695,124 @@
         "isDefault": true
       }
     ],
-    "execAsync": [
+    "getConfig": [
       {
         "type": "function",
-        "name": "execAsync",
-        "file": "packages/server/src/routes/coding-night-shift.mjs",
-        "kind": "function",
-        "async": false,
-        "params": "(cmd, opts = {})",
-        "callCount": 0
-      }
-    ],
-    "getTodayChanges": [
-      {
-        "type": "function",
-        "name": "getTodayChanges",
-        "file": "packages/server/src/routes/coding-night-shift.mjs",
+        "name": "getConfig",
+        "file": "packages/server/src/routes/coding-night-shift-config.mjs",
         "kind": "function",
         "async": true,
-        "params": "(cwd)",
+        "params": "(rootDir)",
         "callCount": 0
       }
     ],
-    "getFeatureSummaryText": [
+    "nightShiftConfigRoutes": [
       {
         "type": "function",
-        "name": "getFeatureSummaryText",
-        "file": "packages/server/src/routes/coding-night-shift.mjs",
+        "name": "nightShiftConfigRoutes",
+        "file": "packages/server/src/routes/coding-night-shift-config.mjs",
         "kind": "function",
-        "async": false,
-        "params": "(cwd)",
+        "async": true,
+        "params": "(req, res)",
         "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "nightShiftConfigRoutes",
+        "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+        "kind": "function",
+        "isDefault": true
       }
     ],
-    "loadCrewMember": [
+    "GET /api/coding-night-shift/config": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-night-shift/config",
+        "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+        "method": "GET",
+        "path": "/api/coding-night-shift/config"
+      }
+    ],
+    "POST /api/coding-night-shift/config": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-night-shift/config",
+        "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+        "method": "POST",
+        "path": "/api/coding-night-shift/config"
+      }
+    ],
+    "getPromptsFile": [
       {
         "type": "function",
-        "name": "loadCrewMember",
+        "name": "getPromptsFile",
+        "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(rootDir)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "getPromptsFile",
+        "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+        "kind": "named",
+        "isDefault": false
+      }
+    ],
+    "nightShiftPromptsRoutes": [
+      {
+        "type": "function",
+        "name": "nightShiftPromptsRoutes",
+        "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(req, res)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "nightShiftPromptsRoutes",
+        "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+        "kind": "function",
+        "isDefault": true
+      }
+    ],
+    "GET /api/coding-night-shift/prompts": [
+      {
+        "type": "route",
+        "name": "GET /api/coding-night-shift/prompts",
+        "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+        "method": "GET",
+        "path": "/api/coding-night-shift/prompts"
+      }
+    ],
+    "POST /api/coding-night-shift/prompts": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-night-shift/prompts",
+        "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+        "method": "POST",
+        "path": "/api/coding-night-shift/prompts"
+      }
+    ],
+    "POST /api/coding-night-shift/prompts/reset": [
+      {
+        "type": "route",
+        "name": "POST /api/coding-night-shift/prompts/reset",
+        "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+        "method": "POST",
+        "path": "/api/coding-night-shift/prompts/reset"
+      }
+    ],
+    "updateStatusFile": [
+      {
+        "type": "function",
+        "name": "updateStatusFile",
         "file": "packages/server/src/routes/coding-night-shift.mjs",
         "kind": "function",
         "async": false,
-        "params": "(cwd, crewId)",
+        "params": "(statusPath, mutator)",
         "callCount": 0
       }
     ],
@@ -16478,6 +17830,44 @@
         "type": "export",
         "name": "codingNightShiftRoute",
         "file": "packages/server/src/routes/coding-night-shift.mjs",
+        "kind": "function",
+        "isDefault": true
+      }
+    ],
+    "sendSSE": [
+      {
+        "type": "function",
+        "name": "sendSSE",
+        "file": "packages/server/src/routes/coding-night-shift.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(type, data)",
+        "callCount": 4
+      },
+      {
+        "type": "function",
+        "name": "sendSSE",
+        "file": "packages/server/src/routes/crew.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(obj)",
+        "callCount": 2
+      }
+    ],
+    "codingReportsRoutes": [
+      {
+        "type": "function",
+        "name": "codingReportsRoutes",
+        "file": "packages/server/src/routes/coding-reports.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(req, res)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "codingReportsRoutes",
+        "file": "packages/server/src/routes/coding-reports.mjs",
         "kind": "function",
         "isDefault": true
       }
@@ -16850,6 +18240,17 @@
         "isDefault": false
       }
     ],
+    "callLLM": [
+      {
+        "type": "function",
+        "name": "callLLM",
+        "file": "packages/server/src/routes/distill.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(systemPrompt, userPrompt, maxTokens = 4096, modelOverride)",
+        "callCount": 0
+      }
+    ],
     "buildContentFromEntries": [
       {
         "type": "function",
@@ -17020,6 +18421,79 @@
         "type": "export",
         "name": "helpdeskRoute",
         "file": "packages/server/src/routes/helpdesk.mjs",
+        "kind": "function",
+        "isDefault": true
+      }
+    ],
+    "ensureLogDir": [
+      {
+        "type": "function",
+        "name": "ensureLogDir",
+        "file": "packages/server/src/routes/llm-logs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      }
+    ],
+    "_callerToAgentId": [
+      {
+        "type": "function",
+        "name": "_callerToAgentId",
+        "file": "packages/server/src/routes/llm-logs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(caller)",
+        "callCount": 0
+      }
+    ],
+    "parseLogs": [
+      {
+        "type": "function",
+        "name": "parseLogs",
+        "file": "packages/server/src/routes/llm-logs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(dateStr)",
+        "callCount": 0
+      }
+    ],
+    "parseAllLogs": [
+      {
+        "type": "function",
+        "name": "parseAllLogs",
+        "file": "packages/server/src/routes/llm-logs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(days = 7)",
+        "callCount": 0
+      }
+    ],
+    "pairLogs": [
+      {
+        "type": "function",
+        "name": "pairLogs",
+        "file": "packages/server/src/routes/llm-logs.mjs",
+        "kind": "function",
+        "async": false,
+        "params": "(logs)",
+        "callCount": 0
+      }
+    ],
+    "llmLogsRoute": [
+      {
+        "type": "function",
+        "name": "llmLogsRoute",
+        "file": "packages/server/src/routes/llm-logs.mjs",
+        "kind": "function",
+        "async": true,
+        "params": "(req, res)",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "llmLogsRoute",
+        "file": "packages/server/src/routes/llm-logs.mjs",
         "kind": "function",
         "isDefault": true
       }
@@ -17646,15 +19120,6 @@
       {
         "type": "export",
         "name": "SKILLS_ROOT",
-        "file": "packages/server/src/routes/shared.mjs",
-        "kind": "named",
-        "isDefault": false
-      }
-    ],
-    "DOCS_ROOT": [
-      {
-        "type": "export",
-        "name": "DOCS_ROOT",
         "file": "packages/server/src/routes/shared.mjs",
         "kind": "named",
         "isDefault": false
@@ -18543,6 +20008,17 @@
         "async": false,
         "params": "(apps)",
         "callCount": 0
+      }
+    ],
+    "_issuesFile": [
+      {
+        "type": "function",
+        "name": "_issuesFile",
+        "file": "packages/server/src/tools/index.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(cwd)",
+        "callCount": 1
       }
     ],
     "isAbsPath": [
@@ -19736,8 +21212,8 @@
         "file": "packages/ui/src/components/ChatMessages.tsx",
         "kind": "arrow",
         "async": false,
-        "params": "({\n  messages,\n  accent = \"#10b981\",\n  accentHover,\n  assistantName = \"AI\",\n  userName = \"你\",\n  assistantAvatar,\n  assistantEmoji,\n  loading = false,\n  activeTools = [],\n  userMarkdown = false,\n  onDeepLink,\n  endRef,\n  className = \"\",\n})",
-        "callCount": 5
+        "params": "({\n  messages,\n  accent = \"#10b981\",\n  accentHover,\n  assistantName = \"AI\",\n  userName = \"你\",\n  assistantAvatar,\n  assistantEmoji,\n  loading = false,\n  activeTools = [],\n  agentAction = \"\",\n  userMarkdown = false,\n  onDeepLink,\n  endRef,\n  className = \"\",\n})",
+        "callCount": 6
       },
       {
         "type": "export",
@@ -19936,7 +21412,7 @@
         "file": "packages/ui/src/components/EMDashboard.tsx",
         "kind": "function",
         "async": false,
-        "params": "({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew }: EMDashboardProps)",
+        "params": "({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenReportTab, model, onModelChange }: EMDashboardProps)",
         "callCount": 0
       },
       {
@@ -19953,6 +21429,17 @@
         "kind": "function"
       }
     ],
+    "startNightShift": [
+      {
+        "type": "function",
+        "name": "startNightShift",
+        "file": "packages/ui/src/components/EMDashboard.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "()",
+        "callCount": 56
+      }
+    ],
     "sendMessage": [
       {
         "type": "function",
@@ -19961,7 +21448,7 @@
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 40
+        "callCount": 64
       }
     ],
     "runEM": [
@@ -19972,30 +21459,13 @@
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 28
+        "callCount": 66
       }
     ],
-    "StatusRow": [
+    "ProjectKnowledgePanel": [
       {
         "type": "function",
-        "name": "StatusRow",
-        "file": "packages/ui/src/components/EMDashboard.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "({ icon, label, value, ok }: { icon: string; label: string; value: string; ok?: boolean })",
-        "callCount": 0
-      },
-      {
-        "type": "component",
-        "name": "StatusRow",
-        "file": "packages/ui/src/components/EMDashboard.tsx",
-        "kind": "function"
-      }
-    ],
-    "HandoffStatusPanel": [
-      {
-        "type": "function",
-        "name": "HandoffStatusPanel",
+        "name": "ProjectKnowledgePanel",
         "file": "packages/ui/src/components/EMDashboard.tsx",
         "kind": "function",
         "async": false,
@@ -20004,7 +21474,7 @@
       },
       {
         "type": "component",
-        "name": "HandoffStatusPanel",
+        "name": "ProjectKnowledgePanel",
         "file": "packages/ui/src/components/EMDashboard.tsx",
         "kind": "function"
       }
@@ -20017,7 +21487,7 @@
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 9
+        "callCount": 12
       }
     ],
     "FeatureMap": [
@@ -20901,6 +22371,76 @@
         "kind": "function"
       }
     ],
+    "formatDuration": [
+      {
+        "type": "function",
+        "name": "formatDuration",
+        "file": "packages/ui/src/components/LlmLogTab.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(ms: number | null)",
+        "callCount": 0
+      }
+    ],
+    "formatTokens": [
+      {
+        "type": "function",
+        "name": "formatTokens",
+        "file": "packages/ui/src/components/LlmLogTab.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(n: number)",
+        "callCount": 0
+      }
+    ],
+    "LlmLogTab": [
+      {
+        "type": "function",
+        "name": "LlmLogTab",
+        "file": "packages/ui/src/components/LlmLogTab.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "()",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "LlmLogTab",
+        "file": "packages/ui/src/components/LlmLogTab.tsx",
+        "kind": "function",
+        "isDefault": true
+      },
+      {
+        "type": "component",
+        "name": "LlmLogTab",
+        "file": "packages/ui/src/components/LlmLogTab.tsx",
+        "kind": "function"
+      }
+    ],
+    "MarkdownText": [
+      {
+        "type": "function",
+        "name": "MarkdownText",
+        "file": "packages/ui/src/components/MarkdownText.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "({ children, className = \"\" }: { children: string; className?: string })",
+        "callCount": 0
+      },
+      {
+        "type": "export",
+        "name": "MarkdownText",
+        "file": "packages/ui/src/components/MarkdownText.tsx",
+        "kind": "function",
+        "isDefault": true
+      },
+      {
+        "type": "component",
+        "name": "MarkdownText",
+        "file": "packages/ui/src/components/MarkdownText.tsx",
+        "kind": "function"
+      }
+    ],
     "ensurePrefsLoaded": [
       {
         "type": "function",
@@ -21025,7 +22565,7 @@
         "file": "packages/ui/src/components/NightShiftPanel.tsx",
         "kind": "function",
         "async": false,
-        "params": "({ theme }: { theme: any })",
+        "params": "({ theme, rootPath, model }: { theme: any; rootPath?: string; model?: string })",
         "callCount": 0
       },
       {
@@ -21042,15 +22582,15 @@
         "kind": "function"
       }
     ],
-    "fetchStatus": [
+    "fetchConfig": [
       {
         "type": "function",
-        "name": "fetchStatus",
+        "name": "fetchConfig",
         "file": "packages/ui/src/components/NightShiftPanel.tsx",
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 7
+        "callCount": 5
       }
     ],
     "handleStart": [
@@ -21061,7 +22601,76 @@
         "kind": "arrow",
         "async": true,
         "params": "()",
-        "callCount": 7
+        "callCount": 10
+      }
+    ],
+    "deleteReport": [
+      {
+        "type": "function",
+        "name": "deleteReport",
+        "file": "packages/ui/src/components/NightShiftPanel.tsx",
+        "kind": "arrow",
+        "async": true,
+        "params": "(date: string, e: React.MouseEvent)",
+        "callCount": 8
+      }
+    ],
+    "formatDate": [
+      {
+        "type": "function",
+        "name": "formatDate",
+        "file": "packages/ui/src/components/NightShiftPanel.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(iso: string)",
+        "callCount": 1
+      },
+      {
+        "type": "function",
+        "name": "formatDate",
+        "file": "packages/ui/src/components/SessionHistory.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(iso: string)",
+        "callCount": 0
+      }
+    ],
+    "formatSize": [
+      {
+        "type": "function",
+        "name": "formatSize",
+        "file": "packages/ui/src/components/NightShiftPanel.tsx",
+        "kind": "arrow",
+        "async": false,
+        "params": "(bytes: number)",
+        "callCount": 2
+      },
+      {
+        "type": "function",
+        "name": "formatSize",
+        "file": "packages/ui/src/components/SessionHistory.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(bytes: number)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "formatSize",
+        "file": "packages/ui/src/pages/BackupSettings.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(bytes: number)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "formatSize",
+        "file": "packages/ui/src/pages/SkillBuilder.tsx",
+        "kind": "function",
+        "async": false,
+        "params": "(bytes: number)",
+        "callCount": 0
       }
     ],
     "paawFileIcon": [
@@ -21319,46 +22928,6 @@
         "name": "SecurityTab",
         "file": "packages/ui/src/components/SecurityTab.tsx",
         "kind": "function"
-      }
-    ],
-    "formatDate": [
-      {
-        "type": "function",
-        "name": "formatDate",
-        "file": "packages/ui/src/components/SessionHistory.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(iso: string)",
-        "callCount": 0
-      }
-    ],
-    "formatSize": [
-      {
-        "type": "function",
-        "name": "formatSize",
-        "file": "packages/ui/src/components/SessionHistory.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(bytes: number)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "formatSize",
-        "file": "packages/ui/src/pages/BackupSettings.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(bytes: number)",
-        "callCount": 0
-      },
-      {
-        "type": "function",
-        "name": "formatSize",
-        "file": "packages/ui/src/pages/SkillBuilder.tsx",
-        "kind": "function",
-        "async": false,
-        "params": "(bytes: number)",
-        "callCount": 0
       }
     ],
     "SessionHistory": [
@@ -25239,6 +26808,55 @@
         "path": "/api/mindmap/list"
       }
     ],
+    "compute": [
+      {
+        "type": "function",
+        "name": "compute",
+        "file": "tests/unit/agent-loop-max-turns.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(maxTurns, agentCfg)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "compute",
+        "file": "tests/unit/agent-loop-max-turns.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(timeout, agentCfg)",
+        "callCount": 0
+      }
+    ],
+    "testLoop": [
+      {
+        "type": "function",
+        "name": "testLoop",
+        "file": "tests/unit/agent-loop-max-turns.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(effectiveMaxTurns)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "testLoop",
+        "file": "tests/unit/agent-loop-max-turns.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(effectiveMaxTurns)",
+        "callCount": 0
+      },
+      {
+        "type": "function",
+        "name": "testLoop",
+        "file": "tests/unit/agent-loop-max-turns.test.mjs",
+        "kind": "arrow",
+        "async": false,
+        "params": "(effectiveMaxTurns)",
+        "callCount": 0
+      }
+    ],
     "readFileFrom": [
       {
         "type": "function",
@@ -25274,11 +26892,11 @@
     ]
   },
   "stats": {
-    "total": 1442,
-    "functions": 818,
+    "total": 1533,
+    "functions": 875,
     "classes": 25,
-    "exports": 381,
-    "routes": 86,
-    "components": 132
+    "exports": 407,
+    "routes": 91,
+    "components": 135
   }
 }

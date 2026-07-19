@@ -415,10 +415,10 @@ export default function CodingIDE() {
   const codingCrews = [
     { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const, agentId: "architect" },
     { id: "coding.developer", emoji: "💻", title: "普里亞 Developer", mode: "chat" as const, agentId: "developer" },
-    { id: "coding.tester", emoji: "🧪", title: "迪維雅 Test Agent", mode: "chat" as const, agentId: "tester" },
-    { id: "coding.doc-writer", emoji: "📝", title: "梅根 Document Agent", mode: "chat" as const, agentId: "doc-writer" },
-    { id: "coding.helpdesk", emoji: "🌸", title: "小春 林 Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
-    { id: "coding.qa", emoji: "🩺", title: "武大安 QA Agent", mode: "chat" as const, agentId: "qa" },
+    { id: "coding.tester", emoji: "🧪", title: "迪維雅 Tester", mode: "chat" as const, agentId: "tester" },
+    { id: "coding.doc-writer", emoji: "📝", title: "梅根 Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
+    { id: "coding.helpdesk", emoji: "🌸", title: "小春 Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
+    { id: "coding.qa", emoji: "🩺", title: "武大安 QA", mode: "chat" as const, agentId: "qa" },
   ];
 
   // ── EM Orchestration State ──
@@ -1241,7 +1241,17 @@ const sendChat = useCallback(async () => {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
     prevChatLenRef.current = chatMessages.length;
-  }, [chatMessages]);
+  }, [chatMessages.length]);
+
+  // Instant scroll to bottom when switching agent tabs
+  useEffect(() => {
+    if (activeCrew && chatMessages.length > 0) {
+      // Use rAF to ensure DOM has rendered before jumping
+      requestAnimationFrame(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "instant" as ScrollBehavior });
+      });
+    }
+  }, [activeCrew]);
 
   // Alias for inline usage in AI crew tab
   const sendChatMessage = useCallback((msg: string) => {
@@ -2600,15 +2610,11 @@ const sendChat = useCallback(async () => {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-stone-800">{profile?.codename || crew?.title || "AI"}</span>
                         {profile?.chatConfig?.model && <span className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{profile.chatConfig.model}</span>}
-                        {hasProject && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">📁 有專案</span>}
                       </div>
                       <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">{profile?.description || roleSummary}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {/* Conversation count badge */}
-                      {chatMessages.length > 0 && !viewingArchive && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-500">{chatMessages.length} 則</span>
-                      )}
                       {viewingArchive && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">📂 歷史</span>
                       )}
@@ -2679,7 +2685,6 @@ const sendChat = useCallback(async () => {
                                 {sess.isActive && <span className="text-green-500 mr-1">●</span>}
                                 {sess.title || "對話"}
                               </span>
-                              <span className="text-[10px] text-stone-400 shrink-0 ml-2">{sess.messageCount} 則</span>
                             </div>
                             <div className="text-[10px] text-stone-400 mt-0.5">
                               {sess.lastUpdated ? new Date(sess.lastUpdated).toLocaleString("zh-TW", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}

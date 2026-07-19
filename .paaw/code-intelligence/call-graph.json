@@ -441,6 +441,22 @@
       "async": true
     },
     {
+      "id": "packages/server/src/lib/change-intelligence.mjs:git",
+      "name": "git",
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/change-intelligence.mjs:buildChangeIntelligence",
+      "name": "buildChangeIntelligence",
+      "file": "packages/server/src/lib/change-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
       "id": "packages/server/src/lib/code-intelligence.mjs:buildCallGraph",
       "name": "buildCallGraph",
       "file": "packages/server/src/lib/code-intelligence.mjs",
@@ -569,6 +585,46 @@
       "async": true
     },
     {
+      "id": "packages/server/src/lib/context-providers.mjs:codeIntelligenceProvider",
+      "name": "codeIntelligenceProvider",
+      "file": "packages/server/src/lib/context-providers.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/dependency-context.mjs:_loadCI",
+      "name": "_loadCI",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/dependency-context.mjs:getDependencyContext",
+      "name": "getDependencyContext",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/dependency-context.mjs:getAffectedTests",
+      "name": "getAffectedTests",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/dependency-context.mjs:getImpactSummary",
+      "name": "getImpactSummary",
+      "file": "packages/server/src/lib/dependency-context.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
       "id": "packages/server/src/lib/domain-agent-registry.mjs:loadCrew",
       "name": "loadCrew",
       "file": "packages/server/src/lib/domain-agent-registry.mjs",
@@ -628,6 +684,78 @@
       "id": "packages/server/src/lib/domain-agent-registry.mjs:buildSystemPrompt",
       "name": "buildSystemPrompt",
       "file": "packages/server/src/lib/domain-agent-registry.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:scanAllSourceFiles",
+      "name": "scanAllSourceFiles",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:walk",
+      "name": "walk",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:extractApiRoutes",
+      "name": "extractApiRoutes",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:scanRoutes",
+      "name": "scanRoutes",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:validateFeatureMapping",
+      "name": "validateFeatureMapping",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:checkCoverage",
+      "name": "checkCoverage",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:validateUnderstanding",
+      "name": "validateUnderstanding",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/feature-map-validator.mjs:runFullValidation",
+      "name": "runFullValidation",
+      "file": "packages/server/src/lib/feature-map-validator.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/import-check.mjs:checkImports",
+      "name": "checkImports",
+      "file": "packages/server/src/lib/import-check.mjs",
       "line": 0,
       "kind": "function",
       "async": true
@@ -713,6 +841,102 @@
       "async": true
     },
     {
+      "id": "packages/server/src/lib/llm-utils.mjs:_writeLlmLog",
+      "name": "_writeLlmLog",
+      "file": "packages/server/src/lib/llm-utils.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:gatherContext",
+      "name": "gatherContext",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:getFeatureSummaryText",
+      "name": "getFeatureSummaryText",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:buildSituationReport",
+      "name": "buildSituationReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:refreshFeatureMapping",
+      "name": "refreshFeatureMapping",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:callWithFallback",
+      "name": "callWithFallback",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:validateFeatureMap",
+      "name": "validateFeatureMap",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:saveNightShiftReport",
+      "name": "saveNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:listNightShiftReports",
+      "name": "listNightShiftReports",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:readNightShiftReport",
+      "name": "readNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:deleteNightShiftReport",
+      "name": "deleteNightShiftReport",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/lib/night-shift-shared.mjs:extractReportMetadata",
+      "name": "extractReportMetadata",
+      "file": "packages/server/src/lib/night-shift-shared.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
       "id": "packages/server/src/lib/overnight-manager.mjs:a2aCallAgent",
       "name": "a2aCallAgent",
       "file": "packages/server/src/lib/overnight-manager.mjs",
@@ -721,24 +945,24 @@
       "async": true
     },
     {
-      "id": "packages/server/src/lib/overnight-manager.mjs:gatherContext",
-      "name": "gatherContext",
+      "id": "packages/server/src/lib/overnight-manager.mjs:planWorkList",
+      "name": "planWorkList",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "line": 0,
       "kind": "function",
       "async": true
     },
     {
-      "id": "packages/server/src/lib/overnight-manager.mjs:buildSituationReport",
-      "name": "buildSituationReport",
+      "id": "packages/server/src/lib/overnight-manager.mjs:callWithFallback",
+      "name": "callWithFallback",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "line": 0,
       "kind": "function",
-      "async": false
+      "async": true
     },
     {
-      "id": "packages/server/src/lib/overnight-manager.mjs:planWorkList",
-      "name": "planWorkList",
+      "id": "packages/server/src/lib/overnight-manager.mjs:runPhase0",
+      "name": "runPhase0",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "line": 0,
       "kind": "function",
@@ -753,124 +977,36 @@
       "async": true
     },
     {
-      "id": "packages/server/src/lib/overnight-manager.mjs:generateReport",
-      "name": "generateReport",
-      "file": "packages/server/src/lib/overnight-manager.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/overnight-manager.mjs:saveReport",
-      "name": "saveReport",
+      "id": "packages/server/src/lib/overnight-manager.mjs:runParallelSession",
+      "name": "runParallelSession",
       "file": "packages/server/src/lib/overnight-manager.mjs",
       "line": 0,
       "kind": "function",
       "async": true
     },
     {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:loadProviderConfig",
-      "name": "loadProviderConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "id": "packages/server/src/lib/overnight-manager.mjs:generateEMReport",
+      "name": "generateEMReport",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
       "line": 0,
       "kind": "function",
       "async": false
     },
     {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:resolveLLMConfig",
-      "name": "resolveLLMConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "id": "packages/server/src/lib/overnight-manager.mjs:generateParallelReport",
+      "name": "generateParallelReport",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
       "line": 0,
       "kind": "function",
       "async": false
     },
     {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:setAgentConfig",
-      "name": "setAgentConfig",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:runShell",
-      "name": "runShell",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:executeTool",
-      "name": "executeTool",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "id": "packages/server/src/lib/overnight-manager.mjs:runNightShift",
+      "name": "runNightShift",
+      "file": "packages/server/src/lib/overnight-manager.mjs",
       "line": 0,
       "kind": "function",
       "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "name": "resolvePath",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "name": "isPathAllowed",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "name": "startsWith",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:callLLM",
-      "name": "callLLM",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:buildSystemPrompt",
-      "name": "buildSystemPrompt",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:runAgentLoop",
-      "name": "runAgentLoop",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:runAgentLoopStream",
-      "name": "runAgentLoopStream",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": true
-    },
-    {
-      "id": "packages/server/src/lib/paaw-agent-loop.mjs:sendSSE",
-      "name": "sendSSE",
-      "file": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
     },
     {
       "id": "packages/server/src/lib/paaw-project.mjs:today",
@@ -897,6 +1033,14 @@
       "async": false
     },
     {
+      "id": "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "name": "countFiles",
+      "file": "packages/server/src/lib/paaw-project.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": true
+    },
+    {
       "id": "packages/server/src/lib/paaw-project.mjs:walk",
       "name": "walk",
       "file": "packages/server/src/lib/paaw-project.mjs",
@@ -921,6 +1065,54 @@
       "async": false
     },
     {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:LOG",
+      "name": "LOG",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR",
+      "name": "LOG_ERR",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:safePath",
+      "name": "safePath",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:_semgrepEnv",
+      "name": "_semgrepEnv",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:scanSourceExtensions",
+      "name": "scanSourceExtensions",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:walk",
+      "name": "walk",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
       "id": "packages/server/src/lib/semgrep-runner.mjs:detectRulePacks",
       "name": "detectRulePacks",
       "file": "packages/server/src/lib/semgrep-runner.mjs",
@@ -929,16 +1121,32 @@
       "async": false
     },
     {
-      "id": "packages/server/src/lib/semgrep-runner.mjs:has",
-      "name": "has",
+      "id": "packages/server/src/lib/semgrep-runner.mjs:buildSemgrepCmd",
+      "name": "buildSemgrepCmd",
       "file": "packages/server/src/lib/semgrep-runner.mjs",
       "line": 0,
-      "kind": "arrow",
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:buildFullScanCommand",
+      "name": "buildFullScanCommand",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "function",
       "async": false
     },
     {
       "id": "packages/server/src/lib/semgrep-runner.mjs:isSemgrepAvailable",
       "name": "isSemgrepAvailable",
+      "file": "packages/server/src/lib/semgrep-runner.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/semgrep-runner.mjs:diagnoseSemgrep",
+      "name": "diagnoseSemgrep",
       "file": "packages/server/src/lib/semgrep-runner.mjs",
       "line": 0,
       "kind": "function",
@@ -967,6 +1175,30 @@
       "line": 0,
       "kind": "function",
       "async": false
+    },
+    {
+      "id": "packages/server/src/lib/test-intelligence.mjs:classifyTestType",
+      "name": "classifyTestType",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/test-intelligence.mjs:findTestedFunctions",
+      "name": "findTestedFunctions",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/test-intelligence.mjs:buildTestIntelligence",
+      "name": "buildTestIntelligence",
+      "file": "packages/server/src/lib/test-intelligence.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
     },
     {
       "id": "packages/server/src/lib/tool-engine/index.mjs:looksLikeFakeToolCall",
@@ -1020,6 +1252,14 @@
       "id": "packages/server/src/lib/tool-engine/index.mjs:createToolEngine",
       "name": "createToolEngine",
       "file": "packages/server/src/lib/tool-engine/index.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/lib/tool-engine/provider.mjs:_llmLog",
+      "name": "_llmLog",
+      "file": "packages/server/src/lib/tool-engine/provider.mjs",
       "line": 0,
       "kind": "function",
       "async": false
@@ -1127,6 +1367,14 @@
       "line": 0,
       "kind": "function",
       "async": true
+    },
+    {
+      "id": "packages/server/src/routes/a2a.mjs:cleanConversationHistory",
+      "name": "cleanConversationHistory",
+      "file": "packages/server/src/routes/a2a.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
     },
     {
       "id": "packages/server/src/routes/a2a.mjs:getFeatureSummary",
@@ -1311,14 +1559,6 @@
       "line": 0,
       "kind": "function",
       "async": true
-    },
-    {
-      "id": "packages/server/src/routes/a2a.mjs:estimateTokens",
-      "name": "estimateTokens",
-      "file": "packages/server/src/routes/a2a.mjs",
-      "line": 0,
-      "kind": "arrow",
-      "async": false
     },
     {
       "id": "packages/server/src/routes/a2a.mjs:onStatus",
@@ -1641,6 +1881,30 @@
       "async": false
     },
     {
+      "id": "packages/server/src/routes/coding-health.mjs:sendJSON",
+      "name": "sendJSON",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-health.mjs:parsePath",
+      "name": "parsePath",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-health.mjs:codingHealthRoute",
+      "name": "codingHealthRoute",
+      "file": "packages/server/src/routes/coding-health.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
       "id": "packages/server/src/routes/coding-issues.mjs:parseQuery",
       "name": "parseQuery",
       "file": "packages/server/src/routes/coding-issues.mjs",
@@ -1729,32 +1993,48 @@
       "async": true
     },
     {
-      "id": "packages/server/src/routes/coding-night-shift.mjs:execAsync",
-      "name": "execAsync",
-      "file": "packages/server/src/routes/coding-night-shift.mjs",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/server/src/routes/coding-night-shift.mjs:getTodayChanges",
-      "name": "getTodayChanges",
-      "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "id": "packages/server/src/routes/coding-night-shift-config.mjs:getConfig",
+      "name": "getConfig",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
       "line": 0,
       "kind": "function",
       "async": true
     },
     {
-      "id": "packages/server/src/routes/coding-night-shift.mjs:getFeatureSummaryText",
-      "name": "getFeatureSummaryText",
-      "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "id": "packages/server/src/routes/coding-night-shift-config.mjs:saveConfig",
+      "name": "saveConfig",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
       "line": 0,
       "kind": "function",
-      "async": false
+      "async": true
     },
     {
-      "id": "packages/server/src/routes/coding-night-shift.mjs:loadCrewMember",
-      "name": "loadCrewMember",
+      "id": "packages/server/src/routes/coding-night-shift-config.mjs:nightShiftConfigRoutes",
+      "name": "nightShiftConfigRoutes",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-night-shift-prompts.mjs:getPromptsFile",
+      "name": "getPromptsFile",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-night-shift-prompts.mjs:nightShiftPromptsRoutes",
+      "name": "nightShiftPromptsRoutes",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-night-shift.mjs:updateStatusFile",
+      "name": "updateStatusFile",
       "file": "packages/server/src/routes/coding-night-shift.mjs",
       "line": 0,
       "kind": "function",
@@ -1780,6 +2060,30 @@
       "id": "packages/server/src/routes/coding-night-shift.mjs:sendJSON",
       "name": "sendJSON",
       "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-night-shift.mjs:sendSSE",
+      "name": "sendSSE",
+      "file": "packages/server/src/routes/coding-night-shift.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/coding-reports.mjs:codingReportsRoutes",
+      "name": "codingReportsRoutes",
+      "file": "packages/server/src/routes/coding-reports.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/coding-reports.mjs:sendJSON",
+      "name": "sendJSON",
+      "file": "packages/server/src/routes/coding-reports.mjs",
       "line": 0,
       "kind": "arrow",
       "async": false
@@ -2100,6 +2404,62 @@
       "id": "packages/server/src/routes/helpdesk.mjs:helpdeskRoute",
       "name": "helpdeskRoute",
       "file": "packages/server/src/routes/helpdesk.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/llm-logs.mjs:ensureLogDir",
+      "name": "ensureLogDir",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/llm-logs.mjs:_callerToAgentId",
+      "name": "_callerToAgentId",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/llm-logs.mjs:parseLogs",
+      "name": "parseLogs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/llm-logs.mjs:parseAllLogs",
+      "name": "parseAllLogs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/llm-logs.mjs:pairLogs",
+      "name": "pairLogs",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/server/src/routes/llm-logs.mjs:llmLogsRoute",
+      "name": "llmLogsRoute",
+      "file": "packages/server/src/routes/llm-logs.mjs",
+      "line": 0,
+      "kind": "function",
+      "async": true
+    },
+    {
+      "id": "packages/server/src/routes/llm-logs.mjs:readBody",
+      "name": "readBody",
+      "file": "packages/server/src/routes/llm-logs.mjs",
       "line": 0,
       "kind": "function",
       "async": true
@@ -2809,6 +3169,14 @@
       "async": false
     },
     {
+      "id": "packages/server/src/tools/index.mjs:_issuesFile",
+      "name": "_issuesFile",
+      "file": "packages/server/src/tools/index.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
       "id": "packages/server/src/tools/index.mjs:loadWorkspaces",
       "name": "loadWorkspaces",
       "file": "packages/server/src/tools/index.mjs",
@@ -3345,6 +3713,14 @@
       "async": false
     },
     {
+      "id": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "name": "startNightShift",
+      "file": "packages/ui/src/components/EMDashboard.tsx",
+      "line": 0,
+      "kind": "arrow",
+      "async": true
+    },
+    {
       "id": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "name": "sendMessage",
       "file": "packages/ui/src/components/EMDashboard.tsx",
@@ -3361,16 +3737,8 @@
       "async": true
     },
     {
-      "id": "packages/ui/src/components/EMDashboard.tsx:StatusRow",
-      "name": "StatusRow",
-      "file": "packages/ui/src/components/EMDashboard.tsx",
-      "line": 0,
-      "kind": "function",
-      "async": false
-    },
-    {
-      "id": "packages/ui/src/components/EMDashboard.tsx:HandoffStatusPanel",
-      "name": "HandoffStatusPanel",
+      "id": "packages/ui/src/components/EMDashboard.tsx:ProjectKnowledgePanel",
+      "name": "ProjectKnowledgePanel",
       "file": "packages/ui/src/components/EMDashboard.tsx",
       "line": 0,
       "kind": "function",
@@ -3833,6 +4201,38 @@
       "async": false
     },
     {
+      "id": "packages/ui/src/components/LlmLogTab.tsx:formatDuration",
+      "name": "formatDuration",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/components/LlmLogTab.tsx:formatTokens",
+      "name": "formatTokens",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/components/LlmLogTab.tsx:LlmLogTab",
+      "name": "LlmLogTab",
+      "file": "packages/ui/src/components/LlmLogTab.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/components/MarkdownText.tsx:MarkdownText",
+      "name": "MarkdownText",
+      "file": "packages/ui/src/components/MarkdownText.tsx",
+      "line": 0,
+      "kind": "function",
+      "async": false
+    },
+    {
       "id": "packages/ui/src/components/ModelSelector.tsx:ensurePrefsLoaded",
       "name": "ensurePrefsLoaded",
       "file": "packages/ui/src/components/ModelSelector.tsx",
@@ -3913,8 +4313,8 @@
       "async": false
     },
     {
-      "id": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "name": "fetchStatus",
+      "id": "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
+      "name": "fetchConfig",
       "file": "packages/ui/src/components/NightShiftPanel.tsx",
       "line": 0,
       "kind": "arrow",
@@ -3927,6 +4327,30 @@
       "line": 0,
       "kind": "arrow",
       "async": true
+    },
+    {
+      "id": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "name": "deleteReport",
+      "file": "packages/ui/src/components/NightShiftPanel.tsx",
+      "line": 0,
+      "kind": "arrow",
+      "async": true
+    },
+    {
+      "id": "packages/ui/src/components/NightShiftPanel.tsx:formatDate",
+      "name": "formatDate",
+      "file": "packages/ui/src/components/NightShiftPanel.tsx",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "packages/ui/src/components/NightShiftPanel.tsx:formatSize",
+      "name": "formatSize",
+      "file": "packages/ui/src/components/NightShiftPanel.tsx",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
     },
     {
       "id": "packages/ui/src/components/PaawTree.tsx:paawFileIcon",
@@ -6449,6 +6873,22 @@
       "async": false
     },
     {
+      "id": "tests/unit/agent-loop-max-turns.test.mjs:compute",
+      "name": "compute",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
+      "id": "tests/unit/agent-loop-max-turns.test.mjs:testLoop",
+      "name": "testLoop",
+      "file": "tests/unit/agent-loop-max-turns.test.mjs",
+      "line": 0,
+      "kind": "arrow",
+      "async": false
+    },
+    {
       "id": "tests/unit/ai-settings.test.mjs:readFileFrom",
       "name": "readFileFrom",
       "file": "tests/unit/ai-settings.test.mjs",
@@ -6504,126 +6944,35 @@
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "callee": "packages/server/src/routes/shared.mjs:resolve",
+      "caller": "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "callee": "packages/server/src/routes/shared.mjs:readdir",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
+      "caller": "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "callee": "e.name.startsWith",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "callee": "e.isDirectory",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "callee": "packages/server/src/lib/paaw-project.mjs:countFiles",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "target.split",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "prefix.split",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "p.every",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "seg.toLowerCase",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "t[i].toLowerCase",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "caller": "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "callee": "packages/server/src/routes/shared.mjs:join",
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "workspaceDirs.some",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "direct"
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "direct"
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "direct"
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "workspaceDirs.some",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "direct"
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "callee": "target.split",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "callee": "prefix.split",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "callee": "p.every",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "callee": "seg.toLowerCase",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "callee": "t[i].toLowerCase",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:sendSSE",
-      "callee": "res.write",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/paaw-agent-loop.mjs:sendSSE",
-      "callee": "JSON.stringify",
+      "caller": "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "callee": "e.isFile",
       "type": "method",
       "resolved": false
     },
@@ -6678,26 +7027,38 @@
       "type": "direct"
     },
     {
-      "caller": "packages/server/src/lib/semgrep-runner.mjs:has",
-      "callee": "require",
-      "type": "direct",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/lib/semgrep-runner.mjs:has",
-      "callee": "execSync",
-      "type": "direct",
-      "resolved": false
-    },
-    {
-      "caller": "packages/server/src/routes/a2a.mjs:estimateTokens",
-      "callee": "Math.ceil",
+      "caller": "packages/server/src/lib/semgrep-runner.mjs:LOG",
+      "callee": "console.log",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/server/src/routes/a2a.mjs:estimateTokens",
-      "callee": "Math.ceil",
+      "caller": "packages/server/src/lib/semgrep-runner.mjs:LOG",
+      "callee": "new Date().toISOString().slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/semgrep-runner.mjs:LOG",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR",
+      "callee": "console.error",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR",
+      "callee": "new Date().toISOString().slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR",
+      "callee": "new Date().toISOString",
       "type": "method",
       "resolved": false
     },
@@ -6807,6 +7168,47 @@
     },
     {
       "caller": "packages/server/src/routes/coding-night-shift.mjs:sendJSON",
+      "callee": "JSON.stringify",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-night-shift.mjs:sendSSE",
+      "callee": "console.log",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-night-shift.mjs:sendSSE",
+      "callee": "JSON.stringify(data).slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-night-shift.mjs:sendSSE",
+      "callee": "JSON.stringify",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-night-shift.mjs:sendSSE",
+      "callee": "packages/server/src/routes/coding-night-shift.mjs:updateStatusFile",
+      "type": "direct"
+    },
+    {
+      "caller": "packages/server/src/routes/coding-reports.mjs:sendJSON",
+      "callee": "res.writeHead",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-reports.mjs:sendJSON",
+      "callee": "res.end",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/server/src/routes/coding-reports.mjs:sendJSON",
       "callee": "JSON.stringify",
       "type": "method",
       "resolved": false
@@ -7110,14 +7512,20 @@
       "resolved": false
     },
     {
+      "caller": "packages/server/src/tools/index.mjs:_issuesFile",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "direct"
+    },
+    {
       "caller": "packages/server/src/tools/index.mjs:isAbsPath",
       "callee": "packages/server/src/routes/shared.mjs:isAbsolute",
       "type": "direct"
     },
     {
       "caller": "packages/server/src/tools/index.mjs:isAbsPath",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "d.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/server/src/websocket/ws-handler.mjs:stripAnsiForLog",
@@ -7600,8 +8008,9 @@
     },
     {
       "caller": "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "href.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
@@ -7629,8 +8038,9 @@
     },
     {
       "caller": "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "href.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
@@ -7676,6 +8086,12 @@
       "caller": "packages/ui/src/components/ChatMessages.tsx:ChatMessages",
       "callee": "think.replace",
       "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/ChatMessages.tsx:ChatMessages",
+      "callee": "msg.content.replace",
+      "type": "chained",
       "resolved": false
     },
     {
@@ -7967,6 +8383,340 @@
       "resolved": false
     },
     {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsRunning",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsStatus",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "fetch",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "encodeURIComponent",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "JSON.stringify",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "res.json",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsStatus",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsStatus",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsRunning",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsStatus",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsRunning",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setInterval",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "fetch",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "encodeURIComponent",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "sr.json",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "clearInterval",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsRunning",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsStatus",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "Math.round",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "chained"
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "(sd.results || []).map",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "r.error.slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "(r.summary || \"完成\").slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "(sd.results || []).filter",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "nsActions.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "fa.error.slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "[...prev].reverse().findIndex",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "[...prev].reverse",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "refreshData",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsStatus",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "chained"
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "(sd.agentStatuses || []).map",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "[...prev].reverse().findIndex",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "[...prev].reverse",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "clearInterval",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsRunning",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setNsStatus",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "errMsg.slice",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "[...prev].reverse().findIndex",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "[...prev].reverse",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "errMsg.slice",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "errMsg.slice",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "callee": "input.trim",
       "type": "method",
@@ -8028,14 +8778,8 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "callee": "messages.filter(m => !m._thinking).slice",
+      "callee": "[...messages, { role: \"user\", content: text }].filter",
       "type": "chained",
-      "resolved": false
-    },
-    {
-      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "callee": "messages.filter",
-      "type": "method",
       "resolved": false
     },
     {
@@ -8082,8 +8826,27 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "line.startsWith",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "line.slice(7).trim",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "line.slice",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "line.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
@@ -8094,6 +8857,30 @@
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "callee": "line.slice",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "prev.filter",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "new Date().toISOString",
       "type": "method",
       "resolved": false
     },
@@ -8141,7 +8928,115 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "callee": "prev.filter",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "prev.filter",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "prev.filter",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "prev.filter",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "filtered.some",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "callee": "new Date().toISOString",
       "type": "method",
       "resolved": false
     },
@@ -8273,8 +9168,9 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "line.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
@@ -8302,37 +9198,263 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "callee": "setReport",
-      "type": "direct",
-      "resolved": false
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "chained"
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "callee": "logLines.filter(l => l.includes(\"✅\") || l.includes(\"❌\") || l.includes(\"完成\")).pop",
+      "callee": "d.workList.map",
       "type": "chained",
       "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "callee": "logLines.filter",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
       "type": "method",
       "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "callee": "l.includes",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
       "type": "method",
       "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "callee": "l.includes",
+      "callee": "logLines.push",
       "type": "method",
       "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "callee": "l.includes",
+      "callee": "setEmLog",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "completedSteps.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "[...prev].reverse().findIndex",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "[...prev].reverse",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "d.preview.slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "d.preview.slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "logLines.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "d.preview.slice",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setEmLog",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "[...prev].reverse().findIndex",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "[...prev].reverse",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "logLines.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setEmLog",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "logLines.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setEmLog",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "logLines.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setEmLog",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "completedSteps.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "actions.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "actions.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "actions.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "setMessages",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "[...prev].reverse().findIndex",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "[...prev].reverse",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "new Date().toISOString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "finalActions.push",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "packages/server/src/routes/shared.mjs:join",
+      "type": "chained"
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "callee": "completedSteps.map",
       "type": "method",
       "resolved": false
     },
@@ -8374,6 +9496,12 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
+      "callee": "f.path.replace",
+      "type": "chained",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "callee": "fetch",
       "type": "direct",
       "resolved": false
@@ -8392,13 +9520,25 @@
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
-      "callee": "f.path.replace",
+      "callee": "res.text",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
+      "callee": "f.path.endsWith",
       "type": "chained",
       "resolved": false
     },
     {
       "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
-      "callee": "res.text",
+      "callee": "JSON.parse",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/EMDashboard.tsx:checkFiles",
+      "callee": "JSON.stringify",
       "type": "method",
       "resolved": false
     },
@@ -9191,45 +10331,33 @@
       "resolved": false
     },
     {
-      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
       "callee": "fetch",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
+      "callee": "encodeURIComponent",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
       "callee": "res.json",
       "type": "method",
       "resolved": false
     },
     {
-      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "callee": "setNsStatus",
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
+      "callee": "setNsConfig",
       "type": "direct",
       "resolved": false
     },
     {
-      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "callee": "fetch",
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
+      "callee": "setSelectedMode",
       "type": "direct",
-      "resolved": false
-    },
-    {
-      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "callee": "repRes.text",
-      "type": "method",
-      "resolved": false
-    },
-    {
-      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "callee": "setReport",
-      "type": "direct",
-      "resolved": false
-    },
-    {
-      "caller": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "callee": "console.error",
-      "type": "method",
       "resolved": false
     },
     {
@@ -9246,8 +10374,26 @@
     },
     {
       "caller": "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
+      "callee": "setSelectedReportDate",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
       "callee": "fetch",
       "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
+      "callee": "encodeURIComponent",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
+      "callee": "JSON.stringify",
+      "type": "method",
       "resolved": false
     },
     {
@@ -9258,8 +10404,9 @@
     },
     {
       "caller": "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
-      "callee": "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "type": "direct"
+      "callee": "fetchStatus",
+      "type": "direct",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
@@ -9271,6 +10418,72 @@
       "caller": "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
       "callee": "setStarting",
       "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "e.stopPropagation",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "confirm",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "fetch",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "encodeURIComponent",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "setReports",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "prev.filter",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "setSelectedReportDate",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
+      "callee": "setReportContent",
+      "type": "direct",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:formatDate",
+      "callee": "d.toLocaleString",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:formatSize",
+      "callee": "(bytes / 1024).toFixed",
+      "type": "method",
+      "resolved": false
+    },
+    {
+      "caller": "packages/ui/src/components/NightShiftPanel.tsx:formatSize",
+      "callee": "(bytes / (1024 * 1024)).toFixed",
+      "type": "method",
       "resolved": false
     },
     {
@@ -9473,8 +10686,9 @@
     },
     {
       "caller": "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "trimmed.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
@@ -11583,8 +12797,9 @@
     },
     {
       "caller": "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "trimmed.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/pages/ChatView.tsx:handleSend",
@@ -14394,8 +15609,9 @@
     },
     {
       "caller": "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "method"
+      "callee": "line.startsWith",
+      "type": "method",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
@@ -14828,8 +16044,9 @@
     },
     {
       "caller": "packages/ui/src/pages/SkillsPage.tsx:updateInput",
-      "callee": "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "type": "chained"
+      "callee": "updated[idx].id.startsWith",
+      "type": "chained",
+      "resolved": false
     },
     {
       "caller": "packages/ui/src/pages/SkillsPage.tsx:updateInput",
@@ -15415,10 +16632,16 @@
   "callersOf": {
     "packages/server/src/routes/shared.mjs:join": [
       "packages/server/src/lib/code-intelligence.mjs:loadJson",
+      "packages/server/src/lib/paaw-project.mjs:countFiles",
       "packages/server/src/lib/paaw-project.mjs:walk",
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
       "packages/server/src/routes/skills-api.mjs:scanSkillsDir",
+      "packages/server/src/tools/index.mjs:_issuesFile",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/pages/EmployeeWorkspace.tsx:computeHash",
       "packages/ui/src/pages/EmployeeWorkspace.tsx:launchTask",
       "packages/ui/src/pages/EmployeeWorkspace.tsx:launchTask",
@@ -15438,6 +16661,7 @@
       "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "packages/ui/src/components/FilePickerModal.tsx:findAndLoad",
       "packages/ui/src/components/KnowledgeTree.tsx:findAndLoad",
       "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
@@ -15448,65 +16672,175 @@
     "packages/server/src/routes/shared.mjs:readFileSync": [
       "packages/server/src/lib/code-intelligence.mjs:loadJson"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:startsWith": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/tools/index.mjs:isAbsPath",
-      "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
-      "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
+    "packages/server/src/routes/shared.mjs:readdir": [
+      "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "packages/server/src/lib/paaw-project.mjs:walk",
+      "packages/server/src/routes/skills-api.mjs:scanSkillsDir"
+    ],
+    "e.name.startsWith": [
+      "packages/server/src/lib/paaw-project.mjs:countFiles"
+    ],
+    "e.isDirectory": [
+      "packages/server/src/lib/paaw-project.mjs:countFiles"
+    ],
+    "packages/server/src/lib/paaw-project.mjs:countFiles": [
+      "packages/server/src/lib/paaw-project.mjs:countFiles"
+    ],
+    "e.isFile": [
+      "packages/server/src/lib/paaw-project.mjs:countFiles"
+    ],
+    "entries.sort": [
+      "packages/server/src/lib/paaw-project.mjs:walk"
+    ],
+    "packages/server/src/routes/shared.mjs:stat": [
+      "packages/server/src/lib/paaw-project.mjs:walk",
+      "packages/server/src/routes/skills-api.mjs:scanSkillsDir"
+    ],
+    "stat_.isDirectory": [
+      "packages/server/src/lib/paaw-project.mjs:walk",
+      "packages/server/src/lib/paaw-project.mjs:walk",
+      "packages/server/src/lib/paaw-project.mjs:walk"
+    ],
+    "parentNode.children.push": [
+      "packages/server/src/lib/paaw-project.mjs:walk"
+    ],
+    "packages/server/src/lib/paaw-project.mjs:walk": [
+      "packages/server/src/lib/paaw-project.mjs:walk"
+    ],
+    "console.log": [
+      "packages/server/src/lib/semgrep-runner.mjs:LOG",
+      "packages/server/src/routes/coding-night-shift.mjs:sendSSE",
+      "packages/ui/src/pages/AppBuilder.tsx:finishPolling"
+    ],
+    "new Date().toISOString().slice": [
+      "packages/server/src/lib/semgrep-runner.mjs:LOG",
+      "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR"
+    ],
+    "new Date().toISOString": [
+      "packages/server/src/lib/semgrep-runner.mjs:LOG",
+      "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR",
+      "packages/server/src/routes/a2a.mjs:onStatus",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/FeatureMap.tsx:handleSaveDocs",
+      "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
+      "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
+      "packages/ui/src/pages/ChatView.tsx:consumeSeed",
+      "packages/ui/src/pages/ChatView.tsx:consumeSeed",
+      "packages/ui/src/pages/ChatView.tsx:consumeSeed",
+      "packages/ui/src/pages/ChatView.tsx:createNewChat",
+      "packages/ui/src/pages/ChatView.tsx:createNewChat",
+      "packages/ui/src/pages/ChatView.tsx:createNewChat",
+      "packages/ui/src/pages/ChatView.tsx:handleSend",
+      "packages/ui/src/pages/ChatView.tsx:handleSend",
+      "packages/ui/src/pages/ChatView.tsx:handleSend",
+      "packages/ui/src/pages/ChatView.tsx:handleSend",
+      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish",
+      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish"
+    ],
+    "console.error": [
+      "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR",
+      "packages/ui/src/components/IssueTracker.tsx:handleCreate",
+      "packages/ui/src/components/IssueTracker.tsx:handleUpdate",
+      "packages/ui/src/components/IssueTracker.tsx:handleDelete",
+      "packages/ui/src/components/PaawTree.tsx:handleInit",
+      "packages/ui/src/components/PaawTree.tsx:handleGenerate",
+      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish",
+      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish"
+    ],
+    "packages/server/src/routes/a2a.mjs:saveTask": [
+      "packages/server/src/routes/a2a.mjs:onStatus"
+    ],
+    "packages/server/src/routes/a2a.mjs:notifyWebhook": [
+      "packages/server/src/routes/a2a.mjs:onStatus"
+    ],
+    "reader.read": [
+      "packages/server/src/routes/api-tester.mjs:pump",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
       "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
-      "packages/ui/src/pages/SkillsPage.tsx:updateInput"
-    ],
-    "packages/server/src/routes/shared.mjs:resolve": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "packages/server/src/routes/coding-features.mjs:scanFiles",
-      "packages/server/src/routes/coding-night-shift.mjs:readBody"
-    ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed"
-    ],
-    "target.split": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
-    ],
-    "prefix.split": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
-    ],
-    "p.every": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
-    ],
-    "seg.toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
-    ],
-    "t[i].toLowerCase": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
-    ],
-    "workspaceDirs.some": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed",
-      "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed"
+      "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
     ],
     "res.write": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:sendSSE",
       "packages/server/src/routes/api-tester.mjs:pump",
       "packages/server/src/routes/api-tester.mjs:pump",
       "packages/server/src/routes/crew.mjs:sendEvent",
       "packages/server/src/routes/crew.mjs:sendSSE"
     ],
-    "JSON.stringify": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:sendSSE",
+    "String": [
+      "packages/server/src/routes/api-tester.mjs:pump",
+      "packages/ui/src/pages/WorkflowExec.tsx:pad"
+    ],
+    "res.end": [
+      "packages/server/src/routes/api-tester.mjs:pump",
       "packages/server/src/routes/coding-night-shift.mjs:sendJSON",
+      "packages/server/src/routes/coding-reports.mjs:sendJSON"
+    ],
+    "execCb": [
+      "packages/server/src/routes/coding-features.mjs:scanFiles"
+    ],
+    "packages/server/src/routes/shared.mjs:resolve": [
+      "packages/server/src/routes/coding-features.mjs:scanFiles",
+      "packages/server/src/routes/coding-night-shift.mjs:readBody"
+    ],
+    "stdout.trim().split(\"\\n\").filter": [
+      "packages/server/src/routes/coding-features.mjs:scanFiles"
+    ],
+    "stdout.trim().split": [
+      "packages/server/src/routes/coding-features.mjs:scanFiles"
+    ],
+    "stdout.trim": [
+      "packages/server/src/routes/coding-features.mjs:scanFiles"
+    ],
+    "req.on": [
+      "packages/server/src/routes/coding-night-shift.mjs:readBody",
+      "packages/server/src/routes/coding-night-shift.mjs:readBody",
+      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
+      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
+      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
+      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
+      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
+      "packages/server/src/scheduler/cron-jobs.mjs:_readBody"
+    ],
+    "res.writeHead": [
+      "packages/server/src/routes/coding-night-shift.mjs:sendJSON",
+      "packages/server/src/routes/coding-reports.mjs:sendJSON"
+    ],
+    "JSON.stringify": [
+      "packages/server/src/routes/coding-night-shift.mjs:sendJSON",
+      "packages/server/src/routes/coding-night-shift.mjs:sendSSE",
+      "packages/server/src/routes/coding-reports.mjs:sendJSON",
       "packages/server/src/routes/crew.mjs:sendEvent",
       "packages/server/src/routes/crew.mjs:sendSSE",
       "packages/server/src/routes/shared.mjs:send",
@@ -15514,14 +16848,17 @@
       "packages/ui/src/components/AgentConsole.tsx:renderEvent",
       "packages/ui/src/components/AgentMemoryPanel.tsx:handleSave",
       "packages/ui/src/components/DecisionLog.tsx:handleAdd",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "packages/ui/src/components/FeatureMap.tsx:handleSaveDocs",
       "packages/ui/src/components/FeatureMap.tsx:handleCreate",
       "packages/ui/src/components/FilePickerModal.tsx:findAndLoad",
       "packages/ui/src/components/IssueTracker.tsx:handleCreate",
       "packages/ui/src/components/IssueTracker.tsx:handleUpdate",
       "packages/ui/src/components/KnowledgeTree.tsx:findAndLoad",
+      "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
       "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
       "packages/ui/src/components/StandardsEditor.tsx:handleImport",
       "packages/ui/src/pages/AICrew.tsx:handleSave",
@@ -15562,110 +16899,11 @@
       "packages/ui/src/pages/SystemPromptsPage.tsx:save",
       "packages/ui/src/pages/WelcomePage.tsx:handleSelect"
     ],
-    "packages/server/src/routes/shared.mjs:readdir": [
-      "packages/server/src/lib/paaw-project.mjs:walk",
-      "packages/server/src/routes/skills-api.mjs:scanSkillsDir"
+    "JSON.stringify(data).slice": [
+      "packages/server/src/routes/coding-night-shift.mjs:sendSSE"
     ],
-    "entries.sort": [
-      "packages/server/src/lib/paaw-project.mjs:walk"
-    ],
-    "packages/server/src/routes/shared.mjs:stat": [
-      "packages/server/src/lib/paaw-project.mjs:walk",
-      "packages/server/src/routes/skills-api.mjs:scanSkillsDir"
-    ],
-    "stat_.isDirectory": [
-      "packages/server/src/lib/paaw-project.mjs:walk",
-      "packages/server/src/lib/paaw-project.mjs:walk",
-      "packages/server/src/lib/paaw-project.mjs:walk"
-    ],
-    "parentNode.children.push": [
-      "packages/server/src/lib/paaw-project.mjs:walk"
-    ],
-    "packages/server/src/lib/paaw-project.mjs:walk": [
-      "packages/server/src/lib/paaw-project.mjs:walk"
-    ],
-    "require": [
-      "packages/server/src/lib/semgrep-runner.mjs:has"
-    ],
-    "execSync": [
-      "packages/server/src/lib/semgrep-runner.mjs:has"
-    ],
-    "Math.ceil": [
-      "packages/server/src/routes/a2a.mjs:estimateTokens",
-      "packages/server/src/routes/a2a.mjs:estimateTokens"
-    ],
-    "new Date().toISOString": [
-      "packages/server/src/routes/a2a.mjs:onStatus",
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "packages/ui/src/components/FeatureMap.tsx:handleSaveDocs",
-      "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
-      "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
-      "packages/ui/src/pages/ChatView.tsx:consumeSeed",
-      "packages/ui/src/pages/ChatView.tsx:consumeSeed",
-      "packages/ui/src/pages/ChatView.tsx:consumeSeed",
-      "packages/ui/src/pages/ChatView.tsx:createNewChat",
-      "packages/ui/src/pages/ChatView.tsx:createNewChat",
-      "packages/ui/src/pages/ChatView.tsx:createNewChat",
-      "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish",
-      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish"
-    ],
-    "packages/server/src/routes/a2a.mjs:saveTask": [
-      "packages/server/src/routes/a2a.mjs:onStatus"
-    ],
-    "packages/server/src/routes/a2a.mjs:notifyWebhook": [
-      "packages/server/src/routes/a2a.mjs:onStatus"
-    ],
-    "reader.read": [
-      "packages/server/src/routes/api-tester.mjs:pump",
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
-      "packages/ui/src/pages/ChatView.tsx:handleSend",
-      "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
-    ],
-    "String": [
-      "packages/server/src/routes/api-tester.mjs:pump",
-      "packages/ui/src/pages/WorkflowExec.tsx:pad"
-    ],
-    "res.end": [
-      "packages/server/src/routes/api-tester.mjs:pump",
-      "packages/server/src/routes/coding-night-shift.mjs:sendJSON"
-    ],
-    "execCb": [
-      "packages/server/src/routes/coding-features.mjs:scanFiles"
-    ],
-    "stdout.trim().split(\"\\n\").filter": [
-      "packages/server/src/routes/coding-features.mjs:scanFiles"
-    ],
-    "stdout.trim().split": [
-      "packages/server/src/routes/coding-features.mjs:scanFiles"
-    ],
-    "stdout.trim": [
-      "packages/server/src/routes/coding-features.mjs:scanFiles"
-    ],
-    "req.on": [
-      "packages/server/src/routes/coding-night-shift.mjs:readBody",
-      "packages/server/src/routes/coding-night-shift.mjs:readBody",
-      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
-      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
-      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
-      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
-      "packages/server/src/scheduler/cron-jobs.mjs:_readBody",
-      "packages/server/src/scheduler/cron-jobs.mjs:_readBody"
-    ],
-    "res.writeHead": [
-      "packages/server/src/routes/coding-night-shift.mjs:sendJSON"
+    "packages/server/src/routes/coding-night-shift.mjs:updateStatusFile": [
+      "packages/server/src/routes/coding-night-shift.mjs:sendSSE"
     ],
     "p.replace": [
       "packages/server/src/routes/crew.mjs:norm",
@@ -15735,6 +16973,9 @@
       "packages/server/src/scheduler/cron-jobs.mjs:_readBody"
     ],
     "packages/server/src/routes/shared.mjs:isAbsolute": [
+      "packages/server/src/tools/index.mjs:isAbsPath"
+    ],
+    "d.startsWith": [
       "packages/server/src/tools/index.mjs:isAbsPath"
     ],
     "s.replace(/\\x1b\\[[0-9;]*[a-zA-Z]/g, \"\").replace(/\\x1b\\].*?\\x07/g, \"\").replace(/\\x1b\\[\\?\\d+[hl]/g, \"\").replace(/\\r\\n/g, \"\\n\").replace": [
@@ -15809,6 +17050,11 @@
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
       "packages/ui/src/pages/ChatView.tsx:deleteChat",
       "packages/ui/src/pages/ChatView.tsx:handleSend"
     ],
@@ -15912,6 +17158,8 @@
       "packages/ui/src/components/AgentMemoryPanel.tsx:handleSave",
       "packages/ui/src/components/AgentMemoryPanel.tsx:handleDelete",
       "packages/ui/src/components/DecisionLog.tsx:handleAdd",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/components/EMDashboard.tsx:checkFiles",
@@ -15926,9 +17174,9 @@
       "packages/ui/src/components/IssueTracker.tsx:handleDelete",
       "packages/ui/src/components/IssueTracker.tsx:handleImport",
       "packages/ui/src/components/KnowledgeTree.tsx:findAndLoad",
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
+      "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
       "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
       "packages/ui/src/components/PaawTree.tsx:handleInit",
       "packages/ui/src/components/PaawTree.tsx:handleGenerate",
       "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
@@ -15997,6 +17245,8 @@
       "packages/ui/src/components/AgentMemoryPanel.tsx:handleDelete",
       "packages/ui/src/components/AgentMemoryPanel.tsx:handleDelete",
       "packages/ui/src/components/DecisionLog.tsx:handleAdd",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
       "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "packages/ui/src/components/EMDashboard.tsx:checkFiles",
       "packages/ui/src/components/FeatureMap.tsx:handleRefreshMapping",
@@ -16013,6 +17263,9 @@
       "packages/ui/src/components/IssueTracker.tsx:handleImport",
       "packages/ui/src/components/KnowledgeTree.tsx:findAndLoad",
       "packages/ui/src/components/KnowledgeTree.tsx:findAndLoad",
+      "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
+      "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
       "packages/ui/src/components/PaawTree.tsx:handleInit",
       "packages/ui/src/components/PaawTree.tsx:handleGenerate",
       "packages/ui/src/components/StandardsEditor.tsx:handleSave",
@@ -16062,6 +17315,7 @@
       "packages/ui/src/components/CrewEditor.tsx:handleDelete",
       "packages/ui/src/components/FeatureMap.tsx:handleDelete",
       "packages/ui/src/components/IssueTracker.tsx:handleDelete",
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
       "packages/ui/src/pages/AppPool.tsx:handleUnpublish",
       "packages/ui/src/pages/AppPool.tsx:handleDelete",
       "packages/ui/src/pages/BackupSettings.tsx:doRestore",
@@ -16145,6 +17399,10 @@
       "packages/ui/src/pages/WorkflowEditor.tsx:showToast",
       "packages/ui/src/pages/WorkflowExec.tsx:showToast"
     ],
+    "href.startsWith": [
+      "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
+      "packages/ui/src/components/ChatMessages.tsx:markdownComponents"
+    ],
     "href.slice": [
       "packages/ui/src/components/ChatMessages.tsx:markdownComponents",
       "packages/ui/src/components/ChatMessages.tsx:markdownComponents"
@@ -16169,6 +17427,9 @@
       "packages/ui/src/components/ChatMessages.tsx:ChatMessages"
     ],
     "think.replace": [
+      "packages/ui/src/components/ChatMessages.tsx:ChatMessages"
+    ],
+    "msg.content.replace": [
       "packages/ui/src/components/ChatMessages.tsx:ChatMessages"
     ],
     "setSelectedSkillIds": [
@@ -16299,7 +17560,29 @@
       "packages/ui/src/components/DirectoryExplorer.tsx:handleManualGo",
       "packages/ui/src/components/FileImportPicker.tsx:handleManualGo"
     ],
+    "setNsRunning": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "setNsStatus": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
     "setMessages": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
@@ -16310,6 +17593,22 @@
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
@@ -16335,10 +17634,91 @@
       "packages/ui/src/pages/ChatView.tsx:handleSend",
       "packages/ui/src/pages/ChatView.tsx:handleSend"
     ],
-    "messages.filter(m => !m._thinking).slice": [
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage"
+    "res.json": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/FeatureMap.tsx:handleRefreshMapping",
+      "packages/ui/src/components/FeatureMap.tsx:handleUnderstand",
+      "packages/ui/src/components/IssueTracker.tsx:handleImport",
+      "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig",
+      "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
+      "packages/ui/src/pages/AISettingsPage.tsx:save",
+      "packages/ui/src/pages/AISettingsPage.tsx:handleCreate",
+      "packages/ui/src/pages/AISettingsPage.tsx:handleDelete",
+      "packages/ui/src/pages/AppBuilder.tsx:handlePreviewPrompt",
+      "packages/ui/src/pages/EmployeeWorkspace.tsx:launchTask",
+      "packages/ui/src/pages/SkillBuilder.tsx:handleAIGenerate",
+      "packages/ui/src/pages/SkillBuilder.tsx:handlePreviewPrompt",
+      "packages/ui/src/pages/SkillBuilder.tsx:handleBuild",
+      "packages/ui/src/pages/SkillBuilder.tsx:loadFileContent",
+      "packages/ui/src/pages/SkillBuilder.tsx:handlePublish",
+      "packages/ui/src/pages/SystemPromptsPage.tsx:save"
     ],
-    "messages.filter": [
+    "setInterval": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
+    ],
+    "sr.json": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "clearInterval": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/pages/AppBuilder.tsx:finishPolling",
+      "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
+      "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
+      "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
+    ],
+    "Math.round": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "(sd.results || []).map": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "r.error.slice": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "(r.summary || \"完成\").slice": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "(sd.results || []).filter": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "nsActions.push": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "fa.error.slice": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "[...prev].reverse().findIndex": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "[...prev].reverse": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "refreshData": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "(sd.agentStatuses || []).map": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "errMsg.slice": [
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift",
+      "packages/ui/src/components/EMDashboard.tsx:startNightShift"
+    ],
+    "[...messages, { role: \"user\", content: text }].filter": [
       "packages/ui/src/components/EMDashboard.tsx:sendMessage"
     ],
     "res.body.getReader": [
@@ -16367,7 +17747,17 @@
       "packages/ui/src/pages/ChatView.tsx:handleSend",
       "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
     ],
+    "line.startsWith": [
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
+    ],
+    "line.slice(7).trim": [
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage"
+    ],
     "line.slice": [
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:sendMessage",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
@@ -16378,9 +17768,8 @@
     "toolLog.push": [
       "packages/ui/src/components/EMDashboard.tsx:sendMessage"
     ],
-    "refreshData": [
-      "packages/ui/src/components/EMDashboard.tsx:sendMessage",
-      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    "filtered.some": [
+      "packages/ui/src/components/EMDashboard.tsx:sendMessage"
     ],
     "setEmRunning": [
       "packages/ui/src/components/EMDashboard.tsx:runEM",
@@ -16388,31 +17777,51 @@
     ],
     "setEmLog": [
       "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/components/EMDashboard.tsx:runEM"
     ],
     "logLines.push": [
-      "packages/ui/src/components/EMDashboard.tsx:runEM"
-    ],
-    "setReport": [
-      "packages/ui/src/components/EMDashboard.tsx:runEM",
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "packages/ui/src/components/NightShiftPanel.tsx:handleStart"
-    ],
-    "logLines.filter(l => l.includes(\"✅\") || l.includes(\"❌\") || l.includes(\"完成\")).pop": [
-      "packages/ui/src/components/EMDashboard.tsx:runEM"
-    ],
-    "logLines.filter": [
-      "packages/ui/src/components/EMDashboard.tsx:runEM"
-    ],
-    "l.includes": [
       "packages/ui/src/components/EMDashboard.tsx:runEM",
       "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "d.workList.map": [
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "completedSteps.push": [
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "d.preview.slice": [
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "actions.push": [
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM",
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "finalActions.push": [
+      "packages/ui/src/components/EMDashboard.tsx:runEM"
+    ],
+    "completedSteps.map": [
       "packages/ui/src/components/EMDashboard.tsx:runEM"
     ],
     "f.path.replace": [
       "packages/ui/src/components/EMDashboard.tsx:checkFiles"
     ],
     "res.text": [
+      "packages/ui/src/components/EMDashboard.tsx:checkFiles"
+    ],
+    "f.path.endsWith": [
       "packages/ui/src/components/EMDashboard.tsx:checkFiles"
     ],
     "content.trim": [
@@ -16428,24 +17837,6 @@
     "setRefreshing": [
       "packages/ui/src/components/FeatureMap.tsx:handleRefreshMapping",
       "packages/ui/src/components/FeatureMap.tsx:handleRefreshMapping"
-    ],
-    "res.json": [
-      "packages/ui/src/components/FeatureMap.tsx:handleRefreshMapping",
-      "packages/ui/src/components/FeatureMap.tsx:handleUnderstand",
-      "packages/ui/src/components/IssueTracker.tsx:handleImport",
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
-      "packages/ui/src/pages/AISettingsPage.tsx:save",
-      "packages/ui/src/pages/AISettingsPage.tsx:handleCreate",
-      "packages/ui/src/pages/AISettingsPage.tsx:handleDelete",
-      "packages/ui/src/pages/AppBuilder.tsx:handlePreviewPrompt",
-      "packages/ui/src/pages/EmployeeWorkspace.tsx:launchTask",
-      "packages/ui/src/pages/SkillBuilder.tsx:handleAIGenerate",
-      "packages/ui/src/pages/SkillBuilder.tsx:handlePreviewPrompt",
-      "packages/ui/src/pages/SkillBuilder.tsx:handleBuild",
-      "packages/ui/src/pages/SkillBuilder.tsx:loadFileContent",
-      "packages/ui/src/pages/SkillBuilder.tsx:handlePublish",
-      "packages/ui/src/pages/SystemPromptsPage.tsx:save"
     ],
     "fetchFeatures": [
       "packages/ui/src/components/FeatureMap.tsx:handleRefreshMapping",
@@ -16540,16 +17931,6 @@
       "packages/ui/src/components/IssueTracker.tsx:handleDelete",
       "packages/ui/src/components/IssueTracker.tsx:handleImport"
     ],
-    "console.error": [
-      "packages/ui/src/components/IssueTracker.tsx:handleCreate",
-      "packages/ui/src/components/IssueTracker.tsx:handleUpdate",
-      "packages/ui/src/components/IssueTracker.tsx:handleDelete",
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
-      "packages/ui/src/components/PaawTree.tsx:handleInit",
-      "packages/ui/src/components/PaawTree.tsx:handleGenerate",
-      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish",
-      "packages/ui/src/pages/OnboardingPage.tsx:handleFinish"
-    ],
     "setEditing": [
       "packages/ui/src/components/IssueTracker.tsx:handleUpdate",
       "packages/ui/src/components/IssueTracker.tsx:startEdit",
@@ -16567,6 +17948,7 @@
     ],
     "e.stopPropagation": [
       "packages/ui/src/components/JsonViewer.tsx:handleCopy",
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport",
       "packages/ui/src/pages/BriefingPlayer.tsx:handleMarkerMouseDown",
       "packages/ui/src/pages/CronJobsPage.tsx:handleRunNow",
       "packages/ui/src/pages/SkillsPage.tsx:handleExportSkill"
@@ -16617,18 +17999,40 @@
     "setOpen": [
       "packages/ui/src/components/ModelSelector.tsx:handler"
     ],
-    "setNsStatus": [
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus"
+    "setNsConfig": [
+      "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig"
     ],
-    "repRes.text": [
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus"
+    "setSelectedMode": [
+      "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig"
     ],
     "setStarting": [
       "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
       "packages/ui/src/components/NightShiftPanel.tsx:handleStart"
     ],
-    "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus": [
+    "setReport": [
       "packages/ui/src/components/NightShiftPanel.tsx:handleStart"
+    ],
+    "setSelectedReportDate": [
+      "packages/ui/src/components/NightShiftPanel.tsx:handleStart",
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport"
+    ],
+    "fetchStatus": [
+      "packages/ui/src/components/NightShiftPanel.tsx:handleStart"
+    ],
+    "setReports": [
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport"
+    ],
+    "setReportContent": [
+      "packages/ui/src/components/NightShiftPanel.tsx:deleteReport"
+    ],
+    "d.toLocaleString": [
+      "packages/ui/src/components/NightShiftPanel.tsx:formatDate"
+    ],
+    "(bytes / 1024).toFixed": [
+      "packages/ui/src/components/NightShiftPanel.tsx:formatSize"
+    ],
+    "(bytes / (1024 * 1024)).toFixed": [
+      "packages/ui/src/components/NightShiftPanel.tsx:formatSize"
     ],
     "[\"sessions\", \"standards\", \"prompts\", \"api-logs\"].includes": [
       "packages/ui/src/components/PaawTree.tsx:findDirs"
@@ -16684,6 +18088,10 @@
       "packages/ui/src/pages/ChatView.tsx:handleSend"
     ],
     "line.trim": [
+      "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
+      "packages/ui/src/pages/ChatView.tsx:handleSend"
+    ],
+    "trimmed.startsWith": [
       "packages/ui/src/components/ProjectAiPanel.tsx:handleSend",
       "packages/ui/src/pages/ChatView.tsx:handleSend"
     ],
@@ -16838,15 +18246,6 @@
     "setPromptPreview": [
       "packages/ui/src/pages/AppBuilder.tsx:handlePreviewPrompt",
       "packages/ui/src/pages/SkillBuilder.tsx:handlePreviewPrompt"
-    ],
-    "clearInterval": [
-      "packages/ui/src/pages/AppBuilder.tsx:finishPolling",
-      "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
-      "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
-      "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
-    ],
-    "console.log": [
-      "packages/ui/src/pages/AppBuilder.tsx:finishPolling"
     ],
     "setPreviewReady": [
       "packages/ui/src/pages/AppBuilder.tsx:finishPolling"
@@ -17838,9 +19237,6 @@
       "packages/ui/src/pages/SkillBuilder.tsx:handleTest",
       "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
     ],
-    "setInterval": [
-      "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
-    ],
     "Math.floor": [
       "packages/ui/src/pages/SkillBuilder.tsx:handleTest"
     ],
@@ -17927,6 +19323,9 @@
     ],
     "fUserInputs.filter": [
       "packages/ui/src/pages/SkillsPage.tsx:removeInput"
+    ],
+    "updated[idx].id.startsWith": [
+      "packages/ui/src/pages/SkillsPage.tsx:updateInput"
     ],
     "value.toLowerCase().replace(/[^a-z0-9]+/g, \"-\").replace": [
       "packages/ui/src/pages/SkillsPage.tsx:updateInput"
@@ -18042,35 +19441,13 @@
       "JSON.parse",
       "packages/server/src/routes/shared.mjs:readFileSync"
     ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/routes/shared.mjs:resolve"
-    ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:isPathAllowed": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:resolvePath",
-      "target.split",
-      "prefix.split",
-      "p.every",
-      "seg.toLowerCase",
-      "t[i].toLowerCase",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "workspaceDirs.some",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
-      "workspaceDirs.some",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
-    ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:startsWith": [
-      "target.split",
-      "prefix.split",
-      "p.every",
-      "seg.toLowerCase",
-      "t[i].toLowerCase"
-    ],
-    "packages/server/src/lib/paaw-agent-loop.mjs:sendSSE": [
-      "res.write",
-      "JSON.stringify"
+    "packages/server/src/lib/paaw-project.mjs:countFiles": [
+      "packages/server/src/routes/shared.mjs:readdir",
+      "e.name.startsWith",
+      "e.isDirectory",
+      "packages/server/src/lib/paaw-project.mjs:countFiles",
+      "packages/server/src/routes/shared.mjs:join",
+      "e.isFile"
     ],
     "packages/server/src/lib/paaw-project.mjs:walk": [
       "packages/server/src/routes/shared.mjs:readdir",
@@ -18083,13 +19460,15 @@
       "stat_.isDirectory",
       "packages/server/src/lib/paaw-project.mjs:walk"
     ],
-    "packages/server/src/lib/semgrep-runner.mjs:has": [
-      "require",
-      "execSync"
+    "packages/server/src/lib/semgrep-runner.mjs:LOG": [
+      "console.log",
+      "new Date().toISOString().slice",
+      "new Date().toISOString"
     ],
-    "packages/server/src/routes/a2a.mjs:estimateTokens": [
-      "Math.ceil",
-      "Math.ceil"
+    "packages/server/src/lib/semgrep-runner.mjs:LOG_ERR": [
+      "console.error",
+      "new Date().toISOString().slice",
+      "new Date().toISOString"
     ],
     "packages/server/src/routes/a2a.mjs:onStatus": [
       "new Date().toISOString",
@@ -18116,6 +19495,17 @@
       "packages/server/src/routes/shared.mjs:resolve"
     ],
     "packages/server/src/routes/coding-night-shift.mjs:sendJSON": [
+      "res.writeHead",
+      "res.end",
+      "JSON.stringify"
+    ],
+    "packages/server/src/routes/coding-night-shift.mjs:sendSSE": [
+      "console.log",
+      "JSON.stringify(data).slice",
+      "JSON.stringify",
+      "packages/server/src/routes/coding-night-shift.mjs:updateStatusFile"
+    ],
+    "packages/server/src/routes/coding-reports.mjs:sendJSON": [
       "res.writeHead",
       "res.end",
       "JSON.stringify"
@@ -18187,9 +19577,12 @@
       "ok",
       "req.on"
     ],
+    "packages/server/src/tools/index.mjs:_issuesFile": [
+      "packages/server/src/routes/shared.mjs:join"
+    ],
     "packages/server/src/tools/index.mjs:isAbsPath": [
       "packages/server/src/routes/shared.mjs:isAbsolute",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith"
+      "d.startsWith"
     ],
     "packages/server/src/websocket/ws-handler.mjs:stripAnsiForLog": [
       "s.replace(/\\x1b\\[[0-9;]*[a-zA-Z]/g, \"\").replace(/\\x1b\\].*?\\x07/g, \"\").replace(/\\x1b\\[\\?\\d+[hl]/g, \"\").replace(/\\r\\n/g, \"\\n\").replace",
@@ -18312,12 +19705,12 @@
       "setTimeout"
     ],
     "packages/ui/src/components/ChatMessages.tsx:markdownComponents": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "href.startsWith",
       "href.slice",
       "u.searchParams.forEach",
       "e.preventDefault",
       "onDeepLink",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "href.startsWith",
       "href.slice",
       "e.preventDefault",
       "onDeepLink"
@@ -18327,7 +19720,8 @@
       "messages.map",
       "packages/ui/src/components/ChatMessages.tsx:formatTime",
       "msg._thinkingHistory.map",
-      "think.replace"
+      "think.replace",
+      "msg.content.replace"
     ],
     "packages/ui/src/components/CrewEditor.tsx:toggleSkill": [
       "setSelectedSkillIds",
@@ -18391,6 +19785,64 @@
       "setManualInput",
       "setShowManual"
     ],
+    "packages/ui/src/components/EMDashboard.tsx:startNightShift": [
+      "setNsRunning",
+      "setNsStatus",
+      "setMessages",
+      "new Date().toISOString",
+      "fetch",
+      "encodeURIComponent",
+      "JSON.stringify",
+      "res.json",
+      "setNsStatus",
+      "setNsStatus",
+      "setMessages",
+      "new Date().toISOString",
+      "setNsRunning",
+      "setNsStatus",
+      "setMessages",
+      "new Date().toISOString",
+      "setNsRunning",
+      "setInterval",
+      "fetch",
+      "encodeURIComponent",
+      "sr.json",
+      "clearInterval",
+      "setNsRunning",
+      "setNsStatus",
+      "Math.round",
+      "packages/server/src/routes/shared.mjs:join",
+      "(sd.results || []).map",
+      "r.error.slice",
+      "(r.summary || \"完成\").slice",
+      "(sd.results || []).filter",
+      "nsActions.push",
+      "fa.error.slice",
+      "setMessages",
+      "[...prev].reverse().findIndex",
+      "[...prev].reverse",
+      "new Date().toISOString",
+      "new Date().toISOString",
+      "refreshData",
+      "setNsStatus",
+      "packages/server/src/routes/shared.mjs:join",
+      "(sd.agentStatuses || []).map",
+      "setMessages",
+      "[...prev].reverse().findIndex",
+      "[...prev].reverse",
+      "new Date().toISOString",
+      "clearInterval",
+      "setNsRunning",
+      "setNsStatus",
+      "errMsg.slice",
+      "setMessages",
+      "[...prev].reverse().findIndex",
+      "[...prev].reverse",
+      "errMsg.slice",
+      "new Date().toISOString",
+      "errMsg.slice",
+      "new Date().toISOString"
+    ],
     "packages/ui/src/components/EMDashboard.tsx:sendMessage": [
       "input.trim",
       "setInput",
@@ -18402,8 +19854,7 @@
       "new Date().toISOString",
       "fetch",
       "JSON.stringify",
-      "messages.filter(m => !m._thinking).slice",
-      "messages.filter",
+      "[...messages, { role: \"user\", content: text }].filter",
       "setMessages",
       "prev.filter",
       "res.body.getReader",
@@ -18411,9 +19862,16 @@
       "decoder.decode",
       "buffer.split",
       "lines.pop",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "line.startsWith",
+      "line.slice(7).trim",
+      "line.slice",
+      "line.startsWith",
       "JSON.parse",
       "line.slice",
+      "setMessages",
+      "prev.filter",
+      "setMessages",
+      "new Date().toISOString",
       "setMessages",
       "d.content.slice",
       "new Date().toISOString",
@@ -18421,7 +19879,25 @@
       "setMessages",
       "prev.filter",
       "setMessages",
+      "new Date().toISOString",
+      "setMessages",
       "prev.filter",
+      "setMessages",
+      "new Date().toISOString",
+      "setMessages",
+      "new Date().toISOString",
+      "setMessages",
+      "prev.filter",
+      "setMessages",
+      "new Date().toISOString",
+      "setMessages",
+      "prev.filter",
+      "setMessages",
+      "new Date().toISOString",
+      "setMessages",
+      "prev.filter",
+      "filtered.some",
+      "new Date().toISOString",
       "setMessages",
       "prev.filter",
       "setMessages",
@@ -18445,17 +19921,55 @@
       "decoder.decode",
       "buffer.split",
       "lines.pop",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "line.startsWith",
       "JSON.parse",
       "line.slice",
       "logLines.push",
       "setEmLog",
-      "setReport",
-      "logLines.filter(l => l.includes(\"✅\") || l.includes(\"❌\") || l.includes(\"完成\")).pop",
-      "logLines.filter",
-      "l.includes",
-      "l.includes",
-      "l.includes",
+      "packages/server/src/routes/shared.mjs:join",
+      "d.workList.map",
+      "setMessages",
+      "new Date().toISOString",
+      "setMessages",
+      "new Date().toISOString",
+      "logLines.push",
+      "setEmLog",
+      "completedSteps.push",
+      "setMessages",
+      "[...prev].reverse().findIndex",
+      "[...prev].reverse",
+      "d.preview.slice",
+      "new Date().toISOString",
+      "d.preview.slice",
+      "new Date().toISOString",
+      "logLines.push",
+      "d.preview.slice",
+      "setEmLog",
+      "setMessages",
+      "[...prev].reverse().findIndex",
+      "[...prev].reverse",
+      "new Date().toISOString",
+      "new Date().toISOString",
+      "logLines.push",
+      "setEmLog",
+      "logLines.push",
+      "setEmLog",
+      "setMessages",
+      "new Date().toISOString",
+      "logLines.push",
+      "setEmLog",
+      "completedSteps.push",
+      "actions.push",
+      "actions.push",
+      "actions.push",
+      "setMessages",
+      "[...prev].reverse().findIndex",
+      "[...prev].reverse",
+      "new Date().toISOString",
+      "new Date().toISOString",
+      "finalActions.push",
+      "packages/server/src/routes/shared.mjs:join",
+      "completedSteps.map",
       "setMessages",
       "new Date().toISOString",
       "refreshData",
@@ -18464,11 +19978,14 @@
       "setEmRunning"
     ],
     "packages/ui/src/components/EMDashboard.tsx:checkFiles": [
+      "f.path.replace",
       "fetch",
       "encodeURIComponent",
       "encodeURIComponent",
-      "f.path.replace",
       "res.text",
+      "f.path.endsWith",
+      "JSON.parse",
+      "JSON.stringify",
       "content.trim",
       "content.includes",
       "content.includes",
@@ -18648,23 +20165,41 @@
       "onPick",
       "onClose"
     ],
-    "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus": [
+    "packages/ui/src/components/NightShiftPanel.tsx:fetchConfig": [
       "fetch",
+      "encodeURIComponent",
       "res.json",
-      "setNsStatus",
-      "fetch",
-      "repRes.text",
-      "setReport",
-      "console.error"
+      "setNsConfig",
+      "setSelectedMode"
     ],
     "packages/ui/src/components/NightShiftPanel.tsx:handleStart": [
       "setStarting",
       "setReport",
+      "setSelectedReportDate",
       "fetch",
+      "encodeURIComponent",
+      "JSON.stringify",
       "res.json",
-      "packages/ui/src/components/NightShiftPanel.tsx:fetchStatus",
+      "fetchStatus",
       "alert",
       "setStarting"
+    ],
+    "packages/ui/src/components/NightShiftPanel.tsx:deleteReport": [
+      "e.stopPropagation",
+      "confirm",
+      "fetch",
+      "encodeURIComponent",
+      "setReports",
+      "prev.filter",
+      "setSelectedReportDate",
+      "setReportContent"
+    ],
+    "packages/ui/src/components/NightShiftPanel.tsx:formatDate": [
+      "d.toLocaleString"
+    ],
+    "packages/ui/src/components/NightShiftPanel.tsx:formatSize": [
+      "(bytes / 1024).toFixed",
+      "(bytes / (1024 * 1024)).toFixed"
     ],
     "packages/ui/src/components/PaawTree.tsx:findDirs": [
       "[\"sessions\", \"standards\", \"prompts\", \"api-logs\"].includes",
@@ -18706,7 +20241,7 @@
       "buffer.split",
       "lines.pop",
       "line.trim",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "trimmed.startsWith",
       "trimmed.slice",
       "JSON.parse",
       "setMessages",
@@ -19155,7 +20690,7 @@
       "buffer.split",
       "lines.pop",
       "line.trim",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "trimmed.startsWith",
       "trimmed.slice",
       "JSON.parse",
       "console.debug",
@@ -19782,7 +21317,7 @@
       "decoder.decode",
       "buffer.split",
       "lines.pop",
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "line.startsWith",
       "JSON.parse",
       "line.slice",
       "clearInterval",
@@ -19873,7 +21408,7 @@
       "fUserInputs.filter"
     ],
     "packages/ui/src/pages/SkillsPage.tsx:updateInput": [
-      "packages/server/src/lib/paaw-agent-loop.mjs:startsWith",
+      "updated[idx].id.startsWith",
       "value.toLowerCase().replace(/[^a-z0-9]+/g, \"-\").replace",
       "value.toLowerCase().replace",
       "value.toLowerCase",
@@ -20005,9 +21540,9 @@
     ]
   },
   "stats": {
-    "totalFunctions": 810,
-    "totalCalls": 1511,
-    "resolvedCalls": 137,
-    "unresolvedCalls": 1374
+    "totalFunctions": 865,
+    "totalCalls": 1639,
+    "resolvedCalls": 128,
+    "unresolvedCalls": 1511
   }
 }

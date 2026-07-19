@@ -158,6 +158,12 @@
           "names": []
         },
         {
+          "source": "json-stable-stringify",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
           "source": "@paaw/shared",
           "resolved": false,
           "targetFile": null,
@@ -653,19 +659,17 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
         }
       ],
       "importedBy": [
         {
           "source": "packages/server/src/context-engine.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
           "names": []
         },
         {
@@ -777,6 +781,10 @@
       ],
       "importedBy": [
         {
+          "source": "packages/server/src/lib/night-shift-shared.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/lib/overnight-manager.mjs",
           "names": []
         }
@@ -858,6 +866,98 @@
       "importedBy": [],
       "exports": []
     },
+    "packages/server/src/lib/change-intelligence.mjs": {
+      "path": "packages/server/src/lib/change-intelligence.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "util",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "buildChangeIntelligence"
+      ]
+    },
+    "packages/server/src/lib/paaw-project.mjs": {
+      "path": "packages/server/src/lib/paaw-project.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/change-intelligence.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/context-providers.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/lib/night-shift-shared.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-issues.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "PaawProject",
+        "createPaawProject"
+      ]
+    },
     "packages/server/src/lib/code-intelligence.mjs": {
       "path": "packages/server/src/lib/code-intelligence.mjs",
       "language": "javascript",
@@ -913,6 +1013,10 @@
         {
           "source": "packages/server/src/lib/code-intelligence.mjs",
           "names": []
+        },
+        {
+          "source": "packages/server/src/lib/test-intelligence.mjs",
+          "names": []
         }
       ],
       "exports": [
@@ -954,11 +1058,41 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
         }
       ],
       "importedBy": [],
       "exports": [
         "contextProviders"
+      ]
+    },
+    "packages/server/src/lib/dependency-context.mjs": {
+      "path": "packages/server/src/lib/dependency-context.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "getDependencyContext",
+        "getAffectedTests",
+        "getImpactSummary"
       ]
     },
     "packages/server/src/lib/domain-agent-registry.mjs": {
@@ -1008,6 +1142,108 @@
         "DOMAIN_AGENTS"
       ]
     },
+    "packages/server/src/lib/feature-map-validator.mjs": {
+      "path": "packages/server/src/lib/feature-map-validator.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "scanAllSourceFiles",
+        "extractApiRoutes",
+        "validateFeatureMapping",
+        "checkCoverage",
+        "validateUnderstanding",
+        "runFullValidation"
+      ]
+    },
+    "packages/server/src/lib/import-check.mjs": {
+      "path": "packages/server/src/lib/import-check.mjs",
+      "language": "javascript",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "packages/server/src/lib/night-shift-shared.mjs": {
+      "path": "packages/server/src/lib/night-shift-shared.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "child_process",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
+          "names": []
+        },
+        {
+          "source": "./action-log.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/action-log.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/server/src/lib/overnight-manager.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/routes/coding-reports.mjs",
+          "names": []
+        }
+      ],
+      "exports": [
+        "gatherContext",
+        "buildSituationReport",
+        "refreshFeatureMapping",
+        "validateFeatureMap",
+        "saveNightShiftReport",
+        "listNightShiftReports",
+        "readNightShiftReport",
+        "deleteNightShiftReport"
+      ]
+    },
     "packages/server/src/lib/overnight-manager.mjs": {
       "path": "packages/server/src/lib/overnight-manager.mjs",
       "language": "javascript",
@@ -1029,141 +1265,20 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "./night-shift-shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/night-shift-shared.mjs",
+          "names": []
         }
       ],
       "importedBy": [],
       "exports": [
         "a2aCallAgent",
-        "runEMSession"
-      ]
-    },
-    "packages/server/src/lib/paaw-agent-loop.mjs": {
-      "path": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "fs/promises",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "url",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "./llm-utils.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/llm-utils.mjs",
-          "names": []
-        },
-        {
-          "source": "./paaw-project.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-project.mjs",
-          "names": []
-        },
-        {
-          "source": "./paaw-snapshot.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-snapshot.mjs",
-          "names": []
-        },
-        {
-          "source": "./llm-utils.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/llm-utils.mjs",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/routes/apps.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/crew.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/routes/workflow.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/scheduler/cron-jobs.mjs",
-          "names": []
-        },
-        {
-          "source": "packages/server/src/websocket/ws-handler.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "resolveLLMConfig",
-        "setAgentConfig",
-        "callLLM",
-        "runAgentLoop",
-        "runAgentLoopStream"
-      ]
-    },
-    "packages/server/src/lib/paaw-project.mjs": {
-      "path": "packages/server/src/lib/paaw-project.mjs",
-      "language": "javascript",
-      "imports": [
-        {
-          "source": "fs/promises",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "fs",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "path",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "names": []
-        }
-      ],
-      "exports": [
-        "PaawProject",
-        "createPaawProject"
+        "runEMSession",
+        "runParallelSession",
+        "runNightShift"
       ]
     },
     "packages/server/src/lib/paaw-snapshot.mjs": {
@@ -1201,12 +1316,7 @@
           "names": []
         }
       ],
-      "importedBy": [
-        {
-          "source": "packages/server/src/lib/paaw-agent-loop.mjs",
-          "names": []
-        }
-      ],
+      "importedBy": [],
       "exports": [
         "PaawSnapshot"
       ]
@@ -1383,11 +1493,32 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "crypto",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "os",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
         }
       ],
       "importedBy": [],
       "exports": [
+        "detectRulePacks",
+        "buildFullScanCommand",
         "isSemgrepAvailable",
+        "diagnoseSemgrep",
         "runSemgrep",
         "formatForAI",
         "formatCondensed"
@@ -1422,6 +1553,34 @@
       ],
       "exports": [
         "JsonTaskPersistence"
+      ]
+    },
+    "packages/server/src/lib/test-intelligence.mjs": {
+      "path": "packages/server/src/lib/test-intelligence.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./tree-sitter-parser.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "buildTestIntelligence"
       ]
     },
     "packages/server/src/lib/tool-engine/index.mjs": {
@@ -1471,6 +1630,12 @@
         },
         {
           "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "fs",
           "resolved": false,
           "targetFile": null,
           "names": []
@@ -1608,6 +1773,10 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/crew.mjs",
           "names": []
         },
@@ -1632,6 +1801,10 @@
           "names": []
         },
         {
+          "source": "packages/server/src/routes/skills-api.mjs",
+          "names": []
+        },
+        {
           "source": "packages/server/src/routes/vibe-fs.mjs",
           "names": []
         },
@@ -1641,6 +1814,10 @@
         },
         {
           "source": "packages/server/src/scheduler/cron-jobs.mjs",
+          "names": []
+        },
+        {
+          "source": "packages/server/src/tools/index.mjs",
           "names": []
         },
         {
@@ -1656,7 +1833,6 @@
         "CONVERSATIONS_ROOT",
         "CREWS_ROOT",
         "SKILLS_ROOT",
-        "DOCS_ROOT",
         "INPUT_PROMPT_ROOT",
         "PHYSICAL_SKILL_ROOT",
         "SKILL_POOL_ROOT",
@@ -1729,8 +1905,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": false,
+          "targetFile": null,
           "names": []
         },
         {
@@ -1988,8 +2164,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": false,
+          "targetFile": null,
           "names": []
         }
       ],
@@ -2018,6 +2194,12 @@
           "source": "path",
           "resolved": false,
           "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/shared.mjs",
           "names": []
         },
         {
@@ -2228,6 +2410,34 @@
         "codingFeaturesRoute"
       ]
     },
+    "packages/server/src/routes/coding-health.mjs": {
+      "path": "packages/server/src/routes/coding-health.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "codingHealthRoute"
+      ]
+    },
     "packages/server/src/routes/coding-issues.mjs": {
       "path": "packages/server/src/routes/coding-issues.mjs",
       "language": "javascript",
@@ -2260,6 +2470,12 @@
           "source": "./shared.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/routes/shared.mjs",
+          "names": []
+        },
+        {
+          "source": "../lib/paaw-project.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/paaw-project.mjs",
           "names": []
         }
       ],
@@ -2314,6 +2530,69 @@
         "codingMemoryRoute"
       ]
     },
+    "packages/server/src/routes/coding-night-shift-config.mjs": {
+      "path": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "nightShiftConfigRoutes"
+      ]
+    },
+    "packages/server/src/routes/coding-night-shift-prompts.mjs": {
+      "path": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "node:fs/promises",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/shared.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "nightShiftPromptsRoutes",
+        "getPromptsFile"
+      ]
+    },
     "packages/server/src/routes/coding-night-shift.mjs": {
       "path": "packages/server/src/routes/coding-night-shift.mjs",
       "language": "javascript",
@@ -2331,12 +2610,6 @@
           "names": []
         },
         {
-          "source": "child_process",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
           "source": "url",
           "resolved": false,
           "targetFile": null,
@@ -2346,6 +2619,34 @@
       "importedBy": [],
       "exports": [
         "codingNightShiftRoute"
+      ]
+    },
+    "packages/server/src/routes/coding-reports.mjs": {
+      "path": "packages/server/src/routes/coding-reports.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "../lib/night-shift-shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/lib/night-shift-shared.mjs",
+          "names": []
+        },
+        {
+          "source": "node:fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "node:path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "codingReportsRoutes"
       ]
     },
     "packages/server/src/routes/crew.mjs": {
@@ -2384,8 +2685,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": false,
+          "targetFile": null,
           "names": []
         }
       ],
@@ -2492,6 +2793,34 @@
       "exports": [
         "reloadHelpDeskCache",
         "helpdeskRoute"
+      ]
+    },
+    "packages/server/src/routes/llm-logs.mjs": {
+      "path": "packages/server/src/routes/llm-logs.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": [
+        "llmLogsRoute"
       ]
     },
     "packages/server/src/routes/mindmap.mjs": {
@@ -2856,8 +3185,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": false,
+          "targetFile": null,
           "names": []
         }
       ],
@@ -2896,8 +3225,8 @@
         },
         {
           "source": "../lib/paaw-agent-loop.mjs",
-          "resolved": true,
-          "targetFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+          "resolved": false,
+          "targetFile": null,
           "names": []
         },
         {
@@ -2929,6 +3258,12 @@
           "names": []
         },
         {
+          "source": "fs",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
           "source": "path",
           "resolved": false,
           "targetFile": null,
@@ -2938,6 +3273,12 @@
           "source": "url",
           "resolved": false,
           "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../routes/shared.mjs",
+          "resolved": true,
+          "targetFile": "packages/server/src/routes/shared.mjs",
           "names": []
         }
       ],
@@ -3148,6 +3489,12 @@
           "source": "./pages/HelpDesk",
           "resolved": true,
           "targetFile": "packages/ui/src/pages/HelpDesk.tsx",
+          "names": []
+        },
+        {
+          "source": "./components/LlmLogTab",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/LlmLogTab.tsx",
           "names": []
         },
         {
@@ -4406,6 +4753,27 @@
         "HelpDesk"
       ]
     },
+    "packages/ui/src/components/LlmLogTab.tsx": {
+      "path": "packages/ui/src/components/LlmLogTab.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/App.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "LlmLogTab"
+      ]
+    },
     "packages/ui/src/components/ui/shared.tsx": {
       "path": "packages/ui/src/components/ui/shared.tsx",
       "language": "tsx",
@@ -5092,6 +5460,12 @@
           "resolved": true,
           "targetFile": "packages/ui/src/components/Icon.tsx",
           "names": []
+        },
+        {
+          "source": "./MarkdownText",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/MarkdownText.tsx",
+          "names": []
         }
       ],
       "importedBy": [
@@ -5110,6 +5484,47 @@
       ],
       "exports": [
         "AgentConsole"
+      ]
+    },
+    "packages/ui/src/components/MarkdownText.tsx": {
+      "path": "packages/ui/src/components/MarkdownText.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "react-markdown",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "remark-gfm",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/AgentConsole.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/EMDashboard.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/ProjectAiPanel.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "MarkdownText"
       ]
     },
     "packages/ui/src/components/AgentMemoryPanel.tsx": {
@@ -5335,15 +5750,72 @@
           "names": []
         },
         {
+          "source": "./ModelSelector",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ModelSelector.tsx",
+          "names": []
+        },
+        {
           "source": "../utils",
           "resolved": true,
           "targetFile": "packages/ui/src/utils/index.ts",
+          "names": []
+        },
+        {
+          "source": "./MarkdownText",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/MarkdownText.tsx",
           "names": []
         }
       ],
       "importedBy": [],
       "exports": [
         "EMDashboard"
+      ]
+    },
+    "packages/ui/src/components/ModelSelector.tsx": {
+      "path": "packages/ui/src/components/ModelSelector.tsx",
+      "language": "tsx",
+      "imports": [
+        {
+          "source": "react",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "../api",
+          "resolved": true,
+          "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        }
+      ],
+      "importedBy": [
+        {
+          "source": "packages/ui/src/components/EMDashboard.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/components/NightShiftPanel.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/AppBuilder.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/EmployeeWorkspace.tsx",
+          "names": []
+        },
+        {
+          "source": "packages/ui/src/pages/SkillBuilder.tsx",
+          "names": []
+        }
+      ],
+      "exports": [
+        "getModelForFeature",
+        "saveModelForFeature",
+        "ModelSelector"
       ]
     },
     "packages/ui/src/components/FeatureMap.tsx": {
@@ -5573,43 +6045,6 @@
         "MoveFolderPicker"
       ]
     },
-    "packages/ui/src/components/ModelSelector.tsx": {
-      "path": "packages/ui/src/components/ModelSelector.tsx",
-      "language": "tsx",
-      "imports": [
-        {
-          "source": "react",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "../api",
-          "resolved": true,
-          "targetFile": "packages/ui/src/api.ts",
-          "names": []
-        }
-      ],
-      "importedBy": [
-        {
-          "source": "packages/ui/src/pages/AppBuilder.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/pages/EmployeeWorkspace.tsx",
-          "names": []
-        },
-        {
-          "source": "packages/ui/src/pages/SkillBuilder.tsx",
-          "names": []
-        }
-      ],
-      "exports": [
-        "getModelForFeature",
-        "saveModelForFeature",
-        "ModelSelector"
-      ]
-    },
     "packages/ui/src/components/NightShiftPanel.tsx": {
       "path": "packages/ui/src/components/NightShiftPanel.tsx",
       "language": "tsx",
@@ -5630,6 +6065,24 @@
           "source": "../api",
           "resolved": true,
           "targetFile": "packages/ui/src/api.ts",
+          "names": []
+        },
+        {
+          "source": "react-markdown",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "remark-gfm",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "./ModelSelector",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/ModelSelector.tsx",
           "names": []
         }
       ],
@@ -5677,15 +6130,9 @@
           "names": []
         },
         {
-          "source": "react-markdown",
-          "resolved": false,
-          "targetFile": null,
-          "names": []
-        },
-        {
-          "source": "remark-gfm",
-          "resolved": false,
-          "targetFile": null,
+          "source": "./MarkdownText",
+          "resolved": true,
+          "targetFile": "packages/ui/src/components/MarkdownText.tsx",
           "names": []
         },
         {
@@ -6865,6 +7312,18 @@
           "resolved": false,
           "targetFile": null,
           "names": []
+        },
+        {
+          "source": "path",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        },
+        {
+          "source": "url",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
         }
       ],
       "importedBy": [],
@@ -6961,6 +7420,20 @@
       "importedBy": [],
       "exports": []
     },
+    "tests/unit/agent-loop-max-turns.test.mjs": {
+      "path": "tests/unit/agent-loop-max-turns.test.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "vitest",
+          "resolved": false,
+          "targetFile": null,
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "tests/unit/ai-settings.test.mjs": {
       "path": "tests/unit/ai-settings.test.mjs",
       "language": "javascript",
@@ -7007,6 +7480,20 @@
           "source": "../../packages/server/src/context-engine.mjs",
           "resolved": true,
           "targetFile": "packages/server/src/context-engine.mjs",
+          "names": []
+        }
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "tests/unit/night-shift-shared.test.mjs": {
+      "path": "tests/unit/night-shift-shared.test.mjs",
+      "language": "javascript",
+      "imports": [
+        {
+          "source": "vitest",
+          "resolved": false,
+          "targetFile": null,
           "names": []
         }
       ],
@@ -7180,8 +7667,28 @@
       "names": []
     },
     {
+      "from": "packages/server/src/lib/change-intelligence.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/lib/code-intelligence.mjs",
       "to": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/context-providers.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/night-shift-shared.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/night-shift-shared.mjs",
+      "to": "packages/server/src/lib/action-log.mjs",
       "names": []
     },
     {
@@ -7190,23 +7697,8 @@
       "names": []
     },
     {
-      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "to": "packages/server/src/lib/llm-utils.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "to": "packages/server/src/lib/paaw-project.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "to": "packages/server/src/lib/paaw-snapshot.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "to": "packages/server/src/lib/llm-utils.mjs",
+      "from": "packages/server/src/lib/overnight-manager.mjs",
+      "to": "packages/server/src/lib/night-shift-shared.mjs",
       "names": []
     },
     {
@@ -7227,6 +7719,11 @@
     {
       "from": "packages/server/src/lib/security/index.mjs",
       "to": "packages/server/src/lib/security/audit-log.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/lib/test-intelligence.mjs",
+      "to": "packages/server/src/lib/tree-sitter-parser.mjs",
       "names": []
     },
     {
@@ -7300,11 +7797,6 @@
       "names": []
     },
     {
-      "from": "packages/server/src/routes/apps.mjs",
-      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "names": []
-    },
-    {
       "from": "packages/server/src/routes/assistant.mjs",
       "to": "packages/server/src/routes/shared.mjs",
       "names": []
@@ -7340,8 +7832,23 @@
       "names": []
     },
     {
+      "from": "packages/server/src/routes/coding-issues.mjs",
+      "to": "packages/server/src/lib/paaw-project.mjs",
+      "names": []
+    },
+    {
       "from": "packages/server/src/routes/coding-memory.mjs",
       "to": "packages/server/src/routes/shared.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "to": "packages/server/src/routes/shared.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/coding-reports.mjs",
+      "to": "packages/server/src/lib/night-shift-shared.mjs",
       "names": []
     },
     {
@@ -7352,11 +7859,6 @@
     {
       "from": "packages/server/src/routes/crew.mjs",
       "to": "packages/server/src/routes/context.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/routes/crew.mjs",
-      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
       "names": []
     },
     {
@@ -7436,6 +7938,11 @@
     },
     {
       "from": "packages/server/src/routes/skills-api.mjs",
+      "to": "packages/server/src/routes/shared.mjs",
+      "names": []
+    },
+    {
+      "from": "packages/server/src/routes/skills-api.mjs",
       "to": "packages/server/src/lib/llm-utils.mjs",
       "names": []
     },
@@ -7465,22 +7972,12 @@
       "names": []
     },
     {
-      "from": "packages/server/src/routes/workflow.mjs",
-      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "names": []
-    },
-    {
       "from": "packages/server/src/scheduler/cron-jobs.mjs",
       "to": "packages/server/src/routes/shared.mjs",
       "names": []
     },
     {
       "from": "packages/server/src/scheduler/cron-jobs.mjs",
-      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "names": []
-    },
-    {
-      "from": "packages/server/src/scheduler/cron-jobs.mjs",
       "to": "packages/server/src/lib/llm-utils.mjs",
       "names": []
     },
@@ -7490,8 +7987,8 @@
       "names": []
     },
     {
-      "from": "packages/server/src/websocket/ws-handler.mjs",
-      "to": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "from": "packages/server/src/tools/index.mjs",
+      "to": "packages/server/src/routes/shared.mjs",
       "names": []
     },
     {
@@ -7616,6 +8113,11 @@
     },
     {
       "from": "packages/ui/src/App.tsx",
+      "to": "packages/ui/src/components/LlmLogTab.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/App.tsx",
       "to": "packages/ui/src/components/ui/shared.tsx",
       "names": []
     },
@@ -7647,6 +8149,11 @@
     {
       "from": "packages/ui/src/components/AgentConsole.tsx",
       "to": "packages/ui/src/components/Icon.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/AgentConsole.tsx",
+      "to": "packages/ui/src/components/MarkdownText.tsx",
       "names": []
     },
     {
@@ -7716,7 +8223,17 @@
     },
     {
       "from": "packages/ui/src/components/EMDashboard.tsx",
+      "to": "packages/ui/src/components/ModelSelector.tsx",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/EMDashboard.tsx",
       "to": "packages/ui/src/utils/index.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/EMDashboard.tsx",
+      "to": "packages/ui/src/components/MarkdownText.tsx",
       "names": []
     },
     {
@@ -7810,8 +8327,18 @@
       "names": []
     },
     {
+      "from": "packages/ui/src/components/NightShiftPanel.tsx",
+      "to": "packages/ui/src/components/ModelSelector.tsx",
+      "names": []
+    },
+    {
       "from": "packages/ui/src/components/PaawTree.tsx",
       "to": "packages/ui/src/api.ts",
+      "names": []
+    },
+    {
+      "from": "packages/ui/src/components/ProjectAiPanel.tsx",
+      "to": "packages/ui/src/components/MarkdownText.tsx",
       "names": []
     },
     {
@@ -8531,9 +9058,9 @@
     }
   ],
   "stats": {
-    "totalFiles": 168,
-    "totalEdges": 286,
-    "resolvedImports": 286,
-    "unresolvedImports": 383
+    "totalFiles": 182,
+    "totalEdges": 294,
+    "resolvedImports": 294,
+    "unresolvedImports": 426
   }
 }

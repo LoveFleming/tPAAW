@@ -352,6 +352,41 @@
     },
     {
       "method": "GET",
+      "path": "/api/coding-night-shift/config",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-night-shift/config",
+      "file": "packages/server/src/routes/coding-night-shift-config.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/coding-night-shift/prompts",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-night-shift/prompts",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/coding-night-shift/prompts/reset",
+      "file": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "handler": "",
+      "callChain": []
+    },
+    {
+      "method": "GET",
       "path": "/api/paaw/skill-config",
       "file": "packages/server/src/routes/crew.mjs",
       "handler": "sendEvent",
@@ -630,8 +665,8 @@
     }
   ],
   "stats": {
-    "totalRoutes": 86,
+    "totalRoutes": 91,
     "withHandler": 2,
-    "withoutHandler": 84
+    "withoutHandler": 89
   }
 }

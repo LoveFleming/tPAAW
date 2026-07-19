@@ -64,8 +64,29 @@
       "testCount": 17
     },
     {
+      "testFile": "packages/server/src/lib/change-intelligence.mjs",
+      "productionFile": "packages/server/src/lib/paaw-project.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
       "testFile": "packages/server/src/lib/code-intelligence.mjs",
       "productionFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 11
+    },
+    {
+      "testFile": "packages/server/src/lib/context-providers.mjs",
+      "productionFile": "packages/server/src/lib/paaw-project.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 6
+    },
+    {
+      "testFile": "packages/server/src/lib/night-shift-shared.mjs",
+      "productionFile": "packages/server/src/lib/paaw-project.mjs",
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 11
@@ -75,14 +96,7 @@
       "productionFile": "packages/server/src/lib/action-log.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 7
-    },
-    {
-      "testFile": "packages/server/src/lib/paaw-agent-loop.mjs",
-      "productionFile": "packages/server/src/lib/llm-utils.mjs",
-      "matchType": "import",
-      "testedFunctions": [],
-      "testCount": 13
+      "testCount": 9
     },
     {
       "testFile": "packages/server/src/lib/security/index.mjs",
@@ -90,6 +104,13 @@
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 0
+    },
+    {
+      "testFile": "packages/server/src/lib/test-intelligence.mjs",
+      "productionFile": "packages/server/src/lib/tree-sitter-parser.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 3
     },
     {
       "testFile": "packages/server/src/lib/tool-engine/index.mjs",
@@ -103,7 +124,7 @@
       "productionFile": "packages/server/src/lib/llm-utils.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 2
+      "testCount": 3
     },
     {
       "testFile": "packages/server/src/paaw-server.mjs",
@@ -117,7 +138,7 @@
       "productionFile": "packages/server/src/lib/task-persistence.mjs",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 26
+      "testCount": 25
     },
     {
       "testFile": "packages/server/src/routes/ai-settings.mjs",
@@ -183,6 +204,20 @@
       "testCount": 4
     },
     {
+      "testFile": "packages/server/src/routes/coding-night-shift-prompts.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
+      "testFile": "packages/server/src/routes/coding-reports.mjs",
+      "productionFile": "packages/server/src/lib/night-shift-shared.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 2
+    },
+    {
       "testFile": "packages/server/src/routes/crew.mjs",
       "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
@@ -240,7 +275,7 @@
     },
     {
       "testFile": "packages/server/src/routes/skills-api.mjs",
-      "productionFile": "packages/server/src/lib/llm-utils.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 3
@@ -274,8 +309,15 @@
       "testCount": 13
     },
     {
+      "testFile": "packages/server/src/tools/index.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
+      "matchType": "import",
+      "testedFunctions": [],
+      "testCount": 15
+    },
+    {
       "testFile": "packages/server/src/websocket/ws-handler.mjs",
-      "productionFile": "packages/server/src/lib/paaw-agent-loop.mjs",
+      "productionFile": "packages/server/src/routes/shared.mjs",
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 4
@@ -397,7 +439,7 @@
       "productionFile": "packages/ui/src/api.ts",
       "matchType": "import",
       "testedFunctions": [],
-      "testCount": 3
+      "testCount": 6
     },
     {
       "testFile": "packages/ui/src/components/PaawTree.tsx",
@@ -408,7 +450,7 @@
     },
     {
       "testFile": "packages/ui/src/components/ProjectAiPanel.tsx",
-      "productionFile": "packages/ui/src/api.ts",
+      "productionFile": "packages/ui/src/components/MarkdownText.tsx",
       "matchType": "import",
       "testedFunctions": [],
       "testCount": 4
@@ -772,8 +814,8 @@
     }
   ],
   "stats": {
-    "totalTestFiles": 9,
-    "matchedTests": 110,
+    "totalTestFiles": 12,
+    "matchedTests": 116,
     "totalTestedFunctions": 0
   }
 }
