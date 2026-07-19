@@ -151,7 +151,7 @@ export default function ModelSelector({ feature, value, onChange, className, sty
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto">
+        <div className="absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto">
           {providers.map(p => (
             <div key={p.id}>
               <div className="px-3 py-1.5 bg-stone-50 border-b border-stone-100 sticky top-0">

@@ -1,53 +1,12 @@
 {
-  "startedAt": "2026-07-18T14:21:19.821Z",
-  "status": "completed",
+  "startedAt": "2026-07-19T01:21:39.722Z",
+  "status": "running",
+  "mode": "em",
   "agents": {
-    "architect": {
-      "role": "architect",
-      "status": "completed",
-      "codename": "林曉薇 Xiaowei Lin",
-      "result": "ok",
-      "report": "done"
-    },
-    "developer": {
-      "role": "developer",
-      "status": "completed",
-      "codename": "普里亞·夏爾馬 Priya Sharma",
-      "result": "ok",
-      "report": "done"
-    },
     "tester": {
-      "role": "tester",
-      "status": "completed",
-      "codename": "迪維雅·雷迪 Divya Reddy",
-      "result": "ok",
-      "report": "done"
-    },
-    "doc-writer": {
-      "role": "doc-writer",
-      "status": "completed",
-      "codename": "梅根·布魯克斯 Megan Brooks",
-      "result": "ok",
-      "report": "done"
-    },
-    "qa": {
-      "role": "qa",
-      "status": "completed",
-      "codename": "武大安 Da'an Wu",
-      "result": "ok",
-      "report": "done"
-    },
-    "helpdesk": {
-      "role": "helpdesk",
-      "status": "completed",
-      "codename": "小春 林 Koharu Hayashi",
-      "result": "ok",
-      "report": "done"
+      "status": "running"
     }
   },
-  "totalAgents": 6,
-  "completedAgents": 6,
-  "completedAt": "2026-07-18T14:23:35.810Z",
-  "duration": 135989,
-  "report": "# 🌙 Night Shift Report\n\n**Date:** 2026/7/18\n**Started:** 下午10:21:19\n**Duration:** 136s\n**Changes since 2026-07-18:** 37 files, 16 commits\n\n---\n\n### 🏛️ 林曉薇 (Architect) ✅\ndone\n\n---\n\n### 💻 Priya (Developer) ✅\ndone\n\n---\n\n### 🧪 Divya (Tester) ✅\ndone\n\n---\n\n### 📝 Megan (Doc Writer) ✅\ndone\n\n---\n\n### 🔍 武大安 (QA) ✅\ndone\n\n---\n\n### 🎫 小春 (Helpdesk) ✅\ndone\n\n---\n\n## 📋 Commits since 2026-07-18\n```\na10ba61 fix: Reports tab — render markdown instead of plain text\n9d23f26 feat: Reports tab — EM report list + viewer with API\n357e7ea fix: replace JSON.stringify with json-stable-stringify in refinery weeklyRefine\ncea2539 fix(coding): Code Understanding — same 3 fixes as refresh-mapping\n34def2e feat(l3): AI feature discovery from orphan files + coverage improvement\ndbc4b3f feat(l3): Layer 3 feature map validation — deterministic checks on AI output\nea7acd4 feat(features): generate AI understanding for all 9 features (9/9)\nf7e4b3a fix(health): check .paaw/project/ for CODING-STANDARDS.md + fix issues wrapper\nf8d49ed feat(coding): add health check endpoint + Night Shift timeout protection\nf710892 fix(security): restore full language --include list, rely on --exclude data/semgrep-rules\n00811f9 fix(security): only scan JS/TS, exclude semgrep-rules dir + non-web languages\n931f222 fix(ux): instant scroll to bottom instead of smooth animation\n0b1c947 fix(ux): don't auto-scroll EM chat to bottom on initial load\n146aafb fix(security): use --include to only scan source code files, not JSON/MD/data\n63b0098 feat(em): pass ModelSelector model to EM/Night Shift + Phase 0 feature map refresh\n0f868bc chore: cleanup old backups and add new backup 2026-07-17\n```\n\n## 📁 Changed Files\n- `.paaw/CHANGELOG.md`\n- `.paaw/DECISIONS.md`\n- `.paaw/agent-memory/tester.md`\n- `.paaw/changes/change-records.json`\n- `.paaw/code-intelligence/status-cache.json`\n- `.paaw/code-intelligence/test-intelligence.json`\n- `.paaw/coding-memory/actions.jsonl`\n- `.paaw/coding-memory/conversations/coding.developer/active.json`\n- `.paaw/coding-memory/conversations/coding.developer/s-2026-07-18T13-57-33.json`\n- `.paaw/coding-memory/conversations/coding.em-dashboard/active.json`\n- `.paaw/coding-memory/dispatch-log.jsonl`\n- `.paaw/features/FEATURES.json`\n- `.paaw/issues/ISSUES.json`\n- `.paaw/night-shift/status.json`\n- `.paaw/overnight-reports/2026-07-18.md`\n- `.paaw/security/scan-results.json`\n- `.paaw/sessions/2026-07-18-task.md`\n- `backups/backup-2026-07-17T16-00-17.json`\n- `backups/backup-2026-07-17T16-00-17.tar.gz`\n- `data/config/backup.json`\n- `data/config/recent-projects.json`\n- `packages/context/package.json`\n- `packages/context/src/refinery/refinery.ts`\n- `packages/server/src/lib/feature-map-validator.mjs`\n- `packages/server/src/lib/overnight-manager.mjs`\n- `packages/server/src/lib/semgrep-runner.mjs`\n- `packages/server/src/paaw-server.mjs`\n- `packages/server/src/routes/coding-features.mjs`\n- `packages/server/src/routes/coding-health.mjs`\n- `packages/server/src/routes/coding-night-shift.mjs`\n- `packages/server/src/routes/coding-reports.mjs`\n- `packages/server/src/routes/coding.mjs`\n- `packages/ui/src/components/EMDashboard.tsx`\n- `packages/ui/src/components/NightShiftPanel.tsx`\n- `packages/ui/src/components/ReportsTab.tsx`\n- `packages/ui/src/pages/CodingIDE.tsx`\n- `tests/unit/agent-loop-max-turns.test.mjs`\n"
+  "totalAgents": 0,
+  "completedAgents": 0
 }
