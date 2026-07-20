@@ -125,6 +125,8 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
   const runScan = useCallback(async () => {
     setScanning(true);
     setError(null);
+    setScanResult(null); // Clear old results — header stats should not show stale numbers during rescan
+    setSelectedFinding(null);
     try {
       const res = await fetch(`${API_BASE}/api/coding-project/security-scan?path=${encodeURIComponent(rootPath)}`);
       if (res.ok) {
@@ -175,7 +177,10 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
       <div className="shrink-0 px-4 py-2 flex items-center gap-3" style={{ borderBottom: `1px solid ${tk.borderLight}`, backgroundColor: tk.bgMuted }}>
         <span className="text-sm font-bold" style={{ color: tk.text }}>🔒 Security Scan</span>
 
-        {stats && (
+        {scanning && (
+          <span className="text-xs text-stone-400 animate-pulse">Scanning…</span>
+        )}
+        {stats && !scanning && (
           <div className="flex items-center gap-2 text-xs">
             <span className="text-stone-500">{stats.total} findings</span>
             {SEVERITY_ORDER.filter(s => stats.bySeverity[s]).map(s => (
