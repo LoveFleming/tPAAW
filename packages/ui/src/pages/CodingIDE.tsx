@@ -282,12 +282,17 @@ export default function CodingIDE() {
     if (id === DASHBOARD_TAB_ID) return; // Dashboard cannot be closed
     setMainTabs(prev => {
       const remaining = prev.filter(t => t.id !== id);
-      if (activeMainTabId === id) {
-        setActiveMainTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : DASHBOARD_TAB_ID);
-      }
       return remaining;
     });
-  }, [activeMainTabId]);
+    // Use functional update to avoid stale activeMainTabId closure
+    setActiveMainTabId(prev => {
+      if (prev !== id) return prev; // not closing the active tab, keep it
+      // Need to find the remaining tabs after close to pick the right one
+      // We can't read setMainTabs result here, so compute from current mainTabs
+      const remaining = mainTabsRef.current.filter(t => t.id !== id);
+      return remaining.length > 0 ? remaining[remaining.length - 1].id : DASHBOARD_TAB_ID;
+    });
+  }, [mainTabs]);
 
   // ── Open new Browser / Terminal instances ──
   const openNewBrowser = useCallback(() => {
@@ -363,6 +368,9 @@ export default function CodingIDE() {
   const loadingFileRef = useRef(false);
   const openTabsRef = useRef(openTabs);
   openTabsRef.current = openTabs; // keep in sync
+  const mainTabsRef = useRef(mainTabs);
+  mainTabsRef.current = mainTabs; // keep in sync
+  const tabBarRef = useRef<HTMLDivElement>(null);
   // Crew profile data
   const [crewProfile, setCrewProfile] = useState<Record<string, any>>({});
   const [loadedCrews, setLoadedCrews] = useState<Set<string>>(new Set()); // track which crew conversations have been loaded from server
@@ -584,7 +592,20 @@ export default function CodingIDE() {
 
   const [showDirExplorer, setShowDirExplorer] = useState(false);
 
-  const activeTab = useMemo(() => openTabs.find(ot => ot.id === activeTabId), [openTabs, activeTabId]);
+  // ── Derived: sync activeTab with activeMainTab ──
+  // activeTabId is the sidebar tab; but the MAIN panel is driven by activeMainTab.
+  // When activeMainTab is an editor, resolve the matching OpenTab from its filePath.
+  // This ensures editor content always matches the selected main tab,
+  // even if activeTabId lags behind (close-then-reopen race).
+  const activeTab = useMemo(() => {
+    if (activeMainTab?.type === "editor" && activeMainTab.filePath) {
+      // Prefer the main tab's filePath (single source of truth for what's shown)
+      const byFilePath = openTabs.find(ot => ot.path === activeMainTab.filePath);
+      if (byFilePath) return byFilePath;
+    }
+    // Fallback: legacy path via activeTabId (for viewer/side panel scenarios)
+    return openTabs.find(ot => ot.id === activeTabId) || null;
+  }, [openTabs, activeTabId, activeMainTab]);
 
   // ═══════════════════════════════════════════════
   // Init: load from server APIs (with localStorage fallback)
@@ -841,10 +862,13 @@ export default function CodingIDE() {
 
   const closeTab = useCallback((id: string) => {
     setOpenTabs(prev => prev.filter(ot => ot.id !== id));
-    if (activeTabId === id) { const remaining = openTabs.filter(ot => ot.id !== id); setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null); }
+    if (activeTabId === id) {
+      const remaining = openTabsRef.current.filter(ot => ot.id !== id);
+      setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
+    }
     closeMainTab(`file:${id}`);
     logEvent("close_file", { path: id });
-  }, [activeTabId, openTabs, logEvent, closeMainTab]);
+  }, [activeTabId, logEvent, closeMainTab]);
 
   const saveFile = useCallback(async (tab: OpenTab) => {
     if (!tab.modified) return;
@@ -2018,13 +2042,14 @@ const sendChat = useCallback(async () => {
         {/* ── Center: Unified Tab System ── */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Tab Bar — all tabs (files + tools + AI crew) */}
-          <div className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgMuted, borderBottom: `1px solid ${tk.borderLight}` }}>
+          <div ref={tabBarRef} className="flex items-end shrink-0 overflow-x-auto" style={{ backgroundColor: tk.bgMuted, borderBottom: `1px solid ${tk.borderLight}` }}>
             {mainTabs.map(tab => {
               const isEditorFile = tab.type === "editor";
               const fileTab = isEditorFile ? openTabs.find(ot => ot.id === tab.filePath) : null;
               const isActive = activeMainTabId === tab.id;
               return (
                 <div key={tab.id}
+                  ref={el => { if (isActive && el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }); }}
                   className={cn("group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors",
                     isActive ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
                   style={isActive ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
