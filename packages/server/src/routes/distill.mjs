@@ -184,7 +184,7 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride
 
     const result = await callLLMWithRetry(apiUrl, headers, body, {
       maxRetries: 3,
-      timeoutMs: 60_000,
+      timeoutMs: 300_000,
       validateContent: true,
       sanitize: true,
       caller: "distill",

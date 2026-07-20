@@ -92,7 +92,7 @@ async function callProjectLLM(body, opts = {}) {
   };
   return callLLMWithRetry(apiUrl, headers, reqBody, {
     maxRetries: opts.maxRetries ?? 3,
-    timeoutMs: opts.timeoutMs ?? 60_000,
+    timeoutMs: opts.timeoutMs ?? 300_000,
     validateContent: true,
     sanitize: true,
     caller: opts.caller || "coding",

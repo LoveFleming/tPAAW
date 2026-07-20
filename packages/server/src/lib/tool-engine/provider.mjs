@@ -100,7 +100,7 @@ export class OpenAICompatibleAdapter {
         body: JSON.stringify(body),
       }, {
         maxRetries: 3,
-        timeoutMs: 60_000,
+        timeoutMs: 300_000,
         onRetry: (info) => console.log(`[Provider] ${info.error ? info.error : 'HTTP ' + info.status} → retry ${info.attempt} in ${info.delayMs}ms`),
       })
     } catch (fetchErr) {

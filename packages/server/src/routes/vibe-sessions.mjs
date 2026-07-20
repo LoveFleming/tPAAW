@@ -223,7 +223,7 @@ export default async function vibeSessionsRoute(req, res) {
             };
             const result = await callLLMWithRetry(apiUrl, headers, reqBody, {
               maxRetries: 3,
-              timeoutMs: 60_000,
+              timeoutMs: 300_000,
               validateContent: true,
               sanitize: true,
               caller: "vibe-sessions",

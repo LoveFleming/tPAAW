@@ -194,7 +194,7 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
       // No override, use default
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
         maxRetries: 3,
-        timeoutMs: 120000,
+        timeoutMs: 300000,
         validateContent: true,
         sanitize: true,
         caller: "night-shift",
@@ -208,7 +208,7 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
         const m = resolveLLMConfig(projRoot, models[i]);
         const result = await callLLMWithRetry(m.apiUrl, m.headers, { ...body, model: m.model || m.defaultModel }, {
           maxRetries: 2,
-          timeoutMs: 120000,
+          timeoutMs: 300000,
           validateContent: true,
           sanitize: true,
           caller: "night-shift",

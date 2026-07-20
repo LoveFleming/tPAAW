@@ -145,3 +145,21 @@ This ensures AI can never create a feature with hallucinated file paths.
 3. P3: 抽取 callWithFallback 到 llm-utils.mjs
 4. P4: Parallel 模組改用 shared.mjs 的 PAAW_ROOT
 
+## ADR-010: Shared Tool Registry (OCP-compliant)
+- **日期**: 2026-07-19
+- **狀態**: Proposed
+- **背景**: Two independent agent loops (Loop A: paaw-agent-loop.mjs with PAAW_TOOLS + executeTool; Loop B: tools/index.mjs with ToolEngine) each maintained their own tool definitions and handlers. Adding a new tool required changes in multiple places, and the two loops had inconsistent tool sets. This violated the Open-Closed Principle: the agent loop code (closed for modification) had to change every time a new tool (open for extension) was added.
+- **決定**: Introduce a shared tool registry (tool-registry.mjs) that acts as the single source of truth for tool definitions and handlers. All agent loops read tool definitions via toolRegistry.getDefinitions() and execute via toolRegistry.execute(). New tools are registered once and automatically available to all loops. An adapter layer (tool-registry-init.mjs) bridges existing Loop A (paaw-agent-loop) and Loop B (ToolEngine) tools into the registry during a phased migration (Phase 1: adapter, Phase 2: Loop A reads from registry, Phase 3: Loop B injects via injectRegistryTools).
+- **後果**: Positive: New tools need only one registration point; all loops benefit automatically. Aligns with OCP. Reduces duplication of tool definitions. Enables future capability: tools can be dynamically registered by plugins/skills at runtime.
+Negative: Two concepts share the name "ToolRegistry" — the shared lib/tool-registry.mjs (Map-based) and lib/tool-engine/tool-registry.mjs (class-based), which can cause confusion. The adapter layer adds indirection. initLoopBTools() and initAllTools() in tool-registry-init.mjs are currently dead code (not wired into startup).
+Neutral: Migration is phased — Loop A uses a fallback pattern (registry if initialized, else direct executeTool), and Loop B uses injectRegistryTools to merge registry tools into ToolEngine.
+
+## ADR-011: Constrained Shell Execution for AI Agents (project_run_command)
+- **日期**: 2026-07-19
+- **狀態**: Proposed
+- **背景**: Crew agents (developer, tester, QA) need to run build/test/lint commands to verify their code changes. A raw unrestricted bash tool would allow arbitrary command execution including destructive operations (rm, git push, curl exfiltration). The platform needs a middle ground: agents can run build/test commands but cannot escape the project sandbox or cause damage.
+- **決定**: Provide project_run_command as a whitelisted shell execution tool for crew agents (instead of raw bash). The tool enforces: (1) command-prefix whitelist (npm, npx, yarn, pnpm, node, tsc, mvn, gradle, python, cargo, go, make, dotnet), (2) dangerous pattern blocking (rm, del, git push/reset/rebase, sudo, curl, wget, dd, mkfs, and shell metacharacters >, |, ;, &&, ||), (3) max 300s timeout, (4) output truncation at 8000 chars to prevent context overflow.
+- **後果**: Positive: Agents can self-verify (run tests, check builds) without human intervention. Defense-in-depth: even if an agent is prompted maliciously, the whitelist prevents most destructive actions. Output truncation prevents context window exhaustion.
+Negative: Whitelist is imperfect — node and python can execute arbitrary code via -e flag (e.g., node -e "require('fs').unlinkSync(...)"). The blacklist of metacharacters blocks legitimate piping (e.g., npm test | head). Whitelist requires maintenance as new build tools emerge.
+Neutral: The PAAW Agent (developer-facing tool) retains unrestricted bash for interactive use. Crew agents get the constrained version.
+

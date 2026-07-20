@@ -2221,7 +2221,7 @@ ${changedApis}`;
 
 const DEFAULT_CONTEXT_WINDOW = 262000; // 262k tokens default for company models
 const CONTEXT_SAFETY_MARGIN = 8000;   // reserve for system prompt + response
-const LLM_CALL_TIMEOUT_MS = 120_000;  // 2 min per LLM call (deep thinking + large context needs more than 90s)
+const LLM_CALL_TIMEOUT_MS = 300_000;  // 5 min per LLM call (company models are slower, need more than 2 min)
 
 // ── OpenClaw-aligned context management ──
 // Like OpenClaw: reserve 50% for prompt budget, cap tool results at 30% of context
