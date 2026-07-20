@@ -759,6 +759,12 @@ export default async function a2aRoutes(req, res) {
               } catch {}
             }
             extraContext.push(AGENT_RULES);
+
+            // ── PAAW Self-Development Awareness ──
+            if (rootDir && (rootDir.includes("tPAAW") || rootDir.includes("/App/tPAAW"))) {
+              extraContext.push(`\n## ⚠️ PAAW Self-Development Mode\nYou are modifying **PAAW itself** — the very application you are running in.\n\n### Architecture Overview\n- **packages/ui/** = React + Vite frontend (TypeScript)\n  - pages/CodingIDE.tsx = Coding App (this UI)\n  - components/ = Shared UI components\n- **packages/server/** = Node.js HTTP API server (ESM .mjs)\n  - src/routes/ = API route modules (lazy loaded)\n  - src/lib/ = Core libraries (agent loop, LLM utils, action log)\n  - src/paaw-server.mjs = Entry point (thin dispatch)\n- **packages/shared/** = Shared types/constants\n- **packages/db/** = SQLite ORM (Drizzle)\n- **packages/engine/** = Agent execution engine\n- **data/** = Runtime data (crews, skills, knowledge, logs)\n\n### Critical Rules for PAAW Development\n1. **Server .mjs files**: Changes require server restart. After modifying server code, use the 🔄 Restart Server button in the Coding App UI.\n2. **UI .tsx/.ts files**: If running vite dev, changes auto-hot-reload. If production build, use 🔨 Rebuild UI button.\n3. **Always test after changes**: Run \`npm run build\` for UI, or check server logs.\n4. **Cross-platform**: Use fileURLToPath(), normalizePath(), split(/[\\/\\\\\\\\]/) — see .paaw/CODING-STANDARDS.md\n5. **IME handling**: Any textarea with Enter-to-send must use useRef for composition tracking\n6. **No Windows find command**: Use scanProjectFiles() or node -e for file scanning\n7. **Commit + push after changes**: Fleming needs changes on other machines too\n`);
+            }
+
             const fullSystemPrompt = systemPrompt + extraContext.join("");
 
             // Build messages array with conversation history

@@ -155,6 +155,49 @@ const server = createServer(async (req, res) => {
   }
 });
 
+// ── Dev APIs: Rebuild UI + Restart Server ──
+// These are available regardless of PAAW_DEV mode
+const _origHandler = server.listeners("request").pop();
+server.removeListener("request", _origHandler);
+server.on("request", async (req, res) => {
+  const url = req.url?.split("?")[0] || "/";
+  const method = req.method;
+
+  // POST /api/dev/rebuild-ui — run vite build
+  if (method === "POST" && url === "/api/dev/rebuild-ui") {
+    const { spawn } = await import("child_process");
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+    res.flushHeaders();
+    const buildProc = spawn("npx", ["vite", "build", "--mode", "development"], {
+      cwd: resolve(PAAW_ROOT, "packages/ui"),
+      shell: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    buildProc.stdout.on("data", d => { output += d; try { res.write(`data: ${JSON.stringify({ type: "stdout", text: d.toString() })}\n\n`); } catch {} });
+    buildProc.stderr.on("data", d => { output += d; try { res.write(`data: ${JSON.stringify({ type: "stderr", text: d.toString() })}\n\n`); } catch {} });
+    buildProc.on("close", code => {
+      try { res.write(`data: ${JSON.stringify({ type: "done", exitCode: code, success: code === 0 })}\n\n`); res.end(); } catch {}
+    });
+    return;
+  }
+
+  // POST /api/dev/restart-server — exit process for auto-restart
+  if (method === "POST" && url === "/api/dev/restart-server") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: "Server restarting..." }));
+    // Give the response time to flush, then exit
+    setTimeout(() => {
+      server.close(() => process.exit(0));
+      setTimeout(() => process.exit(0), 2000); // force after 2s
+    }, 100);
+    return;
+  }
+
+  // Fall through to original handler
+  _origHandler.call(server, req, res);
+});
+
 // ── Start ──
 await loadRoutes();
 
@@ -214,3 +257,31 @@ server.listen(PORT, async () => {
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] ${ROUTE_MODULES.length} route modules + scheduler loaded`);
 });
+
+// ── Dev Mode: Auto-restart on server .mjs changes ──
+// When PAAW_DEV=1, watch packages/server/src/**/*.mjs and auto-restart via process exit.
+// The parent process manager (pm2/nodemon/launchd) should auto-restart this process.
+const PAAW_DEV = process.env.PAAW_DEV === "1" || process.env.PAAW_DEV === "true";
+if (PAAW_DEV) {
+  try {
+    const { watch } = await import("fs");
+    const SERVER_SRC = resolve(PAAW_ROOT, "packages/server/src");
+    let restartTimer = null;
+    console.log(`[PAAW:dev] 🔥 Dev mode ON — watching ${SERVER_SRC} for auto-restart`);
+
+    watch(SERVER_SRC, { recursive: true }, (eventType, filename) => {
+      if (!filename || !filename.endsWith(".mjs")) return;
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(() => {
+        console.log(`[PAAW:dev] 📝 ${filename} changed — exiting for auto-restart (pid=${process.pid})`);
+        server.close(() => {
+          process.exit(0); // parent process manager will restart us
+        });
+        // Force exit after 3s if graceful close hangs
+        setTimeout(() => process.exit(0), 3000);
+      }, 1500); // debounce 1.5s
+    });
+  } catch (err) {
+    console.warn("[PAAW:dev] File watcher failed:", err.message);
+  }
+}
