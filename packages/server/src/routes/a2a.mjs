@@ -820,14 +820,13 @@ export default async function a2aRoutes(req, res) {
               agentId,
             }, res);
 
-            res.end();
+            if (!res.writableEnded) res.end();
             console.log(`[A2A:${agentId}] stream completed`);
           } catch (err) {
             console.error(`[A2A:${agentId}] stream error:`, err);
-            if (res.headersSent) {
-              res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-              res.end();
-            } else {
+            if (res.headersSent && !res.writableEnded) {
+              try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {}
+            } else if (!res.headersSent) {
               sendJSON(res, 200, { jsonrpc: "2.0", error: { code: -32603, message: err.message }, id });
             }
           }
@@ -1280,19 +1279,18 @@ export default async function a2aRoutes(req, res) {
         })}\n\n`);
         if (typeof res.flush === "function") res.flush();
 
-        res.end();
+        if (!res.writableEnded) res.end();
         console.log(`[A2A] message/stream task=${task.id} completed`);
       } catch (err) {
         console.error(`[A2A] message/stream error:`, err);
         // If headers already sent, try to send error via SSE
-        if (res.headersSent) {
-          res.write(`data: ${JSON.stringify({
+        if (res.headersSent && !res.writableEnded) {
+          try { res.write(`data: ${JSON.stringify({
             jsonrpc: "2.0",
             error: { code: -32603, message: err.message },
             id,
-          })}\n\n`);
-          res.end();
-        } else {
+          })}\n\n`); res.end(); } catch {}
+        } else if (!res.headersSent) {
           sendJSON(res, 200, {
             jsonrpc: "2.0",
             error: { code: -32603, message: err.message },

@@ -343,14 +343,13 @@ export default async function projectRoute(req, res) {
         agentId: agent.agentId,
       }, res);
 
-      res.end();
+      if (!res.writableEnded) res.end();
       console.log(`[CodingCrew:chat] ${agent.agentId} stream completed`);
     } catch (err) {
       console.error(`[CodingCrew:chat] error:`, err);
-      if (res.headersSent) {
-        res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-        res.end();
-      } else {
+      if (res.headersSent && !res.writableEnded) {
+        try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {}
+      } else if (!res.headersSent) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));
       }
@@ -814,8 +813,11 @@ export default async function projectRoute(req, res) {
     if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
 
     const sendSSE = (type, data) => {
-      res.write(`event: ${type}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      if (res.writableEnded || res.destroyed) return;
+      try {
+        res.write(`event: ${type}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch {}
     };
 
     try {
@@ -828,7 +830,7 @@ export default async function projectRoute(req, res) {
       sendSSE("error", { message: err.message });
     }
 
-    res.end();
+    if (!res.writableEnded) res.end();
     return true;
   }
 
@@ -1417,7 +1419,7 @@ export default async function projectRoute(req, res) {
         "Connection": "keep-alive",
         "X-Accel-Buffering": "no",
       });
-      const sendEvent = (event, data) => { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
+      const sendEvent = (event, data) => { if (res.writableEnded || res.destroyed) return; try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {} };
 
       try {
         await paaw.init();
@@ -1462,7 +1464,7 @@ export default async function projectRoute(req, res) {
             if (scanResult.error && scanResult.findings.length === 0) {
               sendEvent("step_error", { step: step.id, name: step.name, error: scanResult.error });
               sendEvent("done", { message: "Semgrep scan failed" });
-              res.end();
+              if (!res.writableEnded) res.end();
               return true;
             }
             // Save results
@@ -1846,7 +1848,8 @@ export default async function projectRoute(req, res) {
       });
 
       const sendEvent = (event, data) => {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        if (res.writableEnded || res.destroyed) return;
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
       };
 
       try {
@@ -2247,7 +2250,8 @@ export default async function projectRoute(req, res) {
       });
 
       const sendEvent = (event, data) => {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        if (res.writableEnded || res.destroyed) return;
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
       };
 
       try {
@@ -2415,9 +2419,9 @@ export default async function projectRoute(req, res) {
         "Connection": "keep-alive",
         "X-Accel-Buffering": "no",
       });
-
       const sendEvent = (event, data) => {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        if (res.writableEnded || res.destroyed) return;
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch {}
       };
 
       try {

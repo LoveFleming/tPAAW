@@ -185,10 +185,10 @@ export default async function crewRoute(req, res) {
             },
           });
           sendSSE({ type: "done", exitCode: agentResult.success ? 0 : 1, output: agentResult.content });
-          res.end();
+          if (!res.writableEnded) res.end();
         } catch (err) {
           sendSSE({ type: "error", message: err.message });
-          res.end();
+          if (!res.writableEnded) res.end();
         }
       } else {
         const agentResult = await runAgentLoop({

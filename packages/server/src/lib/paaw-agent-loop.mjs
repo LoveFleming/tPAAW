@@ -2777,6 +2777,7 @@ export async function runAgentLoopStream(config, res) {
   // SSE helper
   const sendSSE = (event, data) => {
     try {
+      if (res.writableEnded || res.destroyed) return;
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     } catch {}
   };
