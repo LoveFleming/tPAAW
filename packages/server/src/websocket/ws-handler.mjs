@@ -113,7 +113,14 @@ export function setupWebSocket() {
           }
           const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
           // Build env: ensure UTF-8 on Windows, inherit everything else
+          // CRITICAL: Strip PAAW port env vars so child processes read their own .env
+          // Without this, `npm run dev` in the terminal inherits parent's ports → EADDRINUSE
+          const PAAW_ENV_KEYS = [
+            "PAAW_PORT", "PAAW_WS_PORT", "BRIDGE_PORT", "VITE_PORT",
+            "PAAW_ENV", "PAAW_CONTAINER", "PAAW_ROOT",
+          ];
           const shellEnv = { ...process.env };
+          for (const k of PAAW_ENV_KEYS) delete shellEnv[k];
           if (process.platform === "win32") {
             shellEnv.PYTHONUTF8 = "1";
             shellEnv.PYTHONIOENCODING = "utf-8";
