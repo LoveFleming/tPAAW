@@ -236,7 +236,7 @@ async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
 // ── EM Mode: Run EM Session ──
 
 export async function runEMSession(opts = {}) {
-  const { rootDir, baseUrl = "http://127.0.0.1:4097", since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+  const { rootDir, baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
 
   console.log("[NightShift] 🎖️═══ EM 智慧調度開始 ═══🎖️");
   console.log(`[NightShift] rootDir=${rootDir}, since=${since || "today"}, model=${modelOverride || "default"}`);

@@ -1,12 +1,16 @@
 /**
  * ShellTerminal — Real shell terminal via WebSocket + xterm.js
  *
- * VSCode-style integrated terminal behavior:
+ * Works like a native terminal (cmd.exe / PowerShell / bash/zsh).
+ *
+ * Key behaviors:
  * - Each instance has its own PTY session (separate WebSocket)
  * - Tab switch preserves content (no reflow / no cursor jump)
  * - Ctrl+C sends SIGINT; Ctrl+D sends EOF (unless text selected → copy)
+ * - windowsMode: handles Win32 console \r\n line endings correctly
  * - Auto-fit cols/rows when container resizes or becomes visible
  * - Zero-dimension guard prevents content corruption when hidden
+ * - Focus on activate so cursor is always in the right place
  */
 
 import React, { useEffect, useRef } from "react";
@@ -14,7 +18,11 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 
-const WS_PORT = import.meta.env.VITE_PAAW_WS_PORT || 4098;
+const WS_PORT = import.meta.env.VITE_PAAW_WS_PORT || (parseInt(window.location.port || "4097", 10) + 1);
+
+// Detect Windows-like environment (browser doesn't tell us the OS,
+// but we can check the server's platform from the spawn response)
+let _isWindows = false;
 
 interface ShellTerminalProps {
   cwd?: string;
@@ -27,66 +35,69 @@ export default function ShellTerminal({ cwd, fontSize = 13, active = true }: She
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const activeRef = useRef(active);
 
-  // Keep activeRef in sync without re-running the main effect
+  // ── On active change: refit + focus (don't touch terminal content) ──
   useEffect(() => {
-    activeRef.current = active;
-    if (active && termRef.current && fitRef.current && containerRef.current) {
-      // Tab just became active — refit and focus after DOM updates
-      requestAnimationFrame(() => {
-        const term = termRef.current;
-        const fit = fitRef.current;
-        const ws = wsRef.current;
-        if (!term || !fit || !containerRef.current) return;
-        const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          try {
-            fit.fit();
-            if (ws?.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-            }
-          } catch {}
+    if (!active) return;
+    const term = termRef.current;
+    const fit = fitRef.current;
+    const ws = wsRef.current;
+    if (!term || !fit || !containerRef.current) return;
+    requestAnimationFrame(() => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect || rect.width === 0 || rect.height === 0) return;
+      try {
+        fit.fit();
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }
-        term.focus();
-      });
-    }
+      } catch {}
+      term.focus();
+    });
   }, [active]);
 
+  // ── Main effect: create terminal + WebSocket (mount once) ──
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const isWindowsShell = _isWindows;
+
     const term = new Terminal({
       fontSize,
-      fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      // Use widely available monospace fonts that render well on all platforms
+      fontFamily: "'Cascadia Code', 'Consolas', 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      lineHeight: 1.0,
       theme: {
-        background: "#1e1e2e",
-        foreground: "#cdd6f4",
-        cursor: "#f5e0dc",
-        selectionBackground: "#585b7066",
-        black: "#45475a",
-        red: "#f38ba8",
-        green: "#a6e3a1",
-        yellow: "#f9e2af",
-        blue: "#89b4fa",
-        magenta: "#f5c2e7",
-        cyan: "#94e2d5",
-        white: "#bac2de",
-        brightBlack: "#585b70",
-        brightRed: "#f38ba8",
-        brightGreen: "#a6e3a1",
-        brightYellow: "#f9e2af",
-        brightBlue: "#89b4fa",
-        brightMagenta: "#f5c2e7",
-        brightCyan: "#94e2d5",
-        brightWhite: "#a6adc8",
+        background: "#0c0c0c",
+        foreground: "#cccccc",
+        cursor: "#ffffff",
+        selectionBackground: "#ffffff40",
+        black: "#0c0c0c",
+        red: "#c50f1f",
+        green: "#13a10e",
+        yellow: "#c19c00",
+        blue: "#0037da",
+        magenta: "#881798",
+        cyan: "#3a96dd",
+        white: "#cccccc",
+        brightBlack: "#767676",
+        brightRed: "#e74856",
+        brightGreen: "#16c60c",
+        brightYellow: "#f9f1a5",
+        brightBlue: "#3b78ff",
+        brightMagenta: "#b4009e",
+        brightCyan: "#61d6d6",
+        brightWhite: "#f2f2f2",
       },
       cursorBlink: true,
-      scrollback: 5000,
+      scrollback: 9999,
       allowProposedApi: true,
+      // windowsMode set dynamically after platform detection (not a typed option)
+      // convertEol: false — PTY sends correct sequences, no double conversion
+      convertEol: false,
     });
 
-    // ── Ctrl+C → SIGINT, Ctrl+D → EOF (unless text selected) ──
+    // ── Key handler: Ctrl+C / Ctrl+D pass-through ──
     term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "c" && !e.shiftKey && !e.altKey && !e.metaKey) {
         const sel = term.getSelection();
@@ -142,11 +153,18 @@ export default function ShellTerminal({ cwd, fontSize = 13, active = true }: She
     ws.onmessage = (event) => {
       let msg: any;
       try { msg = JSON.parse(event.data as string); } catch {
+        // Raw data — write directly
         term.write(event.data as string);
         return;
       }
       switch (msg.type) {
         case "ready":
+          // Detect platform from server response
+          if (msg.platform === "win32") {
+            _isWindows = true;
+            try { (term as any).options.windowsMode = true; } catch {}
+          }
+          break;
         case "cliReady":
           break;
         case "data":
@@ -184,11 +202,9 @@ export default function ShellTerminal({ cwd, fontSize = 13, active = true }: She
     });
 
     // ── Resize: guard against 0x0 (hidden container) ──
-    // This is the critical fix: when container is display:none, dimensions are 0.
-    // Calling fit() with 0 dimensions corrupts xterm buffer → content moves.
     const resizeObserver = new ResizeObserver(() => {
       const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect || rect.width === 0 || rect.height === 0) return; // skip hidden
+      if (!rect || rect.width === 0 || rect.height === 0) return;
       try {
         fitAddon.fit();
         if (ws.readyState === WebSocket.OPEN) {
@@ -207,13 +223,13 @@ export default function ShellTerminal({ cwd, fontSize = 13, active = true }: She
       fitRef.current = null;
       wsRef.current = null;
     };
-  }, []); // mount once — cwd used only for initial spawn
+  }, []); // mount once
 
   return (
     <div
       ref={containerRef}
       className="h-full w-full"
-      style={{ backgroundColor: "#1e1e2e", padding: "4px", overflow: "hidden" }}
+      style={{ backgroundColor: "#0c0c0c", padding: "4px", overflow: "hidden" }}
     />
   );
 }

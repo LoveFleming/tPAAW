@@ -1,11 +1,16 @@
-// API base URL — port configurable via Vite env (VITE_PAAW_PORT)
-// Default: 4097
-const PAAW_PORT = import.meta.env.VITE_PAAW_PORT || "4097";
+// API base URL — auto-detected from current page URL
+//
+// The UI is served by the PAAW server itself, so the page URL's port
+// IS the API port. No need to hardcode or configure separately.
+//
+// Override only if API runs on a different host/port than the UI.
 
-// Auto-detect API base from current page URL
-// Works for localhost, LAN IP, or any host accessing PAAW
+const EXPLICIT_PORT = import.meta.env.VITE_PAAW_PORT;
+
 const API_BASE = typeof window !== "undefined"
-  ? `${window.location.protocol}//${window.location.hostname}:${PAAW_PORT}`
-  : `http://127.0.0.1:${PAAW_PORT}`;
+  ? (EXPLICIT_PORT
+      ? `${window.location.protocol}//${window.location.hostname}:${EXPLICIT_PORT}`
+      : `${window.location.protocol}//${window.location.host}`) // use page's own host:port
+  : `http://127.0.0.1:4097`; // SSR fallback (unused)
 
 export default API_BASE;

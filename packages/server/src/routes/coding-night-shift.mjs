@@ -163,7 +163,7 @@ export default async function codingNightShiftRoute(req, res) {
       const result = await runNightShift({
         mode,
         rootDir: projRoot,
-        baseUrl: `http://127.0.0.1:${req.socket.localPort || 4097}`,
+        baseUrl: `http://127.0.0.1:${req.socket.localPort || process.env.PAAW_PORT || 4097}`,
         since: sinceDate,
         modelOverride,
         fallbackModels,

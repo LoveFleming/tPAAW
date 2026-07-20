@@ -101,14 +101,30 @@ export function setupWebSocket() {
         }
 
         try {
-          const shellBin = process.platform === "win32"
-            ? (process.env.COMSPEC || "powershell.exe")
-            : (process.env.SHELL || "/bin/zsh");
+          // ── Windows: prefer PowerShell (better UTF-8 + ANSI support than cmd) ──
+          // ── Mac/Linux: use user's shell ──
+          let shellBin, shellArgs;
+          if (process.platform === "win32") {
+            shellBin = process.env.PAAW_SHELL || "powershell.exe";
+            shellArgs = process.env.PAAW_SHELL ? [] : ["-NoLogo"];
+          } else {
+            shellBin = process.env.SHELL || "/bin/zsh";
+            shellArgs = [];
+          }
           const resolvedCwd = opts.cwd || process.env.QWEN_CWD || PAAW_ROOT;
-          const pty = ptySpawn(shellBin, [], {
-            name: "xterm-256color", cols: 120, rows: 30,
+          // Build env: ensure UTF-8 on Windows, inherit everything else
+          const shellEnv = { ...process.env };
+          if (process.platform === "win32") {
+            shellEnv.PYTHONUTF8 = "1";
+            shellEnv.PYTHONIOENCODING = "utf-8";
+          }
+          const pty = ptySpawn(shellBin, shellArgs, {
+            name: "xterm-256color",
+            cols: opts.cols || 120,
+            rows: opts.rows || 30,
             cwd: resolvedCwd,
-            env: { ...process.env },
+            env: shellEnv,
+            useConpty: process.platform === "win32",  // Use ConPTY for proper ANSI/cursor support
           });
           ptySessions.set(ws, { pty, id: sessionId, cliType, serverPort: opts.serverPort });
 

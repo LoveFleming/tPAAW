@@ -28,11 +28,14 @@ interface BrowserPreviewProps {
 }
 
 // ── Common dev server ports to try ──
+// PAAW API port derived from page URL (served by PAAW itself)
+const _pagePort = typeof window !== "undefined" ? parseInt(window.location.port || "4097", 10) : 4097;
 
 const COMMON_PORTS = [
   { port: 5173, label: "Vite" },
   { port: 3000, label: "Next.js / React" },
-  { port: 4097, label: "PAAW API" },
+  { port: _pagePort, label: "PAAW API" },
+  { port: _pagePort + 1, label: "PAAW WebSocket" },
   { port: 4100, label: "Agent Orchestrator" },
   { port: 8080, label: "HTTP Server" },
   { port: 3001, label: "Alt React" },
