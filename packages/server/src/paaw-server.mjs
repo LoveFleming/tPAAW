@@ -20,6 +20,17 @@ import { setupWebSocket } from "./websocket/ws-handler.mjs";
 // ── Startup import check — catch missing exports (runs in background) ──
 import("./lib/import-check.mjs").catch(() => {}); // non-blocking, best-effort
 
+// ── Start bridge AFTER .env is loaded (shared.mjs already loaded via static import) ──
+// Bridge no longer auto-listens on import; we start it explicitly here.
+const shouldStartBridge = process.env.BRIDGE_PORT && process.env.BRIDGE_PORT !== "0";
+if (shouldStartBridge) {
+  import("./lib/bridge/paaw-bridge.mjs").then(mod => {
+    mod.startBridge();
+  }).catch(err => {
+    console.warn("[PAAW] Bridge failed to start:", err.message);
+  });
+}
+
 // ── Lazy-loaded route modules (existing) ──
 const ROUTE_MODULES = [
   "./routes/skill.mjs",

@@ -577,11 +577,20 @@ const server = createServer(async (req, res) => {
 
 // ── Start ───────────────────────────────────────────────
 
-server.listen(PORT, HOST, () => {
-  console.log(`[BRIDGE] Listening on http://${HOST}:${PORT}`);
-  console.log(`[BRIDGE] Container: ${PAAW_CONTAINER}`);
-  console.log(`[BRIDGE] Host data dir: ${HOST_DATA_DIR}`);
-});
+// DO NOT auto-listen on import! Export start() so the main server
+// can call it AFTER .env is loaded.
+export function startBridge() {
+  server.listen(PORT, HOST, () => {
+    console.log(`[BRIDGE] Listening on http://${HOST}:${PORT}`);
+    console.log(`[BRIDGE] Container: ${PAAW_CONTAINER}`);
+    console.log(`[BRIDGE] Host data dir: ${HOST_DATA_DIR}`);
+  });
+}
+
+// Auto-start only if BRIDGE_AUTO_START=1 or running as standalone entry point
+if (process.env.BRIDGE_AUTO_START === "1" || process.argv[1]?.endsWith("paaw-bridge.mjs")) {
+  startBridge();
+}
 
 // ── Graceful shutdown ──
 

@@ -14,7 +14,7 @@ const CHECKS = [
   ["../lib/paaw-project.mjs", ["createPaawProject"]],
   ["../lib/domain-agent-registry.mjs", ["getAgentByCrewId", "buildSystemPrompt"]],
   ["../lib/action-log.mjs", ["listActionLog", "loadAgentMemory"]],
-  ["../lib/bridge/paaw-bridge.mjs", []],
+  ["../lib/bridge/paaw-bridge.mjs", ["startBridge"]],
   ["../routes/shared.mjs", ["PORT", "PAAW_ROOT"]],
   ["../routes/coding.mjs", []],
   ["../routes/a2a.mjs", []],
