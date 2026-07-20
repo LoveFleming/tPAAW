@@ -54,10 +54,12 @@ for (const arg of args) {
   else { console.log(`Unknown arg: ${arg}`); process.exit(1); }
 }
 
-// ── Exclude patterns — runtime state, not source code ──
-// These dirs/files are NOT synced between instances
+// ── Exclude patterns — only per-instance state, NOT source/runtime data ──
+// .env = port config (different per instance)
+// node_modules = rebuild with npm install
+// .git = each repo has its own git history
 const SKIP_DIRS = new Set([
-  ".git", "node_modules", "dist", "data", "backups", "building", "logs", ".paaw", "temp",
+  ".git", "node_modules",
 ]);
 const SKIP_FILES = new Set([".DS_Store", "package-lock.json"]);
 const SKIP_PREFIXES = [".env", ".env.dev"]; // port-specific, don't overwrite
