@@ -1827,51 +1827,6 @@ const sendChat = useCallback(async () => {
                   </button>
                 </div>
               ))}
-
-              {/* Divider + EM Trigger */}
-              <div className="border-t border-stone-200 my-1"></div>
-              <button
-                onClick={async () => {
-                  setShowCrewMenu(false);
-                  if (emRunning) return;
-                  setEmRunning(true);
-                  setEmLog([]);
-                  try {
-                    const res = await fetch(`${API_BASE}/api/coding-crew/em-run`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ cwd: rootPath || undefined }),
-                    });
-                    const reader = res.body?.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = "";
-                    while (reader) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      buffer += decoder.decode(value, { stream: true });
-                      const lines = buffer.split("\n");
-                      buffer = lines.pop() || "";
-                      for (const line of lines) {
-                        if (line.startsWith("data: ")) {
-                          try {
-                            const d = JSON.parse(line.slice(6));
-                            if (d.message) setEmLog(prev => [...prev, d.message]);
-                          } catch {}
-                        }
-                      }
-                    }
-                  } catch (err: any) {
-                    setEmLog(prev => [...prev, `❌ EM error: ${err.message}`]);
-                  }
-                  setEmRunning(false);
-                }}
-                disabled={emRunning || !rootPath}
-                className={cn("w-full text-left px-3 py-2 text-sm hover:bg-amber-50 flex items-center gap-2 text-amber-700 font-semibold",
-                  (emRunning || !rootPath) && "opacity-50 cursor-not-allowed")}
-              >
-                <span>🚀</span>
-                <span>{emRunning ? "EM 執行中..." : "EM 自動調度"}</span>
-              </button>
             </div>
           )}
         </div>
