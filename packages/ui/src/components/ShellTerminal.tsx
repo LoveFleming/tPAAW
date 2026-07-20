@@ -1,13 +1,12 @@
 /**
  * ShellTerminal — Real shell terminal via WebSocket + xterm.js
  *
- * Like VSCode's integrated terminal. Connects to ws-handler shell mode,
- * supports interactive commands (node, java, python, etc).
- *
- * Fixes:
- * - Ctrl+C sends \x03 to PTY (not swallowed by browser)
- * - Reconnects when cwd changes
- * - Refits cursor/cols/rows when tab becomes visible again
+ * VSCode-style integrated terminal behavior:
+ * - Each instance has its own PTY session (separate WebSocket)
+ * - Tab switch preserves content (no reflow / no cursor jump)
+ * - Ctrl+C sends SIGINT; Ctrl+D sends EOF (unless text selected → copy)
+ * - Auto-fit cols/rows when container resizes or becomes visible
+ * - Zero-dimension guard prevents content corruption when hidden
  */
 
 import React, { useEffect, useRef } from "react";
@@ -20,18 +19,42 @@ const WS_PORT = import.meta.env.VITE_PAAW_WS_PORT || 4098;
 interface ShellTerminalProps {
   cwd?: string;
   fontSize?: number;
+  active?: boolean; // whether this terminal is the active tab
 }
 
-export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps) {
+export default function ShellTerminal({ cwd, fontSize = 13, active = true }: ShellTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const cwdRef = useRef(cwd);
+  const activeRef = useRef(active);
+
+  // Keep activeRef in sync without re-running the main effect
+  useEffect(() => {
+    activeRef.current = active;
+    if (active && termRef.current && fitRef.current && containerRef.current) {
+      // Tab just became active — refit and focus after DOM updates
+      requestAnimationFrame(() => {
+        const term = termRef.current;
+        const fit = fitRef.current;
+        const ws = wsRef.current;
+        if (!term || !fit || !containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          try {
+            fit.fit();
+            if (ws?.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+            }
+          } catch {}
+        }
+        term.focus();
+      });
+    }
+  }, [active]);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    cwdRef.current = cwd;
 
     const term = new Terminal({
       fontSize,
@@ -63,25 +86,19 @@ export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps
       allowProposedApi: true,
     });
 
-    // ── Allow Ctrl+C / Ctrl+D to pass through to PTY ──
-    // Browser may intercept Ctrl+C as "copy" — we need it to reach the PTY as \x03
+    // ── Ctrl+C → SIGINT, Ctrl+D → EOF (unless text selected) ──
     term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
-      // Ctrl+C — send SIGINT to PTY, don't let browser copy
       if (e.ctrlKey && e.key === "c" && !e.shiftKey && !e.altKey && !e.metaKey) {
-        // Check if there's a text selection — if so, allow copy (like VS Code)
         const sel = term.getSelection();
         if (sel && sel.length > 0) {
           term.clearSelection();
-          // Allow default copy behavior
-          return true;
+          return true; // allow copy
         }
-        // No selection — pass Ctrl+C to PTY as \x03
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send("\x03");
         }
-        return false; // prevent default
+        return false;
       }
-      // Ctrl+D — send EOF
       if (e.ctrlKey && e.key === "d" && !e.shiftKey && !e.altKey && !e.metaKey) {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send("\x04");
@@ -94,15 +111,18 @@ export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
-    // Delay fit slightly to let DOM layout settle
-    requestAnimationFrame(() => {
-      try { fitAddon.fit(); } catch {}
-    });
-
     termRef.current = term;
     fitRef.current = fitAddon;
 
-    // ── Connect WebSocket ──
+    // Initial fit after DOM settles
+    requestAnimationFrame(() => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        try { fitAddon.fit(); } catch {}
+      }
+    });
+
+    // ── WebSocket connect ──
     const wsUrl = `ws://${window.location.hostname}:${WS_PORT}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -112,7 +132,7 @@ export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps
         type: "spawn",
         options: {
           cli: "shell",
-          cwd: cwdRef.current || undefined,
+          cwd: cwd || undefined,
           cols: term.cols,
           rows: term.rows,
         },
@@ -122,22 +142,19 @@ export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps
     ws.onmessage = (event) => {
       let msg: any;
       try { msg = JSON.parse(event.data as string); } catch {
-        // Raw data — write directly
         term.write(event.data as string);
         return;
       }
-
       switch (msg.type) {
         case "ready":
         case "cliReady":
           break;
-        case "stdout":
         case "data":
-          if (msg.data) term.write(msg.data);
-          break;
+        case "stdout":
         case "stderr":
           if (msg.data) term.write(msg.data);
           break;
+        case "exit":
         case "pty_exit":
           term.write("\r\n\x1b[33m[process exited]\x1b[0m\r\n");
           break;
@@ -151,15 +168,27 @@ export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps
       }
     };
 
-    // ── Send user input to PTY (except Ctrl+C/D handled above) ──
+    ws.onerror = () => {
+      term.write("\r\n\x1b[31m[WebSocket connection error]\x1b[0m\r\n");
+    };
+
+    ws.onclose = () => {
+      term.write("\r\n\x1b[33m[disconnected]\x1b[0m\r\n");
+    };
+
+    // ── Input → PTY ──
     const inputData = term.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(data);
       }
     });
 
-    // ── Handle resize via ResizeObserver ──
+    // ── Resize: guard against 0x0 (hidden container) ──
+    // This is the critical fix: when container is display:none, dimensions are 0.
+    // Calling fit() with 0 dimensions corrupts xterm buffer → content moves.
     const resizeObserver = new ResizeObserver(() => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect || rect.width === 0 || rect.height === 0) return; // skip hidden
       try {
         fitAddon.fit();
         if (ws.readyState === WebSocket.OPEN) {
@@ -169,50 +198,22 @@ export default function ShellTerminal({ cwd, fontSize = 13 }: ShellTerminalProps
     });
     resizeObserver.observe(containerRef.current);
 
-    // ── Refit when container becomes visible (tab switch) ──
-    // ResizeObserver doesn't fire when going from display:none → display:block
-    // Use IntersectionObserver to detect visibility changes
-    const intersectionObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && entry.intersectionRatio > 0) {
-          // Container just became visible — refit
-          requestAnimationFrame(() => {
-            try {
-              fitAddon.fit();
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-              }
-              // Focus terminal so cursor is in the right place
-              term.focus();
-            } catch {}
-          });
-        }
-      }
-    }, { threshold: 0.1 });
-    intersectionObserver.observe(containerRef.current);
-
-    ws.onerror = () => {
-      term.write("\r\n\x1b[31m[WebSocket connection error]\x1b[0m\r\n");
-    };
-
-    ws.onclose = () => {
-      term.write("\r\n\x1b[33m[disconnected]\x1b[0m\r\n");
-    };
-
     return () => {
       inputData.dispose();
       resizeObserver.disconnect();
-      intersectionObserver.disconnect();
       ws.close();
       term.dispose();
+      termRef.current = null;
+      fitRef.current = null;
+      wsRef.current = null;
     };
-  }, [cwd]); // ← re-run when cwd changes (reconnect with new working directory)
+  }, []); // mount once — cwd used only for initial spawn
 
   return (
     <div
       ref={containerRef}
       className="h-full w-full"
-      style={{ backgroundColor: "#1e1e2e", padding: "4px" }}
+      style={{ backgroundColor: "#1e1e2e", padding: "4px", overflow: "hidden" }}
     />
   );
 }

@@ -2975,18 +2975,29 @@ const sendChat = useCallback(async () => {
             </div>
 
             {/* === TERMINAL TABS === */}
-            {/* Each terminal tab gets its own ShellTerminal instance with unique key */}
-            {mainTabs.filter(t => t.type === "terminal").map(tab => (
-              <div
-                key={tab.id}
-                className="flex-1 flex flex-col min-w-0"
-                style={{ display: activeMainTab?.id === tab.id ? undefined : "none" }}
-              >
-                <div className="flex-1 min-h-0 bg-[#1e1717]">
-                  {rootPath && <ShellTerminal key={tab.id} cwd={rootPath} />}
-                </div>
+            {/* Stack terminals with absolute positioning — avoid display:none which
+                corrupts xterm dimensions. Hidden tabs use visibility:hidden instead. */}
+            {mainTabs.filter(t => t.type === "terminal").length > 0 && (
+              <div className="flex-1 relative min-h-0">
+                {mainTabs.filter(t => t.type === "terminal").map(tab => {
+                  const isActive = activeMainTab?.id === tab.id;
+                  return (
+                    <div
+                      key={tab.id}
+                      className="absolute inset-0 flex flex-col min-w-0"
+                      style={{
+                        visibility: isActive ? "visible" : "hidden",
+                        zIndex: isActive ? 1 : 0,
+                      }}
+                    >
+                      <div className="flex-1 min-h-0 bg-[#1e1717]">
+                        {rootPath && <ShellTerminal key={tab.id} cwd={rootPath} active={isActive} />}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
 
             {/* === ISSUES TAB === */}
             {/* === Issues Tab === (keep mounted, hide with CSS) */}
