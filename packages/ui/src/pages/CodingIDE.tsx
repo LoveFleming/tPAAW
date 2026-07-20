@@ -1022,45 +1022,6 @@ export default function CodingIDE() {
     }
   }, [searchQuery, rootPath, searchCaseSensitive, searchWholeWord, searchUseRegex, searchInclude]);
 
-  // ── Dev Mode: detect if this is PAAW developing itself ──
-  const isPaawSelfDev = rootPath.includes("tPAAW") || rootPath.includes("/App/tPAAW");
-  const [devBuildStatus, setDevBuildStatus] = useState<"idle"|"building"|"done"|"error">("idle");
-  const [devRestarting, setDevRestarting] = useState(false);
-
-  const handleDevRebuildUI = useCallback(() => {
-    setDevBuildStatus("building");
-    fetch(`${API_BASE}/api/dev/rebuild-ui`, { method: "POST" })
-      .then(res => {
-        if (!res.ok || !res.body) { setDevBuildStatus("error"); return; }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        const read = (): Promise<void> => reader.read().then(({ done, value }) => {
-          if (done) return;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n"); buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const d = JSON.parse(line.slice(6));
-                if (d.type === "done") { setDevBuildStatus(d.success ? "done" : "error"); setTimeout(() => setDevBuildStatus("idle"), 3000); }
-              } catch {}
-            }
-          }
-          return read();
-        });
-        read().catch(() => setDevBuildStatus("error"));
-      })
-      .catch(() => setDevBuildStatus("error"));
-  }, [API_BASE]);
-
-  const handleDevRestart = useCallback(() => {
-    setDevRestarting(true);
-    fetch(`${API_BASE}/api/dev/restart-server`, { method: "POST" })
-      .then(() => { setTimeout(() => setDevRestarting(false), 5000); })
-      .catch(() => setDevRestarting(false));
-  }, [API_BASE]);
-
   // ── Global Search: debounced trigger ──
   useEffect(() => {
     if (!showSearch || !searchQuery.trim()) return;
@@ -2991,33 +2952,6 @@ const sendChat = useCallback(async () => {
                           </button>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  {/* ── Dev Toolbar: Rebuild UI + Restart Server (only when developing PAAW itself) ── */}
-                  {isPaawSelfDev && rootPath && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border-b border-amber-200 text-xs">
-                      <span className="text-amber-600 font-semibold">🔥 PAAW Dev</span>
-                      <button
-                        onClick={handleDevRebuildUI}
-                        disabled={devBuildStatus === "building"}
-                        className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                          devBuildStatus === "building" ? "bg-amber-200 text-amber-700 animate-pulse" :
-                          devBuildStatus === "done" ? "bg-green-100 text-green-700" :
-                          devBuildStatus === "error" ? "bg-red-100 text-red-700" :
-                          "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                        }`}
-                      >
-                        {devBuildStatus === "building" ? "⏳ Building..." : devBuildStatus === "done" ? "✅ Built!" : devBuildStatus === "error" ? "❌ Failed" : "🔨 Rebuild UI"}
-                      </button>
-                      <button
-                        onClick={handleDevRestart}
-                        disabled={devRestarting}
-                        className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                          devRestarting ? "bg-gray-200 text-gray-500 animate-pulse" : "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                        }`}
-                      >
-                        {devRestarting ? "⏳ Restarting..." : "🔄 Restart Server"}
-                      </button>
                     </div>
                   )}
                   <ChatMessages

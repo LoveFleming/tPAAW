@@ -1,5 +1,5 @@
 {
-  "timestamp": 1784541121648,
+  "timestamp": 1784540079206,
   "data": {
     "architecture": {
       "score": 100,
@@ -107,7 +107,7 @@
         {
           "name": "Git Status",
           "status": "warn",
-          "detail": "3 uncommitted"
+          "detail": "1 uncommitted"
         },
         {
           "name": "Error Handling",
