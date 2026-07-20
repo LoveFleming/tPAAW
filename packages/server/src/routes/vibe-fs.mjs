@@ -34,7 +34,7 @@ export default async function vibeFsRoute(req, res) {
       const entries = await readdir(absPath, { withFileTypes: true });
       const IGNORED = new Set([".git", "node_modules", ".DS_Store", ".cache", ".Trash", ".npm", ".vite", ".next", ".nuxt", "dist", "build", ".turbo"]);
       const items = entries
-        .filter(e => !IGNORED.has(e.name) && !e.name.startsWith("."))
+        .filter(e => !IGNORED.has(e.name))
         .sort((a, b) => {
           if (a.isDirectory() && !b.isDirectory()) return -1;
           if (!a.isDirectory() && b.isDirectory()) return 1;
