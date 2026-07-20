@@ -1982,16 +1982,16 @@ ${changedApis}`;
       // ── Agent Memory Tools ──
       case "agent_memory_save": {
         const { saveAgentMemory } = await import("./action-log.mjs");
-        const agentId = args._agentId || rootDir?.split("/").pop() || "agent";
-        await saveAgentMemory(agentId, args.content, cwd);
+        const agentId = args._agentId || _agentCfg?.agentId || "agent";
+        await saveAgentMemory(agentId, args.content, rootDir || cwd);
         if (onEvent) onEvent({ type: "tool_end", name, result: `${agentId}.md` });
-        return `✅ Memory saved for ${agentId}`;
+        return `✅ Memory saved for ${agentId} to ${(rootDir || cwd)}/.paaw/agent-memory/`;
       }
 
       case "agent_memory_load": {
         const { loadAgentMemory } = await import("./action-log.mjs");
-        const agentId = args._agentId || rootDir?.split("/").pop() || "agent";
-        const content = await loadAgentMemory(agentId, cwd);
+        const agentId = args._agentId || _agentCfg?.agentId || "agent";
+        const content = await loadAgentMemory(agentId, rootDir || cwd);
         if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
         return content || "(No saved memory yet)";
       }

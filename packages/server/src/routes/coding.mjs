@@ -181,8 +181,8 @@ export default async function projectRoute(req, res) {
 
     try {
       // Build system prompt from crew + context providers + action log + agent memory
-      const actionLogText = (await listActionLog({ cwd, limit: 10 })).text;
-      const agentMemoryText = await loadAgentMemory(agent.agentId, cwd);
+      const actionLogText = (await listActionLog({ cwd: projRoot, limit: 10 })).text;
+      const agentMemoryText = await loadAgentMemory(agent.agentId, projRoot);
       const systemPrompt = await buildSystemPrompt(agent.agentId, {
         cwd: cwd || undefined,
         clientContext: context || {},
@@ -339,7 +339,7 @@ export default async function projectRoute(req, res) {
         cwd: cwd || undefined,
         maxTurns: agent.maxTurns,
         timeout: 1800,
-        rootDir: PAAW_ROOT,
+        rootDir: projRoot,
         agentId: agent.agentId,
       }, res);
 

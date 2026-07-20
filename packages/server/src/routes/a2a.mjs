@@ -631,8 +631,8 @@ export default async function a2aRoutes(req, res) {
           });
           // Also load dynamic context (action log, feature map, agent memory, AGENT_RULES)
           const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
-          const actionLogText = (await listActionLog({ cwd, limit: 10 })).text;
-          const agentMemoryText = await loadAgentMemory(agentId, cwd);
+          const actionLogText = (await listActionLog({ cwd: PAAW_ROOT, limit: 10 })).text;
+          const agentMemoryText = await loadAgentMemory(agentId, PAAW_ROOT);
           const extraContext = [];
           if (actionLogText) extraContext.push({ source: "action-log", content: actionLogText });
           if (agentMemoryText) extraContext.push({ source: "agent-memory", content: agentMemoryText });
