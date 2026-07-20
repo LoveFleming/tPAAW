@@ -657,6 +657,7 @@ async function vibeSessionsApiHandler(req, res) {
             validateContent: true,
             sanitize: true,
             caller: "cron-distill",
+            agentId: "cron",
           });
           distilled = isMeaningfulContent(result.content) ? result.content : null;
         }

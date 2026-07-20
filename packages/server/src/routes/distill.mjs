@@ -188,6 +188,7 @@ async function callLLM(systemPrompt, userPrompt, maxTokens = 4096, modelOverride
       validateContent: true,
       sanitize: true,
       caller: "distill",
+      agentId: "distill",
     });
 
     if (!isMeaningfulContent(result.content)) {

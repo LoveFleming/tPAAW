@@ -226,6 +226,8 @@ export default async function vibeSessionsRoute(req, res) {
               timeoutMs: 60_000,
               validateContent: true,
               sanitize: true,
+              caller: "vibe-sessions",
+              agentId: "assistant",
             });
             distilled = isMeaningfulContent(result.content) ? result.content : null;
           }

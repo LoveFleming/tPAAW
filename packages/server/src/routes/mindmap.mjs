@@ -173,6 +173,7 @@ async function generateMindMap(userPrompt, content, modelOverride) {
     validateContent: true,
     sanitize: true,
     caller: "mindmap",
+    agentId: "assistant",
   });
 
   const markdown = cleanMarkdownResponse(result.content);

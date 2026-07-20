@@ -347,7 +347,7 @@ Respond with ONLY the commit message, nothing else.`;
         max_tokens: 300,
         temperature: 0.3,
         stream: false,
-      }, { maxRetries: 2, timeoutMs: 30_000 });
+      }, { maxRetries: 2, timeoutMs: 30_000, caller: "vibe-fs", agentId: "assistant" });
 
       let msg = result.content || "";
       // Strip code block wrapping if present

@@ -150,6 +150,8 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
         timeoutMs: 60000,
         validateContent: true,
         sanitize: true,
+        caller: "overnight",
+        agentId: "overnight",
         ...opts,
       });
       return result;
@@ -162,6 +164,8 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
           timeoutMs: 60000,
           validateContent: true,
           sanitize: true,
+          caller: "overnight",
+          agentId: "overnight",
           ...opts,
         });
         if (result) return result;

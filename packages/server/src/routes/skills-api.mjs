@@ -438,6 +438,7 @@ export default async function skillsApiRoute(req, res) {
         timeoutMs: 90_000,
         validateContent: true,
         caller: "skill-builder",
+        agentId: "skill-builder",
       });
 
       let content = (result.content || "").trim();

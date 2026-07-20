@@ -114,6 +114,8 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
     timeoutMs: 90_000,
     validateContent: true,
     sanitize: true,
+    caller: "notes",
+    agentId: "assistant",
   });
 
   let html = sanitizeContent(result.content);

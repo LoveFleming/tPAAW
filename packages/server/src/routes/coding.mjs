@@ -96,6 +96,7 @@ async function callProjectLLM(body, opts = {}) {
     validateContent: true,
     sanitize: true,
     caller: opts.caller || "coding",
+    agentId: opts.agentId || "coding",
   });
 }
 

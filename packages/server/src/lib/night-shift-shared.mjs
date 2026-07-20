@@ -197,6 +197,8 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
         timeoutMs: 120000,
         validateContent: true,
         sanitize: true,
+        caller: "night-shift",
+        agentId: "night-shift",
         ...opts,
       });
       return result;
@@ -209,6 +211,8 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
           timeoutMs: 120000,
           validateContent: true,
           sanitize: true,
+          caller: "night-shift",
+          agentId: "night-shift",
           ...opts,
         });
         if (result) return result;
