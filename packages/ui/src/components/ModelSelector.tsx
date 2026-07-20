@@ -98,6 +98,7 @@ interface ModelSelectorProps {
 export default function ModelSelector({ feature, value, onChange, className, style }: ModelSelectorProps) {
   const [providers, setProviders] = useState<ProviderInfo[]>(providersCache);
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,9 +112,16 @@ export default function ModelSelector({ feature, value, onChange, className, sty
     });
   }, []);
 
-  // Close on outside click
+  // Close on outside click + auto-detect dropdown direction
   useEffect(() => {
     if (!open) return;
+    // Measure available space — if not enough room above, drop down instead
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const spaceAbove = rect.top;
+      const DROPDOWN_HEIGHT = 320; // max-h-80 = 20rem = 320px
+      setDropUp(spaceAbove >= DROPDOWN_HEIGHT);
+    }
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -151,7 +159,11 @@ export default function ModelSelector({ feature, value, onChange, className, sty
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto">
+        <div
+          className={dropUp
+            ? "absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto"
+            : "absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto"}
+        >
           {providers.map(p => (
             <div key={p.id}>
               <div className="px-3 py-1.5 bg-stone-50 border-b border-stone-100 sticky top-0">
