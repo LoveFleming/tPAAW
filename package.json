@@ -20,7 +20,10 @@
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:all": "npm run test && npm run test:e2e",
-    "check:imports": "node packages/server/src/lib/import-check.mjs --strict"
+    "check:imports": "node packages/server/src/lib/import-check.mjs --strict",
+    "dev:alt": "concurrently -k -n \"UI,API\" -c \"cyan,magenta\" \"npm run dev:alt:ui -w @paaw/ui\" \"npm run dev:alt:server -w @paaw/server\"",
+    "dev:alt:ui": "vite --mode dev",
+    "dev:alt:server": "node scripts/dev-server.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

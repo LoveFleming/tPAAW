@@ -53,6 +53,7 @@ const VIBE_SESSIONS_DIR = resolve(PAAW_ROOT, "logs/vibe-sessions");
 // ── Load .env before computing PORT (no external dependency) ──
 {
   const candidates = [
+    resolve(PAAW_ROOT, process.env.PAAW_ENV ? `.env.${process.env.PAAW_ENV}` : ".env"),   // .env.dev / .env.prod
     resolve(PAAW_ROOT, ".env"),                     // repo root
     resolve(process.cwd(), ".env"),                 // CWD fallback
   ];
