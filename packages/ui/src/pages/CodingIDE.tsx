@@ -1278,7 +1278,7 @@ const sendChat = useCallback(async () => {
       setChatLoading(false); setAgentAction("");
       if (isAgentMode) setAgentRunning(false);
     }
-  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent]);
+  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel]);
 
   // Only auto-scroll when NEW messages arrive (not on tab switch or re-render)
   useEffect(() => {
