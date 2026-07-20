@@ -2759,6 +2759,7 @@ export async function runAgentLoopStream(config, res) {
     params = {},
     rootDir = _PAAW_ROOT,
     agentId = null,
+    abortSignal = null,
   } = config;
 
   let agentCfg = { ..._agentCfgDefaults };
@@ -2807,6 +2808,11 @@ export async function runAgentLoopStream(config, res) {
   let streamEmptyRetryCount = 0;
 
   for (let i = 0; i < effectiveMaxTurns; i++) {
+    // Check abort signal (user interrupt)
+    if (abortSignal?.aborted) {
+      sendSSE("interrupted", { message: "Agent interrupted by user", turns });
+      break;
+    }
     if (Date.now() - startTime > timeoutMs) {
       sendSSE("error", { error: "Agent loop timed out" });
       break;

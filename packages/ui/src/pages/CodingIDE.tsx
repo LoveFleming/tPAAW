@@ -585,6 +585,7 @@ export default function CodingIDE() {
   const [projectApiExamples, setProjectApiExamples] = useState<{ method: string; endpoint: string; description: string; request: any; response: any }[]>([]);
   const [apiGroupCollapsed, setApiGroupCollapsed] = useState<Record<string, boolean>>({});
   const apiStreamAbortRef = useRef<AbortController | null>(null);
+  const a2aAbortRef = useRef<AbortController | null>(null); // for interrupting A2A agent streams
 
   // ── Coding Behavior Tracking ──
   const codingLogRef = useRef<CodingEvent[]>([]);
@@ -1135,6 +1136,8 @@ const sendChat = useCallback(async () => {
           "coding.em": "em",
         };
         const a2aAgentId = CREW_TO_AGENT[activeCrew || ""] || activeCrew?.replace(/^coding\./, "") || "architect";
+        const a2aAbort = new AbortController();
+        a2aAbortRef.current = a2aAbort;
         const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1152,6 +1155,7 @@ const sendChat = useCallback(async () => {
             },
             id: `msg-${Date.now()}`,
           }),
+          signal: a2aAbort.signal,
         });
 
         if (!res.ok) {
@@ -1166,6 +1170,7 @@ const sendChat = useCallback(async () => {
         // Accumulate tool calls + thinking silently — only show final answer (OpenClaw style)
         const silentToolCalls: { name: string; args?: string; result?: string }[] = [];
         let buffer = "";
+        let currentEvent = ""; // track SSE event type
 
         while (reader) {
           const { done, value } = await reader.read();
@@ -1175,6 +1180,10 @@ const sendChat = useCallback(async () => {
           buffer = lines.pop() || "";
           for (const line of lines) {
             if (line.startsWith("event: ") || line.startsWith("data: ")) {
+              if (line.startsWith("event: ")) {
+                currentEvent = line.slice(7).trim();
+                continue;
+              }
               if (line.startsWith("data: ")) {
                 try {
                   const data = JSON.parse(line.slice(6));
@@ -1236,6 +1245,15 @@ const sendChat = useCallback(async () => {
 
                   // info events — silently ignored (typing indicator covers this)
 
+                  // interrupted event — agent was stopped by user
+                  if (currentEvent === "interrupted" || data.message?.includes?.("interrupted") || data.message?.includes?.("Interrupted")) {
+                    const intMsg: ChatMessage = { role: "assistant", content: `⏹️ Agent 已中斷${data.turns ? ` (執行了 ${data.turns} 輪)` : ""}。你可以繼續對話來恢復。`, ts: new Date().toISOString() };
+                    if (silentToolCalls.length > 0) intMsg._toolCalls = silentToolCalls;
+                    setChatMessages(prev => [...prev, intMsg]);
+                    finalContent = "[interrupted]"; // prevent "no output" fallback
+                    break; // exit while(reader) loop
+                  }
+
                   // final content — THE ONLY thing that creates a visible message
                   if (data.content && data.done) {
                     finalContent = data.content;
@@ -1273,12 +1291,21 @@ const sendChat = useCallback(async () => {
           }
         }
       } catch (err: any) {
-        setChatMessages(prev => [...prev, { role: "assistant" as const, content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
+        if (err.name === "AbortError") {
+          // User interrupted — already handled via SSE interrupted event
+          // If no interrupted event was received, show a message
+          if (finalContent !== "[interrupted]") {
+            setChatMessages(prev => [...prev, { role: "assistant" as const, content: "⏹️ Agent 已中斷。你可以繼續對話來恢復。", ts: new Date().toISOString() }]);
+          }
+        } else {
+          setChatMessages(prev => [...prev, { role: "assistant" as const, content: `❌ Error: ${err.message}`, ts: new Date().toISOString() }]);
+        }
       }
       setChatLoading(false); setAgentAction("");
       if (isAgentMode) setAgentRunning(false);
+      a2aAbortRef.current = null;
     }
-  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel]);
+  }, [chatInput, chatLoading, chatMode, activeTab, rootPath, logEvent, codingModel, activeCrew]);
 
   // Only auto-scroll when NEW messages arrive (not on tab switch or re-render)
   useEffect(() => {
@@ -2954,6 +2981,20 @@ const sendChat = useCallback(async () => {
                       style={{ borderColor: tk.borderInput, backgroundColor: "white" }}
                       rows={2}
                     />
+                    {agentRunning && (
+                      <button
+                        onClick={() => {
+                          // 1. Abort frontend fetch
+                          a2aAbortRef.current?.abort();
+                          a2aAbortRef.current = null;
+                          // 2. Tell server to kill the running stream
+                          const aid = activeCrew?.replace(/^coding\./, "") || "architect";
+                          fetch(`${API_BASE}/api/a2a/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
+                        }}
+                        className="px-3 py-2 rounded-lg text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
+                        title="停止 Agent"
+                      >⏹</button>
+                    )}
                     <button
                       onClick={() => { if (!chatInput.trim()) return; sendChat(); }}
                       disabled={chatLoading || !chatInput.trim()}

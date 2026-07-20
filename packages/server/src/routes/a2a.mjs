@@ -103,6 +103,10 @@ const HELPDESK_DATA = resolve(DATA_DIR, "helpdesk", "tickets.json");
 const taskStore = new JsonTaskPersistence(TASKS_DIR);
 await taskStore._ensureDir();
 
+// ── Running Stream Tracker ──
+// Maps agentId → { abortController, res, taskId } for active SSE streams
+const runningStreams = new Map();
+
 // ── 啟動時快取 ──
 let _skillMd = null;
 let _providerConfig = null;
@@ -805,6 +809,12 @@ export default async function a2aRoutes(req, res) {
             res.flushHeaders();
             if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
 
+            // Register running stream for interrupt support
+            const streamAbort = new AbortController();
+            runningStreams.set(agentId, { abortController: streamAbort, res, startedAt: Date.now() });
+            // Clean up on client disconnect
+            req.on("close", () => { runningStreams.delete(agentId); });
+
             // Run agent loop with streaming
             const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
 
@@ -818,8 +828,10 @@ export default async function a2aRoutes(req, res) {
               timeout: 1800,
               rootDir,
               agentId,
+              abortSignal: streamAbort.signal,
             }, res);
 
+            runningStreams.delete(agentId);
             if (!res.writableEnded) res.end();
             console.log(`[A2A:${agentId}] stream completed`);
           } catch (err) {
@@ -1342,6 +1354,21 @@ export default async function a2aRoutes(req, res) {
           id,
         });
       } else {
+        // Abort running stream if this agentId has an active stream
+        const agentId = task.metadata?.agentId || taskId;
+        const running = runningStreams.get(agentId);
+        if (running) {
+          running.abortController.abort();
+          // Send interrupted event to SSE client
+          try {
+            if (!running.res.writableEnded) {
+              running.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Task canceled by user", taskId })}\n\n`);
+              running.res.end();
+            }
+          } catch {}
+          runningStreams.delete(agentId);
+          console.log(`[A2A] Aborted running stream for agentId=${agentId}`);
+        }
         task.status = { state: "canceled", timestamp: new Date().toISOString() };
         await saveTask(task);
         sendJSON(res, 200, { jsonrpc: "2.0", result: task, id });
@@ -1364,6 +1391,32 @@ export default async function a2aRoutes(req, res) {
   if (req.method === "GET" && path === "/api/a2a/tasks") {
     const tasks = await listTasks();
     sendJSON(res, 200, { ok: true, data: tasks });
+    return true;
+  }
+
+  // ── POST /api/a2a/interrupt — 直接中斷某個 agent 的 running stream (PAAW UI 用) ──
+  if (req.method === "POST" && path === "/api/a2a/interrupt") {
+    const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
+    const { agentId: aid } = JSON.parse(body || "{}");
+    if (!aid) {
+      sendJSON(res, 400, { ok: false, error: "Missing agentId" });
+      return true;
+    }
+    const running = runningStreams.get(aid);
+    if (!running) {
+      sendJSON(res, 200, { ok: true, message: `No running stream for agentId=${aid}` });
+      return true;
+    }
+    running.abortController.abort();
+    try {
+      if (!running.res.writableEnded) {
+        running.res.write(`event: interrupted\ndata: ${JSON.stringify({ message: "Interrupted by user", agentId: aid })}\n\n`);
+        running.res.end();
+      }
+    } catch {}
+    runningStreams.delete(aid);
+    console.log(`[A2A] Interrupted stream for agentId=${aid}`);
+    sendJSON(res, 200, { ok: true, message: `Interrupted agentId=${aid}` });
     return true;
   }
 
