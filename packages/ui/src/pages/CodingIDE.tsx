@@ -34,8 +34,7 @@ import EMDashboard from "../components/EMDashboard";
 import DiffViewer from "../components/DiffViewer";
 import StandardsEditor from "../components/StandardsEditor";
 import SessionHistory from "../components/SessionHistory";
-import BrowserPreview from "../components/BrowserPreview";
-import BrowserDevTools, { type ConsoleEntry } from "../components/BrowserDevTools";
+
 import DecisionLog from "../components/DecisionLog";
 import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
@@ -68,7 +67,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "browser" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
 
 interface MainTab {
   id: string;
@@ -208,7 +207,7 @@ export default function CodingIDE() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [showGitPanel, setShowGitPanel] = useState(false);
   const [showApiTester, setShowApiTester] = useState(false);
-  const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester" | "browser">("editor");
+  const [activeSubPanel, setActiveSubPanel] = useState<"editor" | "diff" | "blame" | "api-tester">("editor");
   const resizingRef = useRef<{ type: "sidebar" | "ai" | "terminal"; startX: number; startY: number; startSize: number } | null>(null);
 
   // ── Quick Open State (Cmd+P) ──
@@ -306,13 +305,6 @@ export default function CodingIDE() {
     });
   }, [mainTabs, activeTabId]);
 
-  // ── Open new Browser / Terminal instances ──
-  const openNewBrowser = useCallback(() => {
-    const count = browserCounterRef.current++;
-    const tabId = `tool:browser#${count}`;
-    openMainTab({ id: tabId, type: "browser", label: `Browser ${count + 1}`, icon: "\uD83D\uDC41\uFE0F", closable: true });
-  }, [openMainTab]);
-
   const openNewTerminal = useCallback(() => {
     if (!rootPath) return;
     // VSCode-style numbering: reuse lowest available number
@@ -394,9 +386,6 @@ export default function CodingIDE() {
   // ── Right Panel Tab State ──
   const [rightTab, setRightTab] = useState<"chat" | "standards" | "sessions" | "decisions" | "health" | "prompts" | "status">("chat");
 
-  // ── Browser Preview State ──
-  const [showBrowser, setShowBrowser] = useState(false);
-  const [browserConsoleLogs, setBrowserConsoleLogs] = useState<ConsoleEntry[]>([]);
 
   // ── Recent Projects State ──
   const [recentProjects, setRecentProjects] = useState<{ path: string; name: string; hasPaaw: boolean }[]>([]);
@@ -415,13 +404,10 @@ export default function CodingIDE() {
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSearchMenu, setShowSearchMenu] = useState(false);
   const [showCrewMenu, setShowCrewMenu] = useState(false);
-  const [showBrowserMenu, setShowBrowserMenu] = useState(false);
   const [showTerminalMenu, setShowTerminalMenu] = useState(false);
   // ── Agent System Context Viewer ──
   const [agentContextData, setAgentContextData] = useState<{ agentId: string; agentName: string; baseSystemPrompt: string; dynamicContext: { source: string; content: string }[]; totalLength: number } | null>(null);
   const [agentContextLoading, setAgentContextLoading] = useState(false);
-  // ── Multi-instance counters for Browser ──
-  const browserCounterRef = useRef(0);
 
   // ── Click-outside: close all toolbar dropdowns ──
   useEffect(() => {
@@ -432,7 +418,6 @@ export default function CodingIDE() {
         setShowProjectMenu(false);
         setShowSearchMenu(false);
         setShowCrewMenu(false);
-        setShowBrowserMenu(false);
         setShowTerminalMenu(false);
       }
     };
@@ -1852,38 +1837,6 @@ const sendChat = useCallback(async () => {
           )}
         </div>
 
-        {/* 👁️ Browser dropdown — multi-instance */}
-        <div className="relative ml-1">
-          <button onClick={() => setShowBrowserMenu(!showBrowserMenu)}
-            className="toolbar-dropdown-trigger flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors"
-            style={{ backgroundColor: mainTabs.some(t => t.type === "browser") ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.type === "browser") ? tk.toolbarText : tk.toolbarTextMuted }}
-            onMouseEnter={e => { if (!mainTabs.some(t => t.type === "browser")) e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = mainTabs.some(t => t.type === "browser") ? tk.toolbarActive : "transparent"; }}>
-            👁️ Browser <span className="text-[10px]" style={{ color: tk.toolbarTextMuted }}>▼</span>
-          </button>
-          {showBrowserMenu && (
-            <div className="toolbar-dropdown-panel absolute top-full left-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-2xl z-50 py-1" onClick={e => e.stopPropagation()}>
-              <button onClick={() => { setShowBrowserMenu(false); openNewBrowser(); }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-stone-700 flex items-center gap-2">
-                <span>➕</span> New Browser
-              </button>
-              {mainTabs.filter(t => t.type === "browser").length > 0 && (
-                <>
-                  <div className="border-t border-stone-100 my-1" />
-                  <div className="px-3 py-1 text-xs font-semibold text-stone-400">Open Browsers</div>
-                  {mainTabs.filter(t => t.type === "browser").map(tab => (
-                    <button key={tab.id} onClick={() => { setShowBrowserMenu(false); setActiveMainTabId(tab.id); }}
-                      className={cn("w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 truncate",
-                        activeMainTabId === tab.id && "bg-blue-50 text-blue-700 font-semibold")}>
-                      <span>{tab.icon}</span> <span>{tab.label}</span>
-                      {activeMainTabId === tab.id && <span className="ml-auto text-blue-500">●</span>}
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* ⌨️ Terminal dropdown — multi-instance */}
         <div className="relative ml-1">
@@ -2742,20 +2695,6 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === BROWSER PREVIEW === */}
-            {activeMainTab?.type === "browser" && (
-              <div key={activeMainTab.id} className="flex-1 flex flex-col min-w-0">
-                <BrowserPreview
-                  projectRoot={rootPath || ""}
-                  onConsoleLog={(entry) => setBrowserConsoleLogs(prev => [...prev.slice(-200), entry])}
-                />
-                <BrowserDevTools
-                  consoleLogs={browserConsoleLogs}
-                  onClearConsole={() => setBrowserConsoleLogs([])}
-                  iframeUrl={undefined}
-                />
-              </div>
-            )}
 
             {/* === AI CREW / EMPLOYEE CHAT TAB === */}
             {activeMainTab?.type === "ai-crew" && activeCrew && (() => {
