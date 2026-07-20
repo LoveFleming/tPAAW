@@ -477,6 +477,42 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
       // 非 retryable status 或最後一次 → 回傳
       // Log stream request (success or final non-retryable error)
       if (resp.ok) {
+        // Wrap the stream with a read-side timeout so slow streams don't hang forever.
+        // The connect timeout only covers fetch(); once we get headers, we need a
+        // separate guard for the body read phase (e.g. model slowly emitting tokens).
+        const readTimeoutMs = opts.readTimeoutMs || timeoutMs; // default: same as connect timeout
+        if (resp.body && readTimeoutMs > 0) {
+          const origBody = resp.body;
+          let readTimer = null;
+          const resetReadTimer = () => {
+            clearTimeout(readTimer);
+            readTimer = setTimeout(() => {
+              origBody.cancel?.(new Error(`Stream read timeout after ${readTimeoutMs}ms (no data received)`));
+            }, readTimeoutMs);
+          };
+          resetReadTimer();
+          const wrappedStream = new ReadableStream({
+            async start(ctrl) {
+              const reader = origBody.getReader();
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) { clearTimeout(readTimer); ctrl.close(); return; }
+                  resetReadTimer(); // got data, reset the read timer
+                  ctrl.enqueue(value);
+                }
+              } catch (e) {
+                clearTimeout(readTimer);
+                ctrl.error(e);
+              }
+            },
+            cancel(reason) {
+              clearTimeout(readTimer);
+              origBody.cancel?.(reason);
+            },
+          });
+          resp = new Response(wrappedStream, { headers: resp.headers, status: resp.status, statusText: resp.statusText });
+        }
       } else {
       }
       return resp;

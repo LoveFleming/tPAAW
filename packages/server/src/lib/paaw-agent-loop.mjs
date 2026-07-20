@@ -2386,7 +2386,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
       method: "POST",
       headers,
       body: JSON.stringify(body),
-    }, { timeoutMs: LLM_CALL_TIMEOUT_MS, maxRetries: 2, onRetry: (info) => {
+    }, { timeoutMs: LLM_CALL_TIMEOUT_MS, readTimeoutMs: 600_000, maxRetries: 2, onRetry: (info) => {
       if (onEvent) onEvent("info", { message: `⏳ API 暫時不可用 (HTTP ${info.status}), ${info.delayMs / 1000}s 後重試...` });
     } });
 

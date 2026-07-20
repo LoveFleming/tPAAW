@@ -101,6 +101,7 @@ export class OpenAICompatibleAdapter {
       }, {
         maxRetries: 3,
         timeoutMs: 300_000,
+        readTimeoutMs: 600_000,
         onRetry: (info) => console.log(`[Provider] ${info.error ? info.error : 'HTTP ' + info.status} → retry ${info.attempt} in ${info.delayMs}ms`),
       })
     } catch (fetchErr) {
