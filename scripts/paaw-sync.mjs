@@ -59,7 +59,7 @@ for (const arg of args) {
 const SKIP_DIRS = new Set([
   ".git", "node_modules", "dist", "data", "backups", "building", "logs", ".paaw", "temp",
 ]);
-const SKIP_FILES = new Set([".DS_Store"]);
+const SKIP_FILES = new Set([".DS_Store", "package-lock.json"]);
 const SKIP_PREFIXES = [".env", ".env.dev"]; // port-specific, don't overwrite
 
 function shouldSkip(name, fullPath) {
@@ -106,13 +106,25 @@ function syncTree(srcDir, dstDir) {
     const dstPath = join(dstDir, rel);
     const dstDirPath = dirname(dstPath);
 
-    if (!dst || dst.size !== src.size || Math.abs(dst.mtime - src.mtime) > 1000) {
-      // File is new or changed
+    if (!dst) {
+      // New file
       if (!existsSync(dstDirPath)) mkdirSync(dstDirPath, { recursive: true });
       copyFileSync(src.full, dstPath);
       copied++;
+    } else if (src.size !== dst.size) {
+      // Different size — definitely changed
+      copyFileSync(src.full, dstPath);
+      copied++;
     } else {
-      unchanged++;
+      // Same size — compare content
+      const srcBuf = readFileSync(src.full);
+      const dstBuf = existsSync(dst.full) ? readFileSync(dst.full) : null;
+      if (!dstBuf || !srcBuf.equals(dstBuf)) {
+        copyFileSync(src.full, dstPath);
+        copied++;
+      } else {
+        unchanged++;
+      }
     }
   }
 
@@ -180,9 +192,20 @@ if (args.includes("status")) {
   const diffList = [];
   for (const [rel, src] of srcFiles) {
     const dst = dstFiles.get(rel);
-    if (!dst || dst.size !== src.size || Math.abs(dst.mtime - src.mtime) > 1000) {
+    if (!dst) {
+      diffCount++;
+      if (diffList.length < 15) diffList.push(`[+] ${rel}`);
+    } else if (src.size !== dst.size) {
       diffCount++;
       if (diffList.length < 15) diffList.push(rel);
+    } else {
+      // Same size — check content hash to avoid false diffs from mtime-only changes
+      const srcContent = readFileSync(src.full, "utf-8");
+      const dstContent = readFileSync(dst.full, "utf-8");
+      if (srcContent !== dstContent) {
+        diffCount++;
+        if (diffList.length < 15) diffList.push(rel);
+      }
     }
   }
   // Files only in dst
