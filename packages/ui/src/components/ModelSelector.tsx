@@ -59,7 +59,23 @@ async function ensurePrefsLoaded() {
 
 export async function getModelForFeature(feature: string): Promise<string> {
   await ensurePrefsLoaded();
-  return prefCache[feature] || defaultModelCache || "";
+  const pref = prefCache[feature] || "";
+  if (pref) {
+    // Validate: if the stored model's provider/model doesn't exist, fallback
+    const { providerId, modelId } = parseValue(pref);
+    const provider = providersCache.find(p => p.id === providerId);
+    if (provider?.models.some(m => m.id === modelId)) return pref;
+    // Stale preference — fallback to active provider's first model
+    const activeProvider = providersCache.find(p => p.id === activeProviderCache);
+    if (activeProvider?.models.length) {
+      const resolved = formatValue(activeProvider.id, activeProvider.models[0].id);
+      // Auto-correct the stored preference
+      saveModelForFeature(feature, resolved);
+      return resolved;
+    }
+  }
+  if (defaultModelCache) return formatValue(activeProviderCache, defaultModelCache);
+  return "";
 }
 
 export async function saveModelForFeature(feature: string, value: string) {
@@ -101,14 +117,44 @@ export default function ModelSelector({ feature, value, onChange, className, sty
   const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Resolve a valid model value: if the given value's provider/model doesn't exist in
+  // available providers, fallback to active provider's first model
+  function resolveValidModelWith(provList: ProviderInfo[], val: string): string {
+    const { providerId, modelId } = parseValue(val);
+    const provider = provList.find(p => p.id === providerId);
+    if (provider?.models.some(m => m.id === modelId)) return val;
+    // Fallback: active provider's first model
+    const activeProvider = provList.find(p => p.id === activeProviderCache);
+    if (activeProvider?.models.length) {
+      return formatValue(activeProvider.id, activeProvider.models[0].id);
+    }
+    // Last resort: first available provider's first model
+    const anyProvider = provList[0];
+    if (anyProvider?.models.length) {
+      return formatValue(anyProvider.id, anyProvider.models[0].id);
+    }
+    return val;
+  }
+
   useEffect(() => {
     ensurePrefsLoaded().then(() => {
-      setProviders(providersCache.length > 0 ? providersCache : []);
+      const loaded = providersCache.length > 0 ? providersCache : [];
+      setProviders(loaded);
+      // Validate and resolve model using freshly loaded providers
+      let resolved = "";
       if (!value) {
         const pref = prefCache[feature];
-        if (pref) onChange(pref);
-        else if (defaultModelCache) onChange(formatValue(activeProviderCache, defaultModelCache));
+        if (pref) {
+          resolved = resolveValidModelWith(loaded, pref);
+          if (resolved !== pref) saveModelForFeature(feature, resolved);
+        } else if (defaultModelCache) {
+          resolved = resolveValidModelWith(loaded, formatValue(activeProviderCache, defaultModelCache));
+        }
+      } else {
+        resolved = resolveValidModelWith(loaded, value);
+        if (resolved !== value) saveModelForFeature(feature, resolved);
       }
+      if (resolved) onChange(resolved);
     });
   }, []);
 
@@ -129,7 +175,8 @@ export default function ModelSelector({ feature, value, onChange, className, sty
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const { providerId: curPid, modelId: curMid } = parseValue(value);
+  // Resolve display value: validate current value against providers
+  const { providerId: curPid, modelId: curMid } = parseValue(resolveValidModelWith(providers, value));
 
   const handleSelect = useCallback(async (pid: string, mid: string) => {
     const v = formatValue(pid, mid);
