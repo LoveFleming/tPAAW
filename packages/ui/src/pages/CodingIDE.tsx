@@ -2983,7 +2983,7 @@ const sendChat = useCallback(async () => {
                 style={{ display: activeMainTab?.id === tab.id ? undefined : "none" }}
               >
                 <div className="flex-1 min-h-0 bg-[#1e1717]">
-                  {rootPath && <ShellTerminal cwd={rootPath} />}
+                  {rootPath && <ShellTerminal key={tab.id} cwd={rootPath} />}
                 </div>
               </div>
             ))}
