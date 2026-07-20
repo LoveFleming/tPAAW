@@ -795,17 +795,24 @@ export default function CodingIDE() {
   // ═══════════════════════════════════════════════
   const openFile = useCallback(async (path: string) => {
     if (loadingFileRef.current) return; // prevent double-click race
-    const existing = openTabsRef.current.find(ot => ot.path === path);
-    if (existing) { setActiveTabId(existing.id); return; }
 
-    // Decide viewer vs editor based on file type
+    // Check both openTabs (editor) and mainTabs (viewer) for existing file
+    const existingEditor = openTabsRef.current.find(ot => ot.path === path);
+    if (existingEditor) {
+      setActiveTabId(existingEditor.id);
+      setActiveMainTabId(`file:${path}`);
+      return;
+    }
+
+    // Viewer files (md/json) are tracked in mainTabs only
+    const mainTabId = `file:${path}`;
     const name = path.split(/[\\/]/).pop() || path;
     const ext = name.split(".").pop()?.toLowerCase() ?? "";
     const useViewer = ["md", "markdown", "json"].includes(ext);
 
     if (useViewer) {
-      // Open as viewer tab (FileViewer handles md/json rendering)
-      openMainTab({ id: `file:${path}`, type: "viewer", label: name, icon: getFileIcon(name), closable: true, filePath: path });
+      // openMainTab handles dedup + activate
+      openMainTab({ id: mainTabId, type: "viewer", label: name, icon: getFileIcon(name), closable: true, filePath: path });
       return;
     }
 
@@ -824,7 +831,7 @@ export default function CodingIDE() {
         setActiveTabId(path);
         setIsEditing(false);
         // Open as main tab too
-        openMainTab({ id: `file:${path}`, type: "editor", label: name, icon: getFileIcon(name), closable: true, filePath: path });
+        openMainTab({ id: mainTabId, type: "editor", label: name, icon: getFileIcon(name), closable: true, filePath: path });
         logEvent("open_file", { path, language: tab.language });
       }
     } catch {}
