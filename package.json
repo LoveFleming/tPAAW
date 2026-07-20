@@ -25,7 +25,6 @@
     "dev:alt:ui": "vite --mode dev",
     "dev:alt:server": "node scripts/dev-server.mjs",
     "sync": "node scripts/paaw-sync.mjs",
-    "sync:dev": "node scripts/paaw-sync.mjs dev",
     "sync:status": "node scripts/paaw-sync.mjs status"
   },
   "devDependencies": {

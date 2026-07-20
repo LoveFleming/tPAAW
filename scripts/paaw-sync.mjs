@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
- * paaw-sync: Fast overwrite tPAAW ↔ tPAAW-dev
+ * paaw-sync: Clone tPAAW → tPAAW-dev (refresh dev instance after development)
+ *
+ * Flow:
+ *   1. tPAAW-dev runs Coding App (port 4200)
+ *   2. Coding App imports tPAAW as the code project → you modify tPAAW directly
+ *   3. Test → OK → run paaw-sync → tPAAW-dev becomes a fresh clone of tPAAW
+ *   4. Restart tPAAW-dev → new features now in the Coding App too
+ *   5. Repeat
  *
  * Usage:
- *   node scripts/paaw-sync.mjs              # tPAAW → tPAAW-dev (rsync)
- *   node scripts/paaw-sync.mjs dev          # tPAAW-dev → tPAAW (rsync)
- *   node scripts/paaw-sync.mjs git          # tPAAW → tPAAW-dev (git/GitHub)
- *   node scripts/paaw-sync.mjs git dev      # tPAAW-dev → tPAAW (git/GitHub)
+ *   node scripts/paaw-sync.mjs              # tPAAW → tPAAW-dev (the only direction)
+ *   node scripts/paaw-sync.mjs git          # via GitHub (needs remote)
  *   node scripts/paaw-sync.mjs status       # show diff
  *
  * Works on macOS + Windows (no rsync dependency)
@@ -40,12 +45,11 @@ const warn = s => console.log(`${c.yellow("[sync]")} ${s}`);
 
 // ── Parse args ──
 const args = process.argv.slice(2);
-let mode = "rsync";
-let direction = "main"; // main (→dev) or dev (→main)
+let mode = "rsync"; // rsync or git
 
 for (const arg of args) {
   if (arg === "git")    mode = "git";
-  else if (arg === "dev") direction = "dev";
+  else if (arg === "dev") { warn("'dev' direction removed — tPAAW is always the source. Just run: paaw-sync"); process.exit(1); }
   else if (arg === "status") { /* handled below */ }
   else { console.log(`Unknown arg: ${arg}`); process.exit(1); }
 }
@@ -197,10 +201,10 @@ if (args.includes("status")) {
   process.exit(0);
 }
 
-// ── Direction ──
-const SRC = direction === "dev" ? TPAAW_DEV : TPAAW;
-const DST = direction === "dev" ? TPAAW : TPAAW_DEV;
-const LABEL = direction === "dev" ? "tPAAW-dev → tPAAW" : "tPAAW → tPAAW-dev";
+// ── Direction: always tPAAW → tPAAW-dev ──
+const SRC = TPAAW;
+const DST = TPAAW_DEV;
+const LABEL = "tPAAW → tPAAW-dev";
 
 console.log("");
 console.log(c.cyan(`═══ PAAW Sync: ${LABEL} ═══`));
