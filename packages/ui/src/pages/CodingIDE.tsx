@@ -298,10 +298,19 @@ export default function CodingIDE() {
 
   const openNewTerminal = useCallback(() => {
     if (!rootPath) return;
-    const count = terminalCounterRef.current++;
-    const tabId = `tool:terminal#${count}`;
-    openMainTab({ id: tabId, type: "terminal", label: `Terminal ${count + 1}`, icon: "\u2328\uFE0F", closable: true });
-  }, [openMainTab, rootPath]);
+    // VSCode-style numbering: reuse lowest available number
+    const existingNumbers = mainTabs
+      .filter(t => t.type === "terminal")
+      .map(t => {
+        const m = t.label.match(/^Terminal\s+(\d+)$/);
+        return m ? parseInt(m[1], 10) : 0;
+      })
+      .filter(n => n > 0);
+    let num = 1;
+    while (existingNumbers.includes(num)) num++;
+    const tabId = `tool:terminal#${num}-${Date.now()}`;
+    openMainTab({ id: tabId, type: "terminal", label: `Terminal ${num}`, icon: "\u2328\uFE0F", closable: true });
+  }, [openMainTab, rootPath, mainTabs]);
 
   const [loadingFile, setLoadingFile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -391,9 +400,8 @@ export default function CodingIDE() {
   // ── Agent System Context Viewer ──
   const [agentContextData, setAgentContextData] = useState<{ agentId: string; agentName: string; baseSystemPrompt: string; dynamicContext: { source: string; content: string }[]; totalLength: number } | null>(null);
   const [agentContextLoading, setAgentContextLoading] = useState(false);
-  // ── Multi-instance counters for Browser & Terminal ──
+  // ── Multi-instance counters for Browser ──
   const browserCounterRef = useRef(0);
-  const terminalCounterRef = useRef(0);
 
   // ── Click-outside: close all toolbar dropdowns ──
   useEffect(() => {
@@ -2966,16 +2974,19 @@ const sendChat = useCallback(async () => {
               />
             </div>
 
-            {/* === TERMINAL TAB === */}
-            {/* Terminal: always mount, hide with CSS to preserve WebSocket + PTY session */}
-            <div
-              className="flex-1 flex flex-col min-w-0"
-              style={{ display: activeMainTab?.type === "terminal" ? undefined : "none" }}
-            >
-              <div className="flex-1 min-h-0 bg-[#1e1717]">
-                {rootPath && <ShellTerminal cwd={rootPath} />}
+            {/* === TERMINAL TABS === */}
+            {/* Each terminal tab gets its own ShellTerminal instance with unique key */}
+            {mainTabs.filter(t => t.type === "terminal").map(tab => (
+              <div
+                key={tab.id}
+                className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.id === tab.id ? undefined : "none" }}
+              >
+                <div className="flex-1 min-h-0 bg-[#1e1717]">
+                  {rootPath && <ShellTerminal cwd={rootPath} />}
+                </div>
               </div>
-            </div>
+            ))}
 
             {/* === ISSUES TAB === */}
             {/* === Issues Tab === (keep mounted, hide with CSS) */}
