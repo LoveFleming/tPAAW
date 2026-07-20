@@ -280,6 +280,20 @@ export default function CodingIDE() {
 
   const closeMainTab = useCallback((id: string) => {
     if (id === DASHBOARD_TAB_ID) return; // Dashboard cannot be closed
+
+    // ── Sync: also remove matching openTabs entry when closing a file tab ──
+    // This is the core fix — closing a main tab must also clean up openTabs,
+    // otherwise stale editor state persists and causes blank content / wrong activeTab.
+    const closingTab = mainTabsRef.current.find(t => t.id === id);
+    if (closingTab?.filePath) {
+      setOpenTabs(prev => prev.filter(ot => ot.path !== closingTab.filePath));
+      // If the closed tab was active, move activeTabId to remaining
+      if (activeTabId === closingTab.filePath) {
+        const remaining = openTabsRef.current.filter(ot => ot.path !== closingTab.filePath);
+        setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
+      }
+    }
+
     setMainTabs(prev => {
       const remaining = prev.filter(t => t.id !== id);
       return remaining;
@@ -287,12 +301,10 @@ export default function CodingIDE() {
     // Use functional update to avoid stale activeMainTabId closure
     setActiveMainTabId(prev => {
       if (prev !== id) return prev; // not closing the active tab, keep it
-      // Need to find the remaining tabs after close to pick the right one
-      // We can't read setMainTabs result here, so compute from current mainTabs
       const remaining = mainTabsRef.current.filter(t => t.id !== id);
       return remaining.length > 0 ? remaining[remaining.length - 1].id : DASHBOARD_TAB_ID;
     });
-  }, [mainTabs]);
+  }, [mainTabs, activeTabId]);
 
   // ── Open new Browser / Terminal instances ──
   const openNewBrowser = useCallback(() => {
@@ -2020,8 +2032,8 @@ const sendChat = useCallback(async () => {
             {rootPath ? (
               <SidebarFileTree
                 projectRoot={rootPath}
-                activeFilePath={activeTabId}
-                openFilePaths={new Set(openTabs.map(ot => ot.id))}
+                activeFilePath={activeMainTab?.filePath || activeTabId}
+                openFilePaths={new Set(mainTabs.filter(t => t.filePath).map(t => t.filePath!))}
                 onSelectFile={(path) => openFile(path)}
                 onEditFile={(path) => openFile(path)}
                 onOpenInBriefingPlayer={() => {}}
@@ -2080,7 +2092,7 @@ const sendChat = useCallback(async () => {
                   className={cn("group flex items-center gap-1 px-3 py-1 cursor-pointer select-none text-xs shrink-0 transition-colors",
                     isActive ? "bg-white text-stone-800" : "text-stone-400 hover:bg-stone-100")}
                   style={isActive ? { borderTop: `2px solid ${tk.accent}` } : { borderTop: "2px solid transparent" }}
-                  onClick={() => { setActiveMainTabId(tab.id); if (isEditorFile && fileTab) setActiveTabId(fileTab.id); }}>
+                  onClick={() => { setActiveMainTabId(tab.id); if (isEditorFile) setActiveTabId(tab.filePath || null); }}>
                   <span className="text-sm shrink-0">{tab.icon}</span>
                   <span className="truncate max-w-[120px]">{tab.label}</span>
                   {isEditorFile && fileTab?.modified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
@@ -2124,6 +2136,13 @@ const sendChat = useCallback(async () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeMainTab?.type === "editor" && !activeTab && (
+              <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">
+                <button onClick={() => { if (activeMainTab?.filePath) openFile(activeMainTab.filePath); }}
+                  className="px-3 py-1.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-600 text-sm">重新載入檔案</button>
               </div>
             )}
 
