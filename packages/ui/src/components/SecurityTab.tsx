@@ -57,12 +57,30 @@ interface Props {
   onOpenFile: (path: string) => void;
 }
 
-const SEVERITY_CONFIG: Record<string, { icon: string; color: string; bg: string; label: string }> = {
-  CRITICAL: { icon: "🔴", color: "#b91c1c", bg: "#fef2f2", label: "Critical" },
-  ERROR:    { icon: "🔴", color: "#dc2626", bg: "#fef2f2", label: "Error" },
-  WARNING:  { icon: "🟡", color: "#d97706", bg: "#fffbeb", label: "Warning" },
-  INFO:     { icon: "🔵", color: "#2563eb", bg: "#eff6ff", label: "Info" },
+const SEVERITY_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  CRITICAL: { color: "#b91c1c", bg: "#fef2f2", label: "Critical" },
+  ERROR:    { color: "#dc2626", bg: "#fef2f2", label: "Error" },
+  WARNING:  { color: "#d97706", bg: "#fffbeb", label: "Warning" },
+  INFO:     { color: "#2563eb", bg: "#eff6ff", label: "Info" },
 };
+
+/** CSS severity dot — replaces emoji (🟡🟢🔴🔵 break on Windows) */
+function SeverityDot({ severity, size = 10 }: { severity: string; size?: number }) {
+  const c = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.INFO;
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        backgroundColor: c.color,
+        verticalAlign: "middle",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
 
 const SEVERITY_ORDER = ["CRITICAL", "ERROR", "WARNING", "INFO"];
 
@@ -163,7 +181,7 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
             {SEVERITY_ORDER.filter(s => stats.bySeverity[s]).map(s => (
               <span key={s} className="px-1.5 py-0.5 rounded-full text-xs font-semibold"
                 style={{ backgroundColor: SEVERITY_CONFIG[s]?.bg, color: SEVERITY_CONFIG[s]?.color }}>
-                {SEVERITY_CONFIG[s]?.icon} {stats.bySeverity[s]}
+                <SeverityDot severity={s} size={10} /> {stats.bySeverity[s]}
               </span>
             ))}
             <span className="text-stone-400">·</span>
@@ -281,7 +299,7 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
                 className={cn("px-2 py-0.5 rounded font-semibold transition-colors",
                   filterSeverity === s ? "text-white" : "hover:bg-stone-100")}
                 style={filterSeverity === s ? { backgroundColor: SEVERITY_CONFIG[s]?.color } : { color: SEVERITY_CONFIG[s]?.color }}>
-                {SEVERITY_CONFIG[s]?.icon} {stats?.bySeverity[s]}
+                <SeverityDot severity={s} size={10} /> {stats?.bySeverity[s]}
               </button>
             ))}
             <span className="flex-1" />
@@ -305,7 +323,6 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
                     <span className="text-stone-400 font-normal">{byFile[file].length}</span>
                   </div>
                   {byFile[file].map((f, i) => {
-                    const sev = SEVERITY_CONFIG[f.severity] || SEVERITY_CONFIG.INFO;
                     const isSelected = selectedFinding === f;
                     return (
                       <div key={i}
@@ -314,7 +331,7 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
                         style={{ borderLeftColor: isSelected ? tk.accent : "transparent" }}
                         onClick={() => setSelectedFinding(f)}>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs">{sev.icon}</span>
+                          <SeverityDot severity={f.severity} size={10} />
                           <span className="text-xs font-mono text-stone-400 shrink-0">L{f.line}</span>
                           <span className="text-xs text-stone-600 truncate flex-1">{f.id}</span>
                         </div>
@@ -333,7 +350,7 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
                   {/* Title */}
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{SEVERITY_CONFIG[selectedFinding.severity]?.icon}</span>
+                      <SeverityDot severity={selectedFinding.severity} size={18} />
                       <span className="text-sm font-bold" style={{ color: SEVERITY_CONFIG[selectedFinding.severity]?.color }}>
                         {selectedFinding.severity}
                       </span>
