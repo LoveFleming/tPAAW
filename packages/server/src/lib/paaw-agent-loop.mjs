@@ -377,119 +377,44 @@ export const PAAW_TOOLS = [
     },
   },
 
-  // ── Project Mutation Tools (issue CRUD, feature editing, run command) ──
+  // ── Unified project_edit tool (replaces 7 mutation tools) ──
   {
     type: "function",
     function: {
-      name: "project_issue_create",
-      description: "Create a new issue in .paaw/issues/ISSUES.json. Use when you discover a bug or task that needs tracking.",
+      name: "project_edit",
+      description: "Modify project data: create/update/delete issues, record changes, update feature docs/mapping, run safe commands.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Issue title" },
-          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority level" },
+          action: {
+            type: "string",
+            enum: ["issue_create", "issue_update", "issue_delete", "change_record", "feature_update_docs", "feature_update_mapping", "run_command"],
+            description: "Mutation action to perform",
+          },
+          // ── Issue create/update/delete ──
+          id: { type: "string", description: "Issue/feature ID (e.g. ISS-001, F-001)" },
+          title: { type: "string", description: "Issue title or change title" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority" },
+          status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "Issue status" },
           labels: { type: "array", items: { type: "string" }, description: "Labels" },
           description: { type: "string", description: "Detailed description" },
+          note: { type: "string", description: "Add a note to issue" },
           featureId: { type: "string", description: "Related feature ID" },
-        },
-        required: ["title", "priority"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_issue_update",
-      description: "Update an existing issue (change status, priority, add notes).",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Issue ID (e.g. ISS-001)" },
-          status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "New status" },
-          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "New priority" },
-          note: { type: "string", description: "Add a note" },
-        },
-        required: ["id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_issue_delete",
-      description: "Delete an issue.",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Issue ID to delete" },
-        },
-        required: ["id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_change_record",
-      description: "Record a change to the project: what you changed, why, and impact.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Short title" },
-          type: { type: "string", enum: ["feature", "bugfix", "refactor", "security", "performance", "docs", "config"], description: "Type of change" },
-          description: { type: "string", description: "What was changed and why" },
+          // ── Change record ──
+          type: { type: "string", enum: ["feature", "bugfix", "refactor", "security", "performance", "docs", "config"], description: "Change type" },
           files: { type: "array", items: { type: "string" }, description: "Changed file paths" },
           impact: { type: "string", description: "Potential impact" },
           testsRan: { type: "string", description: "Tests run to verify" },
-        },
-        required: ["title", "type", "description", "files"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_feature_update_docs",
-      description: "Update the documentation for a feature.",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Feature ID" },
+          // ── Feature update ──
           documentation: { type: "string", description: "New documentation in markdown" },
-        },
-        required: ["id", "documentation"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_feature_update_mapping",
-      description: "Update a feature's file mappings after code changes. ALWAYS call this when files change.",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Feature ID" },
           codeFiles: { type: "array", items: { type: "string" }, description: "Updated code files" },
           apis: { type: "array", items: { type: "object" }, description: "Updated API endpoints" },
           tests: { type: "array", items: { type: "string" }, description: "Updated test files" },
           runbooks: { type: "array", items: { type: "string" }, description: "Updated runbook files" },
+          // ── Run command ──
+          command: { type: "string", description: "Command to run (e.g. 'npm test')" },
         },
-        required: ["id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_run_command",
-      description: "Run safe shell commands (npm test, npm run build, npx tsc, etc.). Whitelisted prefixes only, dangerous patterns blocked.",
-      parameters: {
-        type: "object",
-        properties: {
-          command: { type: "string", description: "Command to run (e.g. 'npm test', 'npx tsc --noEmit')" },
-        },
-        required: ["command"],
+        required: ["action"],
       },
     },
   },
@@ -670,17 +595,9 @@ const TOOL_GROUP_MAP = {
 
   // Project Info — unified tool (replaces 14 separate project_* read tools)
   project_info: "project",
-  // Legacy aliases also map to project group
-  project_context: "project", project_decisions: "project", project_standards: "project",
-  project_changelog: "project", project_issues: "project", project_features: "project",
-  project_feature_detail: "project", project_runbook: "project", project_faq: "project",
-  project_sessions: "project", project_test_map: "project", project_security: "project",
-  project_recent_changes: "project", project_api_history: "project",
 
-  // Issue management
-  project_issue_create: "issue-mgmt", project_issue_update: "issue-mgmt", project_issue_delete: "issue-mgmt",
-  project_change_record: "issue-mgmt",
-  project_run_command: "issue-mgmt",
+  // Project edit — unified mutation tool
+  project_edit: "project-edit",
 
   // Notes
   notes_list_notebooks: "notes", notes_list_sections: "notes",
@@ -696,20 +613,20 @@ const CORE_READ_TOOLS = new Set(["read_file", "glob", "grep", "diff", "ask_user"
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
-  // Architect: read-only + decisions + project info
-  architect: ["core-read", "memory", "decisions", "project", "features-edit"],
-  // Developer: full core + memory + project info
-  developer: ["core", "memory", "project"],
-  // Tester: full core + project info
-  tester: ["core", "memory", "project"],
-  // Doc-writer: full core + features-edit + docs + notes
-  "doc-writer": ["core", "memory", "project", "features-edit", "docs", "notes"],
-  // QA: read-only + project info + issue management
-  qa: ["core-read", "memory", "project", "issue-mgmt"],
-  // Helpdesk: read-only + project info + notes
+  // Architect: read-only + decisions + project
+  architect: ["core-read", "memory", "decisions", "project", "project-edit"],
+  // Developer: full core + memory + project
+  developer: ["core", "memory", "decisions", "project", "project-edit"],
+  // Tester: full core + project
+  tester: ["core", "memory", "decisions", "project", "project-edit"],
+  // Doc-writer: full core + project-edit + docs + notes
+  "doc-writer": ["core", "memory", "project", "project-edit", "docs", "notes"],
+  // QA: read-only + project + project-edit
+  qa: ["core-read", "memory", "project", "project-edit"],
+  // Helpdesk: read-only + project + notes
   helpdesk: ["core-read", "memory", "project", "notes"],
-  // EM: read-only + project info + features-edit + issue management + dispatch
-  em: ["core-read", "memory", "decisions", "project", "features-edit", "issue-mgmt", "notes", "docs", "browser"],
+  // EM: read-only + project + project-edit + notes + docs + browser
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "notes", "docs", "browser"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -1291,23 +1208,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       // ══════════════════════════════════════════
       // ── Project Knowledge Read Tools (structured .paaw/ access) ──
       // ── Unified project_info handler ──
-      case "project_info":
-      case "project_context": case "project_decisions": case "project_standards":
-      case "project_changelog": case "project_issues": case "project_features":
-      case "project_feature_detail": case "project_runbook": case "project_faq":
-      case "project_sessions": case "project_test_map": case "project_security":
-      case "project_recent_changes": case "project_api_history": {
+      case "project_info": {
         // ── Alias mapping: old tool names → project_info category ──
-        const aliasMap = {
-          project_context: "context", project_decisions: "decisions", project_standards: "standards",
-          project_changelog: "changelog", project_issues: "issues", project_features: "features",
-          project_feature_detail: "feature_detail", project_runbook: "runbook", project_faq: "faq",
-          project_sessions: "sessions", project_test_map: "test_map", project_security: "security",
-          project_recent_changes: "recent_changes", project_api_history: "api_history",
-        };
-        // If called via old name, remap to project_info format
-        const cat = aliasMap[name] || args.category;
-        if (!cat) return "Error: 'category' parameter is required.";
+        const cat = args.category;
+        if (!cat) return "Error: 'category' parameter is required. Valid: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history";
         const paaw = createPaawProject(cwd);
 
         switch (cat) {
@@ -1812,56 +1716,138 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       }
 
       // ══════════════════════════════════════════
-      // ── Project Run Command (shell exec) ──
-      // ══════════════════════════════════════════
-      case "project_run_command": {
-        const cmd = args.command;
-        if (!cmd || typeof cmd !== "string") {
-          return "Error: 'command' parameter is required.";
-        }
+      // ── Unified project_edit handler ──
+      case "project_edit": {
+        const action = args.action;
+        if (!action) return "Error: 'action' parameter is required. Valid: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command";
+        const paaw = createPaawProject(cwd);
 
-        // ── Safety: whitelist command prefixes ──
-        const ALLOWED_PREFIXES = [
-          "npm", "npx", "yarn", "pnpm", "node", "tsc",
-          "mvn", "gradle", "gradlew",
-          "python", "python3", "py", "pip", "pip3",
-          "cargo", "go", "make", "dotnet",
-        ];
-        const cmdTrimmed = cmd.trim();
-        const firstWord = cmdTrimmed.split(/\s+/)[0];
-        if (!ALLOWED_PREFIXES.includes(firstWord)) {
-          return `Error: command '${firstWord}' is not allowed. Allowed: ${ALLOWED_PREFIXES.join(", ")}.`;
-        }
-
-        // ── Safety: block dangerous patterns ──
-        const DANGER_PATTERNS = [
-          /\brm\b/i, /\bdel\b/i, /\brmdir\b/i,
-          /git\s+push/i, /git\s+reset/i, /git\s+rebase/i,
-          /\bsudo\b/i, /\bcurl\b/i, /\bwget\b/i,
-          /\bdd\b/i, /\bmkfs\b/i,
-          />/i, /\|/i, /;/i, /&&/i, /\|\|/i,
-        ];
-        for (const pattern of DANGER_PATTERNS) {
-          if (pattern.test(cmdTrimmed)) {
-            return `Error: command contains blocked pattern: ${pattern.source}`;
+        switch (action) {
+          case "issue_create": {
+            if (!args.title) return "Error: 'title' is required for issue_create.";
+            if (!args.priority) return "Error: 'priority' is required for issue_create.";
+            const issuesDir = join(cwd, ".paaw", "issues");
+            const issuesFile = join(issuesDir, "ISSUES.json");
+            await mkdir(issuesDir, { recursive: true });
+            let data = { issues: [], nextId: 1 };
+            if (existsSync(issuesFile)) { try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch {} }
+            const id = `ISS-${String(data.nextId || data.issues.length + 1).padStart(3, "0")}`;
+            const issue = {
+              id, title: args.title, priority: args.priority, status: "open",
+              labels: args.labels || [], description: args.description || "",
+              featureId: args.featureId || null, createdAt: new Date().toISOString(), notes: [],
+            };
+            data.issues.push(issue);
+            data.nextId = (data.nextId || data.issues.length) + 1;
+            writeFileSync(issuesFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: id });
+            return `✅ Created issue ${id}: ${args.title} [${args.priority}]`;
           }
+
+          case "issue_update": {
+            if (!args.id) return "Error: 'id' is required for issue_update.";
+            const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+            if (!existsSync(issuesFile)) return "Error: No issues file found.";
+            let data;
+            try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch { return "Error: Could not parse issues file."; }
+            const issue = (data.issues || []).find(i => i.id === args.id);
+            if (!issue) return `Error: Issue ${args.id} not found.`;
+            if (args.status) issue.status = args.status;
+            if (args.priority) issue.priority = args.priority;
+            if (args.note) { issue.notes = issue.notes || []; issue.notes.push({ text: args.note, at: new Date().toISOString() }); }
+            issue.updatedAt = new Date().toISOString();
+            writeFileSync(issuesFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Updated ${args.id}: ${[args.status && `status=${args.status}`, args.priority && `priority=${args.priority}`, args.note && "note added"].filter(Boolean).join(", ")}`;
+          }
+
+          case "issue_delete": {
+            if (!args.id) return "Error: 'id' is required for issue_delete.";
+            const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+            if (!existsSync(issuesFile)) return "Error: No issues file found.";
+            let data;
+            try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch { return "Error: Could not parse issues file."; }
+            const before = data.issues.length;
+            data.issues = (data.issues || []).filter(i => i.id !== args.id);
+            if (data.issues.length === before) return `Error: Issue ${args.id} not found.`;
+            writeFileSync(issuesFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Deleted issue ${args.id}`;
+          }
+
+          case "change_record": {
+            if (!args.title || !args.type || !args.description || !args.files) {
+              return "Error: title, type, description, and files are required for change_record.";
+            }
+            const logDir = join(cwd, ".paaw", "action-log");
+            await mkdir(logDir, { recursive: true });
+            const entry = {
+              agent: agentId, title: args.title, type: args.type,
+              description: args.description, files: args.files,
+              impact: args.impact || "", testsRan: args.testsRan || "",
+              timestamp: new Date().toISOString(),
+            };
+            const logFile = join(logDir, `${new Date().toISOString().slice(0, 10)}.json`);
+            let log = [];
+            if (existsSync(logFile)) { try { log = JSON.parse(readSync(logFile, "utf-8")); } catch {} }
+            log.push(entry);
+            writeFileSync(logFile, JSON.stringify(log, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.title });
+            return `✅ Recorded change: ${args.title} (${args.type}) — ${args.files.length} file(s)`;
+          }
+
+          case "feature_update_docs": {
+            if (!args.id || !args.documentation) return "Error: id and documentation are required.";
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "Error: No features file found.";
+            let data;
+            try { data = JSON.parse(readSync(featuresFile, "utf-8")); } catch { return "Error: Could not parse features file."; }
+            const feature = (data.features || []).find(f => f.id === args.id);
+            if (!feature) return `Error: Feature ${args.id} not found.`;
+            feature.documentation = args.documentation;
+            feature.docsUpdatedAt = new Date().toISOString();
+            writeFileSync(featuresFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Updated docs for ${args.id}: ${feature.name}`;
+          }
+
+          case "feature_update_mapping": {
+            if (!args.id) return "Error: id is required.";
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "Error: No features file found.";
+            let data;
+            try { data = JSON.parse(readSync(featuresFile, "utf-8")); } catch { return "Error: Could not parse features file."; }
+            const feature = (data.features || []).find(f => f.id === args.id);
+            if (!feature) return `Error: Feature ${args.id} not found.`;
+            if (args.codeFiles) feature.codeFiles = args.codeFiles;
+            if (args.apis) feature.apis = args.apis;
+            if (args.tests) feature.tests = args.tests;
+            if (args.runbooks) feature.runbooks = args.runbooks;
+            writeFileSync(featuresFile, JSON.stringify(data, null, 2));
+            if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
+            return `✅ Updated mapping for ${args.id}: ${feature.name}`;
+          }
+
+          case "run_command": {
+            const cmd = args.command;
+            if (!cmd || typeof cmd !== "string") return "Error: 'command' is required for run_command.";
+            const ALLOWED_PREFIXES = ["npm", "npx", "yarn", "pnpm", "node", "tsc", "mvn", "gradle", "gradlew", "python", "python3", "py", "pip", "pip3", "cargo", "go", "make", "dotnet"];
+            const cmdTrimmed = cmd.trim();
+            const firstWord = cmdTrimmed.split(/\s+/)[0];
+            if (!ALLOWED_PREFIXES.includes(firstWord)) return `Error: command '${firstWord}' not allowed. Allowed: ${ALLOWED_PREFIXES.join(", ")}`;
+            const DANGER_PATTERNS = [/\brm\b/i, /\bdel\b/i, /git\s+push/i, /git\s+reset/i, /\bsudo\b/i, /\bcurl\b/i, /\bwget\b/i, />/i, /\|/i, /;/i, /&&/i];
+            for (const p of DANGER_PATTERNS) { if (p.test(cmdTrimmed)) return `Error: blocked pattern: ${p.source}`; }
+            if (onEvent) onEvent({ type: "tool_start", name, args: { command: cmdTrimmed } });
+            const output = await runShell(cmdTrimmed, rootDir, 60000);
+            const MAX_OUTPUT = 8000;
+            const truncated = output.length > MAX_OUTPUT ? output.slice(0, MAX_OUTPUT) + "\n... (truncated)" : output;
+            if (onEvent) onEvent({ type: "tool_end", name, result: "done" });
+            return `$ ${cmdTrimmed}\n${truncated}`;
+          }
+
+          default:
+            return `Unknown action '${action}'. Valid: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command`;
         }
-
-        const timeoutSec = Math.min(args.timeout_seconds || 60, 300);
-        const timeoutMs = timeoutSec * 1000;
-
-        if (onEvent) onEvent({ type: "tool_start", name, args: { command: cmdTrimmed, timeout: timeoutSec } });
-
-        const output = await runShell(cmdTrimmed, rootDir, timeoutMs);
-
-        // Truncate output to prevent context overflow
-        const MAX_OUTPUT = 8000;
-        const truncated = output.length > MAX_OUTPUT
-          ? output.slice(0, MAX_OUTPUT) + `\n\n... (output truncated, ${output.length - MAX_OUTPUT} more chars)`
-          : output;
-
-        if (onEvent) onEvent({ type: "tool_end", name, result: `${cmdTrimmed.length} chars output` });
-        return `$ ${cmdTrimmed}\n${truncated}`;
       }
 
       default:
@@ -2122,7 +2108,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/)\n- **project_info(category=...)** — Unified project knowledge tool. Categories: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history\n- **project_issue_create** — Create a new issue\n- **project_issue_update** — Update issue status/priority\n- **project_issue_delete** — Delete an issue\n- **project_change_record** — Record change for agent handover\n- **project_feature_update_docs** — Update feature docs\n- **project_feature_update_mapping** — Update feature mapping (REQUIRED when files change)\n- **project_run_command** — Run safe shell commands (npm test, etc.)\n### CU Maintenance\n- **cu_refresh** — Refresh CU steps after code changes\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_info)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to long-term memory\n- **agent_memory_load** — Read long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/)\n- **project_info(category=...)** — Read project knowledge. Categories: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history\n- **project_edit(action=...)** — Modify project data. Actions: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command\n### CU Maintenance\n- **cu_refresh** — Refresh CU steps after code changes\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_info)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to long-term memory\n- **agent_memory_load** — Read long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

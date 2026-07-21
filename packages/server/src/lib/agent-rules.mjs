@@ -89,10 +89,10 @@ System prompt 裡的「檔案結構 Map」和「Symbol 索引」是讓你**知�
 - **project_info(category="standards")** — 列出/讀取 coding standards
 - **project_info(category="changelog")** — 讀取近期變更
 - **project_info(category="issues")** — 列出/篩選專案問題
-- **project_issue_create** — 開新 issue（發現 bug 但不能馬上修時一定要開）
-- **project_issue_update** — 更新 issue 狀態/優先級/加備註
-- **project_issue_delete** — 刪除 issue
-- **project_change_record** — 記錄改了什麼、為什麼、影響範圍（給下一個 agent 看的交接記錄）
+- **project_edit(action="issue_create")** — 開新 issue（發現 bug 但不能馬上修時一定要開）
+- **project_edit(action="issue_update")** — 更新 issue 狀態/優先級/加備註
+- **project_edit(action="issue_delete")** — 刪除 issue
+- **project_edit(action="change_record")** — 記錄改了什麼、為什麼、影響範圍（給下一個 agent 看的交接記錄）
 - **project_info(category="runbook")** — 查 runbook（error code 排障指南，Helpdesk agent 常用）
 - **project_info(category="faq")** — 讀/搜尋 FAQ
 - **project_info(category="sessions")** — 列出近期 coding sessions
@@ -107,10 +107,10 @@ System prompt 裡的「檔案結構 Map」和「Symbol 索引」是讓你**知�
 
 ### Feature Mapping 維護（必須！）
 每次你的程式碼變更影響到 feature 的結構時，**必須用 tool 更新 mapping**：
-- 新增/刪除/重命名檔案 → **project_feature_update_mapping**
-- 新增/刪除 API endpoint → **project_feature_update_mapping**
-- 新增/刪除測試檔案 → **project_feature_update_mapping**
-- 更新 feature 文件 → **project_feature_update_docs**
+- 新增/刪除/重命名檔案 → **project_edit(action="feature_update_mapping")**
+- 新增/刪除 API endpoint → **project_edit(action="feature_update_mapping")**
+- 新增/刪除測試檔案 → **project_edit(action="feature_update_mapping")**
+- 更新 feature 文件 → **project_edit(action="feature_update_docs")**
 
 System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取），
 你改完 mapping 後，下次對話自動反映。
@@ -175,9 +175,10 @@ System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取
 - **memory** (4): action_log_add, action_log_list, agent_memory_save, agent_memory_load
 - **decisions** (2): record_decision, update_changelog
 - **project** (2): project_context, project_issues
-- **features** (4): project_features, project_feature_detail, project_feature_update_docs, project_feature_update_mapping
+- **project** (1): project_info
+- **project-edit** (1): project_edit
 - **intel** (5): project_test_map, project_security, project_api_history, project_runbook, project_faq
-- **issue-mgmt** (5): project_issue_create, project_issue_update, project_issue_delete, project_change_record, project_run_command
+- **project-edit** (1): project_edit  (actions: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command)
 - **notes** (5): notes_list_notebooks, notes_list_sections, notes_create, notes_create_section, notes_search
 - **docs** (2): update_docs, cu_refresh
 - **browser** (1): browser_test
