@@ -2961,12 +2961,13 @@ const sendChat = useCallback(async () => {
             </div>
 
             {/* === TERMINAL TABS === */}
-            {/* Stack terminals with absolute positioning — avoid display:none which
-                corrupts xterm dimensions. Hidden tabs use visibility:hidden instead. */}
+            {/* Stack terminals with absolute positioning when inactive — avoids flex-1
+                taking space, while keeping xterm container at full size so FitAddon works.
+                Active: normal flex-1 in flow. Inactive: absolute inset-0 + visibility:hidden + z-1. */}
             {mainTabs.filter(t => t.type === "terminal").length > 0 && (
               <div
-                className="flex-1 relative min-h-0"
-                style={activeMainTab?.type === "terminal" ? undefined : { position: "absolute", width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}
+                className={activeMainTab?.type === "terminal" ? "flex-1 relative min-h-0" : "absolute inset-0"}
+                style={activeMainTab?.type === "terminal" ? undefined : { visibility: "hidden", zIndex: -1 }}
               >
                 {mainTabs.filter(t => t.type === "terminal").map(tab => {
                   const isActive = activeMainTab?.id === tab.id;
