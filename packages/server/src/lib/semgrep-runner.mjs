@@ -186,17 +186,11 @@ export function detectRulePacks(projectRoot) {
     if (existsSync(join(LOCAL_RULES_DIR, "problem-based-packs"))) {
       packs.push(safePath(join(LOCAL_RULES_DIR, "problem-based-packs")));
     }
-    // Also add registry packs for broader coverage (owasp, cwe) — local rules cover language-specific, registry covers cross-cutting security
-    packs.push("p/owasp-top-ten");
-    packs.push("p/cwe-top-25");
+    // Local rules only — no registry packs (offline/intranet compatible)
   } else {
-    // No local rules → registry (needs internet)
-    if (exts.has(".js") || exts.has(".mjs") || exts.has(".cjs") || exts.has(".jsx")) packs.push("p/javascript");
-    if (exts.has(".ts") || exts.has(".tsx")) packs.push("p/typescript");
-    if (exts.has(".py")) packs.push("p/python");
-    if (exts.has(".java")) packs.push("p/java");
-    packs.push("p/owasp-top-ten");
-    packs.push("p/cwe-top-25");
+    // No local rules available — use --config auto (built-in rules, no internet needed)
+    // This uses semgrep's default ruleset that ships with the binary.
+    packs.push("auto");
   }
   LOG("detectRulePacks: rule packs:", packs.length, packs);
   return packs;
@@ -234,7 +228,7 @@ function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
     return sp.includes(" ") ? `--config "${sp}"` : `--config ${sp}`;
   }).join(" ");
 
-  const cmd = `${bin} --metrics off --json ${configArgs} ${SOURCE_INCLUDES} ${excludeArgs} --quiet ${root}`;
+  const cmd = `${bin} --metrics off --json ${configArgs} ${SOURCE_INCLUDES} ${excludeArgs} --quiet --offline ${root}`;
   LOG("buildSemgrepCmd:", cmd);
   return cmd;
 }
