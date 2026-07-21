@@ -208,20 +208,20 @@ export function detectRulePacks(projectRoot) {
 // Scan all common source code extensions — works for any project (JS/TS/Python/Java/Go/etc).
 // Rule example files inside data/semgrep-rules/ are excluded via directory exclude below.
 const SOURCE_INCLUDES = [
-  "--include '*.js'",
-  "--include '*.mjs'",
-  "--include '*.cjs'",
-  "--include '*.jsx'",
-  "--include '*.ts'",
-  "--include '*.tsx'",
-  "--include '*.py'",
-  "--include '*.java'",
-  "--include '*.go'",
-  "--include '*.rb'",
-  "--include '*.php'",
-  "--include '*.c'",
-  "--include '*.cpp'",
-  "--include '*.cs'",
+  '--include "*.js"',
+  '--include "*.mjs"',
+  '--include "*.cjs"',
+  '--include "*.jsx"',
+  '--include "*.ts"',
+  '--include "*.tsx"',
+  '--include "*.py"',
+  '--include "*.java"',
+  '--include "*.go"',
+  '--include "*.rb"',
+  '--include "*.php"',
+  '--include "*.c"',
+  '--include "*.cpp"',
+  '--include "*.cs"',
 ].join(" ");
 
 function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
@@ -328,18 +328,69 @@ export async function runSemgrep(projectRoot, options = {}) {
   const logBase = join(logDir, `semgrep-${scanTs}`);
 
   // ── Step 4: Prepare execution ──
-  // On Windows: write .bat to .paaw/logs/ for debugging, then run via exec().
+  // On Windows: semgrep command easily exceeds cmd.exe 8191-char limit.
+  // Must write .bat file and run that instead of passing the raw command.
+  // The .bat is saved in .paaw/logs/ so users can also manually re-run it.
   // On macOS/Linux: temp .sh script + copy to .paaw/logs/.
   let scriptPath = null;
   let scriptLogPath = null; // persistent copy in .paaw/logs/
   let runCmd;
   if (isWin) {
-    // Write .bat to .paaw/logs/ for debugging on Windows
+    // Build .bat with PATH additions + env + full semgrep command
+    const pathAdditions = [];
+    const appData = process.env.APPDATA || "";
+    if (appData) {
+      try {
+        const pythonDir = join(appData, "Python");
+        if (existsSync(pythonDir)) {
+          const entries = readdirSync(pythonDir).filter(e => e.startsWith("Python"));
+          for (const ver of entries) {
+            const scriptsDir = join(pythonDir, ver, "Scripts");
+            if (existsSync(scriptsDir)) pathAdditions.push(scriptsDir);
+          }
+        }
+      } catch {}
+    }
+    const localAppData = process.env.LOCALAPPDATA || "";
+    if (localAppData) {
+      try {
+        const pythonProgDir = join(localAppData, "Programs", "Python");
+        if (existsSync(pythonProgDir)) {
+          const entries = readdirSync(pythonProgDir).filter(e => e.startsWith("Python"));
+          for (const ver of entries) {
+            const scriptsDir = join(pythonProgDir, ver, "Scripts");
+            if (existsSync(scriptsDir)) pathAdditions.push(scriptsDir);
+          }
+        }
+      } catch {}
+    }
+    for (const pf of [process.env["ProgramFiles"] || "C:\\Program Files", process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)"]) {
+      try {
+        const entries = readdirSync(pf).filter(e => e.startsWith("Python"));
+        for (const ver of entries) {
+          const scriptsDir = join(pf, ver, "Scripts");
+          if (existsSync(scriptsDir)) pathAdditions.push(scriptsDir);
+        }
+      } catch {}
+    }
+    let pathLine = "";
+    if (pathAdditions.length > 0) {
+      pathLine = `set PATH=%PATH%;${pathAdditions.join(";")}\r\n`;
+    }
+    // Split long semgrep command into multiple lines if needed
+    // (each --include / --config / --exclude can be on its own line in .bat)
+    const cmdParts = fullCmd.split(/ (--(?:include|exclude|config|quiet|json|metrics) )/);
+    let batLines = "@echo off\r\n";
+    batLines += "set PYTHONUTF8=1\r\n";
+    batLines += "set PYTHONIOENCODING=utf-8\r\n";
+    if (pathLine) batLines += pathLine;
+    batLines += fullCmd + "\r\n";
     scriptLogPath = `${logBase}.bat`;
-    const batContent = `@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n${fullCmd}\r\n`;
-    writeFileSync(scriptLogPath, batContent, "utf-8");
-    LOG("runSemgrep: .bat saved to", safePath(scriptLogPath));
-    runCmd = fullCmd;
+    scriptPath = scriptLogPath; // .bat is both the log and the executable
+    writeFileSync(scriptPath, batLines, "utf-8");
+    LOG("runSemgrep: .bat written to", safePath(scriptPath), `(${batLines.length} bytes)`);
+    // Run the .bat file — avoids cmd.exe 8191-char limit
+    runCmd = `call "${scriptPath}"`;
   } else {
     const scriptExt = ".sh";
     scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
@@ -390,8 +441,10 @@ export async function runSemgrep(projectRoot, options = {}) {
     LOG("runSemgrep: raw output saved to", safePath(logBase) + "-*");
   } catch (saveErr) { LOG_ERR("runSemgrep: failed to save raw output:", saveErr.message); }
 
-  // ── Step 6b: Clean up temp script ──
-  if (scriptPath) { try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", safePath(scriptPath)); } }
+  // ── Step 6b: Clean up temp script (keep .paaw/logs/ copy, delete tmp only) ──
+  // Windows: scriptPath is in .paaw/logs/ — keep it for debugging
+  // macOS/Linux: scriptPath is in tmpdir — delete after use (.paaw/logs/ copy stays)
+  if (scriptPath && !isWin) { try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", safePath(scriptPath)); } }
 
   // ── Step 7: Parse results ──
   let raw = null;
