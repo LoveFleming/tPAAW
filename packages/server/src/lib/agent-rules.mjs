@@ -177,7 +177,7 @@ System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取
 - **project** (2): project_info, project_edit
 - **project** (1): project_info
 - **project-edit** (1): project_edit
-- **intel** (5): project_test_map, project_security, project_api_history, project_runbook, project_faq
+- **project** (2): project_info, project_edit  (project_info covers: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history)
 - **project-edit** (1): project_edit  (actions: issue_create, issue_update, issue_delete, change_record, feature_docs(action=write|append), feature_update_mapping, run_command)
 - **notes** (1): notes  (actions: list_notebooks, list_sections, create, create_section, search)
 - **docs** (2): docs, cu_refresh
