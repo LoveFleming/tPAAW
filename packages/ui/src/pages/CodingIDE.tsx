@@ -2966,7 +2966,7 @@ const sendChat = useCallback(async () => {
             {mainTabs.filter(t => t.type === "terminal").length > 0 && (
               <div
                 className="flex-1 relative min-h-0"
-                style={activeMainTab?.type === "terminal" ? undefined : { display: "none" }}
+                style={activeMainTab?.type === "terminal" ? undefined : { position: "absolute", width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}
               >
                 {mainTabs.filter(t => t.type === "terminal").map(tab => {
                   const isActive = activeMainTab?.id === tab.id;
