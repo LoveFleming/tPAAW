@@ -12,6 +12,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "../utils";
 import { useI18n } from "../i18n";
 import API_BASE from "../api";
+import MarkdownText from "./MarkdownText";
 
 // ── Types ──
 interface Issue {
@@ -434,7 +435,9 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
       {issue.description && (
         <div className="mb-4">
           <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.description")}</h3>
-          <p className="text-sm" style={{ color: theme.text }}>{issue.description}</p>
+          <div style={{ color: theme.text }}>
+            <MarkdownText>{issue.description}</MarkdownText>
+          </div>
         </div>
       )}
 
@@ -442,7 +445,9 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
       {issue.reproduction && (
         <div className="mb-4">
           <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.reproduction")}</h3>
-          <pre className="text-sm p-2 rounded whitespace-pre-wrap" style={{ background: theme.bgMuted, color: theme.text }}>{issue.reproduction}</pre>
+          <div className="p-2 rounded" style={{ background: theme.bgMuted }}>
+            <MarkdownText>{issue.reproduction}</MarkdownText>
+          </div>
         </div>
       )}
 
@@ -450,7 +455,9 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
       {issue.solution && (
         <div className="mb-4">
           <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.solution")}</h3>
-          <p className="text-sm" style={{ color: theme.text }}>{issue.solution}</p>
+          <div style={{ color: theme.text }}>
+            <MarkdownText>{issue.solution}</MarkdownText>
+          </div>
         </div>
       )}
 
