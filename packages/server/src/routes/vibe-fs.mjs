@@ -519,9 +519,62 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       });
 
       child.on("error", () => {
-        // rg not found — fallback to grep
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ results: [], error: "ripgrep not found", total: 0, truncated: false }));
+        // rg not found — fallback to Node.js native search (cross-platform, no ripgrep needed)
+        try {
+          const { readdirSync, readFileSync: readSync, statSync } = require("fs");
+          const results = [];
+          const fileMap = new Map();
+          const maxDepth = 10;
+          const ignoreDirs = new Set([".git", "node_modules", "dist", "build", ".next", "__pycache__", ".paaw", ".cache"]);
+
+          function walkDir(dir, depth) {
+            if (depth > maxDepth) return;
+            try {
+              const entries = readdirSync(dir, { withFileTypes: true });
+              for (const entry of entries) {
+                if (entry.isDirectory()) {
+                  if (ignoreDirs.has(entry.name)) continue;
+                  walkDir(join(dir, entry.name), depth + 1);
+                } else if (entry.isFile()) {
+                  try {
+                    const fullPath = join(dir, entry.name);
+                    const stat = statSync(fullPath);
+                    if (stat.size > 1024 * 1024) continue; // skip > 1MB
+                    const content = readSync(fullPath, "utf-8");
+                    const lines = content.split("\n");
+                    const isBinary = /\0/.test(content.slice(0, 8000));
+                    if (isBinary) continue;
+                    const matches = [];
+                    let searchStr = query;
+                    let flags = "g";
+                    if (!caseSensitive) flags += "i";
+                    if (!useRegex) searchStr = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                    if (wholeWord) searchStr = `\\b${searchStr}\\b`;
+                    const re = new RegExp(searchStr, flags);
+                    for (let i = 0; i < lines.length && matches.length < 20; i++) {
+                      if (re.test(lines[i])) {
+                        matches.push({ line: i + 1, content: lines[i].trimEnd(), before: 0, after: 0 });
+                        re.lastIndex = 0;
+                      }
+                    }
+                    if (matches.length > 0) {
+                      const fileName = entry.name;
+                      fileMap.set(fullPath, { path: fullPath, filename: fileName, matches });
+                    }
+                  } catch {}
+                }
+              }
+            } catch {}
+          }
+
+          walkDir(cwd, 0);
+          const allResults = Array.from(fileMap.values()).sort((a, b) => b.matches.length - a.matches.length);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ results: allResults.slice(0, maxResults), total: allResults.reduce((s, f) => s + f.matches.length, 0), truncated: false }));
+        } catch (fallbackErr) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ results: [], error: "search failed: " + fallbackErr.message, total: 0, truncated: false }));
+        }
       });
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
