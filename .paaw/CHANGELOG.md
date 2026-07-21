@@ -9,6 +9,9 @@
 ### added
 - Full verification
 
+### added
+- Smoke test
+
 ## 2026-07-19
 
 ### Added

@@ -449,7 +449,7 @@ export async function fetchStreamWithRetry(url, options = {}, opts = {}) {
     const { controller, timer } = createTimeoutController(timeoutMs);
 
     try {
-      const resp = await fetch(url, {
+      let resp = await fetch(url, {
         ...options,
         signal: controller.signal,
       });
