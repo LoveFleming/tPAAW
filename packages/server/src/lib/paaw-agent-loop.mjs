@@ -343,80 +343,54 @@ export const PAAW_TOOLS = [
       },
     },
 
-  // ── Project Knowledge Read Tools (structured .paaw/ access) ──
+  // ── Project Knowledge Tool (unified — replaces 14 separate project_* tools) ──
   {
     type: "function",
     function: {
-      name: "project_context",
-      description: "Get the full .paaw/ project context: PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md. Use this FIRST to understand the project before doing any work. Do NOT read_file these directly.",
-      parameters: {
-        type: "object",
-        properties: {},
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_decisions",
-      description: "Read architectural decisions (ADRs) from .paaw/DECISIONS.md. Returns structured decision records. Use this to understand why certain technical choices were made.",
-      parameters: {
-        type: "object",
-        properties: {},
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_standards",
-      description: "List and read coding standards from .paaw/standards/. Returns available standard names and their content. Use this to check project conventions before writing code.",
+      name: "project_info",
+      description: "Query project knowledge from .paaw/ directory. Replaces project_context, project_decisions, project_standards, project_changelog, project_issues, project_features, project_feature_detail, project_runbook, project_faq, project_sessions, project_test_map, project_security, project_recent_changes, project_api_history. Use this FIRST to understand the project before doing any work.",
       parameters: {
         type: "object",
         properties: {
-          name: { type: "string", description: "Specific standard to read (e.g. 'coding-style'). If omitted, lists all available standards." },
+          category: {
+            type: "string",
+            enum: ["context", "decisions", "standards", "changelog", "issues", "features", "feature_detail", "runbook", "faq", "sessions", "test_map", "security", "recent_changes", "api_history"],
+            description: "What to query: context=PROJECT.md+ARCHITECTURE.md, decisions=ADRs, standards=coding standards, changelog=CHANGELOG.md, issues=issue tracker, features=feature map, feature_detail=single feature, runbook=troubleshooting, faq=FAQ, sessions=work sessions, test_map=test intelligence, security=semgrep results, recent_changes=change intelligence, api_history=API tester logs"
+          },
+          id: { type: "string", description: "Feature/issue ID (e.g. F-001, ISS-001). Used with category=feature_detail." },
+          search: { type: "string", description: "Search keyword. Used with: features (by name), runbook (by content), faq (by keyword)." },
+          code: { type: "string", description: "Error code for runbook lookup (e.g. ORD-001)." },
+          name: { type: "string", description: "Standard name to read (for category=standards). If omitted, lists all." },
+          status: { type: "string", description: "Filter issues by status (comma-separated): open,in-progress,resolved,closed,wontfix." },
+          priority: { type: "string", description: "Filter issues by priority (comma-separated): critical,high,medium,low." },
+          severity: { type: "string", description: "Filter security findings: error,warning,info." },
+          file: { type: "string", description: "File path filter. Used with: test_map (which tests cover this file), security (findings for file), recent_changes (impact of file)." },
+          feature: { type: "string", description: "Feature ID for test_map: list all tests for that feature." },
+          days: { type: "number", description: "Days back for recent_changes (default: 30)." },
+          limit: { type: "number", description: "Max results for sessions/api_history (default: 5/20)." },
+          method: { type: "string", description: "Filter api_history by HTTP method." },
+          path_contains: { type: "string", description: "Filter api_history by URL substring." },
+          include_response: { type: "boolean", description: "Include response body in api_history (default: true)." },
         },
+        required: ["category"],
       },
     },
   },
-  {
-    type: "function",
-    function: {
-      name: "project_changelog",
-      description: "Read the project changelog from .paaw/CHANGELOG.md. Returns recent changes organized by type. Use this to understand what was recently changed.",
-      parameters: {
-        type: "object",
-        properties: {},
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_issues",
-      description: "List project issues from .paaw/issues/ISSUES.json. Supports filtering by status and priority. Use this to find known bugs and tasks instead of reading the JSON file directly.",
-      parameters: {
-        type: "object",
-        properties: {
-          status: { type: "string", description: "Filter by status: open, in-progress, resolved, closed, wontfix (comma-separated for multiple)" },
-          priority: { type: "string", description: "Filter by priority: critical, high, medium, low (comma-separated)" },
-        },
-      },
-    },
-  },
+
+  // ── Project Mutation Tools (issue CRUD, feature editing, run command) ──
   {
     type: "function",
     function: {
       name: "project_issue_create",
-      description: "Create a new issue in .paaw/issues/ISSUES.json. Use this when you discover a bug, technical debt, or task that needs tracking. Always create an issue for problems you find but cannot fix immediately.",
+      description: "Create a new issue in .paaw/issues/ISSUES.json. Use when you discover a bug or task that needs tracking.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Issue title (short, descriptive)" },
+          title: { type: "string", description: "Issue title" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority level" },
-          labels: { type: "array", items: { type: "string" }, description: "Labels: bug, feature, tech-debt, security, performance, etc." },
-          description: { type: "string", description: "Detailed description of the issue" },
-          featureId: { type: "string", description: "Related feature ID (e.g. F-001)" },
+          labels: { type: "array", items: { type: "string" }, description: "Labels" },
+          description: { type: "string", description: "Detailed description" },
+          featureId: { type: "string", description: "Related feature ID" },
         },
         required: ["title", "priority"],
       },
@@ -426,14 +400,14 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "project_issue_update",
-      description: "Update an existing issue (change status, priority, add notes). Use this to close issues you've fixed, or escalate priority.",
+      description: "Update an existing issue (change status, priority, add notes).",
       parameters: {
         type: "object",
         properties: {
           id: { type: "string", description: "Issue ID (e.g. ISS-001)" },
           status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "New status" },
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "New priority" },
-          note: { type: "string", description: "Add a note/comment to the issue" },
+          note: { type: "string", description: "Add a note" },
         },
         required: ["id"],
       },
@@ -443,11 +417,11 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "project_issue_delete",
-      description: "Delete an issue from .paaw/issues/ISSUES.json.",
+      description: "Delete an issue.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "Issue ID to delete (e.g. ISS-001)" },
+          id: { type: "string", description: "Issue ID to delete" },
         },
         required: ["id"],
       },
@@ -457,16 +431,16 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "project_change_record",
-      description: "Record a change to the project: what you changed, why, and impact. Use this AFTER making code changes to create a structured change record in .paaw/changes/. This is different from update_changelog (which is for users) — this is for AI agent handover.",
+      description: "Record a change to the project: what you changed, why, and impact.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Short title of the change" },
+          title: { type: "string", description: "Short title" },
           type: { type: "string", enum: ["feature", "bugfix", "refactor", "security", "performance", "docs", "config"], description: "Type of change" },
           description: { type: "string", description: "What was changed and why" },
-          files: { type: "array", items: { type: "string" }, description: "List of changed file paths" },
-          impact: { type: "string", description: "Potential impact or risks" },
-          testsRan: { type: "string", description: "Which tests were run to verify" },
+          files: { type: "array", items: { type: "string" }, description: "Changed file paths" },
+          impact: { type: "string", description: "Potential impact" },
+          testsRan: { type: "string", description: "Tests run to verify" },
         },
         required: ["title", "type", "description", "files"],
       },
@@ -475,172 +449,47 @@ export const PAAW_TOOLS = [
   {
     type: "function",
     function: {
-      name: "project_runbook",
-      description: "Get runbooks for troubleshooting errors. Can list all runbooks, get a specific runbook by error code, or search by keyword. Use this when diagnosing errors or when Helpdesk agent needs troubleshooting steps.",
-      parameters: {
-        type: "object",
-        properties: {
-          code: { type: "string", description: "Specific error code to get runbook (e.g. 'ORD-001'). If omitted, lists all runbooks." },
-          search: { type: "string", description: "Search runbooks by keyword (matches title and content)" },
-        },
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_faq",
-      description: "Get or update the Helpdesk FAQ. Can read the full FAQ, search by keyword, or add a new Q&A entry. Use this when answering common questions or when Helpdesk agent discovers a recurring issue worth documenting.",
-      parameters: {
-        type: "object",
-        properties: {
-          action: { type: "string", enum: ["read", "search", "add"], description: "read = get full FAQ, search = find by keyword, add = append new Q&A" },
-          keyword: { type: "string", description: "Search keyword (for action=search)" },
-          question: { type: "string", description: "New question (for action=add)" },
-          answer: { type: "string", description: "New answer (for action=add)" },
-          category: { type: "string", description: "Category for new Q&A (e.g. 'setup', 'debug', 'deployment')" },
-        },
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_sessions",
-      description: "List recent coding sessions from .paaw/sessions/. Returns session filenames and dates. Use this to see what work was done previously.",
-      parameters: {
-        type: "object",
-        properties: {
-          limit: { type: "number", description: "Max sessions to return (default: 5)" },
-        },
-      },
-    },
-  },
-
-  {
-    type: "function",
-    function: {
-      name: "project_features",
-      description: "List all project features with their code files, APIs, tests, runbooks, and linked issues. Use this to understand what features exist and how they map to code. Do NOT read .paaw/features/ directly.",
-      parameters: {
-        type: "object",
-        properties: {
-          search: { type: "string", description: "Search features by name or description" },
-        },
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "project_feature_detail",
-      description: "Get full detail of a single feature including AI understanding, documentation, code files, APIs, tests, runbooks, and linked issues.",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Feature ID (e.g. F-001)" },
-        },
-        required: ["id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "project_feature_update_docs",
-      description: "Update the documentation for a feature. Use this when you've made code changes and need to update the feature's docs to reflect the changes.",
+      description: "Update the documentation for a feature.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "Feature ID (e.g. F-001)" },
-          documentation: { type: "string", description: "New documentation content in markdown" },
+          id: { type: "string", description: "Feature ID" },
+          documentation: { type: "string", description: "New documentation in markdown" },
         },
         required: ["id", "documentation"],
       },
     },
   },
-
   {
     type: "function",
     function: {
       name: "project_feature_update_mapping",
-      description: "Update a feature's file mappings (codeFiles, apis, tests, runbooks) after you've added, renamed, moved, or deleted files related to that feature. ALWAYS call this when your code changes affect a feature's structure.",
+      description: "Update a feature's file mappings after code changes. ALWAYS call this when files change.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "Feature ID (e.g. F-001)" },
-          codeFiles: { type: "array", items: { type: "string" }, description: "Updated list of code file paths" },
-          apis: { type: "array", items: { type: "object" }, description: "Updated API endpoints [{method, path, file}]" },
-          tests: { type: "array", items: { type: "string" }, description: "Updated list of test file paths" },
-          runbooks: { type: "array", items: { type: "string" }, description: "Updated list of runbook file paths" },
+          id: { type: "string", description: "Feature ID" },
+          codeFiles: { type: "array", items: { type: "string" }, description: "Updated code files" },
+          apis: { type: "array", items: { type: "object" }, description: "Updated API endpoints" },
+          tests: { type: "array", items: { type: "string" }, description: "Updated test files" },
+          runbooks: { type: "array", items: { type: "string" }, description: "Updated runbook files" },
         },
         required: ["id"],
       },
     },
   },
-
-  // ── Test Intelligence ──
   {
     type: "function",
     function: {
-      name: "project_test_map",
-      description: "Get test intelligence: which tests cover a given file, and what to run when you change a file. Use this BEFORE making code changes to know which tests will be affected.",
+      name: "project_run_command",
+      description: "Run safe shell commands (npm test, npm run build, npx tsc, etc.). Whitelisted prefixes only, dangerous patterns blocked.",
       parameters: {
         type: "object",
         properties: {
-          file: { type: "string", description: "Production file path to check which tests cover it. If omitted, returns overall test stats." },
-          feature: { type: "string", description: "Feature ID (e.g. F-001) to list all tests for that feature." },
+          command: { type: "string", description: "Command to run (e.g. 'npm test', 'npx tsc --noEmit')" },
         },
-      },
-    },
-  },
-
-  // ── Security Intelligence ──
-  {
-    type: "function",
-    function: {
-      name: "project_security",
-      description: "Get security scan results (Semgrep). Lists findings by severity, file, and CWE. Use this to check for known vulnerabilities before making security-sensitive changes.",
-      parameters: {
-        type: "object",
-        properties: {
-          severity: { type: "string", enum: ["error", "warning", "info"], description: "Filter by severity. If omitted, returns all." },
-          file: { type: "string", description: "Filter findings by file path." },
-        },
-      },
-    },
-  },
-
-  // ── Change Intelligence ──
-  {
-    type: "function",
-    function: {
-      name: "project_recent_changes",
-      description: "Get recent change intelligence: what was recently modified, which features/APIs were touched, and impact analysis. Use this FIRST when picking up a task to understand what recently happened.",
-      parameters: {
-        type: "object",
-        properties: {
-          file: { type: "string", description: "Check impact of a specific changed file — which other files depend on it." },
-          days: { type: "number", description: "How many days back to look (default: 30)." },
-        },
-      },
-    },
-  },
-
-  // ── API Tester History ──
-  {
-    type: "function",
-    function: {
-      name: "project_api_history",
-      description: "Get API Tester history — real request/response pairs captured from the API Tester UI. Each entry includes method, url, status, headers, request body, and full response. Use this to understand actual API behavior, write E2E tests based on real traffic, or verify API contracts.",
-      parameters: {
-        type: "object",
-        properties: {
-          limit: { type: "number", description: "Max entries to return (default: 20, max: 50). Most recent first." },
-          method: { type: "string", description: "Filter by HTTP method (GET, POST, PUT, etc.)." },
-          path_contains: { type: "string", description: "Filter by URL substring (e.g. '/a2a' or '/coding-crew')." },
-          include_response: { type: "boolean", description: "Include full response body (default: true). Set false for a compact summary list." },
-        },
+        required: ["command"],
       },
     },
   },
@@ -798,29 +647,7 @@ export const PAAW_TOOLS = [
     },
   },
 
-  // ── Project Run Command (shell exec for build/test/lint) ──
-  {
-    type: "function",
-    function: {
-      name: "project_run_command",
-      description: "Run a shell command in the project directory (build, test, lint, etc.). ONLY safe commands allowed. Use after writing code to verify it compiles/tests pass.\n\nAllowed command prefixes: npm, npx, yarn, pnpm, node, npx tsc, mvn, gradle, python, python3, py, pip, cargo, go, make, dotnet.\n\nBlocked: rm, del, rmdir, git push, git reset, git rebase, sudo, curl, wget, >, |, ;, &&, ||.",
-      parameters: {
-        type: "object",
-        properties: {
-          command: {
-            type: "string",
-            description: "The shell command to run (e.g. 'npm run build', 'npm test', 'npx tsc --noEmit', 'mvn compile').",
-          },
-          timeout_seconds: {
-            type: "number",
-            description: "Timeout in seconds. Default: 60, max: 300.",
-          },
-        },
-        required: ["command"],
-      },
-    },
-  },
-];
+  ];
 
 // ── Tool Group System — load only what each agent needs ──
 
@@ -841,26 +668,14 @@ const TOOL_GROUP_MAP = {
   // Decision & changelog
   record_decision: "decisions", update_changelog: "decisions",
 
-  // Project essentials — context + issues
-  project_context: "project", project_issues: "project",
-
-  // Feature map (read-only: features, detail)
-  project_features: "features", project_feature_detail: "features",
-
-  // Feature editing (update docs/mapping — only doc-writer, EM)
-  project_feature_update_docs: "features-edit", project_feature_update_mapping: "features-edit",
-
-  // Recent activity
-  project_recent_changes: "activity",
-
-  // Project deep — standards, changelog, decisions, sessions
-  project_standards: "project-deep", project_changelog: "project-deep",
-  project_decisions: "project-deep", project_sessions: "project-deep",
-
-  // Intelligence — test map, security, API, runbook, FAQ
-  project_test_map: "intel", project_security: "intel",
-  project_api_history: "intel", project_runbook: "intel",
-  project_faq: "intel",
+  // Project Info — unified tool (replaces 14 separate project_* read tools)
+  project_info: "project",
+  // Legacy aliases also map to project group
+  project_context: "project", project_decisions: "project", project_standards: "project",
+  project_changelog: "project", project_issues: "project", project_features: "project",
+  project_feature_detail: "project", project_runbook: "project", project_faq: "project",
+  project_sessions: "project", project_test_map: "project", project_security: "project",
+  project_recent_changes: "project", project_api_history: "project",
 
   // Issue management
   project_issue_create: "issue-mgmt", project_issue_update: "issue-mgmt", project_issue_delete: "issue-mgmt",
@@ -881,20 +696,20 @@ const CORE_READ_TOOLS = new Set(["read_file", "glob", "grep", "diff", "ask_user"
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
-  // Architect: read-only + decisions + features (read)
-  architect: ["core-read", "memory", "decisions", "project", "features"],
-  // Developer: full core + memory + project context (need to know what to code)
-  developer: ["core", "memory", "project", "features"],
-  // Tester: full core + project + features (read) + intel
-  tester: ["core", "memory", "project", "features", "intel"],
+  // Architect: read-only + decisions + project info
+  architect: ["core-read", "memory", "decisions", "project", "features-edit"],
+  // Developer: full core + memory + project info
+  developer: ["core", "memory", "project"],
+  // Tester: full core + project info
+  tester: ["core", "memory", "project"],
   // Doc-writer: full core + features-edit + docs + notes
-  "doc-writer": ["core", "memory", "project", "features", "features-edit", "docs", "notes"],
-  // QA: read-only + project + features (read) + intel + issue management
-  qa: ["core-read", "memory", "project", "features", "intel", "issue-mgmt"],
-  // Helpdesk: read-only + intel + notes
-  helpdesk: ["core-read", "memory", "project", "intel", "notes"],
-  // EM: read-only + project overview + features-edit + issue management + dispatch
-  em: ["core-read", "memory", "decisions", "project", "features", "features-edit", "activity", "project-deep", "intel", "issue-mgmt", "notes", "docs", "browser"],
+  "doc-writer": ["core", "memory", "project", "features-edit", "docs", "notes"],
+  // QA: read-only + project info + issue management
+  qa: ["core-read", "memory", "project", "issue-mgmt"],
+  // Helpdesk: read-only + project info + notes
+  helpdesk: ["core-read", "memory", "project", "notes"],
+  // EM: read-only + project info + features-edit + issue management + dispatch
+  em: ["core-read", "memory", "decisions", "project", "features-edit", "issue-mgmt", "notes", "docs", "browser"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -1475,568 +1290,237 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       // ══════════════════════════════════════════
       // ── Project Knowledge Read Tools (structured .paaw/ access) ──
-      // ══════════════════════════════════════════
-
-      case "project_context": {
-        const paaw = createPaawProject(cwd);
-        if (!paaw.exists) return "⚠️ .paaw/ not initialized for this project.";
-        const ctx = await paaw.loadContextText();
-        if (onEvent) onEvent({ type: "tool_end", name, result: ctx ? `${ctx.length} chars` : "empty" });
-        return ctx || "(No project context found)";
-      }
-
-      case "project_decisions": {
-        const paaw = createPaawProject(cwd);
-        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
-        try {
-          const content = await paaw.readFile("DECISIONS.md");
-          if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
-          return content || "(No decisions recorded yet)";
-        } catch {
-          return "(No DECISIONS.md found)";
-        }
-      }
-
-      case "project_standards": {
-        const paaw = createPaawProject(cwd);
-        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
-        if (args.name) {
-          const content = await paaw.readStandard(args.name);
-          if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "not found" });
-          return content || `Standard '${args.name}' not found.`;
-        }
-        const standards = await paaw.listStandards();
-        const list = standards.map(s => `- ${s.name} (${s.size} bytes)`).join("\n");
-        if (onEvent) onEvent({ type: "tool_end", name, result: `${standards.length} standards` });
-        return `Available standards:\n${list || "(none)"}`;
-      }
-
-      case "project_changelog": {
-        const paaw = createPaawProject(cwd);
-        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
-        try {
-          const content = await paaw.readFile("CHANGELOG.md");
-          if (onEvent) onEvent({ type: "tool_end", name, result: content ? `${content.length} chars` : "empty" });
-          return content || "(No changelog yet)";
-        } catch {
-          return "(No CHANGELOG.md found)";
-        }
-      }
-
-      case "project_issues": {
-        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
-        if (!existsSync(issuesFile)) return "(No issues tracking initialized)";
-        try {
-          const data = JSON.parse(readSync(issuesFile, "utf-8"));
-          let issues = data.issues || [];
-          if (args.status) {
-            const statuses = args.status.split(",").map(s => s.trim());
-            issues = issues.filter(i => statuses.includes(i.status));
-          }
-          if (args.priority) {
-            const priorities = args.priority.split(",").map(p => p.trim());
-            issues = issues.filter(i => priorities.includes(i.priority));
-          }
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${issues.length} issues` });
-          if (issues.length === 0) return "(No matching issues found)";
-          const summary = issues.map(i => `[${i.id}] ${i.status} | ${i.priority} | ${i.title}${i.labels?.length ? ` [${i.labels.join(",")}]` : ""}`).join("\n");
-          return `Issues (${issues.length}):
-${summary}`;
-        } catch (err) {
-          return `Error reading issues: ${err.message}`;
-        }
-      }
-
-      case "project_issue_create": {
-        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
-        let data = { issues: [], updatedAt: new Date().toISOString() };
-        if (existsSync(issuesFile)) {
-          try { data = JSON.parse(readSync(issuesFile, "utf-8")); } catch {}
-        }
-        const num = (data.issues || []).length + 1;
-        const id = `ISS-${String(num).padStart(3, "0")}`;
-        const issue = {
-          id,
-          title: args.title,
-          priority: args.priority || "medium",
-          status: "open",
-          labels: args.labels || [],
-          description: args.description || "",
-          featureId: args.featureId || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          notes: [],
+      // ── Unified project_info handler ──
+      case "project_info":
+      case "project_context": case "project_decisions": case "project_standards":
+      case "project_changelog": case "project_issues": case "project_features":
+      case "project_feature_detail": case "project_runbook": case "project_faq":
+      case "project_sessions": case "project_test_map": case "project_security":
+      case "project_recent_changes": case "project_api_history": {
+        // ── Alias mapping: old tool names → project_info category ──
+        const aliasMap = {
+          project_context: "context", project_decisions: "decisions", project_standards: "standards",
+          project_changelog: "changelog", project_issues: "issues", project_features: "features",
+          project_feature_detail: "feature_detail", project_runbook: "runbook", project_faq: "faq",
+          project_sessions: "sessions", project_test_map: "test_map", project_security: "security",
+          project_recent_changes: "recent_changes", project_api_history: "api_history",
         };
-        data.issues = data.issues || [];
-        data.issues.push(issue);
-        data.updatedAt = new Date().toISOString();
-        const { writeFileSync: writeSync } = await import("fs");
-        const issuesDir = join(cwd, ".paaw", "issues");
-        if (!existsSync(issuesDir)) { const { mkdirSync } = await import("fs"); mkdirSync(issuesDir, { recursive: true }); }
-        writeSync(issuesFile, JSON.stringify(data, null, 2), "utf-8");
-        if (onEvent) onEvent({ type: "tool_end", name, result: id });
-        return `Created issue ${id}: ${issue.title} [${issue.priority}]`;
-      }
+        // If called via old name, remap to project_info format
+        const cat = aliasMap[name] || args.category;
+        if (!cat) return "Error: 'category' parameter is required.";
+        const paaw = createPaawProject(cwd);
 
-      case "project_issue_update": {
-        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
-        if (!existsSync(issuesFile)) return "⚠️ No issues tracking. Create issues first with project_issue_create.";
-        try {
-          const data = JSON.parse(readSync(issuesFile, "utf-8"));
-          const idx = (data.issues || []).findIndex(i => i.id === args.id);
-          if (idx === -1) return `Issue ${args.id} not found.`;
-          const issue = data.issues[idx];
-          if (args.status) issue.status = args.status;
-          if (args.priority) issue.priority = args.priority;
-          if (args.note) {
-            issue.notes = issue.notes || [];
-            issue.notes.push({ text: args.note, date: new Date().toISOString() });
+        switch (cat) {
+          case "context": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized for this project.";
+            const ctx = await paaw.loadContextText();
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: ctx ? `${ctx.length} chars` : "empty" });
+            return ctx || "(No project context found)";
           }
-          issue.updatedAt = new Date().toISOString();
-          data.updatedAt = new Date().toISOString();
-          const { writeFileSync: writeSync } = await import("fs");
-          writeSync(issuesFile, JSON.stringify(data, null, 2), "utf-8");
-          if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
-          return `Updated ${args.id}: status=${issue.status}, priority=${issue.priority}${args.note ? ", note added" : ""}`;
-        } catch (err) {
-          return `Error updating issue: ${err.message}`;
-        }
-      }
-
-      case "project_issue_delete": {
-        const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
-        if (!existsSync(issuesFile)) return "⚠️ No issues tracking.";
-        try {
-          const data = JSON.parse(readSync(issuesFile, "utf-8"));
-          const idx = (data.issues || []).findIndex(i => i.id === args.id);
-          if (idx === -1) return `Issue ${args.id} not found.`;
-          const removed = data.issues.splice(idx, 1)[0];
-          data.updatedAt = new Date().toISOString();
-          const { writeFileSync: writeSync } = await import("fs");
-          writeSync(issuesFile, JSON.stringify(data, null, 2), "utf-8");
-          if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
-          return `Deleted issue ${removed.id}: ${removed.title}`;
-        } catch (err) {
-          return `Error deleting issue: ${err.message}`;
-        }
-      }
-
-      case "project_change_record": {
-        const changesDir = join(cwd, ".paaw", "changes");
-        if (!existsSync(changesDir)) { const { mkdirSync } = await import("fs"); mkdirSync(changesDir, { recursive: true }); }
-        // Read existing records or create new
-        const recordsFile = join(changesDir, "change-records.json");
-        let records = [];
-        if (existsSync(recordsFile)) {
-          try { records = JSON.parse(readSync(recordsFile, "utf-8")); } catch {}
-        }
-        const num = records.length + 1;
-        const id = `CHG-${String(num).padStart(3, "0")}`;
-        const record = {
-          id,
-          title: args.title,
-          type: args.type,
-          description: args.description,
-          files: args.files || [],
-          impact: args.impact || "",
-          testsRan: args.testsRan || "",
-          createdAt: new Date().toISOString(),
-        };
-        records.push(record);
-        const { writeFileSync: writeSync } = await import("fs");
-        writeSync(recordsFile, JSON.stringify(records, null, 2), "utf-8");
-        if (onEvent) onEvent({ type: "tool_end", name, result: id });
-        return `Recorded change ${id}: ${record.title} [${record.type}] — ${record.files.length} file(s)`;
-      }
-
-      case "project_runbook": {
-        const rbDir = join(cwd, ".paaw", "runbook");
-        if (!existsSync(rbDir)) {
-          if (onEvent) onEvent({ type: "tool_end", name, result: "no runbooks" });
-          return "⚠️ No runbooks directory. Run Code Understanding → Error Mapping step first.";
-        }
-        try {
-          const { readdirSync, readFileSync: readSync2 } = await import("fs");
-          // Get specific runbook by code
-          if (args.code) {
-            const rbFile = join(rbDir, `${args.code}.md`);
-            if (!existsSync(rbFile)) return `Runbook ${args.code} not found.`;
-            const content = readSync2(rbFile, "utf-8");
-            if (onEvent) onEvent({ type: "tool_end", name, result: args.code });
-            return content;
+          case "decisions": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            try {
+              const content = await paaw.readFile("DECISIONS.md");
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: content ? `${content.length} chars` : "empty" });
+              return content || "(No decisions recorded yet)";
+            } catch { return "(No DECISIONS.md found)"; }
           }
-          // Search by keyword
-          if (args.search) {
-            const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
-            const matches = [];
-            for (const f of files) {
-              const content = readSync2(join(rbDir, f), "utf-8");
-              if (content.toLowerCase().includes(args.search.toLowerCase())) {
-                const title = content.match(/^#\s+(.+)$/m)?.[1] || f;
-                matches.push(`- ${f}: ${title}`);
+          case "standards": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            if (args.name) {
+              const content = await paaw.readStandard(args.name);
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: content ? `${content.length} chars` : "not found" });
+              return content || `Standard '${args.name}' not found.`;
+            }
+            const standards = await paaw.listStandards();
+            const list = standards.map(s => `- ${s.name} (${s.size} bytes)`).join("\n");
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${standards.length} standards` });
+            return `Available standards:\n${list || "(none)"}`;
+          }
+          case "changelog": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            try {
+              const content = await paaw.readFile("CHANGELOG.md");
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: content ? `${content.length} chars` : "empty" });
+              return content || "(No changelog yet)";
+            } catch { return "(No CHANGELOG.md found)"; }
+          }
+          case "issues": {
+            const issuesFile = join(cwd, ".paaw", "issues", "ISSUES.json");
+            if (!existsSync(issuesFile)) return "(No issues tracking initialized)";
+            try {
+              const data = JSON.parse(readSync(issuesFile, "utf-8"));
+              let issues = data.issues || [];
+              if (args.status) { const statuses = args.status.split(",").map(s => s.trim()); issues = issues.filter(i => statuses.includes(i.status)); }
+              if (args.priority) { const priorities = args.priority.split(",").map(p => p.trim()); issues = issues.filter(i => priorities.includes(i.priority)); }
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${issues.length} issues` });
+              if (issues.length === 0) return "(No matching issues found)";
+              const summary = issues.map(i => `[${i.id}] ${i.status} | ${i.priority} | ${i.title}${i.labels?.length ? ` [${i.labels.join(",")}]` : ""}`).join("\n");
+              return `Issues (${issues.length}):\n${summary}`;
+            } catch (err) { return `Error reading issues: ${err.message}`; }
+          }
+          case "features": {
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "(No features registered yet.)";
+            try {
+              const data = JSON.parse(readSync(featuresFile, "utf-8"));
+              let features = data.features || [];
+              if (args.search) { const s = args.search.toLowerCase(); features = features.filter(f => f.name?.toLowerCase().includes(s) || f.description?.toLowerCase().includes(s)); }
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${features.length} features` });
+              if (features.length === 0) return "(No matching features found)";
+              const list = features.map(f => {
+                const parts = [`[${f.id}] ${f.name} (${f.status})`];
+                if (f.description) parts.push(`  ${f.description}`);
+                if (f.codeFiles?.length) parts.push(`  Code: ${f.codeFiles.join(", ")}`);
+                if (f.apis?.length) parts.push(`  API: ${f.apis.map(a => `${a.method} ${a.path}`).join(", ")}`);
+                if (f.tests?.length) parts.push(`  Tests: ${f.tests.join(", ")}`);
+                return parts.join("\n");
+              }).join("\n\n");
+              return `Features (${features.length}):\n\n${list}`;
+            } catch (err) { return `Error reading features: ${err.message}`; }
+          }
+          case "feature_detail": {
+            if (!args.id) return "Error: 'id' parameter is required for feature_detail.";
+            const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
+            if (!existsSync(featuresFile)) return "(No features registered)";
+            try {
+              const data = JSON.parse(readSync(featuresFile, "utf-8"));
+              const feature = (data.features || []).find(f => f.id === args.id);
+              if (!feature) return `Feature ${args.id} not found`;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: feature.name });
+              const parts = [`# Feature: ${feature.name} (${feature.id})`, `Status: ${feature.status}`, ``, `## Description`, feature.description || "(no description)"];
+              if (feature.codeFiles?.length) parts.push(``, `## Code Files`, feature.codeFiles.map(f => `- ${f}`).join("\n"));
+              if (feature.apis?.length) parts.push(``, `## API Endpoints`, feature.apis.map(a => `- ${a.method} ${a.path} (${a.file})`).join("\n"));
+              if (feature.tests?.length) parts.push(``, `## Tests`, feature.tests.map(f => `- ${f}`).join("\n"));
+              if (feature.issues?.length) parts.push(``, `## Linked Issues`, feature.issues.join(", "));
+              return parts.join("\n");
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "runbook": {
+            const rbDir = join(cwd, ".paaw", "runbook");
+            if (!existsSync(rbDir)) return "⚠️ No runbooks directory.";
+            try {
+              const { readdirSync, readFileSync: readSync2 } = await import("fs");
+              if (args.code) {
+                const rbFile = join(rbDir, `${args.code}.md`);
+                if (!existsSync(rbFile)) return `Runbook ${args.code} not found.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: args.code });
+                return readSync2(rbFile, "utf-8");
               }
+              if (args.search) {
+                const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
+                const matches = [];
+                for (const f of files) { const content = readSync2(join(rbDir, f), "utf-8"); if (content.toLowerCase().includes(args.search.toLowerCase())) matches.push(`- ${f}`); }
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${matches.length} matches` });
+                return matches.length > 0 ? `Runbook matches for '${args.search}':\n${matches.join("\n")}` : `No runbooks matching '${args.search}'.`;
+              }
+              const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${files.length} runbooks` });
+              return `Runbooks (${files.length}):\n${files.join("\n")}`;
+            } catch (err) { return `Error reading runbooks: ${err.message}`; }
+          }
+          case "faq": {
+            const faqFile = join(cwd, ".paaw", "helpdesk", "faq.md");
+            try {
+              const { readFileSync: readSync2 } = await import("fs");
+              if (args.search) {
+                if (!existsSync(faqFile)) return "⚠️ No FAQ found.";
+                const content = readSync2(faqFile, "utf-8").toLowerCase();
+                const kw = args.search.toLowerCase();
+                const sections = content.split(/^##\s+/m);
+                const matches = sections.filter(s => s.includes(kw));
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${matches.length} matches` });
+                return matches.length > 0 ? `FAQ matches for '${args.search}':\n## ${matches.join("\n\n## ")}` : `No FAQ entries matching '${args.search}'.`;
+              }
+              if (!existsSync(faqFile)) return "⚠️ No FAQ found.";
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: "read" });
+              return readSync2(faqFile, "utf-8");
+            } catch (err) { return `Error with FAQ: ${err.message}`; }
+          }
+          case "sessions": {
+            if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
+            const sessions = await paaw.listSessions();
+            const recent = sessions.slice(0, args.limit || 5);
+            const list = recent.map(s => `- ${s.filename || s.name} (${s.date || "unknown"})`).join("\n");
+            if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${recent.length} sessions` });
+            return `Recent sessions (${recent.length} of ${sessions.length}):\n${list || "(none)"}`;
+          }
+          case "test_map": {
+            const tiFile = join(cwd, ".paaw", "code-intelligence", "test-intelligence.json");
+            if (!existsSync(tiFile)) return "⚠️ Test Intelligence not found.";
+            try {
+              const ti = JSON.parse(readSync(tiFile, "utf-8"));
+              if (args.file) {
+                const norm = args.file.replace(/\\\\/g, "/");
+                const entry = ti.codeToTest?.[norm];
+                if (!entry || entry.length === 0) return `No tests covering \`${norm}\`.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${entry.length} tests` });
+                return `Tests covering \`${norm}\`:\n${entry.map(t => `  - ${t.testFile} (${t.testType})`).join("\n")}`;
+              }
+              if (args.feature) {
+                const ft = ti.featureToTests?.find(f => f.featureId === args.feature);
+                if (!ft) return `No tests for feature ${args.feature}.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${ft.tests.length} tests` });
+                return `Tests for ${ft.featureName} (${ft.featureId}):\n${ft.tests.map(t => `  - ${t}`).join("\n")}`;
+              }
+              const s = ti.stats;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${s.totalTestFiles} tests` });
+              return `Test Intelligence: ${s.totalTestFiles} test files, ${s.coverageRate} coverage, ${s.totalMappings} mappings`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "security": {
+            const secFile = join(cwd, ".paaw", "security", "scan-results.json");
+            if (!existsSync(secFile)) return "⚠️ Security scan results not found.";
+            try {
+              const sec = JSON.parse(readSync(secFile, "utf-8"));
+              let findings = sec.findings || [];
+              if (args.severity) findings = findings.filter(f => f.severity === args.severity);
+              if (args.file) { const norm = args.file.replace(/\\\\/g, "/"); findings = findings.filter(f => f.file?.replace(/\\\\/g, "/").includes(norm)); }
+              if (findings.length === 0) { if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: "clean" }); return "No security findings. ✅"; }
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${findings.length} findings` });
+              return `Security Findings (${findings.length}):\n${findings.map(f => `- [${f.severity.toUpperCase()}] ${f.file}:${f.line || "?"} — ${f.message}`).join("\n")}`;
+            } catch (err) { return `Error: ${err.message}`; }
+          }
+          case "recent_changes": {
+            const ciFile = join(cwd, ".paaw", "changes", "change-intelligence.json");
+            if (!existsSync(ciFile)) {
+              try { const { buildChangeIntelligence } = await import("./change-intelligence.mjs"); await buildChangeIntelligence(cwd, { days: args.days || 30, maxCommits: 50 }); } catch { return "⚠️ Change Intelligence not available."; }
             }
-            if (onEvent) onEvent({ type: "tool_end", name, result: `${matches.length} matches` });
-            return matches.length > 0 ? `Runbook matches for '${args.search}':\n${matches.join("\n")}` : `No runbooks matching '${args.search}'.`;
+            try {
+              const ci = JSON.parse(readSync(ciFile, "utf-8"));
+              if (args.file) {
+                const norm = args.file.replace(/\\\\/g, "/");
+                const impact = ci.impactAnalysis?.find(i => i.changedFile === norm || i.changedFile?.includes(norm));
+                if (!impact) return `No impact data for \`${norm}\`.`;
+                if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${impact.affectedFiles.length} affected` });
+                return `Impact of changing \`${norm}\` (${impact.impactLevel}):\n${impact.affectedFiles.map(f => `  - ${f}`).join("\n")}`;
+              }
+              const s = ci.summary;
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${s.totalCommits} commits` });
+              return `Recent Changes (${s.period}): ${s.totalCommits} commits, ${s.totalFilesChanged} files, ${s.totalFeaturesChanged} features changed`;
+            } catch (err) { return `Error: ${err.message}`; }
           }
-          // List all
-          const files = readdirSync(rbDir).filter(f => f.endsWith(".md"));
-          if (files.length === 0) {
-            if (onEvent) onEvent({ type: "tool_end", name, result: "empty" });
-            return "No runbooks found. Run Code Understanding → Error Mapping to generate runbooks.";
+          case "api_history": {
+            const histFile = join(rootDir, "data", "api-tester-history.json");
+            if (!existsSync(histFile)) return "No API Tester history found.";
+            try {
+              const raw = JSON.parse(readSync(histFile, "utf-8"));
+              let items = Array.isArray(raw) ? raw : (raw.history || []);
+              if (args.method) items = items.filter(i => i.method?.toUpperCase() === args.method.toUpperCase());
+              if (args.path_contains) { const needle = args.path_contains.toLowerCase(); items = items.filter(i => i.url?.toLowerCase().includes(needle)); }
+              const limit = Math.min(args.limit || 20, 50);
+              items = items.slice(0, limit);
+              if (items.length === 0) return "No matching API history.";
+              if (onEvent) onEvent({ type: "tool_end", name: "project_info", result: `${items.length} entries` });
+              return `API History (${items.length}):\n${items.map((item, idx) => `${idx+1}. ${item.method} ${item.url} → ${item.status} (${item.elapsed}ms)`).join("\n")}`;
+            } catch (err) { return `Error: ${err.message}`; }
           }
-          const list = files.map(f => {
-            const content = readSync2(join(rbDir, f), "utf-8");
-            const title = content.match(/^#\s+(.+)$/m)?.[1] || f;
-            return `- ${f}: ${title}`;
-          });
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${files.length} runbooks` });
-          return `Runbooks (${files.length}):\n${list.join("\n")}`;
-        } catch (err) {
-          return `Error reading runbooks: ${err.message}`;
+          default:
+            return `Unknown category '${cat}'. Valid: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history`;
         }
       }
 
-      case "project_faq": {
-        const faqFile = join(cwd, ".paaw", "helpdesk", "faq.md");
-        const action = args.action || "read";
-        try {
-          const { readFileSync: readSync2, writeFileSync: writeSync2, mkdirSync: mkSync } = await import("fs");
-          // Read or search
-          if (action === "read" || action === "search") {
-            if (!existsSync(faqFile)) {
-              if (onEvent) onEvent({ type: "tool_end", name, result: "no faq" });
-              return "⚠️ No FAQ found. Run Code Understanding → FAQ step, or add entries with action=add.";
-            }
-            const content = readSync2(faqFile, "utf-8");
-            if (action === "search" && args.keyword) {
-              const lower = content.toLowerCase();
-              const kw = args.keyword.toLowerCase();
-              const sections = lower.split(/^##\s+/m);
-              const matches = sections.filter(s => s.includes(kw));
-              if (onEvent) onEvent({ type: "tool_end", name, result: `${matches.length} matches` });
-              return matches.length > 0 ? `FAQ matches for '${args.keyword}':\n## ${matches.join("\n\n## ")}` : `No FAQ entries matching '${args.keyword}'.`;
-            }
-            if (onEvent) onEvent({ type: "tool_end", name, result: "read" });
-            return content;
-          }
-          // Add new Q&A
-          if (action === "add") {
-            if (!args.question || !args.answer) return "Both question and answer are required for action=add.";
-            const faqDir = join(cwd, ".paaw", "helpdesk");
-            if (!existsSync(faqDir)) mkSync(faqDir, { recursive: true });
-            let content = "";
-            if (existsSync(faqFile)) content = readSync2(faqFile, "utf-8");
-            const category = args.category || "General";
-            const entry = `\n## ${args.question}\n**Category:** ${category}\n\n${args.answer}\n`;
-            content += entry;
-            writeSync2(faqFile, content, "utf-8");
-            if (onEvent) onEvent({ type: "tool_end", name, result: "added" });
-            return `Added FAQ entry: ${args.question}`;
-          }
-          return "Invalid action. Use read, search, or add.";
-        } catch (err) {
-          return `Error with FAQ: ${err.message}`;
-        }
-      }
 
-      case "project_sessions": {
-        const paaw = createPaawProject(cwd);
-        if (!paaw.exists) return "⚠️ .paaw/ not initialized.";
-        const sessions = await paaw.listSessions();
-        const limit = args.limit || 5;
-        const recent = sessions.slice(0, limit);
-        const list = recent.map(s => `- ${s.filename || s.name} (${s.date || "unknown"})`).join("\n");
-        if (onEvent) onEvent({ type: "tool_end", name, result: `${recent.length} sessions` });
-        return `Recent sessions (${recent.length} of ${sessions.length}):
-${list || "(none)"}`;
-      }
-
-      case "project_features": {
-        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-        if (!existsSync(featuresFile)) return "(No features registered yet. Use the Feature Map tab in Coding IDE to create features.)";
-        try {
-          const data = JSON.parse(readSync(featuresFile, "utf-8"));
-          let features = data.features || [];
-          if (args.search) {
-            const s = args.search.toLowerCase();
-            features = features.filter(f =>
-              f.name?.toLowerCase().includes(s) ||
-              f.description?.toLowerCase().includes(s)
-            );
-          }
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${features.length} features` });
-          if (features.length === 0) return "(No matching features found)";
-          const list = features.map(f => {
-            const parts = [`[${f.id}] ${f.name} (${f.status})`];
-            if (f.description) parts.push(`  ${f.description}`);
-            if (f.codeFiles?.length) parts.push(`  Code: ${f.codeFiles.join(", ")}`);
-            if (f.apis?.length) parts.push(`  API: ${f.apis.map(a => `${a.method} ${a.path}`).join(", ")}`);
-            if (f.tests?.length) parts.push(`  Tests: ${f.tests.join(", ")}`);
-            if (f.issues?.length) parts.push(`  Issues: ${f.issues.join(", ")}`);
-            if (f.aiUnderstanding) parts.push(`  AI Understanding: ✅ (${f.aiUnderstandingAt})`);
-            if (f.documentation) parts.push(`  Docs: ✅ (${f.docsUpdatedAt})`);
-            return parts.join("\n");
-          }).join("\n\n");
-          return `Features (${features.length}):\n\n${list}`;
-        } catch (err) {
-          return `Error reading features: ${err.message}`;
-        }
-      }
-
-      case "project_feature_detail": {
-        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-        if (!existsSync(featuresFile)) return "(No features registered)";
-        try {
-          const data = JSON.parse(readSync(featuresFile, "utf-8"));
-          const feature = (data.features || []).find(f => f.id === args.id);
-          if (!feature) return `Feature ${args.id} not found`;
-          if (onEvent) onEvent({ type: "tool_end", name, result: feature.name });
-          const parts = [
-            `# Feature: ${feature.name} (${feature.id})`,
-            `Status: ${feature.status}`,
-            ``,
-            `## Description`,
-            feature.description || "(no description)",
-          ];
-          if (feature.codeFiles?.length) {
-            parts.push(``, `## Code Files`, feature.codeFiles.map(f => `- ${f}`).join("\n"));
-          }
-          if (feature.apis?.length) {
-            parts.push(``, `## API Endpoints`, feature.apis.map(a => `- ${a.method} ${a.path} (${a.file})`).join("\n"));
-          }
-          if (feature.tests?.length) {
-            parts.push(``, `## Tests`, feature.tests.map(f => `- ${f}`).join("\n"));
-          }
-          if (feature.runbooks?.length) {
-            parts.push(``, `## Runbooks`, feature.runbooks.map(f => `- ${f}`).join("\n"));
-          }
-          if (feature.issues?.length) {
-            parts.push(``, `## Linked Issues`, feature.issues.join(", "));
-          }
-          if (feature.aiUnderstanding) {
-            parts.push(``, `## AI Understanding`, `*Generated: ${feature.aiUnderstandingAt}*`, feature.aiUnderstanding);
-          }
-          if (feature.documentation) {
-            parts.push(``, `## Documentation`, `*Updated: ${feature.docsUpdatedAt}*`, feature.documentation);
-          }
-          return parts.join("\n");
-        } catch (err) {
-          return `Error: ${err.message}`;
-        }
-      }
-
-      case "project_feature_update_docs": {
-        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-        if (!existsSync(featuresFile)) return "⚠️ No features registered.";
-        try {
-          const data = JSON.parse(readSync(featuresFile, "utf-8"));
-          const features = data.features || [];
-          const idx = features.findIndex(f => f.id === args.id);
-          if (idx < 0) return `Feature ${args.id} not found`;
-          features[idx].documentation = args.documentation;
-          features[idx].docsUpdatedAt = new Date().toISOString();
-          features[idx].updatedAt = new Date().toISOString();
-          await writeFile(featuresFile, JSON.stringify({ features, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
-          if (onEvent) onEvent({ type: "tool_end", name, result: `updated ${args.id}` });
-          return `✅ Documentation updated for feature ${features[idx].name} (${args.id})`;
-        } catch (err) {
-          return `Error updating docs: ${err.message}`;
-        }
-      }
-
-      case "project_feature_update_mapping": {
-        const featuresFile = join(cwd, ".paaw", "features", "FEATURES.json");
-        if (!existsSync(featuresFile)) return "⚠️ No features registered.";
-        try {
-          const data = JSON.parse(readSync(featuresFile, "utf-8"));
-          const features = data.features || [];
-          const idx = features.findIndex(f => f.id === args.id);
-          if (idx < 0) return `Feature ${args.id} not found`;
-          const changes = [];
-          if (args.codeFiles) { features[idx].codeFiles = args.codeFiles; changes.push("codeFiles"); }
-          if (args.apis) { features[idx].apis = args.apis; changes.push("apis"); }
-          if (args.tests) { features[idx].tests = args.tests; changes.push("tests"); }
-          if (args.runbooks) { features[idx].runbooks = args.runbooks; changes.push("runbooks"); }
-          features[idx].updatedAt = new Date().toISOString();
-          await writeFile(featuresFile, JSON.stringify({ features, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
-          if (onEvent) onEvent({ type: "tool_end", name, result: `updated ${args.id}: ${changes.join(", ")}` });
-          return `✅ Mapping updated for ${features[idx].name} (${args.id}): ${changes.join(", ")}`;
-        } catch (err) {
-          return `Error updating mapping: ${err.message}`;
-        }
-      }
-
-      // ══════════════════════════════════════════
-      // ── Test / Security / Change Intelligence ──
-      // ══════════════════════════════════════════
-
-      case "project_test_map": {
-        const tiFile = join(cwd, ".paaw", "code-intelligence", "test-intelligence.json");
-        if (!existsSync(tiFile)) {
-          if (onEvent) onEvent({ type: "tool_end", name, result: "not found" });
-          return "⚠️ Test Intelligence not found. Run Code Understanding → Test Intelligence step first.";
-        }
-        try {
-          const ti = JSON.parse(readSync(tiFile, "utf-8"));
-          if (args.file) {
-            const norm = args.file.replace(/\\\\/g, "/");
-            const entry = ti.codeToTest?.[norm];
-            if (!entry || entry.length === 0) {
-              if (onEvent) onEvent({ type: "tool_end", name, result: "no tests" });
-              return `No tests found covering \`${norm}\`. This file has NO test coverage — consider adding tests.`;
-            }
-            const lines = entry.map(t => `  - ${t.testFile} (${t.testType})${t.testedFunctions?.length ? " — covers: " + t.testedFunctions.join(", ") : ""}`);
-            if (onEvent) onEvent({ type: "tool_end", name, result: `${entry.length} tests` });
-            return `Tests covering \`${norm}\`:\n${lines.join("\n")}`;
-          }
-          if (args.feature) {
-            const ft = ti.featureToTests?.find(f => f.featureId === args.feature);
-            if (!ft) {
-              if (onEvent) onEvent({ type: "tool_end", name, result: "no tests" });
-              return `No tests found for feature ${args.feature}.`;
-            }
-            if (onEvent) onEvent({ type: "tool_end", name, result: `${ft.tests.length} tests` });
-            return `Tests for ${ft.featureName} (${ft.featureId}):\n${ft.tests.map(t => `  - ${t}`).join("\n")}`;
-          }
-          // Overall stats
-          const s = ti.stats;
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${s.totalTestFiles} tests` });
-          return `Test Intelligence Summary:\n- Total test files: ${s.totalTestFiles}\n- Unit: ${s.byType.unit}, Integration: ${s.byType.integration}, E2E: ${s.byType.e2e}\n- Test→Code mappings: ${s.totalMappings}\n- Coverage rate: ${s.coverageRate}\n- Files without tests: ${s.coverageGapFiles}\n- Features with tests: ${s.featureTestCoverage}`;
-        } catch (err) {
-          return `Error reading test intelligence: ${err.message}`;
-        }
-      }
-
-      case "project_security": {
-        const secFile = join(cwd, ".paaw", "security", "scan-results.json");
-        if (!existsSync(secFile)) {
-          if (onEvent) onEvent({ type: "tool_end", name, result: "not found" });
-          return "⚠️ Security scan results not found. Run Code Understanding → Security Scan step first.";
-        }
-        try {
-          const sec = JSON.parse(readSync(secFile, "utf-8"));
-          let findings = sec.findings || [];
-          if (args.severity) findings = findings.filter(f => f.severity === args.severity);
-          if (args.file) {
-            const norm = args.file.replace(/\\\\/g, "/");
-            findings = findings.filter(f => f.file?.replace(/\\\\/g, "/").includes(norm));
-          }
-          if (findings.length === 0) {
-            if (onEvent) onEvent({ type: "tool_end", name, result: "clean" });
-            return args.file || args.severity
-              ? `No ${args.severity || ""} findings${args.file ? ` for \`${args.file}\`` : ""}. ✅ Clean!`
-              : "No security findings. ✅ All clean!";
-          }
-          const lines = findings.map(f => `- [${f.severity.toUpperCase()}] ${f.file}:${f.line || "?"} — ${f.message}\n  CWE: ${f.cwe || "N/A"} | Fix: ${f.fix || "See references"}`);
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${findings.length} findings` });
-          return `Security Findings (${findings.length}):\n${lines.join("\n")}`;
-        } catch (err) {
-          return `Error reading security results: ${err.message}`;
-        }
-      }
-
-      case "project_recent_changes": {
-        const ciFile = join(cwd, ".paaw", "changes", "change-intelligence.json");
-        if (!existsSync(ciFile)) {
-          // Try to build on-the-fly
-          try {
-            const { buildChangeIntelligence } = await import("./change-intelligence.mjs");
-            const days = args.days || 30;
-            await buildChangeIntelligence(cwd, { days, maxCommits: 50 });
-          } catch {
-            if (onEvent) onEvent({ type: "tool_end", name, result: "not found" });
-            return "⚠️ Change Intelligence not available. Ensure this is a git repository.";
-          }
-        }
-        try {
-          const ci = JSON.parse(readSync(ciFile, "utf-8"));
-          if (args.file) {
-            const norm = args.file.replace(/\\\\/g, "/");
-            const impact = ci.impactAnalysis?.find(i => i.changedFile === norm || i.changedFile?.includes(norm));
-            if (!impact) {
-              if (onEvent) onEvent({ type: "tool_end", name, result: "no impact data" });
-              return `No impact data for \`${norm}\`. It may not have been recently changed, or no other files depend on it.`;
-            }
-            if (onEvent) onEvent({ type: "tool_end", name, result: `${impact.affectedFiles.length} affected` });
-            return `Impact of changing \`${norm}\` (impact: ${impact.impactLevel}):\nAffected files (${impact.affectedFiles.length}):\n${impact.affectedFiles.map(f => `  - ${f}`).join("\n")}`;
-          }
-          const s = ci.summary;
-          const topFiles = ci.recentFiles?.slice(0, 10).map(f => `  - ${f.file} (${f.changeCount}x, last: ${f.lastChanged.slice(0,10)})`).join("\n") || "";
-          const topFeatures = ci.recentFeatures?.slice(0, 5).map(f => `  - ${f.name} (${f.changeCount} changes)`).join("\n") || "";
-          const changedApis = ci.recentApis?.slice(0, 10).map(a => `  - ${a.method} ${a.path} (${a.file})`).join("\n") || "";
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${s.totalCommits} commits` });
-          return `Recent Changes (${s.period}):
-- ${s.totalCommits} commits, ${s.totalFilesChanged} files changed
-- ${s.totalFeaturesChanged} features changed, ${s.totalApisChanged} APIs changed
-- ${s.highImpactChanges} high-impact changes
-
-Top Changed Files:
-${topFiles}
-
-Recently Changed Features:
-${topFeatures}
-
-Recently Changed APIs:
-${changedApis}`;
-        } catch (err) {
-          return `Error reading change intelligence: ${err.message}`;
-        }
-      }
-
-      // ══════════════════════════════════════════
-      // ── API Tester History ──
-      // ══════════════════════════════════════════
-      case "project_api_history": {
-        const PAAW_ROOT2 = rootDir;
-        const histFile = join(PAAW_ROOT2, "data", "api-tester-history.json");
-        try {
-          if (!existsSync(histFile)) {
-            if (onEvent) onEvent({ type: "tool_end", name, result: "no history" });
-            return "No API Tester history found. Use the API Tester in Coding App to make requests first.";
-          }
-          const raw = JSON.parse(readSync(histFile, "utf-8"));
-          let items = Array.isArray(raw) ? raw : (raw.history || []);
-          // Apply filters
-          if (args.method) items = items.filter(i => i.method?.toUpperCase() === args.method.toUpperCase());
-          if (args.path_contains) {
-            const needle = args.path_contains.toLowerCase();
-            items = items.filter(i => i.url?.toLowerCase().includes(needle));
-          }
-          const limit = Math.min(args.limit || 20, 50);
-          items = items.slice(0, limit);
-          const includeResp = args.include_response !== false;
-          if (items.length === 0) {
-            if (onEvent) onEvent({ type: "tool_end", name, result: "empty" });
-            return "No API history entries match your filters.";
-          }
-          const formatted = items.map((item, idx) => {
-            const lines = [
-              `### ${idx + 1}. ${item.method} ${item.url}`,
-              `- Status: ${item.status} | Elapsed: ${item.elapsed}ms | Time: ${item.ts}`,
-            ];
-            if (item.headers?.length) {
-              const hdrs = item.headers.filter(h => h.enabled !== false).map(h => `  ${h.key}: ${h.value}`).join("\n");
-              lines.push(`- Request Headers:\n${hdrs}`);
-            }
-            if (item.body) lines.push(`- Request Body:\n\`\`\`json\n${item.body}\n\`\`\``);
-            if (includeResp && item.response) {
-              const r = item.response;
-              lines.push(`- Response (${r.status} ${r.statusText || ""}, ${r.size || 0} bytes, ${r.elapsed || 0}ms):`);
-              const body = r.body || "";
-              lines.push(`\`\`\`json\n${body.slice(0, 2000)}${body.length > 2000 ? "\n... (truncated)" : ""}\n\`\`\``);
-            } else if (!includeResp) {
-              lines.push(`- Response: ${item.response?.status || "?"} ${(item.response?.body || "").slice(0, 100)}...`);
-            }
-            if (item.streamMode) lines.push(`- ⚡ Stream mode`);
-            return lines.join("\n");
-          });
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${items.length} entries` });
-          return `API Tester History (${items.length} entries${args.method ? `, filtered: ${args.method}` : ""}${args.path_contains ? `, path contains: '${args.path_contains}'` : ""}):\n\n${formatted.join("\n\n---\n\n")}`;
-        } catch (err) {
-          return `Error reading API history: ${err.message}`;
-        }
-      }
 
       // ══════════════════════════════════════════
       // ── CU Refresh (incremental, not full overwrite) ──
@@ -2638,17 +2122,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/ files)\n- **project_context** — Get PROJECT.md, ARCHITECTURE.md, STATUS.md, CODING-STANDARDS.md\n- **project_decisions** — Read ADRs from DECISIONS.md\n- **project_standards** — List/read coding standards\n- **project_changelog** — Read recent changes\n- **project_issues** — List/filter project issues (bugs, tasks)
-- **project_issue_create** — Create a new issue (bug, tech-debt, task you can't fix now)
-- **project_issue_update** — Update issue status/priority, add notes
-- **project_issue_delete** — Delete an issue
-- **project_change_record** — Record what you changed, why, impact (for AI agent handover)
-- **project_runbook** — Get troubleshooting runbooks by error code or keyword (Helpdesk agent)
-- **project_faq** — Read/search/add Helpdesk FAQ entries\n- **project_sessions** — List recent coding sessions\n- **project_features** — List all features (summary auto-injected in system prompt)\n- **project_feature_detail** — Get full detail of one feature\n- **project_feature_update_docs** — Update a feature's documentation\n- **project_feature_update_mapping** — Update feature mapping after code changes (REQUIRED when files change)\n### Intelligence (use before making changes)\n- **project_test_map** — Check which tests cover a file, or what to run when you change something. Use BEFORE code changes.\n- **project_security** — Check known security findings (Semgrep). Use before security-sensitive changes.\n- **project_recent_changes** — See what was recently changed and impact analysis. Use FIRST when picking up a task.
-- **project_api_history** — Get real API request/response pairs from API Tester. Use to write E2E tests based on actual traffic.
-- **project_run_command** — Run shell commands (npm test, npm run build, npx tsc --noEmit, mvn compile, etc.). Use AFTER writing code to verify it compiles and tests pass. Safe commands only, with timeout.
-### CU Maintenance (after code changes)
-- **cu_refresh** — Refresh specific CU steps after code changes. Default: deterministic steps only (fast, no LLM). Add LLM steps only if architecture/APIs changed.\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_* tools)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR to DECISIONS.md\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to your long-term memory\n- **agent_memory_load** — Read your long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/)\n- **project_info(category=...)** — Unified project knowledge tool. Categories: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history\n- **project_issue_create** — Create a new issue\n- **project_issue_update** — Update issue status/priority\n- **project_issue_delete** — Delete an issue\n- **project_change_record** — Record change for agent handover\n- **project_feature_update_docs** — Update feature docs\n- **project_feature_update_mapping** — Update feature mapping (REQUIRED when files change)\n- **project_run_command** — Run safe shell commands (npm test, etc.)\n### CU Maintenance\n- **cu_refresh** — Refresh CU steps after code changes\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_info)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to long-term memory\n- **agent_memory_load** — Read long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

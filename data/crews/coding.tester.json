@@ -21,8 +21,6 @@
   "toolGroups": [
     "core",
     "memory",
-    "project",
-    "features",
-    "intel"
+    "project"
   ]
 }

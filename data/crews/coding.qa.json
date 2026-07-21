@@ -22,8 +22,6 @@
     "core-read",
     "memory",
     "project",
-    "features",
-    "intel",
     "issue-mgmt"
   ]
 }

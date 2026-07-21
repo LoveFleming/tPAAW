@@ -83,26 +83,26 @@ System prompt 裡的「檔案結構 Map」和「Symbol 索引」是讓你**知�
 這條規則沒有例外。即使你「很確定」內容是什麼，也要先 read_file。
 
 ### 查询專案資訊（重要！）
-你需要了解專案時，**必須優先使用 project_* tools**，不要用 read_file 去讀 .paaw/ 目錄下的檔案：
-- **project_context** — 取得 PROJECT.md、ARCHITECTURE.md、STATUS.md、CODING-STANDARDS.md
-- **project_decisions** — 讀取架構決策 (ADR)
-- **project_standards** — 列出/讀取 coding standards
-- **project_changelog** — 讀取近期變更
-- **project_issues** — 列出/篩選專案問題
+你需要了解專案時，**必須優先使用 project_info tool**，不要用 read_file 去讀 .paaw/ 目錄下的檔案：
+- **project_info(category="context")** — 取得 PROJECT.md、ARCHITECTURE.md、STATUS.md、CODING-STANDARDS.md
+- **project_info(category="decisions")** — 讀取架構決策 (ADR)
+- **project_info(category="standards")** — 列出/讀取 coding standards
+- **project_info(category="changelog")** — 讀取近期變更
+- **project_info(category="issues")** — 列出/篩選專案問題
 - **project_issue_create** — 開新 issue（發現 bug 但不能馬上修時一定要開）
 - **project_issue_update** — 更新 issue 狀態/優先級/加備註
 - **project_issue_delete** — 刪除 issue
 - **project_change_record** — 記錄改了什麼、為什麼、影響範圍（給下一個 agent 看的交接記錄）
-- **project_runbook** — 查 runbook（error code 排障指南，Helpdesk agent 常用）
-- **project_faq** — 讀/搜尋/新增 FAQ（Helpdesk agent 發現常見問題時用 action=add 新增）
-- **project_sessions** — 列出近期 coding sessions
-- **project_features** — 列出所有 feature（每次對話 system prompt 已注入最新 summary）
-- **project_feature_detail** — 查單一 feature 完整 detail
+- **project_info(category="runbook")** — 查 runbook（error code 排障指南，Helpdesk agent 常用）
+- **project_info(category="faq")** — 讀/搜尋 FAQ
+- **project_info(category="sessions")** — 列出近期 coding sessions
+- **project_info(category="features")** — 列出所有 feature
+- **project_info(category="feature_detail", id="F-001")** — 查單一 feature 完整 detail
 
-❌ 不要 read_file(".paaw/DECISIONS.md") → 用 project_decisions
-❌ 不要 read_file(".paaw/CODING-STANDARDS.md") → 用 project_context 或 project_standards
-❌ 不要 read_file(".paaw/issues/ISSUES.json") → 用 project_issues
-❌ 不要 read_file(".paaw/features/FEATURES.json") → 用 project_features 或 project_feature_detail
+❌ 不要 read_file(".paaw/DECISIONS.md") → 用 project_info(category="decisions")
+❌ 不要 read_file(".paaw/CODING-STANDARDS.md") → 用 project_info(category="context") 或 project_info(category="standards")
+❌ 不要 read_file(".paaw/issues/ISSUES.json") → 用 project_info(category="issues")
+❌ 不要 read_file(".paaw/features/FEATURES.json") → 用 project_info(category="features") 或 project_info(category="feature_detail", id="...")
 ✅ read_file 只用來讀「原始碼」，不用來讀 .paaw/ 專案知識
 
 ### Feature Mapping 維護（必須！）
@@ -117,9 +117,9 @@ System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取
 
 ### Intelligence Tools（改 code 前必查！）
 接手任務時的標準流程：
-1. **project_recent_changes** — 先看最近改了什麼、影響哪些檔案
-2. **project_test_map** — 查你要改的檔案有沒有測試覆蓋，改完要跑哪些 test
-3. **project_security** — 確認你要改的檔案有沒有已知安全問題
+1. **project_info(category="recent_changes")** — 先看最近改了什麼、影響哪些檔案
+2. **project_info(category="test_map")** — 查你要改的檔案有沒有測試覆蓋，改完要跑哪些 test
+3. **project_info(category="security")** — 確認你要改的檔案有沒有已知安全問題
 
 這三個 tool 是 AI 維運的「體檢」步驟，不要跳過。
 
