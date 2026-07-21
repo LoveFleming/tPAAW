@@ -13,7 +13,7 @@ import { readBody } from './shared.mjs';
 const DEFAULT_PROMPTS = {
   architect: {
     crewId: "coding.architect",
-    task: "## Night Shift Task: Architecture Review\n\nToday's git changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Review today's architecture changes — are there any design concerns?\n2. Check if any decisions need to be recorded as ADRs\n3. If you see important decisions, use record_decision to log them\n4. Update ARCHITECTURE.md if the architecture changed (use update_docs)\n5. Summarize your findings briefly\n\nUse your tools (project_context, project_decisions, read_file) to understand the codebase.\nWrite your findings to .paaw/night-shift/architect-report.md using write_file.",
+    task: "## Night Shift Task: Architecture Review\n\nToday's git changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Review today's architecture changes — are there any design concerns?\n2. Check if any decisions need to be recorded as ADRs\n3. If you see important decisions, use record_decision to log them\n4. Update ARCHITECTURE.md if the architecture changed (use docs(action=write))\n5. Summarize your findings briefly\n\nUse your tools (project_context, project_decisions, read_file) to understand the codebase.\nWrite your findings to .paaw/night-shift/architect-report.md using write_file.",
   },
   developer: {
     crewId: "coding.developer",
@@ -25,7 +25,7 @@ const DEFAULT_PROMPTS = {
   },
   "doc-writer": {
     crewId: "coding.doc-writer",
-    task: "## Night Shift Task: Documentation Update\n\nToday's changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Update CHANGELOG.md with today's changes (use update_changelog)\n2. For each changed feature, update its documentation (use project_feature_update_docs)\n3. Update any README or inline docs that reference changed APIs\n4. Check if PROJECT.md needs updating\n\nUse project_feature_detail to see current docs, project_feature_update_docs to update.\nWrite a summary to .paaw/night-shift/doc-writer-report.md using write_file.",
+    task: "## Night Shift Task: Documentation Update\n\nToday's changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Update CHANGELOG.md with today's changes (use docs(action=changelog))\n2. For each changed feature, update its documentation (use project_feature_docs(action=write))\n3. Update any README or inline docs that reference changed APIs\n4. Check if PROJECT.md needs updating\n\nUse project_feature_detail to see current docs, project_feature_docs(action=write) to update.\nWrite a summary to .paaw/night-shift/doc-writer-report.md using write_file.",
   },
   qa: {
     crewId: "coding.qa",

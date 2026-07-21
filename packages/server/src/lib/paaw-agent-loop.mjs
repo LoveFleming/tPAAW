@@ -311,34 +311,22 @@ export const PAAW_TOOLS = [
         },
       },
     },
+    // ── Unified docs tool (replaces update_changelog + update_docs) ──
     {
       type: "function",
       function: {
-        name: "update_changelog",
-        description: "Add an entry to .paaw/CHANGELOG.md after making code changes. Call this after writing/editing files.",
+        name: "docs",
+        description: "管理 .paaw/ 文件：更新 changelog、寫入/更新文件。用 action 指定操作。",
         parameters: {
           type: "object",
           properties: {
-            type: { type: "string", enum: ["added", "changed", "fixed", "removed", "deprecated"], description: "Category of change" },
-            description: { type: "string", description: "What changed (one line summary)" },
+            action: { type: "string", enum: ["changelog", "write", "append"], description: "changelog=加 changelog 條目, write=寫入文件, append=追加內容" },
+            type: { type: "string", enum: ["added", "changed", "fixed", "removed", "deprecated"], description: "Changelog 類別（action=changelog 時必填）" },
+            description: { type: "string", description: "Changelog 描述（action=changelog）或文件摘要" },
+            file: { type: "string", description: "檔案名（action=write/append 時必填，如 PROJECT.md）" },
+            content: { type: "string", description: "文件內容（action=write/append 時必填）" },
           },
-          required: ["type", "description"],
-        },
-      },
-    },
-    {
-      type: "function",
-      function: {
-        name: "update_docs",
-        description: "Update or create documentation in .paaw/ (PROJECT.md, ARCHITECTURE.md, etc.). Use after significant architectural changes.",
-        parameters: {
-          type: "object",
-          properties: {
-            file: { type: "string", description: "Filename to update (e.g. PROJECT.md, ARCHITECTURE.md)" },
-            content: { type: "string", description: "Full file content to write" },
-            append: { type: "boolean", description: "If true, append to existing content instead of replacing" },
-          },
-          required: ["file", "content"],
+          required: ["action"],
         },
       },
     },
@@ -546,7 +534,7 @@ const TOOL_GROUP_MAP = {
   agent_memory_save: "memory", agent_memory_load: "memory",
 
   // Decision & changelog
-  record_decision: "decisions", update_changelog: "decisions",
+  record_decision: "decisions", docs: "decisions",
 
   // Project Info — unified tool (replaces 14 separate project_* read tools)
   project_info: "project",
@@ -558,7 +546,7 @@ const TOOL_GROUP_MAP = {
   notes: "notes",
 
   // Docs & CU
-  update_docs: "docs", cu_refresh: "docs",
+  cu_refresh: "docs",
 };
 
 // ── core-read: read-only subset of core (no bash/write/edit/git) ──
@@ -574,7 +562,7 @@ const AGENT_FALLBACK_GROUPS = {
   // Tester: full core + project
   tester: ["core", "memory", "decisions", "project", "project-edit"],
   // Doc-writer: full core + project-edit + docs + notes
-  "doc-writer": ["core", "memory", "project", "project-edit", "docs", "notes"],
+  "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs", "notes"],
   // QA: read-only + project + project-edit
   qa: ["core-read", "memory", "project", "project-edit"],
   // Helpdesk: read-only + project + notes
@@ -681,7 +669,7 @@ export function getToolGroupInfo() {
  * Get the tool groups assigned to an agent
  */
 export function getAgentGroups(agentId) {
-  return AGENT_DEFAULT_GROUPS[agentId] || ["core", "memory"];
+  return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
 }
 
 // ── Shell Execution Helper ──
@@ -1453,32 +1441,37 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         return `✅ Decision recorded as ADR-${result.adrNum} in .paaw/DECISIONS.md\nTitle: ${args.title}`;
       }
 
-      case "update_changelog": {
-        const paaw = createPaawProject(cwd);
-        if (!paaw.exists) {
-          return "⚠️ .paaw/ not initialized. Changelog not updated.";
+      // ── Unified docs handler (replaces update_changelog + update_docs) ──
+      case "docs": {
+        const action = args.action;
+        if (!action) return "Error: action is required. Valid: changelog, write, append";
+        
+        if (action === "changelog") {
+          const paaw = createPaawProject(cwd);
+          if (!paaw.exists) return "⚠️ .paaw/ not initialized. Changelog not updated.";
+          if (!args.type || !args.description) return "Error: type and description are required for changelog.";
+          await paaw.appendChangelog({ type: args.type, description: args.description });
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${args.type}: ${args.description.slice(0, 50)}` });
+          return `✅ Changelog updated: [${args.type}] ${args.description}`;
         }
-        await paaw.appendChangelog({
-          type: args.type,
-          description: args.description,
-        });
-        if (onEvent) onEvent({ type: "tool_end", name, result: `${args.type}: ${args.description.slice(0, 50)}` });
-        return `✅ Changelog updated: [${args.type}] ${args.description}`;
-      }
-
-      case "update_docs": {
-        const paaw = createPaawProject(cwd);
-        if (!paaw.exists) await paaw.init();
-        const docFile = args.file?.replace(/\.\.\//g, "").replace(/^\//, ""); // sanitize
-        if (!docFile) return "Error: file is required";
-        if (args.append) {
-          const existing = await paaw.readFile(docFile) || "";
-          await paaw.writeFile(docFile, existing + "\n" + args.content);
-        } else {
-          await paaw.writeFile(docFile, args.content);
+        
+        if (action === "write" || action === "append") {
+          const paaw = createPaawProject(cwd);
+          if (!paaw.exists) await paaw.init();
+          const docFile = args.file?.replace(/\.\.\//g, "").replace(/^\//, "");
+          if (!docFile) return "Error: file is required";
+          if (!args.content) return "Error: content is required";
+          if (action === "append") {
+            const existing = await paaw.readFile(docFile) || "";
+            await paaw.writeFile(docFile, existing + "\n" + args.content);
+          } else {
+            await paaw.writeFile(docFile, args.content);
+          }
+          if (onEvent) onEvent({ type: "tool_end", name, result: docFile });
+          return `✅ Documentation ${action === "append" ? "appended" : "updated"}: .paaw/${docFile}`;
         }
-        if (onEvent) onEvent({ type: "tool_end", name, result: docFile });
-        return `✅ Documentation updated: .paaw/${docFile}`;
+        
+        return `Unknown action '${action}'. Valid: changelog, write, append`;
       }
 
       // ── Action Log Tools ──
@@ -2021,7 +2014,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   parts.push(`\nWorking directory: ${cwd}`);
 
   // Always include tool definitions
-  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/)\n- **project_info(category=...)** — Read project knowledge. Categories: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history\n- **project_edit(action=...)** — Modify project data. Actions: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command\n### CU Maintenance\n- **cu_refresh** — Refresh CU steps after code changes\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_info)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR\n- **update_changelog** — Add changelog entry\n- **update_docs** — Update .paaw/ docs\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to long-term memory\n- **agent_memory_load** — Read long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
+  parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/)\n- **project_info(category=...)** — Read project knowledge. Categories: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history\n- **project_edit(action=...)** — Modify project data. Actions: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command\n### CU Maintenance\n- **cu_refresh** — Refresh CU steps after code changes\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_info)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR\n- **docs(action=...)** — Update .paaw/ docs (actions: changelog, write, append)\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to long-term memory\n- **agent_memory_load** — Read long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

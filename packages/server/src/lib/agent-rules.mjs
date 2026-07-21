@@ -110,7 +110,7 @@ System prompt 裡的「檔案結構 Map」和「Symbol 索引」是讓你**知�
 - 新增/刪除/重命名檔案 → **project_edit(action="feature_update_mapping")**
 - 新增/刪除 API endpoint → **project_edit(action="feature_update_mapping")**
 - 新增/刪除測試檔案 → **project_edit(action="feature_update_mapping")**
-- 更新 feature 文件 → **project_edit(action="feature_update_docs")**
+- 更新 feature 文件 → **project_edit(action="feature_docs(action=write|append)")**
 
 System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取），
 你改完 mapping 後，下次對話自動反映。
@@ -173,14 +173,14 @@ System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取
 **工具組說明：**
 - **core** (9): read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user
 - **memory** (4): action_log_add, action_log_list, agent_memory_save, agent_memory_load
-- **decisions** (2): record_decision, update_changelog
+- **decisions** (2): record_decision, docs(action=changelog|write|append)
 - **project** (2): project_context, project_issues
 - **project** (1): project_info
 - **project-edit** (1): project_edit
 - **intel** (5): project_test_map, project_security, project_api_history, project_runbook, project_faq
-- **project-edit** (1): project_edit  (actions: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command)
+- **project-edit** (1): project_edit  (actions: issue_create, issue_update, issue_delete, change_record, feature_docs(action=write|append), feature_update_mapping, run_command)
 - **notes** (1): notes  (actions: list_notebooks, list_sections, create, create_section, search)
-- **docs** (2): update_docs, cu_refresh
+- **docs** (2): docs, cu_refresh
 - **browser** (1): browser_test
 
 如果沒有 project 工具組，改用 read_file 讀 .paaw/ 檔案（非首選但可用）。
