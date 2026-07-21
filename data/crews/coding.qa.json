@@ -12,10 +12,10 @@
   "skillIds": [],
   "description": "品質保證工程師 — Code Review、測試覆蓋率、規格驗證、品質閘門。",
   "chatConfig": {
-    "greeting": "嗨！我是武大安 Da'an Wu，QA Agent 🩺\n\nCode Review、測試覆蓋率、品質閘門檢查 — 讓我幫你把關品質。",
+    "greeting": "嗨！我是武大安 Da'an Wu，QA Agent 🔬\n\nCode Review、測試覆蓋率、品質閘門檢查 — 讓我幫你把關品質。",
     "maxTokens": 8192,
     "temperature": 0.3,
     "engine": "paaw-agent"
   },
-  "emoji": "🩺"
+  "emoji": "🔬"
 }

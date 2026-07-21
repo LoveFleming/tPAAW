@@ -594,7 +594,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
               const priorityIcon: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
               const agentIcon: Record<string, string> = {
                 architect: "🏛️", developer: "💻", tester: "🧪",
-                "doc-writer": "📝", qa: "🩺", helpdesk: "🌸",
+                "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
               };
               const planText = d.workList.map((w: any, i: number) => {
                 const pi = priorityIcon[w.priority as string] || "⚪";
@@ -612,7 +612,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
             if (d.agent && d.task && d.preview === undefined && d.error === undefined) {
               const agentIcon: Record<string, string> = {
                 architect: "🏛️", developer: "💻", tester: "🧪",
-                "doc-writer": "📝", qa: "🩺", helpdesk: "🌸",
+                "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
               };
               const ai = agentIcon[d.agent as string] || "🔧";
               setMessages(prev => [...prev, {
@@ -629,7 +629,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
             if (d.agent && d.preview !== undefined) {
               const agentIcon: Record<string, string> = {
                 architect: "🏛️", developer: "💻", tester: "🧪",
-                "doc-writer": "📝", qa: "🩺", helpdesk: "🌸",
+                "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
               };
               const ai = agentIcon[d.agent as string] || "🔧";
               completedSteps.push({ stepId: d.agent, name: d.agent, summary: d.preview });

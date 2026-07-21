@@ -357,6 +357,138 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-crew/dispatch — EM dispatch: trigger another agent to run a task ──
+  if (url === "/api/coding-crew/dispatch" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { agentId, task, cwd, model, priority = "medium" } = body;
+    if (!agentId || !task) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing agentId or task" }));
+      return true;
+    }
+
+    const projRoot = cwd ? resolve(cwd) : resolve(projectPath || PAAW_ROOT);
+
+    // Resolve crew config for the target agent
+    const agentMap = {
+      architect: "coding.architect",
+      developer: "coding.developer",
+      tester: "coding.tester",
+      "doc-writer": "coding.doc-writer",
+      qa: "coding.qa",
+      helpdesk: "coding.helpdesk",
+    };
+    const crewId = agentMap[agentId] || agentId;
+    const crewFile = join(PAAW_DATA_DIR, "crews", `${crewId}.json`);
+    if (!existsSync(crewFile)) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Agent '${agentId}' not found` }));
+      return true;
+    }
+
+    try {
+      const crewDef = JSON.parse(readSync(crewFile, "utf-8"));
+      const systemPrompt = crewDef.rolePrompt || "";
+
+      // Build context same as chat endpoint (feature map, code intel, action log, agent memory)
+      const extraContext = [];
+
+      // Load context helpers
+      const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
+      const loadProviderConfig = (await import("../lib/context-engine.mjs")).loadProviderConfig;
+
+      // Feature map
+      const fFile = join(projRoot, ".paaw", "features", "FEATURES.json");
+      if (existsSync(fFile)) {
+        try {
+          const fData = JSON.parse(readSync(fFile, "utf-8"));
+          const feats = fData.features || [];
+          if (feats.length > 0) {
+            const fLines = feats.map(f => {
+              const p = [`- [${f.id}] ${f.name} (${f.status})`];
+              if (f.description) p.push(`— ${f.description}`);
+              const m = [];
+              if (f.codeFiles?.length) m.push(`${f.codeFiles.length} code`);
+              if (f.apis?.length) m.push(`${f.apis.length} APIs`);
+              if (f.tests?.length) m.push(`${f.tests.length} tests`);
+              if (m.length) p.push(`→ ${m.join(", ")}`);
+              return p.join(" ");
+            }).join("\n");
+            extraContext.push(`\n## Feature Map (${feats.length} features)\n${fLines}`);
+          }
+        } catch {}
+      }
+
+      // Code intelligence
+      const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
+      if (existsSync(ciFile)) {
+        try {
+          const ci = JSON.parse(readSync(ciFile, "utf-8"));
+          if (ci.files?.length) {
+            const fileLines = ci.files.slice(0, 100).map(f => {
+              const parts = [`- ${f.path}`];
+              if (f.exports?.length) parts.push(`exports: ${f.exports.slice(0, 5).join(", ")}`);
+              return parts.join(" ");
+            }).join("\n");
+            extraContext.push(`\n## Code Intelligence (top ${Math.min(ci.files.length, 100)} files)\n${fileLines}`);
+          }
+        } catch {}
+      }
+
+      // Action log
+      const actionLog = await listActionLog(projRoot);
+      if (actionLog.length > 0) {
+        const recent = actionLog.slice(-10).map(e => `- [${e.agent}] ${e.action}${e.detail ? ": " + e.detail : ""} (${e.ts})`).join("\n");
+        extraContext.push(`\n## Recent Action Log\n${recent}`);
+      }
+
+      // Agent memory
+      const agentMemoryText = await loadAgentMemory(agentId, projRoot);
+      if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory\n${agentMemoryText}`);
+
+      extraContext.push(AGENT_RULES);
+      const fullSystemPrompt = systemPrompt + extraContext.join("");
+
+      const messages = [
+        { role: "system", content: fullSystemPrompt },
+        { role: "user", content: task },
+      ];
+
+      // Load provider config
+      const prov = loadProviderConfig();
+      const useModel = model || prov.model;
+
+      // Run the agent via runAgentLoopStream — it handles SSE and tool loop internally
+      const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+
+      await runAgentLoopStream({
+        systemPrompt: fullSystemPrompt,
+        messages,
+        cwd: projRoot,
+        agentId,
+        model: useModel,
+        maxTurns: 5,
+        timeout: 300,
+      }, res);
+
+      return true;
+
+    } catch (err) {
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      } else {
+        try { res.write(`data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`); res.end(); } catch {}
+      }
+    }
+    return true;
+  }
+
   // ── Crew Conversation Persistence ──
   // ── Conversation / Session APIs ──
   // New structure: .paaw/coding-memory/conversations/{agentId}/active.json + s-*.json history

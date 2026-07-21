@@ -432,7 +432,7 @@ export default function CodingIDE() {
     { id: "coding.tester", emoji: "🧪", title: "迪維雅 Tester", mode: "chat" as const, agentId: "tester" },
     { id: "coding.doc-writer", emoji: "📝", title: "梅根 Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
     { id: "coding.helpdesk", emoji: "🌸", title: "小春 Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
-    { id: "coding.qa", emoji: "🩺", title: "武大安 QA", mode: "chat" as const, agentId: "qa" },
+    { id: "coding.qa", emoji: "🔬", title: "武大安 QA", mode: "chat" as const, agentId: "qa" },
     { id: "coding.em", emoji: "🎖️", title: "陳哲宇 EM 大總管", mode: "chat" as const, agentId: "em" },
   ];
 
@@ -1254,10 +1254,66 @@ const sendChat = useCallback(async () => {
                   // final content — THE ONLY thing that creates a visible message
                   if (data.content && data.done) {
                     finalContent = data.content;
-                    setAgentAction(""); // clear action indicator
+                    setAgentAction("\u200B"); // clear action indicator
                     const finalMsg: ChatMessage = { role: "assistant", content: finalContent, ts: new Date().toISOString() };
                     if (silentToolCalls.length > 0) finalMsg._toolCalls = silentToolCalls;
                     setChatMessages(prev => [...prev, finalMsg]);
+
+                    // ── EM Auto-Dispatch: detect dispatch directives in EM's response ──
+                    if (activeCrew === "coding.em" && finalContent) {
+                      const dispatchRegex = /📋\s*\*\*派工[：:]\s*(\w+)\*\*[\s\S]*?\*\*任務[：:]\*\*\s*([\s\S]*?)\*\*[\s\S]*?\*\*優先級[：:]\*\*\s*(\w+)/g;
+                      let match;
+                      while ((match = dispatchRegex.exec(finalContent)) !== null) {
+                        const [_, dispatchAgent, dispatchTask, dispatchPriority] = match;
+                        const agentNames: Record<string, string> = { architect: "林曉薇", developer: "Priya", tester: "Divya", "doc-writer": "Megan", qa: "武大安", helpdesk: "小春" };
+                        const agentEmoji: Record<string, string> = { architect: "🏛️", developer: "💻", tester: "🧪", "doc-writer": "📝", qa: "🔬", helpdesk: "🌸" };
+                        const agentName = agentNames[dispatchAgent] || dispatchAgent;
+                        // Show dispatch status in chat
+                        setChatMessages(prev => [...prev, { role: "assistant", content: `⏳ ${agentEmoji[dispatchAgent] || "🔧"} ${agentName} 執行中...\n**任務：**${dispatchTask.trim().slice(0, 100)}`, ts: new Date().toISOString(), _emDispatch: true } as any]);
+                        // Call dispatch API
+                        fetch(`${API_BASE}/api/coding-crew/dispatch`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ agentId: dispatchAgent, task: dispatchTask.trim(), cwd: rootPath, priority: dispatchPriority }),
+                        }).then(async r => {
+                          if (!r.ok) {
+                            setChatMessages(prev => [...prev, { role: "assistant", content: `❌ 派工失敗 (${dispatchAgent}): ${await r.text().then(t => t.slice(0, 200))}`, ts: new Date().toISOString() }]);
+                            return;
+                          }
+                          // Read SSE stream from dispatch
+                          const reader = r.body?.getReader();
+                          const decoder = new TextDecoder();
+                          let dispatchResult = "";
+                          let buffer = "";
+                          let currentEvent = "";
+                          if (!reader) return;
+                          while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop() || "";
+                            for (const line of lines) {
+                              try {
+                                if (line.startsWith("event:")) currentEvent = line.slice(6).trim();
+                                if (line.startsWith("data:")) {
+                                  const evt = JSON.parse(line.slice(5).trim());
+                                  // runAgentLoopStream SSE events
+                                  if (currentEvent === "text" && evt.text) dispatchResult += evt.text;
+                                  else if (currentEvent === "done") {
+                                    setChatMessages(prev => [...prev, { role: "assistant", content: `✅ ${agentEmoji[dispatchAgent] || "🔧"} ${agentName} 完成\n${dispatchResult ? "**結果：**" + dispatchResult.slice(0, 500) : "(無輸出)"}`, ts: new Date().toISOString() }]);
+                                  } else if (currentEvent === "error") {
+                                    setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${agentEmoji[dispatchAgent] || "🔧"} ${agentName} 錯誤：${(evt.error || "unknown").slice(0, 200)}`, ts: new Date().toISOString() }]);
+                                  }
+                                }
+                              } catch {} finally { if (!line.startsWith("event:")) currentEvent = ""; }
+                            }
+                          }
+                        }).catch(err => {
+                          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ 派工錯誤 (${dispatchAgent}): ${err.message}`, ts: new Date().toISOString() }]);
+                        });
+                      }
+                    }
                   }
 
                   // error
