@@ -228,7 +228,7 @@ function buildSemgrepCmd(projectRoot, rulePacks, excludeArgs) {
     return sp.includes(" ") ? `--config "${sp}"` : `--config ${sp}`;
   }).join(" ");
 
-  const cmd = `${bin} --metrics off --json ${configArgs} ${SOURCE_INCLUDES} ${excludeArgs} --quiet --offline ${root}`;
+  const cmd = `${bin} --metrics off --json ${configArgs} ${SOURCE_INCLUDES} ${excludeArgs} --quiet ${root}`;
   LOG("buildSemgrepCmd:", cmd);
   return cmd;
 }
