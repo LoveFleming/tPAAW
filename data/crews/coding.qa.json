@@ -19,9 +19,10 @@
   },
   "emoji": "🔬",
   "toolGroups": [
-    "core",
+    "core-read",
     "memory",
     "project",
+    "features",
     "intel",
     "issue-mgmt"
   ]

@@ -18,7 +18,7 @@
   },
   "emoji": "🏛️",
   "toolGroups": [
-    "core",
+    "core-read",
     "memory",
     "decisions",
     "project",

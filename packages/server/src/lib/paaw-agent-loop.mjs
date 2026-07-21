@@ -826,30 +826,29 @@ export const PAAW_TOOLS = [
 
 // Tool name → group mapping
 const TOOL_GROUP_MAP = {
-  // Core: file ops + shell + git (always loaded)
+  // Core: full file ops + shell + git
   read_file: "core", write_file: "core", edit_file: "core",
   glob: "core", grep: "core", diff: "core",
   git: "core", bash: "core", ask_user: "core",
 
-  // Read-only subset — helpdesk, doc-writer don't need write/edit/bash
-  // (no separate group; they get core and just won't use write tools)
-
   // Browser testing
   browser_test: "browser",
 
-  // Memory & logging (lightweight — just log + memory)
+  // Memory & logging
   action_log_add: "memory", action_log_list: "memory",
   agent_memory_save: "memory", agent_memory_load: "memory",
 
-  // Decision & changelog (only agents that record decisions)
+  // Decision & changelog
   record_decision: "decisions", update_changelog: "decisions",
 
-  // Project essentials — context + issues (most agents need these)
+  // Project essentials — context + issues
   project_context: "project", project_issues: "project",
 
-  // Feature map
+  // Feature map (read-only: features, detail)
   project_features: "features", project_feature_detail: "features",
-  project_feature_update_docs: "features", project_feature_update_mapping: "features",
+
+  // Feature editing (update docs/mapping — only doc-writer, EM)
+  project_feature_update_docs: "features-edit", project_feature_update_mapping: "features-edit",
 
   // Recent activity
   project_recent_changes: "activity",
@@ -863,7 +862,7 @@ const TOOL_GROUP_MAP = {
   project_api_history: "intel", project_runbook: "intel",
   project_faq: "intel",
 
-  // Issue management — create/update/delete
+  // Issue management
   project_issue_create: "issue-mgmt", project_issue_update: "issue-mgmt", project_issue_delete: "issue-mgmt",
   project_change_record: "issue-mgmt",
   project_run_command: "issue-mgmt",
@@ -876,46 +875,105 @@ const TOOL_GROUP_MAP = {
   update_docs: "docs", cu_refresh: "docs",
 };
 
-// Default tool groups per agent role
-// Design principle: fewer tools = faster + more accurate tool selection
-// Target: ≤15 tools per agent for optimal LLM performance
-// Developer only needs core + memory — the rest is code + bash
-// Other agents get project context injected into system prompt
-const AGENT_DEFAULT_GROUPS = {
-  // Architect: review architecture + record decisions + features
-  architect: ["core", "memory", "decisions", "project", "features"],
-  // Developer: code + memory only — project context is in system prompt
+// ── core-read: read-only subset of core (no bash/write/edit/git) ──
+// For non-coding agents: architect, QA, helpdesk, EM
+const CORE_READ_TOOLS = new Set(["read_file", "glob", "grep", "diff", "ask_user"]);
+
+// ── Fallback groups (used when crew.json has no toolGroups) ──
+const AGENT_FALLBACK_GROUPS = {
+  // Architect: read-only + decisions + features (read)
+  architect: ["core-read", "memory", "decisions", "project", "features"],
+  // Developer: full core + memory
   developer: ["core", "memory"],
-  // Tester: code + project context + test map + security
-  tester: ["core", "memory", "project", "intel"],
-  // Doc-writer: docs + notes + feature docs
-  "doc-writer": ["core", "memory", "project", "features", "docs", "notes"],
-  // QA: review + issues + security + issue management
-  qa: ["core", "memory", "project", "intel", "issue-mgmt"],
-  // Helpdesk: runbook/FAQ + notes + project context
-  helpdesk: ["core", "memory", "intel", "notes"],
-  // EM: orchestrator — needs everything
-  em: ["core", "memory", "decisions", "project", "features", "activity", "project-deep", "intel", "issue-mgmt", "notes", "docs", "browser"],
+  // Tester: full core + project + features (read) + intel
+  tester: ["core", "memory", "project", "features", "intel"],
+  // Doc-writer: full core + features-edit + docs + notes
+  "doc-writer": ["core", "memory", "project", "features", "features-edit", "docs", "notes"],
+  // QA: read-only + project + features (read) + intel + issue management
+  qa: ["core-read", "memory", "project", "features", "intel", "issue-mgmt"],
+  // Helpdesk: read-only + intel + notes
+  helpdesk: ["core-read", "memory", "project", "intel", "notes"],
+  // EM: read-only + project overview + features-edit + issue management + dispatch
+  em: ["core-read", "memory", "decisions", "project", "features", "features-edit", "activity", "project-deep", "intel", "issue-mgmt", "notes", "docs", "browser"],
 };
+
+// ── Cache for crew toolGroups loaded from JSON ──
+const _crewGroupCache = new Map();
+
+/**
+ * Load toolGroups for an agent from crew.json.
+ * Falls back to AGENT_FALLBACK_GROUPS if crew.json has no toolGroups.
+ * @param {string} agentId - e.g. "developer", "architect"
+ * @returns {string[]} tool group names
+ */
+function getAgentGroupsFromConfig(agentId) {
+  // Check cache first
+  if (_crewGroupCache.has(agentId)) return _crewGroupCache.get(agentId);
+
+  // agentId -> crewId mapping
+  const crewMap = {
+    architect: "coding.architect",
+    developer: "coding.developer",
+    tester: "coding.tester",
+    "doc-writer": "coding.doc-writer",
+    qa: "coding.qa",
+    helpdesk: "coding.helpdesk",
+    em: "coding.em",
+  };
+  const crewId = crewMap[agentId];
+  if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
+
+  try {
+    const crewPath = join(_PAAW_ROOT, "data", "crews", `${crewId}.json`);
+    if (existsSync(crewPath)) {
+      const crew = JSON.parse(readSync(crewPath, "utf-8"));
+      if (Array.isArray(crew.toolGroups) && crew.toolGroups.length > 0) {
+        _crewGroupCache.set(agentId, crew.toolGroups);
+        return crew.toolGroups;
+      }
+    }
+  } catch (err) {
+    console.warn(`[getToolsForAgent] Failed to load crew config for ${agentId}:`, err.message);
+  }
+
+  // Fallback
+  const fallback = AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];
+  _crewGroupCache.set(agentId, fallback);
+  return fallback;
+}
+
+/**
+ * Clear crew group cache (call when crew.json is updated)
+ */
+export function clearCrewGroupCache() {
+  _crewGroupCache.clear();
+}
 
 /**
  * Get tool definitions for a specific agent.
- * Only returns tools from the agent's assigned groups.
+ * Reads toolGroups from crew.json first, falls back to hardcoded defaults.
  * @param {string} agentId - Agent identifier (e.g. "developer", "architect")
  * @param {string[]} extraGroups - Additional groups to include
  * @returns {object[]} Filtered tool definitions
  */
 export function getToolsForAgent(agentId, extraGroups = []) {
-  // Determine which groups this agent needs
-  const groups = new Set([
-    ...(AGENT_DEFAULT_GROUPS[agentId] || ["core", "memory"]),
-    ...extraGroups,
-  ]);
+  const agentGroups = getAgentGroupsFromConfig(agentId);
+  const groups = new Set([...agentGroups, ...extraGroups]);
+  const useCoreRead = groups.has("core-read");
 
-  // Filter tools by group membership
   return PAAW_TOOLS.filter(tool => {
     const name = tool.function?.name;
     if (!name) return false;
+
+    // Handle core-read: only read-only core tools
+    if (useCoreRead && TOOL_GROUP_MAP[name] === "core") {
+      return CORE_READ_TOOLS.has(name);
+    }
+    // If agent has core-read but NOT core, skip full-core tools
+    if (useCoreRead && !groups.has("core") && TOOL_GROUP_MAP[name] === "core") {
+      return CORE_READ_TOOLS.has(name);
+    }
+
     const group = TOOL_GROUP_MAP[name];
     return group && groups.has(group);
   });

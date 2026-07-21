@@ -22,6 +22,7 @@
     "core",
     "memory",
     "project",
+    "features",
     "intel"
   ]
 }

@@ -19,8 +19,9 @@
   },
   "emoji": "🌸",
   "toolGroups": [
-    "core",
+    "core-read",
     "memory",
+    "project",
     "intel",
     "notes"
   ]
