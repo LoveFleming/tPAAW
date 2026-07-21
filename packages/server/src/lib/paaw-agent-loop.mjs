@@ -82,12 +82,17 @@ export function resolveLLMConfig(_rootDir, modelOverride) {
   if (!config) throw new Error("No provider config found — checked: " + resolve(_PAAW_ROOT, "data/config/providers.json"));
 
   // Parse "providerId/modelId" format (from ModelSelector)
+  // Only split if providerId portion exists in providers config
   let providerId = config.active;
   let model = modelOverride || resolveDefaultModel(config);
-  if (modelOverride && modelOverride.includes("/")) {
-    const firstSlash = modelOverride.indexOf("/");
-    providerId = modelOverride.slice(0, firstSlash);
-    model = modelOverride.slice(firstSlash + 1);
+  if (model && model.includes("/")) {
+    const firstSlash = model.indexOf("/");
+    const candidateProvider = model.slice(0, firstSlash);
+    if (config.providers[candidateProvider]) {
+      providerId = candidateProvider;
+      model = model.slice(firstSlash + 1);
+    }
+    // Otherwise keep the full model string (e.g. "deepseek/deepseek-v4-flash" via openrouter)
   }
 
   const provider = config.providers[providerId];

@@ -105,7 +105,7 @@ await taskStore._ensureDir();
 
 // ── Running Stream Tracker ──
 // Maps agentId → { abortController, res, taskId } for active SSE streams
-const runningStreams = new Map();
+export const runningStreams = new Map();
 
 // ── 啟動時快取 ──
 let _skillMd = null;

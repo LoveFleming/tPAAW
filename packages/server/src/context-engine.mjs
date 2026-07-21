@@ -112,7 +112,7 @@ function loadWorkspaces() {
   return ws.directories || [];
 }
 
-function loadProviderConfig() {
+export function loadProviderConfig() {
   const config = safeReadJSON(resolve(CONFIG_DIR, "providers.json"), { active: "zai", providers: {} });
   const providers = config.providers || {};
   const activeId = config.active || Object.keys(providers)[0] || "";

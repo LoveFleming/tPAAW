@@ -66,6 +66,9 @@ function cuLog(step, msg) {
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
+// ── Running agent tracking (for busy check + interrupt) ──
+const runningCodingAgents = new Map(); // agentId → { abortController, res, startedAt, source }
+
 // ── LLM Call Helper for project routes ──
 // Resolves provider config and calls LLM with proper 4-arg signature
 async function callProjectLLM(body, opts = {}) {
@@ -124,8 +127,9 @@ export default async function projectRoute(req, res) {
   const projectPath = q.path;
 
   // ── GET /api/coding-crew/:crewId — Load crew definition (no project required) ──
+  // Exclude /running and /interrupt which are separate API endpoints
   const crewMatch = url.match(/^\/api\/coding-crew\/([^/?]+)$/);
-  if (crewMatch && method === "GET") {
+  if (crewMatch && method === "GET" && !['running', 'interrupt', 'dispatch', 'chat', 'conversations', 'context-window'].includes(crewMatch[1])) {
     const crewId = decodeURIComponent(crewMatch[1]);
     const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
     try {
@@ -331,6 +335,12 @@ export default async function projectRoute(req, res) {
       if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
 
       const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+      // Register running agent for busy check + interrupt support
+      const chatAbort = new AbortController();
+      runningCodingAgents.set(agent.agentId, { abortController: chatAbort, res, startedAt: Date.now(), source: "chat" });
+      const cleanupChatAgent = () => { runningCodingAgents.delete(agent.agentId); };
+      res.on("close", cleanupChatAgent);
+
       await runAgentLoopStream({
         prompt: "", // handled by messages array
         systemPrompt: "", // handled by messages array
@@ -341,7 +351,9 @@ export default async function projectRoute(req, res) {
         timeout: 1800,
         rootDir: projRoot,
         agentId: agent.agentId,
+        abortSignal: chatAbort.signal,
       }, res);
+      cleanupChatAgent();
 
       if (!res.writableEnded) res.end();
       console.log(`[CodingCrew:chat] ${agent.agentId} stream completed`);
@@ -384,7 +396,7 @@ export default async function projectRoute(req, res) {
       helpdesk: "coding.helpdesk",
     };
     const crewId = agentMap[agentId] || agentId;
-    const crewFile = join(PAAW_DATA_DIR, "crews", `${crewId}.json`);
+    const crewFile = join(PAAW_ROOT, "data", "crews", `${crewId}.json`);
     if (!existsSync(crewFile)) {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: `Agent '${agentId}' not found` }));
@@ -400,7 +412,7 @@ export default async function projectRoute(req, res) {
 
       // Load context helpers
       const { listActionLog, loadAgentMemory } = await import("../lib/action-log.mjs");
-      const loadProviderConfig = (await import("../lib/context-engine.mjs")).loadProviderConfig;
+      const loadProviderConfig = (await import("../context-engine.mjs")).loadProviderConfig;
 
       // Feature map
       const fFile = join(projRoot, ".paaw", "features", "FEATURES.json");
@@ -460,11 +472,29 @@ export default async function projectRoute(req, res) {
       ];
 
       // Load provider config
-      const prov = loadProviderConfig();
-      const useModel = model || prov.model;
+      // Resolve LLM config (same as agent loop)
+      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
+      const llm = resolveLLMConfig(projRoot, model);
+      const useModel = llm.model;
 
       // Run the agent via runAgentLoopStream — it handles SSE and tool loop internally
+      // Busy check — reject if agent is already running
+      if (runningCodingAgents.has(agentId)) {
+        const running = runningCodingAgents.get(agentId);
+        const elapsed = Math.round((Date.now() - running.startedAt) / 1000);
+        if (!res.headersSent) {
+          res.writeHead(409, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: `Agent '${agentId}' is busy (running for ${elapsed}s, source: ${running.source})`, busy: true, agentId }));
+        }
+        return true;
+      }
+
       const { runAgentLoopStream } = await import("../lib/paaw-agent-loop.mjs");
+      // Register dispatched agent
+      const dispatchAbort = new AbortController();
+      runningCodingAgents.set(agentId, { abortController: dispatchAbort, res, startedAt: Date.now(), source: "dispatch" });
+      const cleanupDispatch = () => { runningCodingAgents.delete(agentId); };
+      res.on("close", cleanupDispatch);
 
       await runAgentLoopStream({
         systemPrompt: fullSystemPrompt,
@@ -474,7 +504,9 @@ export default async function projectRoute(req, res) {
         model: useModel,
         maxTurns: 5,
         timeout: 300,
+        abortSignal: dispatchAbort.signal,
       }, res);
+      cleanupDispatch();
 
       return true;
 
@@ -963,6 +995,57 @@ export default async function projectRoute(req, res) {
     }
 
     if (!res.writableEnded) res.end();
+    return true;
+  }
+
+  // ── POST /api/coding-crew/interrupt — Terminate a running agent ──
+  // Must be BEFORE projectPath check — interrupt doesn't need a project path
+  if (url === "/api/coding-crew/interrupt" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+    const { agentId: aid } = body;
+    if (!aid) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "Missing agentId" })); return true; }
+
+    const running = runningCodingAgents.get(aid);
+    if (!running) {
+      // Also check A2A running streams
+      let a2aRunning = null;
+      try {
+        const { runningStreams: a2aStreams } = await import("./a2a.mjs");
+        a2aRunning = a2aStreams?.get(aid);
+        if (a2aRunning) {
+          a2aRunning.abortController.abort();
+          try { if (!a2aRunning.res.writableEnded) { a2aRunning.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Interrupted by user", agentId: aid }) + "\n\n"); a2aRunning.res.end(); } } catch {}
+          a2aStreams.delete(aid);
+        }
+      } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: `No coding agent '${aid}' running${a2aRunning ? " (interrupted via A2A)" : ""}` }));
+      return true;
+    }
+    running.abortController.abort();
+    try {
+      if (!running.res.writableEnded) {
+        running.res.write("event: interrupted\ndata: " + JSON.stringify({ message: "Agent terminated by user", agentId: aid }) + "\n\n");
+        running.res.end();
+      }
+    } catch {}
+    runningCodingAgents.delete(aid);
+    console.log(`[CodingCrew] Interrupted agent '${aid}'`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, message: `Agent '${aid}' terminated` }));
+    return true;
+  }
+
+  // ── GET /api/coding-crew/running — List running agents ──
+  // Must be BEFORE projectPath check
+  if (url === "/api/coding-crew/running" && method === "GET") {
+    const agents = [];
+    for (const [id, info] of runningCodingAgents.entries()) {
+      agents.push({ agentId: id, source: info.source, startedAt: info.startedAt, elapsed: Math.round((Date.now() - info.startedAt) / 1000) });
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, agents }));
     return true;
   }
 

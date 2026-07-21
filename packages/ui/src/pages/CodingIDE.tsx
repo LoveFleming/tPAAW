@@ -2955,8 +2955,9 @@ const sendChat = useCallback(async () => {
                           // 1. Abort frontend fetch
                           a2aAbortRef.current?.abort();
                           a2aAbortRef.current = null;
-                          // 2. Tell server to kill the running stream
+                          // 2. Tell server to kill the running stream (try both APIs)
                           const aid = activeCrew?.replace(/^coding\./, "") || "architect";
+                          fetch(`${API_BASE}/api/coding-crew/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
                           fetch(`${API_BASE}/api/a2a/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
                         }}
                         className="px-3 py-2 rounded-lg text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
@@ -3100,6 +3101,31 @@ const sendChat = useCallback(async () => {
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
+                  onDispatchAgent={async (agentId, task) => {
+                    try {
+                      const res = await fetch(`${API_BASE}/api/coding-crew/dispatch`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ agentId, task, cwd: rootPath }),
+                      });
+                      const data = await res.json();
+                      if (res.status === 409 || data.busy) {
+                        alert(`⚠️ ${agentId} 正在忙碌中，請稍後再派工`);
+                      } else if (!data.ok && data.error) {
+                        alert(`❌ 派工失敗：${data.error}`);
+                      } else {
+                        // Switch to developer tab to see the result
+                        const devCrewId = "coding.developer";
+                        if (!mainTabs.some(t => t.id === `crew:${devCrewId}`)) {
+                          setMainTabs(prev => [...prev, { id: `crew:${devCrewId}`, type: "ai-crew", label: "💻 Developer", icon: "💻", closable: true }]);
+                        }
+                        setActiveMainTab(prev => ({ ...prev, id: `crew:${devCrewId}`, type: "ai-crew", label: "💻 Developer" }));
+                      }
+                    } catch (err: any) {
+                      alert(`❌ 派工錯誤：${err.message}`);
+                    }
+                  }}
+                  agentBusy={(agentId: string) => !!crewAgentRunning[`coding.${agentId}`]}
                 />
               </div>
             )}

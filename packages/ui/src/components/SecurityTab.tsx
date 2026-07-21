@@ -55,6 +55,8 @@ interface Props {
     text: string;
   };
   onOpenFile: (path: string) => void;
+  onDispatchAgent?: (agentId: string, task: string) => void;
+  agentBusy?: (agentId: string) => boolean;
 }
 
 const SEVERITY_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
@@ -84,7 +86,7 @@ function SeverityDot({ severity, size = 10 }: { severity: string; size?: number 
 
 const SEVERITY_ORDER = ["CRITICAL", "ERROR", "WARNING", "INFO"];
 
-export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
+export default function SecurityTab({ rootPath, theme, onOpenFile, onDispatchAgent, agentBusy }: Props) {
   const { t } = useI18n();
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -424,6 +426,29 @@ export default function SecurityTab({ rootPath, theme, onOpenFile }: Props) {
                       ) : null
                     ))}
                   </div>
+
+                  {/* Dispatch to Developer */}
+                  {onDispatchAgent && (
+                    <div className="pt-2 border-t" style={{ borderColor: tk.borderLight }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold text-stone-500">🔧 派工修復</span>
+                        {agentBusy && agentBusy("developer") && (
+                          <span className="text-xs text-orange-500 animate-pulse">⚠️ Developer 正忙</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (agentBusy && agentBusy("developer")) return;
+                          const task = `修復安全漏洞: [${selectedFinding.id}] ${selectedFinding.message}\n位置: ${selectedFinding.file}:${selectedFinding.line}${selectedFinding.fix ? "\n建議修法: " + selectedFinding.fix : ""}`;
+                          onDispatchAgent("developer", task);
+                        }}
+                        disabled={!!agentBusy && agentBusy("developer")}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors disabled:opacity-40"
+                        style={{ backgroundColor: agentBusy && agentBusy("developer") ? "#999" : tk.accent }}>
+                        {agentBusy && agentBusy("developer") ? "⏳ Developer 忙碌中" : "🔧 派工給 Developer"}
+                      </button>
+                    </div>
+                  )}
 
                   {/* References */}
                   {selectedFinding.references && selectedFinding.references.length > 0 && (
