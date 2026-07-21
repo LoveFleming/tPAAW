@@ -17,7 +17,7 @@ const DEFAULT_PROMPTS = {
   },
   developer: {
     crewId: "coding.developer",
-    task: "## Night Shift Task: Build & Fix\n\nToday's changed files:\n{{changedFiles}}\n\n## Your Tasks\n1. Run the build: `cd packages/ui && npx vite build` and `cd packages/server && node --check src/paaw-server.mjs`\n2. If build fails, fix the errors\n3. Run lint if available\n4. Update feature mapping for any files you changed (use project_feature_update_mapping)\n5. Commit and push any fixes with message \"fix(night-shift): build/lint fixes\"\n\nUse bash for commands, write_file/edit_file for fixes.\nWrite a summary to .paaw/night-shift/developer-report.md using write_file.",
+    task: "## Night Shift Task: Build & Fix\n\nToday's changed files:\n{{changedFiles}}\n\n## Your Tasks\n1. Run the build: `cd packages/ui && npx vite build` and `cd packages/server && node --check src/paaw-server.mjs`\n2. If build fails, fix the errors\n3. Run lint if available\n4. Update feature mapping for any files you changed (use project_edit(action=feature_update_mapping))\n5. Commit and push any fixes with message \"fix(night-shift): build/lint fixes\"\n\nUse bash for commands, write_file/edit_file for fixes.\nWrite a summary to .paaw/night-shift/developer-report.md using write_file.",
   },
   tester: {
     crewId: "coding.tester",
@@ -25,7 +25,7 @@ const DEFAULT_PROMPTS = {
   },
   "doc-writer": {
     crewId: "coding.doc-writer",
-    task: "## Night Shift Task: Documentation Update\n\nToday's changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Update CHANGELOG.md with today's changes (use docs(action=changelog))\n2. For each changed feature, update its documentation (use project_feature_docs(action=write))\n3. Update any README or inline docs that reference changed APIs\n4. Check if PROJECT.md needs updating\n\nUse project_feature_detail to see current docs, project_feature_docs(action=write) to update.\nWrite a summary to .paaw/night-shift/doc-writer-report.md using write_file.",
+    task: "## Night Shift Task: Documentation Update\n\nToday's changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Update CHANGELOG.md with today's changes (use docs(action=changelog))\n2. For each changed feature, update its documentation (use project_edit(action=feature_update_docs))\n3. Update any README or inline docs that reference changed APIs\n4. Check if PROJECT.md needs updating\n\nUse project_info(category=feature_detail) to see current docs, project_edit(action=feature_update_docs) to update.\nWrite a summary to .paaw/night-shift/doc-writer-report.md using write_file.",
   },
   qa: {
     crewId: "coding.qa",

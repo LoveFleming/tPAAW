@@ -225,7 +225,7 @@ export default async function projectRoute(req, res) {
             }
             const sortedFiles = Object.keys(fileMap).sort();
             const fileLines = sortedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
-            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_feature_detail for full info.\n${fLines}\n\n## File → Feature Index (${sortedFiles.length} files)\n${fileLines}`);
+            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_info(category=feature_detail) for full info.\n${fLines}\n\n## File → Feature Index (${sortedFiles.length} files)\n${fileLines}`);
           }
         } catch {}
       }

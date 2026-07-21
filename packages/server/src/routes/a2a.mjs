@@ -90,7 +90,7 @@ async function getFeatureSummary(cwd) {
     const sortedFiles = Object.keys(fileMap).sort();
     const fileLines = sortedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
 
-    return `\n## Feature Map (${features.length} features)\nUse project_feature_detail for full info on any feature.\n${lines}\n\n## File → Feature Index (${sortedFiles.length} files)\nWhen you read or edit a file, check which feature it belongs to here.\n${fileLines}`;
+    return `\n## Feature Map (${features.length} features)\nUse project_info(category=feature_detail) for full info on any feature.\n${lines}\n\n## File → Feature Index (${sortedFiles.length} files)\nWhen you read or edit a file, check which feature it belongs to here.\n${fileLines}`;
   } catch {
     return "";
   }

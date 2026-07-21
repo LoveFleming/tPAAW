@@ -336,7 +336,7 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "project_info",
-      description: "Query project knowledge from .paaw/ directory. Replaces project_context, project_decisions, project_standards, project_changelog, project_issues, project_features, project_feature_detail, project_runbook, project_faq, project_sessions, project_test_map, project_security, project_recent_changes, project_api_history. Use this FIRST to understand the project before doing any work.",
+      description: "Query project knowledge from .paaw/ directory. Use this FIRST to understand the project before doing any work.",
       parameters: {
         type: "object",
         properties: {

@@ -207,7 +207,7 @@ export default async function chatRoutes(req, res) {
         caller: 'chat',
       })
 
-      // Inject shared registry tools (project_api_history, agent_memory, etc.)
+      // Inject shared registry tools (project_info, agent_memory, etc.)
       const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
       injectRegistryTools(engine, { cwd: PAAW_ROOT, rootDir: PAAW_ROOT, agentId: 'assistant' });
 
