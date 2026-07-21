@@ -883,8 +883,8 @@ const CORE_READ_TOOLS = new Set(["read_file", "glob", "grep", "diff", "ask_user"
 const AGENT_FALLBACK_GROUPS = {
   // Architect: read-only + decisions + features (read)
   architect: ["core-read", "memory", "decisions", "project", "features"],
-  // Developer: full core + memory
-  developer: ["core", "memory"],
+  // Developer: full core + memory + project context (need to know what to code)
+  developer: ["core", "memory", "project", "features"],
   // Tester: full core + project + features (read) + intel
   tester: ["core", "memory", "project", "features", "intel"],
   // Doc-writer: full core + features-edit + docs + notes
