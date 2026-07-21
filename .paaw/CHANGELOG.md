@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-07-21
+### added
+- Phase 4 test
+
+
+
+### added
+- Full verification
+
 ## 2026-07-19
 
 ### Added

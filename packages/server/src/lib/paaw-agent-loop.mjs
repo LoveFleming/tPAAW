@@ -19,7 +19,7 @@
  */
 
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
-import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync } from "fs";
+import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync } from "fs";
 import { exec as execCb } from "child_process";
 import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
@@ -1512,6 +1512,10 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       case "notes": {
         const action = args.action;
         if (!action) return "Error: 'action' is required. Valid: list_notebooks, list_sections, create, create_section, search";
+        // Normalize unified schema params → legacy handler params
+        if (!args.notebookId && args.notebook) args.notebookId = args.notebook;
+        if (!args.sectionId && args.section) args.sectionId = args.section;
+        if (!args.query && args.q) args.query = args.q;
         const notesDir = resolve(rootDir || cwd, "data", "notes");
 
         switch (action) {
@@ -1645,7 +1649,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             };
             data.issues.push(issue);
             data.nextId = (data.nextId || data.issues.length) + 1;
-            writeFileSync(issuesFile, JSON.stringify(data, null, 2));
+            writeSync(issuesFile, JSON.stringify(data, null, 2));
             if (onEvent) onEvent({ type: "tool_end", name, result: id });
             return `✅ Created issue ${id}: ${args.title} [${args.priority}]`;
           }
@@ -1662,7 +1666,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             if (args.priority) issue.priority = args.priority;
             if (args.note) { issue.notes = issue.notes || []; issue.notes.push({ text: args.note, at: new Date().toISOString() }); }
             issue.updatedAt = new Date().toISOString();
-            writeFileSync(issuesFile, JSON.stringify(data, null, 2));
+            writeSync(issuesFile, JSON.stringify(data, null, 2));
             if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
             return `✅ Updated ${args.id}: ${[args.status && `status=${args.status}`, args.priority && `priority=${args.priority}`, args.note && "note added"].filter(Boolean).join(", ")}`;
           }
@@ -1676,7 +1680,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             const before = data.issues.length;
             data.issues = (data.issues || []).filter(i => i.id !== args.id);
             if (data.issues.length === before) return `Error: Issue ${args.id} not found.`;
-            writeFileSync(issuesFile, JSON.stringify(data, null, 2));
+            writeSync(issuesFile, JSON.stringify(data, null, 2));
             if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
             return `✅ Deleted issue ${args.id}`;
           }
@@ -1697,7 +1701,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             let log = [];
             if (existsSync(logFile)) { try { log = JSON.parse(readSync(logFile, "utf-8")); } catch {} }
             log.push(entry);
-            writeFileSync(logFile, JSON.stringify(log, null, 2));
+            writeSync(logFile, JSON.stringify(log, null, 2));
             if (onEvent) onEvent({ type: "tool_end", name, result: args.title });
             return `✅ Recorded change: ${args.title} (${args.type}) — ${args.files.length} file(s)`;
           }
@@ -1712,7 +1716,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             if (!feature) return `Error: Feature ${args.id} not found.`;
             feature.documentation = args.documentation;
             feature.docsUpdatedAt = new Date().toISOString();
-            writeFileSync(featuresFile, JSON.stringify(data, null, 2));
+            writeSync(featuresFile, JSON.stringify(data, null, 2));
             if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
             return `✅ Updated docs for ${args.id}: ${feature.name}`;
           }
@@ -1729,7 +1733,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             if (args.apis) feature.apis = args.apis;
             if (args.tests) feature.tests = args.tests;
             if (args.runbooks) feature.runbooks = args.runbooks;
-            writeFileSync(featuresFile, JSON.stringify(data, null, 2));
+            writeSync(featuresFile, JSON.stringify(data, null, 2));
             if (onEvent) onEvent({ type: "tool_end", name, result: args.id });
             return `✅ Updated mapping for ${args.id}: ${feature.name}`;
           }

@@ -1,0 +1,33 @@
+{
+  "id": "personal",
+  "name": "personal",
+  "notes": [
+    {
+      "id": "note-1784640412160",
+      "title": "Phase3 Test",
+      "content": "Hello from unified params",
+      "tags": [],
+      "sectionId": "default",
+      "createdAt": "2026-07-21T13:26:52.160Z",
+      "updatedAt": "2026-07-21T13:26:52.160Z"
+    },
+    {
+      "id": "note-1784640412161",
+      "title": "Legacy param test",
+      "content": "Hello from legacy params",
+      "tags": [],
+      "sectionId": "default",
+      "createdAt": "2026-07-21T13:26:52.161Z",
+      "updatedAt": "2026-07-21T13:26:52.161Z"
+    },
+    {
+      "id": "note-1784640485591",
+      "title": "Test note",
+      "content": "Content",
+      "tags": [],
+      "sectionId": "default",
+      "createdAt": "2026-07-21T13:28:05.591Z",
+      "updatedAt": "2026-07-21T13:28:05.591Z"
+    }
+  ]
+}
