@@ -420,7 +420,7 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
       </div>
 
       {/* Labels */}
-      {issue.labels.length > 0 && (
+      {Array.isArray(issue.labels) && issue.labels.length > 0 && (
         <div className="flex gap-1 mb-4 flex-wrap">
           {issue.labels.map(l => (
             <span key={l} className="text-xs px-2 py-0.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>
@@ -455,7 +455,7 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
       )}
 
       {/* Related files */}
-      {issue.relatedFiles.length > 0 && (
+      {Array.isArray(issue.relatedFiles) && issue.relatedFiles.length > 0 && (
         <div className="mb-4">
           <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.relatedFiles")}</h3>
           <div className="flex flex-col gap-1">

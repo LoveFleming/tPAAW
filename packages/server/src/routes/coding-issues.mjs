@@ -52,7 +52,24 @@ async function loadIssues(projectPath) {
   if (!existsSync(issuesFile)) return [];
   try {
     const data = JSON.parse(await readFile(issuesFile, "utf-8"));
-    return Array.isArray(data.issues) ? data.issues : [];
+    if (!Array.isArray(data.issues)) return [];
+    // Normalize: ensure all fields have safe defaults (null → [] or "")
+    return data.issues.map(i => ({
+      id: i.id || "",
+      title: i.title || "",
+      status: i.status || "open",
+      priority: i.priority || "medium",
+      labels: Array.isArray(i.labels) ? i.labels : [],
+      assignee: i.assignee || null,
+      description: i.description || "",
+      reproduction: i.reproduction || "",
+      solution: i.solution || "",
+      relatedFiles: Array.isArray(i.relatedFiles) ? i.relatedFiles : [],
+      createdAt: i.createdAt || new Date().toISOString(),
+      updatedAt: i.updatedAt || new Date().toISOString(),
+      resolvedAt: i.resolvedAt || null,
+      createdBy: i.createdBy || "agent",
+    }));
   } catch {
     return [];
   }
