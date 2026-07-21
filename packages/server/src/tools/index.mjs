@@ -85,6 +85,9 @@ async function loadApps() {
     if (!entry.isDirectory()) continue;
     try {
       const data = JSON.parse(await readFile(resolve(APPS_DIR, entry.name, "app.json"), "utf-8"));
+      // Fallback: use dirname as app id if app.json missing it
+      if (!data.id) data.id = entry.name;
+      if (!data.name) data.name = entry.name;
       apps.push(data);
     } catch {}
   }
@@ -235,6 +238,7 @@ async function buildToolDefinitions() {
     if (shape === "none") continue;
 
     const appId = app.id;
+    if (!appId || appId === "undefined") continue;  // skip broken apps
     const appName = app.name;
     const fields = extractFields(app);
     const fieldDesc = fields.map(f => `${f.name}(${f.type}${f.required ? ",必填" : ""})`).join(", ");
@@ -410,6 +414,7 @@ async function buildToolDefinitions() {
   for (const app of apps) {
     if (app.type !== "skill-based") continue;
     const appId = app.id;
+    if (!appId || appId === "undefined") continue;
     const triggerHint = app.triggers?.length
       ? `觸發關鍵字：${app.triggers.join("、")}。`
       : "";
@@ -777,6 +782,7 @@ function buildHandlers(apps) {
     if (shape === "none") continue;
 
     const appId = app.id;
+    if (!appId || appId === "undefined") continue;  // skip broken apps
     const fields = extractFields(app);
 
     if (shape === "array") {
@@ -942,6 +948,7 @@ function buildHandlers(apps) {
   for (const app of apps) {
     if (app.type !== "skill-based") continue;
     const appId = app.id;
+    if (!appId || appId === "undefined") continue;
 
     handlers[`${appId}_exec`] = async (args) => {
       try {
