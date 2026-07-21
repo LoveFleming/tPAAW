@@ -408,17 +408,6 @@
       "createdAt": "2026-07-19T11:21:29.241Z",
       "updatedAt": "2026-07-19T11:21:29.241Z",
       "notes": []
-    },
-    {
-      "id": "ISS-026",
-      "title": "End-to-end test verification",
-      "priority": "low",
-      "status": "open",
-      "labels": [],
-      "description": "",
-      "featureId": null,
-      "createdAt": "2026-07-21T13:50:27.547Z",
-      "notes": []
     }
   ],
   "updatedAt": "2026-07-19T11:21:29.247Z",
