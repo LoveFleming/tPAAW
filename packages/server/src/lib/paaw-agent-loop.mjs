@@ -2324,8 +2324,10 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   const callStartTime = Date.now();
   const callId = `llm-${callStartTime}-${Math.random().toString(36).slice(2, 8)}`;
 
-  // ── LLM Request Logging (append to .paaw/llm-logs/) ──
-  const _logRequest = () => {
+  // ── LLM Request Logging ──
+  // NOTE: callLLMWithRetry (llm-utils.mjs) already logs request+response for non-stream.
+  // Only log here for the stream path (fetchStreamWithRetry doesn't log).
+  const _logStreamRequest = () => {
     try {
       const logDir = join(_PAAW_ROOT, "data", "llm-logs");
       mkdirSync(logDir, { recursive: true });
@@ -2348,10 +2350,11 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
       appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
     } catch (_e) {}
   };
-  _logRequest();
+  // Stream path: log request now; non-stream path is handled by callLLMWithRetry
+  if (stream) _logStreamRequest();
 
-  // Helper to log response
-  const _logResponse = (response, error = null) => {
+  // Helper to log stream response (only for stream path)
+  const _logStreamResponse = (response, error = null) => {
     try {
       const logDir = join(_PAAW_ROOT, "data", "llm-logs");
       mkdirSync(logDir, { recursive: true });
@@ -2392,7 +2395,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
-      _logResponse(null, `HTTP ${resp.status}: ${text.slice(0, 200)}`);
+      _logStreamResponse(null, `HTTP ${resp.status}: ${text.slice(0, 200)}`);
       throw new Error(`LLM API error ${resp.status}: ${text.slice(0, 500)}`);
     }
     // Stream response — log metadata later in runAgentLoopStream
@@ -2415,9 +2418,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
     },
   });
 
-  // Log response
-  _logResponse(result.raw);
-
+  // callLLMWithRetry handles its own logging — no duplicate _logResponse here
   // 回傳跟原本一樣的 shape（把 result.raw 當 json 回傳）
   return result.raw;
 }
