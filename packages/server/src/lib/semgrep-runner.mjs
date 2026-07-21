@@ -321,28 +321,35 @@ export async function runSemgrep(projectRoot, options = {}) {
   const fullCmd = buildSemgrepCmd(projectRoot, rulePacks, excludeArgs);
   LOG("runSemgrep: full command:", fullCmd);
 
-  // ── Step 3: Prepare temp output path ──
-  // Removed --json-output flag: it conflicts with --json on some semgrep versions.
-  // We read JSON from stdout directly — more reliable across all versions.
-  LOG("runSemgrep: will parse JSON from stdout (--json mode)");
+  // ── Step 3: Prepare log directory ──
+  const logDir = join(projectRoot, ".paaw", "logs");
+  try { if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true }); } catch {}
+  const scanTs = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const logBase = join(logDir, `semgrep-${scanTs}`);
 
-// ── Step 4: Prepare execution ──
-  // On Windows: run semgrep directly via exec() with _semgrepEnv() —
-  // _semgrepEnv() already sets PYTHONUTF8, PYTHONIOENCODING, and Python Scripts in PATH.
-  // No .bat script needed — avoids quoting/encoding/call issues on Windows.
-  // On macOS/Linux: temp .sh script for clean env setup.
-  let scriptPath = null; // only used on non-Windows
+  // ── Step 4: Prepare execution ──
+  // On Windows: write .bat to .paaw/logs/ for debugging, then run via exec().
+  // On macOS/Linux: temp .sh script + copy to .paaw/logs/.
+  let scriptPath = null;
+  let scriptLogPath = null; // persistent copy in .paaw/logs/
   let runCmd;
   if (isWin) {
+    // Write .bat to .paaw/logs/ for debugging on Windows
+    scriptLogPath = `${logBase}.bat`;
+    const batContent = `@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n${fullCmd}\r\n`;
+    writeFileSync(scriptLogPath, batContent, "utf-8");
+    LOG("runSemgrep: .bat saved to", safePath(scriptLogPath));
     runCmd = fullCmd;
   } else {
     const scriptExt = ".sh";
     scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
-    const scriptSafe = safePath(scriptPath);
     const scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fullCmd}\n`;
     writeFileSync(scriptPath, scriptContent, "utf-8");
-    LOG("runSemgrep: script written to:", scriptSafe, `(${scriptContent.length} bytes)`);
-    runCmd = `sh "${scriptSafe}"`;
+    // Also save a copy to .paaw/logs/
+    scriptLogPath = `${logBase}.sh`;
+    writeFileSync(scriptLogPath, scriptContent, "utf-8");
+    LOG("runSemgrep: script written to:", safePath(scriptPath), "| log copy:", safePath(scriptLogPath));
+    runCmd = `sh "${safePath(scriptPath)}"`;
   }
   LOG("runSemgrep: run command:", runCmd);
 
@@ -375,7 +382,15 @@ export async function runSemgrep(projectRoot, options = {}) {
     if (stdout.length > 0) LOG("runSemgrep: stdout (error):", stdout.slice(0, 1000));
   }
 
-  // ── Step 6: Clean up script ──
+  // ── Step 6: Save raw output to .paaw/logs/ ──
+  try {
+    if (stdout.length > 0) writeFileSync(`${logBase}-stdout.json`, stdout, "utf-8");
+    if (stderr.length > 0) writeFileSync(`${logBase}-stderr.txt`, stderr, "utf-8");
+    if (execError) writeFileSync(`${logBase}-error.txt`, `Exit code: ${execError.code || "unknown"}\nKilled: ${execError.killed}\nMessage: ${execError.message?.slice(0, 1000)}\n`, "utf-8");
+    LOG("runSemgrep: raw output saved to", safePath(logBase) + "-*");
+  } catch (saveErr) { LOG_ERR("runSemgrep: failed to save raw output:", saveErr.message); }
+
+  // ── Step 6b: Clean up temp script ──
   if (scriptPath) { try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", safePath(scriptPath)); } }
 
   // ── Step 7: Parse results ──
