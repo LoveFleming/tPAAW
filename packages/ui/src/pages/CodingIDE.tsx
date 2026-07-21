@@ -1277,7 +1277,8 @@ const sendChat = useCallback(async () => {
                           body: JSON.stringify({ agentId: dispatchAgent, task: dispatchTask.trim(), cwd: rootPath, priority: dispatchPriority }),
                         }).then(async r => {
                           if (!r.ok) {
-                            setChatMessages(prev => [...prev, { role: "assistant", content: `❌ 派工失敗 (${dispatchAgent}): ${await r.text().then(t => t.slice(0, 200))}`, ts: new Date().toISOString() }]);
+                            const errText = await r.text();
+                            setChatMessages(prev => [...prev, { role: "assistant", content: `❌ 派工失敗 (${dispatchAgent}): ${errText.slice(0, 200)}`, ts: new Date().toISOString() }]);
                             return;
                           }
                           // Read SSE stream from dispatch
