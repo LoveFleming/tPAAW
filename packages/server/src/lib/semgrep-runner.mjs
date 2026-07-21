@@ -6,10 +6,10 @@
  * the error + stderr is returned so the user can see what happened.
  *
  * Windows fixes:
- *   - PYTHONUTF8=1 + PYTHONIOENCODING=utf-8
- *   - .bat script with @echo off + set commands
- *   - Avoid cmd /c with quoted paths (breaks on spaces)
- *   - Use pushd / cd to script dir instead
+ *   - PYTHONUTF8=1 + PYTHONIOENCODING=utf-8 (via _semgrepEnv)
+ *   - Python Scripts directories auto-added to PATH (via _semgrepEnv)
+ *   - Run semgrep directly via exec(), no .bat script
+ *   - _semgrepEnv() handles all env setup
  */
 
 import { exec as execCb, execSync as execSyncCb } from "child_process";
@@ -326,82 +326,26 @@ export async function runSemgrep(projectRoot, options = {}) {
   // We read JSON from stdout directly — more reliable across all versions.
   LOG("runSemgrep: will parse JSON from stdout (--json mode)");
 
-  // ── Step 4: Write temp script (avoids Windows cmd.exe quoting hell) ──
-  const scriptExt = isWin ? ".bat" : ".sh";
-  const scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
-  const scriptSafe = safePath(scriptPath);
-
-  let scriptContent;
-  if (isWin) {
-    // Windows .bat: set env vars + add Python Scripts to PATH, then run semgrep
-    // This mirrors _semgrepEnv() logic but in batch script form
-    const pathAdditions = [];
-    const appData = process.env.APPDATA || "";
-    if (appData) {
-      try {
-        const pythonDir = join(appData, "Python");
-        if (existsSync(pythonDir)) {
-          const entries = readdirSync(pythonDir).filter(e => e.startsWith("Python"));
-          for (const ver of entries) {
-            const scriptsDir = join(pythonDir, ver, "Scripts");
-            if (existsSync(scriptsDir)) {
-              pathAdditions.push(scriptsDir);
-            }
-          }
-        }
-      } catch {}
-    }
-    // System-level Python Scripts
-    for (const pf of [process.env["ProgramFiles"] || "C:\\Program Files", process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)"]) {
-      try {
-        const entries = readdirSync(pf).filter(e => e.startsWith("Python"));
-        for (const ver of entries) {
-          const scriptsDir = join(pf, ver, "Scripts");
-          if (existsSync(scriptsDir)) {
-            pathAdditions.push(scriptsDir);
-          }
-        }
-      } catch {}
-    }
-    // Also check %LOCALAPPDATA%\Programs\Python\PythonXX\Scripts (common pip install location)
-    const localAppData = process.env.LOCALAPPDATA || "";
-    if (localAppData) {
-      try {
-        const pythonProgDir = join(localAppData, "Programs", "Python");
-        if (existsSync(pythonProgDir)) {
-          const entries = readdirSync(pythonProgDir).filter(e => e.startsWith("Python"));
-          for (const ver of entries) {
-            const scriptsDir = join(pythonProgDir, ver, "Scripts");
-            if (existsSync(scriptsDir)) {
-              pathAdditions.push(scriptsDir);
-            }
-          }
-        }
-      } catch {}
-    }
-    let pathLine = "";
-    if (pathAdditions.length > 0) {
-      pathLine = `set PATH=%PATH%;${pathAdditions.join(";")}
-`;
-    }
-    scriptContent = "@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n" + pathLine + fullCmd + "\r\n";
-  } else {
-    scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fullCmd}\n`;
-  }
-
-  writeFileSync(scriptPath, scriptContent, "utf-8");
-  LOG("runSemgrep: script written to:", scriptSafe, `(${scriptContent.length} bytes)`);
-
-  // ── Step 5: Execute ──
+// ── Step 4: Prepare execution ──
+  // On Windows: run semgrep directly via exec() with _semgrepEnv() —
+  // _semgrepEnv() already sets PYTHONUTF8, PYTHONIOENCODING, and Python Scripts in PATH.
+  // No .bat script needed — avoids quoting/encoding/call issues on Windows.
+  // On macOS/Linux: temp .sh script for clean env setup.
+  let scriptPath = null; // only used on non-Windows
   let runCmd;
   if (isWin) {
-    // Windows: use call to run the .bat, avoid cmd /c "path with spaces" truncation
-    // Use short 8.3 name if possible, or just use the script dir
-    runCmd = `call "${scriptSafe}"`;
+    runCmd = fullCmd;
   } else {
+    const scriptExt = ".sh";
+    scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
+    const scriptSafe = safePath(scriptPath);
+    const scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fullCmd}\n`;
+    writeFileSync(scriptPath, scriptContent, "utf-8");
+    LOG("runSemgrep: script written to:", scriptSafe, `(${scriptContent.length} bytes)`);
     runCmd = `sh "${scriptSafe}"`;
   }
   LOG("runSemgrep: run command:", runCmd);
+
 
   let stdout = "";
   let stderr = "";
@@ -432,7 +376,7 @@ export async function runSemgrep(projectRoot, options = {}) {
   }
 
   // ── Step 6: Clean up script ──
-  try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", scriptSafe); }
+  if (scriptPath) { try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", safePath(scriptPath)); } }
 
   // ── Step 7: Parse results ──
   let raw = null;
