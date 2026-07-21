@@ -336,25 +336,15 @@ export async function runSemgrep(projectRoot, options = {}) {
   let scriptLogPath = null; // persistent copy in .paaw/logs/
   let runCmd;
   if (isWin) {
-    // Build .bat with Python Scripts PATH + env + full semgrep command
-    // Use simple IF EXIST checks for common Python Scripts locations —
-    // more reliable than FOR loops in .bat (which have escaping/quoting issues)
+    // Build .bat: find Python Scripts dir via `where python`, append to PATH, then run semgrep
     let batLines = "@echo off\r\n";
     batLines += "set PYTHONUTF8=1\r\n";
     batLines += "set PYTHONIOENCODING=utf-8\r\n";
-    // Auto-detect Python Scripts directories and add to PATH
-    // Check LOCALAPPDATA first (most common pip install location)
-    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python312\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python312\Scripts\"\r\n";
-    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python313\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python313\Scripts\"\r\n";
-    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python311\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python311\Scripts\"\r\n";
-    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python310\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python310\Scripts\"\r\n";
-    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python39\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python39\Scripts\"\r\n";
-    // Also check APPDATA (user-level pip install)
-    batLines += "if exist \"%APPDATA%\Python\Python312\Scripts\semgrep.exe\" set \"PATH=%PATH%;%APPDATA%\Python\Python312\Scripts\"\r\n";
-    batLines += "if exist \"%APPDATA%\Python\Python313\Scripts\semgrep.exe\" set \"PATH=%PATH%;%APPDATA%\Python\Python313\Scripts\"\r\n";
-    batLines += "if exist \"%APPDATA%\Python\Python311\Scripts\semgrep.exe\" set \"PATH=%PATH%;%APPDATA%\Python\Python311\Scripts\"\r\n";
-    // If SEMGREP_PATH is set, use it directly
-    batLines += "if defined SEMGREP_PATH set \"PATH=%PATH%;%SEMGREP_PATH%\..\"\r\n";
+    // Find python.exe location, derive Scripts dir, append to PATH
+    batLines += "for /f \"delims=\" %%i in ('where python 2^>nul') do (\r\n";
+    batLines += "  set \"PYTHON_DIR=%%~dpi\"\r\n";
+    batLines += ")\r\n";
+    batLines += "if defined PYTHON_DIR set \"PATH=%PATH%;%PYTHON_DIR%Scripts\"\r\n";
     batLines += fullCmd + "\r\n";
     scriptLogPath = `${logBase}.bat`;
     scriptPath = scriptLogPath; // .bat is both the log and the executable
