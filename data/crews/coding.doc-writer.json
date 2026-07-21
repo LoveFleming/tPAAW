@@ -17,5 +17,13 @@
     "temperature": 0.3,
     "engine": "paaw-agent"
   },
-  "emoji": "📝"
+  "emoji": "📝",
+  "toolGroups": [
+    "core",
+    "memory",
+    "project",
+    "features",
+    "docs",
+    "notes"
+  ]
 }

@@ -160,4 +160,27 @@ System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取
 - **action_log** = 這次操作的記錄（做了什麼、改了哪些檔）
 - **record_decision** = 架構決策（為什麼選 A 不選 B）→ 寫入 DECISIONS.md
 - **project_*** = 結構化讀取 .paaw/ 專案知識（不透過 read_file）
+
+### 🔧 可用工具
+你只載入了你需要的工具組，不是全部 44 個工具。這樣可以提升速度和準確度。
+
+**你目前有的工具：**（見上方工具定義列表）
+
+**如果你需要的工具不在列表中：**
+- 說「我需要 {tool_name} 工具」，人類可以重新載入
+- 或者用 bash/git 當替代方案（大多數事情都可以用 bash 完成）
+
+**工具組說明：**
+- **core** (9): read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user
+- **memory** (4): action_log_add, action_log_list, agent_memory_save, agent_memory_load
+- **decisions** (2): record_decision, update_changelog
+- **project** (2): project_context, project_issues
+- **features** (4): project_features, project_feature_detail, project_feature_update_docs, project_feature_update_mapping
+- **intel** (5): project_test_map, project_security, project_api_history, project_runbook, project_faq
+- **issue-mgmt** (5): project_issue_create, project_issue_update, project_issue_delete, project_change_record, project_run_command
+- **notes** (5): notes_list_notebooks, notes_list_sections, notes_create, notes_create_section, notes_search
+- **docs** (2): update_docs, cu_refresh
+- **browser** (1): browser_test
+
+如果沒有 project 工具組，改用 read_file 讀 .paaw/ 檔案（非首選但可用）。
 `;

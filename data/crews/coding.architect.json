@@ -16,5 +16,12 @@
     "maxTokens": 4096,
     "temperature": 0.4
   },
-  "emoji": "🏛️"
+  "emoji": "🏛️",
+  "toolGroups": [
+    "core",
+    "memory",
+    "decisions",
+    "project",
+    "features"
+  ]
 }

@@ -822,6 +822,124 @@ export const PAAW_TOOLS = [
   },
 ];
 
+// ── Tool Group System — load only what each agent needs ──
+
+// Tool name → group mapping
+const TOOL_GROUP_MAP = {
+  // Core: file ops + shell + git (always loaded)
+  read_file: "core", write_file: "core", edit_file: "core",
+  glob: "core", grep: "core", diff: "core",
+  git: "core", bash: "core", ask_user: "core",
+
+  // Read-only subset — helpdesk, doc-writer don't need write/edit/bash
+  // (no separate group; they get core and just won't use write tools)
+
+  // Browser testing
+  browser_test: "browser",
+
+  // Memory & logging (lightweight — just log + memory)
+  action_log_add: "memory", action_log_list: "memory",
+  agent_memory_save: "memory", agent_memory_load: "memory",
+
+  // Decision & changelog (only agents that record decisions)
+  record_decision: "decisions", update_changelog: "decisions",
+
+  // Project essentials — context + issues (most agents need these)
+  project_context: "project", project_issues: "project",
+
+  // Feature map
+  project_features: "features", project_feature_detail: "features",
+  project_feature_update_docs: "features", project_feature_update_mapping: "features",
+
+  // Recent activity
+  project_recent_changes: "activity",
+
+  // Project deep — standards, changelog, decisions, sessions
+  project_standards: "project-deep", project_changelog: "project-deep",
+  project_decisions: "project-deep", project_sessions: "project-deep",
+
+  // Intelligence — test map, security, API, runbook, FAQ
+  project_test_map: "intel", project_security: "intel",
+  project_api_history: "intel", project_runbook: "intel",
+  project_faq: "intel",
+
+  // Issue management — create/update/delete
+  project_issue_create: "issue-mgmt", project_issue_update: "issue-mgmt", project_issue_delete: "issue-mgmt",
+  project_change_record: "issue-mgmt",
+  project_run_command: "issue-mgmt",
+
+  // Notes
+  notes_list_notebooks: "notes", notes_list_sections: "notes",
+  notes_create: "notes", notes_create_section: "notes", notes_search: "notes",
+
+  // Docs & CU
+  update_docs: "docs", cu_refresh: "docs",
+};
+
+// Default tool groups per agent role
+// Design principle: fewer tools = faster + more accurate tool selection
+// Target: ≤15 tools per agent for optimal LLM performance
+// Developer only needs core + memory — the rest is code + bash
+// Other agents get project context injected into system prompt
+const AGENT_DEFAULT_GROUPS = {
+  // Architect: review architecture + record decisions + features
+  architect: ["core", "memory", "decisions", "project", "features"],
+  // Developer: code + memory only — project context is in system prompt
+  developer: ["core", "memory"],
+  // Tester: code + project context + test map + security
+  tester: ["core", "memory", "project", "intel"],
+  // Doc-writer: docs + notes + feature docs
+  "doc-writer": ["core", "memory", "project", "features", "docs", "notes"],
+  // QA: review + issues + security + issue management
+  qa: ["core", "memory", "project", "intel", "issue-mgmt"],
+  // Helpdesk: runbook/FAQ + notes + project context
+  helpdesk: ["core", "memory", "intel", "notes"],
+  // EM: orchestrator — needs everything
+  em: ["core", "memory", "decisions", "project", "features", "activity", "project-deep", "intel", "issue-mgmt", "notes", "docs", "browser"],
+};
+
+/**
+ * Get tool definitions for a specific agent.
+ * Only returns tools from the agent's assigned groups.
+ * @param {string} agentId - Agent identifier (e.g. "developer", "architect")
+ * @param {string[]} extraGroups - Additional groups to include
+ * @returns {object[]} Filtered tool definitions
+ */
+export function getToolsForAgent(agentId, extraGroups = []) {
+  // Determine which groups this agent needs
+  const groups = new Set([
+    ...(AGENT_DEFAULT_GROUPS[agentId] || ["core", "memory"]),
+    ...extraGroups,
+  ]);
+
+  // Filter tools by group membership
+  return PAAW_TOOLS.filter(tool => {
+    const name = tool.function?.name;
+    if (!name) return false;
+    const group = TOOL_GROUP_MAP[name];
+    return group && groups.has(group);
+  });
+}
+
+/**
+ * Get list of available tool groups for debugging/UI
+ */
+export function getToolGroupInfo() {
+  const groups = {};
+  for (const [name, group] of Object.entries(TOOL_GROUP_MAP)) {
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(name);
+  }
+  return groups;
+}
+
+/**
+ * Get the tool groups assigned to an agent
+ */
+export function getAgentGroups(agentId) {
+  return AGENT_DEFAULT_GROUPS[agentId] || ["core", "memory"];
+}
+
 // ── Shell Execution Helper ──
 
 const IS_WIN = process.platform === "win32";
@@ -2579,7 +2697,7 @@ export async function runAgentLoop(config) {
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, (evt, data) => {
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : getToolsForAgent(agentId), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
       }, agentId);
     } catch (err) {
@@ -2827,7 +2945,7 @@ export async function runAgentLoopStream(config, res) {
     let response;
     let usedLlm = llm;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE, agentId);
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : getToolsForAgent(agentId), false, sendSSE, agentId);
     } catch (err) {
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
@@ -2835,7 +2953,7 @@ export async function runAgentLoopStream(config, res) {
           console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
           sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
           try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : PAAW_TOOLS, false, sendSSE, agentId);
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : getToolsForAgent(agentId), false, sendSSE, agentId);
             usedLlm = fb;
             break;
           } catch (fbErr) {
