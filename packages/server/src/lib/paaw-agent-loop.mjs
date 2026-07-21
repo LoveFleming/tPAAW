@@ -499,75 +499,30 @@ export const PAAW_TOOLS = [
       },
     },
   },
-  // ── Notes Tools ──
+  // ── Unified notes tool ──
   {
     type: "function",
     function: {
-      name: "notes_list_notebooks",
-      description: "List all notebooks with their sections. Returns notebook IDs, names, and sections in each.",
-      parameters: { type: "object", properties: {} },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "notes_list_sections",
-      description: "List sections in a specific notebook. Use before creating a note to find the right section.",
+      name: "notes",
+      description: "Manage notes: list notebooks, list sections, create notes/sections, search. Use action to specify operation.",
       parameters: {
         type: "object",
         properties: {
+          action: {
+            type: "string",
+            enum: ["list_notebooks", "list_sections", "create", "create_section", "search"],
+            description: "Operation: list_notebooks, list_sections, create (note), create_section, search",
+          },
           notebookId: { type: "string", description: "Notebook ID" },
-        },
-        required: ["notebookId"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "notes_create",
-      description: "Create a new note in a notebook/section. Always check sections first with notes_list_sections.",
-      parameters: {
-        type: "object",
-        properties: {
-          notebookId: { type: "string", description: "Notebook ID" },
-          sectionId: { type: "string", description: "Section ID (default = 'default')" },
+          sectionId: { type: "string", description: "Section ID (default: 'default')" },
           title: { type: "string", description: "Note title" },
-          content: { type: "string", description: "Note content (markdown supported)" },
-          tags: { type: "array", items: { type: "string" }, description: "Optional tags" },
+          content: { type: "string", description: "Note content (markdown)" },
+          tags: { type: "array", items: { type: "string" }, description: "Tags" },
+          name: { type: "string", description: "Section name (for create_section)" },
+          icon: { type: "string", description: "Section icon emoji (for create_section)" },
+          query: { type: "string", description: "Search keyword (for search)" },
         },
-        required: ["notebookId", "title", "content"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "notes_create_section",
-      description: "Create a new section (分類) in a notebook. Use when user wants to organize notes into a new category.",
-      parameters: {
-        type: "object",
-        properties: {
-          notebookId: { type: "string", description: "Notebook ID" },
-          name: { type: "string", description: "Section name (e.g. 'ideas', 'meetings')" },
-          icon: { type: "string", description: "Optional emoji icon" },
-        },
-        required: ["notebookId", "name"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "notes_search",
-      description: "Search notes by keyword across all notebooks.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Search keyword" },
-          notebookId: { type: "string", description: "Optional: limit to specific notebook" },
-        },
-        required: ["query"],
+        required: ["action"],
       },
     },
   },
@@ -600,8 +555,7 @@ const TOOL_GROUP_MAP = {
   project_edit: "project-edit",
 
   // Notes
-  notes_list_notebooks: "notes", notes_list_sections: "notes",
-  notes_create: "notes", notes_create_section: "notes", notes_search: "notes",
+  notes: "notes",
 
   // Docs & CU
   update_docs: "docs", cu_refresh: "docs",
@@ -1561,161 +1515,120 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       }
 
       // ── Notes Tools ──
-      case "notes_list_notebooks": {
+      // ── Unified notes handler ──
+      case "notes": {
+        const action = args.action;
+        if (!action) return "Error: 'action' is required. Valid: list_notebooks, list_sections, create, create_section, search";
         const notesDir = resolve(rootDir || cwd, "data", "notes");
-        try {
-          const entries = await readdir(notesDir);
-          const notebooks = [];
-          for (const entry of entries) {
-            if (!entry.endsWith(".json")) continue;
-            const nbId = entry.replace(".json", "");
+
+        switch (action) {
+          case "list_notebooks": {
             try {
-              const raw = await readFile(resolve(notesDir, entry), "utf-8");
-              const nb = JSON.parse(raw);
-              // Load sections for this notebook
-              const sectionsFile = resolve(notesDir, "sections.json");
-              let sections = [];
-              try {
-                const secRaw = await readFile(sectionsFile, "utf-8");
-                const allSecs = JSON.parse(secRaw);
-                sections = (allSecs[nbId] || []).filter(s => s.id !== "default");
-              } catch {}
-              notebooks.push({
-                id: nbId,
-                name: nb.name || nbId,
-                description: nb.description || "",
-                sections: [{ id: "default", name: "Default" }, ...sections],
-                noteCount: Array.isArray(nb.notes) ? nb.notes.length : 0,
-              });
-            } catch {}
-          }
-          const text = notebooks.map(nb => `📁 ${nb.name} (${nb.id}) — ${nb.noteCount} 筆記\n  分類: ${nb.sections.map(s => s.name).join(", ")}`).join("\n");
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${notebooks.length} notebooks` });
-          return text || "No notebooks found.";
-        } catch {
-          if (onEvent) onEvent({ type: "tool_end", name, result: "No notes dir" });
-          return "No notes directory found.";
-        }
-      }
-
-      case "notes_list_sections": {
-        const { notebookId } = args;
-        if (!notebookId) return "Error: notebookId is required";
-        const sectionsFile = resolve(rootDir || cwd, "data", "notes", "sections.json");
-        try {
-          const raw = await readFile(sectionsFile, "utf-8");
-          const allSecs = JSON.parse(raw);
-          const sections = allSecs[notebookId] || [{ id: "default", name: "Default" }];
-          // Also count notes per section
-          const nbFile = resolve(rootDir || cwd, "data", "notes", `${notebookId}.json`);
-          let noteCounts = {};
-          try {
-            const nbRaw = await readFile(nbFile, "utf-8");
-            const nb = JSON.parse(nbRaw);
-            for (const n of (nb.notes || [])) {
-              const sid = n.sectionId || "default";
-              noteCounts[sid] = (noteCounts[sid] || 0) + 1;
-            }
-          } catch {}
-          const text = sections.map(s => `  ${s.id === "default" ? "📋" : "📁"} ${s.name} (${s.id}) — ${noteCounts[s.id] || 0} 筆記`).join("\n");
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${sections.length} sections` });
-          return `Notebook '${notebookId}' sections:\n${text}`;
-        } catch {
-          if (onEvent) onEvent({ type: "tool_end", name, result: "Default only" });
-          return `Notebook '${notebookId}' has only the Default section.`;
-        }
-      }
-
-      case "notes_create": {
-        const { notebookId, sectionId = "default", title, content, tags = [] } = args;
-        if (!notebookId) return "Error: notebookId is required";
-        if (!title) return "Error: title is required";
-        if (!content) return "Error: content is required";
-        const nbFile = resolve(rootDir || cwd, "data", "notes", `${notebookId}.json`);
-        try {
-          let nb;
-          try {
-            nb = JSON.parse(await readFile(nbFile, "utf-8"));
-          } catch {
-            nb = { id: notebookId, name: notebookId, notes: [] };
-          }
-          const note = {
-            id: `note-${Date.now()}`,
-            title,
-            content,
-            tags,
-            sectionId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          if (!Array.isArray(nb.notes)) nb.notes = [];
-          nb.notes.push(note);
-          await writeFile(nbFile, JSON.stringify(nb, null, 2), "utf-8");
-          const secName = sectionId === "default" ? "Default" : sectionId;
-          if (onEvent) onEvent({ type: "tool_end", name, result: `Created '${title}' in ${notebookId}/${secName}` });
-          return `✅ 筆記已建立\n標題: ${title}\n分類: ${notebookId} / ${secName}\n內容: ${content.length} 字`; 
-        } catch (err) {
-          return `Error creating note: ${err.message}`;
-        }
-      }
-
-      case "notes_create_section": {
-        const { notebookId, name, icon } = args;
-        if (!notebookId) return "Error: notebookId is required";
-        if (!name) return "Error: name is required";
-        const sectionsFile = resolve(rootDir || cwd, "data", "notes", "sections.json");
-        try {
-          let allSecs = {};
-          try { allSecs = JSON.parse(await readFile(sectionsFile, "utf-8")); } catch {}
-          if (!allSecs[notebookId]) allSecs[notebookId] = [{ id: "default", name: "Default" }];
-          // Check duplicate
-          const exists = allSecs[notebookId].find(s => s.name === name || s.id === name.toLowerCase().replace(/\s+/g, "-"));
-          if (exists) {
-            return `Section '${name}' already exists in notebook '${notebookId}'.`;
-          }
-          const secId = name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || `sec-${Date.now()}`;
-          allSecs[notebookId].push({ id: secId, name, icon: icon || "📁" });
-          await writeFile(sectionsFile, JSON.stringify(allSecs, null, 2), "utf-8");
-          if (onEvent) onEvent({ type: "tool_end", name, result: `Created section '${name}' in ${notebookId}` });
-          return `✅ 分類已建立\n名稱: ${name}\n筆記本: ${notebookId}\nID: ${secId}`;
-        } catch (err) {
-          return `Error creating section: ${err.message}`;
-        }
-      }
-
-      case "notes_search": {
-        const { query, notebookId } = args;
-        if (!query) return "Error: query is required";
-        const notesDir = resolve(rootDir || cwd, "data", "notes");
-        try {
-          const entries = await readdir(notesDir);
-          const results = [];
-          for (const entry of entries) {
-            if (!entry.endsWith(".json") || entry === "sections.json") continue;
-            const nbId = entry.replace(".json", "");
-            if (notebookId && nbId !== notebookId) continue;
-            try {
-              const nb = JSON.parse(await readFile(resolve(notesDir, entry), "utf-8"));
-              for (const note of (nb.notes || [])) {
-                const haystack = `${note.title || ""} ${note.content || ""} ${(note.tags || []).join(" ")}`.toLowerCase();
-                if (haystack.includes(query.toLowerCase())) {
-                  results.push({ notebook: nbId, section: note.sectionId || "default", title: note.title, preview: (note.content || "").slice(0, 100) });
-                }
+              const entries = await readdir(notesDir);
+              const notebooks = [];
+              for (const entry of entries) {
+                if (!entry.endsWith(".json")) continue;
+                const nbId = entry.replace(".json", "");
+                try {
+                  const raw = await readFile(resolve(notesDir, entry), "utf-8");
+                  const nb = JSON.parse(raw);
+                  const sectionsFile = resolve(notesDir, "sections.json");
+                  let sections = [];
+                  try { const secRaw = await readFile(sectionsFile, "utf-8"); const allSecs = JSON.parse(secRaw); sections = (allSecs[nbId] || []).filter(s => s.id !== "default"); } catch {}
+                  notebooks.push({ id: nbId, name: nb.name || nbId, description: nb.description || "", sections: [{ id: "default", name: "Default" }, ...sections], noteCount: Array.isArray(nb.notes) ? nb.notes.length : 0 });
+                } catch {}
               }
-            } catch {}
+              const text = notebooks.map(nb => `📁 ${nb.name} (${nb.id}) — ${nb.noteCount} 筆記\n  分類: ${nb.sections.map(s => s.name).join(", ")}`).join("\n");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `${notebooks.length} notebooks` });
+              return text || "No notebooks found.";
+            } catch { return "No notes directory found."; }
           }
-          const text = results.length
-            ? results.map(r => `📄 ${r.title}\n  📁 ${r.notebook}/${r.section}\n  ${r.preview}...`).join("\n")
-            : `No notes found matching '${query}'.`;
-          if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} matches` });
-          return text;
-        } catch {
-          if (onEvent) onEvent({ type: "tool_end", name, result: "No notes dir" });
-          return "No notes directory found.";
+
+          case "list_sections": {
+            if (!args.notebookId) return "Error: notebookId is required";
+            const sectionsFile = resolve(notesDir, "sections.json");
+            try {
+              const raw = await readFile(sectionsFile, "utf-8");
+              const allSecs = JSON.parse(raw);
+              const sections = allSecs[args.notebookId] || [{ id: "default", name: "Default" }];
+              const nbFile = resolve(notesDir, `${args.notebookId}.json`);
+              let noteCounts = {};
+              try { const nb = JSON.parse(await readFile(nbFile, "utf-8")); for (const n of (nb.notes || [])) { const sid = n.sectionId || "default"; noteCounts[sid] = (noteCounts[sid] || 0) + 1; } } catch {}
+              const text = sections.map(s => `  ${s.id === "default" ? "📋" : "📁"} ${s.name} (${s.id}) — ${noteCounts[s.id] || 0} 筆記`).join("\n");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `${sections.length} sections` });
+              return `Notebook '${args.notebookId}' sections:\n${text}`;
+            } catch { return `Notebook '${args.notebookId}' has only the Default section.`; }
+          }
+
+          case "create": {
+            const { notebookId, sectionId = "default", title, content, tags = [] } = args;
+            if (!notebookId) return "Error: notebookId is required";
+            if (!title) return "Error: title is required";
+            if (!content) return "Error: content is required";
+            const nbFile = resolve(notesDir, `${notebookId}.json`);
+            try {
+              let nb;
+              try { nb = JSON.parse(await readFile(nbFile, "utf-8")); } catch { nb = { id: notebookId, name: notebookId, notes: [] }; }
+              const note = { id: `note-${Date.now()}`, title, content, tags, sectionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+              if (!Array.isArray(nb.notes)) nb.notes = [];
+              nb.notes.push(note);
+              await writeFile(nbFile, JSON.stringify(nb, null, 2), "utf-8");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `Created '${title}'` });
+              return `✅ 筆記已建立: ${title} (${notebookId}/${sectionId})`;
+            } catch (err) { return `Error creating note: ${err.message}`; }
+          }
+
+          case "create_section": {
+            const { notebookId, name, icon } = args;
+            if (!notebookId) return "Error: notebookId is required";
+            if (!name) return "Error: name is required";
+            const sectionsFile = resolve(notesDir, "sections.json");
+            try {
+              let allSecs = {};
+              try { allSecs = JSON.parse(await readFile(sectionsFile, "utf-8")); } catch {}
+              if (!allSecs[notebookId]) allSecs[notebookId] = [{ id: "default", name: "Default" }];
+              const exists = allSecs[notebookId].find(s => s.name === name);
+              if (exists) return `Section '${name}' already exists in '${notebookId}'.`;
+              const secId = name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || `sec-${Date.now()}`;
+              allSecs[notebookId].push({ id: secId, name, icon: icon || "📁" });
+              await writeFile(sectionsFile, JSON.stringify(allSecs, null, 2), "utf-8");
+              if (onEvent) onEvent({ type: "tool_end", name, result: `Created section '${name}'` });
+              return `✅ 分類已建立: ${name} (${notebookId})`;
+            } catch (err) { return `Error creating section: ${err.message}`; }
+          }
+
+          case "search": {
+            if (!args.query) return "Error: query is required";
+            try {
+              const entries = await readdir(notesDir);
+              const results = [];
+              for (const entry of entries) {
+                if (!entry.endsWith(".json") || entry === "sections.json") continue;
+                const nbId = entry.replace(".json", "");
+                if (args.notebookId && nbId !== args.notebookId) continue;
+                try {
+                  const nb = JSON.parse(await readFile(resolve(notesDir, entry), "utf-8"));
+                  for (const note of (nb.notes || [])) {
+                    const haystack = `${note.title || ""} ${note.content || ""} ${(note.tags || []).join(" ")}`.toLowerCase();
+                    if (haystack.includes(args.query.toLowerCase())) {
+                      results.push({ notebook: nbId, section: note.sectionId || "default", title: note.title, preview: (note.content || "").slice(0, 100) });
+                    }
+                  }
+                } catch {}
+              }
+              if (onEvent) onEvent({ type: "tool_end", name, result: `${results.length} matches` });
+              return results.length
+                ? results.map(r => `📄 ${r.title}\n  📁 ${r.notebook}/${r.section}\n  ${r.preview}...`).join("\n")
+                : `No notes matching '${args.query}'.`;
+            } catch { return "No notes directory found."; }
+          }
+
+          default:
+            return `Unknown action '${action}'. Valid: list_notebooks, list_sections, create, create_section, search`;
         }
       }
 
-      // ══════════════════════════════════════════
+            // ══════════════════════════════════════════
       // ── Unified project_edit handler ──
       case "project_edit": {
         const action = args.action;

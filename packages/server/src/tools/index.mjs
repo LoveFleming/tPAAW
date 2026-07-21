@@ -1389,63 +1389,87 @@ function buildHandlers(apps) {
   };
 
   // ── Notes handlers (built-in) ──
-  handlers.notes_list_notebooks = async () => {
-    try {
-      const [nbResp] = await Promise.all([
-        fetch(`${API}/api/notes/notebooks`).then(r => r.json()),
-      ]);
-      const notebooks = nbResp.notebooks || [];
-      if (notebooks.length === 0) return { text: "沒有任何筆記本" };
-
-      // 同時載入每個 notebook 的 sections
-      const lines = [];
-      for (const nb of notebooks) {
-        const secResp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(nb.id)}`).then(r => r.json());
-        const secs = (secResp.sections || []).map(s => {
-          const name = s.id === "default" ? "未分類" : s.name;
-          return `    • ${s.id} — ${name}`;
-        });
-        lines.push(`📓 **${nb.name}** (id: ${nb.id})${nb.icon ? " " + nb.icon : ""}\n${secs.join("\n")}`);
+    // ── Unified notes handler ──
+  handlers.notes = async (args = {}) => {
+    const action = args.action;
+    if (!action) return "Error: action is required.";
+    
+    switch (action) {
+      case "list_notebooks": {
+        try {
+          const dir = join(PAAW_ROOT, "data", "notes");
+          if (!existsSync(dir)) return "目前沒有任何筆記本。";
+          const entries = (await readdir(dir)).filter(e => e.endsWith(".json") && e !== "sections.json");
+          if (entries.length === 0) return "目前沒有任何筆記本。";
+          const result = [];
+          for (const e of entries) {
+            try {
+              const nb = JSON.parse(readFileSync(join(dir, e), "utf-8"));
+              result.push({ id: nb.id || e.replace(".json", ""), name: nb.name || nb.id, noteCount: (nb.notes || []).length });
+            } catch {}
+          }
+          return { text: result.map(r => `📁 ${r.name} (${r.id}) — ${r.noteCount} 筆記`).join("\n"), notebooks: result };
+        } catch { return "讀取筆記本失敗"; }
       }
-      return { text: `筆記本與分類列表：\n\n${lines.join("\n\n")}\n\n建立筆記時用 notebook 和 section ID 指定位置。`, notebooks };
-    } catch (err) {
-      return { text: `❌ 讀取失敗：${err.message}`, error: true };
-    }
-  };
-
-  handlers.notes_list_sections = async ({ notebook = "default" } = {}) => {
-    try {
-      const resp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(notebook)}`);
-      const data = await resp.json();
-      const sections = data.sections || [];
-      if (sections.length === 0) return { text: `筆記本 ${notebook} 沒有任何分類` };
-      const lines = sections.map(s => {
-        const name = s.id === "default" ? "未分類" : s.name;
-        return `• **${name}** (id: \`${s.id}\`)${s.icon ? " " + s.icon : ""}`;
-      });
-      return { text: `筆記本 ${notebook} 的分類：\n${lines.join("\n")}`, sections };
-    } catch (err) {
-      return { text: `❌ 讀取失敗：${err.message}`, error: true };
-    }
-  };
-
-  handlers.notes_create_section = async ({ notebook, name, icon }) => {
-    if (!notebook) return { text: "❌ 需要指定筆記本 (notebook)" };
-    if (!name) return { text: "❌ 需要指定分類名稱 (name)" };
-    try {
-      const resp = await fetch(`${API}/api/notes/sections`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notebookId: notebook, name, icon })
-      });
-      const data = await resp.json();
-      if (!resp.ok) return { text: `❌ 建立失敗：${data.error || resp.statusText}` };
-      return {
-        text: `✅ 已在筆記本「${notebook}」建立新分類「${name}」${icon ? " " + icon : ""}\n分類 ID: \`${data.section?.id || name}\``,
-        section: data.section
-      };
-    } catch (err) {
-      return { text: `❌ 建立失敗：${err.message}`, error: true };
+      case "create": {
+        const notebook = args.notebook || "personal";
+        const section = args.section || "default";
+        const title = args.title;
+        const content = args.content || args.prompt || "";
+        const tags = args.tags || [];
+        if (!title && !content) return { text: "❌ 請提供標題或內容", error: true };
+        try {
+          const dir = join(PAAW_ROOT, "data", "notes");
+          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+          const file = join(dir, `${notebook}.json`);
+          let nb = { id: notebook, name: notebook, notes: [] };
+          if (existsSync(file)) { try { nb = JSON.parse(readFileSync(file, "utf-8")); } catch {} }
+          const note = { id: `note-${Date.now()}`, title: title || "未命名筆記", content, tags, sectionId: section, createdAt: new Date().toISOString() };
+          if (!Array.isArray(nb.notes)) nb.notes = [];
+          nb.notes.push(note);
+          writeFileSync(file, JSON.stringify(nb, null, 2), "utf-8");
+          return { text: `✅ 筆記已建立：${note.title}`, noteId: note.id, notebook, link: `#/notes?note=${note.id}&notebook=${notebook}` };
+        } catch (err) { return { text: `❌ 建立失敗：${err.message}`, error: true }; }
+      }
+      case "create_section": {
+        const notebook = args.notebook;
+        const name = args.name;
+        const icon = args.icon || "📁";
+        if (!notebook || !name) return "❌ 需要 notebook 和 name";
+        try {
+          const file = join(PAAW_ROOT, "data", "notes", "sections.json");
+          let all = {};
+          if (existsSync(file)) { try { all = JSON.parse(readFileSync(file, "utf-8")); } catch {} }
+          if (!all[notebook]) all[notebook] = [{ id: "default", name: "Default" }];
+          const secId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `sec-${Date.now()}`;
+          all[notebook].push({ id: secId, name, icon });
+          writeFileSync(file, JSON.stringify(all, null, 2), "utf-8");
+          return `✅ 分類已建立：${name} (${notebook})`;
+        } catch (err) { return `❌ 建立失敗：${err.message}`; }
+      }
+      case "search": {
+        const q = args.q || "";
+        if (!q) return "❌ 請提供搜尋關鍵字";
+        try {
+          const dir = join(PAAW_ROOT, "data", "notes");
+          if (!existsSync(dir)) return "沒有筆記";
+          const entries = (await readdir(dir)).filter(e => e.endsWith(".json") && e !== "sections.json");
+          const results = [];
+          for (const e of entries) {
+            try {
+              const nb = JSON.parse(readFileSync(join(dir, e), "utf-8"));
+              for (const n of (nb.notes || [])) {
+                if (`${n.title} ${n.content}`.toLowerCase().includes(q.toLowerCase())) {
+                  results.push({ notebook: nb.id, title: n.title, id: n.id, preview: (n.content || "").slice(0, 100) });
+                }
+              }
+            } catch {}
+          }
+          if (results.length === 0) return `找不到包含「${q}」的筆記`;
+          return { text: results.map(r => `📄 ${r.title} (${r.notebook})\n  ${r.preview}...`).join("\n"), results };
+        } catch { return "搜尋失敗"; }
+      }
+      default: return `未知操作 '${action}'。可用：list_notebooks, create, create_section, search`;
     }
   };
 
