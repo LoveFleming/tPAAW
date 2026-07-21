@@ -1492,9 +1492,12 @@ export default async function projectRoute(req, res) {
           } catch (err) {
             cuLog(step.id, `Semgrep failed: ${err.message}`);
             sendEvent("step_error", { step: step.id, name: step.name, error: err.message });
+            sendEvent("done", { message: "Security scan failed" });
+            if (!res.writableEnded) res.end();
+            return true;
           }
           sendEvent("done", { message: "Security scan complete" });
-          res.end();
+          if (!res.writableEnded) res.end();
           return true;
         }
 
