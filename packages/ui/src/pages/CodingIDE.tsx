@@ -2964,7 +2964,10 @@ const sendChat = useCallback(async () => {
             {/* Stack terminals with absolute positioning — avoid display:none which
                 corrupts xterm dimensions. Hidden tabs use visibility:hidden instead. */}
             {mainTabs.filter(t => t.type === "terminal").length > 0 && (
-              <div className="flex-1 relative min-h-0">
+              <div
+                className="flex-1 relative min-h-0"
+                style={activeMainTab?.type === "terminal" ? undefined : { display: "none" }}
+              >
                 {mainTabs.filter(t => t.type === "terminal").map(tab => {
                   const isActive = activeMainTab?.id === tab.id;
                   return (
