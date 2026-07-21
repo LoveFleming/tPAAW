@@ -336,54 +336,25 @@ export async function runSemgrep(projectRoot, options = {}) {
   let scriptLogPath = null; // persistent copy in .paaw/logs/
   let runCmd;
   if (isWin) {
-    // Build .bat with PATH additions + env + full semgrep command
-    const pathAdditions = [];
-    const appData = process.env.APPDATA || "";
-    if (appData) {
-      try {
-        const pythonDir = join(appData, "Python");
-        if (existsSync(pythonDir)) {
-          const entries = readdirSync(pythonDir).filter(e => e.startsWith("Python"));
-          for (const ver of entries) {
-            const scriptsDir = join(pythonDir, ver, "Scripts");
-            if (existsSync(scriptsDir)) pathAdditions.push(scriptsDir);
-          }
-        }
-      } catch {}
-    }
-    const localAppData = process.env.LOCALAPPDATA || "";
-    if (localAppData) {
-      try {
-        const pythonProgDir = join(localAppData, "Programs", "Python");
-        if (existsSync(pythonProgDir)) {
-          const entries = readdirSync(pythonProgDir).filter(e => e.startsWith("Python"));
-          for (const ver of entries) {
-            const scriptsDir = join(pythonProgDir, ver, "Scripts");
-            if (existsSync(scriptsDir)) pathAdditions.push(scriptsDir);
-          }
-        }
-      } catch {}
-    }
-    for (const pf of [process.env["ProgramFiles"] || "C:\\Program Files", process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)"]) {
-      try {
-        const entries = readdirSync(pf).filter(e => e.startsWith("Python"));
-        for (const ver of entries) {
-          const scriptsDir = join(pf, ver, "Scripts");
-          if (existsSync(scriptsDir)) pathAdditions.push(scriptsDir);
-        }
-      } catch {}
-    }
-    let pathLine = "";
-    if (pathAdditions.length > 0) {
-      pathLine = `set PATH=%PATH%;${pathAdditions.join(";")}\r\n`;
-    }
-    // Split long semgrep command into multiple lines if needed
-    // (each --include / --config / --exclude can be on its own line in .bat)
-    const cmdParts = fullCmd.split(/ (--(?:include|exclude|config|quiet|json|metrics) )/);
+    // Build .bat with Python Scripts PATH + env + full semgrep command
+    // Use simple IF EXIST checks for common Python Scripts locations —
+    // more reliable than FOR loops in .bat (which have escaping/quoting issues)
     let batLines = "@echo off\r\n";
     batLines += "set PYTHONUTF8=1\r\n";
     batLines += "set PYTHONIOENCODING=utf-8\r\n";
-    if (pathLine) batLines += pathLine;
+    // Auto-detect Python Scripts directories and add to PATH
+    // Check LOCALAPPDATA first (most common pip install location)
+    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python312\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python312\Scripts\"\r\n";
+    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python313\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python313\Scripts\"\r\n";
+    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python311\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python311\Scripts\"\r\n";
+    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python310\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python310\Scripts\"\r\n";
+    batLines += "if exist \"%LOCALAPPDATA%\Programs\Python\Python39\Scripts\semgrep.exe\" set \"PATH=%PATH%;%LOCALAPPDATA%\Programs\Python\Python39\Scripts\"\r\n";
+    // Also check APPDATA (user-level pip install)
+    batLines += "if exist \"%APPDATA%\Python\Python312\Scripts\semgrep.exe\" set \"PATH=%PATH%;%APPDATA%\Python\Python312\Scripts\"\r\n";
+    batLines += "if exist \"%APPDATA%\Python\Python313\Scripts\semgrep.exe\" set \"PATH=%PATH%;%APPDATA%\Python\Python313\Scripts\"\r\n";
+    batLines += "if exist \"%APPDATA%\Python\Python311\Scripts\semgrep.exe\" set \"PATH=%PATH%;%APPDATA%\Python\Python311\Scripts\"\r\n";
+    // If SEMGREP_PATH is set, use it directly
+    batLines += "if defined SEMGREP_PATH set \"PATH=%PATH%;%SEMGREP_PATH%\..\"\r\n";
     batLines += fullCmd + "\r\n";
     scriptLogPath = `${logBase}.bat`;
     scriptPath = scriptLogPath; // .bat is both the log and the executable
