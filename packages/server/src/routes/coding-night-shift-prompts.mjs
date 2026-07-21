@@ -13,7 +13,7 @@ import { readBody } from './shared.mjs';
 const DEFAULT_PROMPTS = {
   architect: {
     crewId: "coding.architect",
-    task: "## Night Shift Task: Architecture Review\n\nToday's git changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Review today's architecture changes — are there any design concerns?\n2. Check if any decisions need to be recorded as ADRs\n3. If you see important decisions, use record_decision to log them\n4. Update ARCHITECTURE.md if the architecture changed (use docs(action=write))\n5. Summarize your findings briefly\n\nUse your tools (project_context, project_decisions, read_file) to understand the codebase.\nWrite your findings to .paaw/night-shift/architect-report.md using write_file.",
+    task: "## Night Shift Task: Architecture Review\n\nToday's git changes:\n```\n{{gitLog}}\n```\n\nChanged files:\n{{changedFiles}}\n\nCurrent features:\n{{featuresSummary}}\n\n## Your Tasks\n1. Review today's architecture changes — are there any design concerns?\n2. Check if any decisions need to be recorded as ADRs\n3. If you see important decisions, use record_decision to log them\n4. Update ARCHITECTURE.md if the architecture changed (use docs(action=write))\n5. Summarize your findings briefly\n\nUse your tools (project_info(category=context), project_info(category=decisions), read_file) to understand the codebase.\nWrite your findings to .paaw/night-shift/architect-report.md using write_file.",
   },
   developer: {
     crewId: "coding.developer",
@@ -33,7 +33,7 @@ const DEFAULT_PROMPTS = {
   },
   helpdesk: {
     crewId: "coding.helpdesk",
-    task: "## Night Shift Task: HelpDesk & FAQ Update\n\nChanged files:\n{{changedFiles}}\n\n## Your Tasks\n1. Check for any new error patterns in the changed code\n2. Update FAQ if new features were added that users might ask about\n3. Check .paaw/issues/ for any new issues — summarize them\n4. Update known issues list if needed\n\nUse project_issues to list issues. Use read_file to check specs.\nWrite a summary to .paaw/night-shift/helpdesk-report.md using write_file.",
+    task: "## Night Shift Task: HelpDesk & FAQ Update\n\nChanged files:\n{{changedFiles}}\n\n## Your Tasks\n1. Check for any new error patterns in the changed code\n2. Update FAQ if new features were added that users might ask about\n3. Check .paaw/issues/ for any new issues — summarize them\n4. Update known issues list if needed\n\nUse project_info(category=issues) to list issues. Use read_file to check specs.\nWrite a summary to .paaw/night-shift/helpdesk-report.md using write_file.",
   },
 };
 

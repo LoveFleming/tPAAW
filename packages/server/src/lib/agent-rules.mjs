@@ -174,7 +174,7 @@ System prompt 裡的 Feature Map summary 是最新的（每次對話重新讀取
 - **core** (9): read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user
 - **memory** (4): action_log_add, action_log_list, agent_memory_save, agent_memory_load
 - **decisions** (2): record_decision, docs(action=changelog|write|append)
-- **project** (2): project_context, project_issues
+- **project** (2): project_info, project_edit
 - **project** (1): project_info
 - **project-edit** (1): project_edit
 - **intel** (5): project_test_map, project_security, project_api_history, project_runbook, project_faq

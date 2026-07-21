@@ -97,122 +97,34 @@ async function buildToolDefinitions() {
   const apps = await loadApps();
   const tools = [];
 
-  // ── Notes tools (built-in, not data app) ──
+  // ── Unified Notes tool (replaces 7 separate notes_* tools) ──
   tools.push({
     type: "function",
     function: {
-      name: "notes_search",
-      description: "搜尋筆記。可以搜尋標題、內容、標籤。結果包含可點擊的連結，點擊可直接打開該筆記。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
+      name: "notes",
+      description: "管理筆記：搜尋、建立、列出筆記本/分類、讀取、最近筆記。用 action 指定操作。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
       parameters: {
         type: "object",
         properties: {
-          q: { type: "string", description: "搜尋關鍵字" }
-        },
-        required: ["q"]
-      }
-    }
-  });
-
-  tools.push({
-    type: "function",
-    function: {
-      name: "notes_get",
-      description: "讀取一則筆記的完整內容",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "筆記 ID" },
-          notebook: { type: "string", description: "筆記本 ID（預設 default）" }
-        },
-        required: ["id"]
-      }
-    }
-  });
-
-  tools.push({
-    type: "function",
-    function: {
-      name: "notes_recent",
-      description: "列出最近編輯的筆記",
-      parameters: {
-        type: "object",
-        properties: {
-          limit: { type: "number", description: "數量（預設 10）" }
-        },
-        required: []
-      }
-    }
-  });
-
-  tools.push({
-    type: "function",
-    function: {
-      name: "notes_create",
-      description: "建立新筆記。AI 會把提供的內容整理成結構化筆記並儲存。可以用 notebook 和 section 參數指定存在哪裡（先呼叫 notes_list_notebooks 查看可用 ID）。回傳結果中的連結格式為 #/notes?note=ID&notebook=ID，請原樣輸出不可修改。",
-      parameters: {
-        type: "object",
-        properties: {
-          content: { type: "string", description: "要整理的原始內容（會議記錄、文章、想法、對話等）" },
-          prompt: { type: "string", description: "AI 提示詞（選填），例如「整理成會議記錄」「列出重點」「翻譯成英文」" },
-          notebook: { type: "string", description: "筆記本 ID（預設 default）" },
-          section: { type: "string", description: "分類 ID（預設 default）" },
-          title: { type: "string", description: "自訂標題（選填，AI 會建議）" },
-          tags: { type: "array", items: { type: "string" }, description: "自訂標籤（選填，AI 會建議）" }
-        },
-        required: ["content"]
-      }
-    }
-  });
-
-  // notes_list_notebooks — list all notebooks
-  tools.push({
-    type: "function",
-    function: {
-      name: "notes_list_notebooks",
-      description: "列出所有筆記本（Notebook）和每個筆記本的分類（Section），讓你知道可以建立筆記到哪裡。建立筆記前可以先呼叫這個查看有哪些 notebook 和 section。",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: []
-      }
-    }
-  });
-
-  // notes_list_sections — list sections in a notebook
-  tools.push({
-    type: "function",
-    function: {
-      name: "notes_list_sections",
-      description: "列出指定筆記本內的所有分類（Section），包含分類 ID。建立筆記時可以用 section 參數指定分類。",
-      parameters: {
-        type: "object",
-        properties: {
-          notebook: { type: "string", description: "筆記本 ID（預設 default）" }
-        },
-        required: []
-      }
-    }
-  });
-
-  // notes_create_section — create a new section in a notebook
-  tools.push({
-    type: "function",
-    function: {
-      name: "notes_create_section",
-      description: "在筆記本中建立新的分類（Section）。當使用者想要分類管理筆記但現有分類不夠用時呼叫。",
-      parameters: {
-        type: "object",
-        properties: {
+          action: { type: "string", enum: ["search", "get", "recent", "create", "list_notebooks", "list_sections", "create_section"], description: "操作" },
+          q: { type: "string", description: "搜尋關鍵字（action=search）" },
+          id: { type: "string", description: "筆記 ID（action=get）" },
           notebook: { type: "string", description: "筆記本 ID" },
-          name: { type: "string", description: "新分類名稱（例如：會議記錄、學習筆記）" },
-          icon: { type: "string", description: "Optional emoji icon（預設 📁）" }
+          section: { type: "string", description: "分類 ID" },
+          title: { type: "string", description: "筆記標題" },
+          content: { type: "string", description: "筆記內容" },
+          prompt: { type: "string", description: "AI 整理提示" },
+          tags: { type: "array", items: { type: "string" }, description: "標籤" },
+          name: { type: "string", description: "分類名稱（action=create_section）" },
+          icon: { type: "string", description: "分類圖示" },
+          limit: { type: "number", description: "數量上限（action=recent，預設 10）" },
         },
-        required: ["notebook", "name"]
-      }
-    }
+        required: ["action"],
+      },
+    },
   });
 
-  // app_list — list all available apps
+    // app_list — list all available apps
   tools.push({
     type: "function",
     function: {
@@ -1473,92 +1385,125 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.notes_search = async ({ q }) => {
-    try {
-      const resp = await fetch(`${API}/api/notes/search?q=${encodeURIComponent(q)}`);
-      const data = await resp.json();
-      const results = data.results || [];
-      if (results.length === 0) return { text: `找不到包含「${q}」的筆記` };
-      const lines = results.map(r => {
-        const link = `#/notes?note=${r.id}&notebook=${r.notebookId}`;
-        return `📝 **${r.title}**\n   📁 ${r.notebookName || ""}\n   ${r.excerpt}...\n   🔗 [開啟筆記](${link})`;
-      });
-      return { text: `找到 ${results.length} 則相關筆記：\n\n${lines.join("\n\n")}`, results };
-    } catch (err) {
-      return { text: `❌ 搜尋失敗：${err.message}`, error: true };
-    }
-  };
+  // ── Unified notes handler (replaces notes_search, notes_get, notes_recent, notes_create) ──
+  handlers.notes = async (args = {}) => {
+    const action = args.action;
+    if (!action) return "Error: action is required.";
 
-  handlers.notes_get = async ({ id, notebook = "default" }) => {
-    try {
-      const resp = await fetch(`${API}/api/notes/get?id=${id}&notebook=${encodeURIComponent(notebook)}`);
-      const data = await resp.json();
-      if (!data.note) return { text: "找不到這則筆記", error: true };
-      const note = data.note;
-      const plain = (note.content || "").replace(/<[^>]+>/g, "");
-      const link = `#/notes?note=${note.id}&notebook=${note.notebookId}`;
-      return { text: `📝 **${note.title}**\n📁 ${note.notebookId}\n🕐 ${note.updatedAt}\n\n${plain.slice(0, 500)}${plain.length > 500 ? "..." : ""}\n\n🔗 [開啟筆記](${link})`, note };
-    } catch (err) {
-      return { text: `❌ 讀取失敗：${err.message}`, error: true };
-    }
-  };
-
-  handlers.notes_recent = async ({ limit = 10 } = {}) => {
-    try {
-      const resp = await fetch(`${API}/api/notes/recent?limit=${limit}`);
-      const data = await resp.json();
-      const notes = data.notes || [];
-      if (notes.length === 0) return { text: "沒有筆記" };
-      const lines = notes.map(n => {
-        const link = `#/notes?note=${n.id}&notebook=${n.notebookId}`;
-        return `📝 **${n.title}**\n   📁 ${n.notebookName || ""} · 🕐 ${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString("zh-TW") : ""}\n   ${n.excerpt || ""}...\n   🔗 [開啟筆記](${link})`;
-      });
-      return { text: `最近 ${notes.length} 則筆記：\n\n${lines.join("\n\n")}`, notes };
-    } catch (err) {
-      return { text: `❌ 讀取失敗：${err.message}`, error: true };
-    }
-  };
-
-  handlers.notes_create = async ({ content, prompt, notebook, section, title, tags }) => {
-    try {
-      // Step 1: AI 整理內容
-      const aiResp = await fetch(`${API}/api/notes/ai-write`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, prompt: prompt || "" }),
-      });
-      const aiData = await aiResp.json();
-      if (!aiData.ok) return { text: `❌ AI 整理失敗：${aiData.error}`, error: true };
-
-      // Step 2: 建立筆記
-      const createResp = await fetch(`${API}/api/notes/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          notebookId: notebook || "default",
-          sectionId: section || "default",
-          title: title || aiData.title || "AI 筆記",
-          content: aiData.content || "",
-          tags: tags || aiData.tags || [],
-        }),
-      });
-      const createData = await createResp.json();
-      if (!createData.ok) return { text: `❌ 建立筆記失敗`, error: true };
-
-      const link = `#/notes?note=${createData.note.id}&notebook=${createData.note.notebookId}`;
-      const preview = (aiData.content || "").replace(/<[^>]+>/g, "").slice(0, 200);
-      // 查 section 名稱
-      let sectionLabel = "";
-      try {
-        const secResp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(notebook || "default")}`);
-        const secData = await secResp.json();
-        const sec = (secData.sections || []).find(s => s.id === (section || "default"));
-        sectionLabel = sec ? (sec.id === "default" ? "未分類" : sec.name) : "";
-      } catch {}
-      const locationInfo = sectionLabel ? `\n📁 分類：${sectionLabel}` : "";
-      return { text: `✅ 已建立筆記！\n\n📝 **${createData.note.title}**${locationInfo}\n${preview}...\n\n🔗 [開啟筆記](${link})`, note: createData.note };
-    } catch (err) {
-      return { text: `❌ 建立筆記失敗：${err.message}`, error: true };
+    switch (action) {
+      case "search": {
+        const q = args.q;
+        if (!q) return { text: "❌ 請提供搜尋關鍵字", error: true };
+        try {
+          const resp = await fetch(`${API}/api/notes/search?q=${encodeURIComponent(q)}`);
+          const data = await resp.json();
+          const results = data.results || [];
+          if (results.length === 0) return { text: `找不到包含「${q}」的筆記` };
+          const lines = results.map(r => {
+            const link = `#/notes?note=${r.id}&notebook=${r.notebookId}`;
+            return `📝 **${r.title}**\n   📁 ${r.notebookName || ""}\n   ${r.excerpt}...\n   🔗 [開啟筆記](${link})`;
+          });
+          return { text: `找到 ${results.length} 則相關筆記：\n\n${lines.join("\n\n")}`, results };
+        } catch (err) { return { text: `❌ 搜尋失敗：${err.message}`, error: true }; }
+      }
+      case "get": {
+        const id = args.id, notebook = args.notebook || "default";
+        if (!id) return { text: "❌ 請提供筆記 ID", error: true };
+        try {
+          const resp = await fetch(`${API}/api/notes/get?id=${id}&notebook=${encodeURIComponent(notebook)}`);
+          const data = await resp.json();
+          if (!data.note) return { text: "找不到這則筆記", error: true };
+          const note = data.note;
+          const plain = (note.content || "").replace(/<[^>]+>/g, "");
+          const link = `#/notes?note=${note.id}&notebook=${note.notebookId}`;
+          return { text: `📝 **${note.title}**\n📁 ${note.notebookId}\n🕐 ${note.updatedAt}\n\n${plain.slice(0, 500)}${plain.length > 500 ? "..." : ""}\n\n🔗 [開啟筆記](${link})`, note };
+        } catch (err) { return { text: `❌ 讀取失敗：${err.message}`, error: true }; }
+      }
+      case "recent": {
+        const limit = args.limit || 10;
+        try {
+          const resp = await fetch(`${API}/api/notes/recent?limit=${limit}`);
+          const data = await resp.json();
+          const notes = data.notes || [];
+          if (notes.length === 0) return { text: "沒有筆記" };
+          const lines = notes.map(n => {
+            const link = `#/notes?note=${n.id}&notebook=${n.notebookId}`;
+            return `📝 **${n.title}**\n   📁 ${n.notebookName || ""} · 🕐 ${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString("zh-TW") : ""}\n   ${n.excerpt || ""}...\n   🔗 [開啟筆記](${link})`;
+          });
+          return { text: `最近 ${notes.length} 則筆記：\n\n${lines.join("\n\n")}`, notes };
+        } catch (err) { return { text: `❌ 讀取失敗：${err.message}`, error: true }; }
+      }
+      case "create": {
+        const { content, prompt, notebook, section, title, tags } = args;
+        try {
+          const aiResp = await fetch(`${API}/api/notes/ai-write`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content, prompt: prompt || "" }),
+          });
+          const aiData = await aiResp.json();
+          if (!aiData.ok) return { text: `❌ AI 整理失敗：${aiData.error}`, error: true };
+          const createResp = await fetch(`${API}/api/notes/create`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              notebookId: notebook || "default",
+              sectionId: section || "default",
+              title: title || aiData.title || "AI 筆記",
+              content: aiData.content || "",
+              tags: tags || aiData.tags || [],
+            }),
+          });
+          const createData = await createResp.json();
+          if (!createData.ok) return { text: "❌ 建立筆記失敗", error: true };
+          const link = `#/notes?note=${createData.note.id}&notebook=${createData.note.notebookId}`;
+          const preview = (aiData.content || "").replace(/<[^>]+>/g, "").slice(0, 200);
+          let sectionLabel = "";
+          try {
+            const secResp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(notebook || "default")}`);
+            const secData = await secResp.json();
+            const sec = (secData.sections || []).find(s => s.id === (section || "default"));
+            sectionLabel = sec ? (sec.id === "default" ? "未分類" : sec.name) : "";
+          } catch {}
+          const locationInfo = sectionLabel ? `\n📁 分類：${sectionLabel}` : "";
+          return { text: `✅ 已建立筆記！\n\n📝 **${createData.note.title}**${locationInfo}\n${preview}...\n\n🔗 [開啟筆記](${link})`, note: createData.note };
+        } catch (err) { return { text: `❌ 建立筆記失敗：${err.message}`, error: true }; }
+      }
+      case "list_notebooks": {
+        try {
+          const resp = await fetch(`${API}/api/notes/notebooks`);
+          const data = await resp.json();
+          const nbs = data.notebooks || [];
+          if (nbs.length === 0) return { text: "目前沒有筆記本" };
+          const lines = nbs.map(nb => `📁 **${nb.name}** (${nb.id}) — ${nb.noteCount || 0} 筆記`);
+          return { text: `筆記本列表：\n\n${lines.join("\n")}`, notebooks: nbs };
+        } catch (err) { return { text: `❌ 讀取失敗：${err.message}`, error: true }; }
+      }
+      case "list_sections": {
+        const notebook = args.notebook || "default";
+        try {
+          const resp = await fetch(`${API}/api/notes/sections?notebook=${encodeURIComponent(notebook)}`);
+          const data = await resp.json();
+          const sections = data.sections || [];
+          const lines = sections.map(s => `${s.id === "default" ? "📋" : "📁"} ${s.name} (${s.id})`);
+          return { text: `筆記本「${notebook}」的分類：\n\n${lines.join("\n")}`, sections };
+        } catch (err) { return { text: `❌ 讀取失敗：${err.message}`, error: true }; }
+      }
+      case "create_section": {
+        const { notebook, name, icon } = args;
+        if (!notebook || !name) return { text: "❌ 需要 notebook 和 name", error: true };
+        try {
+          const resp = await fetch(`${API}/api/notes/sections`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notebookId: notebook, name, icon: icon || "📁" }),
+          });
+          const data = await resp.json();
+          if (!data.ok) return { text: "❌ 建立分類失敗", error: true };
+          return { text: `✅ 分類已建立：${name} (${notebook})` };
+        } catch (err) { return { text: `❌ 建立失敗：${err.message}`, error: true }; }
+      }
+      default: return `Unknown action '${action}'. Valid: search, get, recent, create, list_notebooks, list_sections, create_section`;
     }
   };
 
