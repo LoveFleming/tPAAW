@@ -2697,7 +2697,7 @@ export async function runAgentLoop(config) {
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : getToolsForAgent(agentId), false, (evt, data) => {
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
       }, agentId);
     } catch (err) {
@@ -2945,7 +2945,7 @@ export async function runAgentLoopStream(config, res) {
     let response;
     let usedLlm = llm;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : getToolsForAgent(agentId), false, sendSSE, agentId);
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId);
     } catch (err) {
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
@@ -2953,7 +2953,7 @@ export async function runAgentLoopStream(config, res) {
           console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
           sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
           try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions() : getToolsForAgent(agentId), false, sendSSE, agentId);
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId);
             usedLlm = fb;
             break;
           } catch (fbErr) {
