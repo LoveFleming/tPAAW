@@ -381,7 +381,8 @@ export async function runSemgrep(projectRoot, options = {}) {
     }
     let pathLine = "";
     if (pathAdditions.length > 0) {
-      pathLine = `set "PATH=%PATH%;${pathAdditions.join(";")}"\r\n`;
+      pathLine = `set PATH=%PATH%;${pathAdditions.join(";")}
+`;
     }
     scriptContent = "@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n" + pathLine + fullCmd + "\r\n";
   } else {
