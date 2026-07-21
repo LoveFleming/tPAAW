@@ -68,7 +68,25 @@ function _semgrepEnv() {
     }
     // System-level Python Scripts (common on some installs)
     const systemRoot = env.SystemRoot || "C:\\Windows";
-    const systemPythonBase = join(systemRoot, "System32", "config", "systemprofile", "AppData", "Roaming", "Python");
+    // Also check %LOCALAPPDATA%\Programs\Python\PythonXX\Scripts (very common pip install location)
+    const localAppData = env.LOCALAPPDATA || "";
+    if (localAppData) {
+      try {
+        const pythonProgDir = join(localAppData, "Programs", "Python");
+        if (existsSync(pythonProgDir)) {
+          const entries = readdirSync(pythonProgDir).filter(e => e.startsWith("Python"));
+          for (const ver of entries) {
+            const scriptsDir = join(pythonProgDir, ver, "Scripts");
+            if (existsSync(scriptsDir)) {
+              pathParts.push(scriptsDir);
+              LOG("_semgrepEnv: added LOCALAPPDATA Python Scripts to PATH:", scriptsDir);
+            }
+          }
+        }
+      } catch (e) {
+        LOG("_semgrepEnv: failed to scan LOCALAPPDATA Python dirs:", e.message);
+      }
+    }
     // Also check standard Python install paths
     for (const pf of [env["ProgramFiles"] || "C:\\Program Files", env["ProgramFiles(x86)"] || "C:\\Program Files (x86)"]) {
       try {
@@ -315,9 +333,57 @@ export async function runSemgrep(projectRoot, options = {}) {
 
   let scriptContent;
   if (isWin) {
-    // Windows .bat: set env vars, then run semgrep
-    // Use pushd to handle paths with spaces
-    scriptContent = "@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n" + fullCmd + "\r\n";
+    // Windows .bat: set env vars + add Python Scripts to PATH, then run semgrep
+    // This mirrors _semgrepEnv() logic but in batch script form
+    const pathAdditions = [];
+    const appData = process.env.APPDATA || "";
+    if (appData) {
+      try {
+        const pythonDir = join(appData, "Python");
+        if (existsSync(pythonDir)) {
+          const entries = readdirSync(pythonDir).filter(e => e.startsWith("Python"));
+          for (const ver of entries) {
+            const scriptsDir = join(pythonDir, ver, "Scripts");
+            if (existsSync(scriptsDir)) {
+              pathAdditions.push(scriptsDir);
+            }
+          }
+        }
+      } catch {}
+    }
+    // System-level Python Scripts
+    for (const pf of [process.env["ProgramFiles"] || "C:\\Program Files", process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)"]) {
+      try {
+        const entries = readdirSync(pf).filter(e => e.startsWith("Python"));
+        for (const ver of entries) {
+          const scriptsDir = join(pf, ver, "Scripts");
+          if (existsSync(scriptsDir)) {
+            pathAdditions.push(scriptsDir);
+          }
+        }
+      } catch {}
+    }
+    // Also check %LOCALAPPDATA%\Programs\Python\PythonXX\Scripts (common pip install location)
+    const localAppData = process.env.LOCALAPPDATA || "";
+    if (localAppData) {
+      try {
+        const pythonProgDir = join(localAppData, "Programs", "Python");
+        if (existsSync(pythonProgDir)) {
+          const entries = readdirSync(pythonProgDir).filter(e => e.startsWith("Python"));
+          for (const ver of entries) {
+            const scriptsDir = join(pythonProgDir, ver, "Scripts");
+            if (existsSync(scriptsDir)) {
+              pathAdditions.push(scriptsDir);
+            }
+          }
+        }
+      } catch {}
+    }
+    let pathLine = "";
+    if (pathAdditions.length > 0) {
+      pathLine = `set "PATH=%PATH%;${pathAdditions.join(";")}"\r\n`;
+    }
+    scriptContent = "@echo off\r\nset PYTHONUTF8=1\r\nset PYTHONIOENCODING=utf-8\r\n" + pathLine + fullCmd + "\r\n";
   } else {
     scriptContent = `#!/bin/sh\nexport PYTHONUTF8=1\nexport PYTHONIOENCODING=utf-8\n${fullCmd}\n`;
   }
