@@ -77,9 +77,22 @@ function loadProviderConfig() {
   }
 }
 
-export function resolveLLMConfig(_rootDir, modelOverride) {
+export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
   const config = loadProviderConfig();
   if (!config) throw new Error("No provider config found — checked: " + resolve(_PAAW_ROOT, "data/config/providers.json"));
+
+  // Auto-read fallback preferences from user.json if no explicit fallbackModels
+  if (!fallbackModels || fallbackModels.length === 0) {
+    try {
+      const userPrefs = JSON.parse(readSync(resolve(_PAAW_ROOT, "data/config/user.json"), "utf-8"))?.preferences || {};
+      // Collect all *Fallback keys (e.g. nightShiftFallback, codingIDEFallback)
+      const userFbs = Object.entries(userPrefs)
+        .filter(([k]) => k.endsWith("Fallback"))
+        .map(([, v]) => v)
+        .filter(Boolean);
+      if (userFbs.length > 0) fallbackModels = userFbs;
+    } catch {}
+  }
 
   // Parse "providerId/modelId" format (from ModelSelector)
   // Only split if providerId portion exists in providers config
@@ -112,19 +125,44 @@ export function resolveLLMConfig(_rootDir, modelOverride) {
     headers["X-Title"] = "PAAW";
   }
 
-  // Build fallback chain from providers.json fallbacks (if configured)
-  // Format: [{ provider: "openrouter", model: "z-ai/glm-5.1" }, { provider: "openrouter", model: "deepseek/deepseek-v4-flash" }]
+  // Build fallback chain — priority: caller-supplied fallbackModels > providers.json fallbacks > hardcoded
   const fallbacks = [];
-  const configuredFallbacks = config.fallbacks || [];
-  for (const fb of configuredFallbacks) {
-    const fbProvider = config.providers[fb.provider];
-    if (!fbProvider) continue; // skip if provider doesn't exist in config
-    const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
-    if (fb.provider === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
-    fallbacks.push({ providerId: fb.provider, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fb.model, contextWindow: DEFAULT_CONTEXT_WINDOW });
+
+  // 1. Caller-supplied fallback models (e.g. from user.json preferences or request body)
+  if (fallbackModels && fallbackModels.length > 0) {
+    for (const fbModel of fallbackModels) {
+      // Parse "providerId/modelId" format
+      let fbProviderId = config.active;
+      let fbModelId = fbModel;
+      if (fbModel && fbModel.includes("/")) {
+        const firstSlash = fbModel.indexOf("/");
+        const candidate = fbModel.slice(0, firstSlash);
+        if (config.providers[candidate]) {
+          fbProviderId = candidate;
+          fbModelId = fbModel.slice(firstSlash + 1);
+        }
+      }
+      const fbProvider = config.providers[fbProviderId];
+      if (!fbProvider) continue;
+      const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
+      if (fbProviderId === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
+      fallbacks.push({ providerId: fbProviderId, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW });
+    }
   }
 
-  // Hardcoded fallback only if no configured fallbacks exist (backward compat)
+  // 2. providers.json fallbacks array (if no caller-supplied fallbacks)
+  if (fallbacks.length === 0) {
+    const configuredFallbacks = config.fallbacks || [];
+    for (const fb of configuredFallbacks) {
+      const fbProvider = config.providers[fb.provider];
+      if (!fbProvider) continue;
+      const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
+      if (fb.provider === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
+      fallbacks.push({ providerId: fb.provider, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fb.model, contextWindow: DEFAULT_CONTEXT_WINDOW });
+    }
+  }
+
+  // 3. Hardcoded fallback (backward compat — only if nothing else provided)
   if (fallbacks.length === 0) {
     if (providerId !== "openrouter" && config.providers.openrouter) {
       const orP = config.providers.openrouter;
@@ -2084,6 +2122,7 @@ export async function runAgentLoop(config) {
     skillMd = "",
     systemPrompt: customPrompt = "",
     model: modelOverride,
+    fallbackModels,
     maxTurns,
     timeout,
     params = {},
@@ -2109,7 +2148,7 @@ export async function runAgentLoop(config) {
   const modifiedFiles = new Set(); // track modified files for post-edit test verification
 
   // Resolve LLM config
-  const llm = resolveLLMConfig(rootDir, modelOverride);
+  const llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
 
   if (onEvent) onEvent({ type: "start", model: llm.model, cwd, maxTurns: effectiveMaxTurns });
 
@@ -2344,6 +2383,7 @@ export async function runAgentLoopStream(config, res) {
     skillMd = "",
     systemPrompt: customPrompt = "",
     model: modelOverride,
+    fallbackModels,
     maxTurns,
     timeout,
     params = {},
@@ -2374,7 +2414,7 @@ export async function runAgentLoopStream(config, res) {
   };
 
   // Resolve LLM config
-  const llm = resolveLLMConfig(rootDir, modelOverride);
+  const llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
   sendSSE("start", { model: llm.model, cwd, maxTurns });
 
   // Build system prompt (load .paaw/ project context first)
