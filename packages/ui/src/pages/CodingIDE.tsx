@@ -2752,14 +2752,16 @@ const sendChat = useCallback(async () => {
 
 
             {/* === AI CREW / EMPLOYEE CHAT TAB === */}
-            {activeMainTab?.type === "ai-crew" && activeCrew && (() => {
+            {activeCrew && (() => {
               const crew = codingCrews.find(c => c.id === activeCrew);
               const profile = crewProfile[activeCrew] as any;
               const rolePrompt = profile?.rolePrompt || "";
               const roleSummary = rolePrompt.split('\n').find(l => l.trim() && !l.startsWith('#') && !l.startsWith('你是') && l.length > 5) || rolePrompt.slice(0, 80);
               const hasProject = !!rootPath;
+              const isCrewActive = activeMainTab?.type === "ai-crew" && activeMainTab?.crewId === activeCrew;
               return (
-              <div key={activeCrew} className="flex-1 flex flex-col min-w-0 bg-white">
+              <div key={activeCrew} className="flex-1 flex flex-col min-w-0 bg-white"
+                style={isCrewActive ? undefined : { display: "none" }}>
                 {/* Profile header */}
                 <div className="shrink-0 px-4 py-3 relative" style={{ borderBottom: `1px solid ${tk.borderLight}`, background: `linear-gradient(135deg, ${tk.accent}11 0%, ${tk.accentBg} 100%)` }}>
                   <div className="flex items-center gap-3">
