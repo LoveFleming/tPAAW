@@ -556,6 +556,38 @@ async function buildToolDefinitions() {
     }
   });
 
+  tools.push({
+    type: "function",
+    function: {
+      name: "task_decompose",
+      description: "將一個大 Task 拆分成多個子任務。EM 收到大任務（例如「修所有安全問題」「修今天的 bugs」）時，必須先用這個工具拆分，再逐個派工。不要一次給 agent 一大坨工作。",
+      parameters: {
+        type: "object",
+        properties: {
+          parentId: { type: "string", description: "要拆分的父 Task ID（例如 TASK-026）" },
+          subTasks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "子任務標題" },
+                type: { type: "string", enum: ["requirement", "bug", "security", "chore"], description: "子任務類型（預設繼承父任務）" },
+                priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "優先級" },
+                effort: { type: "string", enum: ["S", "M", "L", "XL"], description: "工作量估計" },
+                assignee: { type: "string", description: "指派對象" },
+                description: { type: "string", description: "子任務詳細說明" },
+                relatedFiles: { type: "array", items: { type: "string" }, description: "相關檔案" },
+              },
+              required: ["title"]
+            },
+            description: "拆分後的子任務列表"
+          },
+        },
+        required: ["parentId", "subTasks"]
+      }
+    }
+  });
+
   // ── Cron Job tools (global, always available) ──
   tools.push({
     type: "function",
@@ -1362,6 +1394,32 @@ function buildHandlers(apps) {
       return { text, count: issues.length };
     } catch (err) {
       return { text: `❌ 查詢失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.task_decompose = async ({ parentId, subTasks } = {}) => {
+    try {
+      const workspaces = await loadWorkspaces();
+      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const resp = await fetch(`${API}/api/coding-issues/decompose?path=${encodeURIComponent(projectPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentId, subTasks, createdBy: "agent" }),
+      });
+      const data = await resp.json();
+      if (data.subTasks) {
+        let text = `✂️ ${parentId} 已拆分為 ${data.subTasks.length} 個子任務：\n\n`;
+        for (const s of data.subTasks) {
+          const typeIcon = { requirement: "📋", bug: "🐛", security: "🔒", chore: "🔧" }[s.type] || "📋";
+          const assignee = s.assignee ? ` → ${s.assignee}` : "";
+          text += `${typeIcon} **${s.id}**: ${s.title}${assignee}\n`;
+        }
+        text += `\n💡 逐個派工，一次一個 agent，做完確認再派下一個`;
+        return { text, subTasks: data.subTasks };
+      }
+      return { text: `❌ 拆分失敗：${data.error || "未知錯誤"}`, error: true };
+    } catch (err) {
+      return { text: `❌ 拆分失敗：${err.message}`, error: true };
     }
   };
 

@@ -167,3 +167,5 @@ Apple 發表第二代 Vision Pro，重量減半、售價降至 $1,999，首次�
 - 初始產出：根據「摘要 TechCrunch 當天新聞」需求產生
 - 推斷 userInputs：source_url、focus_keywords、max_articles、output_path
 - 支援關鍵字篩選與 fallback 機制
+## v2
+- 摘要內容多一點 要標示 重點 特別 的地方 

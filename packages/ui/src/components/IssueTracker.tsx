@@ -18,6 +18,7 @@ import MarkdownText from "./MarkdownText";
 interface Issue {
   id: string;
   title: string;
+  parentId: string | null;
   type: "requirement" | "bug" | "security" | "chore";
   status: "open" | "in-progress" | "resolved" | "closed" | "wontfix";
   priority: "critical" | "high" | "medium" | "low";
@@ -328,7 +329,7 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{issue.id}</span>
+                        <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{issue.parentId ? `↳ ` : ""}{issue.id}</span>
                         <span
                           className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
                           style={{ background: st.bg, color: st.text }}
@@ -431,7 +432,7 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
       <div className="flex items-start justify-between gap-2 mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono" style={{ color: theme.text, opacity: 0.5 }}>{issue.id}</span>
+            <span className="text-xs font-mono" style={{ color: theme.text, opacity: 0.5 }}>{issue.parentId ? `↳ (parent: ${issue.parentId}) ` : ""}{issue.id}</span>
             <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: st.bg, color: st.text }}>{st.label}</span>
             <span className="text-[10px] px-2 py-0.5 rounded inline-flex items-center gap-1" style={{ background: theme.bgMuted, color: theme.text }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: pr.dot }} />

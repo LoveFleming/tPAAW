@@ -58,6 +58,7 @@ async function loadIssues(projectPath) {
       id: i.id || "",
       title: i.title || "",
       type: i.type || (i.id.startsWith("ISS-") ? "bug" : "requirement"),
+      parentId: i.parentId || null,
       status: i.status || "open",
       priority: i.priority || "medium",
       effort: i.effort || null,
@@ -220,6 +221,75 @@ export default async function codingIssuesRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-issues/decompose — Decompose a parent task into sub-tasks ──
+  if (url === "/api/coding-issues/decompose" && method === "POST") {
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    const { parentId, subTasks } = body;
+    if (!parentId || !Array.isArray(subTasks) || subTasks.length === 0) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "parentId and subTasks[] are required" }));
+      return true;
+    }
+    const issues = await loadIssues(projRoot);
+    const parent = issues.find(i => i.id === parentId);
+    if (!parent) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `Task ${parentId} not found` }));
+      return true;
+    }
+    // Create sub-tasks
+    const created = [];
+    for (const sub of subTasks) {
+      if (!sub.title?.trim()) continue;
+      const newSub = {
+        id: genId(issues.concat(created)),
+        title: sub.title.trim(),
+        type: sub.type || parent.type,
+        parentId: parentId,
+        status: "open",
+        priority: sub.priority || parent.priority,
+        effort: sub.effort || null,
+        labels: sub.labels || parent.labels || [],
+        assignee: sub.assignee || null,
+        description: sub.description || "",
+        reproduction: "",
+        solution: "",
+        relatedFiles: sub.relatedFiles || [],
+        notes: [],
+        executionResult: null,
+        createdAt: now(),
+        updatedAt: now(),
+        resolvedAt: null,
+        createdBy: body.createdBy || "agent",
+      };
+      created.push(newSub);
+    }
+    // Update parent: mark as in-progress if it was open
+    if (parent.status === "open") {
+      parent.status = "in-progress";
+      parent.updatedAt = now();
+    }
+    // Add a note to parent about decomposition
+    if (!Array.isArray(parent.notes)) parent.notes = [];
+    parent.notes.push({
+      by: body.createdBy || "agent",
+      at: now(),
+      content: `拆分為 ${created.length} 個子任務：${created.map(s => s.id).join(", ")}`,
+    });
+    parent.updatedAt = now();
+
+    const all = [...issues, ...created];
+    await saveIssues(projRoot, all);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ parentId, subTasks: created, total: all.length }));
+    return true;
+  }
+
   // ── POST /api/coding-issues/:id/notes — Add a note to an issue ──
   const notesMatch = url.match(/^\/api\/coding-issues\/([^/?]+)\/notes$/);
   if (notesMatch && method === "POST") {
@@ -347,6 +417,10 @@ export default async function codingIssuesRoute(req, res) {
       const types = q.type.split(",");
       issues = issues.filter(i => types.includes(i.type));
     }
+    // Filter by parentId
+    if (q.parentId) {
+      issues = issues.filter(i => i.parentId === q.parentId);
+    }
     // Search by text
     if (q.search) {
       const s = q.search.toLowerCase();
@@ -387,6 +461,7 @@ export default async function codingIssuesRoute(req, res) {
       id: genId(issues),
       title: body.title.trim(),
       type: body.type || "requirement",
+      parentId: body.parentId || null,
       status: body.status || "open",
       priority: body.priority || "medium",
       effort: body.effort || null,

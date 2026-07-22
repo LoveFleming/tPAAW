@@ -605,7 +605,7 @@ const TOOL_GROUP_MAP = {
   notes: "notes",
 
   // Task management
-  task_create: "tasks", task_update: "tasks", task_list: "tasks",
+  task_create: "tasks", task_update: "tasks", task_list: "tasks", task_decompose: "tasks",
 
   // Docs & CU
   cu_refresh: "docs",
