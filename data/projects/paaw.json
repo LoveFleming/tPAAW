@@ -611,7 +611,7 @@
       "id": "m_v1_gateway",
       "name": "PAAW v1.0 — Gateway 正式版",
       "status": "progress",
-      "note": "PAAW Gateway 架構重構 + UI for 更新/升級 + Agent 中斷強化 (tool-level abort) + Docker 容器化 + 安裝包",
+      "note": "PAAW Gateway 安裝/升級管理 + Agent 中斷強化 (tool-level abort) + Docker 容器化 + 安裝包",
       "date": "2026-09"
     },
     {
