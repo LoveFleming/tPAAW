@@ -342,6 +342,7 @@ export const contextEngine = {
 
     const parts = [
       buildBaseContext(),
+      buildDynamicContext(),
       ...readCategoryFiles("crew"),
       "你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。",
     ];
