@@ -481,6 +481,22 @@ async function buildToolDefinitions() {
     }
   });
 
+  // ── Memory read tool (global, always available) ──
+  tools.push({
+    type: "function",
+    function: {
+      name: "memory_read",
+      description: "讀取 MEMORY.md 的內容。可以讀整份或指定分類。當需要回憶之前記住的事情、使用者偏好、重要決策時使用。",
+      parameters: {
+        type: "object",
+        properties: {
+          section: { type: "string", description: "要讀取的分類名稱（可選）。不填則讀取整份 MEMORY.md。" }
+        },
+        required: []
+      }
+    }
+  });
+
   // ── Cron Job tools (global, always available) ──
   tools.push({
     type: "function",
@@ -1100,6 +1116,37 @@ function buildHandlers(apps) {
   // ── Memory handlers (global) ──
   // Tool definitions are in buildToolDefinitions()
   const MEMORY_FILE = resolve(PAAW_DATA_DIR, "config/MEMORY.md");
+
+  handlers.memory_read = async ({ section } = {}) => {
+    try {
+      let mem = "";
+      try { mem = await readFile(MEMORY_FILE, "utf-8"); } catch { return { text: "MEMORY.md 尚未建立，目前沒有任何記憶。" }; }
+      if (!section) {
+        // Return full memory (truncate if very large)
+        const truncated = mem.length > 8000 ? mem.slice(0, 8000) + "\n... ( truncated, 共 " + mem.length + " 字元)" : mem;
+        return { text: truncated };
+      }
+      // Return specific section
+      const escSection = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const sectionRegex = new RegExp(`^## ${escSection}\\s*$`, "m");
+      if (!sectionRegex.test(mem)) {
+        return { text: `找不到分類「${section}」。現有分類：\n${[...mem.matchAll(/^## (.+)$/gm)].map(m => "- " + m[1]).join("\n")}` };
+      }
+      const lines = mem.split("\n");
+      let startIdx = -1, endIdx = lines.length;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(new RegExp(`^## ${escSection}\\s*$`))) { startIdx = i; }
+        else if (startIdx >= 0 && lines[i].startsWith("## ")) { endIdx = i; break; }
+      }
+      if (startIdx >= 0) {
+        const sectionContent = lines.slice(startIdx, endIdx).join("\n");
+        return { text: sectionContent };
+      }
+      return { text: `找不到分類「${section}」的內容。` };
+    } catch (err) {
+      return { text: `讀取記憶失敗：${err.message}`, error: true };
+    }
+  };
 
   handlers.memory_add = async ({ section, content }) => {
     try {
