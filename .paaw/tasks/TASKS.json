@@ -108,10 +108,16 @@
       "assignee": "developer",
       "description": "",
       "relatedFiles": [],
-      "notes": [],
+      "notes": [
+        {
+          "by": "human",
+          "at": "2026-07-22T13:37:24.031Z",
+          "content": "test note"
+        }
+      ],
       "executionResult": null,
       "createdAt": "2026-07-22T12:31:10.997Z",
-      "updatedAt": "2026-07-22T12:31:10.997Z",
+      "updatedAt": "2026-07-22T13:37:24.031Z",
       "resolvedAt": null,
       "createdBy": "agent"
     },
@@ -331,5 +337,5 @@
       "createdBy": "user"
     }
   ],
-  "updatedAt": "2026-07-22T13:32:10.546Z"
+  "updatedAt": "2026-07-22T13:37:37.601Z"
 }
