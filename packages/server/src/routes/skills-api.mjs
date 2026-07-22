@@ -376,36 +376,11 @@ export default async function skillsApiRoute(req, res) {
       // Use direct LLM call (not agent loop) — we just want text output
       const { callLLMWithRetry } = await import("../lib/llm-utils.mjs");
 
-      // Resolve LLM config inline (resolveLLMConfig not exported from agent loop)
-      const { readFileSync: readSync } = await import("fs");
-      const { resolve: resolvePath } = await import("path");
-      const providerConfigPath = resolvePath(PAAW_ROOT, "data/config/providers.json");
+      // Use resolveLLMConfig for consistent provider + fallback chain resolution
+      const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
       let llm;
       try {
-        const pCfg = JSON.parse(readSync(providerConfigPath, "utf-8"));
-        let providerId = pCfg.active;
-        let llmModel = model || resolveDefaultModel(pCfg);
-        // Parse "providerId/modelId" format — but only use hint if provider exists in config
-        if (model && model.includes("/")) {
-          const idx = model.indexOf("/");
-          const hint = model.slice(0, idx);
-          llmModel = model.slice(idx + 1);
-          // Use hint only if it's a known provider, otherwise stick with active
-          if (pCfg.providers[hint]) providerId = hint;
-        } else if (llmModel.includes("/")) {
-          // Strip provider prefix from default model if present
-          llmModel = llmModel.split("/").pop();
-        }
-        const provider = pCfg.providers[providerId];
-        if (!provider) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: `Provider '${providerId}' not found in config` }));
-          return true;
-        }
-        const baseURL = provider.baseURL.replace(/\/+$/, "");
-        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` };
-        if (providerId === "openrouter") { headers["HTTP-Referer"] = "https://agent-orchestrator.ai"; headers["X-Title"] = "Agent Orchestrator"; }
-        llm = { apiUrl: `${baseURL}/chat/completions`, headers, model: llmModel };
+        llm = resolveLLMConfig(PAAW_ROOT, model || undefined);
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: `Failed to load provider config: ${err.message}` }));

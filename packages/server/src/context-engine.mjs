@@ -440,7 +440,7 @@ export const contextEngine = {
     const provider = loadProviderConfig();
     const parts = [
       buildBaseContext(),
-      // No buildDynamicContext() — skill-builder is a tool, not a chat assistant
+      buildDynamicContext(),
       ...readCategoryFiles(`skill-builder/${phase}`),
     ];
     // prompt = rules from ai-settings + the actual skill-source.md input

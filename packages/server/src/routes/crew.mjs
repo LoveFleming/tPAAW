@@ -61,7 +61,7 @@ export default async function crewRoute(req, res) {
     let systemPrompt = "";
     try {
       const { contextEngine } = await import("../context-engine.mjs");
-      const ctx = await contextEngine.build({ target: "skill-builder" });
+      const ctx = await contextEngine.build({ target: "skill-builder", phase: "test" });
       systemPrompt = ctx.systemPrompt || "";
     } catch {}
 
