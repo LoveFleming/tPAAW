@@ -56,6 +56,7 @@ const ROUTE_MODULES = [
   "./routes/helpdesk.mjs",
   "./routes/coding.mjs",
   "./routes/coding-issues.mjs",
+  "./routes/coding-tasks.mjs",
   "./routes/coding-memory.mjs",
   "./routes/coding-features.mjs",
   "./routes/coding-night-shift.mjs",

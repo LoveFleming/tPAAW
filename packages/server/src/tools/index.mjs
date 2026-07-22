@@ -1328,7 +1328,7 @@ function buildHandlers(apps) {
       // Use first workspace path as project path, or PAAW_ROOT
       const workspaces = await loadWorkspaces();
       const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
-      const resp = await fetch(`${API}/api/coding-issues?path=${encodeURIComponent(projectPath)}`, {
+      const resp = await fetch(`${API}/api/coding-tasks?path=${encodeURIComponent(projectPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1360,7 +1360,7 @@ function buildHandlers(apps) {
 
       // First update the task fields
       if (Object.keys(updateBody).length > 0) {
-        const resp = await fetch(`${API}/api/coding-issues/${encodeURIComponent(id)}?path=${encodeURIComponent(projectPath)}`, {
+        const resp = await fetch(`${API}/api/coding-tasks/${encodeURIComponent(id)}?path=${encodeURIComponent(projectPath)}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updateBody),
@@ -1371,7 +1371,7 @@ function buildHandlers(apps) {
 
       // Then add note if provided
       if (note) {
-        const resp = await fetch(`${API}/api/coding-issues/${encodeURIComponent(id)}/notes?path=${encodeURIComponent(projectPath)}`, {
+        const resp = await fetch(`${API}/api/coding-tasks/${encodeURIComponent(id)}/notes?path=${encodeURIComponent(projectPath)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: note, by: "agent" }),
@@ -1394,7 +1394,7 @@ function buildHandlers(apps) {
     try {
       const workspaces = await loadWorkspaces();
       const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
-      let url = `${API}/api/coding-issues?path=${encodeURIComponent(projectPath)}`;
+      let url = `${API}/api/coding-tasks?path=${encodeURIComponent(projectPath)}`;
       const params = [];
       if (status) params.push(`status=${encodeURIComponent(status)}`);
       if (type) params.push(`type=${encodeURIComponent(type)}`);
@@ -1428,7 +1428,7 @@ function buildHandlers(apps) {
     try {
       const workspaces = await loadWorkspaces();
       const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
-      const resp = await fetch(`${API}/api/coding-issues/decompose?path=${encodeURIComponent(projectPath)}`, {
+      const resp = await fetch(`${API}/api/coding-tasks/decompose?path=${encodeURIComponent(projectPath)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ parentId, subTasks, createdBy: "agent" }),
@@ -1471,7 +1471,7 @@ function buildHandlers(apps) {
       try {
         const workspaces = await loadWorkspaces();
         const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
-        await fetch(`${API}/api/coding-issues/${taskId}?path=${encodeURIComponent(projectPath)}`, {
+        await fetch(`${API}/api/coding-tasks/${taskId}?path=${encodeURIComponent(projectPath)}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "in-progress", assignee: agentId }),
@@ -1506,7 +1506,7 @@ function buildHandlers(apps) {
         try {
           const workspaces2 = await loadWorkspaces();
           const projectPath2 = workspaces2.length > 0 ? workspaces2[0] : PAAW_ROOT;
-          await fetch(`${API}/api/coding-issues/${taskId}?path=${encodeURIComponent(projectPath2)}`, {
+          await fetch(`${API}/api/coding-tasks/${taskId}?path=${encodeURIComponent(projectPath2)}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1534,7 +1534,7 @@ function buildHandlers(apps) {
         try {
           const workspaces = await loadWorkspaces();
           const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
-          await fetch(`${API}/api/coding-issues/${taskId}?path=${encodeURIComponent(projectPath)}`, {
+          await fetch(`${API}/api/coding-tasks/${taskId}?path=${encodeURIComponent(projectPath)}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

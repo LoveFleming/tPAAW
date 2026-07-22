@@ -1,21 +1,25 @@
 /**
- * Coding Issues Route — Lightweight issue tracking for .paaw/ projects
+ * Coding Issues Route — Issue tracking for .paaw/ projects
+ *
+ * Issues = problem/requirement records (記錄、分類、追蹤)
+ * Tasks = actionable work items (派工、執行、追蹤) → /api/coding-tasks
  *
  * Endpoints:
- *   GET    /api/coding-issues?path=...                    — List all issues (filter: status, priority, label)
+ *   GET    /api/coding-issues?path=...                    — List issues (filter: status, priority, label, type)
  *   GET    /api/coding-issues/:id?path=...                — Get single issue
  *   POST   /api/coding-issues?path=...                    — Create issue
- *   PUT    /api/coding-issues/:id?path=...                — Update issue (status, priority, etc.)
+ *   PUT    /api/coding-issues/:id?path=...                — Update issue
  *   DELETE /api/coding-issues/:id?path=...                — Delete issue
  *   POST   /api/coding-issues/import-known?path=...       — Import from KNOWN-ISSUES.md
+ *   POST   /api/coding-issues/:id/notes?path=...          — Add note
  *   GET    /api/coding-issues/stats?path=...              — Summary stats
  */
 
-import { readFile, writeFile, mkdir, readdir, unlink } from "fs/promises";
+import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { readBody, normalizePath } from "./shared.mjs";
+import { readBody } from "./shared.mjs";
 import { PaawProject } from "../lib/paaw-project.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,15 +41,13 @@ function parseQuery(rawUrl) {
 
 function genId(existing) {
   const nums = existing
-    .map(i => parseInt(i.id?.replace(/^(?:ISS|TASK)-/, ""), 10))
+    .map(i => parseInt(i.id?.replace(/^ISS-/, ""), 10))
     .filter(n => !isNaN(n));
   const next = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
-  return `TASK-${String(next).padStart(3, "0")}`;
+  return `ISS-${String(next).padStart(3, "0")}`;
 }
 
-function now() {
-  return new Date().toISOString();
-}
+function now() { return new Date().toISOString(); }
 
 async function loadIssues(projectPath) {
   const issuesFile = join(projectPath, ".paaw", "issues", "ISSUES.json");
@@ -53,31 +55,26 @@ async function loadIssues(projectPath) {
   try {
     const data = JSON.parse(await readFile(issuesFile, "utf-8"));
     if (!Array.isArray(data.issues)) return [];
-    // Normalize: ensure all fields have safe defaults (null → [] or "")
     return data.issues.map(i => ({
       id: i.id || "",
       title: i.title || "",
-      type: i.type || (i.id.startsWith("ISS-") ? "bug" : "requirement"),
-      parentId: i.parentId || null,
+      type: i.type || "bug",              // bug, security, requirement, enhancement
       status: i.status || "open",
       priority: i.priority || "medium",
-      effort: i.effort || null,
+      severity: i.severity || null,        // critical, major, minor, info
       labels: Array.isArray(i.labels) ? i.labels : [],
-      assignee: i.assignee || null,
+      linkedTaskIds: Array.isArray(i.linkedTaskIds) ? i.linkedTaskIds : [],
       description: i.description || "",
       reproduction: i.reproduction || "",
       solution: i.solution || "",
       relatedFiles: Array.isArray(i.relatedFiles) ? i.relatedFiles : [],
       notes: Array.isArray(i.notes) ? i.notes : [],
-      executionResult: i.executionResult || null,
-      createdAt: i.createdAt || new Date().toISOString(),
-      updatedAt: i.updatedAt || new Date().toISOString(),
+      createdAt: i.createdAt || now(),
+      updatedAt: i.updatedAt || now(),
       resolvedAt: i.resolvedAt || null,
-      createdBy: i.createdBy || "agent",
+      createdBy: i.createdBy || "user",
     }));
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 async function saveIssues(projectPath, issues) {
@@ -97,12 +94,8 @@ function parseKnownIssues(md) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
-    // Detect "## 🔴 Open" or similar section headers
     if (/^##\s+.*open/i.test(line)) { inOpenSection = true; continue; }
     if (/^##\s+.*resolved|##\s+.*closed/i.test(line)) { inOpenSection = false; continue; }
-
-    // Detect issue headers like "### KI-001: Title"
     const h3 = line.match(/^###\s+(KI-\d+):\s*(.+)/);
     if (h3) {
       if (current) issues.push(current);
@@ -112,6 +105,7 @@ function parseKnownIssues(md) {
         status: inOpenSection ? "open" : "closed",
         priority: "medium",
         labels: [],
+        linkedTaskIds: [],
         description: "",
         reproduction: "",
         solution: "",
@@ -124,30 +118,20 @@ function parseKnownIssues(md) {
       };
       continue;
     }
-
     if (!current) continue;
-
-    // Parse bullet fields
     const impact = line.match(/[-*]\s+\*\*影響[：:]\*\*\s*(.+)/);
     if (impact) { current.description = impact[1].trim(); continue; }
-
     const workaround = line.match(/[-*]\s+\*\*[Ww]orkaround[：:]\*\*\s*(.+)/);
     if (workaround) { current.solution = workaround[1].trim(); continue; }
-
     const priority = line.match(/[-*]\s+\*\*優先級[：:]\*\*\s*(\w+)/);
     if (priority) {
       const p = priority[1].toLowerCase().trim();
       if (["critical", "high", "medium", "low"].includes(p)) current.priority = p;
       continue;
     }
-
     const related = line.match(/[-*]\s+\*\*相關[：:]\*\*\s*(.+)/);
-    if (related) {
-      current.relatedFiles = related[1].split(",").map(s => s.trim()).filter(Boolean);
-      continue;
-    }
+    if (related) { current.relatedFiles = related[1].split(",").map(s => s.trim()).filter(Boolean); continue; }
   }
-
   if (current) issues.push(current);
   return issues;
 }
@@ -188,10 +172,10 @@ export default async function codingIssuesRoute(req, res) {
         low: issues.filter(i => i.priority === "low").length,
       },
       byType: {
-        requirement: issues.filter(i => i.type === "requirement").length,
         bug: issues.filter(i => i.type === "bug").length,
         security: issues.filter(i => i.type === "security").length,
-        chore: issues.filter(i => i.type === "chore").length,
+        requirement: issues.filter(i => i.type === "requirement").length,
+        enhancement: issues.filter(i => i.type === "enhancement").length,
       },
     };
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -211,7 +195,6 @@ export default async function codingIssuesRoute(req, res) {
     const md = readSync(knownFile, "utf-8");
     const imported = parseKnownIssues(md);
     const existing = await loadIssues(projRoot);
-    // Merge: skip IDs that already exist
     const existingIds = new Set(existing.map(i => i.id));
     const newIssues = imported.filter(i => !existingIds.has(i.id));
     const all = [...existing, ...newIssues];
@@ -221,76 +204,7 @@ export default async function codingIssuesRoute(req, res) {
     return true;
   }
 
-  // ── POST /api/coding-issues/decompose — Decompose a parent task into sub-tasks ──
-  if (url === "/api/coding-issues/decompose" && method === "POST") {
-    let body;
-    try { body = JSON.parse(await readBody(req)); } catch {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Invalid JSON" }));
-      return true;
-    }
-    const { parentId, subTasks } = body;
-    if (!parentId || !Array.isArray(subTasks) || subTasks.length === 0) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "parentId and subTasks[] are required" }));
-      return true;
-    }
-    const issues = await loadIssues(projRoot);
-    const parent = issues.find(i => i.id === parentId);
-    if (!parent) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `Task ${parentId} not found` }));
-      return true;
-    }
-    // Create sub-tasks
-    const created = [];
-    for (const sub of subTasks) {
-      if (!sub.title?.trim()) continue;
-      const newSub = {
-        id: genId(issues.concat(created)),
-        title: sub.title.trim(),
-        type: sub.type || parent.type,
-        parentId: parentId,
-        status: "open",
-        priority: sub.priority || parent.priority,
-        effort: sub.effort || null,
-        labels: sub.labels || parent.labels || [],
-        assignee: sub.assignee || null,
-        description: sub.description || "",
-        reproduction: "",
-        solution: "",
-        relatedFiles: sub.relatedFiles || [],
-        notes: [],
-        executionResult: null,
-        createdAt: now(),
-        updatedAt: now(),
-        resolvedAt: null,
-        createdBy: body.createdBy || "agent",
-      };
-      created.push(newSub);
-    }
-    // Update parent: mark as in-progress if it was open
-    if (parent.status === "open") {
-      parent.status = "in-progress";
-      parent.updatedAt = now();
-    }
-    // Add a note to parent about decomposition
-    if (!Array.isArray(parent.notes)) parent.notes = [];
-    parent.notes.push({
-      by: body.createdBy || "agent",
-      at: now(),
-      content: `拆分為 ${created.length} 個子任務：${created.map(s => s.id).join(", ")}`,
-    });
-    parent.updatedAt = now();
-
-    const all = [...issues, ...created];
-    await saveIssues(projRoot, all);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ parentId, subTasks: created, total: all.length }));
-    return true;
-  }
-
-  // ── POST /api/coding-issues/:id/notes — Add a note to an issue ──
+  // ── POST /api/coding-issues/:id/notes ──
   const notesMatch = url.match(/^\/api\/coding-issues\/([^/?]+)\/notes$/);
   if (notesMatch && method === "POST") {
     const id = decodeURIComponent(notesMatch[1]);
@@ -313,11 +227,7 @@ export default async function codingIssuesRoute(req, res) {
       return true;
     }
     if (!Array.isArray(issues[idx].notes)) issues[idx].notes = [];
-    issues[idx].notes.push({
-      by: body.by || "user",
-      at: now(),
-      content: body.content.trim(),
-    });
+    issues[idx].notes.push({ by: body.by || "user", at: now(), content: body.content.trim() });
     issues[idx].updatedAt = now();
     await saveIssues(projRoot, issues);
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -357,14 +267,7 @@ export default async function codingIssuesRoute(req, res) {
       res.end(JSON.stringify({ error: "Issue not found" }));
       return true;
     }
-    // Merge updates
-    const updated = {
-      ...issues[idx],
-      ...body,
-      id: issues[idx].id, // prevent ID change
-      updatedAt: now(),
-    };
-    // Auto-set resolvedAt when status changes to resolved/closed
+    const updated = { ...issues[idx], ...body, id: issues[idx].id, updatedAt: now() };
     if ((body.status === "resolved" || body.status === "closed") && !updated.resolvedAt) {
       updated.resolvedAt = now();
     }
@@ -398,30 +301,10 @@ export default async function codingIssuesRoute(req, res) {
   // ── GET /api/coding-issues (list) ──
   if (url === "/api/coding-issues" && method === "GET") {
     let issues = await loadIssues(projRoot);
-    // Filter by status
-    if (q.status) {
-      const statuses = q.status.split(",");
-      issues = issues.filter(i => statuses.includes(i.status));
-    }
-    // Filter by priority
-    if (q.priority) {
-      const priorities = q.priority.split(",");
-      issues = issues.filter(i => priorities.includes(i.priority));
-    }
-    // Filter by label
-    if (q.label) {
-      issues = issues.filter(i => i.labels?.includes(q.label));
-    }
-    // Filter by type
-    if (q.type) {
-      const types = q.type.split(",");
-      issues = issues.filter(i => types.includes(i.type));
-    }
-    // Filter by parentId
-    if (q.parentId) {
-      issues = issues.filter(i => i.parentId === q.parentId);
-    }
-    // Search by text
+    if (q.status) { const s = q.status.split(","); issues = issues.filter(i => s.includes(i.status)); }
+    if (q.priority) { const s = q.priority.split(","); issues = issues.filter(i => s.includes(i.priority)); }
+    if (q.label) { issues = issues.filter(i => i.labels?.includes(q.label)); }
+    if (q.type) { const s = q.type.split(","); issues = issues.filter(i => s.includes(i.type)); }
     if (q.search) {
       const s = q.search.toLowerCase();
       issues = issues.filter(i =>
@@ -430,7 +313,6 @@ export default async function codingIssuesRoute(req, res) {
         i.id?.toLowerCase().includes(s)
       );
     }
-    // Sort: open first, then by priority
     const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
     const statusOrder = { open: 0, "in-progress": 1, resolved: 2, closed: 3, wontfix: 4 };
     issues.sort((a, b) => {
@@ -460,19 +342,17 @@ export default async function codingIssuesRoute(req, res) {
     const newIssue = {
       id: genId(issues),
       title: body.title.trim(),
-      type: body.type || "requirement",
-      parentId: body.parentId || null,
+      type: body.type || "bug",
       status: body.status || "open",
       priority: body.priority || "medium",
-      effort: body.effort || null,
+      severity: body.severity || null,
       labels: body.labels || [],
-      assignee: body.assignee || null,
+      linkedTaskIds: body.linkedTaskIds || [],
       description: body.description || "",
       reproduction: body.reproduction || "",
       solution: body.solution || "",
       relatedFiles: body.relatedFiles || [],
       notes: body.notes || [],
-      executionResult: null,
       createdAt: now(),
       updatedAt: now(),
       resolvedAt: null,
@@ -485,6 +365,5 @@ export default async function codingIssuesRoute(req, res) {
     return true;
   }
 
-  // No match
   return false;
 }

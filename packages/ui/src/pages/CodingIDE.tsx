@@ -39,6 +39,7 @@ import DecisionLog from "../components/DecisionLog";
 import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
+import TaskBoard from "../components/TaskBoard";
 import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
 import NightShiftPanel from "../components/NightShiftPanel";
@@ -67,7 +68,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "memory" | "features" | "nightshift" | "security";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "memory" | "features" | "nightshift" | "security";
 
 interface MainTab {
   id: string;
@@ -1947,6 +1948,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:issues") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:issues" ? tk.toolbarActive : "transparent"; }}
           title={tt("issue.title")}>📋 Issues</button>
+        <button onClick={() => openMainTab({ id: "tool:tasks", type: "tasks", label: "Tasks", icon: "📌", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:tasks" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:tasks") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:tasks") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:tasks" ? tk.toolbarActive : "transparent"; }}
+          title="Tasks">📌 Tasks</button>
         <button onClick={() => openMainTab({ id: "tool:memory", type: "memory", label: "Memory", icon: "🧠", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:memory" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:memory") ? tk.toolbarText : tk.toolbarTextMuted }}
@@ -3056,6 +3063,25 @@ const sendChat = useCallback(async () => {
                   rootPath={rootPath}
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   onOpenFile={openFile}
+                />
+              </div>
+            )}
+
+            {/* === TASKS TAB === */}
+            {mainTabs.some(t => t.type === "tasks") && rootPath && (
+              <div key="tool:tasks" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "tasks" ? undefined : "none" }}>
+                <TaskBoard
+                  rootPath={rootPath}
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
+                  onOpenFile={openFile}
+                  onNavigateIssue={(issueId) => {
+                    // Open issues tab and select the issue
+                    if (!mainTabs.some(t => t.id === "tool:issues")) {
+                      openMainTab({ id: "tool:issues", type: "issues", label: "Issues", icon: "📋", closable: true });
+                    }
+                    setActiveMainTabId("tool:issues");
+                  }}
                 />
               </div>
             )}
