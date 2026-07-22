@@ -588,6 +588,33 @@ async function buildToolDefinitions() {
     }
   });
 
+  tools.push({
+    type: "function",
+    function: {
+      name: "dispatch_agent",
+      description: "派工給其他 agent 執行任務。EM 拆分好子任務後，用這個 tool 把具體工作交給對應的 agent。一次只派一個 agent，等結果回來再派下一個。",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: {
+            type: "string",
+            enum: ["architect", "developer", "tester", "doc-writer", "qa", "helpdesk"],
+            description: "目標 agent：architect(林曉薇), developer(Priya), tester(Divya), doc-writer(Megan), qa(武大安), helpdesk(小春)",
+          },
+          task: {
+            type: "string",
+            description: "具體任務說明（要明確：哪個檔案、哪個函數、要做什麼）。例如：修 packages/ui/src/components/UserInput.tsx 中 handleSubmit 的 XSS 問題，使用 DOMPurify sanitize input",
+          },
+          taskId: {
+            type: "string",
+            description: "對應的 TASK-XXX ID（如果有），dispatch 前後會自動更新 task 狀態",
+          },
+        },
+        required: ["agentId", "task"],
+      },
+    },
+  });
+
   // ── Cron Job tools (global, always available) ──
   tools.push({
     type: "function",
@@ -1420,6 +1447,104 @@ function buildHandlers(apps) {
       return { text: `❌ 拆分失敗：${data.error || "未知錯誤"}`, error: true };
     } catch (err) {
       return { text: `❌ 拆分失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.dispatch_agent = async ({ agentId, task, taskId } = {}) => {
+    if (!agentId || !task) return { text: "❌ dispatch_agent 需要 agentId 和 task" };
+
+    const { getAgentByCrewId, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
+    const agent = getAgentByCrewId(`coding.${agentId}`);
+    if (!agent) return { text: `❌ 找不到 agent: ${agentId}` };
+
+    // Check if agent is busy
+    try {
+      const busyResp = await fetch(`${API}/api/coding-crew/running?agentId=${agentId}`);
+      if (busyResp.ok) {
+        const busyData = await busyResp.json();
+        if (busyData.running) return { text: `⏳ ${agentId} 正忙（已跑 ${busyData.elapsedS || '?'}s），等一下再派` };
+      }
+    } catch {}
+
+    // Update task status to in-progress if taskId provided
+    if (taskId) {
+      try {
+        const workspaces = await loadWorkspaces();
+        const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+        await fetch(`${API}/api/coding-issues/${taskId}?path=${encodeURIComponent(projectPath)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "in-progress", assignee: agentId }),
+        });
+      } catch {}
+    }
+
+    try {
+      const { runAgentLoop } = await import("../lib/paaw-agent-loop.mjs");
+      const workspaces = await loadWorkspaces();
+      const projRoot = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+
+      // Build system prompt for the target agent
+      const systemPrompt = await buildSystemPrompt(agent.agentId, { cwd: projRoot });
+
+      const result = await runAgentLoop({
+        prompt: task,
+        systemPrompt,
+        cwd: projRoot,
+        agentId: agent.agentId,
+        maxTurns: 10,
+        timeout: 300,
+        rootDir: projRoot,
+      });
+
+      const success = result.success;
+      const content = result.content || "";
+      const preview = content.slice(0, 500);
+
+      // Update task with result if taskId provided
+      if (taskId) {
+        try {
+          const workspaces2 = await loadWorkspaces();
+          const projectPath2 = workspaces2.length > 0 ? workspaces2[0] : PAAW_ROOT;
+          await fetch(`${API}/api/coding-issues/${taskId}?path=${encodeURIComponent(projectPath2)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status: success ? "resolved" : "open",
+              executionResult: {
+                summary: success ? preview.slice(0, 200) : `Agent ${agentId} failed`,
+                filesChanged: [],
+                success,
+              },
+            }),
+          });
+        } catch {}
+      }
+
+      const agentNames = { architect: "林曉薇", developer: "Priya", tester: "Divya", "doc-writer": "Megan", qa: "武大安", helpdesk: "小春" };
+      const name = agentNames[agentId] || agentId;
+      if (success) {
+        return { text: `✅ ${name} (${agentId}) 完成任務！\n\n${preview}`, taskId };
+      } else {
+        return { text: `❌ ${name} (${agentId}) 執行失敗：\n\n${preview}`, taskId, error: true };
+      }
+    } catch (err) {
+      // Mark task as failed
+      if (taskId) {
+        try {
+          const workspaces = await loadWorkspaces();
+          const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+          await fetch(`${API}/api/coding-issues/${taskId}?path=${encodeURIComponent(projectPath)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status: "open",
+              executionResult: { summary: `Dispatch error: ${err.message}`, filesChanged: [], success: false },
+            }),
+          });
+        } catch {}
+      }
+      return { text: `❌ 派工失敗：${err.message}`, error: true };
     }
   };
 
