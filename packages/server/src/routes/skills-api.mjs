@@ -400,6 +400,8 @@ export default async function skillsApiRoute(req, res) {
 
       const userMessage = `${genPrompt}\n\n${requirement}`;
 
+      console.log(`[SkillBuilder] AI generate — requirement: ${requirement.slice(0, 80)}... model: ${llm.model}, provider: ${llm.providerId}`);
+
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
         model: llm.model,
         messages: [
@@ -417,6 +419,7 @@ export default async function skillsApiRoute(req, res) {
       });
 
       let content = (result.content || "").trim();
+      console.log(`[SkillBuilder] AI generate result — ${content.length} chars, preview: ${content.slice(0, 100)}`);
       // Strip markdown code fences if AI wrapped output (handle ```yaml, ```markdown, ```md, etc.)
       content = content.replace(/^```(?:[a-zA-Z]+)?\n?/m, "").replace(/\n?```$/m, "").trim();
       // Also strip leading non-frontmatter lines (e.g. stray "yaml" after fence removal)

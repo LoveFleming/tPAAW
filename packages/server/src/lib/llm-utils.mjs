@@ -287,6 +287,8 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
   const _callId = `llm-${_startTime}-${Math.random().toString(36).slice(2, 8)}`;
 
   // ── LLM Request Log ──
+  const caller = opts.caller || agentId || "unknown";
+  console.log(`[callLLMWithRetry] ${caller} → ${body.model || "?"} (${body.messages?.length} msgs, max_tokens=${body.max_tokens})`);
   _writeLlmLog({
     id: _callId,
     ts: new Date(_startTime).toISOString(),
@@ -336,6 +338,10 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
       }
 
       let content = choice.message?.content || '';
+
+      // ── LLM Response Log ──
+      const durationMs = Date.now() - _startTime;
+      console.log(`[callLLMWithRetry] ${caller} ← ${body.model} ${durationMs}ms (${content.length} chars, usage=${JSON.stringify(data.usage || {})} )`);
 
       // sanitize 隱藏字元
       if (sanitize) {
