@@ -74,7 +74,7 @@ export default async function crewRoute(req, res) {
       : `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${relTestDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
 
     sendEvent({ type: "debug", engine: "paaw-agent-loop", cwd: cwd || PAAW_ROOT, testDir: relTestDir });
-    console.log(`[skill-test] running via PAAW Agent Loop, skillId=${skillId}, testDir=${testDir}`);
+    console.log(`[skill-test] running via PAAW Agent Loop, skillId=${skillId}, testDir=${testDir}, model=${modelOverride || "(default)"}`);
 
     const heartbeat = setInterval(() => sendEvent({ type: "heartbeat" }), 5000);
     try {
