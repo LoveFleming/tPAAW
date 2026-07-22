@@ -37,10 +37,10 @@ function parseQuery(rawUrl) {
 
 function genId(existing) {
   const nums = existing
-    .map(i => parseInt(i.id?.replace(/^ISS-/, ""), 10))
+    .map(i => parseInt(i.id?.replace(/^(?:ISS|TASK)-/, ""), 10))
     .filter(n => !isNaN(n));
   const next = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
-  return `ISS-${String(next).padStart(3, "0")}`;
+  return `TASK-${String(next).padStart(3, "0")}`;
 }
 
 function now() {
@@ -57,14 +57,18 @@ async function loadIssues(projectPath) {
     return data.issues.map(i => ({
       id: i.id || "",
       title: i.title || "",
+      type: i.type || (i.id.startsWith("ISS-") ? "bug" : "requirement"),
       status: i.status || "open",
       priority: i.priority || "medium",
+      effort: i.effort || null,
       labels: Array.isArray(i.labels) ? i.labels : [],
       assignee: i.assignee || null,
       description: i.description || "",
       reproduction: i.reproduction || "",
       solution: i.solution || "",
       relatedFiles: Array.isArray(i.relatedFiles) ? i.relatedFiles : [],
+      notes: Array.isArray(i.notes) ? i.notes : [],
+      nightShiftResult: i.nightShiftResult || null,
       createdAt: i.createdAt || new Date().toISOString(),
       updatedAt: i.updatedAt || new Date().toISOString(),
       resolvedAt: i.resolvedAt || null,
@@ -182,6 +186,12 @@ export default async function codingIssuesRoute(req, res) {
         medium: issues.filter(i => i.priority === "medium").length,
         low: issues.filter(i => i.priority === "low").length,
       },
+      byType: {
+        requirement: issues.filter(i => i.type === "requirement").length,
+        bug: issues.filter(i => i.type === "bug").length,
+        security: issues.filter(i => i.type === "security").length,
+        chore: issues.filter(i => i.type === "chore").length,
+      },
     };
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(stats));
@@ -207,6 +217,41 @@ export default async function codingIssuesRoute(req, res) {
     await saveIssues(projRoot, all);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ imported: newIssues.length, total: all.length, issues: newIssues }));
+    return true;
+  }
+
+  // ── POST /api/coding-issues/:id/notes — Add a note to an issue ──
+  const notesMatch = url.match(/^\/api\/coding-issues\/([^/?]+)\/notes$/);
+  if (notesMatch && method === "POST") {
+    const id = decodeURIComponent(notesMatch[1]);
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON" }));
+      return true;
+    }
+    if (!body.content?.trim()) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Note content is required" }));
+      return true;
+    }
+    const issues = await loadIssues(projRoot);
+    const idx = issues.findIndex(i => i.id === id);
+    if (idx < 0) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Issue not found" }));
+      return true;
+    }
+    if (!Array.isArray(issues[idx].notes)) issues[idx].notes = [];
+    issues[idx].notes.push({
+      by: body.by || "user",
+      at: now(),
+      content: body.content.trim(),
+    });
+    issues[idx].updatedAt = now();
+    await saveIssues(projRoot, issues);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(issues[idx]));
     return true;
   }
 
@@ -297,6 +342,11 @@ export default async function codingIssuesRoute(req, res) {
     if (q.label) {
       issues = issues.filter(i => i.labels?.includes(q.label));
     }
+    // Filter by type
+    if (q.type) {
+      const types = q.type.split(",");
+      issues = issues.filter(i => types.includes(i.type));
+    }
     // Search by text
     if (q.search) {
       const s = q.search.toLowerCase();
@@ -336,15 +386,18 @@ export default async function codingIssuesRoute(req, res) {
     const newIssue = {
       id: genId(issues),
       title: body.title.trim(),
+      type: body.type || "requirement",
       status: body.status || "open",
       priority: body.priority || "medium",
+      effort: body.effort || null,
       labels: body.labels || [],
       assignee: body.assignee || null,
       description: body.description || "",
       reproduction: body.reproduction || "",
       solution: body.solution || "",
       relatedFiles: body.relatedFiles || [],
-      relatedCommits: [],
+      notes: body.notes || [],
+      nightShiftResult: null,
       createdAt: now(),
       updatedAt: now(),
       resolvedAt: null,

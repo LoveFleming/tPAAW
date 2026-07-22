@@ -1,0 +1,37 @@
+{
+  "skillId": "ai-news-digest",
+  "userInputs": [
+    {
+      "id": "source_url",
+      "label": "新聞來源網址",
+      "description": "要摘要的新聞網站 URL",
+      "placeholder": "https://techcrunch.com/",
+      "required": true,
+      "multiline": false
+    },
+    {
+      "id": "focus_keywords",
+      "label": "關鍵字篩選",
+      "description": "只關注包含這些關鍵字的新聞，逗號分隔。留空則不篩選",
+      "placeholder": "AI, LLM, startup",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "id": "max_articles",
+      "label": "最大文章數",
+      "description": "最多摘要幾篇文章",
+      "placeholder": "10",
+      "required": false,
+      "multiline": false
+    },
+    {
+      "id": "output_path",
+      "label": "輸出路徑（留空則僅顯示）",
+      "description": "留空 = 結果直接顯示；填入絕對路徑 = 存成檔案",
+      "placeholder": "{{PAAW_ROOT}}/data/output/ai-news-digest.md",
+      "required": false,
+      "multiline": false
+    }
+  ]
+}

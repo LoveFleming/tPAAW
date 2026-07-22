@@ -7,7 +7,7 @@
   "onboardedAt": "2026-06-04T12:04:27.355Z",
   "preferences": {
     "employee_ai.factory-assistant": "zai/glm-5",
-    "skillBuilder": "openrouter/z-ai/glm-5.1",
+    "skillBuilder": "openrouter/moonshotai/kimi-k2.6",
     "undefined": "zai/glm-5.1",
     "codingIDE": "zai/glm-5",
     "nightShift": "zai/glm-5.1",

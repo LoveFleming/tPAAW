@@ -497,6 +497,65 @@ async function buildToolDefinitions() {
     }
   });
 
+  // ── Task Management tools (global, always available) ──
+  tools.push({
+    type: "function",
+    function: {
+      name: "task_create",
+      description: "在 Code Project 裡建立一個 Task。支援 requirement/bug/security/chore 類型。當使用者說「記錄一個需求」「加個 bug」「有個安全問題」或在討論中識別出待辦事項時使用。",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Task 標題" },
+          type: { type: "string", enum: ["requirement", "bug", "security", "chore"], description: "Task 類型" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "優先級，預設 medium" },
+          effort: { type: "string", enum: ["S", "M", "L", "XL"], description: "工作量估計" },
+          description: { type: "string", description: "詳細說明" },
+          assignee: { type: "string", description: "指派對象：human / em / architect / developer 等" },
+          labels: { type: "array", items: { type: "string" }, description: "標籤" },
+          note: { type: "string", description: "建立時的第一筆討論紀錄（選填）" },
+        },
+        required: ["title", "type"]
+      }
+    }
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "task_update",
+      description: "更新 Code Project 裡的 Task。可以改狀態、優先級、指派人、加討論紀錄。當使用者說「這個 bug 修好了」「把這個標成高優先」或 EM 完成夜間工作時使用。",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Task ID（例如 TASK-001 或 ISS-001）" },
+          status: { type: "string", enum: ["open", "in-progress", "resolved", "closed", "wontfix"], description: "新狀態" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "新優先級" },
+          assignee: { type: "string", description: "新指派對象" },
+          note: { type: "string", description: "加入的討論紀錄" },
+          nightShiftResult: { type: "object", description: "夜間執行結果 { summary, filesChanged, success }" },
+        },
+        required: ["id"]
+      }
+    }
+  });
+  tools.push({
+    type: "function",
+    function: {
+      name: "task_list",
+      description: "查詢 Code Project 裡的 Task 列表。可以依狀態、類型、優先級篩選。當使用者說「有哪些待辦」「bug 列表」「安全問題」或 EM 準備夜間派工時使用。",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", description: "篩選狀態，逗號分隔（例如：open,in-progress）" },
+          type: { type: "string", description: "篩選類型，逗號分隔（例如：bug,security）" },
+          priority: { type: "string", description: "篩選優先級，逗號分隔" },
+          search: { type: "string", description: "搜尋關鍵字" },
+        },
+        required: []
+      }
+    }
+  });
+
   // ── Cron Job tools (global, always available) ──
   tools.push({
     type: "function",
@@ -1201,6 +1260,108 @@ function buildHandlers(apps) {
       return { text: `✅ 已更新：${section}` };
     } catch (err) {
       return { text: `記憶更新失敗：${err.message}`, error: true };
+    }
+  };
+
+  // ── Task Management handlers (global) ──
+  handlers.task_create = async ({ title, type, priority, effort, description, assignee, labels, note } = {}) => {
+    try {
+      // Use first workspace path as project path, or PAAW_ROOT
+      const workspaces = await loadWorkspaces();
+      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const resp = await fetch(`${API}/api/coding-issues?path=${encodeURIComponent(projectPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title, type, priority: priority || "medium", effort, description: description || "", assignee: assignee || null,
+          labels: labels || [], notes: note ? [{ by: "agent", at: new Date().toISOString(), content: note }] : [],
+          createdBy: "agent",
+        }),
+      });
+      const data = await resp.json();
+      if (data.id) {
+        const typeIcon = { requirement: "📋", bug: "🐛", security: "🔒", chore: "🔧" }[type] || "📋";
+        return { text: `${typeIcon} 已建立 ${data.id}：${title}（${type}/${priority || "medium"}）${assignee ? `→ ${assignee}` : ""}` };
+      }
+      return { text: `❌ 建立失敗：${data.error || "未知錯誤"}`, error: true };
+    } catch (err) {
+      return { text: `❌ 建立失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.task_update = async ({ id, status, priority, assignee, note, nightShiftResult } = {}) => {
+    try {
+      const workspaces = await loadWorkspaces();
+      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      const updateBody = {};
+      if (status) updateBody.status = status;
+      if (priority) updateBody.priority = priority;
+      if (assignee) updateBody.assignee = assignee;
+      if (nightShiftResult) updateBody.nightShiftResult = nightShiftResult;
+
+      // First update the task fields
+      if (Object.keys(updateBody).length > 0) {
+        const resp = await fetch(`${API}/api/coding-issues/${encodeURIComponent(id)}?path=${encodeURIComponent(projectPath)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateBody),
+        });
+        const data = await resp.json();
+        if (data.error) return { text: `❌ 更新失敗：${data.error}`, error: true };
+      }
+
+      // Then add note if provided
+      if (note) {
+        const resp = await fetch(`${API}/api/coding-issues/${encodeURIComponent(id)}/notes?path=${encodeURIComponent(projectPath)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: note, by: "agent" }),
+        });
+        const data = await resp.json();
+        if (data.error) return { text: `❌ 新增討論紀錄失敗：${data.error}`, error: true };
+      }
+
+      const statusText = status ? `狀態→${status}` : "";
+      const priorityText = priority ? `優先級→${priority}` : "";
+      const assigneeText = assignee ? `指派→${assignee}` : "";
+      const noteText = note ? " + 已加討論紀錄" : "";
+      return { text: `✅ ${id} 已更新：${[statusText, priorityText, assigneeText].filter(Boolean).join(", ")}${noteText}` };
+    } catch (err) {
+      return { text: `❌ 更新失敗：${err.message}`, error: true };
+    }
+  };
+
+  handlers.task_list = async ({ status, type, priority, search } = {}) => {
+    try {
+      const workspaces = await loadWorkspaces();
+      const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
+      let url = `${API}/api/coding-issues?path=${encodeURIComponent(projectPath)}`;
+      const params = [];
+      if (status) params.push(`status=${encodeURIComponent(status)}`);
+      if (type) params.push(`type=${encodeURIComponent(type)}`);
+      if (priority) params.push(`priority=${encodeURIComponent(priority)}`);
+      if (search) params.push(`search=${encodeURIComponent(search)}`);
+      if (params.length > 0) url += "&" + params.join("&");
+
+      const resp = await fetch(url);
+      const data = await resp.json();
+      const issues = data.issues || [];
+      if (issues.length === 0) return { text: "沒有符合條件的 Task" };
+
+      const statusIcon = { open: "🔴", "in-progress": "🔧", resolved: "✅", closed: "✅", wontfix: "➖" };
+      const typeIcon = { requirement: "📋", bug: "🐛", security: "🔒", chore: "🔧" };
+      let text = `📋 **Task 列表**（${issues.length} 筆）\n\n`;
+      for (const t of issues) {
+        const si = statusIcon[t.status] || "⬜";
+        const ti = typeIcon[t.type] || "📋";
+        const eff = t.effort ? ` [${t.effort}]` : "";
+        const assign = t.assignee ? ` → ${t.assignee}` : "";
+        const nsr = t.nightShiftResult ? (t.nightShiftResult.success ? " 🌙✅" : " 🌙❌") : "";
+        text += `${si} ${ti} **${t.id}** ${t.title}${eff}${assign}${nsr} (${t.priority})\n`;
+      }
+      return { text, count: issues.length };
+    } catch (err) {
+      return { text: `❌ 查詢失敗：${err.message}`, error: true };
     }
   };
 

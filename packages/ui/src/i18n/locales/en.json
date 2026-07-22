@@ -515,5 +515,9 @@
   "notes.quickAddToSection": "Add note to this section",
   "notes.moveToSection": "Change section",
   "llmLog.title": "LLM Log",
-  "llmLog.description": "All LLM API call records"
+  "llmLog.description": "All LLM API call records",
+  "issue.typeLabel": "Type",
+  "issue.effortLabel": "Effort",
+  "issue.notes": "Discussion",
+  "issue.nightShiftResult": "Night Shift Result"
 }

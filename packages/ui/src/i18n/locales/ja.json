@@ -513,5 +513,9 @@
   "nightShift.noReportHint": "上のボタンをクリックして開始",
   "notes.quickAddToSection": "このセクションに追加",
   "notes.moveToSection": "セクション変更",
-  "skillBuilder.buildLogPlaceholder": "ビルド中の変更を記録：\n## v1 — 2026-07-22 (AI Generate)\n- 初期出力\n\n## v2 — 2026-07-22 (AI Build)\n- エラーハンドリング追加"
+  "skillBuilder.buildLogPlaceholder": "ビルド中の変更を記録：\n## v1 — 2026-07-22 (AI Generate)\n- 初期出力\n\n## v2 — 2026-07-22 (AI Build)\n- エラーハンドリング追加",
+  "issue.typeLabel": "タイプ",
+  "issue.effortLabel": "作業量",
+  "issue.notes": "ディスカッション",
+  "issue.nightShiftResult": "ナイトシフト結果"
 }

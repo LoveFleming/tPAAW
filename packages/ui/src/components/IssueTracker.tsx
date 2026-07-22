@@ -18,14 +18,18 @@ import MarkdownText from "./MarkdownText";
 interface Issue {
   id: string;
   title: string;
+  type: "requirement" | "bug" | "security" | "chore";
   status: "open" | "in-progress" | "resolved" | "closed" | "wontfix";
   priority: "critical" | "high" | "medium" | "low";
+  effort: "S" | "M" | "L" | "XL" | null;
   labels: string[];
   assignee: string | null;
   description: string;
   reproduction: string;
   solution: string;
   relatedFiles: string[];
+  notes: { by: string; at: string; content: string }[];
+  nightShiftResult: { summary: string; filesChanged: string[]; success: boolean } | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -40,6 +44,7 @@ interface IssueStats {
   closed: number;
   wontfix: number;
   byPriority: { critical: number; high: number; medium: number; low: number };
+  byType: { requirement: number; bug: number; security: number; chore: number };
 }
 
 interface Props {
@@ -68,7 +73,21 @@ const PRIORITY_STYLES: Record<string, { dot: string; label: string }> = {
   critical: { dot: "#dc2626", label: "Critical" },
   high:     { dot: "#ea580c", label: "High" },
   medium:   { dot: "#facc15", label: "Medium" },
-  low:      { dot: "#22c55e", label: "Low" },
+  low:      { dot: "#78716c", label: "Low" },
+};
+
+const TYPE_STYLES: Record<string, { icon: string; bg: string; text: string; label: string }> = {
+  requirement: { icon: "📋", bg: "#eff6ff", text: "#2563eb", label: "Requirement" },
+  bug:         { icon: "🐛", bg: "#fef2f2", text: "#dc2626", label: "Bug" },
+  security:    { icon: "🔒", bg: "#fdf4ff", text: "#9333ea", label: "Security" },
+  chore:       { icon: "🔧", bg: "#f5f5f4", text: "#78716c", label: "Chore" },
+};
+
+const EFFORT_STYLES: Record<string, { label: string; color: string }> = {
+  S:  { label: "S", color: "#22c55e" },
+  M:  { label: "M", color: "#3b82f6" },
+  L:  { label: "L", color: "#f59e0b" },
+  XL: { label: "XL", color: "#dc2626" },
 };
 
 const STATUS_FILTERS = ["all", "open", "in-progress", "resolved", "closed", "wontfix"];
@@ -84,7 +103,7 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<Issue>>({});
+  const [editForm, setEditForm] = useState<Partial<Issue>>({ type: "requirement" });
 
   const basePath = `${API_BASE}/api/coding-issues?path=${encodeURIComponent(rootPath)}`;
 
@@ -287,6 +306,7 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
             issues.map(issue => {
               const st = STATUS_STYLES[issue.status] || STATUS_STYLES.open;
               const pr = PRIORITY_STYLES[issue.priority] || PRIORITY_STYLES.medium;
+              const ty = TYPE_STYLES[issue.type] || TYPE_STYLES.requirement;
               const isSelected = issue.id === selectedId;
               return (
                 <div
@@ -301,8 +321,11 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
                   onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                 >
                   <div className="flex items-start gap-2">
-                    {/* Priority dot */}
-                    <div className="mt-1 w-2 h-2 rounded-full shrink-0" style={{ background: pr.dot }} />
+                    {/* Type icon + Priority dot */}
+                    <div className="mt-1 shrink-0 flex items-center gap-1">
+                      <span className="text-xs">{ty.icon}</span>
+                      <div className="w-2 h-2 rounded-full" style={{ background: pr.dot }} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <span className="text-xs font-mono shrink-0" style={{ color: theme.text, opacity: 0.5 }}>{issue.id}</span>
@@ -312,6 +335,20 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
                         >
                           {st.label}
                         </span>
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                          style={{ background: ty.bg, color: ty.text }}
+                        >
+                          {ty.label}
+                        </span>
+                        {issue.effort && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0 font-bold" style={{ background: EFFORT_STYLES[issue.effort]?.color + "20", color: EFFORT_STYLES[issue.effort]?.color }}>
+                            {issue.effort}
+                          </span>
+                        )}
+                        {issue.nightShiftResult && (
+                          <span className="text-[10px] shrink-0">{issue.nightShiftResult.success ? "🌙✅" : "🌙❌"}</span>
+                        )}
                       </div>
                       <div className="text-sm font-medium truncate" style={{ color: theme.text }}>
                         {issue.title}
@@ -431,6 +468,28 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
         </div>
       )}
 
+      {/* Type + Effort + Assignee badges */}
+      <div className="flex gap-2 mb-3 flex-wrap">
+        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: (TYPE_STYLES[issue.type] || TYPE_STYLES.requirement).bg, color: (TYPE_STYLES[issue.type] || TYPE_STYLES.requirement).text }}>
+          {(TYPE_STYLES[issue.type] || TYPE_STYLES.requirement).icon} {(TYPE_STYLES[issue.type] || TYPE_STYLES.requirement).label}
+        </span>
+        {issue.effort && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: (EFFORT_STYLES[issue.effort] || EFFORT_STYLES.M).color + "20", color: (EFFORT_STYLES[issue.effort] || EFFORT_STYLES.M).color }}>
+            Effort: {issue.effort}
+          </span>
+        )}
+        {issue.assignee && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>
+            👤 {issue.assignee}
+          </span>
+        )}
+        {issue.nightShiftResult && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#1e1b4b", color: "#c4b5fd" }}>
+            🌙 Night Shift {issue.nightShiftResult.success ? "✅" : "❌"}
+          </span>
+        )}
+      </div>
+
       {/* Description */}
       {issue.description && (
         <div className="mb-4">
@@ -479,6 +538,41 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
           </div>
         </div>
       )}
+
+      {/* Notes (discussion log) */}
+      {Array.isArray(issue.notes) && issue.notes.length > 0 && (
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>{t("issue.notes")}</h3>
+          <div className="flex flex-col gap-2">
+            {issue.notes.map((note, i) => (
+              <div key={i} className="flex gap-2 items-start">
+                <span className="text-xs shrink-0" title={new Date(note.at).toLocaleString()}>
+                  {note.by === "agent" || note.by === "em" ? "🤖" : "👤"}
+                </span>
+                <div className="text-sm flex-1" style={{ color: theme.text }}>
+                  <MarkdownText>{note.content}</MarkdownText>
+                  <div className="text-[10px] mt-0.5" style={{ opacity: 0.4 }}>{new Date(note.at).toLocaleString()}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Night Shift Result */}
+      {issue.nightShiftResult && (
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>🌙 {t("issue.nightShiftResult")}</h3>
+          <div className="p-2 rounded" style={{ background: "#1e1b4b", color: "#c4b5fd" }}>
+            <div className="text-sm">{issue.nightShiftResult.success ? "✅" : "❌"} {issue.nightShiftResult.summary}</div>
+            {issue.nightShiftResult.filesChanged?.length > 0 && (
+              <div className="mt-1 text-xs" style={{ opacity: 0.8 }}>
+                Files: {issue.nightShiftResult.filesChanged.join(", ")}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -518,6 +612,39 @@ function IssueForm({ mode, form, onChange, onSubmit, onCancel, theme, t }: {
           style={inputStyle}
           placeholder={t("issue.titlePlaceholder")}
         />
+      </div>
+
+      {/* Type & Effort */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.typeLabel")}</label>
+          <select
+            value={form.type || "requirement"}
+            onChange={e => set("type", e.target.value)}
+            className="w-full text-sm px-2 py-1.5 rounded border"
+            style={inputStyle}
+          >
+            <option value="requirement">📋 Requirement</option>
+            <option value="bug">🐛 Bug</option>
+            <option value="security">🔒 Security</option>
+            <option value="chore">🔧 Chore</option>
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("issue.effortLabel")}</label>
+          <select
+            value={form.effort || ""}
+            onChange={e => set("effort", e.target.value || null)}
+            className="w-full text-sm px-2 py-1.5 rounded border"
+            style={inputStyle}
+          >
+            <option value="">—</option>
+            <option value="S">S (Small)</option>
+            <option value="M">M (Medium)</option>
+            <option value="L">L (Large)</option>
+            <option value="XL">XL (Extra Large)</option>
+          </select>
+        </div>
       </div>
 
       {/* Status & Priority */}

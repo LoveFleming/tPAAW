@@ -519,5 +519,9 @@
   "nightShift.noReport": "尚無報告",
   "nightShift.noReportHint": "點上方按鈕開始",
   "notes.quickAddToSection": "Add note to this section 此分類新增筆記",
-  "notes.moveToSection": "Change section 切換分類"
+  "notes.moveToSection": "Change section 切換分類",
+  "issue.typeLabel": "Type",
+  "issue.effortLabel": "Effort",
+  "issue.notes": "Discussion",
+  "issue.nightShiftResult": "Night Shift Result"
 }
