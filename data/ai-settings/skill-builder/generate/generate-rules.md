@@ -15,32 +15,40 @@ skill-source.md  ──Build──▶  package/SKILL.md (artifact)  ──Test�
 
 你產出的是**源碼**（@@@ 格式），不是最終 artifact（## 格式）。
 
-## 產出格式規則
+## @@@ 欄位定義
 
-1. **必須使用 @@@section@@@ 格式** — 這是 UI 表單解析用的分隔符號
-2. **固定欄位名稱不可改**：`@@@purpose@@@`、`@@@steps@@@`、`@@@output@@@`、`@@@guardrails@@@`、`@@@validation@@@`、`@@@examples@@@`、`@@@notes@@@`
-3. **id 從使用者的 Skill 名稱推導**，用英文 kebab-case
-4. **根據功能描述推斷合理的 userInputs** — 想想使用者執行時需要填什麼
-5. **每個 Skill 都要有 output_path 欄位**（最後一個 userInput）
+| 欄位 | 必填 | 說明 |
+|------|------|------|
+| `@@@purpose@@@` | ✅ | Skill 的目的 |
+| `@@@steps@@@` | ✅ | 執行步驟（含 Tool Access / Execution Steps / Business Rules / Error Handling） |
+| `@@@output@@@` | ✅ | 輸出格式（含 JSON schema + 輸出模式） |
+| `@@@guardrails@@@` | ✅ | 安全限制 |
+| `@@@validation@@@` | ✅ | 驗證規則 |
+| `@@@examples@@@` | 選填 | 執行範例（input→output 對照） |
+| `@@@build_log@@@` | 選填 | 建構紀錄（人/AI 修改歷程） |
+
+**注意：沒有 `@@@error_handling@@@` 和 `@@@notes@@@`。**
+- Error Handling 是 `@@@steps@@@` 裡的 `### Error Handling` 子標題
+- Notes 改為 `@@@build_log@@@` — 記錄建構過程，不是隨便的備註
+
+## 產出規則
+
+1. **必須使用 @@@section@@@ 格式**
+2. **固定欄位名稱不可改**：purpose、steps、output、guardrails、validation、examples、build_log
+3. **id 用英文 kebab-case**
+4. **根據功能描述推斷合理的 userInputs**
+5. **每個 Skill 都要有 output_path 欄位**
 6. **@@@steps@@@ 必須包含 4 個子標題**：Tool Access、Execution Steps、Business Rules、Error Handling
-7. **Execution Steps 要具體可執行**，像 SOP 一樣，有編號、有子步驟，不要抽象描述
+7. **@@@build_log@@@ 填初始版本紀錄**：`## v1 — 今日 (AI Generate) - 初始產出`
 8. **繁體中文撰寫**，技術術語保留英文
-9. **Output Contract 用 JSON schema 格式**，必須包含「輸出模式：file | display | both」
-10. **Error Handling 至少考慮 2 種失敗情境**
-
-## Output Mode（每個 Skill 必須定義）
-
-| 模式 | 說明 | output_path | 適用場景 |
-|---|---|---|---|
-| `file` | 一定存檔 | required | 報告、筆記、資料處理 |
-| `display` | 只顯示不存檔 | 不需要 | 即時問答、查詢、翻譯預覽 |
-| `both` | 有路徑存檔，沒有則顯示 | optional | 彈性最大，推薦預設 |
+9. **Output Contract 必須包含「輸出模式：file | display | both」**
 
 ## 不要做的事
 
 - ❌ 不要用 `## Purpose` 等 markdown 標題格式（那是 artifact 格式）
+- ❌ 不要用 `@@@error_handling@@@`（已在 steps 裡）
+- ❌ 不要用 `@@@notes@@@`（已改為 `@@@build_log@@@`）
+- ❌ 不要把使用者的功能描述當成 userInputs 的值
 - ❌ 不要加 version 或 runner 欄位（系統自動管理）
-- ❌ 不要在 skill 裡放任何程式碼註解或 TODO
 - ❌ 不要輸出 markdown code fence 包住整份文件
 - ❌ 不要使用任何工具，直接輸出文字
-- ❌ 不要把使用者的功能描述當成 userInputs 的值

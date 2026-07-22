@@ -17,9 +17,8 @@ interface SkillForm {
   runner: "prompt" | "data" | "api" | "script";
   inputs: InputField[];
   purpose: string; steps: string; outputFormat: string;
-  errorHandling: string;
   guardrails: string; validation: string; systemPrompt: string;
-  examples: string; notes: string;
+  examples: string; buildLog: string;
   tags: string; visibility: "private" | "team" | "public";
 }
 
@@ -32,7 +31,7 @@ import API_BASE from "../api";
 
 const EMPTY_FIELD: InputField = { id: "", label: "", description: "", placeholder: "", required: false, multiline: false };
 const DEFAULT_OUTPUT_FIELD: InputField = { id: "output_path", label: "輸出路徑", description: "Skill 執行結果的儲存路徑", placeholder: "例：output/report.html", required: true, multiline: false };
-const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [DEFAULT_OUTPUT_FIELD], purpose: "", steps: "", outputFormat: "", errorHandling: "", guardrails: "", validation: "", systemPrompt: "", examples: "", notes: "", tags: "", visibility: "private" };
+const EMPTY_SKILL: SkillForm = { id: "", name: "", version: "1.0.0", description: "", runner: "prompt", inputs: [DEFAULT_OUTPUT_FIELD], purpose: "", steps: "", outputFormat: "", guardrails: "", validation: "", systemPrompt: "", examples: "", buildLog: "", tags: "", visibility: "private" };
 
 // ── Helpers ──
 function buildPromptFromFields(form: SkillForm): string {
@@ -44,11 +43,10 @@ function buildPromptFromFields(form: SkillForm): string {
   }
   parts.push(`@@@steps@@@\n${form.steps || ""}`);
   parts.push(`@@@output@@@\n${form.outputFormat || ""}`);
-  parts.push(`@@@error_handling@@@\n${form.errorHandling || ""}`);
   parts.push(`@@@guardrails@@@\n${form.guardrails || ""}`);
-  parts.push(`@@@examples@@@\n${form.examples || ""}`);
   parts.push(`@@@validation@@@\n${form.validation || ""}`);
-  parts.push(`@@@notes@@@\n${form.notes || ""}`);
+  parts.push(`@@@examples@@@\n${form.examples || ""}`);
+  parts.push(`@@@build_log@@@\n${form.buildLog || ""}`);
   return parts.join("\n\n");
 }
 
@@ -96,11 +94,13 @@ function parseSkillMd(content: string): SkillForm {
     "@@@inputs@@@": "Inputs",
     "@@@steps@@@": "Steps",
     "@@@output@@@": "Output",
-    "@@@error_handling@@@": "Error_Handling",
     "@@@examples@@@": "Examples",
     "@@@guardrails@@@": "Guardrails",
     "@@@validation@@@": "Validation",
-    "@@@notes@@@": "Notes",
+    "@@@build_log@@@": "Build_Log",
+    // Legacy compat
+    "@@@error_handling@@@": "Error_Handling",
+    "@@@notes@@@": "Build_Log",
   };
   const bodyLines = body.split("\n");
   let currentSection: string | null = null;
@@ -136,7 +136,8 @@ function parseSkillMd(content: string): SkillForm {
       "Guardrails": "Guardrails",
       "Validation": "Validation",
       "Examples": "Examples",
-      "Notes": "Notes",
+      "Build Log": "Build_Log",
+      "Notes": "Build_Log",
     };
     let legacySection: string | null = null;
     let legacyBuffer: string[] = [];
@@ -168,9 +169,13 @@ function parseSkillMd(content: string): SkillForm {
   form.outputFormat = sections.get("Output") || "";
   form.examples = sections.get("Examples") || "";
   form.guardrails = sections.get("Guardrails") || "";
-  form.errorHandling = sections.get("Error_Handling") || "";
   form.validation = sections.get("Validation") || "";
-  form.notes = sections.get("Notes") || "";
+  form.buildLog = sections.get("Build_Log") || "";
+  // Legacy: merge Error_Handling into steps (it's a sub-section of Deterministic Script)
+  const legacyError = sections.get("Error_Handling");
+  if (legacyError && !form.steps.includes("Error Handling")) {
+    form.steps = form.steps + "\n\n### Error Handling\n" + legacyError;
+  }
   return form;
 }
 
@@ -956,20 +961,17 @@ ${userInputLines.join("\n")}
                   <StepCard number={4} icon="📋" title="Output" hint={t("skillBuilder.hintOutput")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.outputFormat} onChange={e => update("outputFormat", e.target.value)} placeholder={t("skillBuilder.outputPlaceholder")} rows={6} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={5} icon="⚠️" title="Error Handling" hint={t("skillBuilder.hintErrorHandling")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.errorHandling} onChange={e => update("errorHandling", e.target.value)} placeholder={t("skillBuilder.errorHandlingPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
-                  </StepCard>
-                  <StepCard number={6} icon="📖" title="Examples" hint={t("skillBuilder.hintExamples")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={5} icon="📖" title="Examples" hint={t("skillBuilder.hintExamples")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.examples} onChange={e => update("examples", e.target.value)} placeholder={t("skillBuilder.examplesPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={7} icon="🛡️" title="Guardrails" hint={t("skillBuilder.hintGuardrails")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={6} icon="🛡️" title="Guardrails" hint={t("skillBuilder.hintGuardrails")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.guardrails} onChange={e => update("guardrails", e.target.value)} placeholder={t("skillBuilder.guardrailsPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={8} icon="✅" title="Validation" hint={t("skillBuilder.hintValidation")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                  <StepCard number={7} icon="✅" title="Validation" hint={t("skillBuilder.hintValidation")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
                     <textarea value={form.validation} onChange={e => update("validation", e.target.value)} placeholder={t("skillBuilder.validationPlaceholder")} rows={5} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
-                  <StepCard number={9} icon="📝" title="Notes" hint={t("skillBuilder.hintNotes")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
-                    <textarea value={form.notes} onChange={e => update("notes", e.target.value)} placeholder={t("skillBuilder.notesPlaceholder")} rows={4} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
+                  <StepCard number={8} icon="🏗️" title="Build Log" hint={t("skillBuilder.hintBuildLog")} accent={accent} accentLight={theme.accentLight} accentBorder={border}>
+                    <textarea value={form.buildLog} onChange={e => update("buildLog", e.target.value)} placeholder={t("skillBuilder.buildLogPlaceholder")} rows={6} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-xl focus:outline-none focus:ring-2 resize-none" style={{ lineHeight: 1.6, "--tw-ring-color": accent + "30" } as React.CSSProperties} />
                   </StepCard>
                   </>
                   )}
