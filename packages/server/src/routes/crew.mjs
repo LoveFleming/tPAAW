@@ -86,6 +86,7 @@ export default async function crewRoute(req, res) {
         maxTurns: effectiveMaxTurns,
         timeout: effectiveTimeout,
         rootDir: PAAW_ROOT,
+        agentId: "skill-test",
         onEvent: (evt) => {
           if (evt.type === "tool_start") sendEvent({ type: "stdout", data: `🔧 ${evt.name}...\n` });
           if (evt.type === "tool_end") sendEvent({ type: "stdout", data: `✅ ${evt.name}: ${evt.result || ""}\n` });
@@ -177,7 +178,7 @@ export default async function crewRoute(req, res) {
         try {
           const agentResult = await runAgentLoop({
             prompt, cwd: workCwd, maxTurns: effectiveMaxTurns, timeout: effectiveTimeout,
-            rootDir: PAAW_ROOT,
+            rootDir: PAAW_ROOT, agentId: "cli-run",
             onEvent: (evt) => {
               if (evt.type === "tool_start") sendSSE({ type: "stdout", data: `🔧 ${evt.name}...\n` });
               if (evt.type === "tool_end") sendSSE({ type: "stdout", data: `✅ ${evt.name}: ${evt.result || ""}\n` });
@@ -193,7 +194,7 @@ export default async function crewRoute(req, res) {
       } else {
         const agentResult = await runAgentLoop({
           prompt, cwd: workCwd, maxTurns: effectiveMaxTurns, timeout: effectiveTimeout,
-          rootDir: PAAW_ROOT,
+          rootDir: PAAW_ROOT, agentId: "cli-run",
         });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, exitCode: agentResult.success ? 0 : 1, output: agentResult.content, stderr: "" }));

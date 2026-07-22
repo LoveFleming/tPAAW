@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-07-22
+### added
+- ---
+id: ai-news-digest
+name: AI News Digest
+description: 摘要指定科技新聞網站當天的重點新聞
+userI (1 new file)
+
+
+
+### changed
+- +40 −1 lines across 3 files
+
+### added
+- 請使用剛 build 好的 Skill（data/skills/building/ai-news-digest/package/SKILL.md）執行以下使用者 (1 new file)
+
+### changed
+- +83 −1 lines across 4 files
+
 ## 2026-07-21
 ### added
 - Phase 4 test
