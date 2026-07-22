@@ -517,5 +517,5 @@
   "issue.typeLabel": "タイプ",
   "issue.effortLabel": "作業量",
   "issue.notes": "ディスカッション",
-  "issue.nightShiftResult": "ナイトシフト結果"
+  "issue.executionResult": "実行結果"
 }

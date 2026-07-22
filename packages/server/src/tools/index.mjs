@@ -532,7 +532,7 @@ async function buildToolDefinitions() {
           priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "新優先級" },
           assignee: { type: "string", description: "新指派對象" },
           note: { type: "string", description: "加入的討論紀錄" },
-          nightShiftResult: { type: "object", description: "夜間執行結果 { summary, filesChanged, success }" },
+          executionResult: { type: "object", description: "EM 派工執行結果 { summary, filesChanged, success }" },
         },
         required: ["id"]
       }
@@ -1289,7 +1289,7 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.task_update = async ({ id, status, priority, assignee, note, nightShiftResult } = {}) => {
+  handlers.task_update = async ({ id, status, priority, assignee, note, executionResult } = {}) => {
     try {
       const workspaces = await loadWorkspaces();
       const projectPath = workspaces.length > 0 ? workspaces[0] : PAAW_ROOT;
@@ -1297,7 +1297,7 @@ function buildHandlers(apps) {
       if (status) updateBody.status = status;
       if (priority) updateBody.priority = priority;
       if (assignee) updateBody.assignee = assignee;
-      if (nightShiftResult) updateBody.nightShiftResult = nightShiftResult;
+      if (executionResult) updateBody.executionResult = executionResult;
 
       // First update the task fields
       if (Object.keys(updateBody).length > 0) {
@@ -1356,7 +1356,7 @@ function buildHandlers(apps) {
         const ti = typeIcon[t.type] || "📋";
         const eff = t.effort ? ` [${t.effort}]` : "";
         const assign = t.assignee ? ` → ${t.assignee}` : "";
-        const nsr = t.nightShiftResult ? (t.nightShiftResult.success ? " 🌙✅" : " 🌙❌") : "";
+        const nsr = t.executionResult ? (t.executionResult.success ? " 🌙✅" : " 🌙❌") : "";
         text += `${si} ${ti} **${t.id}** ${t.title}${eff}${assign}${nsr} (${t.priority})\n`;
       }
       return { text, count: issues.length };

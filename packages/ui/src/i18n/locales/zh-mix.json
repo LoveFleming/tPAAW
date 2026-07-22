@@ -523,5 +523,5 @@
   "issue.typeLabel": "Type",
   "issue.effortLabel": "Effort",
   "issue.notes": "Discussion",
-  "issue.nightShiftResult": "Night Shift Result"
+  "issue.executionResult": "Execution Result"
 }

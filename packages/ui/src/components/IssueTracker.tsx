@@ -29,7 +29,7 @@ interface Issue {
   solution: string;
   relatedFiles: string[];
   notes: { by: string; at: string; content: string }[];
-  nightShiftResult: { summary: string; filesChanged: string[]; success: boolean } | null;
+  executionResult: { summary: string; filesChanged: string[]; success: boolean } | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -346,8 +346,8 @@ export default function IssueTracker({ rootPath, theme, onOpenFile }: Props) {
                             {issue.effort}
                           </span>
                         )}
-                        {issue.nightShiftResult && (
-                          <span className="text-[10px] shrink-0">{issue.nightShiftResult.success ? "🌙✅" : "🌙❌"}</span>
+                        {issue.executionResult && (
+                          <span className="text-[10px] shrink-0">{issue.executionResult.success ? "⚡✅" : "⚡❌"}</span>
                         )}
                       </div>
                       <div className="text-sm font-medium truncate" style={{ color: theme.text }}>
@@ -483,9 +483,9 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
             👤 {issue.assignee}
           </span>
         )}
-        {issue.nightShiftResult && (
+        {issue.executionResult && (
           <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#1e1b4b", color: "#c4b5fd" }}>
-            🌙 Night Shift {issue.nightShiftResult.success ? "✅" : "❌"}
+            ⚡ Execution {issue.executionResult.success ? "✅" : "❌"}
           </span>
         )}
       </div>
@@ -560,14 +560,14 @@ function IssueDetail({ issue, theme, t, onEdit, onDelete, onOpenFile }: {
       )}
 
       {/* Night Shift Result */}
-      {issue.nightShiftResult && (
+      {issue.executionResult && (
         <div className="mb-4">
-          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>🌙 {t("issue.nightShiftResult")}</h3>
+          <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: theme.text, opacity: 0.5 }}>🌙 {t("issue.executionResult")}</h3>
           <div className="p-2 rounded" style={{ background: "#1e1b4b", color: "#c4b5fd" }}>
-            <div className="text-sm">{issue.nightShiftResult.success ? "✅" : "❌"} {issue.nightShiftResult.summary}</div>
-            {issue.nightShiftResult.filesChanged?.length > 0 && (
+            <div className="text-sm">{issue.executionResult.success ? "✅" : "❌"} {issue.executionResult.summary}</div>
+            {issue.executionResult.filesChanged?.length > 0 && (
               <div className="mt-1 text-xs" style={{ opacity: 0.8 }}>
-                Files: {issue.nightShiftResult.filesChanged.join(", ")}
+                Files: {issue.executionResult.filesChanged.join(", ")}
               </div>
             )}
           </div>

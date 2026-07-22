@@ -519,5 +519,5 @@
   "issue.typeLabel": "類型",
   "issue.effortLabel": "工作量",
   "issue.notes": "討論紀錄",
-  "issue.nightShiftResult": "夜間執行結果"
+  "issue.executionResult": "執行結果"
 }

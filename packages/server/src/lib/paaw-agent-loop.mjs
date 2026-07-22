@@ -604,6 +604,9 @@ const TOOL_GROUP_MAP = {
   // Notes
   notes: "notes",
 
+  // Task management
+  task_create: "tasks", task_update: "tasks", task_list: "tasks",
+
   // Docs & CU
   cu_refresh: "docs",
 };
@@ -627,7 +630,7 @@ const AGENT_FALLBACK_GROUPS = {
   // Helpdesk: read-only + project + notes
   helpdesk: ["core-read", "memory", "project", "notes"],
   // EM: read-only + project + project-edit + notes + docs + browser
-  em: ["core-read", "memory", "decisions", "project", "project-edit", "notes", "docs", "browser"],
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "notes", "docs", "browser", "tasks"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
