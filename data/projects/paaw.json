@@ -6,14 +6,14 @@
   "status": "in-progress",
   "startDate": "2026-01-01",
   "targetDate": "2026-12-31",
-  "repo": "https://github.com/LoveFleming/tAgent",
+  "repo": "https://github.com/LoveFleming/tPAAW",
   "dashboard": "",
   "categories": [
     {
       "id": "infrastructure",
       "name": "基礎設施",
       "icon": "🏗️",
-      "description": "LLM retry、路徑系統、安全防護、備份還原",
+      "description": "LLM retry、路徑系統、安全防護、備份還原、跨平台",
       "tasks": [
         {
           "id": "t_mqweppzlo1zf",
@@ -50,10 +50,26 @@
         {
           "id": "t_mqweppzl1mdr",
           "name": "Security Kernel (approval + audit)",
-          "status": "progress",
+          "status": "done",
           "priority": "medium",
           "start": "2026-06-20",
           "end": "2026-07-15"
+        },
+        {
+          "id": "t_inf_win_compat",
+          "name": "Windows 跨平台相容 (fileURLToPath + find + path separator)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-06-10",
+          "end": "2026-07-09"
+        },
+        {
+          "id": "t_inf_ime_compose",
+          "name": "IME 中文輸入 Enter 選字保護 (useRef 三層 fallback)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-04",
+          "end": "2026-07-04"
         }
       ]
     },
@@ -61,7 +77,7 @@
       "id": "skill-system",
       "name": "Skill 系統",
       "icon": "🔨",
-      "description": "技能定義、Skill Builder、測試執行",
+      "description": "技能定義、Skill Builder、測試執行、版本管理",
       "tasks": [
         {
           "id": "t_mqweppzlsc8s",
@@ -96,6 +112,14 @@
           "end": "2026-06-18"
         },
         {
+          "id": "t_skill_cron_exec",
+          "name": "Skill Cron 排程執行",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-06-15",
+          "end": "2026-06-20"
+        },
+        {
           "id": "t_mqweppzlga9z",
           "name": "Skill 版本管理",
           "status": "todo",
@@ -109,7 +133,7 @@
       "id": "app-system",
       "name": "App 系統",
       "icon": "📱",
-      "description": "App Builder、自動註冊為 Chat Tool、雙入口",
+      "description": "App Builder、自動註冊為 Chat Tool、雙入口、API Registry",
       "tasks": [
         {
           "id": "t_mqweppzlmqcz",
@@ -136,12 +160,28 @@
           "end": "2026-06-01"
         },
         {
+          "id": "t_app_api_registry",
+          "name": "API Registry (App 自動生成 REST API)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-05-20",
+          "end": "2026-06-10"
+        },
+        {
+          "id": "t_app_builtin_apps",
+          "name": "內建 App: AI Service Monitor, Bookmarks, Pocket, Demo Prep",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-06-01",
+          "end": "2026-06-20"
+        },
+        {
           "id": "t_mqweppzlml80",
           "name": "App 資料 = AI 記憶",
-          "status": "progress",
+          "status": "done",
           "priority": "high",
           "start": "2026-06-20",
-          "end": "2026-07-30"
+          "end": "2026-07-22"
         },
         {
           "id": "t_mqweppzl0pn3",
@@ -157,7 +197,7 @@
       "id": "chat-assistant",
       "name": "聊天助理",
       "icon": "💬",
-      "description": "Context Engine、Tool Engine、串流回應",
+      "description": "Context Engine、Tool Engine、串流回應、記憶系統",
       "tasks": [
         {
           "id": "t_mqweppzlpz21",
@@ -185,7 +225,7 @@
         },
         {
           "id": "t_mqweppzln3j5",
-          "name": "聊天工具整合",
+          "name": "聊天工具整合 (memory_add/update, cronjob, project_info)",
           "status": "done",
           "priority": "medium",
           "start": "2026-06-20",
@@ -198,6 +238,118 @@
           "priority": "medium",
           "start": "2026-06-25",
           "end": "2026-06-27"
+        },
+        {
+          "id": "t_chat_memory_read",
+          "name": "memory_read tool (讀取 MEMORY.md)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-07-22",
+          "end": "2026-07-22"
+        },
+        {
+          "id": "t_chat_memory_refresh",
+          "name": "記憶即時刷新 (memory_add/update 後自動更新 system prompt)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-07-22",
+          "end": "2026-07-22"
+        },
+        {
+          "id": "t_chat_crew_memory",
+          "name": "Crew/Agent 模式注入 MEMORY.md + 動態 Context",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-07-22",
+          "end": "2026-07-22"
+        }
+      ]
+    },
+    {
+      "id": "coding-ide",
+      "name": "Coding IDE",
+      "icon": "💻",
+      "description": "多 Agent 協作、終端機、Night Shift、A2A Protocol",
+      "tasks": [
+        {
+          "id": "t_mqweppzleomn",
+          "name": "Coding IDE 基礎框架",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-05-25",
+          "end": "2026-06-20"
+        },
+        {
+          "id": "t_ide_multi_agent",
+          "name": "多 Agent 協作 (Architect/Developer/QA/Tester/EM/DocWriter/HelpDesk)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-06-01",
+          "end": "2026-06-25"
+        },
+        {
+          "id": "t_ide_terminal",
+          "name": "內建終端機 (xterm.js + FitAddon)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-06-10",
+          "end": "2026-06-20"
+        },
+        {
+          "id": "t_ide_agent_interrupt",
+          "name": "Agent 中斷機制 (AbortController + interrupt API)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-06-20",
+          "end": "2026-07-01"
+        },
+        {
+          "id": "t_ide_night_shift",
+          "name": "Night Shift 自動化 (排程執行 + 報告)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-06-25",
+          "end": "2026-07-05"
+        },
+        {
+          "id": "t_ide_a2a",
+          "name": "A2A Protocol 支援 (agent-to-agent 溝通)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-07-01",
+          "end": "2026-07-10"
+        },
+        {
+          "id": "t_ide_em_dashboard",
+          "name": "EM 大總管 Dashboard (統一調度)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-07-05",
+          "end": "2026-07-12"
+        },
+        {
+          "id": "t_ide_chat_scroll_fix",
+          "name": "Tab 切換保持聊天滾動位置 (display:none)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-22",
+          "end": "2026-07-22"
+        },
+        {
+          "id": "t_ide_context_window",
+          "name": "Context Window 優化 (token 計算 + 自動裁剪)",
+          "status": "done",
+          "priority": "high",
+          "start": "2026-07-10",
+          "end": "2026-07-15"
+        },
+        {
+          "id": "t_ide_session_history",
+          "name": "Session 歷史對話 (archive/restore)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-08",
+          "end": "2026-07-12"
         }
       ]
     },
@@ -205,7 +357,7 @@
       "id": "builtin-apps",
       "name": "內建應用",
       "icon": "📦",
-      "description": "Notes、Mind Map、Briefing Player、Coding IDE",
+      "description": "Notes、Mind Map、Briefing Player、Project Board、Gantt",
       "tasks": [
         {
           "id": "t_mqweppzl14rs",
@@ -232,28 +384,36 @@
           "end": "2026-05-30"
         },
         {
-          "id": "t_mqweppzleomn",
-          "name": "Coding IDE",
-          "status": "done",
-          "priority": "high",
-          "start": "2026-05-25",
-          "end": "2026-06-20"
-        },
-        {
           "id": "t_mqweppzlp6cn",
           "name": "Project Board (專案看板)",
-          "status": "progress",
+          "status": "done",
           "priority": "high",
           "start": "2026-06-27",
-          "end": "2026-06-30"
+          "end": "2026-07-05"
         },
         {
           "id": "t_mqweppzlnlcm",
           "name": "Gantt Chart 甘特圖",
-          "status": "progress",
+          "status": "done",
           "priority": "medium",
           "start": "2026-06-28",
           "end": "2026-07-05"
+        },
+        {
+          "id": "t_app_cron_jobs_ui",
+          "name": "Cron Jobs 管理頁",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-01",
+          "end": "2026-07-05"
+        },
+        {
+          "id": "t_app_a2a_playground",
+          "name": "A2A Playground 測試頁",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-05",
+          "end": "2026-07-10"
         }
       ]
     },
@@ -261,7 +421,7 @@
       "id": "ai-intelligence",
       "name": "AI 智慧層",
       "icon": "🧠",
-      "description": "AI 蒸餾、知識庫、自動學習",
+      "description": "AI 蒸餾、知識庫、自動學習、LLM Log",
       "tasks": [
         {
           "id": "t_mqweppzlmvdd",
@@ -294,6 +454,30 @@
           "priority": "medium",
           "start": "2026-06-25",
           "end": "2026-06-28"
+        },
+        {
+          "id": "t_ai_llm_logs",
+          "name": "LLM Log 系統 (每次呼叫記錄 model/tokens/cost)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-01",
+          "end": "2026-07-08"
+        },
+        {
+          "id": "t_ai_feature_map",
+          "name": "Feature Map (功能地圖視覺化)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-10",
+          "end": "2026-07-15"
+        },
+        {
+          "id": "t_ai_project_health",
+          "name": "Project Health (專案健康度檢查)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-10",
+          "end": "2026-07-15"
         }
       ]
     },
@@ -301,7 +485,7 @@
       "id": "ui-ux",
       "name": "UI/UX",
       "icon": "🎨",
-      "description": "主題系統、響應式設計、VibeCodingIDE 風格",
+      "description": "主題系統、i18n、響應式、tk token、Model Selector",
       "tasks": [
         {
           "id": "t_mqweppzlk76g",
@@ -321,11 +505,11 @@
         },
         {
           "id": "t_mqweppzltrpl",
-          "name": "i18n 多語系",
+          "name": "i18n 多語系 (zh/en/ja/zh-mix)",
           "status": "done",
           "priority": "low",
           "start": "2026-05-10",
-          "end": "2026-05-20"
+          "end": "2026-07-01"
         },
         {
           "id": "t_mqweppzlh79p",
@@ -334,6 +518,14 @@
           "priority": "low",
           "start": "2026-06-26",
           "end": "2026-06-27"
+        },
+        {
+          "id": "t_ui_model_selector",
+          "name": "Model Selector 元件 (per-feature model 切換)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-06-25",
+          "end": "2026-06-28"
         }
       ]
     },
@@ -341,7 +533,7 @@
       "id": "operations",
       "name": "營運與部署",
       "icon": "🚀",
-      "description": "Cron 排程、系統設定、部署流程",
+      "description": "Cron 排程、系統設定、部署流程、監控",
       "tasks": [
         {
           "id": "t_mqweppzlfnmj",
@@ -368,20 +560,20 @@
           "end": "2026-05-01"
         },
         {
-          "id": "t_mqweppzlx92l",
-          "name": "Windows 跨平台相容",
+          "id": "t_ops_helpdesk",
+          "name": "Help Desk (問題回報 + 知識庫搜尋)",
           "status": "done",
           "priority": "medium",
-          "start": "2026-06-10",
-          "end": "2026-06-20"
+          "start": "2026-07-01",
+          "end": "2026-07-08"
         },
         {
-          "id": "t_mqweppzlh3g2",
-          "name": "Docker 容器化部署",
-          "status": "todo",
-          "priority": "low",
-          "start": "",
-          "end": ""
+          "id": "t_ops_monitoring",
+          "name": "Monitoring 監控頁 (AI Service 狀態)",
+          "status": "done",
+          "priority": "medium",
+          "start": "2026-07-05",
+          "end": "2026-07-10"
         }
       ]
     }
@@ -410,9 +602,16 @@
     },
     {
       "id": "m_mqweppzl3rdb",
-      "name": "PAAW v1.0 — 正式發布",
+      "name": "PAAW v0.9 — AI 協作引擎",
+      "status": "done",
+      "note": "多 Agent 協作 + A2A + Night Shift + EM 大總管 + 記憶系統 + Context Window 優化",
+      "date": "2026-07"
+    },
+    {
+      "id": "m_v1_gateway",
+      "name": "PAAW v1.0 — Gateway 正式版",
       "status": "progress",
-      "note": "Project Board + Gantt + 安裝包",
+      "note": "PAAW Gateway 架構重構 + UI for 更新/升級 + Agent 中斷強化 (tool-level abort) + Docker 容器化 + 安裝包",
       "date": "2026-09"
     },
     {
@@ -431,5 +630,5 @@
     }
   ],
   "createdAt": "2026-06-27T13:39:43.185Z",
-  "updatedAt": "2026-06-27T13:39:43.185Z"
+  "updatedAt": "2026-07-22T13:17:00.000Z"
 }
