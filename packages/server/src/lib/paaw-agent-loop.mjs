@@ -1986,6 +1986,27 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
 
 // ── System Prompt Assembly ──
 
+/** Refresh dynamic context (MEMORY.md) in messages[0] after memory changes */
+function refreshDynamicContext(messages) {
+  if (!messages[0] || messages[0].role !== "system") return;
+  try {
+    const MEMORY_FILE = resolve(_PAAW_ROOT, "data/config/MEMORY.md");
+    let mem = "";
+    try { mem = readSync(MEMORY_FILE, "utf-8"); } catch {}
+    const marker = "=== 長期記憶 (MEMORY.md) ===";
+    const content = messages[0].content;
+    const idx = content.indexOf(marker);
+    if (idx === -1) return; // no memory section in system prompt
+    // Find the next === section after memory
+    const afterMarker = content.indexOf("\n=== ", idx + marker.length);
+    const before = content.slice(0, idx);
+    const after = afterMarker === -1 ? "" : content.slice(afterMarker);
+    messages[0].content = before + marker + "\n" + (mem || "(記憶是空白的)") + "\n" + after;
+  } catch (err) {
+    console.warn("[AgentLoop] Failed to refresh dynamic context:", err.message);
+  }
+}
+
 function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) {
   const parts = [];
 
@@ -2200,6 +2221,11 @@ export async function runAgentLoop(config) {
         tool_call_id: call.id,
         content: toolResult,
       });
+
+      // Refresh system prompt dynamic context after memory changes
+      if (call.function.name === "memory_add" || call.function.name === "memory_update") {
+        refreshDynamicContext(messages);
+      }
     }
   }
 
@@ -2483,6 +2509,11 @@ export async function runAgentLoopStream(config, res) {
           const normP = p.replace(cwd + "/", "").replace(cwd + "\\", "").replace(/^\//, "");
           if (normP) streamModifiedFiles.add(normP);
         } catch {}
+      }
+
+      // Refresh system prompt dynamic context after memory changes
+      if (call.function.name === "memory_add" || call.function.name === "memory_update") {
+        refreshDynamicContext(messages);
       }
 
       messages.push({
