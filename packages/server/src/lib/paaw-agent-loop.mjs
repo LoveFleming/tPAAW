@@ -112,16 +112,28 @@ export function resolveLLMConfig(_rootDir, modelOverride) {
     headers["X-Title"] = "PAAW";
   }
 
-  // Build fallback chain: zai → openrouter → deepseek
+  // Build fallback chain from providers.json fallbacks (if configured)
+  // Format: [{ provider: "openrouter", model: "z-ai/glm-5.1" }, { provider: "openrouter", model: "deepseek/deepseek-v4-flash" }]
   const fallbacks = [];
-  if (providerId !== "openrouter" && config.providers.openrouter) {
-    const orP = config.providers.openrouter;
-    const orHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${orP.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" };
-    fallbacks.push({ providerId: "openrouter", apiUrl: `${orP.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: orHeaders, model: `z-ai/${model}` });
+  const configuredFallbacks = config.fallbacks || [];
+  for (const fb of configuredFallbacks) {
+    const fbProvider = config.providers[fb.provider];
+    if (!fbProvider) continue; // skip if provider doesn't exist in config
+    const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
+    if (fb.provider === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
+    fallbacks.push({ providerId: fb.provider, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fb.model, contextWindow: DEFAULT_CONTEXT_WINDOW });
   }
-  if (providerId !== "deepseek" && config.providers.openrouter) {
-    // Use openrouter deepseek as last fallback
-    fallbacks.push({ providerId: "openrouter", apiUrl: `${config.providers.openrouter.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.providers.openrouter.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }, model: "deepseek/deepseek-v4-flash" });
+
+  // Hardcoded fallback only if no configured fallbacks exist (backward compat)
+  if (fallbacks.length === 0) {
+    if (providerId !== "openrouter" && config.providers.openrouter) {
+      const orP = config.providers.openrouter;
+      const orHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${orP.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" };
+      fallbacks.push({ providerId: "openrouter", apiUrl: `${orP.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: orHeaders, model: `z-ai/${model}` });
+    }
+    if (providerId !== "deepseek" && config.providers.openrouter) {
+      fallbacks.push({ providerId: "openrouter", apiUrl: `${config.providers.openrouter.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.providers.openrouter.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }, model: "deepseek/deepseek-v4-flash" });
+    }
   }
 
   // Get model's context window
