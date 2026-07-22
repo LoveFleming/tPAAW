@@ -519,5 +519,7 @@
   "issue.typeLabel": "類型",
   "issue.effortLabel": "工作量",
   "issue.notes": "討論紀錄",
-  "issue.executionResult": "執行結果"
+  "issue.executionResult": "執行結果",
+  "issue.decompose": "拆分",
+  "issue.decomposeTitle": "拆分任務"
 }

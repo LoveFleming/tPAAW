@@ -517,5 +517,7 @@
   "issue.typeLabel": "タイプ",
   "issue.effortLabel": "作業量",
   "issue.notes": "ディスカッション",
-  "issue.executionResult": "実行結果"
+  "issue.executionResult": "実行結果",
+  "issue.decompose": "分割",
+  "issue.decomposeTitle": "タスク分解"
 }

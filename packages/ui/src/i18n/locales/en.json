@@ -519,5 +519,7 @@
   "issue.typeLabel": "Type",
   "issue.effortLabel": "Effort",
   "issue.notes": "Discussion",
-  "issue.executionResult": "Execution Result"
+  "issue.executionResult": "Execution Result",
+  "issue.decompose": "Split",
+  "issue.decomposeTitle": "Decompose Task"
 }
