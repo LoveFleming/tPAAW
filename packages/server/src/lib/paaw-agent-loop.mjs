@@ -162,15 +162,19 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
     }
   }
 
-  // 3. Hardcoded fallback (backward compat — only if nothing else provided)
+  // 3. Auto-build fallback from other providers' model lists (only if nothing else provided)
+  // Uses each provider's first model — never references a model name not in that provider's list
   if (fallbacks.length === 0) {
-    if (providerId !== "openrouter" && config.providers.openrouter) {
-      const orP = config.providers.openrouter;
-      const orHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${orP.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" };
-      fallbacks.push({ providerId: "openrouter", apiUrl: `${orP.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: orHeaders, model: `z-ai/${model}` });
-    }
-    if (providerId !== "deepseek" && config.providers.openrouter) {
-      fallbacks.push({ providerId: "openrouter", apiUrl: `${config.providers.openrouter.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.providers.openrouter.apiKey}`, "HTTP-Referer": "https://paaw.ai", "X-Title": "PAAW" }, model: "deepseek/deepseek-v4-flash" });
+    for (const [pid, p] of Object.entries(config.providers)) {
+      if (pid === providerId) continue; // skip active provider
+      const pModels = p.models || [];
+      if (pModels.length === 0) continue;
+      const firstModel = pModels[0];
+      const fbModelId = typeof firstModel === "string" ? firstModel : firstModel.id;
+      if (!fbModelId) continue;
+      const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` };
+      if (pid === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
+      fallbacks.push({ providerId: pid, apiUrl: `${p.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW });
     }
   }
 
