@@ -71,3 +71,4 @@ test-results/
 playwright-report/
 playwright/.cache/
 temp/
+data/tools/*/config.json
