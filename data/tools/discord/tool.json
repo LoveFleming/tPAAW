@@ -4,10 +4,19 @@
   "parameters": {
     "type": "object",
     "properties": {
-      "channel": { "type": "string", "description": "頻道 ID" },
-      "message": { "type": "string", "description": "訊息內容" }
+      "channel": {
+        "type": "string",
+        "description": "頻道 ID"
+      },
+      "message": {
+        "type": "string",
+        "description": "訊息內容"
+      }
     },
-    "required": ["channel", "message"]
+    "required": [
+      "channel",
+      "message"
+    ]
   },
   "runner": "api",
   "api": {
@@ -20,5 +29,7 @@
     "body": {
       "content": "{{message}}"
     }
-  }
+  },
+  "enabled": true,
+  "updatedAt": "2026-07-23T13:10:50.849Z"
 }

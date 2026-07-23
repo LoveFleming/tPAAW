@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../utils";
 import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
-import AgentConsole, { AgentConsoleHandle } from "../components/AgentConsole";
+
 import API from "../api";
-import ModelSelector from "../components/ModelSelector";
 
 // ── Types ──
 type Step = 1 | 2 | 3;
@@ -34,24 +33,14 @@ interface ToolTemplate {
   toolDef: Record<string, any>;
 }
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  ts: number;
-}
-
 // ── Main Component ──
 export default function ToolBuilder() {
   const { t } = useI18n();
-  const themeInfo = useTheme();
-  const accent = themeInfo.accent;
-  const accentBg = themeInfo.accentBg;
+  const { info: ti } = useTheme();
 
   const [step, setStep] = useState<Step>(1);
   const [tools, setTools] = useState<ToolProvider[]>([]);
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Step 2 form
@@ -67,24 +56,20 @@ export default function ToolBuilder() {
 
   // Manager
   const [showManager, setShowManager] = useState(false);
-  const [editingTool, setEditingTool] = useState<ToolProvider | null>(null);
   const [testingTool, setTestingTool] = useState<string | null>(null);
   const [testParams, setTestParams] = useState<Record<string, any>>({});
   const [testResult, setTestResult] = useState<any>(null);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [configToolId, setConfigToolId] = useState<string | null>(null);
-
-  // AI Console
-  const consoleRef = useRef<AgentConsoleHandle>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [selectedModel, setSelectedModel] = useState("");
+  const [configToolName, setConfigToolName] = useState("");
 
   // ── Load tools & templates ──
   const loadTools = useCallback(async () => {
     try {
-      const res = await API.get("/api/tools");
-      setTools(res.tools || []);
+      const res = await fetch(`${API}/api/tools`);
+      const data = await res.json();
+      setTools(data.tools || []);
     } catch (err) {
       console.error("Failed to load tools:", err);
     }
@@ -92,8 +77,9 @@ export default function ToolBuilder() {
 
   const loadTemplates = useCallback(async () => {
     try {
-      const res = await API.get("/api/tools/templates");
-      setTemplates(res.templates || []);
+      const res = await fetch(`${API}/api/tools/templates`);
+      const data = await res.json();
+      setTemplates(data.templates || []);
     } catch (err) {
       console.error("Failed to load templates:", err);
     }
@@ -106,7 +92,6 @@ export default function ToolBuilder() {
 
   // ── Template selection ──
   const handleSelectTemplate = (templateId: string) => {
-    setSelectedTemplate(templateId);
     const tmpl = templates.find(t => t.id === templateId);
     if (tmpl) {
       setToolId(tmpl.id);
@@ -127,17 +112,26 @@ export default function ToolBuilder() {
     if (!toolId || !toolName) return;
     setLoading(true);
     try {
-      await API.post("/api/tools", {
-        id: toolId,
-        name: toolName,
-        description: toolDesc,
-        runner: toolRunner,
-        parameters: toolParams,
-        api: toolRunner === "api" ? toolApi : undefined,
-        config: toolConfig,
-        icon: toolIcon,
-        tags: toolTags,
+      const res = await fetch(`${API}/api/tools`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: toolId,
+          name: toolName,
+          description: toolDesc,
+          runner: toolRunner,
+          parameters: toolParams,
+          api: toolRunner === "api" ? toolApi : undefined,
+          config: toolConfig,
+          icon: toolIcon,
+          tags: toolTags,
+        }),
       });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(t("toolBuilder.createFailed", "建立失敗") + ": " + (data.error || ""));
+        return;
+      }
       await loadTools();
       setStep(3);
     } catch (err: any) {
@@ -148,9 +142,9 @@ export default function ToolBuilder() {
   };
 
   // ── Toggle enable/disable ──
-  const handleToggle = async (toolId: string) => {
+  const handleToggle = async (tid: string) => {
     try {
-      await API.post(`/api/tools/${toolId}/toggle`);
+      await fetch(`${API}/api/tools/${tid}/toggle`, { method: "POST" });
       await loadTools();
     } catch (err) {
       console.error("Toggle failed:", err);
@@ -158,10 +152,10 @@ export default function ToolBuilder() {
   };
 
   // ── Delete tool ──
-  const handleDelete = async (toolId: string) => {
+  const handleDelete = async (tid: string) => {
     if (!confirm(t("toolBuilder.confirmDelete", "確定要刪除這個 Tool 嗎？"))) return;
     try {
-      await API.delete(`/api/tools/${toolId}`);
+      await fetch(`${API}/api/tools/${tid}`, { method: "DELETE" });
       await loadTools();
     } catch (err) {
       console.error("Delete failed:", err);
@@ -169,12 +163,17 @@ export default function ToolBuilder() {
   };
 
   // ── Test tool ──
-  const handleTest = async (toolId: string) => {
-    setTestingTool(toolId);
+  const handleTest = async (tid: string) => {
+    setTestingTool(tid);
     setTestResult(null);
     try {
-      const res = await API.post(`/api/tools/${toolId}/test`, { params: testParams });
-      setTestResult(res);
+      const res = await fetch(`${API}/api/tools/${tid}/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ params: testParams }),
+      });
+      const data = await res.json();
+      setTestResult(data);
     } catch (err: any) {
       setTestResult({ ok: false, error: err.message });
     }
@@ -184,7 +183,11 @@ export default function ToolBuilder() {
   const handleSaveConfig = async () => {
     if (!configToolId) return;
     try {
-      await API.put(`/api/tools/${configToolId}/config`, configValues);
+      await fetch(`${API}/api/tools/${configToolId}/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(configValues),
+      });
       setShowConfigModal(false);
       setConfigToolId(null);
       await loadTools();
@@ -196,12 +199,23 @@ export default function ToolBuilder() {
   // ── Open config modal ──
   const openConfigModal = (tool: ToolProvider) => {
     setConfigToolId(tool.id);
-    // Load current config values
-    API.get(`/api/tools/${tool.id}`).then((detail: any) => {
-      const currentConfig = detail.config || {};
-      setConfigValues(currentConfig);
-      setShowConfigModal(true);
-    });
+    setConfigToolName(tool.name);
+    fetch(`${API}/api/tools/${tool.id}`)
+      .then(r => r.json())
+      .then((detail: any) => {
+        // Config values from detail (unmasked by server for editing)
+        const vals: Record<string, string> = {};
+        const schema = detail.configSchema || tool.configSchema;
+        for (const key of Object.keys(schema)) {
+          vals[key] = detail.config?.[key] || "";
+        }
+        setConfigValues(vals);
+        setShowConfigModal(true);
+      })
+      .catch(() => {
+        setConfigValues({});
+        setShowConfigModal(true);
+      });
   };
 
   // ── Step indicator ──
@@ -213,12 +227,12 @@ export default function ToolBuilder() {
 
   // ── Render ──
   return (
-    <div className="flex flex-col h-full" style={{ background: themeInfo.bg }}>
+    <div className="flex flex-col h-full bg-stone-50 dark:bg-stone-950">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: themeInfo.border }}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-stone-200 dark:border-stone-800">
         <div className="flex items-center gap-3">
           <span className="text-xl">🔧</span>
-          <h2 className="text-lg font-semibold" style={{ color: themeInfo.fg }}>
+          <h2 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
             {t("toolBuilder.title", "Tool Builder")}
           </h2>
         </div>
@@ -226,18 +240,17 @@ export default function ToolBuilder() {
           <button
             className={cn("px-3 py-1.5 text-sm rounded-md border transition-colors", showManager ? "font-semibold" : "")}
             style={{
-              background: showManager ? accentBg : "transparent",
-              color: showManager ? accent : themeInfo.fgMuted,
-              borderColor: showManager ? accent : themeInfo.border,
+              background: showManager ? ti.accentBg : "transparent",
+              color: showManager ? ti.accent : "#78716c",
+              borderColor: showManager ? ti.accent : "#d6d3d1",
             }}
             onClick={() => setShowManager(!showManager)}
           >
             {t("toolBuilder.manager", "管理 Tools")}
           </button>
           <button
-            className="px-3 py-1.5 text-sm rounded-md border transition-colors"
-            style={{ background: "transparent", color: themeInfo.fgMuted, borderColor: themeInfo.border }}
-            onClick={() => { setShowManager(false); setStep(1); setSelectedTemplate(null); }}
+            className="px-3 py-1.5 text-sm rounded-md border transition-colors bg-transparent text-stone-500 border-stone-300 hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900"
+            onClick={() => { setShowManager(false); setStep(1); setToolId(""); setToolName(""); }}
           >
             + {t("toolBuilder.newTool", "新增 Tool")}
           </button>
@@ -258,33 +271,31 @@ export default function ToolBuilder() {
           testResult={testResult}
           setTestResult={setTestResult}
           t={t}
-          themeInfo={themeInfo}
-          accent={accent}
-          accentBg={accentBg}
+          ti={ti}
         />
       ) : (
         /* ── Tool Builder Steps ── */
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Step indicator */}
-          <div className="flex items-center gap-2 px-6 py-3 border-b" style={{ borderColor: themeInfo.border }}>
+          <div className="flex items-center gap-2 px-6 py-3 border-b border-stone-200 dark:border-stone-800">
             {steps.map((s, i) => (
               <React.Fragment key={s.n}>
                 <div className="flex items-center gap-2">
                   <div
-                    className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold", step >= s.n ? "" : "")}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                     style={{
-                      background: step >= s.n ? accent : themeInfo.bgSubtle,
-                      color: step >= s.n ? "#fff" : themeInfo.fgMuted,
+                      background: step >= s.n ? ti.accent : "#e7e5e4",
+                      color: step >= s.n ? "#fff" : "#a8a29e",
                     }}
                   >
                     {step > s.n ? "✓" : s.n}
                   </div>
-                  <span className="text-sm" style={{ color: step >= s.n ? themeInfo.fg : themeInfo.fgMuted }}>
+                  <span className="text-sm text-stone-700 dark:text-stone-300">
                     {s.label}
                   </span>
                 </div>
                 {i < steps.length - 1 && (
-                  <div className="flex-1 h-px mx-2" style={{ background: step > s.n ? accent : themeInfo.border }} />
+                  <div className="flex-1 h-px mx-2" style={{ background: step > s.n ? ti.accent : "#d6d3d1" }} />
                 )}
               </React.Fragment>
             ))}
@@ -294,24 +305,19 @@ export default function ToolBuilder() {
           <div className="flex-1 overflow-auto">
             {step === 1 && (
               <div className="p-6 max-w-3xl mx-auto">
-                <h3 className="text-base font-semibold mb-4" style={{ color: themeInfo.fg }}>
+                <h3 className="text-base font-semibold mb-4 text-stone-900 dark:text-stone-100">
                   {t("toolBuilder.selectService", "選擇要連接的服務")}
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {templates.map(tmpl => (
                     <button
                       key={tmpl.id}
-                      className="flex flex-col items-start p-4 rounded-lg border transition-all hover:shadow-md"
-                      style={{
-                        background: selectedTemplate === tmpl.id ? accentBg : themeInfo.cardBg,
-                        borderColor: selectedTemplate === tmpl.id ? accent : themeInfo.border,
-                        color: themeInfo.fg,
-                      }}
+                      className="flex flex-col items-start p-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 hover:shadow-md transition-all"
                       onClick={() => handleSelectTemplate(tmpl.id)}
                     >
                       <span className="text-2xl mb-2">{tmpl.icon}</span>
-                      <span className="font-semibold text-sm">{tmpl.name}</span>
-                      <span className="text-xs mt-1" style={{ color: themeInfo.fgMuted }}>{tmpl.description}</span>
+                      <span className="font-semibold text-sm text-stone-900 dark:text-stone-100">{tmpl.name}</span>
+                      <span className="text-xs mt-1 text-stone-500 dark:text-stone-400">{tmpl.description}</span>
                     </button>
                   ))}
                 </div>
@@ -320,39 +326,36 @@ export default function ToolBuilder() {
 
             {step === 2 && (
               <div className="p-6 max-w-3xl mx-auto space-y-4">
-                <h3 className="text-base font-semibold" style={{ color: themeInfo.fg }}>
+                <h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
                   {t("toolBuilder.configureTool", "設定 Tool")}
                 </h3>
 
                 {/* Basic info */}
-                <div className="space-y-3 p-4 rounded-lg border" style={{ background: themeInfo.cardBg, borderColor: themeInfo.border }}>
-                  <label className="block text-sm font-medium" style={{ color: themeInfo.fg }}>
+                <div className="space-y-3 p-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900">
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                     {t("toolBuilder.toolId", "Tool ID")}
                     <input
-                      className="mt-1 block w-full px-3 py-2 rounded-md border text-sm"
-                      style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                      className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                       value={toolId}
                       onChange={e => setToolId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "-"))}
                       placeholder="例：discord"
                     />
                   </label>
 
-                  <label className="block text-sm font-medium" style={{ color: themeInfo.fg }}>
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                     {t("toolBuilder.toolName", "Tool 名稱")}
                     <input
-                      className="mt-1 block w-full px-3 py-2 rounded-md border text-sm"
-                      style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                      className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                       value={toolName}
                       onChange={e => setToolName(e.target.value)}
                       placeholder="例：discord_send"
                     />
                   </label>
 
-                  <label className="block text-sm font-medium" style={{ color: themeInfo.fg }}>
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                     {t("toolBuilder.description", "描述")}
                     <textarea
-                      className="mt-1 block w-full px-3 py-2 rounded-md border text-sm"
-                      style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                      className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                       value={toolDesc}
                       onChange={e => setToolDesc(e.target.value)}
                       rows={2}
@@ -360,45 +363,38 @@ export default function ToolBuilder() {
                     />
                   </label>
 
-                  <label className="block text-sm font-medium" style={{ color: themeInfo.fg }}>
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                     {t("toolBuilder.icon", "圖示")}
                     <input
-                      className="mt-1 block w-16 px-3 py-2 rounded-md border text-sm text-center"
-                      style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                      className="mt-1 block w-16 px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm text-center bg-stone-50 dark:bg-stone-800"
                       value={toolIcon}
                       onChange={e => setToolIcon(e.target.value)}
                     />
                   </label>
                 </div>
 
-                {/* API config (runner=api) */}
+                {/* API config */}
                 {toolRunner === "api" && (
-                  <div className="space-y-3 p-4 rounded-lg border" style={{ background: themeInfo.cardBg, borderColor: themeInfo.border }}>
-                    <h4 className="text-sm font-semibold" style={{ color: themeInfo.fg }}>
+                  <div className="space-y-3 p-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900">
+                    <h4 className="text-sm font-semibold text-stone-700 dark:text-stone-300">
                       {t("toolBuilder.apiConfig", "API 設定")}
                     </h4>
 
                     <div className="grid grid-cols-4 gap-3">
-                      <label className="col-span-1 text-sm font-medium" style={{ color: themeInfo.fg }}>
+                      <label className="col-span-1 text-sm font-medium text-stone-700 dark:text-stone-300">
                         Method
                         <select
-                          className="mt-1 block w-full px-2 py-2 rounded-md border text-sm"
-                          style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                          className="mt-1 block w-full px-2 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                           value={toolApi.method}
                           onChange={e => setToolApi({ ...toolApi, method: e.target.value })}
                         >
-                          <option>GET</option>
-                          <option>POST</option>
-                          <option>PUT</option>
-                          <option>PATCH</option>
-                          <option>DELETE</option>
+                          <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
                         </select>
                       </label>
-                      <label className="col-span-3 text-sm font-medium" style={{ color: themeInfo.fg }}>
+                      <label className="col-span-3 text-sm font-medium text-stone-700 dark:text-stone-300">
                         URL
                         <input
-                          className="mt-1 block w-full px-3 py-2 rounded-md border text-sm font-mono"
-                          style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                          className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                           value={toolApi.url}
                           onChange={e => setToolApi({ ...toolApi, url: e.target.value })}
                           placeholder="https://api.example.com/endpoint/{{param}}"
@@ -406,42 +402,39 @@ export default function ToolBuilder() {
                       </label>
                     </div>
 
-                    <label className="block text-sm font-medium" style={{ color: themeInfo.fg }}>
+                    <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                       Headers (JSON)
                       <textarea
-                        className="mt-1 block w-full px-3 py-2 rounded-md border text-sm font-mono"
-                        style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                        className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                         value={JSON.stringify(toolApi.headers, null, 2)}
                         onChange={e => { try { setToolApi({ ...toolApi, headers: JSON.parse(e.target.value) }); } catch {} }}
                         rows={4}
                       />
                     </label>
 
-                    <label className="block text-sm font-medium" style={{ color: themeInfo.fg }}>
+                    <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
                       Body (JSON)
                       <textarea
-                        className="mt-1 block w-full px-3 py-2 rounded-md border text-sm font-mono"
-                        style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                        className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                         value={JSON.stringify(toolApi.body, null, 2)}
                         onChange={e => { try { setToolApi({ ...toolApi, body: JSON.parse(e.target.value) }); } catch {} }}
                         rows={4}
                       />
                     </label>
 
-                    <p className="text-xs" style={{ color: themeInfo.fgMuted }}>
+                    <p className="text-xs text-stone-500">
                       {t("toolBuilder.templateHint", "用 {{參數名}} 代表 LLM 傳入的參數，用 {{…configKey}} 代表 config.json 裡的值")}
                     </p>
                   </div>
                 )}
 
                 {/* Config schema */}
-                <div className="space-y-3 p-4 rounded-lg border" style={{ background: themeInfo.cardBg, borderColor: themeInfo.border }}>
-                  <h4 className="text-sm font-semibold" style={{ color: themeInfo.fg }}>
+                <div className="space-y-3 p-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900">
+                  <h4 className="text-sm font-semibold text-stone-700 dark:text-stone-300">
                     {t("toolBuilder.configSchema", "Config 設定（API Key 等）")}
                   </h4>
                   <textarea
-                    className="block w-full px-3 py-2 rounded-md border text-sm font-mono"
-                    style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                    className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                     value={JSON.stringify(toolConfig, null, 2)}
                     onChange={e => { try { setToolConfig(JSON.parse(e.target.value)); } catch {} }}
                     rows={6}
@@ -450,13 +443,12 @@ export default function ToolBuilder() {
                 </div>
 
                 {/* Parameters schema */}
-                <div className="space-y-3 p-4 rounded-lg border" style={{ background: themeInfo.cardBg, borderColor: themeInfo.border }}>
-                  <h4 className="text-sm font-semibold" style={{ color: themeInfo.fg }}>
+                <div className="space-y-3 p-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900">
+                  <h4 className="text-sm font-semibold text-stone-700 dark:text-stone-300">
                     {t("toolBuilder.parameters", "參數定義")}
                   </h4>
                   <textarea
-                    className="block w-full px-3 py-2 rounded-md border text-sm font-mono"
-                    style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+                    className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
                     value={JSON.stringify(toolParams, null, 2)}
                     onChange={e => { try { setToolParams(JSON.parse(e.target.value)); } catch {} }}
                     rows={6}
@@ -466,15 +458,14 @@ export default function ToolBuilder() {
                 {/* Actions */}
                 <div className="flex items-center gap-3 pt-2">
                   <button
-                    className="px-4 py-2 rounded-md text-sm font-semibold transition-colors"
-                    style={{ background: themeInfo.bgSubtle, color: themeInfo.fgMuted }}
+                    className="px-4 py-2 rounded-md text-sm font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 transition-colors"
                     onClick={() => setStep(1)}
                   >
                     ← {t("toolBuilder.back", "上一步")}
                   </button>
                   <button
-                    className={cn("px-6 py-2 rounded-md text-sm font-semibold transition-colors", loading && "opacity-50 cursor-not-allowed")}
-                    style={{ background: accent, color: "#fff" }}
+                    className={cn("px-6 py-2 rounded-md text-sm font-semibold text-white transition-colors", loading && "opacity-50 cursor-not-allowed")}
+                    style={{ background: ti.accent }}
                     onClick={handleCreate}
                     disabled={loading}
                   >
@@ -487,24 +478,23 @@ export default function ToolBuilder() {
             {step === 3 && (
               <div className="p-6 max-w-2xl mx-auto text-center">
                 <div className="text-5xl mb-4">✅</div>
-                <h3 className="text-lg font-semibold mb-2" style={{ color: themeInfo.fg }}>
+                <h3 className="text-lg font-semibold mb-2 text-stone-900 dark:text-stone-100">
                   {t("toolBuilder.created", "Tool 已建立！")}
                 </h3>
-                <p className="text-sm mb-6" style={{ color: themeInfo.fgMuted }}>
+                <p className="text-sm mb-6 text-stone-500">
                   {t("toolBuilder.createdHint", "請在管理頁面填入 API Token 等設定值")}
                 </p>
                 <div className="flex items-center justify-center gap-3">
                   <button
-                    className="px-4 py-2 rounded-md text-sm font-semibold"
-                    style={{ background: accent, color: "#fff" }}
-                    onClick={() => { setShowManager(true); }}
+                    className="px-4 py-2 rounded-md text-sm font-semibold text-white"
+                    style={{ background: ti.accent }}
+                    onClick={() => setShowManager(true)}
                   >
                     {t("toolBuilder.goConfig", "前往設定")}
                   </button>
                   <button
-                    className="px-4 py-2 rounded-md text-sm"
-                    style={{ background: themeInfo.bgSubtle, color: themeInfo.fgMuted }}
-                    onClick={() => { setStep(1); setSelectedTemplate(null); setToolId(""); setToolName(""); }}
+                    className="px-4 py-2 rounded-md text-sm text-stone-500 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 transition-colors"
+                    onClick={() => { setStep(1); setToolId(""); setToolName(""); }}
                   >
                     {t("toolBuilder.createAnother", "再建一個")}
                   </button>
@@ -517,39 +507,38 @@ export default function ToolBuilder() {
 
       {/* Config Modal */}
       {showConfigModal && configToolId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
-          <div className="w-full max-w-md p-6 rounded-xl shadow-2xl" style={{ background: themeInfo.cardBg, color: themeInfo.fg }}>
-            <h3 className="text-base font-semibold mb-4">
-              ⚙️ {t("toolBuilder.configTitle", "設定")} — {configToolId}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowConfigModal(false)}>
+          <div
+            className="w-full max-w-md p-6 rounded-xl shadow-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold mb-4 text-stone-900 dark:text-stone-100">
+              ⚙️ {t("toolBuilder.configTitle", "設定")} — {configToolName}
             </h3>
-            {Object.entries(configValues).map(([key, val]) => (
+            {Object.entries(configValues).map(([key]) => (
               <label key={key} className="block mb-3">
-                <span className="text-sm font-medium">{key}</span>
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-300">{key}</span>
                 <input
-                  className="mt-1 block w-full px-3 py-2 rounded-md border text-sm"
-                  style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
-                  type={typeof val === "string" && val.length > 20 ? "password" : "text"}
+                  className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
+                  type="password"
                   value={configValues[key] || ""}
                   onChange={e => setConfigValues({ ...configValues, [key]: e.target.value })}
                 />
               </label>
             ))}
             {Object.keys(configValues).length === 0 && (
-              <p className="text-sm" style={{ color: themeInfo.fgMuted }}>
-                {t("toolBuilder.noConfig", "這個 Tool 不需要額外設定")}
-              </p>
+              <p className="text-sm text-stone-500">{t("toolBuilder.noConfig", "這個 Tool 不需要額外設定")}</p>
             )}
             <div className="flex items-center gap-3 mt-6">
               <button
-                className="px-4 py-2 rounded-md text-sm font-semibold"
-                style={{ background: accent, color: "#fff" }}
+                className="px-4 py-2 rounded-md text-sm font-semibold text-white"
+                style={{ background: ti.accent }}
                 onClick={handleSaveConfig}
               >
                 {t("toolBuilder.saveConfig", "儲存")}
               </button>
               <button
-                className="px-4 py-2 rounded-md text-sm"
-                style={{ background: themeInfo.bgSubtle, color: themeInfo.fgMuted }}
+                className="px-4 py-2 rounded-md text-sm text-stone-500 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 transition-colors"
                 onClick={() => { setShowConfigModal(false); setConfigToolId(null); }}
               >
                 {t("toolBuilder.cancel", "取消")}
@@ -575,9 +564,7 @@ function ToolManager({
   testResult,
   setTestResult,
   t,
-  themeInfo,
-  accent,
-  accentBg,
+  ti,
 }: {
   tools: ToolProvider[];
   onToggle: (id: string) => void;
@@ -590,18 +577,14 @@ function ToolManager({
   testResult: any;
   setTestResult: (v: any) => void;
   t: (key: string, fallback?: string) => string;
-  themeInfo: any;
-  accent: string;
-  accentBg: string;
+  ti: any;
 }) {
   if (tools.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center">
           <div className="text-4xl mb-3">🔧</div>
-          <p className="text-sm" style={{ color: themeInfo.fgMuted }}>
-            {t("toolBuilder.noTools", "還沒有安裝任何 Tool")}
-          </p>
+          <p className="text-sm text-stone-500">{t("toolBuilder.noTools", "還沒有安裝任何 Tool")}</p>
         </div>
       </div>
     );
@@ -612,32 +595,29 @@ function ToolManager({
       {tools.map(tool => (
         <div
           key={tool.id}
-          className="flex items-center justify-between p-4 rounded-lg border"
-          style={{ background: themeInfo.cardBg, borderColor: themeInfo.border }}
+          className="flex items-center justify-between p-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900"
         >
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <span className="text-xl">{tool.icon}</span>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm truncate" style={{ color: themeInfo.fg }}>
-                  {tool.name}
-                </span>
+                <span className="font-semibold text-sm truncate text-stone-900 dark:text-stone-100">{tool.name}</span>
                 <span
                   className="px-2 py-0.5 rounded text-xs font-medium"
                   style={{
-                    background: tool.enabled ? accentBg : themeInfo.bgSubtle,
-                    color: tool.enabled ? accent : themeInfo.fgMuted,
+                    background: tool.enabled ? ti.accentBg : "#f5f5f4",
+                    color: tool.enabled ? ti.accent : "#a8a29e",
                   }}
                 >
                   {tool.enabled ? t("toolBuilder.enabled", "啟用") : t("toolBuilder.disabled", "停用")}
                 </span>
                 {!tool.configFilled && tool.enabled && (
-                  <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ background: "#fef3c7", color: "#92400e" }}>
+                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
                     {t("toolBuilder.configNeeded", "需設定")}
                   </span>
                 )}
               </div>
-              <p className="text-xs truncate" style={{ color: themeInfo.fgMuted }}>
+              <p className="text-xs truncate text-stone-500">
                 {tool.description} · runner={tool.runner}
               </p>
             </div>
@@ -645,16 +625,14 @@ function ToolManager({
 
           <div className="flex items-center gap-2 ml-4">
             <button
-              className="px-2.5 py-1 rounded text-xs border transition-colors"
-              style={{ background: "transparent", borderColor: themeInfo.border, color: themeInfo.fgMuted }}
+              className="px-2.5 py-1 rounded text-xs border border-stone-200 dark:border-stone-600 text-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
               onClick={() => onConfig(tool)}
               title={t("toolBuilder.config", "設定")}
             >
               ⚙️
             </button>
             <button
-              className="px-2.5 py-1 rounded text-xs border transition-colors"
-              style={{ background: "transparent", borderColor: themeInfo.border, color: themeInfo.fgMuted }}
+              className="px-2.5 py-1 rounded text-xs border border-stone-200 dark:border-stone-600 text-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
               onClick={() => { setTestResult(null); onTest(tool.id); }}
               title={t("toolBuilder.test", "測試")}
               disabled={!tool.enabled}
@@ -664,9 +642,8 @@ function ToolManager({
             <button
               className="px-2.5 py-1 rounded text-xs border transition-colors"
               style={{
-                background: "transparent",
-                borderColor: tool.enabled ? "#fca5a5" : accentBg,
-                color: tool.enabled ? "#dc2626" : accent,
+                borderColor: tool.enabled ? "#fca5a5" : "#e7e5e4",
+                color: tool.enabled ? "#dc2626" : "#a8a29e",
               }}
               onClick={() => onToggle(tool.id)}
               title={tool.enabled ? t("toolBuilder.disable", "停用") : t("toolBuilder.enable", "啟用")}
@@ -674,8 +651,7 @@ function ToolManager({
               {tool.enabled ? "⏸️" : "▶️"}
             </button>
             <button
-              className="px-2.5 py-1 rounded text-xs border transition-colors hover:bg-red-50"
-              style={{ background: "transparent", borderColor: themeInfo.border, color: "#dc2626" }}
+              className="px-2.5 py-1 rounded text-xs border border-stone-200 dark:border-stone-600 text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
               onClick={() => onDelete(tool.id)}
               title={t("toolBuilder.delete", "刪除")}
             >
@@ -687,27 +663,26 @@ function ToolManager({
 
       {/* Test panel */}
       {testingTool && (
-        <div className="mt-4 p-4 rounded-lg border" style={{ background: themeInfo.cardBg, borderColor: themeInfo.border }}>
-          <h4 className="text-sm font-semibold mb-3" style={{ color: themeInfo.fg }}>
+        <div className="mt-4 p-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900">
+          <h4 className="text-sm font-semibold mb-3 text-stone-900 dark:text-stone-100">
             🧪 {t("toolBuilder.testTitle", "測試")} — {testingTool}
           </h4>
           <textarea
-            className="block w-full px-3 py-2 rounded-md border text-sm font-mono mb-3"
-            style={{ background: themeInfo.inputBg, borderColor: themeInfo.border, color: themeInfo.fg }}
+            className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono mb-3 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
             value={JSON.stringify(testParams, null, 2)}
             onChange={e => { try { setTestParams(JSON.parse(e.target.value)); } catch {} }}
             rows={4}
             placeholder='{"channel": "123", "message": "Hello"}'
           />
           <button
-            className="px-4 py-1.5 rounded-md text-sm font-semibold"
-            style={{ background: accent, color: "#fff" }}
+            className="px-4 py-1.5 rounded-md text-sm font-semibold text-white"
+            style={{ background: ti.accent }}
             onClick={() => onTest(testingTool)}
           >
             {t("toolBuilder.runTest", "執行測試")}
           </button>
           {testResult && (
-            <pre className="mt-3 p-3 rounded-md text-xs font-mono overflow-auto max-h-48" style={{ background: themeInfo.bgSubtle, color: testResult.ok ? "#16a34a" : "#dc2626" }}>
+            <pre className={cn("mt-3 p-3 rounded-md text-xs font-mono overflow-auto max-h-48", testResult.ok ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300")}>
               {JSON.stringify(testResult, null, 2)}
             </pre>
           )}
