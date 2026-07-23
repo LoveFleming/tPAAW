@@ -19,6 +19,39 @@ import { toolRegistry } from "../lib/tool-registry.mjs";
 const PAAW_ROOT = process.env.PAAW_ROOT || resolve(import.meta.dirname, "../../../../");
 const TOOLS_DIR = resolve(PAAW_ROOT, "data/tools");
 
+// ── 載入單一 Tool Provider（熱載入，供 API create 後立即註冊）──
+
+export async function initProviderTool(providerId) {
+  const providerDir = resolve(TOOLS_DIR, providerId);
+  const toolFile = resolve(providerDir, "tool.json");
+
+  if (!existsSync(toolFile)) return;
+
+  const toolDef = JSON.parse(readFileSync(toolFile, "utf-8"));
+  if (toolDef.enabled === false) return; // skip disabled
+
+  const config = loadConfig(providerDir);
+  const handler = await buildHandler(toolDef, config, providerDir);
+
+  if (!handler) return;
+
+  toolRegistry.register({
+    name: toolDef.name,
+    definition: {
+      type: "function",
+      function: {
+        name: toolDef.name,
+        description: toolDef.description || "",
+        parameters: toolDef.parameters || { type: "object", properties: {} },
+      },
+    },
+    source: `tool-provider:${providerId}`,
+    handler,
+  });
+
+  console.log(`[ToolProvider] Hot-loaded: ${toolDef.name} (${providerId})`);
+}
+
 // ── 載入所有 Tool Providers ──
 
 export async function initProviderTools() {

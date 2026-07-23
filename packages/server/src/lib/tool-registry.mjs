@@ -119,6 +119,25 @@ export const toolRegistry = {
   },
 
   /**
+   * 取得單一 tool 的 handler（供外部直接呼叫）。
+   */
+  getHandler(name) {
+    const entry = _tools.get(name);
+    return entry?.handler || null;
+  },
+
+  /**
+   * 取消註冊一個 tool。
+   */
+  unregister(name) {
+    if (_tools.has(name)) {
+      _tools.delete(name);
+      return true;
+    }
+    return false;
+  },
+
+  /**
    * 清除所有註冊（主要給測試用）。
    */
   clear() {
