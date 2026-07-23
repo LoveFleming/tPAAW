@@ -252,7 +252,7 @@ function findNode(root: TreeNode, path: string): TreeNode | null {
 
 // VS Code style indent: compact steps + indent guide lines
 // BASE_INDENT = 28 to align with KnowledgeTree and NavItem paddingLeft
-const BASE_INDENT = 28;
+const BASE_INDENT = 24;
 const DEPTH_STEP = 10;
 const GUIDE_COLOR = "#e5e5e5";
 const MAX_INDENT_DEPTH = 30;
