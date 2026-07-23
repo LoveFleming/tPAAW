@@ -149,7 +149,7 @@ function buildDynamicContext() {
 
   // Apps
   if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
-  if (toolProviders) parts.push(`=== 外部 Tool Providers ===\n${toolProviders}`);
+  if (toolProviders) parts.push(`=== 外部 Tool Providers ===\n${toolProviders}\n\n可用指令：tool_create（建立 Tool）、tool_list（列出 Tools）、tool_config（設定 API Key）`);
 
   return parts.join("\n\n");
 }
