@@ -594,9 +594,9 @@ function AppInner() {
     }
     if (pageType === "appbuilder") {
       return <AppBuilder />;
+    }
     if (activePage.endsWith(":toolbuilder"))
       return <ToolBuilder />;
-    }
     if (pageType === "reportapps") {
       return <AppPool onOpenApp={openSkillAppById} />;
     }
