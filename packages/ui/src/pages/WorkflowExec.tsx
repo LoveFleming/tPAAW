@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useI18n } from "../i18n";
 
-type WFNodeType = "start" | "end" | "skill";
+type WFNodeType = "start" | "end" | "skill" | "tool";
 type EndOutputTarget = "chat" | "file";
 
 interface WFNode {
-  id: string; type: WFNodeType; skillId?: string; appName?: string; name: string;
+  id: string; type: WFNodeType; skillId?: string; appName?: string; toolName?: string; name: string;
   position: { x: number; y: number };
   config: { inputMapping: Record<string, string>; outputTarget?: EndOutputTarget; outputFilePath?: string };
 }
@@ -64,6 +64,7 @@ function resolveTemplate(t: string, ctx: Record<string, any>): any {
 function typeIcon(type?: WFNodeType) {
   if (type === "start") return "🟢";
   if (type === "end") return "🔵";
+  if (type === "tool") return "🔧";
   return "⚡";
 }
 

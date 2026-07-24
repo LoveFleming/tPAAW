@@ -1,9 +1,10 @@
 /**
  * Workflow routes — CRUD + execution + history
  */
+import { execFileSync } from "node:child_process";
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync, readFileSync, readdirSync } from "fs";
-import { join, resolve } from "path";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import { join, resolve, extname } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { runAgentLoop, resolveLLMConfig, callLLM } from "../lib/paaw-agent-loop.mjs";
 
@@ -36,86 +37,135 @@ function topoSort(nodes, edges) {
   return sorted;
 }
 
-// ── Direct Skill Execution (single LLM call, no agent loop) ──
-// Loads ALL context upfront — no tool calls, no multi-turn exploration.
-async function runSkillDirect({ skillPath, input, appId, systemContext, model }) {
-  const skillDir = resolve(skillPath, "..");
-  const skillDirName = skillDir.split(/[\/]/).pop();
+// ── Skill Mini Loop ──
+// 全 context 預載 + 只有 run_script 一個 tool + 無 turn 上限 + timeout 兜底
+//
+// 跟 Full Agent Loop 差別：
+//   - 拿掉 read_file / bash / project_info 等探索工具
+//   - 只有 run_script（python3 / node / bash）
+//   - Context 全預載（SKILL.md + 整個目錄 + app context）
+//   - 通常 1-3 turn 就 DONE
 
-  // 1. Load SKILL.md
+const SCRIPT_RUNNER_MAP = { ".py": "python3", ".js": "node", ".mjs": "node", ".sh": "bash", ".ts": "npx tsx" };
+const SKIP_DIRS = new Set([".paaw", "node_modules", ".git", "__pycache__", ".cache"]);
+const SKIP_FILES = new Set(["_cron_inputs.json", "Thumbs.db", ".DS_Store"]);
+
+function scanSkillDir(skillRoot, base = "") {
+  const results = [];
+  const dir = base ? join(skillRoot, base) : skillRoot;
+  if (!existsSync(dir)) return results;
+  for (const entry of readdirSync(dir)) {
+    if (SKIP_FILES.has(entry)) continue;
+    const rel = base ? `${base}/${entry}` : entry;
+    const full = join(dir, entry);
+    let st;
+    try { st = statSync(full); } catch { continue; }
+    if (st.isDirectory()) {
+      if (SKIP_DIRS.has(entry)) continue;
+      results.push(...scanSkillDir(skillRoot, rel));
+    } else {
+      results.push(rel);
+    }
+  }
+  return results;
+}
+
+function runScript(skillDir, scriptRel, args = []) {
+  const ext = extname(scriptRel).toLowerCase();
+  const runner = SCRIPT_RUNNER_MAP[ext];
+  if (!runner) return { ok: false, error: `Unknown script type: ${ext}` };
+  const fullPath = resolve(skillDir, scriptRel);
+  // 安全：script 必須在 skill 目錄內
+  if (!fullPath.startsWith(resolve(skillDir))) {
+    return { ok: false, error: "Script path escapes skill directory" };
+  }
+  if (!existsSync(fullPath)) {
+    return { ok: false, error: `Script not found: ${scriptRel}` };
+  }
+  try {
+    const output = execFileSync(runner.split(" ")[0], [...(runner.includes(" ") ? runner.split(" ").slice(1) : []), fullPath, ...args], {
+      cwd: skillDir,
+      timeout: 30000,
+      maxBuffer: 1024 * 1024,
+      encoding: "utf-8",
+      env: { ...process.env, PYTHONIOENCODING: "utf-8" },
+    });
+    return { ok: true, output: output || "(no output)" };
+  } catch (err) {
+    return { ok: false, error: err.stderr || err.stdout || err.message };
+  }
+}
+
+const RUN_SCRIPT_TOOL = {
+  type: "function",
+  function: {
+    name: "run_script",
+    description: "執行 skill 目錄內的 script（python / node / bash）。用來取得真實資料或執行 deterministic step。每次只跑一個 script。",
+    parameters: {
+      type: "object",
+      properties: {
+        script: { type: "string", description: "Script 相對路徑，例如 scripts/fetch.py" },
+        args: { type: "array", items: { type: "string" }, description: "命令列參數", default: [] },
+      },
+      required: ["script"],
+    },
+  },
+};
+
+async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model, timeoutMs = 60000 }) {
+  const skillDir = resolve(skillPath, "..");
+  const skillDirName = skillDir.split(/[\\/]/).pop();
+  const startTime = Date.now();
+
+  // ── 1. 讀 SKILL.md ──
   const raw = await readFile(skillPath, "utf-8");
   const { parseSkillFrontmatter } = await import("./context.mjs");
   const parsed = parseSkillFrontmatter(raw);
   let prompt = parsed.body || "";
 
-  // 2. Replace {{key}} placeholders with input values
+  // Replace {{key}} placeholders
   if (input && typeof input === "object") {
     for (const [k, v] of Object.entries(input)) {
       prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));
     }
   }
 
-  // 3. Pre-load ALL context: system msg + entire skill directory + app context
+  // ── 2. 掃整個 skill 目錄，全部預載 ──
   const contextParts = [
     "你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。",
+    "",
+    `━━━ Skill: ${parsed.meta?.id || skillDirName} ━━━`,
   ];
-
-  // ── Load ALL files from skill directory (scripts, samples, references, etc.) ──
-  // SKILL.md frontmatter is already parsed → load everything ELSE as context
-  contextParts.push(`━━━ Skill: ${parsed.meta?.id || skillDirName} ━━━`);
   if (parsed.meta && Object.keys(parsed.meta).length > 0) {
     contextParts.push(`Frontmatter:\n${JSON.stringify(parsed.meta, null, 2)}`);
   }
 
-  // Recursively scan skill directory for all files
-  const loadedFiles = [];
-  function scanSkillDir(dir, relPath = "") {
-    const entries = readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      // Skip SKILL.md (already parsed), hidden files, sessions, memory logs
-      if (entry.name === "SKILL.md") continue;
-      if (entry.name.startsWith(".")) continue;
-      if (entry.name.startsWith("_cron_inputs")) continue;
-      if (entry.name === ".paaw") continue;
-
-      const fullPath = join(dir, entry.name);
-      const relFilePath = relPath ? `${relPath}/${entry.name}` : entry.name;
-
-      if (entry.isDirectory()) {
-        scanSkillDir(fullPath, relFilePath);
-      } else if (entry.isFile()) {
-        loadedFiles.push({ relPath: relFilePath, fullPath });
-      }
-    }
-  }
-  try { scanSkillDir(skillDir); } catch {}
-
-  // Load each file's content
-  for (const file of loadedFiles) {
+  const allFiles = scanSkillDir(skillDir);
+  for (const rel of allFiles) {
     try {
-      const content = readFileSync(file.fullPath, "utf-8");
-      const ext = file.relPath.split(".").pop()?.toLowerCase() || "";
-      let label = `📄 ${file.relPath}`;
-      if (ext === "md") label = `📖 ${file.relPath}`;
-      else if (ext === "js" || ext === "mjs" || ext === "ts" || ext === "tsx") label = `📜 ${file.relPath}`;
-      else if (ext === "json") label = `⚙️ ${file.relPath}`;
-      contextParts.push(`--- ${label} ---\n${content}`);
+      const content = readFileSync(join(skillDir, rel), "utf-8");
+      const ext = extname(rel).toLowerCase().slice(1) || "";
+      let icon = "📄";
+      if (ext === "md") icon = "📖";
+      else if (["js", "mjs", "ts", "tsx"].includes(ext)) icon = "📜";
+      else if (ext === "json") icon = "⚙️";
+      else if (ext === "py") icon = "🐍";
+      else if (ext === "sh") icon = "🔧";
+      const truncated = content.length > 50000 ? content.slice(0, 50000) + "\n... (truncated)" : content;
+      contextParts.push(`--- ${icon} ${rel} ---\n${truncated}`);
     } catch {}
   }
 
-  // ── App-level context ──
+  // ── 3. App context ──
   if (appId) {
     try {
       const appSystem = await readFile(join(PATHS.APPS_ROOT, appId, "SYSTEM.md"), "utf-8");
       contextParts.push(`--- App SYSTEM.md ---\n${appSystem}`);
     } catch {}
-
-    // App knowledge files
     const appKnowledgeDir = join(PATHS.APPS_ROOT, appId, "knowledge");
     if (existsSync(appKnowledgeDir)) {
       try {
-        const files = readdirSync(appKnowledgeDir);
-        for (const f of files) {
+        for (const f of readdirSync(appKnowledgeDir)) {
           if (f.endsWith(".md") || f.endsWith(".txt")) {
             const content = await readFile(join(appKnowledgeDir, f), "utf-8");
             contextParts.push(`--- App Knowledge: ${f} ---\n${content}`);
@@ -125,32 +175,68 @@ async function runSkillDirect({ skillPath, input, appId, systemContext, model })
     }
   }
 
-  // Extra system context from caller (e.g. workflow context)
-  if (systemContext) {
-    contextParts.push(systemContext);
-  }
-
+  if (systemContext) contextParts.push(systemContext);
   contextParts.push("━━━ End of Context — 嚴格按照 SKILL.md 定義執行 ━━━");
+  contextParts.push("");
+  contextParts.push("你可以用 run_script tool 執行 skill 目錄內的 script 來取得真實資料。不需要探索檔案，所有內容已在 context 中。處理完畢直接輸出結果。");
 
-  // 4. Resolve LLM config
+  // ── 4. Resolve LLM ──
   const llm = resolveLLMConfig(PAAW_ROOT, model);
   if (!llm.apiUrl || !llm.model) {
     throw new Error("LLM not configured");
   }
 
-  // 5. Single LLM call — all context pre-loaded, no tools, no multi-turn
+  // ── 5. Mini Loop ──
   const messages = [
     { role: "system", content: contextParts.join("\n\n") },
     { role: "user", content: prompt },
   ];
 
-  const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, null, false, null);
-  const content = response.choices?.[0]?.message?.content || "";
+  let turns = 0;
+  let finalContent = "";
 
-  // Clean output
-  const clean = content.replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
+  while (true) {
+    if (Date.now() - startTime > timeoutMs) {
+      finalContent += "\n\n(⚠️ Skill 執行超時)";
+      break;
+    }
 
-  // Parse as JSON if possible
+    turns++;
+    const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, [RUN_SCRIPT_TOOL], false, null);
+    const choice = response.choices?.[0];
+    if (!choice) break;
+
+    const msg = choice.message;
+    const toolCalls = msg.tool_calls || [];
+
+    // 沒有 tool call = LLM 出結果了
+    if (toolCalls.length === 0 || choice.finish_reason === "stop") {
+      finalContent = msg.content || "";
+      break;
+    }
+
+    // 有 tool call → 加 assistant message → 跑 script → 加 tool result → 繼續
+    messages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
+
+    for (const tc of toolCalls) {
+      if (tc.function?.name === "run_script") {
+        let parsedArgs;
+        try { parsedArgs = JSON.parse(tc.function.arguments); } catch { parsedArgs = {}; }
+        const result = runScript(skillDir, parsedArgs.script || "", parsedArgs.args || []);
+        const resultText = result.ok ? result.output : `ERROR: ${result.error}`;
+        messages.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: resultText.slice(0, 50000),
+        });
+      } else {
+        messages.push({ role: "tool", tool_call_id: tc.id, content: "Unknown tool" });
+      }
+    }
+  }
+
+  // ── 6. Clean output ──
+  const clean = finalContent.replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
   const jsonMatch = clean.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[0]); } catch {}
@@ -332,8 +418,8 @@ export default async function workflowRoutes(req, res) {
         const result = jm ? (() => { try { return JSON.parse(jm[0]); } catch { return { text: cleanOutput.slice(0, 1500) }; } })() : { text: cleanOutput.slice(0, 1500) };
         json(res, { result });
       } else {
-        // Direct mode: single LLM call, all context pre-loaded, no tools
-        const result = await runSkillDirect({ skillPath, input, appId, model });
+        // Mini loop: all context pre-loaded + run_script tool, no turn cap
+        const result = await runSkillMiniLoop({ skillPath, input, appId, model });
         json(res, { result });
       }
     } catch (err) { json(res, { error: err.message }, 500); }
@@ -422,7 +508,7 @@ export default async function workflowRoutes(req, res) {
             skillPathResolved = resolve(PAAW_ROOT, `data/skills/building/${node.skillId}/package/SKILL.md`);
           }
           if (!existsSync(skillPathResolved)) { results.push({ node: node.name, error: `Skill not found: ${node.skillId}` }); break; }
-          output = await runSkillDirect({ skillPath: skillPathResolved, input: ri, appId, model });
+          output = await runSkillMiniLoop({ skillPath: skillPathResolved, input: ri, appId, model });
         }
 
         ctx.node[node.id] = { output };
