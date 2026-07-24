@@ -487,6 +487,7 @@ function AppInner() {
     if (pageType === "skills") return t("sidebar.skillPool");
     if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
     if (pageType === "appbuilder") return t("sidebar.appBuilder");
+    if (pageType === "toolbuilder") return t("sidebar.toolBuilder");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
     if (pageType === "ai-settings") return "AI Settings";
@@ -595,8 +596,9 @@ function AppInner() {
     if (pageType === "appbuilder") {
       return <AppBuilder />;
     }
-    if (activePage.endsWith(":toolbuilder"))
+    if (pageType === "toolbuilder") {
       return <ToolBuilder />;
+    }
     if (pageType === "reportapps") {
       return <AppPool onOpenApp={openSkillAppById} />;
     }
