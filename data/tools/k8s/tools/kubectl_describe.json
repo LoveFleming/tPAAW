@@ -1,0 +1,25 @@
+{
+  "name": "kubectl_describe",
+  "description": "顯示 Kubernetes 資源的詳細資訊（describe）。適合排查 pod 為什麼 crash、deployment 狀態等。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "resource": {
+        "type": "string",
+        "description": "資源類型。例如：pod, deployment, service, node, configmap"
+      },
+      "name": {
+        "type": "string",
+        "description": "資源名稱"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "namespace。預設 default"
+      }
+    },
+    "required": ["resource", "name"]
+  },
+  "runner": "script",
+  "group": "sre-k8s",
+  "enabled": true
+}

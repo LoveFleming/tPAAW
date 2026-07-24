@@ -1,0 +1,26 @@
+{
+  "name": "kubectl_top",
+  "description": "查看 Kubernetes 資源使用率（CPU / Memory）。需要 metrics-server。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "resource": {
+        "type": "string",
+        "enum": ["pods", "nodes"],
+        "description": "pods 或 nodes"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "namespace（只對 pods 有效）。預設 default"
+      },
+      "labels": {
+        "type": "string",
+        "description": "label selector"
+      }
+    },
+    "required": ["resource"]
+  },
+  "runner": "script",
+  "group": "sre-k8s",
+  "enabled": true
+}

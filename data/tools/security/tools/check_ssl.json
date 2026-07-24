@@ -1,0 +1,21 @@
+{
+  "name": "check_ssl",
+  "description": "檢查 SSL/TLS 憑證狀態。回傳到期天數、簽發者、protocol 版本、cipher suite。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "host": {
+        "type": "string",
+        "description": "目標主機。例如：api.example.com 或 example.com:443"
+      },
+      "port": {
+        "type": "number",
+        "description": "連接埠。預設 443"
+      }
+    },
+    "required": ["host"]
+  },
+  "runner": "script",
+  "group": "sre-security",
+  "enabled": true
+}

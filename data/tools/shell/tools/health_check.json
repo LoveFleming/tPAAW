@@ -1,0 +1,32 @@
+{
+  "name": "health_check",
+  "description": "對指定 URL 執行 HTTP 健康檢查。回傳 status code、latency、response body 摘要。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "目標 URL。例如：http://localhost:8080/health, https://api.example.com/ready"
+      },
+      "method": {
+        "type": "string",
+        "enum": ["GET", "POST", "HEAD"],
+        "description": "HTTP method。預設 GET"
+      },
+      "expectedStatus": {
+        "type": "number",
+        "description": "預期的 status code。預設 200"
+      },
+      "headers": {
+        "type": "object",
+        "description": "自訂 headers",
+        "properties": {},
+        "additionalProperties": { "type": "string" }
+      }
+    },
+    "required": ["url"]
+  },
+  "runner": "script",
+  "group": "sre-shell",
+  "enabled": true
+}

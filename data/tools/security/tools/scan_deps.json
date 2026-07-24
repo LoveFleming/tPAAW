@@ -1,0 +1,27 @@
+{
+  "name": "scan_deps",
+  "description": "掃描專案依賴的已知漏洞。支援 npm audit、pip audit、trivy。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "projectPath": {
+        "type": "string",
+        "description": "專案路徑。預設當前目錄"
+      },
+      "scanner": {
+        "type": "string",
+        "enum": ["npm", "pip", "trivy", "auto"],
+        "description": "使用哪個掃描器。auto 會根據檔案自動偵測。預設 auto"
+      },
+      "severity": {
+        "type": "string",
+        "enum": ["critical", "high", "moderate", "low", "all"],
+        "description": "最低嚴重程度。預設 high"
+      }
+    },
+    "required": []
+  },
+  "runner": "script",
+  "group": "sre-security",
+  "enabled": true
+}

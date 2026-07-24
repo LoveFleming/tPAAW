@@ -1,0 +1,29 @@
+{
+  "name": "exec_command",
+  "description": "在伺服器上執行 shell 命令。⚠️ 破壞性命令需要 confirm=true 才會執行。唯讀命令可直接執行。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "要執行的 shell 命令。例如：curl -s http://localhost:8080/health, df -h, free -m"
+      },
+      "workdir": {
+        "type": "string",
+        "description": "工作目錄。預設 /"
+      },
+      "timeout": {
+        "type": "number",
+        "description": "超時秒數。預設 15 秒"
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "確認執行破壞性命令。第一次呼叫不帶 confirm=true 時只回傳預覽。"
+      }
+    },
+    "required": ["command"]
+  },
+  "runner": "script",
+  "group": "sre-shell",
+  "enabled": true
+}

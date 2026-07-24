@@ -1,0 +1,37 @@
+{
+  "name": "kubectl_logs",
+  "description": "取得 Pod 的 log。支援 tail、previous container、多容器選擇。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "pod": {
+        "type": "string",
+        "description": "Pod 名稱"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "namespace。預設 default"
+      },
+      "container": {
+        "type": "string",
+        "description": "容器名稱（如果 pod 有多個 container）"
+      },
+      "tail": {
+        "type": "number",
+        "description": "最後幾行。預設 100"
+      },
+      "previous": {
+        "type": "boolean",
+        "description": "是否查看 previous container 的 log（crash 排查用）。預設 false"
+      },
+      "since": {
+        "type": "string",
+        "description": "只看某時間之後的 log。例如：5m, 1h, 30s"
+      }
+    },
+    "required": ["pod"]
+  },
+  "runner": "script",
+  "group": "sre-k8s",
+  "enabled": true
+}

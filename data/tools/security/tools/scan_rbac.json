@@ -1,0 +1,25 @@
+{
+  "name": "scan_rbac",
+  "description": "審計 Kubernetes RBAC 權限。列出過寬的 ClusterRole/Role bindings、privileged pods、service account 權限。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "namespace": {
+        "type": "string",
+        "description": "審計特定 namespace。不填則審計整個 cluster"
+      },
+      "checkPrivileged": {
+        "type": "boolean",
+        "description": "是否檢查 privileged pods。預設 true"
+      },
+      "checkHostPath": {
+        "type": "boolean",
+        "description": "是否檢查 hostPath mounts。預設 true"
+      }
+    },
+    "required": []
+  },
+  "runner": "script",
+  "group": "sre-security",
+  "enabled": true
+}

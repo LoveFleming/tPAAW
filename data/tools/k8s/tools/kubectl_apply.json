@@ -1,0 +1,25 @@
+{
+  "name": "kubectl_apply",
+  "description": "執行 kubectl apply / rollout / scale 等變更操作。⚠️ 破壞性操作，handler 會列出完整指令待確認。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "description": "完整 kubectl 子命令（不含 kubectl 本身）。例如：rollout restart deployment/payment-service, scale deployment/api --replicas=5, delete pod/bad-pod"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "namespace。預設 default"
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "確認執行。第一次呼叫不帶 confirm=true 時，handler 只回傳預覽不執行。"
+      }
+    },
+    "required": ["action"]
+  },
+  "runner": "script",
+  "group": "sre-k8s",
+  "enabled": true
+}
