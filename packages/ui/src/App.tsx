@@ -11,6 +11,7 @@ import ToolBuilder from "./pages/ToolBuilder";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import CodingIDE from "./pages/CodingIDE";
+import SREConsole from "./pages/SREConsole";
 import BriefingPlayer from "./pages/BriefingPlayer";
 import MindMapViewer from "./pages/MindMapViewer";
 import Notes from "./pages/Notes";
@@ -387,6 +388,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openSRE = useCallback(() => {
+    const tabId = `${currentScope}:sre`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const [briefingInitialDir, setBriefingInitialDir] = useState<string | null>(null);
   const [deepLinkNote, setDeepLinkNote] = useState<{ noteId: string; notebookId: string } | null>(null);
 
@@ -492,6 +499,7 @@ function AppInner() {
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
     if (pageType === "ai-settings") return "AI Settings";
     if (pageType === "coding") return t("sidebar.coding");
+    if (pageType === "sre") return "🛡️ SRE";
     if (pageType === "briefing-player") return t("sidebar.briefingPlayer", "Briefing Player");
     if (pageType === "mind-map") return "Mind Map";
     if (pageType === "notes") return "Notes";
@@ -607,6 +615,9 @@ function AppInner() {
     }
     if (pageType === "coding") {
       return <CodingIDE />;
+    }
+    if (pageType === "sre") {
+      return <SREConsole />;
     }
     if (pageType === "briefing-player") {
       return <BriefingPlayer key={briefingInitialDir ?? "default"} initialDir={briefingInitialDir} />;
@@ -804,6 +815,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":projects")} label="Projects" onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":sre")} label={"🛡️ SRE"} onClick={openSRE} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 {/* <NavItem active={activePage.endsWith(":wf-exec")} label={t("sidebar.workflows")} onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} /> */}
                 <NavItem active={activePage.endsWith(":helpdesk")} label="HelpDesk" onClick={openHelpDesk} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
