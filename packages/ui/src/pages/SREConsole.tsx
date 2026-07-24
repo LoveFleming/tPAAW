@@ -3,15 +3,11 @@
  *
  * Layout:
  *  ┌──────────────┬──────────────────────────┐
- *  │  SRE Crew    │  Agent Console           │
- *  │  List        │  (WebSocket-based chat)   │
- *  │              │                          │
- *  │  + Quick     │                          │
- *  │    Actions   │                          │
+ *  │  SRE Crew    │  Dashboard / Agent Console│
+ *  │  List        │  (tab switch)             │
+ *  │  + Tabs      │                          │
+ *  │  + Actions   │                          │
  *  └──────────────┴──────────────────────────┘
- *
- * - Left: SRE team members + quick action buttons
- * - Right: AgentConsole (same component as EmployeeWorkspace uses)
  */
 import API_BASE from "../api";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
@@ -20,6 +16,7 @@ import { useI18n } from "../i18n";
 import { useTheme } from "../theme";
 import MarkdownText from "../components/MarkdownText";
 import AgentConsole, { type AgentConsoleHandle } from "../components/AgentConsole";
+import SREDashboard from "./SREDashboard";
 
 // ── Types ──
 interface Crew {
@@ -34,7 +31,6 @@ interface Crew {
   rolePrompt?: string;
 }
 
-// SRE agent emoji mapping
 const SRE_EMOJI: Record<string, string> = {
   "sre.commander": "🛡️",
   "sre.metrics": "📊",
@@ -44,7 +40,6 @@ const SRE_EMOJI: Record<string, string> = {
   "sre.security": "🔒",
 };
 
-// Quick action templates — sent to Commander
 const QUICK_ACTIONS = [
   { id: "check-latency", label: "查延遲", prompt: "幫我查各服務的 p99 latency，看有沒有異常飆高的", icon: "🔍" },
   { id: "check-errors", label: "查錯誤率", prompt: "幫我查最近 1 小時的 5xx 錯誤率，哪些 service 最高？", icon: "🔴" },
@@ -60,24 +55,22 @@ export default function SREConsole() {
   const { t: tt } = useI18n();
   const { info: t } = useTheme();
 
-  // ── State ──
   const [crew, setCrew] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCrewId, setSelectedCrewId] = useState<string>(COMMANDER_ID);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [chatStarted, setChatStarted] = useState(false);
   const [consoleKey, setConsoleKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<"console" | "dashboard">("console");
 
   const consoleRef = useRef<AgentConsoleHandle>(null);
 
-  // ── Load SRE crew ──
   const loadCrew = useCallback(async () => {
     try {
       const resp = await fetch(`${API_BASE}/api/crew`);
       if (resp.ok) {
         const all: Crew[] = await resp.json();
-        const sreCrew = all.filter(c => c.id.startsWith("sre."));
-        setCrew(sreCrew);
+        setCrew(all.filter(c => c.id.startsWith("sre.")));
       }
     } catch {}
     setLoading(false);
@@ -85,7 +78,6 @@ export default function SREConsole() {
 
   useEffect(() => { loadCrew(); }, [loadCrew]);
 
-  // ── Load system prompt when switching crew ──
   const loadSystemPrompt = useCallback(async (crewId: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/context/employee?crewId=${encodeURIComponent(crewId)}`);
@@ -93,19 +85,15 @@ export default function SREConsole() {
         const ctx = await res.json();
         setSystemPrompt(ctx.systemPrompt || "");
       } else {
-        // Fallback: use crew rolePrompt directly
         const crewResp = await fetch(`${API_BASE}/api/crew/${encodeURIComponent(crewId)}`);
         if (crewResp.ok) {
           const crewData = await crewResp.json();
           setSystemPrompt(crewData.rolePrompt || "");
         }
       }
-    } catch {
-      setSystemPrompt("");
-    }
+    } catch { setSystemPrompt(""); }
   }, []);
 
-  // ── Switch crew member ──
   const switchCrew = useCallback((crewId: string) => {
     setSelectedCrewId(crewId);
     setChatStarted(false);
@@ -113,17 +101,11 @@ export default function SREConsole() {
     loadSystemPrompt(crewId);
   }, [loadSystemPrompt]);
 
-  // Load prompt on mount
-  useEffect(() => {
-    loadSystemPrompt(COMMANDER_ID);
-  }, [loadSystemPrompt]);
+  useEffect(() => { loadSystemPrompt(COMMANDER_ID); }, [loadSystemPrompt]);
 
-  // ── Quick action click ──
   const handleQuickAction = useCallback((prompt: string) => {
-    // Switch to Commander if not already
     if (selectedCrewId !== COMMANDER_ID) {
       switchCrew(COMMANDER_ID);
-      // Wait for console to mount, then send
       setTimeout(() => {
         consoleRef.current?.sendPrompt(prompt);
         setChatStarted(true);
@@ -134,11 +116,9 @@ export default function SREConsole() {
     }
   }, [selectedCrewId, switchCrew]);
 
-  // ── Computed ──
   const selectedCrew = useMemo(() => crew.find(c => c.id === selectedCrewId), [crew, selectedCrewId]);
   const isCommander = selectedCrewId === COMMANDER_ID;
 
-  // ── Loading ──
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -149,9 +129,9 @@ export default function SREConsole() {
 
   return (
     <div className="flex h-full overflow-hidden bg-stone-50">
-      {/* ── Left Panel: Crew List + Quick Actions ── */}
+      {/* ── Left Panel ── */}
       <div className="flex flex-col flex-shrink-0 border-r" style={{ width: 240, borderColor: t.accentBorder + "40", backgroundColor: "white" }}>
-        {/* Header */}
+        {/* Header + Tabs */}
         <div className="px-4 py-3 border-b" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg }}>
           <div className="flex items-center gap-2">
             <span className="text-lg">🛡️</span>
@@ -160,10 +140,29 @@ export default function SREConsole() {
               <div className="text-[10px] opacity-70">Site Reliability</div>
             </div>
           </div>
+          {/* Tab Switcher */}
+          <div className="flex gap-1 mt-2">
+            <button
+              onClick={() => setActiveTab("console")}
+              className={cn("flex-1 text-[10px] py-1 rounded-md font-medium transition-colors",
+                activeTab === "console" ? "text-white" : "text-stone-500 hover:bg-stone-100")}
+              style={activeTab === "console" ? { backgroundColor: t.accent } : undefined}
+            >
+              💬 Console
+            </button>
+            <button
+              onClick={() => setActiveTab("dashboard")}
+              className={cn("flex-1 text-[10px] py-1 rounded-md font-medium transition-colors",
+                activeTab === "dashboard" ? "text-white" : "text-stone-500 hover:bg-stone-100")}
+              style={activeTab === "dashboard" ? { backgroundColor: t.accent } : undefined}
+            >
+              📊 Dashboard
+            </button>
+          </div>
         </div>
 
-        {/* Quick Actions (show when Commander selected) */}
-        {isCommander && (
+        {/* Quick Actions (Console tab + Commander only) */}
+        {activeTab === "console" && isCommander && (
           <div className="px-3 py-2 border-b" style={{ borderColor: t.accentBorder + "20" }}>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 px-1">Quick Actions</div>
             <div className="space-y-1">
@@ -181,144 +180,160 @@ export default function SREConsole() {
           </div>
         )}
 
-        {/* Crew List */}
-        <div className="flex-1 overflow-y-auto px-3 py-2" style={{ scrollbarWidth: "thin" }}>
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 px-1">SRE Team</div>
-          <div className="space-y-1">
-            {crew.map(member => {
-              const isSelected = member.id === selectedCrewId;
-              const isCmd = member.id === COMMANDER_ID;
-              return (
-                <button
-                  key={member.id}
-                  onClick={() => switchCrew(member.id)}
-                  className={cn(
-                    "w-full text-left px-2 py-2 rounded-lg transition-all border",
-                    isSelected
-                      ? "border-2 shadow-sm"
-                      : "border-transparent hover:bg-stone-50"
-                  )}
-                  style={isSelected ? {
-                    borderColor: t.accent,
-                    backgroundColor: t.accentBg,
-                  } : undefined}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-base flex-shrink-0">{member.emoji || SRE_EMOJI[member.id] || "👤"}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className={cn("text-xs font-semibold truncate", isSelected ? "" : "text-stone-800")} style={isSelected ? { color: t.accent } : undefined}>
-                        {member.title}
-                        {isCmd && <span className="ml-1 text-[9px] bg-amber-100 text-amber-700 px-1 rounded">CMD</span>}
+        {/* Crew List (Console tab only) */}
+        {activeTab === "console" && (
+          <div className="flex-1 overflow-y-auto px-3 py-2" style={{ scrollbarWidth: "thin" }}>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 px-1">SRE Team</div>
+            <div className="space-y-1">
+              {crew.map(member => {
+                const isSelected = member.id === selectedCrewId;
+                const isCmd = member.id === COMMANDER_ID;
+                return (
+                  <button
+                    key={member.id}
+                    onClick={() => switchCrew(member.id)}
+                    className={cn(
+                      "w-full text-left px-2 py-2 rounded-lg transition-all border",
+                      isSelected ? "border-2 shadow-sm" : "border-transparent hover:bg-stone-50"
+                    )}
+                    style={isSelected ? { borderColor: t.accent, backgroundColor: t.accentBg } : undefined}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base flex-shrink-0">{member.emoji || SRE_EMOJI[member.id] || "👤"}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className={cn("text-xs font-semibold truncate", isSelected ? "" : "text-stone-800")} style={isSelected ? { color: t.accent } : undefined}>
+                          {member.title}
+                          {isCmd && <span className="ml-1 text-[9px] bg-amber-100 text-amber-700 px-1 rounded">CMD</span>}
+                        </div>
+                        <div className="text-[10px] text-stone-400 truncate">{member.codename}</div>
                       </div>
-                      <div className="text-[10px] text-stone-400 truncate">{member.codename}</div>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Dashboard tab shows mini summary instead of crew list */}
+        {activeTab === "dashboard" && (
+          <div className="flex-1 overflow-y-auto px-3 py-2" style={{ scrollbarWidth: "thin" }}>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5 px-1">Providers</div>
+            <div className="space-y-1 text-[10px] text-stone-500">
+              <div className="flex items-center gap-1.5 px-1 py-0.5"><span>📊</span> Prometheus</div>
+              <div className="flex items-center gap-1.5 px-1 py-0.5"><span>📋</span> Loki</div>
+              <div className="flex items-center gap-1.5 px-1 py-0.5"><span>🗂️</span> Kubernetes</div>
+              <div className="flex items-center gap-1.5 px-1 py-0.5"><span>🖥️</span> Shell</div>
+              <div className="flex items-center gap-1.5 px-1 py-0.5"><span>🔒</span> Security</div>
+              <div className="flex items-center gap-1.5 px-1 py-0.5"><span>📖</span> Runbooks</div>
+            </div>
+            <div className="mt-3 px-1">
+              <div className="text-[10px] text-stone-400 leading-relaxed">
+                Dashboard 每 30 秒自動刷新。切到 Console 分頁可與 SRE 團隊對話。
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-3 py-2 border-t text-[10px] text-stone-400" style={{ borderColor: t.accentBorder + "20" }}>
-          Phase 1 — Crew Chat
+          Phase 4 — Dashboard + Console
         </div>
       </div>
 
-      {/* ── Right Panel: Agent Console ── */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Chat Header */}
-        <div className="flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg + "50" }}>
-          {selectedCrew && (
-            <>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: t.accent + "20", border: `2px solid ${t.accent}40` }}>
-                {selectedCrew.emoji || SRE_EMOJI[selectedCrew.id] || "👤"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm text-stone-800">{selectedCrew.title}</div>
-                <div className="text-xs text-stone-500">{selectedCrew.codename}</div>
-              </div>
-              {isCommander && (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium" style={{ backgroundColor: "#f59e0b20", color: "#b45309" }}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  Commander — 可 dispatch
-                </div>
-              )}
-            </>
-          )}
+      {/* ── Right Panel ── */}
+      {activeTab === "dashboard" ? (
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <SREDashboard />
         </div>
-
-        {/* AgentConsole or Landing */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {!chatStarted && selectedCrew ? (
-            <div className="h-full overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-              <div className="max-w-2xl mx-auto mt-8 px-4 space-y-6 pb-8">
-                {/* Avatar + Title */}
-                <div className="text-center">
-                  <div className="text-4xl mb-3">{selectedCrew.emoji || SRE_EMOJI[selectedCrew.id]}</div>
-                  <h2 className="text-xl font-bold text-stone-800">{selectedCrew.codename}</h2>
-                  <p className="text-sm text-stone-500 mt-1">{selectedCrew.title}</p>
+      ) : (
+        <div className="flex flex-col flex-1 min-w-0">
+          {/* Chat Header */}
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0" style={{ borderColor: t.accentBorder + "40", backgroundColor: t.accentBg + "50" }}>
+            {selectedCrew && (
+              <>
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: t.accent + "20", border: `2px solid ${t.accent}40` }}>
+                  {selectedCrew.emoji || SRE_EMOJI[selectedCrew.id] || "👤"}
                 </div>
-
-                {/* Description */}
-                {selectedCrew.description && (
-                  <div className="text-center text-sm text-stone-600 max-w-md mx-auto">
-                    {selectedCrew.description}
-                  </div>
-                )}
-
-                {/* Greeting */}
-                {selectedCrew.chatConfig?.greeting && (
-                  <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
-                    <MarkdownText>{selectedCrew.chatConfig.greeting}</MarkdownText>
-                  </div>
-                )}
-
-                {/* Quick Actions Grid (Commander only) */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm text-stone-800">{selectedCrew.title}</div>
+                  <div className="text-xs text-stone-500">{selectedCrew.codename}</div>
+                </div>
                 {isCommander && (
-                  <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
-                    <div className="text-xs font-semibold text-stone-500 mb-3">⚡ 快速指令</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {QUICK_ACTIONS.map(action => (
-                        <button
-                          key={action.id}
-                          onClick={() => handleQuickAction(action.prompt)}
-                          className="text-left px-3 py-2.5 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition-all text-xs"
-                        >
-                          <div className="font-medium text-stone-700">
-                            <span className="mr-1">{action.icon}</span>{action.label}
-                          </div>
-                          <div className="text-[10px] text-stone-400 mt-0.5 line-clamp-2">{action.prompt}</div>
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium" style={{ backgroundColor: "#f59e0b20", color: "#b45309" }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Commander — 可 dispatch
                   </div>
                 )}
+              </>
+            )}
+          </div>
 
-                {/* Expertise Tags */}
-                {selectedCrew.expertise && (
-                  <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
-                    <div className="text-xs font-semibold text-stone-500 mb-2">專業技能</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedCrew.expertise.split("\n").filter(Boolean).map((skill, i) => (
-                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-stone-200 text-stone-600">
-                          {skill.trim()}
-                        </span>
-                      ))}
-                    </div>
+          {/* AgentConsole or Landing */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {!chatStarted && selectedCrew ? (
+              <div className="h-full overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+                <div className="max-w-2xl mx-auto mt-8 px-4 space-y-6 pb-8">
+                  <div className="text-center">
+                    <div className="text-4xl mb-3">{selectedCrew.emoji || SRE_EMOJI[selectedCrew.id]}</div>
+                    <h2 className="text-xl font-bold text-stone-800">{selectedCrew.codename}</h2>
+                    <p className="text-sm text-stone-500 mt-1">{selectedCrew.title}</p>
                   </div>
-                )}
+
+                  {selectedCrew.description && (
+                    <div className="text-center text-sm text-stone-600 max-w-md mx-auto">{selectedCrew.description}</div>
+                  )}
+
+                  {selectedCrew.chatConfig?.greeting && (
+                    <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+                      <MarkdownText>{selectedCrew.chatConfig.greeting}</MarkdownText>
+                    </div>
+                  )}
+
+                  {isCommander && (
+                    <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+                      <div className="text-xs font-semibold text-stone-500 mb-3">⚡ 快速指令</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {QUICK_ACTIONS.map(action => (
+                          <button
+                            key={action.id}
+                            onClick={() => handleQuickAction(action.prompt)}
+                            className="text-left px-3 py-2.5 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition-all text-xs"
+                          >
+                            <div className="font-medium text-stone-700">
+                              <span className="mr-1">{action.icon}</span>{action.label}
+                            </div>
+                            <div className="text-[10px] text-stone-400 mt-0.5 line-clamp-2">{action.prompt}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedCrew.expertise && (
+                    <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
+                      <div className="text-xs font-semibold text-stone-500 mb-2">專業技能</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedCrew.expertise.split("\n").filter(Boolean).map((skill, i) => (
+                          <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-stone-200 text-stone-600">
+                            {skill.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <AgentConsole
-              key={`sre-${consoleKey}`}
-              ref={consoleRef}
-              systemPrompt={systemPrompt || undefined}
-            />
-          )}
+            ) : (
+              <AgentConsole
+                key={`sre-${consoleKey}`}
+                ref={consoleRef}
+                systemPrompt={systemPrompt || undefined}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
