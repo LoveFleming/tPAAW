@@ -2,9 +2,39 @@
  * Workflow routes — CRUD + execution + history
  */
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
+import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
+
+const PAAW_ROOT = process.env.PAAW_ROOT || PATHS.PAAW_ROOT;
+
+// ── Topological sort (matches UI version) ──
+function topoSort(nodes, edges) {
+  const indeg = {};
+  const adj = {};
+  for (const n of nodes) { indeg[n.id] = 0; adj[n.id] = []; }
+  for (const e of edges) {
+    if (adj[e.source] && indeg[e.target] !== undefined) {
+      adj[e.source].push(e.target);
+      indeg[e.target]++;
+    }
+  }
+  const q = nodes.filter(n => indeg[n.id] === 0);
+  const sorted = [];
+  while (q.length) {
+    const n = q.shift();
+    sorted.push(n);
+    for (const tgt of (adj[n.id] || [])) {
+      indeg[tgt]--;
+      if (indeg[tgt] === 0) {
+        const nd = nodes.find(nn => nn.id === tgt);
+        if (nd) q.push(nd);
+      }
+    }
+  }
+  return sorted;
+}
 
 export default async function workflowRoutes(req, res) {
   const path = urlPath(req);
@@ -205,5 +235,139 @@ export default async function workflowRoutes(req, res) {
     return true;
   }
 
+  // POST /api/paaw/tool-exec — execute a tool provider tool
+  if (req.method === "POST" && path === "/api/paaw/tool-exec") {
+    try {
+      const { toolName, input } = JSON.parse(await readBody(req));
+      if (!toolName) { json(res, { error: "toolName is required" }, 400); return true; }
+
+      const { toolRegistry } = await import("../lib/tool-registry.mjs");
+      const handler = toolRegistry.getHandler(toolName);
+      if (!handler) { json(res, { error: `Tool '${toolName}' not found` }, 404); return true; }
+
+      const result = await handler(input || {}, { toolName });
+      json(res, { result: result || { text: "（無輸出）" } });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
+  // GET /api/paaw/tools — list available tool providers (for workflow editor)
+  if (req.method === "GET" && path === "/api/paaw/tools") {
+    try {
+      const { listProviderTools } = await import("../tools/provider-loader.mjs");
+      const tools = listProviderTools();
+      json(res, { tools });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
+  // POST /api/paaw/workflow-trigger — trigger a workflow by ID (for cron)
+  if (req.method === "POST" && path === "/api/paaw/workflow-trigger") {
+    try {
+      const { workflowId, input } = JSON.parse(await readBody(req));
+      if (!workflowId) { json(res, { error: "workflowId is required" }, 400); return true; }
+
+      const wfPath = join(PATHS.WORKFLOWS_ROOT, `${workflowId}.json`);
+      if (!existsSync(wfPath)) { json(res, { error: "Workflow not found" }, 404); return true; }
+
+      const wf = JSON.parse(readFileSync(wfPath, "utf-8"));
+
+      // Execute workflow synchronously and return result
+      const { toolRegistry } = await import("../lib/tool-registry.mjs");
+      const ctx = { workflow: { input: input || {} }, node: {} };
+
+      // Topological sort
+      const skillNodes = (wf.nodes || []).filter(n => n.type === "skill" || n.type === "tool");
+      const edges = (wf.edges || []).filter(e => {
+        const sn = (wf.nodes || []).find(n => n.id === e.source);
+        const tn = (wf.nodes || []).find(n => n.id === e.target);
+        return (sn?.type === "skill" || sn?.type === "tool") && (tn?.type === "skill" || tn?.type === "tool");
+      });
+
+      const sorted = topoSort(skillNodes, edges);
+      const results = [];
+      let lastOutput = null;
+
+      for (const node of sorted) {
+        const ri = {};
+        for (const [k, t] of Object.entries(node.config?.inputMapping || {})) {
+          ri[k] = resolveTemplateStr(t, ctx);
+        }
+
+        let output;
+        if (node.type === "tool" && node.toolName) {
+          // Execute tool provider
+          const handler = toolRegistry.getHandler(node.toolName);
+          if (!handler) { results.push({ node: node.name, error: `Tool '${node.toolName}' not found` }); break; }
+          output = await handler(ri, { toolName: node.toolName });
+        } else if (node.skillId) {
+          // Execute skill
+          let skillPath = join(PATHS.APPS_ROOT, node.appName || "translate", "skills", node.skillId, "SKILL.md");
+          let raw;
+          try { raw = await readFile(skillPath, "utf-8"); } catch {
+            skillPath = join(PATHS.SKILL_POOL_ROOT, node.skillId, "SKILL.md");
+            try { raw = await readFile(skillPath, "utf-8"); } catch { results.push({ node: node.name, error: "Skill not found" }); break; }
+          }
+          const { parseSkillFrontmatter } = await import("./context.mjs");
+          const parsed = parseSkillFrontmatter(raw);
+          let prompt = parsed.body || "";
+          for (const [k, v] of Object.entries(ri)) {
+            prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));
+          }
+          const { contextEngine } = await import("../context-engine.mjs");
+          const ctxBuild = await contextEngine.build({ target: "skill-exec", appId: node.appName || "translate", skillId: node.skillId, skillPath, input: ri });
+          const { loadAgentConfig } = await import("./context.mjs");
+          const agentCfg = await loadAgentConfig();
+          const appDir = resolve(PATHS.APPS_ROOT, node.appName || "translate");
+          const agentResult = await runAgentLoop({ prompt, cwd: appDir, systemPrompt: ctxBuild.systemPrompt || "", maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT });
+          const clean = (agentResult.content || "").replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
+          const jm = clean.match(/\{[\s\S]*\}/);
+          output = jm ? (() => { try { return JSON.parse(jm[0]); } catch { return { text: clean.slice(0, 1500) }; } })() : { text: clean.slice(0, 1500) };
+        }
+
+        ctx.node[node.id] = { output };
+        lastOutput = output;
+        results.push({ node: node.name, status: "success", durationMs: 0 });
+      }
+
+      // Handle output
+      const endCfg = (wf.nodes || []).find(n => n.type === "end")?.config;
+      if (lastOutput && endCfg?.outputTarget === "chat") {
+        try {
+          const outputText = typeof lastOutput === "string" ? lastOutput : JSON.stringify(lastOutput, null, 2);
+          await fetch(`http://127.0.0.1:${process.env.PORT || 3148}/api/paaw/workflow-output-chat`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId: "default", content: outputText, workflowName: wf.name }),
+          });
+        } catch {}
+      }
+
+      json(res, { status: "completed", workflowName: wf.name, results, output: lastOutput });
+    } catch (err) {
+      json(res, { error: err.message }, 500);
+    }
+    return true;
+  }
+
   return false;
+}
+
+// ── Helper: resolve template string ──
+function resolveTemplateStr(template, ctx) {
+  if (typeof template !== "string") return template;
+  return template.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+    const parts = key.trim().split(".");
+    if (parts[0] === "workflow" && parts[1] === "input") return ctx.workflow.input[parts[2]] ?? `{{${key}}}`;
+    if (parts[0] === "node" && parts[1]) {
+      const nodeCtx = ctx.node[parts[1]];
+      if (!nodeCtx) return `{{${key}}}`;
+      if (parts[2] === "output") return typeof nodeCtx.output === "string" ? nodeCtx.output : JSON.stringify(nodeCtx.output);
+      return nodeCtx[parts[2]] ?? `{{${key}}}`;
+    }
+    return `{{${key}}}`;
+  });
 }

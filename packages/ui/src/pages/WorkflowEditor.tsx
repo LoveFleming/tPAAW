@@ -8,11 +8,11 @@ import {
 import "@xyflow/react/dist/style.css";
 
 // ── Types ──
-type WFNodeType = "start" | "end" | "skill";
+type WFNodeType = "start" | "end" | "skill" | "tool";
 type EndOutputTarget = "chat" | "file";
 
 interface WFNode {
-  id: string; type: WFNodeType; skillId?: string; appName?: string; name: string;
+  id: string; type: WFNodeType; skillId?: string; appName?: string; toolName?: string; name: string;
   position: { x: number; y: number };
   config: { inputMapping: Record<string, string>; outputTarget?: EndOutputTarget; outputFilePath?: string };
 }
@@ -23,6 +23,7 @@ interface WorkflowDef {
   inputSchema: { properties: Record<string, any>; required: string[] };
 }
 interface AppSkill { id: string; name: string; icon: string; skills: string[]; }
+interface ProviderTool { name: string; description: string; provider: string; parameters: { type: string; properties: Record<string, any> }; }
 
 import API from "../api";
 
@@ -78,11 +79,28 @@ function SkillNode({ data, selected }: NodeProps) {
   );
 }
 
-const nodeTypes = { start: StartNode, end: EndNode, skill: SkillNode };
+// ── Tool Provider Node ──
+function ToolNode({ data, selected }: NodeProps) {
+  return (
+    <div className={`px-4 py-3 rounded-xl shadow-sm border-2 transition-all cursor-pointer ${
+      selected ? "border-cyan-500 shadow-lg ring-4 ring-cyan-200 bg-cyan-50"
+      : "border-stone-200 hover:border-stone-300 bg-white"}`}>
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-stone-300 !border-2 !border-white" />
+      <div className="flex items-center gap-2">
+        <span className="text-sm">🔧</span>
+        <span className="font-semibold text-sm text-stone-800">{data.label as string}</span>
+      </div>
+      <div className="text-xs text-cyan-500 ml-[22px]">{(data.toolName as string) || "未選擇 tool"}</div>
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-stone-300 !border-2 !border-white" />
+    </div>
+  );
+}
+
+const nodeTypes = { start: StartNode, end: EndNode, skill: SkillNode, tool: ToolNode };
 
 // ── Node Config Panel ──
-function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
-  node: WFNode; appSkills: AppSkill[]; onUpdate: (p: Partial<WFNode>) => void; onDelete: () => void; onClose: () => void;
+function NodeConfigPanel({ node, appSkills, providerTools, onUpdate, onDelete, onClose }: {
+  node: WFNode; appSkills: AppSkill[]; providerTools: ProviderTool[]; onUpdate: (p: Partial<WFNode>) => void; onDelete: () => void; onClose: () => void;
 }) {
   const mapping = node.config.inputMapping || {};
   const selApp = appSkills.find(a => a.id === node.appName);
@@ -175,6 +193,71 @@ function NodeConfigPanel({ node, appSkills, onUpdate, onDelete, onClose }: {
     );
   }
 
+  // Tool node config
+  if (node.type === "tool") {
+    const tool = providerTools.find(t => t.name === node.toolName);
+    const toolParams = tool?.parameters?.properties || {};
+    return (
+      <div className="w-72 border-l border-stone-200 bg-white flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 bg-cyan-50">
+          <span className="text-sm font-semibold text-cyan-800">🔧 Tool 設定</span>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-stone-500 block mb-1">名稱</label>
+            <input type="text" value={node.name} onChange={e => onUpdate({ name: e.target.value })} className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-stone-500 block mb-1">Tool Provider</label>
+            <select value={node.toolName || ""} onChange={e => onUpdate({ toolName: e.target.value })} className="w-full px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-300">
+              <option value="">選擇 Tool</option>
+              {providerTools.map(t => <option key={t.name} value={t.name}>🔧 {t.name} ({t.provider})</option>)}
+            </select>
+          </div>
+          {tool && (
+            <div className="bg-cyan-50 rounded-lg p-2 border border-cyan-200">
+              <div className="text-xs text-cyan-700">{tool.description}</div>
+            </div>
+          )}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-stone-500">輸入映射</label>
+              <button onClick={() => { let k = "input_1", n = 1; while (mapping[k]) { n++; k = "input_" + n; } onUpdate({ config: { inputMapping: { ...mapping, [k]: "" } } }); }} className="text-xs text-cyan-600 hover:text-cyan-800 font-medium">+ 新增</button>
+            </div>
+            {Object.keys(toolParams).length > 0 && (
+              <div className="mb-2 text-[10px] text-cyan-600 space-y-0.5">
+                <div>📋 可用參數：</div>
+                {Object.entries(toolParams).map(([k, v]: [string, any]) => (
+                  <div key={k} className="ml-2"><code className="bg-cyan-100 px-1 rounded">{k}</code> ({v.type || "string"}) {v.description || ""}</div>
+                ))}
+              </div>
+            )}
+            <div className="space-y-2">
+              {Object.entries(mapping).map(([key, val]) => (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center gap-1">
+                    <input type="text" value={key} onChange={e => { const n = { ...mapping }; delete n[key]; n[e.target.value] = val; onUpdate({ config: { inputMapping: n } }); }} className="flex-1 px-2 py-1 text-xs bg-stone-50 border border-stone-200 rounded font-mono" placeholder="key" />
+                    <button onClick={() => { const n = { ...mapping }; delete n[key]; onUpdate({ config: { inputMapping: n } }); }} className="text-stone-400 hover:text-red-500 text-xs">✕</button>
+                  </div>
+                  <input type="text" value={val} onChange={e => onUpdate({ config: { inputMapping: { ...mapping, [key]: e.target.value } } })} className="w-full px-2 py-1 text-xs bg-white border border-stone-200 rounded font-mono" placeholder="{{workflow.input.text}} 或固定值" />
+                </div>
+              ))}
+            </div>
+            {Object.keys(mapping).length === 0 && <div className="text-xs text-stone-400 italic mt-1">尚未設定映射</div>}
+            <div className="mt-2 text-[10px] text-stone-400 space-y-0.5">
+              <div>💡 <code className="bg-stone-100 px-1 rounded">{"{{workflow.input.xxx}}"}</code> — workflow 輸入</div>
+              <div>💡 <code className="bg-stone-100 px-1 rounded">{"{{node-1.output.xxx}}"}</code> — 前一個節點輸出</div>
+            </div>
+          </div>
+        </div>
+        <div className="px-4 py-3 border-t border-stone-200">
+          <button onClick={onDelete} className="w-full py-1.5 text-xs rounded-lg text-red-600 hover:bg-red-50 border border-red-200 transition-colors">🗑 刪除節點</button>
+        </div>
+      </div>
+    );
+  }
+
   // Skill node config (original)
   return (
     <div className="w-72 border-l border-stone-200 bg-white flex flex-col">
@@ -241,6 +324,7 @@ export default function WorkflowEditor() {
   const [rfEdges, setRfEdges, onRfEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [appSkills, setAppSkills] = useState<AppSkill[]>([]);
+  const [providerTools, setProviderTools] = useState<ProviderTool[]>([]);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2000); };
@@ -248,6 +332,7 @@ export default function WorkflowEditor() {
   const selectedWFNode = useMemo(() => { if (!selectedNodeId || !currentWf) return null; return currentWf.nodes.find(n => n.id === selectedNodeId) || null; }, [selectedNodeId, currentWf]);
 
   useEffect(() => { fetch(`${API}/api/paaw/app-skills`).then(r => r.json()).then(setAppSkills).catch(() => {}); }, []);
+  useEffect(() => { fetch(`${API}/api/paaw/tools`).then(r => r.json()).then(d => setProviderTools(d.tools || [])).catch(() => {}); }, []);
   useEffect(() => {
     fetch(`${API}/api/paaw/workflows`).then(r => r.json()).then((l: WorkflowDef[]) => {
       setWorkflows(l);
@@ -258,6 +343,7 @@ export default function WorkflowEditor() {
   const toRFNode = (n: WFNode): Node => {
     if (n.type === "start") return { id: n.id, type: "start", position: n.position, data: { label: "Start" } };
     if (n.type === "end") return { id: n.id, type: "end", position: n.position, data: { label: "End", outputTarget: n.config.outputTarget || "chat" } };
+    if (n.type === "tool") return { id: n.id, type: "tool", position: n.position, data: { label: n.name, toolName: n.toolName || "" } };
     return { id: n.id, type: "skill", position: n.position, data: { label: n.name, skillId: n.skillId || "" } };
   };
 
@@ -288,6 +374,7 @@ export default function WorkflowEditor() {
       const d = { ...n.data };
       if (patch.name) d.label = patch.name;
       if (patch.skillId) d.skillId = patch.skillId;
+      if (patch.toolName !== undefined) d.toolName = patch.toolName;
       if (patch.config?.outputTarget) d.outputTarget = patch.config.outputTarget;
       return { ...n, data: d };
     }));
@@ -303,10 +390,11 @@ export default function WorkflowEditor() {
     setSelectedNodeId(null); autoSave(updated); showToast("🗑 已刪除");
   }, [currentWf, selectedNodeId, autoSave, setRfNodes, setRfEdges]);
 
-  const addNode = useCallback(() => {
+  const addNode = useCallback((nodeType: "skill" | "tool" = "skill") => {
     if (!currentWf) return;
     const id = "node-" + Date.now();
-    const newNode: WFNode = { id, type: "skill", skillId: "", name: tt("workflow.newNode"), position: { x: 300 + Math.random() * 200, y: 80 + Math.random() * 120 }, config: { inputMapping: {} } };
+    const isTool = nodeType === "tool";
+    const newNode: WFNode = { id, type: isTool ? "tool" : "skill", skillId: isTool ? undefined : "", toolName: isTool ? "" : undefined, name: isTool ? "Tool 節點" : tt("workflow.newNode"), position: { x: 300 + Math.random() * 200, y: 80 + Math.random() * 120 }, config: { inputMapping: {} } };
     const updated = { ...currentWf, nodes: [...currentWf.nodes, newNode] };
     setCurrentWf(updated);
     setRfNodes(nds => [...nds, toRFNode(newNode)]);
@@ -353,7 +441,8 @@ export default function WorkflowEditor() {
           <h2 className="font-semibold text-sm text-stone-800">{currentWf?.name || "Workflow Builder"}</h2>
           <span className="text-xs text-stone-400 ml-2">{currentWf?.description}</span>
           <div className="flex-1" />
-          <button onClick={addNode} className="px-3 py-1.5 text-xs rounded-lg font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors">+ 積木</button>
+          <button onClick={() => addNode("skill")} className="px-3 py-1.5 text-xs rounded-lg font-medium bg-violet-600 hover:bg-violet-700 text-white transition-colors">+ Skill</button>
+          <button onClick={() => addNode("tool")} className="px-3 py-1.5 text-xs rounded-lg font-medium bg-cyan-600 hover:bg-cyan-700 text-white transition-colors">+ Tool</button>
         </div>
         <div className="flex-1 relative" style={{ minHeight: 0 }}>
           <div className="w-full h-full">
@@ -368,7 +457,7 @@ export default function WorkflowEditor() {
 
       {/* Right: Node Config Panel */}
       {selectedWFNode && (
-        <NodeConfigPanel node={selectedWFNode} appSkills={appSkills} onUpdate={handleNodeUpdate} onDelete={handleNodeDelete} onClose={() => setSelectedNodeId(null)} />
+        <NodeConfigPanel node={selectedWFNode} appSkills={appSkills} providerTools={providerTools} onUpdate={handleNodeUpdate} onDelete={handleNodeDelete} onClose={() => setSelectedNodeId(null)} />
       )}
     </div>
   );

@@ -180,11 +180,11 @@ export default function WorkflowExec() {
 
     setIsRunning(true); setExecLog([]); setSelectedNodeId(null); setSelectedHistoryId(null);
     const ctx: Record<string, any> = { workflow: { input }, node: {} };
-    const skillNodes = currentWf.nodes.filter(n => n.type === "skill");
+    const skillNodes = currentWf.nodes.filter(n => n.type === "skill" || n.type === "tool");
     const skillEdges = currentWf.edges.filter(e => {
       const sn = currentWf.nodes.find(n => n.id === e.source);
       const tn = currentWf.nodes.find(n => n.id === e.target);
-      return sn?.type === "skill" && tn?.type === "skill";
+      return (sn?.type === "skill" || sn?.type === "tool") && (tn?.type === "skill" || tn?.type === "tool");
     });
     const sorted = topoSort(skillNodes, skillEdges);
     const log: ExecLogEntry[] = [];
@@ -196,9 +196,15 @@ export default function WorkflowExec() {
       for (const [k, t] of Object.entries(node.config.inputMapping || {})) ri[k] = resolveTemplate(t, ctx);
       const start = Date.now();
       try {
-        const resp = await fetch(`${API}/api/paaw/skill-exec`, {
+        // Determine if this is a tool node or skill node
+        const isToolNode = node.type === "tool" && node.toolName;
+        const endpoint = isToolNode ? "/api/paaw/tool-exec" : "/api/paaw/skill-exec";
+        const payload = isToolNode
+          ? { toolName: node.toolName, input: ri }
+          : { appId: node.appName || "translate", skillId: node.skillId, input: ri };
+        const resp = await fetch(`${API}${endpoint}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ appId: node.appName || "translate", skillId: node.skillId, input: ri }),
+          body: JSON.stringify(payload),
         });
         const result = await resp.json(); const dur = Date.now() - start;
         if (result.error) {
@@ -286,7 +292,7 @@ export default function WorkflowExec() {
             {workflows.map(wf => {
               const hasStart = wf.nodes.some(n => n.type === "start");
               const hasEnd = wf.nodes.some(n => n.type === "end");
-              const skillCount = wf.nodes.filter(n => n.type === "skill").length;
+              const skillCount = wf.nodes.filter(n => n.type === "skill" || n.type === "tool").length;
               return (
                 <button key={wf.id} onClick={() => selectWf(wf.id)} className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentWf?.id === wf.id ? "bg-violet-100 text-violet-800" : "hover:bg-stone-50 text-stone-600"}`}>
                   <div className="flex items-center gap-2"><span>{wf.icon}</span><span className={currentWf?.id === wf.id ? "font-medium" : ""}>{wf.name}</span></div>
