@@ -35,6 +35,25 @@ import { PaawSnapshot } from "./paaw-snapshot.mjs";
 import { resolveDefaultModel } from "./llm-utils.mjs";
 import { toolRegistry } from "./tool-registry.mjs";
 
+// ── Provider tool group mapping ──
+// Populated by initProviderToolGroups() — maps provider tool name → group
+const _providerToolGroups = new Map();
+
+/**
+ * Register a provider tool's group so getToolsForAgent can include it.
+ * Called by provider-loader after registering a tool.
+ */
+export function registerProviderToolGroup(toolName, group) {
+  if (toolName && group) _providerToolGroups.set(toolName, group);
+}
+
+/**
+ * Clear provider tool groups (for hot-reload).
+ */
+export function clearProviderToolGroups() {
+  _providerToolGroups.clear();
+}
+
 // ── Types ──
 
 /**
@@ -697,7 +716,8 @@ export function clearCrewGroupCache() {
 /**
  * Get tool definitions for a specific agent.
  * Reads toolGroups from crew.json first, falls back to hardcoded defaults.
- * @param {string} agentId - Agent identifier (e.g. "developer", "architect")
+ * Also includes provider tools whose group matches the agent's groups.
+ * @param {string} agentId - Agent identifier (e.g. "developer", "architect", "sre-metrics")
  * @param {string[]} extraGroups - Additional groups to include
  * @returns {object[]} Filtered tool definitions
  */
@@ -706,7 +726,8 @@ export function getToolsForAgent(agentId, extraGroups = []) {
   const groups = new Set([...agentGroups, ...extraGroups]);
   const useCoreRead = groups.has("core-read");
 
-  return PAAW_TOOLS.filter(tool => {
+  // 1. Filter built-in PAAW_TOOLS
+  const builtinTools = PAAW_TOOLS.filter(tool => {
     const name = tool.function?.name;
     if (!name) return false;
 
@@ -722,6 +743,26 @@ export function getToolsForAgent(agentId, extraGroups = []) {
     const group = TOOL_GROUP_MAP[name];
     return group && groups.has(group);
   });
+
+  // 2. Include provider tools from registry whose group matches
+  const providerTools = [];
+  if (toolRegistry.initialized) {
+    const allProviderDefs = toolRegistry.getDefinitions();
+    const providerNames = new Set(builtinTools.map(t => t.function?.name));
+    for (const def of allProviderDefs) {
+      const name = def.function?.name;
+      if (!name || providerNames.has(name)) continue; // skip duplicates
+      // Check if this provider tool's group matches
+      // Provider tools are registered with source: "tool-provider:{dir}"
+      // We check the tool's group from the provider's tool.json
+      const toolGroup = _providerToolGroups.get(name);
+      if (toolGroup && groups.has(toolGroup)) {
+        providerTools.push(def);
+      }
+    }
+  }
+
+  return [...builtinTools, ...providerTools];
 }
 
 /**

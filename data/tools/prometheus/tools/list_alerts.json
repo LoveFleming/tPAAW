@@ -1,0 +1,23 @@
+{
+  "name": "list_alerts",
+  "description": "查詢 Prometheus 目前 firing 的 alerts。回傳 alert 名稱、狀態、severity、annotations。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "state": {
+        "type": "string",
+        "enum": ["firing", "pending", "inactive", "all"],
+        "description": "篩選 alert 狀態。預設 firing"
+      },
+      "severity": {
+        "type": "string",
+        "enum": ["critical", "warning", "info", "all"],
+        "description": "篩選嚴重程度。預設 all"
+      }
+    },
+    "required": []
+  },
+  "runner": "script",
+  "group": "sre-prometheus",
+  "enabled": true
+}

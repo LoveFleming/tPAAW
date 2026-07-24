@@ -1,0 +1,21 @@
+{
+  "name": "read_runbook",
+  "description": "讀取 SOP / Runbook 文件。根據關鍵字找到對應的處置流程，回傳完整內容。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "keyword": {
+        "type": "string",
+        "description": "搜尋關鍵字。例如：payment-service、connection-pool、OOM、disk-full"
+      },
+      "name": {
+        "type": "string",
+        "description": "直接指定 runbook 檔名（不含副檔名）。例如：SOP-042、payment-troubleshooting"
+      }
+    },
+    "required": []
+  },
+  "runner": "script",
+  "group": "sre-docs",
+  "enabled": true
+}

@@ -1,0 +1,17 @@
+{
+  "name": "list_runbooks",
+  "description": "列出所有可用的 Runbook / SOP 文件。回傳清單和摘要。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "category": {
+        "type": "string",
+        "description": "篩選分類。例如：kubernetes、database、network、security"
+      }
+    },
+    "required": []
+  },
+  "runner": "script",
+  "group": "sre-docs",
+  "enabled": true
+}

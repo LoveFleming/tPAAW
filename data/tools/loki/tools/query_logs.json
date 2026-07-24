@@ -1,0 +1,29 @@
+{
+  "name": "query_logs",
+  "description": "搜尋 Loki logs 使用 LogQL。回傳符合的 log 行。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "LogQL 查詢。例如：{service=\"payment\"} |= \"error\" 或 {app=\"nginx\"} | json | level=\"error\""
+      },
+      "limit": {
+        "type": "number",
+        "description": "最多回傳幾行 log。預設 100"
+      },
+      "start": {
+        "type": "string",
+        "description": "開始時間。可用 {{@hour_ago}} 代表一小時前"
+      },
+      "end": {
+        "type": "string",
+        "description": "結束時間。可用 {{@isodate}} 代表現在"
+      }
+    },
+    "required": ["query"]
+  },
+  "runner": "script",
+  "group": "sre-loki",
+  "enabled": true
+}

@@ -1,0 +1,29 @@
+{
+  "name": "log_stats",
+  "description": "統計 Loki log 數量，用於看 error 頻率趨勢。使用 LogQL metric query。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "LogQL metric query。例如：sum(count_over_time({service=\"payment\"} |= \"error\" [5m])) by (service)"
+      },
+      "start": {
+        "type": "string",
+        "description": "開始時間。可用 {{@hour_ago}}"
+      },
+      "end": {
+        "type": "string",
+        "description": "結束時間。可用 {{@isodate}}"
+      },
+      "step": {
+        "type": "string",
+        "description": "取樣間隔。例如：5m、1h。預設 5m"
+      }
+    },
+    "required": ["query"]
+  },
+  "runner": "script",
+  "group": "sre-loki",
+  "enabled": true
+}

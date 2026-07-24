@@ -1,0 +1,29 @@
+{
+  "name": "prom_query_range",
+  "description": "查詢 Prometheus 時間範圍內的 metrics，回傳時間序列資料。適合看趨勢。",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "PromQL 查詢。例如：rate(http_requests_total[5m])"
+      },
+      "start": {
+        "type": "string",
+        "description": "開始時間。可用 {{@hour_ago}} 代表一小時前，或指定 ISO 8601 時間"
+      },
+      "end": {
+        "type": "string",
+        "description": "結束時間。可用 {{@isodate}} 代表現在，或指定 ISO 8601 時間"
+      },
+      "step": {
+        "type": "string",
+        "description": "取樣間隔。例如：60s、5m、1h。預設 60s"
+      }
+    },
+    "required": ["query", "start", "end"]
+  },
+  "runner": "script",
+  "group": "sre-prometheus",
+  "enabled": true
+}
