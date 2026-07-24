@@ -617,20 +617,21 @@ const CORE_READ_TOOLS = new Set(["read_file", "glob", "grep", "diff", "ask_user"
 
 // ── Fallback groups (used when crew.json has no toolGroups) ──
 const AGENT_FALLBACK_GROUPS = {
-  // Architect: read-only + decisions + project
+  // Coding agents
   architect: ["core-read", "memory", "decisions", "project", "project-edit"],
-  // Developer: full core + memory + project
   developer: ["core", "memory", "decisions", "project", "project-edit"],
-  // Tester: full core + project
   tester: ["core", "memory", "decisions", "project", "project-edit"],
-  // Doc-writer: full core + project-edit + docs + notes
   "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs", "notes"],
-  // QA: read-only + project + project-edit
   qa: ["core-read", "memory", "project", "project-edit"],
-  // Helpdesk: read-only + project + notes
   helpdesk: ["core-read", "memory", "project", "notes"],
-  // EM: read-only + project + project-edit + notes + docs + browser
   em: ["core-read", "memory", "decisions", "project", "project-edit", "notes", "docs", "browser", "tasks", "dispatch"],
+  // SRE agents
+  "sre-commander": ["core-read", "memory", "decisions", "tasks", "dispatch"],
+  "sre-metrics": ["core-read", "memory"],
+  "sre-logs": ["core-read", "memory"],
+  "sre-runbook": ["core-read", "memory", "decisions"],
+  "sre-responder": ["core-read", "memory"],
+  "sre-security": ["core-read", "memory"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──
@@ -648,6 +649,7 @@ function getAgentGroupsFromConfig(agentId) {
 
   // agentId -> crewId mapping
   const crewMap = {
+    // Coding agents
     architect: "coding.architect",
     developer: "coding.developer",
     tester: "coding.tester",
@@ -655,6 +657,13 @@ function getAgentGroupsFromConfig(agentId) {
     qa: "coding.qa",
     helpdesk: "coding.helpdesk",
     em: "coding.em",
+    // SRE agents
+    "sre-commander": "sre.commander",
+    "sre-metrics": "sre.metrics",
+    "sre-logs": "sre.logs",
+    "sre-runbook": "sre.runbook",
+    "sre-responder": "sre.responder",
+    "sre-security": "sre.security",
   };
   const crewId = crewMap[agentId];
   if (!crewId) return AGENT_FALLBACK_GROUPS[agentId] || ["core", "memory"];

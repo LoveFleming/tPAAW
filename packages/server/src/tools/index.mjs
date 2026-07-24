@@ -592,18 +592,18 @@ async function buildToolDefinitions() {
     type: "function",
     function: {
       name: "dispatch_agent",
-      description: "派工給其他 agent 執行任務。EM 拆分好子任務後，用這個 tool 把具體工作交給對應的 agent。一次只派一個 agent，等結果回來再派下一個。",
+      description: "派工給其他 agent 執行任務。拆分好子任務後，用這個 tool 把具體工作交給對應的 agent。一次只派一個 agent，等結果回來再派下一個。Coding agents: architect/developer/tester/doc-writer/qa/helpdesk。SRE agents: sre-commander/sre-metrics/sre-logs/sre-runbook/sre-responder/sre-security。",
       parameters: {
         type: "object",
         properties: {
           agentId: {
             type: "string",
-            enum: ["architect", "developer", "tester", "doc-writer", "qa", "helpdesk"],
-            description: "目標 agent：architect(林曉薇), developer(Priya), tester(Divya), doc-writer(Megan), qa(武大安), helpdesk(小春)",
+            enum: ["architect", "developer", "tester", "doc-writer", "qa", "helpdesk", "sre-commander", "sre-metrics", "sre-logs", "sre-runbook", "sre-responder", "sre-security"],
+            description: "目標 agent。Coding: architect(林曉薇), developer(Priya), tester(Divya), doc-writer(Megan), qa(武大安), helpdesk(小春)。SRE: sre-commander(張志遠), sre-metrics(蘇婉清), sre-logs(趙明軒), sre-runbook(林雅婷), sre-responder(黃志強), sre-security(陳如芸)",
           },
           task: {
             type: "string",
-            description: "具體任務說明（要明確：哪個檔案、哪個函數、要做什麼）。例如：修 packages/ui/src/components/UserInput.tsx 中 handleSubmit 的 XSS 問題，使用 DOMPurify sanitize input",
+            description: "具體任務說明（要明確：查什麼 metric、查什麼 log、做什麼操作）。例如：查 payment-service 最近 5 分鐘的 p99 latency",
           },
           taskId: {
             type: "string",
@@ -1501,12 +1501,26 @@ function buildHandlers(apps) {
     }
   };
 
-  handlers.dispatch_agent = async ({ agentId, task, taskId } = {}) => {
+  handlers.dispatch_agent = async ({ agentId, task, taskId, domain } = {}) => {
     if (!agentId || !task) return { text: "❌ dispatch_agent 需要 agentId 和 task" };
 
-    const { getAgentByCrewId, buildSystemPrompt } = await import("../lib/domain-agent-registry.mjs");
-    const agent = getAgentByCrewId(`coding.${agentId}`);
-    if (!agent) return { text: `❌ 找不到 agent: ${agentId}` };
+    const { getAgentByCrewId, buildSystemPrompt, getAgent } = await import("../lib/domain-agent-registry.mjs");
+
+    // Resolve agent: try multiple strategies
+    // 1. Full agentId (e.g. "sre-metrics", "sre-commander")
+    // 2. domain + short agentId (domain="sre", agentId="metrics" → "sre-metrics")
+    // 3. Coding fallback: coding.{agentId}
+    let agent = null;
+    if (agentId.startsWith("sre-") || agentId.startsWith("coding-") || agentId === "em") {
+      agent = getAgent(agentId);
+    }
+    if (!agent && domain === "sre") {
+      agent = getAgent(`sre-${agentId}`);
+    }
+    if (!agent) {
+      agent = getAgentByCrewId(`coding.${agentId}`);
+    }
+    if (!agent) return { text: `❌ 找不到 agent: ${agentId}${domain ? ` (domain: ${domain})` : ""}` };
 
     // Check if agent is busy
     try {

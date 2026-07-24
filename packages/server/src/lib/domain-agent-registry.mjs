@@ -255,6 +255,135 @@ const DOMAIN_AGENTS = {
       },
     ],
   },
+
+  // ── SRE Domain Agents ──
+
+  "sre-commander": {
+    agentId: "sre-commander",
+    crewId: "sre.commander",
+    name: "張志遠 SRE Commander",
+    description: "SRE Commander — 事件協調、團隊調度、風險評估、部署把關",
+    contextProviders: [],
+    tools: null,
+    maxTurns: 20,
+
+    skills: [
+      {
+        id: "sre-incident",
+        name: "事件排查",
+        description: "收到 alert 或問題，拆解排查步驟，派工給 SRE 團隊",
+        tags: ["sre", "incident", "dispatch"],
+      },
+      {
+        id: "sre-report",
+        name: "狀態報告",
+        description: "總結排查結果，產生根因分析和建議",
+        tags: ["sre", "report", "postmortem"],
+      },
+    ],
+  },
+
+  "sre-metrics": {
+    agentId: "sre-metrics",
+    crewId: "sre.metrics",
+    name: "蘇婉清 Metrics Analyst",
+    description: "Metrics Analyst — Prometheus 查詢、指標分析、趨勢預測",
+    contextProviders: [],
+    tools: null,
+
+    skills: [
+      {
+        id: "sre-metrics-query",
+        name: "指標查詢",
+        description: "用 PromQL 查詢 Prometheus，回答具體數值",
+        tags: ["sre", "metrics", "prometheus", "promql"],
+      },
+      {
+        id: "sre-metrics-anomaly",
+        name: "異常偵測",
+        description: "對比歷史基線，找出異常指標變化",
+        tags: ["sre", "metrics", "anomaly"],
+      },
+    ],
+  },
+
+  "sre-logs": {
+    agentId: "sre-logs",
+    crewId: "sre.logs",
+    name: "趙明軒 Log Analyst",
+    description: "Log Analyst — Loki/ELK 查詢、log 分析、pattern 識別",
+    contextProviders: [],
+    tools: null,
+
+    skills: [
+      {
+        id: "sre-logs-search",
+        name: "Log 搜尋",
+        description: "搜尋 Loki/ELK，找出特定 error 或 event",
+        tags: ["sre", "logs", "loki", "elk"],
+      },
+      {
+        id: "sre-logs-pattern",
+        name: "Pattern 分析",
+        description: "從大量 log 中找出重複的 error pattern",
+        tags: ["sre", "logs", "pattern"],
+      },
+    ],
+  },
+
+  "sre-runbook": {
+    agentId: "sre-runbook",
+    crewId: "sre.runbook",
+    name: "林雅婷 Runbook Reader",
+    description: "Runbook Reader — SOP 查詢、操作手冊、故障樹分析",
+    contextProviders: [],
+    tools: null,
+
+    skills: [
+      {
+        id: "sre-runbook-find",
+        name: "SOP 查詢",
+        description: "根據問題描述，找到對應的 runbook",
+        tags: ["sre", "runbook", "sop"],
+      },
+    ],
+  },
+
+  "sre-responder": {
+    agentId: "sre-responder",
+    crewId: "sre.responder",
+    name: "黃志強 Incident Responder",
+    description: "Incident Responder — 執行 kubectl 操作、重啟、擴容、降級",
+    contextProviders: [],
+    tools: null,
+
+    skills: [
+      {
+        id: "sre-respond",
+        name: "事件處置",
+        description: "根據 SOP 執行具體操作，安全第一",
+        tags: ["sre", "response", "kubectl"],
+      },
+    ],
+  },
+
+  "sre-security": {
+    agentId: "sre-security",
+    crewId: "sre.security",
+    name: "陳如芸 Security Checker",
+    description: "Security Checker — 安全掃描、漏洞檢查、權限審計",
+    contextProviders: [],
+    tools: null,
+
+    skills: [
+      {
+        id: "sre-security-scan",
+        name: "安全掃描",
+        description: "檢查已知漏洞、配置問題、權限問題",
+        tags: ["sre", "security", "scan"],
+      },
+    ],
+  },
 };
 
 // ── Public API ──
