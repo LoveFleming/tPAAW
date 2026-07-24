@@ -39,6 +39,9 @@ function topoSort(nodes, edges) {
 // ── Direct Skill Execution (single LLM call, no agent loop) ──
 // Loads ALL context upfront — no tool calls, no multi-turn exploration.
 async function runSkillDirect({ skillPath, input, appId, systemContext, model }) {
+  const skillDir = resolve(skillPath, "..");
+  const skillDirName = skillDir.split(/[\/]/).pop();
+
   // 1. Load SKILL.md
   const raw = await readFile(skillPath, "utf-8");
   const { parseSkillFrontmatter } = await import("./context.mjs");
@@ -52,19 +55,62 @@ async function runSkillDirect({ skillPath, input, appId, systemContext, model })
     }
   }
 
-  // 3. Pre-load ALL context files
+  // 3. Pre-load ALL context: system msg + entire skill directory + app context
   const contextParts = [
     "你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。",
   ];
 
-  // App SYSTEM.md
+  // ── Load ALL files from skill directory (scripts, samples, references, etc.) ──
+  // SKILL.md frontmatter is already parsed → load everything ELSE as context
+  contextParts.push(`━━━ Skill: ${parsed.meta?.id || skillDirName} ━━━`);
+  if (parsed.meta && Object.keys(parsed.meta).length > 0) {
+    contextParts.push(`Frontmatter:\n${JSON.stringify(parsed.meta, null, 2)}`);
+  }
+
+  // Recursively scan skill directory for all files
+  const loadedFiles = [];
+  function scanSkillDir(dir, relPath = "") {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      // Skip SKILL.md (already parsed), hidden files, sessions, memory logs
+      if (entry.name === "SKILL.md") continue;
+      if (entry.name.startsWith(".")) continue;
+      if (entry.name.startsWith("_cron_inputs")) continue;
+      if (entry.name === ".paaw") continue;
+
+      const fullPath = join(dir, entry.name);
+      const relFilePath = relPath ? `${relPath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        scanSkillDir(fullPath, relFilePath);
+      } else if (entry.isFile()) {
+        loadedFiles.push({ relPath: relFilePath, fullPath });
+      }
+    }
+  }
+  try { scanSkillDir(skillDir); } catch {}
+
+  // Load each file's content
+  for (const file of loadedFiles) {
+    try {
+      const content = readFileSync(file.fullPath, "utf-8");
+      const ext = file.relPath.split(".").pop()?.toLowerCase() || "";
+      let label = `📄 ${file.relPath}`;
+      if (ext === "md") label = `📖 ${file.relPath}`;
+      else if (ext === "js" || ext === "mjs" || ext === "ts" || ext === "tsx") label = `📜 ${file.relPath}`;
+      else if (ext === "json") label = `⚙️ ${file.relPath}`;
+      contextParts.push(`--- ${label} ---\n${content}`);
+    } catch {}
+  }
+
+  // ── App-level context ──
   if (appId) {
     try {
       const appSystem = await readFile(join(PATHS.APPS_ROOT, appId, "SYSTEM.md"), "utf-8");
-      contextParts.push(appSystem);
+      contextParts.push(`--- App SYSTEM.md ---\n${appSystem}`);
     } catch {}
 
-    // App knowledge files (if any)
+    // App knowledge files
     const appKnowledgeDir = join(PATHS.APPS_ROOT, appId, "knowledge");
     if (existsSync(appKnowledgeDir)) {
       try {
@@ -84,13 +130,15 @@ async function runSkillDirect({ skillPath, input, appId, systemContext, model })
     contextParts.push(systemContext);
   }
 
+  contextParts.push("━━━ End of Context — 嚴格按照 SKILL.md 定義執行 ━━━");
+
   // 4. Resolve LLM config
   const llm = resolveLLMConfig(PAAW_ROOT, model);
   if (!llm.apiUrl || !llm.model) {
     throw new Error("LLM not configured");
   }
 
-  // 5. Single LLM call — no tools, no loop, no multi-turn
+  // 5. Single LLM call — all context pre-loaded, no tools, no multi-turn
   const messages = [
     { role: "system", content: contextParts.join("\n\n") },
     { role: "user", content: prompt },
