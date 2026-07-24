@@ -24,7 +24,7 @@ Tool Builder 讓你建立自訂 API Tool，註冊到 PAAW 的 Tool Registry 之�
 |------|------|------|
 | Tool ID | 唯一識別碼，小寫英文數字 | `notify` |
 | Tool 名稱 | 顯示名稱 | `notify_send` |
-| 描述 | Tool 做什麼（AI 會看這個決定要不要用） | `發送通知訊息，ID 由系統自動產生` |
+| 描述 | Tool 做什麼（AI 會看這個決定要不要用） | `發送通知訊息` |
 | 圖示 | Emoji | 📢 |
 
 #### API 設定（runner = api）
@@ -45,15 +45,18 @@ Tool Builder 讓你建立自訂 API Tool，註冊到 PAAW 的 Tool Registry 之�
 
 ```json
 {
+  "id": "{{@nanoid}}",
   "message": "{{message}}"
 }
 ```
+
+> Body 裡如果需要唯一 ID，用 `{{@nanoid}}` 讓 Server 自動產生，不用 AI 傳。
 
 #### 參數定義
 
 定義 LLM 可以傳什麼參數。格式是 JSON Schema。
 
-> ⚠️ **唯一 ID 不要放在參數裡！** 讓 API 端自己用 `nanoid()` 產生。Tool 參數只放 AI 需要決定的業務資料（像訊息內容）。
+> ⚠️ **唯一 ID 不要放在參數裡！** 在 Body 裡用 `{{@nanoid}}` 讓 Server 自動產。參數只放 AI 需要決定的業務資料（像訊息內容）。
 
 ```json
 {
@@ -96,23 +99,35 @@ Tool Builder 讓你建立自訂 API Tool，註冊到 PAAW 的 Tool Registry 之�
 
 Server 收到 LLM 的呼叫後，會替換 URL / Headers / Body 裡的模板：
 
+### 參數引用
+
 | 模板 | 來源 | 範例 |
 |------|------|------|
 | `{{參數名}}` | LLM 傳入的參數 | `{{message}}` → `你好！` |
 | `{{…configKey}}` 或 `{{...configKey}}` | 從 config.json 讀取 | `{{…api_key}}` → `sk-xxxxx` |
 
-替換是遞迴的，Body 裡巢狀物件的字串值也會被替換。
+### 內建產生器
+
+| 模板 | 來源 | 範例 |
+|------|------|------|
+| `{{@nanoid}}` | Server 自動產生 21 字元隨機 ID | `V1StGXR8_Z5jdHi6B-myT` |
+| `{{@nanoid:10}}` | Server 產生自訂長度的隨機 ID | `IRFa-VaR2` |
+| `{{@uuid}}` | Server 產生 UUID v4 | `3b241101-e2bb-4...` |
+| `{{@timestamp}}` | Server 產生毫秒 timestamp | `1721805600000` |
+| `{{@isodate}}` | Server 產生 ISO 日期 | `2026-07-24T08:30:00.000Z` |
+
+替換是遞迴的，Body 裡巢狀物件的字串值也會被替換。每次呼叫都會重新產生新的值。
 
 ---
 
-## 完整範例：notify_send（ID 由程式產生）
+## 完整範例：notify_send（payload 自帶 nanoid）
 
 ### Tool Builder 填法
 
 **基本資料：**
 - Tool ID：`notify`
 - Tool 名稱：`notify_send`
-- 描述：`發送通知訊息，ID 由系統自動產生`
+- 描述：`發送通知訊息`
 - 圖示：📢
 
 **API 設定：**
@@ -124,6 +139,7 @@ Server 收到 LLM 的呼叫後，會替換 URL / Headers / Body 裡的模板：
 - Body：
   ```json
   {
+    "id": "{{@nanoid}}",
     "message": "{{message}}"
   }
   ```
@@ -160,11 +176,12 @@ Server 收到 LLM 的呼叫後，會替換 URL / Headers / Body 裡的模板：
 2. LLM 傳入參數：`{ message: "你好！" }`
 3. Server 替換模板：
    - URL：`https://api.example.com/notify`
-   - Header：`Authorization: Bearer sk-xxxxx`（從 config 讀）
-   - Body：`{"message": "你好！"}`
+   - Header：`Authorization: Bearer ***`（從 config 讀）
+   - Body：`{"id": "V1StGXR8_Z5jdHi6B-myT", "message": "你好！"}`
+     - `{{@nanoid}}` → Server 自動產生隨機 ID
+     - `{{message}}` → LLM 傳入的訊息
 4. Server 發出 HTTP POST
-5. **API 端自己 `nanoid()` 產生唯一 ID**，存到 DB，回傳結果
-6. 回傳結果給 LLM（含產生的 ID）
+5. API 端收到已帶 ID 的完整 payload
 
 ### 對應的 tool.json 檔案
 
@@ -173,7 +190,7 @@ Server 收到 LLM 的呼叫後，會替換 URL / Headers / Body 裡的模板：
 ```json
 {
   "name": "notify_send",
-  "description": "發送通知訊息，ID 由系統自動產生",
+  "description": "發送通知訊息",
   "parameters": {
     "type": "object",
     "properties": {
@@ -190,6 +207,7 @@ Server 收到 LLM 的呼叫後，會替換 URL / Headers / Body 裡的模板：
       "Authorization": "Bearer {{…api_key}}"
     },
     "body": {
+      "id": "{{@nanoid}}",
       "message": "{{message}}"
     }
   },
@@ -197,7 +215,7 @@ Server 收到 LLM 的呼叫後，會替換 URL / Headers / Body 裡的模板：
 }
 ```
 
-### ❌ 反例：不要把 ID 放在參數裡
+### ❌ 反例：不要把 ID 放在參數裡讓 AI 傳
 
 ```json
 {
@@ -209,7 +227,16 @@ Server 收到 LLM 的呼叫後，會替換 URL / Headers / Body 裡的模板：
 ```
 
 這樣 AI 會被要求傳 nanoid，但 AI 不會產生可靠的唯一 ID。
-唯一 ID 應該由 API 端或 Script 端程式產生，不交給 LLM。
+
+✅ **正確做法**：在 Body 裡用 `{{@nanoid}}`，Server 自動產生：
+```json
+{
+  "body": {
+    "id": "{{@nanoid}}",
+    "message": "{{message}}"
+  }
+}
+```
 
 ---
 
@@ -234,7 +261,7 @@ PAAW 內建的 Discord Tool：
     "method": "POST",
     "url": "https://discord.com/api/v10/channels/{{channel}}/messages",
     "headers": {
-      "Authorization": "Bot {{…token}}",
+      "Authorization": "***",
       "Content-Type": "application/json"
     },
     "body": {
@@ -244,17 +271,31 @@ PAAW 內建的 Discord Tool：
 }
 ```
 
-> discord_send 的 `channel` 不是 ID，是 AI 從上下文查到的頻道 ID（已知值），所以放在參數裡是合理的。
+> discord_send 的 `channel` 是已知值（AI 從上下文查到），所以放在參數裡合理。
 
 ---
 
-## ID 產生策略
+## 內建產生器詳解
 
-| 場景 | ID 誰產？ | 做法 |
-|------|-----------|------|
-| 建立新資料需要唯一 ID | **API 端產** | 參數不放 ID，API 用 `nanoid()` 自動產 |
-| 引用已有資料的 ID | **AI 從上下文查** | 參數放 ID 欄位，AI 從 Knowledge / 前次回傳查到值 |
-| 檔案路徑等識別 | **AI 或 Script 產** | Script runner 用 `nanoid` 產，或用 timestamp |
+### `{{@nanoid}}` / `{{@nanoid:N}}`
+
+產生 URL-safe 隨機 ID，適合當 record 的唯一識別。
+
+- 預設長度 21 字元，碰撞機率極低
+- 可自訂長度：`{{@nanoid:10}}` 產生 10 字元
+- **每次呼叫都會產生新的 ID**
+
+### `{{@uuid}}`
+
+產生 UUID v4（標準格式 `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`）。
+
+### `{{@timestamp}}`
+
+產生毫秒級 timestamp（如 `1721805600000`），適合當時間戳記。
+
+### `{{@isodate}}`
+
+產生 ISO 8601 日期字串（如 `2026-07-24T08:30:00.000Z`），適合當 createdAt 欄位。
 
 ---
 
@@ -276,4 +317,4 @@ PAAW 內建的 Discord Tool：
 - **URL 中的 `{{參數}}`**：適合用在 path parameter，如 `/users/{{userId}}`
 - **Body 中的 `{{參數}}`**：適合用在 request body 的值
 - **API 回傳格式**：Server 會嘗試 parse JSON，失敗就當純文字回傳
-- **唯一 ID 交給程式產生**：不要讓 LLM 生 ID，API 端用 `nanoid()` 最可靠
+- **唯一 ID 用 `{{@nanoid}}`**：不要讓 LLM 生 ID，在 Body 裡用內建產生器最可靠

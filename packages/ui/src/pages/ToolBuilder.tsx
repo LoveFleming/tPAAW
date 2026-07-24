@@ -593,7 +593,7 @@ export default function ToolBuilder() {
                     </div>
 
                     <p className="text-xs text-stone-500">
-                      {t("toolBuilder.templateHint", "用 {{參數名}} 代表 LLM 傳入的參數，用 {{…configKey}} 代表 config.json 裡的值")}
+                      {t("toolBuilder.templateHint", "用 {{參數名}} 代表 LLM 傳入的參數，{{…key}} 讀 config，{{@nanoid}}/{{@uuid}}/{{@timestamp}} 自動產生 ID")}
                     </p>
                   </div>
                 )}

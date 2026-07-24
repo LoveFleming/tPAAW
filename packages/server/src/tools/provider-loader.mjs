@@ -15,6 +15,8 @@ import { readdir, readFile } from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import { resolve, join } from "path";
 import { toolRegistry } from "../lib/tool-registry.mjs";
+import { nanoid } from "nanoid";
+import { randomUUID } from "crypto";
 
 const PAAW_ROOT = process.env.PAAW_ROOT || resolve(import.meta.dirname, "../../../../");
 const TOOLS_DIR = resolve(PAAW_ROOT, "data/tools");
@@ -207,9 +209,26 @@ async function buildScriptHandler(providerDir) {
  * {{參數名}} → args[參數名]
  * {{…configKey}} → config[configKey]（… 開頭表示從 config 讀，不從 args）
  */
+// ── Built-in generators for template engine ──
+const GENERATORS = {
+  "@nanoid": (size) => nanoid(size ? parseInt(size) : undefined),
+  "@uuid": () => randomUUID(),
+  "@timestamp": () => String(Date.now()),
+  "@isodate": () => new Date().toISOString(),
+};
+
 function replaceTemplate(template, args, config) {
   if (typeof template !== "string") return template;
   return template.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+    // {{@generator}} or {{@generator:size}}
+    if (key.startsWith("@")) {
+      const parts = key.split(":");
+      const genKey = parts[0];
+      const genArg = parts[1] || "";
+      const gen = GENERATORS[genKey];
+      if (gen) return gen(genArg);
+      return `{{${key}}}`;
+    }
     // {{…xxx}} → config.xxx
     if (key.startsWith("…") || key.startsWith("...")) {
       const configKey = key.replace(/^[.…]+/, "");
