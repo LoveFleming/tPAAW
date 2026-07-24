@@ -173,8 +173,8 @@ await loadRoutes();
 
 // ── Initialize shared tool registry ──
 try {
-  const { initLoopATools } = await import("./lib/tool-registry-init.mjs");
-  initLoopATools();
+  const { initAllTools } = await import("./lib/tool-registry-init.mjs");
+  await initAllTools();
   console.log("[PAAW] Tool registry initialized");
 } catch (err) {
   console.warn("[PAAW] Tool registry init failed (non-blocking):", err.message);
