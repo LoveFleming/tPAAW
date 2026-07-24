@@ -562,5 +562,6 @@
   "toolBuilder.testTitle": "測試",
   "toolBuilder.runTest": "執行測試",
   "toolBuilder.noTools": "還沒有安裝任何 Tool",
-  "toolBuilder.config": "設定"
+  "toolBuilder.config": "設定",
+  "sidebar.workflowBuilder": "Workflow Builder"
 }

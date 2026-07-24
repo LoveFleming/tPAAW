@@ -1,0 +1,22 @@
+{
+  "id": "bk_mrz4mm4l",
+  "filename": "backup-2026-07-24T16-00-22.tar.gz",
+  "path": "/Users/steward/App/tPAAW/backups/backup-2026-07-24T16-00-22.tar.gz",
+  "size": 17713682,
+  "createdAt": "2026-07-24T16:00:22.917Z",
+  "dirs": [
+    "ai-settings",
+    "apps",
+    "app-data",
+    "chats",
+    "config",
+    "crews",
+    "cron",
+    "db",
+    "knowledge",
+    "notes",
+    "skills",
+    "workflows",
+    "api-registry"
+  ]
+}

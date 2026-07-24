@@ -560,5 +560,6 @@
   "toolBuilder.testTitle": "テスト",
   "toolBuilder.runTest": "テスト実行",
   "toolBuilder.noTools": "Toolがインストールされていません",
-  "toolBuilder.config": "設定"
+  "toolBuilder.config": "設定",
+  "sidebar.workflowBuilder": "Workflow Builder"
 }

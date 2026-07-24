@@ -49,37 +49,40 @@ export function CodeBlock({ text }: { text: string }) {
 }
 
 // ── Nav Icon helper ──
-const NAV_EMOJI: Record<string, string> = {
-    "Constitution":    "📜",
-    "Standards":       "📏",
-    "AI Crew":         "👥",
-    "Skills":          "✨",
-    "Skill Pool":      "✨",
-    "Skill Builder":   "🧠",
-    "App Builder":     "🚀",
-    "Workflow Builder": "📋",
-    "Apps":            "📊",
-    "App Pool":        "📊",
-    "Report Apps":     "📊",
-    "Report Lab":      "🧪",
-    "Workflows":       "🔄",
-    "Workflow Exec":   "🔄",
-    "Schedules":       "⏰",
-    "Cron Jobs":       "⏰",
-    "Skill Lab":       "🧪",
-    "Coding":     "⚡",
-    "Prompts":         "💻",
-    "Backup":          "🛡️",
-    "Work Sync":       "🔄",
-    "AI Settings":     "⚙️",
-    "Briefing Player": "🎤",
-    "Mind Map":       "🗺️",
-    "Notes":          "📓",
-    "Projects":       "📋",
-    "🎧 HelpDesk":     "",
-    "HelpDesk":        "🎧",
-    "LLM Log":         "📡",
-};
+// Match by page-type suffix so i18n label changes don't break icon lookup
+const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
+    { match: /constitution|憲法/i, emoji: "📜" },
+    { match: /standards|規範|基準/i, emoji: "📏" },
+    { match: /crew|成員|チーム/i, emoji: "👥" },
+    { match: /skill.*pool|技能池/i, emoji: "✨" },
+    { match: /skill.*builder|技能建構|スキルビルダ/i, emoji: "🧠" },
+    { match: /skill/i, emoji: "✨" },
+    { match: /app.*builder|app builder/i, emoji: "🚀" },
+    { match: /app.*pool|應用程式池|app pool/i, emoji: "📊" },
+    { match: /report.*lab|報告實驗/i, emoji: "🧪" },
+    { match: /tool.*builder|tool builder/i, emoji: "🔧" },
+    { match: /workflow.*builder|workflow.*editor|工作流.*建/i, emoji: "📋" },
+    { match: /workflow|工作流|ワークフロー/i, emoji: "🔄" },
+    { match: /cron|schedul|定期実行|排程/i, emoji: "⏰" },
+    { match: /coding|程式|コーディング/i, emoji: "⚡" },
+    { match: /prompts|提示詞/i, emoji: "💻" },
+    { match: /backup|備份|バックアップ/i, emoji: "🛡️" },
+    { match: /work.*sync/i, emoji: "🔄" },
+    { match: /ai.*settings|AI 設定/i, emoji: "⚙️" },
+    { match: /briefing|簡報/i, emoji: "🎤" },
+    { match: /mind.*map|心智圖/i, emoji: "🗺️" },
+    { match: /notes|筆記|ノート/i, emoji: "📓" },
+    { match: /projects|專案|プロジェクト/i, emoji: "📋" },
+    { match: /helpdesk|客服/i, emoji: "🎧" },
+    { match: /llm.*log/i, emoji: "📡" },
+];
+
+function findEmoji(label: string): string | undefined {
+    for (const { match, emoji } of NAV_EMOJI_PATTERNS) {
+        if (match.test(label)) return emoji;
+    }
+    return undefined;
+}
 
 export function SidebarSection({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -121,7 +124,7 @@ export function NavItem({
     accentColor?: string;
     accentBg?: string;
 }) {
-    const emoji = NAV_EMOJI[label];
+    const emoji = findEmoji(label);
 
     return (
         <button

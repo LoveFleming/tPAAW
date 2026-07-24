@@ -562,5 +562,6 @@
   "toolBuilder.testTitle": "Test",
   "toolBuilder.runTest": "Run Test",
   "toolBuilder.noTools": "No tools installed yet",
-  "toolBuilder.config": "Settings"
+  "toolBuilder.config": "Settings",
+  "sidebar.workflowBuilder": "Workflow Builder"
 }
