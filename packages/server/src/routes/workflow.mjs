@@ -2,10 +2,10 @@
  * Workflow routes — CRUD + execution + history
  */
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { PATHS, readBody, json, urlPath } from "./context.mjs";
-import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
+import { runAgentLoop, resolveLLMConfig, callLLM } from "../lib/paaw-agent-loop.mjs";
 
 const PAAW_ROOT = process.env.PAAW_ROOT || PATHS.PAAW_ROOT;
 
@@ -35,6 +35,81 @@ function topoSort(nodes, edges) {
   }
   return sorted;
 }
+
+// ── Direct Skill Execution (single LLM call, no agent loop) ──
+// Loads ALL context upfront — no tool calls, no multi-turn exploration.
+async function runSkillDirect({ skillPath, input, appId, systemContext, model }) {
+  // 1. Load SKILL.md
+  const raw = await readFile(skillPath, "utf-8");
+  const { parseSkillFrontmatter } = await import("./context.mjs");
+  const parsed = parseSkillFrontmatter(raw);
+  let prompt = parsed.body || "";
+
+  // 2. Replace {{key}} placeholders with input values
+  if (input && typeof input === "object") {
+    for (const [k, v] of Object.entries(input)) {
+      prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));
+    }
+  }
+
+  // 3. Pre-load ALL context files
+  const contextParts = [
+    "你是 PAAW Skill 執行引擎。嚴格按照 Skill 定義處理，只輸出結果，不加解釋。",
+  ];
+
+  // App SYSTEM.md
+  if (appId) {
+    try {
+      const appSystem = await readFile(join(PATHS.APPS_ROOT, appId, "SYSTEM.md"), "utf-8");
+      contextParts.push(appSystem);
+    } catch {}
+
+    // App knowledge files (if any)
+    const appKnowledgeDir = join(PATHS.APPS_ROOT, appId, "knowledge");
+    if (existsSync(appKnowledgeDir)) {
+      try {
+        const files = readdirSync(appKnowledgeDir);
+        for (const f of files) {
+          if (f.endsWith(".md") || f.endsWith(".txt")) {
+            const content = await readFile(join(appKnowledgeDir, f), "utf-8");
+            contextParts.push(`--- App Knowledge: ${f} ---\n${content}`);
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // Extra system context from caller (e.g. workflow context)
+  if (systemContext) {
+    contextParts.push(systemContext);
+  }
+
+  // 4. Resolve LLM config
+  const llm = resolveLLMConfig(PAAW_ROOT, model);
+  if (!llm.apiUrl || !llm.model) {
+    throw new Error("LLM not configured");
+  }
+
+  // 5. Single LLM call — no tools, no loop, no multi-turn
+  const messages = [
+    { role: "system", content: contextParts.join("\n\n") },
+    { role: "user", content: prompt },
+  ];
+
+  const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, null, false, null);
+  const content = response.choices?.[0]?.message?.content || "";
+
+  // Clean output
+  const clean = content.replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
+
+  // Parse as JSON if possible
+  const jsonMatch = clean.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try { return JSON.parse(jsonMatch[0]); } catch {}
+  }
+  return { text: clean.slice(0, 2000) || "執行完成但無輸出" };
+}
+
 
 export default async function workflowRoutes(req, res) {
   const path = urlPath(req);
@@ -172,65 +247,47 @@ export default async function workflowRoutes(req, res) {
     return true;
   }
 
-  // POST /api/paaw/skill-exec — execute a single skill via CLI
+  // POST /api/paaw/skill-exec — execute a single skill (single LLM call, all context pre-loaded)
   if (req.method === "POST" && path === "/api/paaw/skill-exec") {
     try {
-      const { appId, skillId, input, model } = JSON.parse(await readBody(req));
+      const { appId, skillId, input, model, useAgentLoop } = JSON.parse(await readBody(req));
 
-      // Load skill SKILL.md
-      let skillPath = join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md");
-      let raw;
-      try { raw = await readFile(skillPath, "utf-8"); } catch {
-        skillPath = join(PATHS.SKILL_POOL_ROOT, skillId, "SKILL.md");
-        try { raw = await readFile(skillPath, "utf-8"); } catch { json(res, { error: "Skill not found" }, 404); return true; }
+      // Find skill path
+      let skillPath = appId
+        ? join(PATHS.APPS_ROOT, appId, "skills", skillId, "SKILL.md")
+        : join(PATHS.SKILL_POOL_ROOT || resolve(PAAW_ROOT, "data/skills/physical-skill"), skillId, "SKILL.md");
+      if (!existsSync(skillPath)) {
+        // Try skill pool root
+        skillPath = join(PATHS.SKILL_POOL_ROOT || resolve(PAAW_ROOT, "data/skills/physical-skill"), skillId, "SKILL.md");
       }
-
-      // Load app-level SYSTEM.md if exists
-      let appSystemPrompt = "";
-      try { appSystemPrompt = await readFile(join(PATHS.APPS_ROOT, appId, "SYSTEM.md"), "utf-8"); } catch {}
-
-      // Parse skill frontmatter
-      const { parseSkillFrontmatter } = await import("./context.mjs");
-      const parsed = parseSkillFrontmatter(raw);
-
-      // Build prompt — replace {{key}} with input values
-      let prompt = parsed.body || "";
-      if (typeof input === "object") {
-        for (const [k, v] of Object.entries(input)) {
-          prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));
-        }
+      if (!existsSync(skillPath)) {
+        // Try physical-skill dir
+        skillPath = resolve(PAAW_ROOT, `data/skills/physical-skill/${skillId}/SKILL.md`);
       }
+      if (!existsSync(skillPath)) { json(res, { error: `Skill not found: ${skillId}` }, 404); return true; }
 
-      // Build full system prompt via context-engine
-      const { contextEngine } = await import("../context-engine.mjs");
-      const ctx = await contextEngine.build({ target: "skill-exec", appId, skillId, skillPath, input });
-      const fullSystem = ctx.systemPrompt || "";
-      prompt = ctx.prompt || prompt;
-
-      const { loadAgentConfig } = await import("./context.mjs");
-      const agentCfg = await loadAgentConfig();
-
-      const appDir = resolve(PATHS.APPS_ROOT, appId);
-
-      const agentResult = await runAgentLoop({
-        prompt, cwd: appDir, systemPrompt: fullSystem, model: model || undefined, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
-      });
-      const fullOutput = agentResult.content || "";
-
-      // Clean ANSI escape codes from output
-      const cleanOutput = fullOutput
-        .replace(/\x1b\[[0-9;]*[mGKH]/g, "")
-        .replace(/^\s+|\s+$/g, "");
-
-      // Try to parse as JSON for structured output
-      let result;
-      const jsonMatch = cleanOutput.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try { result = JSON.parse(jsonMatch[0]); } catch { result = { text: cleanOutput.slice(0, 1500) }; }
+      // Use direct execution by default (single LLM call, all context pre-loaded)
+      // Set useAgentLoop=true to use the full agent loop (with tools, multi-turn)
+      if (useAgentLoop) {
+        // Legacy mode: full agent loop with tools
+        const { contextEngine } = await import("../context-engine.mjs");
+        const ctx = await contextEngine.build({ target: "skill-exec", appId, skillId, skillPath, input });
+        const { loadAgentConfig } = await import("./context.mjs");
+        const agentCfg = await loadAgentConfig();
+        const appDir = resolve(PATHS.APPS_ROOT, appId || ".");
+        const agentResult = await runAgentLoop({
+          prompt: ctx.prompt || "", cwd: appDir, systemPrompt: ctx.systemPrompt || "",
+          model: model || undefined, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
+        });
+        const cleanOutput = (agentResult.content || "").replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
+        const jm = cleanOutput.match(/\{[\s\S]*\}/);
+        const result = jm ? (() => { try { return JSON.parse(jm[0]); } catch { return { text: cleanOutput.slice(0, 1500) }; } })() : { text: cleanOutput.slice(0, 1500) };
+        json(res, { result });
       } else {
-        result = { text: cleanOutput.slice(0, 1500) || "執行完成但無輸出" };
+        // Direct mode: single LLM call, all context pre-loaded, no tools
+        const result = await runSkillDirect({ skillPath, input, appId, model });
+        json(res, { result });
       }
-      json(res, { result });
     } catch (err) { json(res, { error: err.message }, 500); }
     return true;
   }
@@ -305,28 +362,19 @@ export default async function workflowRoutes(req, res) {
           if (!handler) { results.push({ node: node.name, error: `Tool '${node.toolName}' not found` }); break; }
           output = await handler(ri, { toolName: node.toolName });
         } else if (node.skillId) {
-          // Execute skill
-          let skillPath = join(PATHS.APPS_ROOT, node.appName || "translate", "skills", node.skillId, "SKILL.md");
-          let raw;
-          try { raw = await readFile(skillPath, "utf-8"); } catch {
-            skillPath = join(PATHS.SKILL_POOL_ROOT, node.skillId, "SKILL.md");
-            try { raw = await readFile(skillPath, "utf-8"); } catch { results.push({ node: node.name, error: "Skill not found" }); break; }
+          // Execute skill (direct mode — single LLM call)
+          const appId = node.appName;
+          let skillPathResolved = appId
+            ? join(PATHS.APPS_ROOT, appId, "skills", node.skillId, "SKILL.md")
+            : null;
+          if (!skillPathResolved || !existsSync(skillPathResolved)) {
+            skillPathResolved = resolve(PAAW_ROOT, `data/skills/physical-skill/${node.skillId}/SKILL.md`);
           }
-          const { parseSkillFrontmatter } = await import("./context.mjs");
-          const parsed = parseSkillFrontmatter(raw);
-          let prompt = parsed.body || "";
-          for (const [k, v] of Object.entries(ri)) {
-            prompt = prompt.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), typeof v === "string" ? v : JSON.stringify(v));
+          if (!existsSync(skillPathResolved)) {
+            skillPathResolved = resolve(PAAW_ROOT, `data/skills/building/${node.skillId}/package/SKILL.md`);
           }
-          const { contextEngine } = await import("../context-engine.mjs");
-          const ctxBuild = await contextEngine.build({ target: "skill-exec", appId: node.appName || "translate", skillId: node.skillId, skillPath, input: ri });
-          const { loadAgentConfig } = await import("./context.mjs");
-          const agentCfg = await loadAgentConfig();
-          const appDir = resolve(PATHS.APPS_ROOT, node.appName || "translate");
-          const agentResult = await runAgentLoop({ prompt, cwd: appDir, systemPrompt: ctxBuild.systemPrompt || "", maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT });
-          const clean = (agentResult.content || "").replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
-          const jm = clean.match(/\{[\s\S]*\}/);
-          output = jm ? (() => { try { return JSON.parse(jm[0]); } catch { return { text: clean.slice(0, 1500) }; } })() : { text: clean.slice(0, 1500) };
+          if (!existsSync(skillPathResolved)) { results.push({ node: node.name, error: `Skill not found: ${node.skillId}` }); break; }
+          output = await runSkillDirect({ skillPath: skillPathResolved, input: ri, appId, model });
         }
 
         ctx.node[node.id] = { output };
