@@ -33,6 +33,56 @@ interface ToolTemplate {
   toolDef: Record<string, any>;
 }
 
+interface HeaderRow {
+  key: string;
+  value: string;
+}
+
+// ── JSON Textarea with string-state + blur validation ──
+function JsonEditor({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 6,
+  error,
+  setError,
+  t,
+}: {
+  label?: string;
+  value: string;
+  onChange: (parsed: Record<string, any>) => void;
+  placeholder?: string;
+  rows?: number;
+  error: string;
+  setError: (e: string) => void;
+  t: (key: string, fallback?: string) => string;
+}) {
+  return (
+    <div>
+      {label && <span className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">{label}</span>}
+      <textarea
+        className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
+        style={{ borderColor: error ? "#ef4444" : undefined }}
+        value={value}
+        onChange={e => { /* update string immediately */ }}
+        onBlur={(e) => {
+          try {
+            const parsed = JSON.parse(e.target.value);
+            onChange(parsed);
+            setError("");
+          } catch (err: any) {
+            setError(err.message);
+          }
+        }}
+        rows={rows}
+        placeholder={placeholder}
+      />
+      {error && <p className="mt-1 text-xs text-red-500">JSON 格式錯誤：{error}</p>}
+    </div>
+  );
+}
+
 // ── Main Component ──
 export default function ToolBuilder() {
   const { t } = useI18n();
@@ -43,7 +93,7 @@ export default function ToolBuilder() {
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Step 2 form
+  // Step 2 form — structured state
   const [toolId, setToolId] = useState("");
   const [toolName, setToolName] = useState("");
   const [toolDesc, setToolDesc] = useState("");
@@ -53,6 +103,15 @@ export default function ToolBuilder() {
   const [toolApi, setToolApi] = useState<Record<string, any>>({ method: "POST", url: "", headers: { "Content-Type": "application/json" }, body: {} });
   const [toolConfig, setToolConfig] = useState<Record<string, any>>({});
   const [toolTags, setToolTags] = useState<string[]>([]);
+
+  // Editable string state for JSON fields (so user can type freely)
+  const [headerRows, setHeaderRows] = useState<HeaderRow[]>([{ key: "Content-Type", value: "application/json" }]);
+  const [bodyStr, setBodyStr] = useState("{}");
+  const [bodyError, setBodyError] = useState("");
+  const [configStr, setConfigStr] = useState("{}");
+  const [configError, setConfigError] = useState("");
+  const [paramsStr, setParamsStr] = useState('{\n  "type": "object",\n  "properties": {}\n}');
+  const [paramsError, setParamsError] = useState("");
 
   // Manager
   const [showManager, setShowManager] = useState(false);
@@ -90,6 +149,40 @@ export default function ToolBuilder() {
     loadTemplates();
   }, [loadTools, loadTemplates]);
 
+  // ── Header rows ↔ toolApi.headers sync ──
+  const syncHeadersToApi = useCallback((rows: HeaderRow[]) => {
+    const hdrs: Record<string, string> = {};
+    for (const r of rows) {
+      if (r.key.trim()) hdrs[r.key.trim()] = r.value;
+    }
+    setToolApi(prev => ({ ...prev, headers: hdrs }));
+  }, []);
+
+  const updateHeaderRow = (idx: number, field: "key" | "value", val: string) => {
+    setHeaderRows(prev => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: val };
+      syncHeadersToApi(next);
+      return next;
+    });
+  };
+
+  const addHeaderRow = () => {
+    setHeaderRows(prev => {
+      const next = [...prev, { key: "", value: "" }];
+      syncHeadersToApi(next);
+      return next;
+    });
+  };
+
+  const removeHeaderRow = (idx: number) => {
+    setHeaderRows(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      syncHeadersToApi(next);
+      return next;
+    });
+  };
+
   // ── Template selection ──
   const handleSelectTemplate = (templateId: string) => {
     const tmpl = templates.find(t => t.id === templateId);
@@ -99,9 +192,25 @@ export default function ToolBuilder() {
       setToolDesc(tmpl.toolDef.description || tmpl.description);
       setToolIcon(tmpl.icon);
       setToolRunner(tmpl.toolDef.runner || "api");
-      setToolParams(tmpl.toolDef.parameters || { type: "object", properties: {} });
-      setToolApi(tmpl.toolDef.api || { method: "POST", url: "", headers: {}, body: {} });
-      setToolConfig(tmpl.toolDef.config || {});
+
+      const params = tmpl.toolDef.parameters || { type: "object", properties: {} };
+      setToolParams(params);
+      setParamsStr(JSON.stringify(params, null, 2));
+      setParamsError("");
+
+      const api = tmpl.toolDef.api || { method: "POST", url: "", headers: {}, body: {} };
+      setToolApi(api);
+      const hdrs = api.headers || {};
+      setHeaderRows(Object.entries(hdrs).map(([k, v]) => ({ key: k, value: String(v) })));
+      const bdy = api.body || {};
+      setBodyStr(JSON.stringify(bdy, null, 2));
+      setBodyError("");
+
+      const cfg = tmpl.toolDef.config || {};
+      setToolConfig(cfg);
+      setConfigStr(JSON.stringify(cfg, null, 2));
+      setConfigError("");
+
       setToolTags(tmpl.toolDef.tags || []);
     }
     setStep(2);
@@ -203,7 +312,6 @@ export default function ToolBuilder() {
     fetch(`${API}/api/tools/${tool.id}`)
       .then(r => r.json())
       .then((detail: any) => {
-        // Config values from detail (unmasked by server for editing)
         const vals: Record<string, string> = {};
         const schema = detail.configSchema || tool.configSchema;
         for (const key of Object.keys(schema)) {
@@ -250,7 +358,26 @@ export default function ToolBuilder() {
           </button>
           <button
             className="px-3 py-1.5 text-sm rounded-md border transition-colors bg-transparent text-stone-500 border-stone-300 hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-900"
-            onClick={() => { setShowManager(false); setStep(1); setToolId(""); setToolName(""); }}
+            onClick={() => {
+              setShowManager(false);
+              setStep(1);
+              setToolId("");
+              setToolName("");
+              setToolDesc("");
+              setToolIcon("🔧");
+              setToolRunner("api");
+              setToolParams({ type: "object", properties: {} });
+              setToolApi({ method: "POST", url: "", headers: { "Content-Type": "application/json" }, body: {} });
+              setToolConfig({});
+              setToolTags([]);
+              setHeaderRows([{ key: "Content-Type", value: "application/json" }]);
+              setBodyStr("{}");
+              setBodyError("");
+              setConfigStr("{}");
+              setConfigError("");
+              setParamsStr('{\n  "type": "object",\n  "properties": {}\n}');
+              setParamsError("");
+            }}
           >
             + {t("toolBuilder.newTool", "新增 Tool")}
           </button>
@@ -402,25 +529,68 @@ export default function ToolBuilder() {
                       </label>
                     </div>
 
-                    <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-                      Headers (JSON)
-                      <textarea
-                        className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
-                        value={JSON.stringify(toolApi.headers, null, 2)}
-                        onChange={e => { try { setToolApi({ ...toolApi, headers: JSON.parse(e.target.value) }); } catch {} }}
-                        rows={4}
-                      />
-                    </label>
+                    {/* Headers — key-value editor */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-stone-700 dark:text-stone-300">Headers</span>
+                        <button
+                          className="px-2 py-1 rounded text-xs border border-stone-300 dark:border-stone-600 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                          onClick={addHeaderRow}
+                        >
+                          + {t("toolBuilder.addHeader", "新增")}
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {headerRows.map((row, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              className="flex-1 px-2.5 py-1.5 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
+                              value={row.key}
+                              onChange={e => updateHeaderRow(idx, "key", e.target.value)}
+                              placeholder="Header name"
+                            />
+                            <input
+                              className="flex-1 px-2.5 py-1.5 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
+                              value={row.value}
+                              onChange={e => updateHeaderRow(idx, "value", e.target.value)}
+                              placeholder="Value / {{…configKey}}"
+                            />
+                            <button
+                              className="px-1.5 py-1 rounded text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                              onClick={() => removeHeaderRow(idx)}
+                              title={t("toolBuilder.removeHeader", "刪除")}
+                            >✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-                    <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-                      Body (JSON)
+                    {/* Body — JSON with string state */}
+                    <div>
+                      <span className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                        Body (JSON)
+                      </span>
                       <textarea
-                        className="mt-1 block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
-                        value={JSON.stringify(toolApi.body, null, 2)}
-                        onChange={e => { try { setToolApi({ ...toolApi, body: JSON.parse(e.target.value) }); } catch {} }}
-                        rows={4}
+                        className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
+                        style={{ borderColor: bodyError ? "#ef4444" : undefined }}
+                        value={bodyStr}
+                        onChange={e => {
+                          setBodyStr(e.target.value);
+                          setBodyError("");
+                        }}
+                        onBlur={() => {
+                          try {
+                            const parsed = JSON.parse(bodyStr);
+                            setToolApi(prev => ({ ...prev, body: parsed }));
+                            setBodyError("");
+                          } catch (err: any) {
+                            setBodyError(err.message);
+                          }
+                        }}
+                        rows={6}
                       />
-                    </label>
+                      {bodyError && <p className="mt-1 text-xs text-red-500">JSON 格式錯誤：{bodyError}</p>}
+                    </div>
 
                     <p className="text-xs text-stone-500">
                       {t("toolBuilder.templateHint", "用 {{參數名}} 代表 LLM 傳入的參數，用 {{…configKey}} 代表 config.json 裡的值")}
@@ -435,11 +605,25 @@ export default function ToolBuilder() {
                   </h4>
                   <textarea
                     className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
-                    value={JSON.stringify(toolConfig, null, 2)}
-                    onChange={e => { try { setToolConfig(JSON.parse(e.target.value)); } catch {} }}
+                    style={{ borderColor: configError ? "#ef4444" : undefined }}
+                    value={configStr}
+                    onChange={e => {
+                      setConfigStr(e.target.value);
+                      setConfigError("");
+                    }}
+                    onBlur={() => {
+                      try {
+                        const parsed = JSON.parse(configStr);
+                        setToolConfig(parsed);
+                        setConfigError("");
+                      } catch (err: any) {
+                        setConfigError(err.message);
+                      }
+                    }}
                     rows={6}
                     placeholder='{"token": {"type": "string", "secret": true, "required": true, "description": "API Token"}}'
                   />
+                  {configError && <p className="mt-1 text-xs text-red-500">JSON 格式錯誤：{configError}</p>}
                 </div>
 
                 {/* Parameters schema */}
@@ -449,10 +633,24 @@ export default function ToolBuilder() {
                   </h4>
                   <textarea
                     className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
-                    value={JSON.stringify(toolParams, null, 2)}
-                    onChange={e => { try { setToolParams(JSON.parse(e.target.value)); } catch {} }}
+                    style={{ borderColor: paramsError ? "#ef4444" : undefined }}
+                    value={paramsStr}
+                    onChange={e => {
+                      setParamsStr(e.target.value);
+                      setParamsError("");
+                    }}
+                    onBlur={() => {
+                      try {
+                        const parsed = JSON.parse(paramsStr);
+                        setToolParams(parsed);
+                        setParamsError("");
+                      } catch (err: any) {
+                        setParamsError(err.message);
+                      }
+                    }}
                     rows={6}
                   />
+                  {paramsError && <p className="mt-1 text-xs text-red-500">JSON 格式錯誤：{paramsError}</p>}
                 </div>
 
                 {/* Actions */}
@@ -579,6 +777,8 @@ function ToolManager({
   t: (key: string, fallback?: string) => string;
   ti: any;
 }) {
+  const [testParamsStr, setTestParamsStr] = useState("{}");
+
   if (tools.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
@@ -669,8 +869,11 @@ function ToolManager({
           </h4>
           <textarea
             className="block w-full px-3 py-2 rounded-md border border-stone-300 dark:border-stone-600 text-sm font-mono mb-3 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
-            value={JSON.stringify(testParams, null, 2)}
-            onChange={e => { try { setTestParams(JSON.parse(e.target.value)); } catch {} }}
+            value={testParamsStr}
+            onChange={e => setTestParamsStr(e.target.value)}
+            onBlur={() => {
+              try { setTestParams(JSON.parse(testParamsStr)); } catch {}
+            }}
             rows={4}
             placeholder='{"channel": "123", "message": "Hello"}'
           />
