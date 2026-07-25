@@ -7,7 +7,6 @@ import AICrew from "./pages/AICrew";
 import SkillsPage from "./pages/SkillsPage";
 import SkillBuilder from "./pages/SkillBuilder";
 import AppBuilder from "./pages/AppBuilder";
-import ToolBuilder from "./pages/ToolBuilder";
 import AppPool from "./pages/AppPool";
 import CronJobsPage from "./pages/CronJobsPage";
 import CodingIDE from "./pages/CodingIDE";
@@ -363,11 +362,6 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
-  const openToolBuilder = useCallback(() => {
-    const tabId = `${currentScope}:toolbuilder`;
-    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
-    setActivePage(tabId);
-  }, [currentScope]);
 
   const openAppPool = useCallback(() => {
     const tabId = `${currentScope}:reportapps`;
@@ -487,7 +481,6 @@ function AppInner() {
     if (pageType === "skills") return t("sidebar.skillPool");
     if (pageType.startsWith("skillbuilder")) return t("sidebar.skillBuilder");
     if (pageType === "appbuilder") return t("sidebar.appBuilder");
-    if (pageType === "toolbuilder") return t("sidebar.toolBuilder");
     if (pageType === "reportapps") return t("sidebar.appPool");
     if (pageType === "cronjobs") return t("sidebar.cronJobs");
     if (pageType === "ai-settings") return "AI Settings";
@@ -595,9 +588,6 @@ function AppInner() {
     }
     if (pageType === "appbuilder") {
       return <AppBuilder />;
-    }
-    if (pageType === "toolbuilder") {
-      return <ToolBuilder />;
     }
     if (pageType === "reportapps") {
       return <AppPool onOpenApp={openSkillAppById} />;
@@ -786,7 +776,6 @@ function AppInner() {
               <div>
                 <NavItem active={false} label={t("sidebar.skillBuilder")} onClick={openSkillBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":appbuilder")} label={t("sidebar.appBuilder")} onClick={openAppBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":toolbuilder")} label={t("sidebar.toolBuilder")} onClick={openToolBuilder} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":wf-editor")} label={t("sidebar.workflowBuilder", "Workflow Builder")} onClick={openWorkflowEditor} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>

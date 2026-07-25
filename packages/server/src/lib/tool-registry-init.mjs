@@ -79,10 +79,6 @@ export async function initLoopBTools() {
   }
 
   console.log(`[ToolRegistry] Registered ${count} tools from tools/index.mjs`);
-
-  // ── 載入外部 Tool Providers (data/tools/) ──
-  const { initProviderTools } = await import("../tools/provider-loader.mjs");
-  await initProviderTools();
 }
 
 /**

@@ -60,7 +60,6 @@ const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
     { match: /app.*builder|app builder/i, emoji: "🚀" },
     { match: /app.*pool|應用程式池|app pool/i, emoji: "📊" },
     { match: /report.*lab|報告實驗/i, emoji: "🧪" },
-    { match: /tool.*builder|tool builder/i, emoji: "🔧" },
     { match: /workflow.*builder|workflow.*editor|工作流.*建/i, emoji: "📋" },
     { match: /workflow|工作流|ワークフロー/i, emoji: "🔄" },
     { match: /cron|schedul|定期実行|排程/i, emoji: "⏰" },

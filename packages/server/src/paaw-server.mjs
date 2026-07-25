@@ -38,7 +38,6 @@ const ROUTE_MODULES = [
   "./routes/workflow.mjs",
   "./routes/chat.mjs",
   "./routes/distill.mjs",
-  "./routes/tools.mjs",
   // ── New modules (split from monolith) ──
   "./routes/vibe-fs.mjs",
   "./routes/vibe-sessions.mjs",
@@ -65,7 +64,6 @@ const ROUTE_MODULES = [
   "./routes/coding-health.mjs",
   "./routes/coding-reports.mjs",
   "./routes/llm-logs.mjs",
-  "./routes/tool-providers.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)
