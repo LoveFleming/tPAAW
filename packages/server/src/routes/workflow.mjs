@@ -112,7 +112,7 @@ const RUN_SCRIPT_TOOL = {
   },
 };
 
-async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model, timeoutMs = 180000 }) {
+async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model, timeoutMs = 180000, agentId = 'workflow' }) {
   const skillDir = resolve(skillPath, "..");
   const skillDirName = skillDir.split(/[\\/]/).pop();
   const startTime = Date.now();
@@ -202,7 +202,7 @@ async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model,
     }
 
     turns++;
-    const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, [RUN_SCRIPT_TOOL], false, null);
+    const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, [RUN_SCRIPT_TOOL], false, null, agentId);
     const choice = response.choices?.[0];
     if (!choice) break;
 
