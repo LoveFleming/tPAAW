@@ -169,8 +169,32 @@ export default async function chatRoutes(req, res) {
       const { getToolsAndHandlers, invalidateCache } = await import("../tools/index.mjs");
       const { tools: toolDefinitions, handlers: toolHandlers } = await getToolsAndHandlers();
 
-      // 把 toolHandlers 轉成 ToolEngine 的 executor 格式
-      const executors = Object.entries(toolHandlers).map(([name, handler]) => ({
+      // Chat 專用 blocklist — 這些 tool 只在 Coding IDE 用，聊天助理不該看到
+      const CHAT_BLOCKED_TOOLS = new Set([
+        "dispatch_agent",     // 派工給 coding agents
+        "record_decision",    // ADR 架構決策記錄
+        "docs",               // .paaw 文件管理
+        "cu_refresh",         // Code Understanding 刷新
+        "action_log_add",     // 動作日誌
+        "action_log_list",    // 動作日誌
+        "project_info",       // 專案資訊（coding）
+        "project_edit",       // 專案編輯（coding）
+        "project_status",     // 專案狀態
+        "project_update_task", // 專案任務更新
+        "browser_test",       // 瀏覽器測試
+        "glob",               // 檔案搜尋
+        "grep",               // 文字搜尋
+        "diff",               // 檔案差異
+        "git",                // Git 操作
+        "read_file",          // 讀檔
+        "write_file",         // 寫檔
+        "edit_file",          // 改檔
+        "bash",               // Shell 指令
+      ]);
+
+      const executors = Object.entries(toolHandlers)
+        .filter(([name]) => !CHAT_BLOCKED_TOOLS.has(name))
+        .map(([name, handler]) => ({
         name,
         description: toolDefinitions.find(t => t.function.name === name)?.function?.description || name,
         parameters: toolDefinitions.find(t => t.function.name === name)?.function?.parameters || { type: 'object', properties: {} },
@@ -207,9 +231,13 @@ export default async function chatRoutes(req, res) {
         caller: 'chat',
       })
 
-      // Inject shared registry tools (project_info, agent_memory, etc.)
+      // Inject shared registry tools — then remove coding-only tools
       const { injectRegistryTools } = await import("../lib/tool-registry-init.mjs");
       injectRegistryTools(engine, { cwd: PAAW_ROOT, rootDir: PAAW_ROOT, agentId: 'assistant' });
+      // Remove coding-only tools so chat assistant doesn't see them
+      for (const tn of CHAT_BLOCKED_TOOLS) {
+        engine.unregisterTool(tn);
+      }
 
       // ── 執行 ReAct loop，stream 給前端 ──
       let fullText = ''
