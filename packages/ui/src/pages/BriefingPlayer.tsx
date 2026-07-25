@@ -864,56 +864,48 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
       </div>
 
       {/* Main content */}
-      {(() => {
-        const hasImg = !!imageUrl;
-        const hasMd = !!slide?.markdown && (!!parsedMd.content || mdLoading);
-        const isSplit = hasImg && hasMd;
-        return (
-        <div
-          ref={contentAreaRef}
-          className="flex-1 flex overflow-hidden relative group"
-          style={{ cursor: drawMode === "pen" ? PENCIL_CURSOR : drawMode === "marker" ? "copy" : "default" }}
-          onMouseDown={drawMode !== "none" ? handleContentMouseDown : undefined}
-        >
-          {hasImg && (
-            <div className="flex items-center justify-center overflow-hidden p-3" style={{ flex: isSplit ? "0 0 62%" : "1 1 auto" }}>
-              <img src={imageUrl} alt={slide?.name} className="max-w-full max-h-full object-contain rounded-lg shadow-xl bg-white" />
-            </div>
-          )}
+      <div
+        ref={contentAreaRef}
+        className="flex-1 flex overflow-hidden relative group"
+        style={{ cursor: drawMode === "pen" ? PENCIL_CURSOR : drawMode === "marker" ? "copy" : "default" }}
+        onMouseDown={drawMode !== "none" ? handleContentMouseDown : undefined}
+      >
+        {imageUrl && (
+          <div className="flex items-center justify-center overflow-hidden p-3" style={{ flex: imageUrl && slide?.markdown && (parsedMd.content || mdLoading) ? "0 0 62%" : "1 1 auto" }}>
+            <img src={imageUrl} alt={slide?.name} className="max-w-full max-h-full object-contain rounded-lg shadow-xl bg-white" />
+          </div>
+        )}
 
-          {/* Markdown content — only render if slide has markdown */}
-          {hasMd && (
-            <div
-              className="overflow-y-auto px-5 py-3 bg-white"
-              style={{
-                flex: isSplit ? "1 1 38%" : "1 1 auto",
-                scrollbarWidth: "thin",
-                borderLeft: isSplit ? `1px solid ${t.accentBorder}` : "none",
-                display: isSplit ? undefined : "flex",
-                flexDirection: isSplit ? undefined : "column",
-                justifyContent: isSplit ? undefined : "center",
-                maxWidth: isSplit ? undefined : "760px",
-                margin: isSplit ? undefined : "0 auto",
-              }}
-            >
-              {mdLoading ? (
-                <div className="flex items-center justify-center py-4 text-stone-400 text-xs gap-1.5">
-                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Loading content...
-                </div>
-              ) : parsedMd.content ? (
-                <div className="text-stone-700">{renderMarkdown(parsedMd.content)}</div>
-              ) : (
-                <div className="flex items-center justify-center h-full"><span className="text-stone-300 text-sm">No content</span></div>
-              )}
-            </div>
-          )}
-        </div>
-        );
-      })()}
+        {/* Markdown content — only render if slide has markdown */}
+        {slide?.markdown && (parsedMd.content || mdLoading) && (
+          <div
+            className="overflow-y-auto px-5 py-3 bg-white"
+            style={{
+              flex: imageUrl ? "1 1 38%" : "1 1 auto",
+              scrollbarWidth: "thin",
+              borderLeft: imageUrl ? `1px solid ${t.accentBorder}` : "none",
+              display: imageUrl ? undefined : "flex",
+              flexDirection: imageUrl ? undefined : "column",
+              justifyContent: imageUrl ? undefined : "center",
+              maxWidth: imageUrl ? undefined : "760px",
+              margin: imageUrl ? undefined : "0 auto",
+            }}
+          >
+            {mdLoading ? (
+              <div className="flex items-center justify-center py-4 text-stone-400 text-xs gap-1.5">
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Loading content...
+              </div>
+            ) : parsedMd.content ? (
+              <div className="text-stone-700">{renderMarkdown(parsedMd.content)}</div>
+            ) : (
+              <div className="flex items-center justify-center h-full"><span className="text-stone-300 text-sm">No content</span></div>
+            )}
+          </div>
+        )}
 
         {/* Notes sidebar */}
         {showNotes && notesContent && (
