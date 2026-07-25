@@ -9,7 +9,8 @@
     ],
     "priority": "high",
     "id": "pocket_mrzldsgx",
-    "createdAt": "2026-07-24T23:49:24.705Z"
+    "createdAt": "2026-07-24T23:49:24.705Z",
+    "type": "todo"
   },
   {
     "content": "Git tab crash — 需要 browser console error 才能 debug",
@@ -20,7 +21,8 @@
     ],
     "priority": "low",
     "id": "pocket_mrzkwija",
-    "createdAt": "2026-07-24T23:35:58.678Z"
+    "createdAt": "2026-07-24T23:35:58.678Z",
+    "type": "todo"
   },
   {
     "content": "System Context button in crew menu 是空的 — 需要加 icon 和內容",
@@ -31,7 +33,8 @@
     ],
     "priority": "low",
     "id": "pocket_mrzkwiiv",
-    "createdAt": "2026-07-24T23:35:58.663Z"
+    "createdAt": "2026-07-24T23:35:58.663Z",
+    "type": "todo"
   },
   {
     "content": "Workflow 自動化 Phase 5 — 暫停中，報告後再啟動",
@@ -42,7 +45,8 @@
     ],
     "priority": "low",
     "id": "pocket_mrzkwiig",
-    "createdAt": "2026-07-24T23:35:58.648Z"
+    "createdAt": "2026-07-24T23:35:58.648Z",
+    "type": "todo"
   },
   {
     "content": "MCP Runner — Tool Provider 加 mcp runner，接 MCP server",
@@ -53,7 +57,8 @@
     ],
     "priority": "low",
     "id": "pocket_mrzkwii0",
-    "createdAt": "2026-07-24T23:35:58.632Z"
+    "createdAt": "2026-07-24T23:35:58.632Z",
+    "type": "todo"
   },
   {
     "content": "PAAW Gateway — 獨立安裝包 / SEA 打包 / 背景更新（Phase 3-4）",
@@ -64,7 +69,8 @@
     ],
     "priority": "low",
     "id": "pocket_mrzkwihl",
-    "createdAt": "2026-07-24T23:35:58.617Z"
+    "createdAt": "2026-07-24T23:35:58.617Z",
+    "type": "todo"
   },
   {
     "content": "PAAW Docker 發布 — GHCR image + Bridge 更新強化",
@@ -75,7 +81,8 @@
     ],
     "priority": "low",
     "id": "pocket_mrzkwih7",
-    "createdAt": "2026-07-24T23:35:58.603Z"
+    "createdAt": "2026-07-24T23:35:58.603Z",
+    "type": "todo"
   },
   {
     "content": "PAAW Release MVP — paaw CLI + 版號 + 一鍵更新 + GitHub Release",
@@ -86,7 +93,8 @@
     ],
     "priority": "medium",
     "id": "pocket_mrzkwigr",
-    "createdAt": "2026-07-24T23:35:58.587Z"
+    "createdAt": "2026-07-24T23:35:58.587Z",
+    "type": "todo"
   },
   {
     "content": "Per-Agent Model Dispatch — Skill/App/Workflow 各層能指定模型（簡單任務用便宜 model）",
@@ -97,7 +105,8 @@
     ],
     "priority": "medium",
     "id": "pocket_mrzkwigb",
-    "createdAt": "2026-07-24T23:35:58.571Z"
+    "createdAt": "2026-07-24T23:35:58.571Z",
+    "type": "todo"
   },
   {
     "content": "Tool runner 加 ai 模式 — 不寫死 template，AI 看規則動態組 HTTP call（現在只有 api + script）",
@@ -108,7 +117,8 @@
     ],
     "priority": "medium",
     "id": "pocket_mrzkwifv",
-    "createdAt": "2026-07-24T23:35:58.555Z"
+    "createdAt": "2026-07-24T23:35:58.555Z",
+    "type": "todo"
   },
   {
     "content": "Coding Studio 獨立 repo — clone PAAW，砍掉非 coding/crew 部分，iframe 嵌回 PAAW",
@@ -119,29 +129,7 @@
     ],
     "priority": "high",
     "id": "pocket_mrzkwiff",
-    "createdAt": "2026-07-24T23:35:58.539Z"
-  },
-  {
-    "type": "todo",
-    "title": "明早六點記得去公園走路運動放鬆一下心情",
-    "text": "明早六點記得去公園走路運動放鬆一下心情",
-    "done": true,
-    "id": "pocket_mqce7zat",
-    "createdAt": "2026-06-13T13:30:31.925Z"
-  },
-  {
-    "type": "todo",
-    "text": "6/26 AI Agent 報告",
-    "id": "pocket_mqf9ml7s",
-    "createdAt": "2026-06-15T13:45:13.960Z"
-  },
-  {
-    "type": "mood",
-    "event": "連假都在準備報告，沒陪小孩複習功課",
-    "feeling": "很對不起小孩",
-    "text": "連假都在準備報告，沒陪小孩複習功課，很對不起小孩",
-    "title": "連假沒陪小孩",
-    "id": "pocket_mqn56jtm",
-    "createdAt": "2026-06-21T02:02:56.602Z"
+    "createdAt": "2026-07-24T23:35:58.539Z",
+    "type": "todo"
   }
 ]
