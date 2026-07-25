@@ -58,7 +58,7 @@ const NAV_EMOJI_PATTERNS: { match: RegExp; emoji: string }[] = [
     { match: /skill.*builder|技能建構|スキルビルダ/i, emoji: "🧠" },
     { match: /skill/i, emoji: "✨" },
     { match: /app.*builder|app builder/i, emoji: "🚀" },
-    { match: /app.*pool|應用程式池|app pool/i, emoji: "📊" },
+    { match: /app.*pool|應用程式池|^apps$|^app$/i, emoji: "📊" },
     { match: /report.*lab|報告實驗/i, emoji: "🧪" },
     { match: /workflow.*builder|workflow.*editor|工作流.*建/i, emoji: "📋" },
     { match: /workflow|工作流|ワークフロー/i, emoji: "🔄" },
