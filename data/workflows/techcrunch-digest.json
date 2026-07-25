@@ -1,7 +1,7 @@
 {
   "id": "techcrunch-digest",
   "name": "TechCrunch 每日摘要",
-  "description": "Tool 抓 TechCrunch RSS → Skill 分析摘要 → 輸出",
+  "description": "Skill 抓 TechCrunch RSS + 分析摘要 → 輸出",
   "icon": "📰",
   "status": "published",
   "nodes": [
@@ -14,26 +14,13 @@
     },
     {
       "id": "node-1",
-      "type": "tool",
-      "toolName": "techcrunch_fetch",
-      "name": "抓 TechCrunch 新聞",
+      "type": "skill",
+      "skillId": "techcrunch-digest",
+      "name": "抓新聞 + 摘要",
       "position": {"x": 300, "y": 150},
       "config": {
         "inputMapping": {
-          "limit": 10
-        }
-      }
-    },
-    {
-      "id": "node-2",
-      "type": "skill",
-      "skillId": "news-summarizer",
-      "name": "AI 摘要分析",
-      "position": {"x": 600, "y": 150},
-      "config": {
-        "inputMapping": {
-          "news_data": "{{node-1.output}}",
-          "source_name": "TechCrunch"
+          "limit": "10"
         }
       }
     },
@@ -41,13 +28,12 @@
       "id": "end",
       "type": "end",
       "name": "輸出",
-      "position": {"x": 900, "y": 150},
+      "position": {"x": 600, "y": 150},
       "config": {"outputTarget": "chat"}
     }
   ],
   "edges": [
     {"source": "start", "target": "node-1"},
-    {"source": "node-1", "target": "node-2"},
-    {"source": "node-2", "target": "end"}
+    {"source": "node-1", "target": "end"}
   ]
 }
