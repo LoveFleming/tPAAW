@@ -20,7 +20,6 @@ import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { resolveDefaultModel } from "./lib/llm-utils.mjs";
-import { loadProviderInstructions } from "./tools/provider-loader.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -127,7 +126,6 @@ function buildDynamicContext() {
   const user = loadUserProfile();
   const memory = loadMemory();
   const apps = loadAppInstructions();
-  const toolProviders = loadProviderInstructions();
   const assistantName = user.assistantName || "林語晴";
 
   // 當前日期時間（每次構建 system prompt 時取即時值）
@@ -149,7 +147,6 @@ function buildDynamicContext() {
 
   // Apps
   if (apps) parts.push(`=== 可用的 App ===\n${apps}`);
-  if (toolProviders) parts.push(`=== 外部 Tool Providers ===\n${toolProviders}\n\n可用指令：tool_create（建立 Tool）、tool_list（列出 Tools）、tool_config（設定 API Key）`);
 
   return parts.join("\n\n");
 }

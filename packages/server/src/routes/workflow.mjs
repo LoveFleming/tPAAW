@@ -444,15 +444,9 @@ export default async function workflowRoutes(req, res) {
     return true;
   }
 
-  // GET /api/paaw/tools — list available tool providers (for workflow editor)
+  // GET /api/paaw/tools — no external tool providers (removed)
   if (req.method === "GET" && path === "/api/paaw/tools") {
-    try {
-      const { listProviderTools } = await import("../tools/provider-loader.mjs");
-      const tools = listProviderTools();
-      json(res, { tools });
-    } catch (err) {
-      json(res, { error: err.message }, 500);
-    }
+    json(res, { tools: [] });
     return true;
   }
 
