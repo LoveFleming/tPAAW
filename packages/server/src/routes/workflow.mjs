@@ -112,7 +112,7 @@ const RUN_SCRIPT_TOOL = {
   },
 };
 
-async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model, timeoutMs = 60000 }) {
+async function runSkillMiniLoop({ skillPath, input, appId, systemContext, model, timeoutMs = 180000 }) {
   const skillDir = resolve(skillPath, "..");
   const skillDirName = skillDir.split(/[\\/]/).pop();
   const startTime = Date.now();
@@ -459,8 +459,9 @@ export default async function workflowRoutes(req, res) {
   // POST /api/paaw/workflow-trigger — trigger a workflow by ID (for cron)
   if (req.method === "POST" && path === "/api/paaw/workflow-trigger") {
     try {
-      const { workflowId, input } = JSON.parse(await readBody(req));
+      const { workflowId, input, model } = JSON.parse(await readBody(req));
       if (!workflowId) { json(res, { error: "workflowId is required" }, 400); return true; }
+      const wfModel = model || "deepseek/deepseek-v4-flash";
 
       const wfPath = join(PATHS.WORKFLOWS_ROOT, `${workflowId}.json`);
       if (!existsSync(wfPath)) { json(res, { error: "Workflow not found" }, 404); return true; }
@@ -508,7 +509,7 @@ export default async function workflowRoutes(req, res) {
             skillPathResolved = resolve(PAAW_ROOT, `data/skills/building/${node.skillId}/package/SKILL.md`);
           }
           if (!existsSync(skillPathResolved)) { results.push({ node: node.name, error: `Skill not found: ${node.skillId}` }); break; }
-          output = await runSkillMiniLoop({ skillPath: skillPathResolved, input: ri, appId, model });
+          output = await runSkillMiniLoop({ skillPath: skillPathResolved, input: ri, appId, model: wfModel });
         }
 
         ctx.node[node.id] = { output };
@@ -542,13 +543,25 @@ export default async function workflowRoutes(req, res) {
 function resolveTemplateStr(template, ctx) {
   if (typeof template !== "string") return template;
   return template.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
-    const parts = key.trim().split(".");
-    if (parts[0] === "workflow" && parts[1] === "input") return ctx.workflow.input[parts[2]] ?? `{{${key}}}`;
-    if (parts[0] === "node" && parts[1]) {
-      const nodeCtx = ctx.node[parts[1]];
+    const trimmed = key.trim();
+    // workflow.input.xxx
+    if (trimmed.startsWith("workflow.input.")) {
+      const k = trimmed.slice("workflow.input.".length);
+      return ctx.workflow.input[k] ?? `{{${key}}}`;
+    }
+    // node-X.output or node-X.output.field
+    const nodeMatch = trimmed.match(/^(node-[\w-]+)\.output(\.(.+))?$/);
+    if (nodeMatch) {
+      const nodeId = nodeMatch[1];
+      const nodeCtx = ctx.node[nodeId];
       if (!nodeCtx) return `{{${key}}}`;
-      if (parts[2] === "output") return typeof nodeCtx.output === "string" ? nodeCtx.output : JSON.stringify(nodeCtx.output);
-      return nodeCtx[parts[2]] ?? `{{${key}}}`;
+      const out = nodeCtx.output;
+      if (nodeMatch[3]) {
+        // drill into a specific field
+        const val = typeof out === "object" ? out?.[nodeMatch[3]] : undefined;
+        return val !== undefined ? (typeof val === "string" ? val : JSON.stringify(val)) : `{{${key}}}`;
+      }
+      return typeof out === "string" ? out : JSON.stringify(out);
     }
     return `{{${key}}}`;
   });

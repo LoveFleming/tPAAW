@@ -1,5 +1,127 @@
 [
   {
+    "content": "統一 Agent Loop — 三套 loop（paaw-agent-loop / tool-engine / skill-mini-loop）合併成一個 runAgentLoop(config)，加新 tool 不用改 loop 程式碼。估計 2-3 天。優先序：報告後再做。",
+    "tags": [
+      "paaw",
+      "architecture",
+      "agent-loop",
+      "refactor"
+    ],
+    "priority": "high",
+    "id": "pocket_mrzldsgx",
+    "createdAt": "2026-07-24T23:49:24.705Z"
+  },
+  {
+    "content": "Git tab crash — 需要 browser console error 才能 debug",
+    "tags": [
+      "paaw",
+      "bug",
+      "coding-ide"
+    ],
+    "priority": "low",
+    "id": "pocket_mrzkwija",
+    "createdAt": "2026-07-24T23:35:58.678Z"
+  },
+  {
+    "content": "System Context button in crew menu 是空的 — 需要加 icon 和內容",
+    "tags": [
+      "paaw",
+      "bug",
+      "crew"
+    ],
+    "priority": "low",
+    "id": "pocket_mrzkwiiv",
+    "createdAt": "2026-07-24T23:35:58.663Z"
+  },
+  {
+    "content": "Workflow 自動化 Phase 5 — 暫停中，報告後再啟動",
+    "tags": [
+      "paaw",
+      "workflow",
+      "automation"
+    ],
+    "priority": "low",
+    "id": "pocket_mrzkwiig",
+    "createdAt": "2026-07-24T23:35:58.648Z"
+  },
+  {
+    "content": "MCP Runner — Tool Provider 加 mcp runner，接 MCP server",
+    "tags": [
+      "paaw",
+      "tool-provider",
+      "mcp"
+    ],
+    "priority": "low",
+    "id": "pocket_mrzkwii0",
+    "createdAt": "2026-07-24T23:35:58.632Z"
+  },
+  {
+    "content": "PAAW Gateway — 獨立安裝包 / SEA 打包 / 背景更新（Phase 3-4）",
+    "tags": [
+      "paaw",
+      "gateway",
+      "future"
+    ],
+    "priority": "low",
+    "id": "pocket_mrzkwihl",
+    "createdAt": "2026-07-24T23:35:58.617Z"
+  },
+  {
+    "content": "PAAW Docker 發布 — GHCR image + Bridge 更新強化",
+    "tags": [
+      "paaw",
+      "release",
+      "docker"
+    ],
+    "priority": "low",
+    "id": "pocket_mrzkwih7",
+    "createdAt": "2026-07-24T23:35:58.603Z"
+  },
+  {
+    "content": "PAAW Release MVP — paaw CLI + 版號 + 一鍵更新 + GitHub Release",
+    "tags": [
+      "paaw",
+      "release",
+      "devops"
+    ],
+    "priority": "medium",
+    "id": "pocket_mrzkwigr",
+    "createdAt": "2026-07-24T23:35:58.587Z"
+  },
+  {
+    "content": "Per-Agent Model Dispatch — Skill/App/Workflow 各層能指定模型（簡單任務用便宜 model）",
+    "tags": [
+      "paaw",
+      "cost-optimization",
+      "model"
+    ],
+    "priority": "medium",
+    "id": "pocket_mrzkwigb",
+    "createdAt": "2026-07-24T23:35:58.571Z"
+  },
+  {
+    "content": "Tool runner 加 ai 模式 — 不寫死 template，AI 看規則動態組 HTTP call（現在只有 api + script）",
+    "tags": [
+      "paaw",
+      "tool-provider",
+      "ai-driven"
+    ],
+    "priority": "medium",
+    "id": "pocket_mrzkwifv",
+    "createdAt": "2026-07-24T23:35:58.555Z"
+  },
+  {
+    "content": "Coding Studio 獨立 repo — clone PAAW，砍掉非 coding/crew 部分，iframe 嵌回 PAAW",
+    "tags": [
+      "paaw",
+      "architecture",
+      "coding-studio"
+    ],
+    "priority": "high",
+    "id": "pocket_mrzkwiff",
+    "createdAt": "2026-07-24T23:35:58.539Z"
+  },
+  {
     "type": "todo",
     "title": "明早六點記得去公園走路運動放鬆一下心情",
     "text": "明早六點記得去公園走路運動放鬆一下心情",
