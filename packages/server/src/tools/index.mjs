@@ -742,57 +742,6 @@ async function buildToolDefinitions() {
     },
   });
 
-  // tool_create — AI 幫使用者建立外部 Tool Provider
-  tools.push({
-    type: "function",
-    function: {
-      name: "tool_create",
-      description: "建立外部 Tool Provider（連接外部服務如 Discord、Telegram、LINE、Email 等）。AI 根據使用者描述自動產生 tool 定義。",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Tool Provider 目錄名（英文小寫，如 discord, telegram, sendgrid）" },
-          name: { type: "string", description: "Tool 名稱（LLM 呼叫時用，如 discord_send, email_send）" },
-          description: { type: "string", description: "這個 Tool 做什麼（給 LLM 看的描述）" },
-          icon: { type: "string", description: "圖示 emoji（如 💬 📧 ✈️）" },
-          runner: { type: "string", enum: ["api", "script"], description: "Runner 類型：api=通用 HTTP 呼叫（不用寫碼），script=自訂 handler.mjs" },
-          parameters: { type: "object", description: "OpenAI function-calling 格式的參數定義 { type:'object', properties:{...}, required:[...] }" },
-          api: { type: "object", description: "API 設定（runner=api 時必填）：{ method, url, headers, body }。用 {{參數名}} 代表 LLM 傳入參數，用 {{…configKey}} 代表 config.json 裡的值" },
-          config: { type: "object", description: "Config schema（API key 等）：{ token: { type:'string', secret:true, required:true, description:'Bot Token' } }" },
-          tags: { type: "array", items: { type: "string" }, description: "標籤（如 messaging, email, realtime）" },
-        },
-        required: ["id", "name", "description"],
-      },
-    },
-  });
-
-  // tool_list — 列出已安裝的 Tool Providers
-  tools.push({
-    type: "function",
-    function: {
-      name: "tool_list",
-      description: "列出所有已安裝的外部 Tool Providers，顯示名稱、狀態、runner 類型",
-      parameters: { type: "object", properties: {} },
-    },
-  });
-
-  // tool_config — 設定 Tool Provider 的 config（API key 等）
-  tools.push({
-    type: "function",
-    function: {
-      name: "tool_config",
-      description: "設定外部 Tool Provider 的 config 值（如 API Token）。第一次使用 tool 前需要先設定。",
-      parameters: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Tool Provider 目錄名（如 discord, telegram）" },
-          values: { type: "object", description: "要設定的 key-value pairs，如 { token: 'xoxb-...' }" },
-        },
-        required: ["id", "values"],
-      },
-    },
-  });
-
     return { tools, apps };
 }
 
@@ -2020,58 +1969,6 @@ function buildHandlers(apps) {
       return { error: data.error || "更新失敗" };
     } catch (err) {
       return { error: err.message };
-    }
-  };
-
-  // tool_create — 建立外部 Tool Provider（透過 API）
-  handlers.tool_create = async ({ id, name, description, icon, runner, parameters, api, config, tags }) => {
-    try {
-      const resp = await fetch(`${API}/api/tools`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, name, description, icon: icon || "🔧", runner: runner || "api", parameters, api, config, tags }),
-      });
-      const result = await resp.json();
-      if (!result.ok) return { text: `❌ 建立失敗：${result.error}`, error: true };
-      const configHint = config && Object.keys(config).length > 0
-        ? `\n⚠️ 請用 tool_config 設定 API Token：${Object.keys(config).map(k => k).join(", ")}`
-        : "";
-      return { text: `✅ 已建立 Tool「${name}」${icon || "🔧"}${configHint}`, id: result.id };
-    } catch (err) {
-      return { text: `❌ 建立失敗：${err.message}`, error: true };
-    }
-  };
-
-  // tool_list — 列出已安裝的 Tool Providers
-  handlers.tool_list = async () => {
-    try {
-      const resp = await fetch(`${API}/api/tools`);
-      const data = await resp.json();
-      const tools = data.tools || [];
-      if (tools.length === 0) return { text: "尚未安裝任何外部 Tool Provider。" };
-      const lines = tools.map(t =>
-        `${t.icon} ${t.name} — ${t.description} [${t.enabled ? "啟用" : "停用"}] [runner=${t.runner}]${!t.configFilled ? " ⚠️需設定" : ""}`
-      );
-      return { text: `已安裝 ${tools.length} 個 Tool Provider：\n${lines.join("\n")}` };
-    } catch (err) {
-      return { text: `❌ 取得失敗：${err.message}`, error: true };
-    }
-  };
-
-  // tool_config — 設定 Tool Provider 的 config
-  handlers.tool_config = async ({ id, values }) => {
-    try {
-      const resp = await fetch(`${API}/api/tools/${id}/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      const result = await resp.json();
-      if (!result.ok) return { text: `❌ 設定失敗：${result.error}`, error: true };
-      const keys = Object.keys(values).map(k => `${k}=••••`).join(", ");
-      return { text: `✅ 已設定 Tool「${id}」的 config：${keys}` };
-    } catch (err) {
-      return { text: `❌ 設定失敗：${err.message}`, error: true };
     }
   };
 
