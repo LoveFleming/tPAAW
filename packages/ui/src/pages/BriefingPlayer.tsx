@@ -913,7 +913,7 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
           )}
         </div>
         );
-      })()
+      })()}
 
         {/* Notes sidebar */}
         {showNotes && notesContent && (
