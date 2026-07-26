@@ -5,32 +5,34 @@
   "icon": "🧋",
   "mode": "agentic",
   "status": "published",
-
-  "goal": "幫 Fleming 處理下午茶團購：把菜單資訊發到指定聊天視窗，收集大家的訂單，回答產品相關問題，最後彙總所有訂單回報。",
-
+  "goal": "幫 Fleming 處理下午茶團購：把菜單資訊發到指定聊天室，收集參與者的訂單，回答問題，追蹤沒回的人，最後彙總所有訂單回報。",
   "rules": [
     "訊息要清楚、友善，標明截止時間",
     "只收集訂購者姓名、品項、數量、備註",
     "回答問題時以菜單提供的資訊為準",
     "截止時間到就要結單，不再收新的訂單",
+    "如果輸入有參與者名單，要追蹤誰還沒回，主動催還沒回覆的人",
+    "所有人都回覆了可以提前結束",
     "彙總報告要列出：每人訂了什麼、總品項統計、總金額（如果有價格）",
-    "所有訊息透過 chat_send / chat_reply 工具發送到目標聊天視窗"
+    "所有訊息透過 tchat_send / tchat_reply 工具發送到目標聊天室"
   ],
-
-  "tools": ["tchat_send", "tchat_read", "tchat_reply", "wait", "finish"],
-
+  "tools": [
+    "tchat_send",
+    "tchat_read",
+    "tchat_reply",
+    "wait",
+    "finish"
+  ],
   "config": {
-    "maxTurns": 20,
-    "timeoutSeconds": 600,
+    "maxTurns": 100,
+    "timeoutSeconds": 7200,
     "model": null,
     "preloadSkills": []
   },
-
   "inputMappingHints": {
     "roomId": "tChat 房間 ID（對應工具的 roomId 參數）",
     "inputToolPrefix": "tchat_"
   },
-
   "inputSchema": {
     "properties": {
       "menu": {
@@ -39,50 +41,86 @@
       },
       "targetChatId": {
         "type": "string",
-        "description": "目標聊天視窗 ID（例如林雨晴的 chat ID）"
+        "description": "目標聊天室 ID（對應 tChat roomId）"
+      },
+      "roomId": {
+        "type": "string",
+        "description": "tChat 房間 ID（等同 targetChatId）"
+      },
+      "participants": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "參與者名單。Agent 應追蹤誰回了、誰沒回，主動催沒回的人"
       },
       "deadline": {
         "type": "string",
-        "description": "截止時間（例如 '15:00' 或 '30 分鐘後'）"
+        "description": "截止時間（例如 '17:30' 或 '30 分鐘後'）"
       },
       "title": {
         "type": "string",
         "description": "這次下午茶的名稱（例如 '五十嵐下午茶'）"
       }
     },
-    "required": ["menu", "targetChatId"]
+    "required": [
+      "menu",
+      "targetChatId"
+    ]
   },
-
   "nodes": [
     {
       "id": "start",
       "type": "start",
       "name": "啟動",
-      "position": { "x": 50, "y": 200 },
+      "position": {
+        "x": 50,
+        "y": 200
+      },
       "config": {}
     },
     {
       "id": "agent",
       "type": "agentic",
       "name": "下午茶 Agent",
-      "position": { "x": 350, "y": 200 },
+      "position": {
+        "x": 350,
+        "y": 200
+      },
       "config": {
         "goal": "{{workflow.goal}}",
-        "tools": ["chat_send", "chat_read", "chat_reply", "wait", "finish"]
+        "tools": [
+          "tchat_send",
+          "tchat_read",
+          "tchat_reply",
+          "wait",
+          "finish"
+        ]
       }
     },
     {
       "id": "end",
       "type": "end",
       "name": "結束",
-      "position": { "x": 700, "y": 200 },
+      "position": {
+        "x": 700,
+        "y": 200
+      },
       "config": {
         "outputTarget": "chat"
       }
     }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "agent" },
-    { "id": "e2", "source": "agent", "target": "end" }
+    {
+      "id": "e1",
+      "source": "start",
+      "target": "agent"
+    },
+    {
+      "id": "e2",
+      "source": "agent",
+      "target": "end"
+    }
   ]
 }

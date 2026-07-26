@@ -101,7 +101,7 @@ export default function WorkflowExec() {
 
   // ── Agentic workflow state ──
   const [agenticInput, setAgenticInput] = useState<Record<string, string>>({
-    menu: "", targetChatId: "rainy-afternoon-tea", deadline: "5 分鐘", title: "下午茶訂購",
+    menu: "", targetChatId: "rainy-afternoon-tea", deadline: "17:30", title: "下午茶訂購", participants: "小芳, 阿明, Rainy, Kevin",
   });
   const [agenticRunning, setAgenticRunning] = useState(false);
   const [agenticResult, setAgenticResult] = useState<AgenticRunResult | null>(null);
@@ -203,9 +203,10 @@ export default function WorkflowExec() {
             menu: agenticInput.menu,
             targetChatId: agenticInput.targetChatId,
             roomId: agenticInput.targetChatId,
-            deadline: agenticInput.deadline || "5 分鐘",
+            deadline: agenticInput.deadline || "17:30",
             title: agenticInput.title || currentWf.name,
             organizer: "Fleming",
+            participants: (agenticInput.participants || "").split(",").map((s: string) => s.trim()).filter(Boolean),
           },
         }),
       });
@@ -471,6 +472,12 @@ export default function WorkflowExec() {
                   placeholder={"貼上菜單內容...\n例如:\n五十嵐菜單\n- 珍珠奶茶 $65\n- 波霸奶茶 $75\n..."}
                   rows={4}
                   className="w-full px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none font-mono" />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-stone-500 block mb-0.5">👥 參與者（逗號分隔，Agent 會追沒回的人）</label>
+                <input type="text" value={agenticInput.participants || ""} onChange={e => setAgenticInput(v => ({ ...v, participants: e.target.value }))}
+                  placeholder="小芳, 阿明, Rainy, Kevin"
+                  className="w-full px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
               </div>
 
               <div className="flex items-center gap-2">

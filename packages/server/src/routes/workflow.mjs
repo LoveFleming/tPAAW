@@ -655,8 +655,8 @@ async function _runAgenticLoop(runId, wf, input, paawRoot, state, toolRegistry) 
   const { getToolDefinitions, executeToolCall } = toolRegistry;
 
   const llm = resolveLLMConfig(paawRoot, wf.config?.model || null);
-  const maxTurns = wf.config?.maxTurns || 20;
-  const timeoutMs = (wf.config?.timeoutSeconds || 600) * 1000;
+  const maxTurns = wf.config?.maxTurns || 100;  // 高上限：agent 自己決定何時結束
+  const timeoutMs = (wf.config?.timeoutSeconds || 7200) * 1000;  // 預設 2 小時
 
   // ── Build system prompt with preloaded skill context ──
   const systemParts = [
@@ -704,15 +704,19 @@ async function _runAgenticLoop(runId, wf, input, paawRoot, state, toolRegistry) 
     systemParts.push(`- **${t.function.name}**: ${t.function.description}`);
   }
   systemParts.push(``);
-  systemParts.push(`### 執行策略`);
-  systemParts.push(`1. 用 send 工具發布資訊到目標聊天室`);
-  systemParts.push(`2. 用 wait 等待回覆（每次 30 秒）`);
-  systemParts.push(`3. 用 read 工具讀取新回覆`);
-  systemParts.push(`4. 有問題就用 reply 回覆`);
-  systemParts.push(`5. 重複 wait → read 最多 3-4 輪`);
-  systemParts.push(`6. 用 finish 結束並彙總`);
+  systemParts.push(`## 你的職責`);
+  systemParts.push(`你自己判斷怎麼完成這個任務。沒有人會告訴你要做幾步、等多久。`);
+  systemParts.push(`你應該根據任務目標和輸入資料，自主決定：`);
+  systemParts.push(`- 什麼時候發訊息、等多久再 check`);
+  systemParts.push(`- 需不需要催人、催幾次、怎麼催`);
+  systemParts.push(`- 什麼時候任務算完成`);
   systemParts.push(``);
-  systemParts.push(`⚠️ 不要超過 4 輪 wait/read。`);
+  systemParts.push(`**結束條件：**`);
+  systemParts.push(`- 任務目標已達成（例如：所有人都回了）→ 呼叫 finish 帶彙總`);
+  systemParts.push(`- 截止時間到了 → 不管有沒有到齊，呼叫 finish 帶彙總`);
+  systemParts.push(`- 你判斷繼續等下去沒有意義 → 呼叫 finish 帶目前的結果`);
+  systemParts.push(``);
+  systemParts.push(`**重要：** 不要盲目循環 wait→read。每次 read 之後，根據實際收到的回覆內容判斷下一步該做什麼。`);
 
   const inputDesc = JSON.stringify(input, null, 2);
   const messages = [
