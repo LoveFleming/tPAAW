@@ -49,9 +49,7 @@ export default function AgenticSettings() {
     try {
       const r = await fetch("http://localhost:4200/api/workflows");
       setPlatformOnline(r.ok);
-    } catch {
-      setPlatformOnline(false);
-    }
+    } catch { setPlatformOnline(false); }
   }, []);
 
   const loadRuns = useCallback(async () => {
@@ -59,24 +57,18 @@ export default function AgenticSettings() {
       const r = await fetch("http://localhost:4200/api/runs");
       const d = await r.json();
       setRuns(d.active || []);
-    } catch {
-      setRuns([]);
-    }
+    } catch { setRuns([]); }
   }, []);
 
   useEffect(() => {
-    load();
-    checkPlatform();
-    loadRuns();
-    const poll = setInterval(() => { loadRuns(); }, 5000);
+    load(); checkPlatform(); loadRuns();
+    const poll = setInterval(loadRuns, 5000);
     return () => clearInterval(poll);
   }, [load, checkPlatform, loadRuns]);
 
   const save = useCallback(async () => {
     if (!editing) return;
     setSaving(true);
-
-    // Build full config object
     const config: Record<string, any> = {};
     for (const b of bindings) {
       if (b.id === editing.id) {
@@ -87,150 +79,163 @@ export default function AgenticSettings() {
         config[id] = rest;
       }
     }
-
     try {
       await fetch(`${API}/api/agentic-bindings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       });
-      await load();
-      setEditing(null);
-    } catch (err) {
-      alert(String(err));
-    }
+      await load(); setEditing(null);
+    } catch (err) { alert(String(err)); }
     setSaving(false);
   }, [editing, bindings, load]);
 
-  // ── Render: Editing form ──
-
+  // ── Edit form ──
   if (editing) {
     return (
-      <div className="p-6 max-w-2xl mx-auto space-y-4">
+      <div className="p-6 max-w-xl mx-auto space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => setEditing(null)} className="text-stone-400 hover:text-stone-600 text-sm">← Cancel</button>
-          <h2 className="text-lg font-bold text-stone-800">編輯 {editing.defaults.title}</h2>
+          <button onClick={() => setEditing(null)}
+            className="p-1.5 -ml-1.5 rounded-lg hover:bg-stone-100 transition-colors text-stone-500">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h2 className="text-base font-bold text-stone-800">{editing.defaults.title}</h2>
           <label className="ml-auto flex items-center gap-2 text-sm text-stone-600">
             <input type="checkbox" checked={editing.enabled}
-              onChange={e => setEditing({ ...editing, enabled: e.target.checked })} />
-            啟用
+              onChange={e => setEditing({ ...editing, enabled: e.target.checked })}
+              className="rounded border-stone-300" />
+            Enabled
           </label>
         </div>
 
-        {/* Settings */}
-        <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-4">
+        <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="工具名稱（chat tool name）" value={editing.toolName}
+            <Field label="Tool Name" value={editing.toolName}
               onChange={v => setEditing({ ...editing, toolName: v })} mono />
             <Field label="Workflow ID" value={editing.workflowId}
               onChange={v => setEditing({ ...editing, workflowId: v })} mono />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-stone-500 block mb-1">工具描述（林雨晴會看到這段）</label>
-            <textarea value={editing.description} onChange={e => setEditing({ ...editing, description: e.target.value })}
-              rows={3} className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg" />
+            <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide block mb-1.5">
+              Description (shown to AI)
+            </label>
+            <textarea value={editing.description}
+              onChange={e => setEditing({ ...editing, description: e.target.value })}
+              rows={2}
+              className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-300" />
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-stone-500 block mb-1">觸發關鍵字（林雨晴看到這些詞會聯想到這個工具）</label>
-            <input value={editing.triggers.join("、")} onChange={e => setEditing({ ...editing, triggers: e.target.value.split("、").map(s => s.trim()).filter(Boolean) })}
-              className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg" />
-          </div>
+          <Field label="Trigger Keywords (separated by 、)" full
+            value={editing.triggers.join("、")}
+            onChange={v => setEditing({ ...editing, triggers: v.split("、").map(s => s.trim()).filter(Boolean) })} />
 
-          <div className="border-t border-stone-100 pt-3">
-            <h3 className="text-xs font-semibold text-stone-400 mb-3">預設參數</h3>
+          <div className="border-t border-stone-100 pt-4">
+            <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-3">Default Parameters</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="標題" value={editing.defaults.title}
+              <Field label="Title" value={editing.defaults.title}
                 onChange={v => setEditing({ ...editing, defaults: { ...editing.defaults, title: v } })} />
-              <Field label="目標聊天室 ID" value={editing.defaults.roomId}
+              <Field label="Room ID" value={editing.defaults.roomId}
                 onChange={v => setEditing({ ...editing, defaults: { ...editing.defaults, roomId: v } })} mono />
-              <Field label="截止時間" value={editing.defaults.deadline}
+              <Field label="Deadline" value={editing.defaults.deadline}
                 onChange={v => setEditing({ ...editing, defaults: { ...editing.defaults, deadline: v } })} />
-              <Field label="預設參與者（逗號分隔）" value={editing.defaults.participants.join(", ")}
+              <Field label="Participants (comma-separated)"
+                value={editing.defaults.participants.join(", ")}
                 onChange={v => setEditing({ ...editing, defaults: { ...editing.defaults, participants: v.split(",").map((s: string) => s.trim()).filter(Boolean) } })} />
             </div>
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-stone-500 block mb-1">菜單範本（可留空，啟動時再填）</label>
-            <textarea value={editing.defaults.menu} onChange={e => setEditing({ ...editing, defaults: { ...editing.defaults, menu: e.target.value } })}
-              placeholder="珍奶 $65&#10;紅茶 $40&#10;奶綠 $70" rows={5}
-              className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg font-mono" />
-          </div>
-
-          <Field label="Agentic Platform URL" value={editing.agenticPlatformUrl}
+          <Field label="Agentic Platform URL" full
+            value={editing.agenticPlatformUrl}
             onChange={v => setEditing({ ...editing, agenticPlatformUrl: v })} mono />
 
           <button onClick={save} disabled={saving}
-            className="w-full py-2.5 bg-violet-500 hover:bg-violet-600 text-white rounded-xl font-semibold transition disabled:opacity-50">
-            {saving ? "儲存中..." : "💾 儲存設定"}
+            className="w-full py-2.5 bg-stone-800 hover:bg-stone-900 text-white rounded-lg font-medium transition-colors disabled:opacity-40">
+            {saving ? "Saving..." : "💾 Save"}
           </button>
         </div>
       </div>
     );
   }
 
-  // ── Render: List ──
-
+  // ── List view ──
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
+    <div className="p-6 max-w-2xl mx-auto space-y-5">
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <h2 className="text-lg font-bold text-stone-800">🤖 Agentic Workflow 設定</h2>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${platformOnline ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-          {platformOnline === null ? "⏳" : platformOnline ? "Platform: Online" : "Platform: Offline"}
+        <h2 className="text-base font-bold text-stone-800">Agentic Workflows</h2>
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+          platformOnline ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+        }`}>
+          {platformOnline === null ? "⏳" : platformOnline ? "Online" : "Offline"}
         </span>
       </div>
 
-      {/* Info card */}
-      <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
-        <p className="text-sm text-violet-900">
-          💡 這裡設定的 workflow 會自動變成<strong>林雨晴的聊天工具</strong>。
-          使用者在聊天視窗說「訂下午茶」，林雨晴就會自動啟動 workflow，不用任何指令。
+      {/* Info */}
+      <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5">
+        <p className="text-sm text-stone-600 leading-relaxed">
+          These workflows become <strong>chat tools</strong> for your AI assistant. Users can trigger them with natural language — no commands needed.
         </p>
       </div>
 
       {/* Bindings */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {bindings.map(b => (
-          <div key={b.id} className="bg-white rounded-xl border border-stone-200 p-4">
+          <div key={b.id} className="bg-white rounded-xl border border-stone-200 shadow-sm p-4">
             <div className="flex items-center gap-3 mb-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${b.enabled ? "bg-emerald-500" : "bg-stone-300"}`} />
-              <span className="font-semibold text-stone-800">{b.defaults?.title || b.workflowId}</span>
-              <span className="text-xs text-stone-400 font-mono">{b.toolName}</span>
+              <div className={`w-2 h-2 rounded-full ${b.enabled ? "bg-emerald-500" : "bg-stone-300"}`} />
+              <span className="text-sm font-semibold text-stone-800">{b.defaults?.title || b.workflowId}</span>
+              <code className="text-xs text-stone-400">{b.toolName}</code>
               <button onClick={() => setEditing(b)}
-                className="ml-auto px-3 py-1 text-xs bg-stone-100 hover:bg-stone-200 rounded-lg">編輯</button>
+                className="ml-auto px-2.5 py-1 text-xs bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors">
+                Edit
+              </button>
             </div>
-            <p className="text-sm text-stone-600 mb-2">{b.description}</p>
-            <div className="flex flex-wrap gap-1.5">
+            <p className="text-sm text-stone-500 mb-2.5 leading-relaxed">{b.description}</p>
+            <div className="flex flex-wrap gap-1">
               {b.triggers?.map(t => (
-                <span key={t} className="text-xs px-2 py-0.5 bg-violet-50 text-violet-700 rounded-full">{t}</span>
+                <span key={t} className="text-xs px-2 py-0.5 bg-stone-100 text-stone-600 rounded-full">{t}</span>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-2 mt-3 text-xs text-stone-500">
-              <div>📋 聊天室: <code className="text-stone-700">{b.defaults?.roomId || "—"}</code></div>
-              <div>⏰ 截止: <span className="text-stone-700">{b.defaults?.deadline || "—"}</span></div>
-              <div>👥 參與者: <span className="text-stone-700">{b.defaults?.participants?.length || 0} 人</span></div>
+            <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-stone-100">
+              <div className="text-xs">
+                <span className="text-stone-400">Room: </span>
+                <code className="text-stone-600">{b.defaults?.roomId || "—"}</code>
+              </div>
+              <div className="text-xs">
+                <span className="text-stone-400">Deadline: </span>
+                <span className="text-stone-600">{b.defaults?.deadline || "—"}</span>
+              </div>
+              <div className="text-xs">
+                <span className="text-stone-400">Participants: </span>
+                <span className="text-stone-600">{b.defaults?.participants?.length || 0}</span>
+              </div>
             </div>
           </div>
         ))}
         {bindings.length === 0 && (
-          <div className="text-center text-stone-400 py-12 bg-white rounded-xl border border-stone-200">
-            尚未設定任何 agentic workflow
+          <div className="text-center py-12 bg-white rounded-xl border border-stone-200">
+            <p className="text-2xl mb-2">🤖</p>
+            <p className="text-sm text-stone-400">No agentic workflows configured</p>
           </div>
         )}
       </div>
 
       {/* Active runs */}
       {runs.length > 0 && (
-        <div className="bg-white rounded-xl border border-stone-200 p-4">
-          <h3 className="text-xs font-semibold text-stone-600 mb-3">⚡ 進行中的 Workflow</h3>
+        <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Active Runs</p>
+          </div>
           {runs.map(r => (
             <div key={r.runId} className="flex items-center gap-3 py-2 border-b border-stone-100 last:border-0">
-              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-sm font-medium text-stone-800">{r.workflowName}</span>
-              <span className="text-xs text-stone-400">Turn {r.turns} · {r.toolCallCount} tools</span>
-              {r.lastTool && <span className="text-xs text-stone-400 font-mono ml-auto">→ {r.lastTool}</span>}
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-stone-800">{r.workflowName}</span>
+                <span className="text-xs text-stone-400 ml-2">Turn {r.turns} · {r.toolCallCount} tools</span>
+              </div>
+              {r.lastTool && <code className="text-xs text-stone-400">→ {r.lastTool}</code>}
             </div>
           ))}
         </div>
@@ -239,16 +244,14 @@ export default function AgenticSettings() {
   );
 }
 
-// ── Reusable field ──
-
 function Field({ label, value, onChange, mono }: {
   label: string; value: string; onChange: (v: string) => void; mono?: boolean;
 }) {
   return (
-    <div>
-      <label className="text-xs font-semibold text-stone-500 block mb-1">{label}</label>
+    <div className={mono ? "" : ""}>
+      <label className="text-xs font-semibold text-stone-500 uppercase tracking-wide block mb-1.5">{label}</label>
       <input value={value} onChange={e => onChange(e.target.value)}
-        className={`w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg ${mono ? "font-mono" : ""}`} />
+        className={`w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-stone-300 ${mono ? "font-mono" : ""}`} />
     </div>
   );
 }
