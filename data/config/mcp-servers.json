@@ -1,0 +1,11 @@
+{
+  "tchat": {
+    "transport": "stdio",
+    "command": "node",
+    "args": ["{{PAAW_ROOT}}/packages/server/src/mcp/tchat-server/index.mjs"],
+    "env": {
+      "PAAW_ROOT": "{{PAAW_ROOT}}"
+    },
+    "enabled": true
+  }
+}

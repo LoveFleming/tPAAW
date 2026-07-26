@@ -599,7 +599,7 @@ export default async function workflowRoutes(req, res) {
 
   // GET /api/paaw/tool-providers — list registered tool providers
   if (req.method === "GET" && path === "/api/paaw/tool-providers") {
-    const { listProviders } = await import("../lib/tool-provider.mjs");
+    const { listProviders } = await import("../lib/mcp-hub.mjs");
     json(res, { providers: listProviders() });
     return true;
   }
@@ -616,10 +616,10 @@ const _activeAgenticWorkflows = new Map();
 
 /** Launch an agentic workflow — returns runId immediately */
 async function launchAgenticWorkflow(wf, input, paawRoot) {
-  const { loadToolProviders, getToolDefinitions, executeToolCall } = await import("../lib/tool-provider.mjs");
+  const { loadMCPServers, getToolDefinitions, executeToolCall } = await import("../lib/mcp-hub.mjs");
 
-  // Ensure providers are loaded
-  await loadToolProviders(join(paawRoot, "data", "tools"));
+  // Ensure MCP servers are loaded
+  await loadMCPServers(join(paawRoot, "data", "config", "mcp-servers.json"), paawRoot);
 
   const runId = `aw-${Date.now()}`;
   const startedAt = new Date().toISOString();
