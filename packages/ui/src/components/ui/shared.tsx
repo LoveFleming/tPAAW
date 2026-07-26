@@ -113,6 +113,7 @@ export function NavItem({
     label,
     onClick,
     right,
+    emoji: emojiProp,
     accentColor = "#f97316",
     accentBg = "#fff7ed",
 }: {
@@ -120,10 +121,11 @@ export function NavItem({
     label: string;
     onClick: () => void;
     right?: React.ReactNode;
+    emoji?: string;
     accentColor?: string;
     accentBg?: string;
 }) {
-    const emoji = findEmoji(label);
+    const emoji = emojiProp || findEmoji(label);
 
     return (
         <button

@@ -863,7 +863,8 @@ function AppInner() {
                     <NavItem
                       key={p.id}
                       active={activePage.endsWith(`:plugin-${p.id}`)}
-                      label={`🔌 ${p.name}`}
+                      label={p.name}
+                      emoji={p.icon || "🔌"}
                       onClick={() => {
                         const tabId = `${currentScope}:plugin-${p.id}`;
                         setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
