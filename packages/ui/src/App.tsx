@@ -16,7 +16,6 @@ import Notes from "./pages/Notes";
 import ProjectBoard from "./pages/ProjectBoard";
 import FileEditor from "./pages/FileEditor";
 import WorkflowEditor from "./pages/WorkflowEditor";
-import WorkflowExec from "./pages/WorkflowExec";
 import AgenticSettings from "./pages/AgenticSettings";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";

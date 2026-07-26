@@ -226,13 +226,4 @@ server.listen(PORT, async () => {
 
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] ${ROUTE_MODULES.length} route modules + scheduler loaded`);
-
-  // ── Load MCP Servers ──
-  try {
-    const { loadMCPServers } = await import("./lib/mcp-hub.mjs");
-    const mcpConfigPath = resolve(PAAW_ROOT, "data", "config", "mcp-servers.json");
-    await loadMCPServers(mcpConfigPath, PAAW_ROOT);
-  } catch (err) {
-    console.error(`[PAAW] MCP Hub failed to load:`, err.message);
-  }
 });
