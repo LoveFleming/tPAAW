@@ -12,8 +12,21 @@ interface WFNode {
 interface WFEdge { id: string; source: string; target: string; }
 interface WorkflowDef {
   id: string; name: string; description: string; icon: string;
+  mode?: "deterministic" | "agentic";
+  goal?: string; rules?: string[]; tools?: string[];
+  config?: { maxTurns?: number; timeoutSeconds?: number; };
   nodes: WFNode[]; edges: WFEdge[];
   inputSchema: { properties: Record<string, any>; required: string[] };
+}
+interface AgenticToolCall {
+  tool: string; args: any; result: any;
+}
+interface AgenticRunResult {
+  runId: string; workflowId: string; workflowName: string;
+  status: string; turns: number;
+  startedAt: string; completedAt: string;
+  result: { summary: string; details?: AgenticToolCall[] };
+  toolCalls: AgenticToolCall[];
 }
 interface UserInputDef {
   id: string; label: string; description?: string; placeholder?: string;
@@ -86,6 +99,14 @@ export default function WorkflowExec() {
   const [execHistory, setExecHistory] = useState<ExecHistoryEntry[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
+  // ── Agentic workflow state ──
+  const [agenticInput, setAgenticInput] = useState<Record<string, string>>({
+    menu: "", targetChatId: "rainy-afternoon-tea", deadline: "5 分鐘", title: "下午茶訂購",
+  });
+  const [agenticRunning, setAgenticRunning] = useState(false);
+  const [agenticResult, setAgenticResult] = useState<AgenticRunResult | null>(null);
+  const [agenticError, setAgenticError] = useState<string | null>(null);
+
   // Dynamic inputs from Start block
   const [dynamicInputs, setDynamicInputs] = useState<UserInputDef[]>([]);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
@@ -145,6 +166,7 @@ export default function WorkflowExec() {
   const selectWf = useCallback((id: string) => {
     fetch(`${API}/api/paaw/workflows/${id}`).then(r => r.json()).then((wf: WorkflowDef) => {
       setCurrentWf(wf); setExecLog([]); setSelectedNodeId(null); setSelectedHistoryId(null);
+      setAgenticResult(null); setAgenticError(null);
       loadHistory(id);
     }).catch(() => {});
   }, [loadHistory]);
@@ -159,6 +181,55 @@ export default function WorkflowExec() {
     });
     loadHistory(wfId);
   }, [loadHistory]);
+
+  // ── Run Agentic Workflow ──
+  const runAgenticWorkflow = useCallback(async () => {
+    if (!currentWf) return;
+
+    // Validate required inputs
+    if (!agenticInput.menu?.trim()) { showToast("⚠️ 請填寫菜單內容"); return; }
+    if (!agenticInput.targetChatId?.trim()) { showToast("⚠️ 請填寫目標聊天視窗 ID"); return; }
+
+    setAgenticRunning(true); setAgenticResult(null); setAgenticError(null);
+
+    try {
+      const resp = await fetch(`${API}/api/paaw/agentic-workflow-run`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowId: currentWf.id,
+          input: {
+            menu: agenticInput.menu,
+            targetChatId: agenticInput.targetChatId,
+            deadline: agenticInput.deadline || "5 分鐘",
+            title: agenticInput.title || currentWf.name,
+            organizer: "Fleming",
+          },
+        }),
+      });
+      const result = await resp.json();
+      if (result.error) { setAgenticError(result.error); showToast(`❌ ${result.error}`); }
+      else {
+        setAgenticResult(result);
+        showToast(result.status === "completed" ? "✅ Agentic Workflow 完成！" : `⚠️ ${result.status}`);
+      }
+    } catch (err: any) {
+      setAgenticError(err.message);
+      showToast(`❌ ${err.message}`);
+    } finally {
+      setAgenticRunning(false);
+    }
+  }, [currentWf, agenticInput]);
+
+  // ── Simulate a user reply (for demo) ──
+  const injectReply = useCallback(async (chatId: string, content: string) => {
+    if (!content.trim()) return;
+    try {
+      await fetch(`${API}/api/paaw/agentic-workflow-send-message`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId, content, role: "user" }),
+      });
+    } catch {}
+  }, []);
 
   const runWorkflow = useCallback(async () => {
     if (!currentWf) return;
@@ -294,11 +365,12 @@ export default function WorkflowExec() {
               const hasStart = wf.nodes.some(n => n.type === "start");
               const hasEnd = wf.nodes.some(n => n.type === "end");
               const skillCount = wf.nodes.filter(n => n.type === "skill" || n.type === "tool").length;
+              const isAgentic = wf.mode === "agentic";
               return (
                 <button key={wf.id} onClick={() => selectWf(wf.id)} className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentWf?.id === wf.id ? "bg-violet-100 text-violet-800" : "hover:bg-stone-50 text-stone-600"}`}>
-                  <div className="flex items-center gap-2"><span>{wf.icon}</span><span className={currentWf?.id === wf.id ? "font-medium" : ""}>{wf.name}</span></div>
+                  <div className="flex items-center gap-2"><span>{wf.icon}</span><span className={currentWf?.id === wf.id ? "font-medium" : ""}>{wf.name}</span>{isAgentic && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 text-white font-bold">🤖 AGENTIC</span>}</div>
                   <div className="text-[10px] text-stone-400 mt-0.5 ml-6 flex items-center gap-1.5">
-                    {hasStart && <span>🟢</span>}{skillCount > 0 && <span>⚡{skillCount}</span>}{hasEnd && <span>🔵</span>}
+                    {isAgentic ? <span className="text-violet-400">自主編排 · {(wf.tools||[]).length} tools</span> : <>{hasStart && <span>🟢</span>}{skillCount > 0 && <span>⚡{skillCount}</span>}{hasEnd && <span>🔵</span>}</>}
                   </div>
                 </button>
               );
@@ -334,8 +406,76 @@ export default function WorkflowExec() {
             {viewingHistory && <button onClick={exitHistory} className="text-xs text-violet-600 hover:text-violet-800 font-medium px-2 py-1 rounded-lg hover:bg-violet-50">← 回到執行</button>}
           </div>
 
-          {/* Dynamic Input Form from Start block */}
-          {!viewingHistory && currentWf && (
+          {/* ── Agentic Workflow Input Form ── */}
+          {!viewingHistory && currentWf && currentWf.mode === "agentic" && (
+            <div className="px-4 pb-3 space-y-3">
+              {/* Goal & Rules display */}
+              <div className="bg-violet-50 rounded-lg p-3 border border-violet-200">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-sm">🤖</span>
+                  <span className="text-xs font-bold text-violet-800">Agentic Workflow</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-200 text-violet-700">{currentWf.tools?.length || 0} tools</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600">max {currentWf.config?.maxTurns || 15} turns</span>
+                </div>
+                <div className="text-xs text-violet-700 mb-1.5">🎯 {currentWf.goal}</div>
+                {currentWf.rules && currentWf.rules.length > 0 && (
+                  <div className="space-y-0.5">{currentWf.rules.slice(0, 3).map((r, i) => (
+                    <div key={i} className="text-[10px] text-violet-500 flex items-start gap-1"><span>📋</span><span className="truncate">{r}</span></div>
+                  ))}</div>
+                )}
+              </div>
+
+              {/* Input fields */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <label className="text-[10px] font-semibold text-stone-500 block mb-0.5">標題</label>
+                  <input type="text" value={agenticInput.title || ""} onChange={e => setAgenticInput(v => ({ ...v, title: e.target.value }))}
+                    placeholder="五十嵐下午茶"
+                    className="w-full px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[10px] font-semibold text-stone-500 block mb-0.5">目標聊天視窗</label>
+                  <input type="text" value={agenticInput.targetChatId || ""} onChange={e => setAgenticInput(v => ({ ...v, targetChatId: e.target.value }))}
+                    placeholder="rainy-afternoon-tea"
+                    className="w-full px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 font-mono" />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[10px] font-semibold text-stone-500 block mb-0.5">截止時間</label>
+                  <input type="text" value={agenticInput.deadline || ""} onChange={e => setAgenticInput(v => ({ ...v, deadline: e.target.value }))}
+                    placeholder="5 分鐘"
+                    className="w-full px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-stone-500 block mb-0.5">📋 菜單 / 任務內容 <span className="text-red-400">*</span></label>
+                <textarea value={agenticInput.menu || ""} onChange={e => setAgenticInput(v => ({ ...v, menu: e.target.value }))}
+                  placeholder={"貼上菜單內容...\n例如:\n五十嵐菜單\n- 珍珠奶茶 $65\n- 波霸奶茶 $75\n..."}
+                  rows={4}
+                  className="w-full px-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none font-mono" />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button onClick={runAgenticWorkflow} disabled={agenticRunning}
+                  className={`px-5 py-2 text-sm rounded-lg font-bold transition-all ${agenticRunning
+                    ? "bg-amber-100 text-amber-700 cursor-wait"
+                    : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-sm"
+                  }`}>
+                  {agenticRunning ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 border-[1.5px] border-amber-500 border-t-transparent rounded-full animate-spin" />
+                      Agent 執行中...
+                    </span>
+                  ) : "🚀 Launch Agent"}
+                </button>
+                {agenticRunning && (
+                  <span className="text-xs text-amber-600 animate-pulse">💡 Agent 自主編排中，你可以到聊天視窗看進度</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Deterministic Workflow Input Form (original) ── */}
+          {!viewingHistory && currentWf && currentWf.mode !== "agentic" && (
             <div className="px-4 pb-3">
               {dynamicInputs.length > 0 ? (
                 <div className="space-y-3">
@@ -398,8 +538,8 @@ export default function WorkflowExec() {
           )}
         </div>
 
-        {/* Upper: Flow visualization (25%) */}
-        {currentWf && fullFlow.length > 0 && (
+        {/* Upper: Flow visualization (25%) — deterministic only */}
+        {currentWf && currentWf.mode !== "agentic" && fullFlow.length > 0 && (
           <div className="shrink-0 border-b border-stone-200 bg-white" style={{ height: "25%" }}>
             <div className="flex items-center gap-1 overflow-x-auto h-full px-4 py-2">
               {fullFlow.map((node, i) => {
@@ -431,6 +571,108 @@ export default function WorkflowExec() {
         {/* Lower: Result area (75%) */}
         <div className="flex-1 overflow-y-auto bg-white" style={{ minHeight: 0 }}>
           {!currentWf && <div className="flex items-center justify-center h-full"><div className="text-center text-stone-400"><div className="text-4xl mb-3">🔗</div><div className="text-sm">從左側選擇一個 Workflow</div></div></div>}
+
+          {/* ── Agentic: Idle state ── */}
+          {currentWf && currentWf.mode === "agentic" && !agenticRunning && !agenticResult && !agenticError && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-stone-400 max-w-md">
+                <div className="text-5xl mb-3">🤖</div>
+                <div className="text-sm font-medium text-stone-500 mb-1">Agentic Workflow 已就緒</div>
+                <div className="text-xs text-stone-400 mt-2 space-y-1">
+                  <div>填寫上方菜單和目標聊天視窗</div>
+                  <div>按 <span className="font-semibold text-violet-500">🚀 Launch Agent</span> 啟動</div>
+                  <div className="mt-2 text-stone-300">Agent 會自主完成：發訊息 → 收回覆 → 回答問題 → 結單彙總</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Agentic: Running state ── */}
+          {currentWf && currentWf.mode === "agentic" && agenticRunning && (
+            <div className="p-5 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-amber-600">
+                <span className="inline-flex items-center justify-center w-5 h-5">
+                  <span className="w-4 h-4 border-[2px] border-amber-500 border-t-transparent rounded-full animate-spin" />
+                </span>
+                Agent 自主執行中...
+              </div>
+              <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 text-xs text-amber-700">
+                💡 Agent 正在編排流程。你可以切換到 💬 交談視窗查看即時訊息。
+              </div>
+            </div>
+          )}
+
+          {/* ── Agentic: Error state ── */}
+          {currentWf && currentWf.mode === "agentic" && agenticError && (
+            <div className="p-5">
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                <div className="flex items-center gap-2 mb-2"><span className="text-lg">❌</span><div className="text-sm font-semibold text-red-800">執行失敗</div></div>
+                <pre className="text-xs text-red-700 whitespace-pre-wrap">{agenticError}</pre>
+              </div>
+            </div>
+          )}
+
+          {/* ── Agentic: Result display ── */}
+          {currentWf && currentWf.mode === "agentic" && agenticResult && (
+            <div className="p-5 space-y-4 overflow-y-auto">
+              {/* Summary header */}
+              <div className={`rounded-xl p-4 border-2 ${agenticResult.status === "completed" ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">{agenticResult.status === "completed" ? "✅" : "❌"}</span>
+                  <span className="text-sm font-bold text-stone-800">{agenticResult.workflowName} — {agenticResult.status === "completed" ? "完成" : "失敗"}</span>
+                  <span className="text-[10px] text-stone-400 ml-auto">{agenticResult.turns} turns</span>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-stone-100">
+                  <div className="text-xs font-semibold text-stone-500 mb-1">📋 Agent 彙總報告</div>
+                  <div className="text-sm text-stone-800 whitespace-pre-wrap">{agenticResult.result?.summary}</div>
+                </div>
+              </div>
+
+              {/* Tool call trace */}
+              {agenticResult.toolCalls && agenticResult.toolCalls.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-stone-500 mb-2">🔧 工具呼叫追蹤 ({agenticResult.toolCalls.length} calls)</div>
+                  <div className="space-y-2">
+                    {agenticResult.toolCalls.map((tc, i) => (
+                      <div key={i} className="bg-white rounded-lg border border-stone-100 overflow-hidden">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-stone-50 border-b border-stone-100">
+                          <span className="text-xs font-mono text-stone-400">#{i + 1}</span>
+                          <span className="text-sm font-semibold text-violet-600">🔧 {tc.tool}</span>
+                        </div>
+                        <div className="px-3 py-2 space-y-1">
+                          <div className="text-[10px] text-stone-400">Args:</div>
+                          <pre className="text-xs text-stone-600 bg-stone-50 rounded p-2 overflow-auto max-h-24">{JSON.stringify(tc.args, null, 2)}</pre>
+                          <div className="text-[10px] text-stone-400 mt-1">Result:</div>
+                          <pre className="text-xs text-emerald-600 bg-emerald-50/50 rounded p-2 overflow-auto max-h-24">{typeof tc.result === "string" ? tc.result : JSON.stringify(tc.result, null, 2)}</pre>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Demo: Simulate reply */}
+              <div className="bg-violet-50 rounded-lg p-3 border border-violet-200">
+                <div className="text-xs font-semibold text-violet-700 mb-2">💡 Demo 工具：模擬聊天回覆</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="模擬使用者回覆訊息..."
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        const val = (e.target as HTMLInputElement).value;
+                        injectReply(agenticInput.targetChatId, val);
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }}
+                    className="flex-1 px-3 py-1.5 text-xs bg-white border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  />
+                  <span className="text-[10px] text-violet-400">按 Enter 送出</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {currentWf && displayLog.length === 0 && !isRunning && (
             <div className="flex items-center justify-center h-full"><div className="text-center text-stone-400">
               <div className="text-4xl mb-3">▶</div>
