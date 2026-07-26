@@ -94,8 +94,8 @@ async function _sendMessage(roomId, message, isReply) {
   chat.updatedAt = new Date().toISOString();
   await writeFile(chatFile, JSON.stringify(chat, null, 2), "utf-8");
 
-  const idx = chat.messages.length - 1;
-  if (!_readCursors.has(roomId)) _readCursors.set(roomId, idx);
+  // Always update cursor — handles file reset/new file correctly
+  _readCursors.set(roomId, chat.messages.length - 1);
 
   return { ok: true, roomId, sent: message.slice(0, 200) };
 }

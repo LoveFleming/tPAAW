@@ -138,6 +138,21 @@ export const toolRegistry = {
   },
 
   /**
+   * 依 source 批次取消註冊（例如 reload agentic-bindings）
+   */
+  unregisterBySource(source) {
+    let removed = 0;
+    for (const [name, entry] of _tools) {
+      if (entry.source === source) {
+        _tools.delete(name);
+        removed++;
+      }
+    }
+    if (removed > 0) console.log(`[ToolRegistry] Removed ${removed} tools from source '${source}'`);
+    return removed;
+  },
+
+  /**
    * 清除所有註冊（主要給測試用）。
    */
   clear() {

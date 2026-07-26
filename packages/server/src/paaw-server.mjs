@@ -65,6 +65,7 @@ const ROUTE_MODULES = [
   "./routes/coding-reports.mjs",
   "./routes/llm-logs.mjs",
   "./routes/plugins.mjs",
+  "./routes/agentic-bindings.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)

@@ -1,0 +1,23 @@
+{
+  "afternoon-tea": {
+    "workflowId": "afternoon-tea",
+    "toolName": "order_afternoon_tea",
+    "description": "啟動下午茶訂購流程。AI 代理人會自動發菜單到聊天室、收集大家的訂單、催沒回的人、最後結單回報。",
+    "triggers": [
+      "訂下午茶",
+      "下午茶",
+      "訂飲料",
+      "團購飲料",
+      "飲料訂購"
+    ],
+    "defaults": {
+      "title": "下午茶訂購",
+      "menu": "",
+      "roomId": "rainy-afternoon-tea",
+      "participants": [],
+      "deadline": "10 分鐘"
+    },
+    "agenticPlatformUrl": "http://localhost:4200",
+    "enabled": true
+  }
+}

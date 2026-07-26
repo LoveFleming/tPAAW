@@ -17,6 +17,7 @@ import ProjectBoard from "./pages/ProjectBoard";
 import FileEditor from "./pages/FileEditor";
 import WorkflowEditor from "./pages/WorkflowEditor";
 import WorkflowExec from "./pages/WorkflowExec";
+import AgenticSettings from "./pages/AgenticSettings";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
 import KnowledgeTree from "./components/KnowledgeTree";
@@ -629,7 +630,7 @@ function AppInner() {
       return <WorkflowEditor />;
     }
     if (pageType === "wf-exec") {
-      return <WorkflowExec />;
+      return <AgenticSettings />;
     }
     if (pageType === "helpdesk") {
       return <HelpDesk active={!!active} />;
@@ -823,7 +824,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":projects")} label="Projects" onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":wf-exec")} label={t("sidebar.workflows", "Workflows")} onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":wf-exec")} label={t("sidebar.workflows", "Agentic Workflows")} onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":helpdesk")} label="HelpDesk" onClick={openHelpDesk} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
