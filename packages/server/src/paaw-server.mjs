@@ -64,6 +64,7 @@ const ROUTE_MODULES = [
   "./routes/coding-health.mjs",
   "./routes/coding-reports.mjs",
   "./routes/llm-logs.mjs",
+  "./routes/plugins.mjs",
 ];
 
 // Pre-import all route modules (avoids repeated dynamic import overhead)

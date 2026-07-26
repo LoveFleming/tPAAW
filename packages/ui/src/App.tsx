@@ -194,6 +194,16 @@ function AppInner() {
     } catch {}
   }, []);
 
+  const loadPlugins = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/plugins`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setPlugins(data.plugins || []);
+      }
+    } catch {}
+  }, []);
+
   const loadPaawRoot = useCallback(async () => {
     try {
       const r = await fetch(`${API_BASE}/api/models`);
@@ -222,7 +232,7 @@ function AppInner() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadCrew(); loadPaawRoot(); loadSkillApps(); loadDataApps(); loadUiState(); }, [loadCrew, loadPaawRoot, loadSkillApps, loadDataApps, loadUiState]);
+  useEffect(() => { loadCrew(); loadPaawRoot(); loadSkillApps(); loadDataApps(); loadUiState(); loadPlugins(); }, [loadCrew, loadPaawRoot, loadSkillApps, loadDataApps, loadUiState]);
 
   // ── Navigation helpers ──
   const handleSelectProject = useCallback((path: string) => {
@@ -301,6 +311,7 @@ function AppInner() {
 
   // ── Workspaces (multi-directory) ──
   const [workspaces, setWorkspaces] = useState<string[]>([]);
+  const [plugins, setPlugins] = useState<{id:string;name:string;icon?:string;url:string;enabled:boolean}[]>([]);
 
   const loadWorkspaces = useCallback(async () => {
     try {
@@ -488,6 +499,10 @@ function AppInner() {
     if (pageType === "briefing-player") return t("sidebar.briefingPlayer", "Briefing Player");
     if (pageType === "mind-map") return "Mind Map";
     if (pageType === "notes") return "Notes";
+    if (pageType.startsWith("plugin-")) {
+      const p = plugins.find(pl => pl.id === pageType.slice(7));
+      return p ? `${p.icon || "🔌"} ${p.name}` : "Plugin";
+    }
     if (pageType === "projects") return "Project Board";
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
@@ -618,6 +633,21 @@ function AppInner() {
     }
     if (pageType === "helpdesk") {
       return <HelpDesk active={!!active} />;
+    }
+    if (pageType.startsWith("plugin-")) {
+      const pluginId = pageType.slice(7);
+      const plugin = plugins.find(p => p.id === pluginId);
+      if (plugin?.url) {
+        return (
+          <iframe
+            src={plugin.url}
+            className="w-full h-full border-0"
+            title={plugin.name}
+            allow="clipboard-read; clipboard-write"
+          />
+        );
+      }
+      return <div className="p-8 text-stone-400">Plugin "{pluginId}" not configured</div>;
     }
     if (pageType === "llm-log") {
       return <LlmLogTab />;
@@ -819,6 +849,31 @@ function AppInner() {
                   accentBg={themeInfo.accentBg}
                 />
 
+              </div>
+            </SidebarSection>
+
+            {/* 🔌 Plugins */}
+            <SidebarSection title="🔌 Plugins">
+              <div>
+                {plugins.map((p) => (
+                  p.enabled && (
+                    <NavItem
+                      key={p.id}
+                      active={activePage.endsWith(`:plugin-${p.id}`)}
+                      label={`${p.icon || "🔌"} ${p.name}`}
+                      onClick={() => {
+                        const tabId = `${currentScope}:plugin-${p.id}`;
+                        setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+                        setActivePage(tabId);
+                      }}
+                      accentColor={themeInfo.accent}
+                      accentBg={themeInfo.accentBg}
+                    />
+                  )
+                ))}
+                {plugins.length === 0 && (
+                  <div className="text-xs text-stone-400 px-3 py-2">No plugins configured</div>
+                )}
               </div>
             </SidebarSection>
 
