@@ -41,6 +41,7 @@ class StdioMCPClient {
     const { command, args = [], env = {} } = this.config;
     const fullEnv = { ...process.env, ...env };
 
+    this._retries = 0;  // reset retry counter on manual connect
     this.process = spawn(command, args, {
       env: fullEnv,
       stdio: ["pipe", "pipe", "pipe"],
@@ -55,6 +56,30 @@ class StdioMCPClient {
     this.process.on("exit", (code) => {
       console.log(`[mcp:${this.serverId}] process exited code=${code}`);
       this.ready = false;
+      // Reject all pending requests
+      for (const [id, { reject }] of this._pending) {
+        reject(new Error(`MCP server "${this.serverId}" exited`));
+      }
+      this._pending.clear();
+      // Notify hub
+      if (this.onDisconnect) this.onDisconnect(this.serverId);
+      // Auto-restart after 3s (max 3 retries)
+      if (!this._disposed) {
+        this._retries = (this._retries || 0) + 1;
+        if (this._retries <= 3) {
+          console.log(`[mcp:${this.serverId}] auto-restart attempt ${this._retries}/3 in 3s...`);
+          setTimeout(() => {
+            if (this._disposed) return;
+            this.connect().then(tools => {
+              if (this.onReconnect) this.onReconnect(this.serverId, this, tools);
+            }).catch(err => {
+              console.error(`[mcp:${this.serverId}] restart failed:`, err.message);
+            });
+          }, 3000);
+        } else {
+          console.error(`[mcp:${this.serverId}] Max restart attempts reached`);
+        }
+      }
     });
 
     // Wait for process to start
@@ -80,6 +105,9 @@ class StdioMCPClient {
   }
 
   async callTool(name, args) {
+    if (!this.ready || !this.process?.stdin?.writable) {
+      return { error: `MCP server "${this.serverId}" is not connected` };
+    }
     const result = await this._rpc("tools/call", { name, arguments: args });
     // MCP returns { content: [{ type: "text", text: "..." }] }
     if (result?.content?.[0]?.text) {
@@ -90,6 +118,7 @@ class StdioMCPClient {
   }
 
   async disconnect() {
+    this._disposed = true;
     this.ready = false;
     try { this.process?.stdin?.end(); } catch {}
     try { this.process?.kill("SIGTERM"); } catch {}
@@ -253,6 +282,24 @@ export async function loadMCPServers(configPath, paawRoot) {
           parameters: t.inputSchema || { type: "object", properties: {} },
         },
       }));
+
+      // Track process exit/reconnect to update status
+      if (conn.process) {
+        conn.onDisconnect = (sid) => {
+          const s = mcpServers.get(sid);
+          if (s) { s.status = "disconnected"; s.conn = null; }
+          console.log(`[mcp-hub] Server "${sid}" marked as disconnected`);
+        };
+        conn.onReconnect = (sid, newConn, tools) => {
+          const toolDefs = tools.map(t => ({
+            type: "function",
+            function: { name: t.name, description: t.description || "", parameters: t.inputSchema || { type: "object", properties: {} } },
+          }));
+          mcpServers.set(sid, { id: sid, type: serverConfig.transport || "stdio", conn: newConn, tools: toolDefs, status: "ready" });
+          for (const t of toolDefs) toolRoute.set(t.function.name, sid);
+          console.log(`[mcp-hub] Server "${sid}" reconnected, ${toolDefs.length} tools re-registered`);
+        };
+      }
 
       mcpServers.set(serverId, {
         id: serverId,
