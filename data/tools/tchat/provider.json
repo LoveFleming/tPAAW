@@ -1,0 +1,77 @@
+{
+  "id": "tchat",
+  "name": "tChat 通訊軟體",
+  "version": "1.0.0",
+  "icon": "💬",
+  "description": "公司 tChat 通訊軟體整合 — 發訊息、讀回覆、回覆問題",
+  "runner": "script",
+
+  "tools": [
+    {
+      "name": "tchat_send",
+      "description": "發送訊息到指定的 tChat 聊天室/群組。訊息會顯示在該聊天室的對話中。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "description": "tChat 房間 ID 或群組 ID"
+          },
+          "message": {
+            "type": "string",
+            "description": "要發送的訊息內容（支援 Markdown）"
+          }
+        },
+        "required": ["roomId", "message"]
+      }
+    },
+    {
+      "name": "tchat_read",
+      "description": "讀取指定 tChat 聊天室的新回覆（自上次讀取後）。回傳 user 角色的回覆內容。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "description": "tChat 房間 ID 或群組 ID"
+          }
+        },
+        "required": ["roomId"]
+      }
+    },
+    {
+      "name": "tchat_reply",
+      "description": "回覆使用者在 tChat 聊天室中的問題。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "description": "tChat 房間 ID 或群組 ID"
+          },
+          "message": {
+            "type": "string",
+            "description": "回覆內容"
+          }
+        },
+        "required": ["roomId", "message"]
+      }
+    }
+  ],
+
+  "config": {
+    "baseUrl": {
+      "type": "string",
+      "description": "tChat API base URL（如果有的話）",
+      "default": ""
+    },
+    "apiToken": {
+      "type": "string",
+      "secret": true,
+      "description": "tChat API Token"
+    }
+  },
+
+  "permissions": ["messaging:send", "messaging:read"],
+  "tags": ["messaging", "tchat", "realtime", "enterprise"]
+}

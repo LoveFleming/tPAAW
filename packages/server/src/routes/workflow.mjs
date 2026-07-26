@@ -531,10 +531,10 @@ export default async function workflowRoutes(req, res) {
   }
 
   // ─────────────────────────────────────────────────────────
-  // ── AGENTIC WORKFLOW ─────────────────────────────────────
+  // ── AGENTIC WORKFLOW (Async + Tool Provider) ─────────────
   // ─────────────────────────────────────────────────────────
 
-  // POST /api/paaw/agentic-workflow-run — run an agentic workflow
+  // POST /api/paaw/agentic-workflow-run — launch async agentic workflow
   if (req.method === "POST" && path === "/api/paaw/agentic-workflow-run") {
     try {
       const { workflowId, input } = JSON.parse(await readBody(req));
@@ -546,16 +546,37 @@ export default async function workflowRoutes(req, res) {
       const wf = JSON.parse(readFileSync(wfPath, "utf-8"));
       if (wf.mode !== "agentic") { json(res, { error: `Workflow mode is '${wf.mode}', expected 'agentic'` }, 400); return true; }
 
-      const result = await runAgenticWorkflow(wf, input || {}, PAAW_ROOT);
-      json(res, result);
+      // Launch async — return runId immediately
+      const runId = await launchAgenticWorkflow(wf, input || {}, PAAW_ROOT);
+      json(res, { runId, workflowId: wf.id, status: "running", message: "Workflow launched. Poll /agentic-workflow-status/" + runId });
     } catch (err) {
-      console.error("[agentic-workflow] Error:", err);
+      console.error("[agentic-workflow] Launch error:", err);
       json(res, { error: err.message }, 500);
     }
     return true;
   }
 
-  // POST /api/paaw/agentic-workflow-send-message — inject a user message into a chat (for demo: simulate replies)
+  // GET /api/paaw/agentic-workflow-status/{runId} — poll workflow status
+  if (req.method === "GET" && path.startsWith("/api/paaw/agentic-workflow-status/")) {
+    const runId = path.split("/api/paaw/agentic-workflow-status/")[1];
+    const state = _activeAgenticWorkflows.get(runId);
+    if (!state) { json(res, { error: "Run not found", runId }, 404); return true; }
+    json(res, state);
+    return true;
+  }
+
+  // GET /api/paaw/agentic-workflow-active — list all active runs
+  if (req.method === "GET" && path === "/api/paaw/agentic-workflow-active") {
+    const runs = Array.from(_activeAgenticWorkflows.values()).map(s => ({
+      runId: s.runId, workflowId: s.workflowId, workflowName: s.workflowName,
+      status: s.status, turns: s.turns, toolCallCount: s.toolCalls.length,
+      startedAt: s.startedAt, lastTool: s.toolCalls.at(-1)?.tool || null,
+    }));
+    json(res, { active: runs, count: runs.length });
+    return true;
+  }
+
+  // POST /api/paaw/agentic-workflow-send-message — inject a user message into a chat
   if (req.method === "POST" && path === "/api/paaw/agentic-workflow-send-message") {
     try {
       const { chatId, content, role = "user" } = JSON.parse(await readBody(req));
@@ -576,9 +597,10 @@ export default async function workflowRoutes(req, res) {
     return true;
   }
 
-  // GET /api/paaw/agentic-workflow-active — list currently running agentic workflows
-  if (req.method === "GET" && path === "/api/paaw/agentic-workflow-active") {
-    json(res, { active: Array.from(_activeAgenticWorkflows.values()) });
+  // GET /api/paaw/tool-providers — list registered tool providers
+  if (req.method === "GET" && path === "/api/paaw/tool-providers") {
+    const { listProviders } = await import("../lib/tool-provider.mjs");
+    json(res, { providers: listProviders() });
     return true;
   }
 
@@ -586,41 +608,82 @@ export default async function workflowRoutes(req, res) {
 }
 
 // ─────────────────────────────────────────────────────────
-// ── Agentic Workflow Runner ─────────────────────────────
+// ── Agentic Workflow Runner (Async) ──────────────────────
 // ─────────────────────────────────────────────────────────
 
-/** Active agentic workflow runs (in-memory) */
+/** Active + completed agentic workflow runs (in-memory, recent) */
 const _activeAgenticWorkflows = new Map();
 
-/**
- * Run an agentic workflow.
- * The workflow definition specifies:
- *   - goal: natural language description of what to achieve
- *   - tools: which tools the agent can use
- *   - rules: constraints / business rules
- *   - inputSchema: what inputs are expected
- *
- * The agent orchestrates the flow dynamically using LLM function calling.
- */
-async function runAgenticWorkflow(wf, input, paawRoot) {
-  const { resolveLLMConfig, callLLM } = await import("../lib/paaw-agent-loop.mjs");
-  const llm = resolveLLMConfig(paawRoot, wf.config?.model || null);
+/** Launch an agentic workflow — returns runId immediately */
+async function launchAgenticWorkflow(wf, input, paawRoot) {
+  const { loadToolProviders, getToolDefinitions, executeToolCall } = await import("../lib/tool-provider.mjs");
+
+  // Ensure providers are loaded
+  await loadToolProviders(join(paawRoot, "data", "tools"));
 
   const runId = `aw-${Date.now()}`;
   const startedAt = new Date().toISOString();
-  const maxTurns = wf.config?.maxTurns || 15;
-  const timeoutMs = (wf.config?.timeoutSeconds || 300) * 1000;
 
-  // Build system prompt
+  const state = {
+    runId,
+    workflowId: wf.id,
+    workflowName: wf.name,
+    status: "running",
+    startedAt,
+    turns: 0,
+    toolCalls: [],
+    result: null,
+    completedAt: null,
+  };
+  _activeAgenticWorkflows.set(runId, state);
+
+  // Fire and forget — runs in background
+  _runAgenticLoop(runId, wf, input, paawRoot, state, { getToolDefinitions, executeToolCall }).catch(err => {
+    state.status = "failed";
+    state.result = { summary: `❌ ${err.message}`, details: state.toolCalls };
+    state.completedAt = new Date().toISOString();
+    console.error(`[agentic-workflow] CRASH runId=${runId}:`, err);
+  });
+
+  console.log(`[agentic-workflow] LAUNCHED runId=${runId} workflow=${wf.id}`);
+  return runId;
+}
+
+/** Inner loop — runs in background */
+async function _runAgenticLoop(runId, wf, input, paawRoot, state, toolRegistry) {
+  const { resolveLLMConfig, callLLM } = await import("../lib/paaw-agent-loop.mjs");
+  const { getToolDefinitions, executeToolCall } = toolRegistry;
+
+  const llm = resolveLLMConfig(paawRoot, wf.config?.model || null);
+  const maxTurns = wf.config?.maxTurns || 20;
+  const timeoutMs = (wf.config?.timeoutSeconds || 600) * 1000;
+
+  // ── Build system prompt with preloaded skill context ──
   const systemParts = [
     `你是 PAAW Agentic Workflow 執行引擎。`,
     ``,
     `## 任務目標`,
-    wf.goal || "按照使用者指示完成任務。",
-    ``,
+    wf.goal || "按照使用者指示完成任務。",``,
   ];
 
-  if (wf.rules && wf.rules.length > 0) {
+  // Preload skill context if workflow references skills
+  if (wf.config?.preloadSkills?.length > 0) {
+    systemParts.push(`## 技能知識（Preloaded Skill Context）`);
+    for (const skillRef of wf.config.preloadSkills) {
+      const [appId, skillId] = skillRef.split("/");
+      try {
+        const skillPath = join(paawRoot, "data", "skills", appId, `${skillId}.md`);
+        if (existsSync(skillPath)) {
+          const skillContent = readFileSync(skillPath, "utf-8");
+          systemParts.push(`### ${skillRef}`);
+          systemParts.push(skillContent.slice(0, 2000));  // cap at 2000 chars per skill
+          systemParts.push(``);
+        }
+      } catch {}
+    }
+  }
+
+  if (wf.rules?.length > 0) {
     systemParts.push(`## 規則`);
     for (const rule of wf.rules) systemParts.push(`- ${rule}`);
     systemParts.push(``);
@@ -632,111 +695,88 @@ async function runAgenticWorkflow(wf, input, paawRoot) {
     systemParts.push(``);
   }
 
-  // Available tools
-  const tools = _buildAgenticTools(wf.tools || ["chat_send", "chat_read", "wait", "finish"]);
+  // ── Resolve tools from Tool Provider Registry ──
+  const requestedTools = wf.tools || [];
+  const tools = getToolDefinitions(requestedTools);
+
   systemParts.push(`## 可用工具`);
   for (const t of tools) {
     systemParts.push(`- **${t.function.name}**: ${t.function.description}`);
   }
   systemParts.push(``);
-  systemParts.push(`按照任務目標，使用工具一步步完成。每次只呼叫一個工具。`);
-  systemParts.push(``);
   systemParts.push(`### 執行策略`);
-  systemParts.push(`1. 一開始用 chat_send 發布資訊`);
+  systemParts.push(`1. 用 send 工具發布資訊到目標聊天室`);
   systemParts.push(`2. 用 wait 等待回覆（每次 30 秒）`);
-  systemParts.push(`3. 用 chat_read 讀取新回覆`);
-  systemParts.push(`4. 如果有問題，用 chat_reply 回覆`);
+  systemParts.push(`3. 用 read 工具讀取新回覆`);
+  systemParts.push(`4. 有問題就用 reply 回覆`);
   systemParts.push(`5. 重複 wait → read 最多 3-4 輪`);
   systemParts.push(`6. 用 finish 結束並彙總`);
   systemParts.push(``);
-  systemParts.push(`⚠️ 不要超過 4 輪 wait/read。收集到的訂單要在 finish 時彙總。`);
+  systemParts.push(`⚠️ 不要超過 4 輪 wait/read。`);
 
-  // Build initial user message with input
   const inputDesc = JSON.stringify(input, null, 2);
   const messages = [
     { role: "system", content: systemParts.join("\n") },
     { role: "user", content: `輸入參數：\n${inputDesc}\n\n請開始執行任務。` },
   ];
 
-  // Track state
-  const state = {
-    runId,
-    workflowId: wf.id,
-    workflowName: wf.name,
-    status: "running",
-    startedAt,
-    turns: 0,
-    toolCalls: [],
-    chatMessages: {},  // chatId -> messages sent/read
-    result: null,
-  };
-  _activeAgenticWorkflows.set(runId, state);
+  console.log(`[agentic-workflow] START runId=${runId} workflow=${wf.id} tools=${tools.map(t => t.function.name).join(",")}`);
 
-  console.log(`[agentic-workflow] START runId=${runId} workflow=${wf.id}`);
+  const startTime = Date.now();
+  const execContext = { paawRoot, chatDir: join(paawRoot, "data", "chats") };
 
-  try {
-    const startTime = Date.now();
-
-    for (let turn = 0; turn < maxTurns; turn++) {
-      if (Date.now() - startTime > timeoutMs) {
-        state.result = { summary: "⏱️ Workflow 超時結束", orders: [], details: state.toolCalls };
-        break;
-      }
-
-      state.turns = turn + 1;
-      const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, tools, false, null, `agentic-${wf.id}`);
-      const choice = response.choices?.[0];
-      if (!choice) break;
-
-      const msg = choice.message;
-      const toolCalls = msg.tool_calls || [];
-
-      // No tool call = agent is done (or thinking)
-      if (toolCalls.length === 0 || choice.finish_reason === "stop") {
-        state.result = { summary: msg.content || "完成", details: state.toolCalls };
-        break;
-      }
-
-      // Add assistant message with tool calls
-      messages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
-
-      // Execute each tool call
-      for (const tc of toolCalls) {
-        let args = {};
-        try { args = JSON.parse(tc.function.arguments); } catch { args = {}; }
-
-        console.log(`[agentic-workflow] turn=${turn + 1} tool=${tc.function.name} args=${JSON.stringify(args).slice(0, 200)}`);
-        const toolResult = await _executeAgenticTool(tc.function.name, args, state, paawRoot);
-        state.toolCalls.push({ tool: tc.function.name, args, result: toolResult });
-
-        messages.push({
-          role: "tool",
-          tool_call_id: tc.id,
-          content: typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult),
-        });
-
-        // If finish was called, extract result
-        if (tc.function.name === "finish") {
-          state.result = { summary: args.summary || "完成", details: state.toolCalls };
-        }
-      }
-
-      if (state.result) break;
+  for (let turn = 0; turn < maxTurns; turn++) {
+    if (Date.now() - startTime > timeoutMs) {
+      state.result = { summary: "⏱️ Workflow 超時結束", details: state.toolCalls };
+      break;
     }
 
-    if (!state.result) {
-      state.result = { summary: "達到最大輪數限制", details: state.toolCalls };
+    state.turns = turn + 1;
+    const response = await callLLM(llm.apiUrl, llm.headers, llm.model, messages, tools, false, null, `agentic-${wf.id}`);
+    const choice = response.choices?.[0];
+    if (!choice) break;
+
+    const msg = choice.message;
+    const toolCalls = msg.tool_calls || [];
+
+    if (toolCalls.length === 0 || choice.finish_reason === "stop") {
+      state.result = { summary: msg.content || "完成", details: state.toolCalls };
+      break;
     }
-  } catch (err) {
-    state.status = "failed";
-    state.result = { summary: `❌ 執行失敗: ${err.message}`, details: state.toolCalls };
-  } finally {
-    state.status = state.status === "failed" ? "failed" : "completed";
-    state.completedAt = new Date().toISOString();
-    _activeAgenticWorkflows.delete(runId);
+
+    messages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
+
+    for (const tc of toolCalls) {
+      let args = {};
+      try { args = JSON.parse(tc.function.arguments); } catch { args = {}; }
+
+      console.log(`[agentic-workflow] turn=${turn + 1} tool=${tc.function.name} args=${JSON.stringify(args).slice(0, 200)}`);
+
+      // Execute via Tool Provider Registry
+      const toolResult = await executeToolCall(tc.function.name, args, execContext);
+      state.toolCalls.push({ tool: tc.function.name, args, result: toolResult, turn: turn + 1, timestamp: new Date().toISOString() });
+
+      messages.push({
+        role: "tool",
+        tool_call_id: tc.id,
+        content: typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult),
+      });
+
+      if (tc.function.name === "finish") {
+        state.result = { summary: args.summary || "完成", details: state.toolCalls };
+      }
+    }
+
+    if (state.result) break;
   }
 
-  console.log(`[agentic-workflow] END runId=${runId} status=${state.status} turns=${state.turns}`);
+  if (!state.result) {
+    state.result = { summary: "達到最大輪數限制", details: state.toolCalls };
+  }
+
+  state.status = "completed";
+  state.completedAt = new Date().toISOString();
+  console.log(`[agentic-workflow] END runId=${runId} status=completed turns=${state.turns}`);
 
   // Write exec history
   try {
@@ -754,173 +794,8 @@ async function runAgenticWorkflow(wf, input, paawRoot) {
     await writeFile(histFile, JSON.stringify(history, null, 2), "utf-8");
   } catch {}
 
-  return {
-    runId,
-    workflowId: wf.id,
-    workflowName: wf.name,
-    status: state.status,
-    turns: state.turns,
-    startedAt,
-    completedAt: state.completedAt,
-    result: state.result,
-    toolCalls: state.toolCalls,
-  };
-}
-
-// ── Agentic Tool Definitions ──
-
-function _buildAgenticTools(toolNames) {
-  const allTools = {
-    chat_send: {
-      type: "function",
-      function: {
-        name: "chat_send",
-        description: "發送訊息到指定的 PAAW 聊天視窗。訊息會顯示在該聊天的對話中。",
-        parameters: {
-          type: "object",
-          properties: {
-            chatId: { type: "string", description: "目標聊天視窗 ID（例如 crew member 的 chat ID）" },
-            message: { type: "string", description: "要發送的訊息內容（支援 Markdown）" },
-          },
-          required: ["chatId", "message"],
-        },
-      },
-    },
-    chat_read: {
-      type: "function",
-      function: {
-        name: "chat_read",
-        description: "讀取指定聊天視窗的新回覆（自上次讀取後的訊息）。回傳 user 角色的回覆內容。",
-        parameters: {
-          type: "object",
-          properties: {
-            chatId: { type: "string", description: "聊天視窗 ID" },
-          },
-          required: ["chatId"],
-        },
-      },
-    },
-    chat_reply: {
-      type: "function",
-      function: {
-        name: "chat_reply",
-        description: "回覆使用者在聊天視窗中的問題。",
-        parameters: {
-          type: "object",
-          properties: {
-            chatId: { type: "string", description: "聊天視窗 ID" },
-            message: { type: "string", description: "回覆內容" },
-          },
-          required: ["chatId", "message"],
-        },
-      },
-    },
-    wait: {
-      type: "function",
-      function: {
-        name: "wait",
-        description: "等待指定秒數（讓使用者有時間回覆）。預設 30 秒。",
-        parameters: {
-          type: "object",
-          properties: {
-            seconds: { type: "number", description: "等待秒數（最大 120）", default: 30 },
-          },
-        },
-      },
-    },
-    finish: {
-      type: "function",
-      function: {
-        name: "finish",
-        description: "完成任務，回報最終結果。",
-        parameters: {
-          type: "object",
-          properties: {
-            summary: { type: "string", description: "任務完成的摘要報告" },
-          },
-          required: ["summary"],
-        },
-      },
-    },
-  };
-
-  return toolNames.map(name => allTools[name]).filter(Boolean);
-}
-
-// ── Agentic Tool Execution ──
-
-async function _executeAgenticTool(toolName, args, state, paawRoot) {
-  switch (toolName) {
-    case "chat_send":
-    case "chat_reply": {
-      const { chatId, message } = args;
-      if (!chatId || !message) return { error: "chatId and message are required" };
-
-      // Write to chat file
-      const chatDir = PATHS.CHAT_DIR;
-      await mkdir(chatDir, { recursive: true });
-      const chatFile = join(chatDir, `${chatId}.json`);
-
-      let chat;
-      try { chat = JSON.parse(await readFile(chatFile, "utf-8")); } catch {
-        chat = { id: chatId, title: "Workflow 訊息", messages: [], createdAt: new Date().toISOString() };
-      }
-
-      const role = toolName === "chat_reply" ? "assistant" : "assistant";
-      const prefix = toolName === "chat_send" ? "🔌 **[Workflow]** " : "🔌 **[Workflow 回覆]** ";
-      chat.messages.push({ role, content: prefix + message, timestamp: new Date().toISOString(), _workflow: true });
-      chat.updatedAt = new Date().toISOString();
-      await writeFile(chatFile, JSON.stringify(chat, null, 2), "utf-8");
-
-      // Track in state
-      if (!state.chatMessages[chatId]) state.chatMessages[chatId] = { sent: 0, lastReadIndex: chat.messages.length - 1 };
-      state.chatMessages[chatId].sent++;
-      state.chatMessages[chatId].lastReadIndex = chat.messages.length - 1;
-
-      console.log(`[agentic-tool] chat_send → ${chatId}: ${message.slice(0, 100)}...`);
-      return { ok: true, chatId, messageSent: message.slice(0, 200) };
-    }
-
-    case "chat_read": {
-      const { chatId } = args;
-      if (!chatId) return { error: "chatId is required" };
-
-      const chatFile = join(PATHS.CHAT_DIR, `${chatId}.json`);
-      if (!existsSync(chatFile)) return { replies: [], note: "聊天視窗不存在" };
-
-      const chat = JSON.parse(readFileSync(chatFile, "utf-8"));
-      const messages = chat.messages || [];
-
-      // Find the last index we read
-      const lastRead = state.chatMessages[chatId]?.lastReadIndex ?? -1;
-
-      // Get new user messages (role=user, not from workflow)
-      const newReplies = messages
-        .map((m, i) => ({ ...m, _idx: i }))
-        .filter(m => m._idx > lastRead && m.role === "user" && !m._workflow);
-
-      // Update last read index
-      if (!state.chatMessages[chatId]) state.chatMessages[chatId] = {};
-      state.chatMessages[chatId].lastReadIndex = messages.length - 1;
-
-      const replies = newReplies.map(m => ({ content: m.content, timestamp: m.timestamp }));
-      console.log(`[agentic-tool] chat_read ← ${chatId}: ${replies.length} new replies`);
-      return { replies, count: replies.length };
-    }
-
-    case "wait": {
-      const seconds = Math.min(args.seconds || 30, 120);
-      await new Promise(r => setTimeout(r, seconds * 1000));
-      return { waited: seconds };
-    }
-
-    case "finish": {
-      return { ok: true, finished: true, summary: args.summary };
-    }
-
-    default:
-      return { error: `Unknown tool: ${toolName}` };
-  }
+  // Keep in memory for 5 minutes after completion for polling
+  setTimeout(() => _activeAgenticWorkflows.delete(runId), 5 * 60 * 1000);
 }
 
 // ── Helper: resolve template string ──

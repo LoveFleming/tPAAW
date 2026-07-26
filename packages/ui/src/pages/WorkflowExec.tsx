@@ -183,40 +183,59 @@ export default function WorkflowExec() {
   }, [loadHistory]);
 
   // ── Run Agentic Workflow ──
+  const [agenticToolCalls, setAgenticToolCalls] = useState<AgenticToolCall[]>([]);
+
   const runAgenticWorkflow = useCallback(async () => {
     if (!currentWf) return;
 
-    // Validate required inputs
     if (!agenticInput.menu?.trim()) { showToast("⚠️ 請填寫菜單內容"); return; }
     if (!agenticInput.targetChatId?.trim()) { showToast("⚠️ 請填寫目標聊天視窗 ID"); return; }
 
-    setAgenticRunning(true); setAgenticResult(null); setAgenticError(null);
+    setAgenticRunning(true); setAgenticResult(null); setAgenticError(null); setAgenticToolCalls([]);
 
     try {
-      const resp = await fetch(`${API}/api/paaw/agentic-workflow-run`, {
+      // 1. Launch — returns runId immediately
+      const launchResp = await fetch(`${API}/api/paaw/agentic-workflow-run`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workflowId: currentWf.id,
           input: {
             menu: agenticInput.menu,
             targetChatId: agenticInput.targetChatId,
+            roomId: agenticInput.targetChatId,
             deadline: agenticInput.deadline || "5 分鐘",
             title: agenticInput.title || currentWf.name,
             organizer: "Fleming",
           },
         }),
       });
-      const result = await resp.json();
-      if (result.error) { setAgenticError(result.error); showToast(`❌ ${result.error}`); }
-      else {
-        setAgenticResult(result);
-        showToast(result.status === "completed" ? "✅ Agentic Workflow 完成！" : `⚠️ ${result.status}`);
-      }
+      const launchData = await launchResp.json();
+      if (launchData.error) { setAgenticError(launchData.error); showToast(`❌ ${launchData.error}`); return; }
+
+      const runId = launchData.runId;
+      showToast(`🚀 Agent 已啟動 (runId: ${runId.slice(-8)})`);
+
+      // 2. Poll until complete
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResp = await fetch(`${API}/api/paaw/agentic-workflow-status/${runId}`);
+          const statusData = await statusResp.json();
+          if (statusData.error) { clearInterval(pollInterval); setAgenticError(statusData.error); setAgenticRunning(false); return; }
+
+          // Update live tool calls
+          setAgenticToolCalls(statusData.toolCalls || []);
+
+          if (statusData.status === "completed" || statusData.status === "failed") {
+            clearInterval(pollInterval);
+            setAgenticResult(statusData);
+            setAgenticRunning(false);
+            showToast(statusData.status === "completed" ? "✅ Agent 完成！" : `⚠️ ${statusData.status}`);
+          }
+        } catch {}
+      }, 3000); // poll every 3s
     } catch (err: any) {
-      setAgenticError(err.message);
+      setAgenticError(err.message); setAgenticRunning(false);
       showToast(`❌ ${err.message}`);
-    } finally {
-      setAgenticRunning(false);
     }
   }, [currentWf, agenticInput]);
 
@@ -587,17 +606,32 @@ export default function WorkflowExec() {
             </div>
           )}
 
-          {/* ── Agentic: Running state ── */}
+          {/* ── Agentic: Running state (async polling) ── */}
           {currentWf && currentWf.mode === "agentic" && agenticRunning && (
             <div className="p-5 space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-amber-600">
                 <span className="inline-flex items-center justify-center w-5 h-5">
                   <span className="w-4 h-4 border-[2px] border-amber-500 border-t-transparent rounded-full animate-spin" />
                 </span>
-                Agent 自主執行中...
+                Agent 自主執行中... <span className="text-xs text-stone-400 font-normal ml-2">({agenticToolCalls.length} tool calls)</span>
               </div>
+
+              {/* Live tool call feed */}
+              {agenticToolCalls.length > 0 && (
+                <div className="space-y-2">
+                  {agenticToolCalls.map((tc, i) => (
+                    <div key={i} className="bg-white rounded-lg border border-stone-100 px-3 py-2 flex items-center gap-2">
+                      <span className="text-xs font-mono text-stone-400">#{i + 1}</span>
+                      <span className="text-sm font-semibold text-violet-600">🔧 {tc.tool}</span>
+                      <span className="text-xs text-stone-400 truncate flex-1">{JSON.stringify(tc.args).slice(0, 100)}</span>
+                      <span className="text-[10px] text-emerald-500">✓</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 text-xs text-amber-700">
-                💡 Agent 正在編排流程。你可以切換到 💬 交談視窗查看即時訊息。
+                💡 Agent 非同步執行中。你可以切換到 💬 交談視窗看即時訊息，或用下方模擬回覆。
               </div>
             </div>
           )}

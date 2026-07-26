@@ -17,12 +17,18 @@
     "所有訊息透過 chat_send / chat_reply 工具發送到目標聊天視窗"
   ],
 
-  "tools": ["chat_send", "chat_read", "chat_reply", "wait", "finish"],
+  "tools": ["tchat_send", "tchat_read", "tchat_reply", "wait", "finish"],
 
   "config": {
     "maxTurns": 20,
     "timeoutSeconds": 600,
-    "model": null
+    "model": null,
+    "preloadSkills": []
+  },
+
+  "inputMappingHints": {
+    "roomId": "tChat 房間 ID（對應工具的 roomId 參數）",
+    "inputToolPrefix": "tchat_"
   },
 
   "inputSchema": {
