@@ -70,6 +70,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [chatAction, setChatAction] = useState(""); // thinking vs tool action
   const [isLoading, setIsLoading] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -408,17 +409,29 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
               fullContent += `\n❌ ${parsed.message}`;
             } else if (parsed.content) {
               fullContent += parsed.content;
+              setChatAction("💭 思考中...");
             } else if (parsed.tool_call) {
               const tc = parsed.tool_call;
               const label = tc.name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
               const labelShort = label.replace(/ App/g, "");
               setActiveTools(prev => [...prev, { name: labelShort, status: 'running' }]);
+              const actionLabels = {
+                read_file: "📖 讀取檔案",
+                write_file: "✏️ 寫入檔案",
+                edit_file: "✏️ 編輯檔案",
+                glob: "🔍 搜尋檔案",
+                grep: "🔍 搜尋內容",
+                bash: "⚡ 執行指令",
+              };
+              setChatAction(actionLabels[tc.name] || `🔧 ${labelShort}`);
               console.debug(`[Chat SSE] tool_call: ${tc.name} ${Date.now() - sseStart}ms`);
             } else if (parsed.tool_result) {
               const tr = parsed.tool_result;
               const trLabel = (tr.name || "tool").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace(/ App/g, "");
               setActiveTools(prev => prev.map(t => t.name === trLabel ? { ...t, status: tr.result?.error ? 'error' : 'done' } : t));
               setTimeout(() => setActiveTools(prev => prev.filter(t => t.name !== trLabel)), 1500);
+              // Tool result received → model now thinks about next step
+              setChatAction("💭 思考中...");
               if (tr.result?.error) {
                 fullContent += `\n❌ ${tr.result.text}\n`;
               } else if (tr.result?.text) {
@@ -450,6 +463,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     } finally {
       clearTimeout(stallCheck);
       setIsLoading(false);
+      setChatAction("");
       abortRef.current = null;
       setActiveTools([]);
     }
@@ -649,12 +663,16 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
                             } }}>{msg.content}</ReactMarkdown> : (
                             <div className="flex flex-col gap-3 py-2">
                               <div className="flex items-center gap-2" style={{ color: themeInfo.accent }}>
-                                <div className="flex gap-1.5">
-                                  <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: themeInfo.accent, animationDelay: "0ms" }} />
-                                  <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: themeInfo.accent, animationDelay: "150ms" }} />
-                                  <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: themeInfo.accent, animationDelay: "300ms" }} />
-                                </div>
-                                <span className="text-xs font-medium">思考中</span>
+                                {chatAction.includes("思考") ? (
+                                  <div className="flex gap-1.5">
+                                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: themeInfo.accent, animationDelay: "0ms" }} />
+                                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: themeInfo.accent, animationDelay: "200ms" }} />
+                                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: themeInfo.accent, animationDelay: "400ms" }} />
+                                  </div>
+                                ) : (
+                                  <span className="w-3.5 h-3.5 border-[2px] border-current border-t-transparent rounded-full animate-spin" style={{ borderColor: themeInfo.accent, borderTopColor: "transparent" }} />
+                                )}
+                                <span className={`text-xs font-medium ${chatAction.includes("思考") ? "opacity-70" : ""}`}>{chatAction || "思考中"}</span>
                               </div>
                               {activeTools.length > 0 && (
                                 <div className="flex flex-wrap gap-2">

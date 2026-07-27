@@ -270,7 +270,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
   const [emRunning, setEmRunning] = useState(false);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
-  const [emLog, setEmLog] = useState<string[]>([]);
+  const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
   const [codeStatus, setCodeStatus] = useState<CodeStatus | null>(null);
   const [codeStatusLoading, setCodeStatusLoading] = useState(true);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
@@ -501,8 +501,10 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
               setMessages(prev => [...prev.filter(m => !m._thinking)]);
               setMessages(prev => [...prev, { role: "assistant", content: d.content, ts: new Date().toISOString() }]);
             } else if (currentEvent === "thinking" && d.content) {
+              setEmAction("💭 思考中...");
               setMessages(prev => [...prev, { role: "assistant", content: `💭 ${d.content.slice(0, 200)}`, ts: new Date().toISOString(), _thinking: true }]);
             } else if (currentEvent === "tool" && d.name) {
+              setEmAction(`🔧 ${d.name}`);
               toolLog.push(d.name);
               setMessages(prev => [...prev.filter(m => !m._thinking)]);
               setMessages(prev => [...prev, { role: "assistant", content: `🔧 執行: ${d.name}`, ts: new Date().toISOString(), _thinking: true }]);
@@ -559,6 +561,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
       }
     }
     abortRef.current = null;
+    setEmAction("");
     setLoading(false);
   };
 
@@ -1011,7 +1014,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
             </div>
             </div>
           ))}
-          {loading && <div className="text-sm text-amber-600 animate-pulse">⏳ 思考中...</div>}
+          {loading && <div className="text-sm text-amber-600 animate-pulse">{emAction || "⏳ 思考中..."}</div>}
           <div ref={chatEndRef} />
         </div>
 

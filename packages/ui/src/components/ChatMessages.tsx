@@ -133,14 +133,21 @@ function ChatAvatar({
 
 function LoadingIndicator({ accent, label = "思考中" }: { accent?: string; label?: string }) {
   const color = accent || "#10b981";
+  const isThinking = label.includes("思考") || label.includes("thinking") || label.includes("規劃") || label === "思考中";
   return (
     <div className="flex items-center gap-2 py-2">
-      <div className="flex gap-1.5">
-        <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: color, animationDelay: "0ms" }} />
-        <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: color, animationDelay: "150ms" }} />
-        <span className="w-2.5 h-2.5 rounded-full animate-bounce" style={{ backgroundColor: color, animationDelay: "300ms" }} />
-      </div>
-      <span className="text-xs font-medium" style={{ color }}>{label}</span>
+      {isThinking ? (
+        // 思考中：3 bouncing dots + 較淡的文字
+        <div className="flex gap-1.5">
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: color, animationDelay: "0ms" }} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: color, animationDelay: "200ms" }} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: color, animationDelay: "400ms" }} />
+        </div>
+      ) : (
+        // 執行指令：spinning icon + 醒目文字
+        <span className="w-3.5 h-3.5 border-[2px] border-current border-t-transparent rounded-full animate-spin" style={{ borderColor: color, borderTopColor: "transparent" }} />
+      )}
+      <span className={`text-xs font-medium ${isThinking ? "opacity-70" : ""}`} style={{ color }}>{label}</span>
     </div>
   );
 }

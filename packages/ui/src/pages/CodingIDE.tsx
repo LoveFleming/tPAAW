@@ -1195,8 +1195,10 @@ const sendChat = useCallback(async () => {
                 try {
                   const data = JSON.parse(line.slice(6));
 
-                  // thinking events — silently ignored (OpenClaw style: just show typing)
-                  // No bubble created, no overwrite, no fake data displayed
+                  // thinking events — show thinking indicator (model is reasoning, not executing)
+                  if (currentEvent === "thinking" && data.content) {
+                    setAgentAction("💭 思考中...");
+                  }
 
                   // tool call — track silently for conversation history + show action in typing indicator
                   if (data.name && data.args !== undefined) {
@@ -1229,8 +1231,10 @@ const sendChat = useCallback(async () => {
                     silentToolCalls.push({ name: data.name, args: typeof data.args === "string" ? data.args : JSON.stringify(data.args) });
                   }
 
-                  // tool result — track silently
+                  // tool result — track silently + switch back to thinking indicator
                   if (data.name && data.result !== undefined && data.result !== "...") {
+                    // Model now thinks about next step after seeing tool result
+                    setAgentAction("💭 思考中...");
                     if (isAgentMode) {
                       setAgentToolLog(prev => {
                         const updated = [...prev];
