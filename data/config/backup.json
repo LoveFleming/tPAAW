@@ -1,7 +1,7 @@
 {
   "backupDir": "/Users/steward/App/tPAAW/backups",
-  "retentionCount": 4,
+  "retentionCount": 5,
   "enabled": true,
   "scheduleHour": 0,
-  "lastBackupAt": "2026-07-26T16:00:15.845Z"
+  "lastBackupAt": "2026-07-27T08:32:08.603Z"
 }

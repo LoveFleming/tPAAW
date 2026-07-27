@@ -14,14 +14,14 @@
  */
 
 import { readFile, writeFile, readdir, mkdir, rm, stat } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, createWriteStream, createReadStream } from "fs";
 import { resolve, join, basename, relative } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { execSync } from "child_process";
 import { createGzip, createGunzip } from "zlib";
-import { createWriteStream, createReadStream } from "fs";
 import { pipeline } from "stream/promises";
+import { Readable } from "stream";
 import { readBody } from "./shared.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -151,8 +151,9 @@ async function createTarGz(srcDir, dirs, outFile) {
   // End-of-archive: two 512-byte zero blocks
   chunks.push(Buffer.alloc(1024, 0));
 
-  // Combine and gzip
+  // Combine and gzip — 一次 concat（O(n)）
   const tarBuffer = Buffer.concat(chunks);
+  console.log(`[createTarGz] Tar size: ${(tarBuffer.length / 1024 / 1024).toFixed(1)} MB`);
 
   // Write with gzip compression
   return new Promise((resolve, reject) => {
@@ -172,70 +173,68 @@ async function createTarGz(srcDir, dirs, outFile) {
  * 從 tar.gz 解包到目標目錄（純 Node.js，跨平台）
  */
 async function extractTarGz(tarFile, destDir) {
-  return new Promise((resolve, reject) => {
+  console.log(`[extractTarGz] tarFile=${tarFile} destDir=${destDir}`);
+
+  // Step 1: Read and decompress entire tar.gz → Buffer
+  // 用 array 收集 chunks（O(n)），不要用 Buffer.concat loop（O(n²)）
+  // 之前用 tarBuffer = Buffer.concat([tarBuffer, chunk]) 對 60MB+ 的 tar 會卡死
+  const chunks = [];
+  await new Promise((resolve, reject) => {
     const gunzip = createGunzip();
     const rs = createReadStream(tarFile);
-
-    let tarBuffer = Buffer.alloc(0);
-
-    gunzip.on("data", (chunk) => {
-      tarBuffer = Buffer.concat([tarBuffer, chunk]);
-    });
-
-    gunzip.on("end", async () => {
-      try {
-        let offset = 0;
-        while (offset + 512 <= tarBuffer.length) {
-          // Read header
-          const header = tarBuffer.subarray(offset, offset + 512);
-
-          // Check for end-of-archive (all zeros)
-          if (header.every(b => b === 0)) {
-            offset += 512;
-            continue;
-          }
-
-          // Extract filename (null-terminated)
-          let nameEnd = 0;
-          while (nameEnd < 100 && header[nameEnd] !== 0) nameEnd++;
-          const filename = header.subarray(0, nameEnd).toString("utf-8");
-
-          // Extract size (octal at offset 124, 12 bytes)
-          let sizeEnd = 124;
-          while (sizeEnd < 136 && header[sizeEnd] !== 0) sizeEnd++;
-          const sizeStr = header.subarray(124, sizeEnd).toString("ascii").trim();
-          const size = parseInt(sizeStr, 8) || 0;
-
-          offset += 512; // move past header
-
-          if (size > 0) {
-            const fileData = tarBuffer.subarray(offset, offset + size);
-            const destPath = join(destDir, filename);
-
-            // Ensure parent dir exists
-            const parentDir = dirname(resolve(destPath));
-            await mkdir(parentDir, { recursive: true });
-
-            await writeFile(destPath, fileData);
-          }
-
-          // Move to next record (align to 512)
-          offset += size + ((512 - (size % 512)) % 512);
-        }
-        resolve();
-      } catch (err) {
-        reject(err);
-      }
-    });
-
+    gunzip.on("data", (chunk) => { chunks.push(chunk); });
+    gunzip.on("end", resolve);
     gunzip.on("error", reject);
     rs.on("error", reject);
     rs.pipe(gunzip);
   });
-}
 
-// 用 Readable 串流載入
-import { Readable } from "stream";
+  const tarBuffer = Buffer.concat(chunks);
+  console.log(`[extractTarGz] Decompressed: ${tarBuffer.length} bytes, ${chunks.length} chunks`);
+
+  // Step 2: Parse tar headers and write files (sync — no async event handler)
+  let offset = 0;
+  let fileCount = 0;
+
+  while (offset + 512 <= tarBuffer.length) {
+    const header = tarBuffer.subarray(offset, offset + 512);
+
+    // Check for end-of-archive (all zeros)
+    if (header.every(b => b === 0)) {
+      offset += 512;
+      continue;
+    }
+
+    // Extract filename (null-terminated, 100 bytes)
+    let nameEnd = 0;
+    while (nameEnd < 100 && header[nameEnd] !== 0) nameEnd++;
+    const filename = header.subarray(0, nameEnd).toString("utf-8");
+
+    // Extract size (octal at offset 124, 12 bytes)
+    let sizeEnd = 124;
+    while (sizeEnd < 136 && header[sizeEnd] !== 0) sizeEnd++;
+    const sizeStr = header.subarray(124, sizeEnd).toString("ascii").trim();
+    const size = parseInt(sizeStr, 8) || 0;
+
+    offset += 512; // move past header
+
+    if (size > 0) {
+      const fileData = tarBuffer.subarray(offset, offset + size);
+      const destPath = join(destDir, filename);
+      const parentDir = dirname(resolve(destPath));
+
+      mkdirSync(parentDir, { recursive: true });
+      writeFileSync(destPath, fileData);
+      fileCount++;
+    }
+
+    // Move to next record (align to 512)
+    offset += size + ((512 - (size % 512)) % 512);
+  }
+
+  console.log(`[extractTarGz] Done. ${fileCount} files restored.`);
+  return fileCount;
+}
 
 // ── Config ──
 
@@ -379,11 +378,11 @@ async function restoreBackup(config, filename) {
   await runBackup({ ...config, retentionCount: config.retentionCount + 1 });
 
   // 純 Node.js 解包
-  console.log(`[Restore] Extracting ${filename}...`);
-  await extractTarGz(tarFile, DATA_DIR);
-
-  console.log(`[Restore] Done from: ${filename}`);
-  return { ok: true, restoredFrom: filename };
+  console.log(`[Restore] Extracting ${filename} to ${DATA_DIR}...`);
+  const fileCount = await extractTarGz(tarFile, DATA_DIR);
+  console.log(`[Restore] providers.json exists: ${existsSync(join(DATA_DIR, 'config/providers.json'))}`);
+  console.log(`[Restore] Done from: ${filename} (${fileCount} files)`);
+  return { ok: true, restoredFrom: filename, filesRestored: fileCount };
 }
 
 // ════════════════════════════════════════
