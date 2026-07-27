@@ -397,6 +397,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
 
   // ── When bulk Code Understanding finishes (running false→true→false), refresh persisted steps + code status ──
   const prevRunningRef = useRef(false);
+  const [cuFinishCount, setCuFinishCount] = useState(0);
   useEffect(() => {
     const wasRunning = prevRunningRef.current;
     const isRunning = codeUnderstanding?.running;
@@ -415,6 +416,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
         });
       });
       refreshData();
+      setCuFinishCount(c => c + 1);
     }
     prevRunningRef.current = !!isRunning;
   }, [codeUnderstanding?.running, loadPersistedSteps, refreshData]);
@@ -1108,7 +1110,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
         {/* Agent Activity + Overnight Report removed — Night Shift tab handles reports */}
 
         {/* ── 專案知識面板 (Project Knowledge) ── */}
-        <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} />
+        <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} refreshTrigger={cuFinishCount} />
 
       </div>
     </div>
@@ -1285,7 +1287,7 @@ const KNOWLEDGE_FILES: KnowledgeFile[] = [
   { path: ".paaw/CHANGELOG.md", icon: "📝", label: "Change Memory" },
 ];
 
-function ProjectKnowledgePanel({ rootPath, tk, onOpenFile }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void }) {
+function ProjectKnowledgePanel({ rootPath, tk, onOpenFile, refreshTrigger }: { rootPath: string; tk: any; onOpenFile?: (p: string) => void; refreshTrigger?: number }) {
   const [knowledgeStatuses, setFileStatuses] = useState<Record<string, "ok" | "template" | "missing">>({});
 
   useEffect(() => {
@@ -1322,7 +1324,7 @@ function ProjectKnowledgePanel({ rootPath, tk, onOpenFile }: { rootPath: string;
       setFileStatuses(results);
     };
     checkFiles();
-  }, [rootPath]);
+  }, [rootPath, refreshTrigger]);
 
   const okCount = Object.values(knowledgeStatuses).filter(s => s === "ok").length;
   const total = KNOWLEDGE_FILES.length;
