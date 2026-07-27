@@ -434,7 +434,6 @@ export default async function projectRoute(req, res) {
           if (feats.length > 0) {
             const fLines = feats.map(f => {
               const p = [`- [${f.id}] ${f.name} (${f.status})`];
-              if (f.description) p.push(`— ${f.description}`);
               const m = [];
               if (f.codeFiles?.length) m.push(`${f.codeFiles.length} code`);
               if (f.apis?.length) m.push(`${f.apis.length} APIs`);
@@ -442,23 +441,29 @@ export default async function projectRoute(req, res) {
               if (m.length) p.push(`→ ${m.join(", ")}`);
               return p.join(" ");
             }).join("\n");
-            extraContext.push(`\n## Feature Map (${feats.length} features)\n${fLines}`);
+            extraContext.push(`\n## Feature Map (${feats.length} features, 用 project_info(category=feature_detail) 查 detail)\n${fLines}`);
           }
         } catch {}
       }
 
-      // Code intelligence
+      // Code intelligence — summary only (not full file dump)
       const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
       if (existsSync(ciFile)) {
         try {
           const ci = JSON.parse(readSync(ciFile, "utf-8"));
           if (ci.files?.length) {
-            const fileLines = ci.files.slice(0, 100).map(f => {
-              const parts = [`- ${f.path}`];
-              if (f.exports?.length) parts.push(`exports: ${f.exports.slice(0, 5).join(", ")}`);
-              return parts.join(" ");
-            }).join("\n");
-            extraContext.push(`\n## Code Intelligence (top ${Math.min(ci.files.length, 100)} files)\n${fileLines}`);
+            const dirCount = {};
+            const keyFiles = [];
+            for (const f of ci.files) {
+              const dir = (f.path || "").split("/").slice(0, 2).join("/");
+              dirCount[dir] = (dirCount[dir] || 0) + 1;
+              if ((f.exports?.length || 0) > 3 || /index\.|main\.|app\./i.test(f.path)) {
+                keyFiles.push(`- ${f.path} (exports: ${(f.exports || []).slice(0, 5).join(", ")})`);
+              }
+            }
+            const dirLines = Object.entries(dirCount).sort((a,b) => b[1] - a[1]).map(([d, c]) => `  ${d}/ (${c} files)`).join("\n");
+            const keyLines = keyFiles.slice(0, 20).join("\n");
+            extraContext.push(`\n## Code Intelligence (${ci.files.length} files)\nDirectories:\n${dirLines}\nKey files:\n${keyLines}`);
           }
         } catch {}
       }
