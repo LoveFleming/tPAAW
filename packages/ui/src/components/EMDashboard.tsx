@@ -210,6 +210,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
   const prevMsgLenRef = useRef(0);
   const composingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Load persisted EM chat on mount
   useEffect(() => {
@@ -445,6 +446,9 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
     const thinkId = Date.now();
     setMessages(prev => [...prev, { role: "assistant", content: "🎖️ 規劃中...", ts: new Date().toISOString(), _thinking: true }]);
 
+    const ac = new AbortController();
+    abortRef.current = ac;
+
     try {
       const res = await fetch(`${API_BASE}/a2a/em`, {
         method: "POST",
@@ -460,6 +464,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
           },
           id: `em-chat-${thinkId}`,
         }),
+        signal: ac.signal,
       });
 
       // Remove thinking bubble
@@ -547,9 +552,20 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
       refreshData();
     } catch (err: any) {
       setMessages(prev => [...prev.filter(m => !m._thinking)]);
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.message}`, ts: new Date().toISOString() }]);
+      if (err.name === "AbortError") {
+        setMessages(prev => [...prev, { role: "assistant", content: "⏹️ 已中斷", ts: new Date().toISOString() }]);
+      } else {
+        setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.message}`, ts: new Date().toISOString() }]);
+      }
     }
+    abortRef.current = null;
     setLoading(false);
+  };
+
+  const stopAgent = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
   };
 
   // ── EM Auto-orchestrate ──
@@ -1017,12 +1033,14 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
               style={{ borderColor: tk.borderLight, backgroundColor: tk.bg }}
             />
             <button
-              onClick={sendMessage}
-              disabled={loading || !input.trim()}
-              className={cn("px-4 py-2 rounded-lg text-sm font-bold",
-                loading || !input.trim() ? "bg-stone-200 text-stone-400" : "bg-amber-600 text-white hover:bg-amber-700")}
+              onClick={loading ? stopAgent : sendMessage}
+              disabled={!loading && !input.trim()}
+              className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-colors",
+                loading
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : input.trim() ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-stone-200 text-stone-400")}
             >
-              送出
+              {loading ? "中斷" : "送出"}
             </button>
           </div>
         </div>
