@@ -146,7 +146,9 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
       if (!fbProvider) continue;
       const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
       if (fbProviderId === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
-      fallbacks.push({ providerId: fbProviderId, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW });
+      const fbModelDef = (fbProvider.models || []).find(m => (typeof m === "string" ? m : m.id) === fbModelId);
+      const fbMaxTokens = (typeof fbModelDef === "object" ? fbModelDef?.maxTokens : null) || 16384;
+      fallbacks.push({ providerId: fbProviderId, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW, maxTokens: fbMaxTokens });
     }
   }
 
@@ -158,7 +160,9 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
       if (!fbProvider) continue;
       const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${fbProvider.apiKey}` };
       if (fb.provider === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
-      fallbacks.push({ providerId: fb.provider, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fb.model, contextWindow: DEFAULT_CONTEXT_WINDOW });
+      const fbModelDef = (fbProvider.models || []).find(m => (typeof m === "string" ? m : m.id) === fb.model);
+      const fbMaxTokens = (typeof fbModelDef === "object" ? fbModelDef?.maxTokens : null) || 16384;
+      fallbacks.push({ providerId: fb.provider, apiUrl: `${fbProvider.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fb.model, contextWindow: DEFAULT_CONTEXT_WINDOW, maxTokens: fbMaxTokens });
     }
   }
 
@@ -174,15 +178,18 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
       if (!fbModelId) continue;
       const fbHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${p.apiKey}` };
       if (pid === "openrouter") { fbHeaders["HTTP-Referer"] = "https://paaw.ai"; fbHeaders["X-Title"] = "PAAW"; }
-      fallbacks.push({ providerId: pid, apiUrl: `${p.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW });
+      const fbModelDef = (p.models || []).find(m => (typeof m === "string" ? m : m.id) === fbModelId);
+      const fbMaxTokens = (typeof fbModelDef === "object" ? fbModelDef?.maxTokens : null) || 16384;
+      fallbacks.push({ providerId: pid, apiUrl: `${p.baseURL.replace(/\/+$/, "")}/chat/completions`, headers: fbHeaders, model: fbModelId, contextWindow: DEFAULT_CONTEXT_WINDOW, maxTokens: fbMaxTokens });
     }
   }
 
-  // Get model's context window
+  // Get model's context window + max output tokens
   const modelDef = (provider.models || []).find(m => m.id === model);
   const contextWindow = modelDef?.contextWindow || DEFAULT_CONTEXT_WINDOW;
+  const maxTokens = modelDef?.maxTokens || 16384;
 
-  return { apiUrl, headers, model, providerId, fallbacks, contextWindow };
+  return { apiUrl, headers, model, providerId, fallbacks, contextWindow, maxTokens };
 }
 
 // ── Tool Definitions (OpenAI function-calling format) ──
@@ -1929,13 +1936,13 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
 
 // ── LLM API Call ──
 
-export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null) {
-  console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}`);
+export async function callLLM(apiUrl, headers, model, messages, tools, stream = false, onEvent = null, agentId = null, maxTokens = 16384) {
+  console.log(`[callLLM] model=${model}, stream=${stream}, apiUrl=${apiUrl}, messages=${messages.length}, max_tokens=${maxTokens}`);
   const body = {
     model,
     messages,
     ...(tools && tools.length > 0 ? { tools, tool_choice: "auto" } : {}),
-    max_tokens: 16384,
+    max_tokens: maxTokens,
     stream,
   };
 
@@ -2211,7 +2218,7 @@ export async function runAgentLoop(config) {
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
-      }, agentId);
+      }, agentId, llm.maxTokens);
     } catch (err) {
       finalContent = `LLM API error: ${err.message}`;
       if (onEvent) onEvent({ type: "error", error: err.message });
@@ -2463,7 +2470,7 @@ export async function runAgentLoopStream(config, res) {
     let response;
     let usedLlm = llm;
     try {
-      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId);
+      response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, llm.maxTokens);
     } catch (err) {
       const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate"));
       if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
@@ -2471,7 +2478,7 @@ export async function runAgentLoopStream(config, res) {
           console.log(`[callLLM] 429 rate-limited, trying fallback: ${fb.providerId}/${fb.model}`);
           sendSSE("info", { message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
           try {
-            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId);
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, fb.maxTokens || llm.maxTokens);
             usedLlm = fb;
             break;
           } catch (fbErr) {
@@ -2590,7 +2597,7 @@ export async function runAgentLoopStream(config, res) {
         role: "user",
         content: "你已經收集了足夠的資訊。現在請根據你看到的內容，直接給出完整的回答。不要使用任何工具。",
       });
-      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId);
+      const finalResponse = await callLLM(llm.apiUrl, llm.headers, llm.model, trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW), [], false, sendSSE, agentId, llm.maxTokens);
       const finalContent = finalResponse.choices?.[0]?.message?.content || "";
       if (finalContent) {
         sendSSE("content", { content: finalContent, done: true });
