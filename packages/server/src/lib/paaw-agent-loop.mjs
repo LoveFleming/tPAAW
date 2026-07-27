@@ -845,9 +845,68 @@ function _findConventionTests(cwd, changedFiles) {
   return [...new Set(tests)];
 }
 
+// ── Native Node.js helpers (Windows-safe, no shell) ──
+
+async function _nativeGlob(basePath, pattern, maxResults = 100) {
+  const results = [];
+  const normPattern = pattern.replace(/\*\*\//g, "").replace(/\*\*/g, "*").replace(/\*/g, ".*").replace(/\?/g, ".");
+  const regex = new RegExp(normPattern + "$", "i");
+  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw"]);
+  async function walk(dir, depth) {
+    if (results.length >= maxResults || depth > 20) return;
+    let entries;
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (results.length >= maxResults) return;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (!skipDirs.has(e.name)) await walk(full, depth + 1);
+      } else if (regex.test(e.name)) {
+        results.push(full);
+      }
+    }
+  }
+  await walk(basePath, 0);
+  return results.join("\n") || "(no files found)";
+}
+
+async function _nativeGrep(searchPath, pattern, include, maxResults = 50, ignoreCase = true) {
+  const results = [];
+  const flags = ignoreCase ? "i" : "";
+  let regex;
+  try { regex = new RegExp(pattern, flags); } catch { regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags); }
+  const includeRegex = include ? new RegExp(include.replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i") : null;
+  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw"]);
+  async function walk(dir) {
+    if (results.length >= maxResults) return;
+    let entries;
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (results.length >= maxResults) return;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (!skipDirs.has(e.name)) await walk(full);
+      } else {
+        if (includeRegex && !includeRegex.test(e.name)) continue;
+        try {
+          const content = await readFile(full, "utf-8");
+          const lines = content.split("\n");
+          for (let i = 0; i < lines.length && results.length < maxResults; i++) {
+            if (regex.test(lines[i])) results.push(`${full}:${i + 1}:${lines[i].trim().slice(0, 200)}`);
+          }
+        } catch {}
+      }
+    }
+  }
+  await walk(searchPath);
+  return results.join("\n") || "(no matches)";
+}
+
 function runShell(command, cwd, timeoutMs = 30_000) {
   return new Promise((resolve) => {
-    const shellOpt = IS_WIN ? "powershell.exe" : true;
+    // Windows: cmd.exe 比 powershell.exe 轉義問題少
+    // PowerShell 會把 <>| 票$ 等當特殊字元，cmd.exe 只認 % ^ & < > |
+    const shellOpt = IS_WIN ? "cmd.exe" : true;
     const child = execCb(command, {
       cwd,
       timeout: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
@@ -1015,13 +1074,12 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         // ripgrep is cross-platform (rg.exe on Windows)
         let result;
         if (IS_WIN) {
-          // Windows: PowerShell-compatible command
+          // Windows: rg.exe is cross-platform
           const cmd = `rg --files --glob "${pattern}" --max-depth 20 "${basePath}"`;
           result = await runShell(cmd, cwd, 10_000);
           if (result.includes("not recognized") || result.includes("command not found")) {
-            // Fallback: PowerShell Get-ChildItem with -Recurse
-            const psCmd = `Get-ChildItem -Path "${basePath}" -Recurse -Filter "${pattern.replace('**/', '').replace('**', '*')}" -File | Select-Object -First 100 -ExpandProperty FullName`;
-            result = await runShell(psCmd, cwd, 10_000);
+            // Fallback: Node.js native (no shell escaping issues)
+            result = await _nativeGlob(basePath, pattern, 100);
           }
         } else {
           // Unix: use rg with glob, fallback to find
@@ -1054,10 +1112,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
           const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading "${args.pattern}" "${searchPath}"`;
           result = await runShell(cmd, cwd, 15_000);
           if (result.includes("not recognized") || result.includes("command not found")) {
-            // Fallback: PowerShell Select-String
-            const psInclude = args.include ? `-Include "${args.include}"` : "";
-            const psCmd = `Get-ChildItem -Path "${searchPath}" -Recurse ${psInclude} -File | Select-String -Pattern "${args.pattern}" ${args.case_sensitive ? "" : "-SimpleMatch"} | Select-Object -First ${maxResults}`;
-            result = await runShell(psCmd, cwd, 15_000);
+            // Fallback: Node.js native grep
+            result = await _nativeGrep(searchPath, args.pattern, args.include, maxResults, !args.case_sensitive);
           }
         } else {
           // Unix: rg with fallback to grep
@@ -2106,6 +2162,9 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
 
   // Inject cwd dynamically
   parts.push(`\nWorking directory: ${cwd}`);
+  if (IS_WIN) {
+    parts.push(`\n⚠️ Windows 環境：寫檔案請用 write_file/edit_file 工具，不要用 bash 的 echo/cat 重定向（PowerShell 字元轉義會出問題）。git 命令可以正常使用。`);
+  }
 
   // Always include tool definitions
   parts.push(`\n## Your Tools\n### Project Knowledge (use these FIRST, not read_file for .paaw/)\n- **project_info(category=...)** — Read project knowledge. Categories: context, decisions, standards, changelog, issues, features, feature_detail, runbook, faq, sessions, test_map, security, recent_changes, api_history\n- **project_edit(action=...)** — Modify project data. Actions: issue_create, issue_update, issue_delete, change_record, feature_update_docs, feature_update_mapping, run_command\n### CU Maintenance\n- **cu_refresh** — Refresh CU steps after code changes\n### File Operations\n- **read_file** — Read source files (NOT for .paaw/ — use project_info)\n- **write_file** — Write or create files\n- **edit_file** — Precise text replacement\n- **glob** — Find files by pattern\n- **grep** — Search file contents\n### Git & Shell\n- **diff** — Show differences\n- **git** — Run git commands\n- **bash** — Run shell commands\n### Project Write\n- **record_decision** — Record ADR\n- **docs(action=...)** — Update .paaw/ docs (actions: changelog, write, append)\n### Agent Collaboration\n- **action_log_add** — Record your action for other agents\n- **action_log_list** — Read what other agents did\n- **agent_memory_save** — Save to long-term memory\n- **agent_memory_load** — Read long-term memory\n### Other\n- **ask_user** — Ask for clarification`);
