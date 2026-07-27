@@ -4,6 +4,7 @@ import { useI18n, LOCALE_LABELS, Locale } from "../i18n";
 
 import API_BASE from "../api";
 import BackupSettings from "./BackupSettings";
+import PluginManager from "./PluginManager";
 
 interface ProviderData {
   name: string;
@@ -21,7 +22,7 @@ interface SettingsPageProps {
 export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved }: SettingsPageProps = {}) {
   const { info: themeInfo } = useTheme();
   const { t, locale, setLocale } = useI18n();
-  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup">((initialTab as any) || "profile");
+  const [tab, setTabState] = useState<"profile" | "providers" | "agentConfig" | "preferences" | "skill" | "distill" | "tools" | "language" | "backup" | "plugins">((initialTab as any) || "profile");
   const [providers, setProviders] = useState<Record<string, ProviderData>>({});
   const [activeId, setActiveId] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -251,6 +252,9 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
           </button>
           <button onClick={() => setTab("backup")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "backup" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             💾 備份還原
+          </button>
+          <button onClick={() => setTab("plugins")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "plugins" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
+            🔌 Plugins
           </button>
           <button onClick={() => setTab("language")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "language" ? "bg-white shadow-sm text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
             🌐 {t("settings.language")}
@@ -672,6 +676,11 @@ export default function SettingsPage({ initialTab, onTabChange, onProvidersSaved
 
         {/* Backup tab */}
         {tab === "backup" && <BackupSettings />}
+
+        {/* Plugins tab */}
+        {tab === "plugins" && (
+          <PluginManager />
+        )}
 
         {/* Language tab */}
         {tab === "language" && (
