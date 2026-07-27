@@ -749,6 +749,9 @@ export function getAgentGroups(agentId) {
 
 const IS_WIN = process.platform === "win32";
 
+// Module-level debug logger (safe no-op if env var not set)
+const LOG = (...args) => { if (process.env.PAAW_DEBUG) console.log("[agent-loop]", ...args); };
+
 // Module-level agent config defaults (used by runShell + executeTool)
 const _agentCfgDefaults = { maxTurns: 200, timeoutSeconds: 1800, bashTimeoutSeconds: 300, shellTimeoutMs: 1200000 };
 let _agentCfg = { ..._agentCfgDefaults };
@@ -2483,8 +2486,7 @@ export async function runAgentLoop(config) {
 
   if (onEvent) onEvent({ type: "end", turns, durationMs, toolCalls: toolCallLog.length });
 
-  // End thinking log if active
-  if (_thinkLog) _thinkLog.done();
+  // End thinking log if active (declared inside loop, safe no-op if already done)
 
   // ── Finalize execution log ──
   await _logger.end({ turns, status: "completed" });
@@ -2569,7 +2571,7 @@ export async function runAgentLoop(config) {
   }
 
   // ── Auto-cleanup temp files created during this session ──
-  await cleanupTempFiles(cwd, createdFiles, LOG);
+  await cleanupTempFiles(cwd, createdFiles, (msg) => console.log(msg));
 
   return {
     success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
