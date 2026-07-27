@@ -344,6 +344,7 @@ export default function CodingIDE() {
   }, [activeCrew]);
   const [chatInput, setChatInput] = useState("");
   const [crewLoading, setCrewLoading] = useState<Record<string, boolean>>({}); // crewId → chatLoading
+  const domainAbortRef = useRef<AbortController | null>(null); // abort for domain AI (spec/test/bug/docs/maintain)
   const [crewAgentRunning, setCrewAgentRunning] = useState<Record<string, boolean>>({}); // crewId → agentRunning
   const [crewAgentAction, setCrewAgentAction] = useState<Record<string, string>>({}); // crewId → agentAction
   const [crewAgentToolLog, setCrewAgentToolLog] = useState<Record<string, Array<{name: string; args: string; result: string}>>>({}); // crewId → toolLog
@@ -1060,6 +1061,8 @@ const sendChat = useCallback(async () => {
     // ── Domain AI mode (spec, test, bug, docs, maintain) ──
     if (["spec", "test", "bug", "docs", "maintain"].includes(chatMode)) {
       setChatLoading(true);
+      const domainAbort = new AbortController();
+      domainAbortRef.current = domainAbort;
       try {
         const res = await fetch(`${API_BASE}/api/coding-project/domain-ai?path=${encodeURIComponent(rootPath)}`, {
           method: "POST",
@@ -1071,6 +1074,7 @@ const sendChat = useCallback(async () => {
             history: chatMessages.filter(m => !m._thinking).map(m => ({ role: m.role, content: m.content })),
             crewId: activeCrew || undefined,
           }),
+          signal: domainAbort.signal,
         });
         if (!res.ok || !res.body) {
           const errText = await res.text();
@@ -1112,9 +1116,14 @@ const sendChat = useCallback(async () => {
           setChatMessages(prev => [...prev, { role: "assistant", content: `(${chatMode.toUpperCase()} AI completed with no output)`, ts: new Date().toISOString() }]);
         }
       } catch (err: any) {
-        setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${chatMode.toUpperCase()} AI error: ${err.message}`, ts: new Date().toISOString() }]);
+        if (err.name === "AbortError") {
+          setChatMessages(prev => [...prev, { role: "assistant", content: "⏹️ 已中斷", ts: new Date().toISOString() }]);
+        } else {
+          setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${chatMode.toUpperCase()} AI error: ${err.message}`, ts: new Date().toISOString() }]);
+        }
       }
       setChatLoading(false); setAgentAction("");
+      domainAbortRef.current = null;
     } else {
       // ── Both agent + chat mode: A2A domain agent dispatch ──
       const isAgentMode = chatMode === "agent";
@@ -2958,27 +2967,33 @@ const sendChat = useCallback(async () => {
                       style={{ borderColor: tk.borderInput, backgroundColor: "white" }}
                       rows={2}
                     />
-                    {agentRunning && (
+                    {chatLoading && (
                       <button
                         onClick={() => {
-                          // 1. Abort frontend fetch
-                          a2aAbortRef.current?.abort();
-                          a2aAbortRef.current = null;
-                          // 2. Tell server to kill the running stream (try both APIs)
+                          // Abort whatever is running
+                          if (a2aAbortRef.current) {
+                            a2aAbortRef.current.abort();
+                            a2aAbortRef.current = null;
+                          }
+                          if (domainAbortRef.current) {
+                            domainAbortRef.current.abort();
+                            domainAbortRef.current = null;
+                          }
+                          // Tell server to kill the running stream (agent mode)
                           const aid = activeCrew?.replace(/^coding\./, "") || "architect";
                           fetch(`${API_BASE}/api/coding-crew/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
                           fetch(`${API_BASE}/api/a2a/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
                         }}
-                        className="px-3 py-2 rounded-lg text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
-                        title="停止 Agent"
-                      >⏹</button>
+                        className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
+                        title="中斷"
+                      >中斷</button>
                     )}
                     <button
                       onClick={() => { if (!chatInput.trim()) return; sendChat(); }}
                       disabled={chatLoading || !chatInput.trim()}
                       className="px-4 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40 transition-colors"
-                      style={{ backgroundColor: tk.accent }}>
-                      ↵
+                      style={{ backgroundColor: chatLoading ? '#a1a1aa' : tk.accent }}>
+                      送出
                     </button>
                   </div>
                 </div>

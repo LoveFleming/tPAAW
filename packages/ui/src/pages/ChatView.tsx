@@ -84,6 +84,7 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const composingRef = useRef(false);
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   // ── Assistant avatar ──
@@ -457,7 +458,8 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
   const handleStop = () => { abortRef.current?.abort(); };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); handleSend(); }
+    if (composingRef.current || e.nativeEvent?.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const formatTime = (ts: string) => new Date(ts).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
@@ -702,7 +704,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       {activeChatId && (
         <div className="shrink-0 px-4 py-3 border-t bg-white/80 backdrop-blur-sm" style={{ borderColor: themeInfo.accentBorder + "30" }}>
           <div className="flex gap-2 items-end">
-            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              onKeyDown={handleKeyDown}
               placeholder={`跟${assistantName}說點什麼...`}
               rows={1}
               className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:border-stone-400 resize-none transition-colors bg-stone-50" style={{ maxHeight: 120 }} />
