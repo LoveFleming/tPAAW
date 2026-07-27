@@ -229,25 +229,35 @@ export default async function projectRoute(req, res) {
               }
             }
             const sortedFiles = Object.keys(fileMap).sort();
-            const fileLines = sortedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
-            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_info(category=feature_detail) for full info.\n${fLines}\n\n## File → Feature Index (${sortedFiles.length} files)\n${fileLines}`);
+            // Cap at 50 files to keep prompt lean — rest are accessible via project_info
+            const cappedFiles = sortedFiles.slice(0, 50);
+            const fileLines = cappedFiles.map(f => `- ${f} → ${fileMap[f].join(", ")}`).join("\n");
+            const moreHint = sortedFiles.length > 50 ? ` (${sortedFiles.length - 50} more — use project_info(category=features) to see all)` : "";
+            extraContext.push(`\n## Feature Map (${feats.length} features)\nUse project_info(category=feature_detail, id=...) for full detail.\n${fLines}\n\n## File → Feature Index (${cappedFiles.length} files${moreHint})\n${fileLines}`);
           }
         } catch {}
       }
 
-      // Inject Code Intelligence (file map, exports, imports)
+      // Inject Code Intelligence SUMMARY (not full 200-file dump — too fat)
       const ciFile = join(projRoot, ".paaw", "code-intelligence", "code-intelligence.json");
       if (existsSync(ciFile)) {
         try {
           const ci = JSON.parse(readSync(ciFile, "utf-8"));
           if (ci.files?.length) {
-            const fileLines = ci.files.slice(0, 200).map(f => {
-              const parts = [`- ${f.path}`];
-              if (f.exports?.length) parts.push(`exports: ${f.exports.slice(0, 10).join(", ")}`);
-              if (f.imports?.length) parts.push(`imports: ${f.imports.slice(0, 10).join(", ")}`);
-              return parts.join(" ");
-            }).join("\n");
-            extraContext.push(`\n## Code Intelligence File Map (${ci.files.length} files, showing first ${Math.min(ci.files.length, 200)})\n${fileLines}`);
+            // Summary: top-level dirs + file count + key entry points
+            const dirCount = {};
+            const keyFiles = [];
+            for (const f of ci.files) {
+              const dir = (f.path || "").split("/").slice(0, 2).join("/");
+              dirCount[dir] = (dirCount[dir] || 0) + 1;
+              // Key files: have many exports or are index/main entry points
+              if ((f.exports?.length || 0) > 3 || /index\.|main\.|app\./i.test(f.path)) {
+                keyFiles.push(`- ${f.path} (exports: ${(f.exports || []).slice(0, 5).join(", ")})`);
+              }
+            }
+            const dirLines = Object.entries(dirCount).sort((a,b) => b[1] - a[1]).map(([d, c]) => `  ${d}/ (${c} files)`).join("\n");
+            const keyLines = keyFiles.slice(0, 20).join("\n");
+            extraContext.push(`\n## Code Intelligence (${ci.files.length} files)\nDirectories:\n${dirLines}\nKey files:\n${keyLines}\n(用 read_file 查完整 exports/imports，或 grep 搜尋 symbol)`);
           }
         } catch {}
       }

@@ -251,40 +251,39 @@ export class PaawProject {
     const parts = [];
 
     if (ctx.project) {
-      parts.push(`\n=== 專案概覽 (.paaw/PROJECT.md) ===\n${ctx.project}`);
+      parts.push(`\n=== 專案概覽 ===\n${ctx.project}`);
     }
-    if (ctx.standards) {
-      parts.push(`\n=== Coding Standards (.paaw/CODING-STANDARDS.md + standards/) ===\n${ctx.standards}`);
-    }
-    // Feature Map: feature → files
+    // Standards: 不再注入 system prompt（太肥）— agent 用 project_info(category=standards) 按需讀取
+    // Feature Map: feature → files（保留，加 Hint）
     if (ctx.featureMap && ctx.featureMap.length > 0) {
       const fmLines = ctx.featureMap.map(f => {
-        const files = f.codeFiles.length > 0 ? f.codeFiles.join(", ") : "(no files mapped)";
-        const apis = f.apis.length > 0 ? ` | APIs: ${f.apis.join(", ")}` : "";
+        const files = f.codeFiles.length > 0 ? f.codeFiles.slice(0, 5).join(", ") : "(unmapped)";
+        const apis = f.apis.length > 0 ? ` | APIs: ${f.apis.slice(0, 3).join(", ")}` : "";
         return `- ${f.name} (${f.id}): ${files}${apis}`;
       });
-      parts.push(`\n=== Feature Map (feature → files) ===\n${fmLines.join("\n")}`);
+      parts.push(`\n=== Feature Map (${ctx.featureMap.length} features, 用 project_info(category=feature_detail, id=...) 查完整 detail) ===\n${fmLines.join("\n")}`);
     }
-    // File → Feature mapping (reverse)
+    // File → Feature mapping (reverse index)
     if (ctx.fileFeatureMap && ctx.fileFeatureMap.length > 0) {
       const ffLines = ctx.fileFeatureMap.map(r => {
         const feat = r.feature ? `[${r.feature}] ` : "";
         return `- ${r.file}: ${r.method} ${r.path} ${r.handler ? `→ ${r.handler}` : ""} ${feat}`;
       });
-      parts.push(`\n=== File → Feature & API Map (file → endpoints) ===\n${ffLines.join("\n")}`);
+      parts.push(`\n=== File → Feature & API Map (${ctx.fileFeatureMap.length} routes) ===\n${ffLines.join("\n")}`);
     }
     if (ctx.decisions) {
-      // Only include last ~2000 chars to keep prompt manageable
-      const dec = ctx.decisions.length > 2000
-        ? ctx.decisions.slice(-2000)
+      // 精簡：只取最後 500 chars（之前是 2000）
+      const dec = ctx.decisions.length > 500
+        ? ctx.decisions.slice(-500)
         : ctx.decisions;
-      parts.push(`\n=== 近期技術決策 (.paaw/DECISIONS.md) ===\n${dec}`);
+      parts.push(`\n=== 近期決策 (精簡，完整用 project_info(category=decisions)) ===\n${dec}`);
     }
+    // Sessions: 只列 summary，不展開
     if (ctx.recentSessions && ctx.recentSessions.length > 0) {
-      const sessionText = ctx.recentSessions
-        .map(s => `- ${s.filename}: ${s.summary || "(no summary)"}`)
+      const sessionText = ctx.recentSessions.slice(0, 2)
+        .map(s => `- ${s.summary || s.filename}`)
         .join("\n");
-      parts.push(`\n=== 最近 AI Session 記錄 ===\n${sessionText}`);
+      parts.push(`\n=== 最近 Session ===\n${sessionText}`);
     }
 
     return parts.join("\n");

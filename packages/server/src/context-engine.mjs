@@ -474,10 +474,34 @@ export const contextEngine = {
     return { systemPrompt: parts.join("\n\n"), provider };
   },
 
-  // ── Coding IDE：base + dynamic + chat/ rules + runtime tools ──
+  // ── Coding IDE：精簡 context（不載入 chat/ 的 identity, paaw-context, reply-rules）──
   _buildCoding() {
-    // Coding IDE 跟 Chat 用一樣的 context（需要 identity, tool-rules 等）
-    return this._buildChat();
+    const provider = loadProviderConfig();
+    const parts = [
+      buildBaseContext(),
+      buildDynamicContext(),
+    ];
+    // 只載入 coding 相關的 rules，跳過 identity/reply-rules/paaw-context（聊天人格不需要）
+    const codingRules = [
+      ...readCategoryFiles("chat").filter(text => {
+        // 根據檔案內容判斷是否為聊天專用
+        const firstLine = text.split('\n')[0].toLowerCase();
+        if (firstLine.includes('身份') || firstLine.includes('身份與風格')) return false; // identity.md
+        if (firstLine.includes('回覆規則')) return false; // reply-rules.md
+        if (firstLine.includes('paaw runtime')) return false; // paaw-context.md
+        // system-prompt.md 包含 core behavior, 保留
+        // core-rules.md 保留
+        // guardrails.md 保留
+        // tool-rules.md 保留
+        return true;
+      }),
+    ];
+    parts.push(...codingRules);
+    
+    const tools = buildRuntimeTools();
+    if (tools) parts.push(tools);
+    
+    return { systemPrompt: parts.join("\n\n"), provider };
   },
 
   // ── Mindmap：base + dynamic + mindmap/ rules ──
