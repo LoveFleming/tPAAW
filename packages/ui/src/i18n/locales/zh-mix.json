@@ -526,5 +526,9 @@
   "issue.executionResult": "Execution Result",
   "issue.decompose": "Split",
   "issue.decomposeTitle": "Decompose Task",
-  "sidebar.workflowBuilder": "Workflow Builder"
+  "sidebar.workflowBuilder": "Workflow Builder",
+  "sidebar": {
+    "llmLog": "📡 LLM 日誌",
+    "agentLog": "📊 Agent 執行記錄"
+  }
 }
