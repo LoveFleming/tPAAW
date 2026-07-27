@@ -102,8 +102,11 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
-        setActiveProviderId(data.active);
-        setActiveModel(data.defaultModel);
+        // 優先讀 localStorage per-session 偏好，没有才用全局 default
+        const savedProvider = (() => { try { return localStorage.getItem("paaw.chat.provider"); } catch { return null; } })();
+        const savedModel = (() => { try { return localStorage.getItem("paaw.chat.model"); } catch { return null; } })();
+        setActiveProviderId(savedProvider || data.active);
+        setActiveModel(savedModel || data.defaultModel);
         const list: ProviderInfo[] = [];
         for (const [id, p] of Object.entries(data.providers || {})) {
           const prov = p as any;
@@ -466,11 +469,10 @@ export default function ChatView({ profile, embedded = false, onTitleChange, onD
     setActiveProviderId(providerId);
     setActiveModel(modelId);
     setShowModelPicker(false);
+    // Per-session 偏好，存在 localStorage，不寫回 providers.json
     try {
-      await fetch(`${API_BASE}/api/paaw/providers`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: providerId, defaultModel: modelId }),
-      });
+      localStorage.setItem("paaw.chat.provider", providerId);
+      localStorage.setItem("paaw.chat.model", modelId);
     } catch {}
   };
 
