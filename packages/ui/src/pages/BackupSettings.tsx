@@ -95,6 +95,8 @@ export default function BackupSettings() {
       setConfig(data.config);
       setEditing(false);
       msg("ok", tt("backup.settingsSaved"));
+      // 重新載入備份列表（目錄可能換了）
+      await loadBackups();
     } else {
       msg("err", tt("backup.saveFailed"));
     }
@@ -233,7 +235,12 @@ export default function BackupSettings() {
 
         {/* ── 備份列表 ── */}
         <div className="rounded-xl border p-5" style={{ borderColor: tk.borderLight, background: tk.bgMuted }}>
-          <h2 className="text-lg font-semibold mb-4" style={{ color: tk.textPrimary }}>📂 備份列表</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold" style={{ color: tk.textPrimary }}>📂 備份列表</h2>
+            <span className="text-xs font-mono px-2 py-1 rounded" style={{ background: tk.bg, color: tk.textMuted, border: `1px solid ${tk.borderLight}` }}>
+              {config.backupDir}
+            </span>
+          </div>
 
           {backups.length === 0 ? (
             <div className="text-center py-8 text-sm" style={{ color: tk.textMuted }}>{tt("backup.noBackup")}</div>

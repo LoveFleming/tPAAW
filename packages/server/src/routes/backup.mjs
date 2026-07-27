@@ -332,7 +332,8 @@ async function cleanupOldBackups(config) {
 
 async function listBackups(config) {
   const backupDir = config.backupDir || BACKUP_DIR_DEFAULT;
-  if (!existsSync(backupDir)) return [];
+  // 嚴格讀設定的目錄，不 fallback 到 default
+  if (!backupDir || !existsSync(backupDir)) return [];
 
   const files = await readdir(backupDir);
   const backups = [];
@@ -439,7 +440,7 @@ async function handleBackupRoutes(req, res) {
     const config = await loadConfig();
     const backups = await listBackups(config);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ backups }));
+    res.end(JSON.stringify({ backups, sourceDir: config.backupDir || BACKUP_DIR_DEFAULT }));
     return true;
   }
 
