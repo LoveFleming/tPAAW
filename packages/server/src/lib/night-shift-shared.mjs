@@ -282,7 +282,7 @@ Output ONLY the JSON array, no markdown fences.`;
       model: llm.model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.2,
-      max_tokens: 8000,
+      max_tokens: llm.maxTokens || 16384,
       stream: false,
     };
     const result = await callWithFallback(body);

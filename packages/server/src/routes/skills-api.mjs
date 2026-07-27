@@ -408,7 +408,7 @@ export default async function skillsApiRoute(req, res) {
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        max_tokens: 8192,
+        max_tokens: llm.maxTokens || 16384,
         temperature: 0.7,
       }, {
         maxRetries: 3,

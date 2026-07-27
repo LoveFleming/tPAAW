@@ -21,6 +21,15 @@ import { fileURLToPath } from "url";
 import { readBody, normalizePath } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
+function getMaxTokens(providerConfig, providerId, model) {
+  const provider = providerConfig.providers?.[providerId];
+  const models = provider?.models || [];
+  for (const m of models) {
+    if (typeof m === "object" && m.id === model) return m.maxTokens || 16384;
+  }
+  return 16384;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
@@ -582,7 +591,7 @@ Output ONLY the JSON array, no markdown fences.`;
       const llmRes = await fetch(apiUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: 8000 }),
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: getMaxTokens(providerConfig, providerId, model) }),
       });
       const llmData = await llmRes.json();
       const content = llmData.choices?.[0]?.message?.content || "";
@@ -727,7 +736,7 @@ Output ONLY the JSON array, no markdown fences.`;
       const llmRes = await fetch(apiUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: 8000 }),
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: getMaxTokens(providerConfig, providerId, model) }),
       });
       const llmData = await llmRes.json();
       const content = llmData.choices?.[0]?.message?.content || "";

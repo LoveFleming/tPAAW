@@ -181,7 +181,7 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
     const body = {
       model: llm.model,
       messages,
-      max_tokens: 8192,
+      max_tokens: llm.maxTokens || 16384,
       stream: false,
     };
     const result = await callWithFallback(body);
