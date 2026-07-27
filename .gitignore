@@ -52,6 +52,7 @@ data/skills/.test-output/
 data/skills/building/*/test-*
 .paaw-staging/
 .paaw-review/
+.paaw/tmp/
 packages/server/.paaw/
 
 # PAAW temp/debug files

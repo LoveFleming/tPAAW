@@ -1023,12 +1023,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             snapshotTaken = true;
           } catch {}
         }
+        const wasNew = !existsSync(filePath);
         await mkdir(dirname(filePath), { recursive: true });
         await writeFile(filePath, args.content, "utf-8");
         // Track modified files for post-edit test verification
-        modifiedFiles.add(filePath.replace(cwd + "/", "").replace(cwd + "\\", ""));
-        if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)` });
-        const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}`;
+        const relPath = filePath.replace(cwd + "/", "").replace(cwd + "\\", "");
+        if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)${wasNew ? " [NEW]" : ""}` });
+        const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}${wasNew ? " [NEW FILE]" : ""}`;
         return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
       }
 
@@ -1055,8 +1056,6 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         if (occurrences > 1) return `Error: old_text found ${occurrences} times in ${args.path} — must be unique`;
         const newContent = content.replace(args.old_text, args.new_text);
         await writeFile(filePath, newContent, "utf-8");
-        // Track modified files for post-edit test verification
-        modifiedFiles.add(filePath.replace(cwd + "/", "").replace(cwd + "\\", ""));
         if (onEvent) onEvent({ type: "tool_end", name, result: `Edited ${filePath}` });
         const baseResult = `Successfully edited ${args.path} (1 replacement)`;
         return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
@@ -2160,6 +2159,90 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   return parts.join("\n");
 }
 
+// ── Temp File Cleanup ──
+
+/**
+ * Clean up temporary/scratch files created by the agent during a session.
+ *
+ * Strategy:
+ * 1. Files in .paaw/tmp/ — always cleaned (designated temp area)
+ * 2. Created files matching temp patterns — cleaned (test-*.mjs, scratch.*, _temp.*, etc.)
+ * 3. Created files that are legitimate source — kept (reported only)
+ *
+ * @param {string} cwd - project working directory
+ * @param {Set<string>} createdFiles - files tracked as newly created
+ * @param {Function} [logFn] - optional logger
+ * @returns {Promise<number>} number of files cleaned
+ */
+async function cleanupTempFiles(cwd, createdFiles, logFn) {
+  const LOG = logFn || (() => {});
+  let cleaned = 0;
+
+  // 1. Always clean .paaw/tmp/
+  const tmpDir = join(cwd, ".paaw", "tmp");
+  try {
+    const tmpFiles = await readdir(tmpDir).catch(() => []);
+    for (const f of tmpFiles) {
+      try {
+        await rm(join(tmpDir, f), { recursive: true, force: true });
+        cleaned++;
+      } catch {}
+    }
+  } catch {}
+
+  // 2. Clean created files that match temp patterns
+  // These are files the agent created during work but shouldn't persist
+  const tempPatterns = [
+    /^test-_tmp/,           // test-_tmp-xxx.mjs
+    /^_tmp/,                // _tmp-xxx.mjs, _tmp-xxx.js
+    /^scratch[._-]/,        // scratch-test.mjs, scratch_verify.js
+    /^tmp[._-]/,            // tmp-xxx.mjs
+    /^_temp[._-]/,          // _temp-xxx.mjs
+    /^temp[._-]/,           // temp-xxx.mjs
+    /\.tmp$/,               // anything.tmp
+    /\.scratch$/,           // anything.scratch
+    /^verify[._-]/,         // verify-xxx.mjs (agent verification scripts)
+    /^debug[._-]/,          // debug-xxx.mjs
+    /^check[._-]/,          // check-xxx.mjs
+    /^quick[._-]/,          // quick-test.mjs
+    /^probe[._-]/,          // probe-xxx.mjs
+    /^explore[._-]/,        // explore-xxx.mjs
+    /^inspect[._-]/,        // inspect-xxx.mjs
+    /^snippet[._-]/,        // snippet-xxx.mjs
+  ];
+
+  // Directories that should never have temp files cleaned (legit source)
+  const protectedDirs = new Set(["src", "lib", "packages", "components", "pages", "app", "routes", "docs"]);
+
+  for (const relPath of createdFiles) {
+    const baseName = relPath.split(/[\\/]/).pop();
+    const dirName = relPath.split(/[\\/]/).slice(-2, -1)[0] || "";
+
+    // Skip files in protected directories (legit source code)
+    if (protectedDirs.has(dirName)) continue;
+
+    // Check if it matches temp patterns
+    const isTemp = tempPatterns.some(p => p.test(baseName));
+    if (!isTemp) continue;
+
+    const fullPath = resolve(cwd, relPath);
+    try {
+      if (existsSync(fullPath)) {
+        await rm(fullPath, { force: true });
+        LOG(`[cleanup] Removed temp file: ${relPath}`);
+        cleaned++;
+      }
+    } catch (e) {
+      LOG(`[cleanup] Failed to remove ${relPath}: ${e.message}`);
+    }
+  }
+
+  if (cleaned > 0) {
+    LOG(`[cleanup] Session cleanup: removed ${cleaned} temp file(s)`);
+  }
+  return cleaned;
+}
+
 // ── Main Agent Loop ──
 
 /**
@@ -2208,6 +2291,19 @@ export async function runAgentLoop(config) {
   });
   let snapshotTaken = false; // auto-snapshot before first file write
   const modifiedFiles = new Set(); // track modified files for post-edit test verification
+  const createdFiles = new Set(); // track NEW files (didn't exist before) for cleanup
+
+  // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
+  const tmpDir = join(cwd, ".paaw", "tmp");
+  try {
+    await mkdir(tmpDir, { recursive: true });
+    // Clean up previous session's temp files
+    const oldTempFiles = await readdir(tmpDir).catch(() => []);
+    for (const f of oldTempFiles) {
+      try { await rm(join(tmpDir, f), { recursive: true, force: true }); } catch {}
+    }
+    LOG(`[cleanup] .paaw/tmp/ cleared ${oldTempFiles.length} leftover temp files`);
+  } catch {}
 
   // Resolve LLM config
   const llm = resolveLLMConfig(rootDir, modelOverride, fallbackModels);
@@ -2343,9 +2439,26 @@ export async function runAgentLoop(config) {
       const _toolName = call.function?.name;
       const _ctx = { cwd, rootDir, onEvent, agentId };
       const _toolLog = _logger.toolCall({ tool: _toolName, argsSummary: (call.function.arguments || "").slice(0, 200) });
+      // Pre-check if file exists (for new-file tracking)
+      let _wasNewFile = false;
+      let _toolArgs = {};
+      try { _toolArgs = JSON.parse(call.function.arguments || "{}"); } catch {}
+      if (_toolName === "write_file" && _toolArgs.path) {
+        const _fullPath = resolve(cwd, _toolArgs.path);
+        _wasNewFile = !existsSync(_fullPath);
+      }
       const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName)
         ? String(await toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), _ctx))
         : await executeTool(call, cwd, rootDir, onEvent, agentId);
+      // Track modified/created files
+      if (_toolName === "write_file" || _toolName === "edit_file") {
+        const _p = _toolArgs.path || _toolArgs.file || "";
+        const _normP = _p.replace(cwd + "/", "").replace(cwd + "\\", "").replace(/^\//, "");
+        if (_normP) {
+          modifiedFiles.add(_normP);
+          if (_wasNewFile) createdFiles.add(_normP);
+        }
+      }
       _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       toolCallLog.push({
         turn: i + 1,
@@ -2455,6 +2568,9 @@ export async function runAgentLoop(config) {
     }
   }
 
+  // ── Auto-cleanup temp files created during this session ──
+  await cleanupTempFiles(cwd, createdFiles, LOG);
+
   return {
     success: !finalContent.includes("[Agent loop timed out]") && !finalContent.startsWith("LLM API error"),
     content: finalContent,
@@ -2496,6 +2612,18 @@ export async function runAgentLoopStream(config, res) {
   const startTime = Date.now();
   const timeoutMs = timeout * 1000;
   const streamModifiedFiles = new Set(); // track modified files for post-edit verification
+  const streamCreatedFiles = new Set(); // track NEW files for cleanup
+
+  // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
+  const streamTmpDir = join(cwd, ".paaw", "tmp");
+  try {
+    await mkdir(streamTmpDir, { recursive: true });
+    const oldTempFiles = await readdir(streamTmpDir).catch(() => []);
+    for (const f of oldTempFiles) {
+      try { await rm(join(streamTmpDir, f), { recursive: true, force: true }); } catch {}
+    }
+    console.log(`[cleanup] .paaw/tmp/ cleared ${oldTempFiles.length} leftover temp files`);
+  } catch {}
 
   // ── Execution logger ──
   const _logger = startAgentLog({
@@ -2680,18 +2808,26 @@ export async function runAgentLoopStream(config, res) {
       const _toolLog = _logger.toolCall({ tool: call.function.name, argsSummary: JSON.stringify(args).slice(0, 200) });
       const _toolName2 = call.function?.name;
       const _ctx2 = { cwd, rootDir, onEvent: null, agentId };
+      // Pre-check if file exists (for new-file tracking)
+      let _streamWasNew = false;
+      if (_toolName2 === "write_file" && args.path) {
+        _streamWasNew = !existsSync(resolve(cwd, args.path));
+      }
       const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName2)
         ? String(await toolRegistry.execute(_toolName2, args, _ctx2))
         : await executeTool(call, cwd, rootDir, null, agentId);
       const _toolDuration = _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 
-      // Track modified files for post-edit verification
-      if (call.function.name === "write_file" || call.function.name === "edit_file") {
+      // Track modified files for post-edit verification + track new files for cleanup
+      if (_toolName2 === "write_file" || _toolName2 === "edit_file") {
         try {
           const p = args.path || args.file || "";
           const normP = p.replace(cwd + "/", "").replace(cwd + "\\", "").replace(/^\//, "");
-          if (normP) streamModifiedFiles.add(normP);
+          if (normP) {
+            streamModifiedFiles.add(normP);
+            if (_streamWasNew) streamCreatedFiles.add(normP);
+          }
         } catch {}
       }
 
@@ -2750,6 +2886,12 @@ export async function runAgentLoopStream(config, res) {
     } catch (verifyErr) {
       sendSSE("verify", { ok: true, error: verifyErr.message });
     }
+  }
+
+  // ── Auto-cleanup temp files created during this session ──
+  const cleanedFiles = await cleanupTempFiles(cwd, streamCreatedFiles);
+  if (cleanedFiles > 0) {
+    sendSSE("info", { message: `🧹 Cleaned up ${cleanedFiles} temporary file(s)` });
   }
 
   sendSSE("done", { turns, durationMs: Date.now() - startTime });

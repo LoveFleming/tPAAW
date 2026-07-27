@@ -46,4 +46,11 @@ export const AGENT_RULES = `
 - **action_log_add** — 每次完成操作就記錄（Agent 交接簿）
 - **agent_memory_save** — 犯錯/學到慣例/使用者偏好時更新（先 load 再加新內容，不要覆蓋）
 - **record_decision** — 架構決策寫入 DECISIONS.md
+
+### 🧹 暫存檔案清理（必須）
+- 暫存檔案（scratch script、測試 snippet、probe、debug 用檔案）一律寫到 `.paaw/tmp/`
+- **絕對不要在專案原始碼目錄寫暫存檔**（src/ lib/ packages/ 等）
+- 用完的暫存檔自己刪掉：用 bash 工具執行 rm -f .paaw/tmp/xxx.mjs
+- `.paaw/tmp/` 每個 session 結束會自動清空，不要放重要檔案
+- 正式的測試檔案（屬於專案的）正常寫，不算暫存
 `;
