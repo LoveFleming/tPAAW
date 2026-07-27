@@ -33,8 +33,10 @@ function cleanupOldLogs(retentionDays = 7) {
       }
     }
     if (deleted > 0) console.log(`[llm-logs] Cleaned up ${deleted} files older than ${retentionDays} days (before ${cutoffStr})`);
+    return deleted;
   } catch (e) {
     console.error(`[llm-logs] Cleanup error: ${e.message}`);
+    return 0;
   }
 }
 
@@ -224,6 +226,22 @@ export default async function llmLogsRoute(req, res) {
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ deleted, before }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/llm-logs/purge — manually trigger cleanup
+  if (url === "/api/llm-logs/purge" && method === "POST") {
+    try {
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+      const days = body.days || 7;
+      const deleted = cleanupOldLogs(days);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, deleted, retentionDays: days }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

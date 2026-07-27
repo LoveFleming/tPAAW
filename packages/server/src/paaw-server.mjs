@@ -224,6 +224,37 @@ server.listen(PORT, async () => {
     console.error(`[PAAW] Failed to create backup cron job:`, err.message);
   }
 
+  // Ensure daily LLM log purge cron job exists
+  try {
+    const cronPath = resolve(PAAW_ROOT, "data/cron/cron-jobs.json");
+    let cronJobs = [];
+    try { cronJobs = JSON.parse(await readFile(cronPath, "utf-8")); } catch {}
+    const existingPurge = cronJobs.find(j => j.id === "system-daily-log-purge");
+    if (!existingPurge) {
+      cronJobs.push({
+        id: "system-daily-log-purge",
+        name: "🧹 清理 LLM 舊日誌",
+        type: "reminder",
+        reminderText: "",
+        skillId: "",
+        schedule: "0 3 * * *",
+        prompt: "",
+        params: {},
+        outputTarget: "none",
+        outputPath: "",
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        lastRun: null,
+        lastStatus: null,
+        _systemLogPurge: true,
+      });
+      await writeFile(cronPath, JSON.stringify(cronJobs, null, 2), "utf-8");
+      console.log(`[PAAW] Daily LLM log purge cron job created (03:00 daily)`);
+    }
+  } catch (err) {
+    console.error(`[PAAW] Failed to create log purge cron job:`, err.message);
+  }
+
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] ${ROUTE_MODULES.length} route modules + scheduler loaded`);
 });

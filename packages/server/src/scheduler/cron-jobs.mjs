@@ -102,6 +102,26 @@ async function runCronJob(job) {
     return;
   }
 
+  // ── System Log Purge type ──
+  if (job._systemLogPurge) {
+    try {
+      const resp = await fetch(`http://127.0.0.1:${PORT}/api/llm-logs/purge`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 7 }),
+      });
+      const data = await resp.json();
+      console.log(`[cron] Log purge done: deleted ${data.deleted} files (${data.retentionDays}-day retention)`);
+      await appendCronLog(job.id, { runId, status: "done", result: `deleted ${data.deleted}` });
+    } catch (err) {
+      console.error(`[cron] Log purge error:`, err.message);
+      await appendCronLog(job.id, { runId, status: "error", error: err.message });
+    }
+    job.lastRun = new Date().toISOString();
+    job.lastStatus = "done";
+    await saveCronJobs(await loadCronJobs().then(jobs => jobs.map(j => j.id === job.id ? job : j)));
+    return;
+  }
+
   // ── Reminder type ──
   if (job.type === "reminder") {
     const reminderContent = `⏰ **提醒**：${job.reminderText || job.name}`;
