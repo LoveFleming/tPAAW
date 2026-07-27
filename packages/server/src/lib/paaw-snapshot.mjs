@@ -18,15 +18,21 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { createHash } from "crypto";
 import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN } from "./shell-exec.mjs";
 
-function runShell(command, cwd, timeoutMs = 10_000) {
-  return new Promise((resolve) => {
-    execCb(command, { cwd, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024, shell: true,
-      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" }
-    }, (err, stdout, stderr) => {
-      resolve((stdout || "") + (stderr ? "\n" + stderr : ""));
+async function runShell(command, cwd, timeoutMs = 10_000) {
+  try {
+    const { stdout, stderr } = await shellExec(command, {
+      cwd,
+      timeout: timeoutMs,
+      maxBuffer: 2 * 1024 * 1024,
     });
-  });
+    return (stdout || "") + (stderr ? "\n" + stderr : "");
+  } catch (e) {
+    let output = e.stdout || "";
+    if (e.stderr) output += (output ? "\n" : "") + e.stderr;
+    return output;
+  }
 }
 
 export class PaawSnapshot {

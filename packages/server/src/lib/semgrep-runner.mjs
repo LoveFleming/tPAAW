@@ -256,7 +256,7 @@ export function isSemgrepAvailable() {
     execSyncCb(`${bin} --version`, {
       stdio: "pipe",
       timeout: 15000,
-      shell: true,
+      shell: IS_WIN ? "cmd.exe" : true,
       env: _semgrepEnv(),
       encoding: "utf-8",
     });
@@ -365,11 +365,10 @@ export async function runSemgrep(projectRoot, options = {}) {
   let execError = null;
 
   try {
-    const result = await exec(runCmd, {
+    const result = await shellExec(runCmd, {
       cwd: projectRoot,
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024,
-      shell: true,
       env: _semgrepEnv(),
     });
     stdout = result.stdout || "";

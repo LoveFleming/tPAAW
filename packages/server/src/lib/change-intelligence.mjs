@@ -15,6 +15,7 @@
  */
 
 import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN } from "./shell-exec.mjs";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { promisify } from "util";
@@ -27,7 +28,7 @@ const exec = promisify(execCb);
  */
 async function git(projectRoot, args) {
   try {
-    const { stdout } = await exec(`git ${args}`, {
+    const { stdout } = await shellExec(`git ${args}`, {
       cwd: projectRoot,
       maxBuffer: 10 * 1024 * 1024,
     });

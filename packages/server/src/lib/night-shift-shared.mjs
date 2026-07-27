@@ -13,6 +13,7 @@
  */
 
 import { execSync } from "child_process";
+import { shellExecSync } from "./shell-exec.mjs";
 import { exec as execCb } from "child_process";
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
@@ -34,18 +35,18 @@ export async function gatherContext(rootDir, sinceDate) {
 
   // 1. Git status (uncommitted changes)
   try {
-    ctx.gitStatus = execSync(`cd ${safeDir} && git status --short`, { encoding: "utf-8", timeout: 10000 }).trim();
+    ctx.gitStatus = shellExecSync(`git status --short`, { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }).trim();
   } catch { ctx.gitStatus = ""; }
 
   // 2. Git log since date
   try {
-    ctx.gitLog = execSync(`cd ${safeDir} && git log --since="${sinceArg}" --oneline --no-decorate -20`, { encoding: "utf-8", timeout: 10000 }).trim();
+    ctx.gitLog = shellExecSync(`git log --since="${sinceArg}" --oneline --no-decorate -20`, { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }).trim();
   } catch { ctx.gitLog = ""; }
 
   // 3. Commit count since date
   try {
     ctx.commitCount = parseInt(
-      execSync(`cd ${safeDir} && git log --since="${sinceArg}" --oneline 2>/dev/null | wc -l`, { encoding: "utf-8", timeout: 10000 }).trim()
+      shellExecSync(`git log --since="${sinceArg}" --oneline 2>nul | find /c /v ""`, { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }).trim()
     ) || 0;
   } catch { ctx.commitCount = 0; }
 
@@ -53,25 +54,25 @@ export async function gatherContext(rootDir, sinceDate) {
   const commitCount = Math.max(ctx.commitCount, 1);
   const safeCommitCount = Math.min(commitCount, 50);
   try {
-    ctx.changedFiles = execSync(
-      `cd ${safeDir} && git diff --name-only HEAD~${safeCommitCount} HEAD 2>/dev/null || git diff --name-only 2>/dev/null`,
-      { encoding: "utf-8", timeout: 10000 }
+    ctx.changedFiles = shellExecSync(
+      `git diff --name-only HEAD~${safeCommitCount} HEAD`,
+      { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }
     ).trim().split("\n").filter(Boolean);
   } catch { ctx.changedFiles = []; }
 
   // 5. Diff stat
   try {
-    ctx.diffStat = execSync(
-      `cd ${safeDir} && git diff --stat HEAD~${safeCommitCount} HEAD 2>/dev/null || git diff --stat 2>/dev/null`,
-      { encoding: "utf-8", timeout: 10000 }
+    ctx.diffStat = shellExecSync(
+      `git diff --stat HEAD~${safeCommitCount} HEAD`,
+      { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }
     ).trim();
   } catch { ctx.diffStat = ""; }
 
   // 6. Unpushed commits
   try {
-    ctx.unpushed = execSync(
-      `cd ${safeDir} && git log --oneline origin/dev..HEAD 2>/dev/null || echo ""`,
-      { encoding: "utf-8", timeout: 10000 }
+    ctx.unpushed = shellExecSync(
+      `git log --oneline origin/dev..HEAD`,
+      { cwd: projectRoot, encoding: "utf-8", timeout: 10000 }
     ).trim();
   } catch { ctx.unpushed = ""; }
 

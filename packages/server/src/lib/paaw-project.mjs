@@ -22,6 +22,7 @@ import { readFile, writeFile, readdir, stat, mkdir, appendFile } from "fs/promis
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN } from "./shell-exec.mjs";
 
 // ── Helpers ──
 
@@ -39,22 +40,19 @@ function slugify(text) {
     .slice(0, 60);
 }
 
-function runShell(command, cwd, timeoutMs = 10_000) {
-  return new Promise((resolve) => {
-    execCb(command, {
+async function runShell(command, cwd, timeoutMs = 10_000) {
+  try {
+    const { stdout } = await shellExec(command, {
       cwd,
       timeout: timeoutMs,
       maxBuffer: 2 * 1024 * 1024,
-      shell: true,
-      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-    }, (err, stdout, stderr) => {
-      let output = "";
-      if (stdout) output += stdout;
-      if (stderr) output += (output ? "\n" : "") + stderr;
-      if (err && err.code) output += (output ? "\n" : "") + `Exit code: ${err.code}`;
-      resolve(output || "");
     });
-  });
+    return stdout || "";
+  } catch (e) {
+    let output = e.stdout || "";
+    if (e.stderr) output += (output ? "\n" : "") + e.stderr;
+    return output;
+  }
 }
 
 // ── PaawProject Class ──

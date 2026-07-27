@@ -21,6 +21,7 @@
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
 import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync } from "fs";
 import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
 import { resolve, join, dirname, relative } from "path";
 import { getDependencyContext, getAffectedTests } from "./dependency-context.mjs";
 import { fileURLToPath } from "url";
@@ -902,25 +903,20 @@ async function _nativeGrep(searchPath, pattern, include, maxResults = 50, ignore
   return results.join("\n") || "(no matches)";
 }
 
-function runShell(command, cwd, timeoutMs = 30_000) {
-  return new Promise((resolve) => {
-    // Windows: cmd.exe 比 powershell.exe 轉義問題少
-    // PowerShell 會把 <>| 票$ 等當特殊字元，cmd.exe 只認 % ^ & < > |
-    const shellOpt = IS_WIN ? "cmd.exe" : true;
-    const child = execCb(command, {
+async function runShell(command, cwd, timeoutMs = 30_000) {
+  try {
+    const { stdout, stderr } = await shellExec(command, {
       cwd,
       timeout: Math.min(timeoutMs, _agentCfg.shellTimeoutMs || 600_000),
       maxBuffer: 5 * 1024 * 1024,
-      shell: shellOpt,
-      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-    }, (err, stdout, stderr) => {
-      let output = "";
-      if (stdout) output += stdout;
-      if (stderr) output += (output ? "\n" : "") + stderr;
-      if (err && !output.includes(err.message)) output += (output ? "\n" : "") + `Exit code: ${err.code || 1}`;
-      resolve(output || "(no output)");
     });
-  });
+    return (stdout || "") + (stderr ? "\n" + stderr : "") || "(no output)";
+  } catch (e) {
+    let output = e.stdout || "";
+    if (e.stderr) output += (output ? "\n" : "") + e.stderr;
+    output += (output ? "\n" : "") + `Exit code: ${e.code || 1}`;
+    return output || "(no output)";
+  }
 }
 
 // ── Tool Execution ──

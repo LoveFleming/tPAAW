@@ -38,6 +38,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { exec as execCb } from "child_process";
+import { shellExec, IS_WIN } from "../lib/shell-exec.mjs";
 import { createPaawProject } from "../lib/paaw-project.mjs";
 import { callLLMWithRetry } from "../lib/llm-utils.mjs";
 import { normalizePath, readBody } from "./shared.mjs";
@@ -2955,14 +2956,17 @@ Output ONLY the markdown document, starting with # Coding Standards (Auto-Genera
 
 // ── Shell helper ──
 
-function runShellCmd(command, cwd, timeoutMs = 10_000) {
-  return new Promise((resolve) => {
-    execCb(command, { cwd, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024, shell: true,
-      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" }
-    }, (err, stdout, stderr) => {
-      resolve((stdout || "") + (stderr ? "\n" + stderr : ""));
+async function runShellCmd(command, cwd, timeoutMs = 10_000) {
+  try {
+    const { stdout, stderr } = await shellExec(command, {
+      cwd, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024,
     });
-  });
+    return (stdout || "") + (stderr ? "\n" + stderr : "");
+  } catch (e) {
+    let output = e.stdout || "";
+    if (e.stderr) output += (output ? "\n" : "") + e.stderr;
+    return output;
+  }
 }
 
 // ── Cross-platform file tree scan (Windows has no Unix 'find') ──
