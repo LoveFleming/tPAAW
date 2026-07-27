@@ -64,6 +64,7 @@ const ROUTE_MODULES = [
   "./routes/coding-health.mjs",
   "./routes/coding-reports.mjs",
   "./routes/llm-logs.mjs",
+  "./routes/agent-logs.mjs",
   "./routes/plugins.mjs",
   "./routes/agentic-bindings.mjs",
 ];

@@ -27,6 +27,7 @@ import AISettingsPage from "./pages/AISettingsPage";
 
 import HelpDesk from "./pages/HelpDesk";
 import LlmLogTab from "./components/LlmLogTab";
+import AgentLogs from "./components/AgentLogs";
 
 import { SidebarSection, NavItem } from "./components/ui/shared";
 import { Crew } from "./types";
@@ -467,6 +468,12 @@ function AppInner() {
     setActivePage(tabId);
   }, [currentScope]);
 
+  const openAgentLog = useCallback(() => {
+    const tabId = `${currentScope}:agent-log`;
+    setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
+    setActivePage(tabId);
+  }, [currentScope]);
+
   const openSkillAppById = useCallback((skillId: string) => {
     const tabId = `${currentScope}:skillapp.${skillId}`;
     setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]);
@@ -510,6 +517,7 @@ function AppInner() {
     if (pageType === "wf-exec") return "Workflows";
     if (pageType === "helpdesk") return "HelpDesk";
     if (pageType === "llm-log") return "📡 LLM Log";
+    if (pageType === "agent-log") return "📊 Agent 執行記錄";
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
       return skillAppNav.find(n => n.skillId === appId)?.label ?? appId;
@@ -654,6 +662,9 @@ function AppInner() {
     }
     if (pageType === "llm-log") {
       return <LlmLogTab />;
+    }
+    if (pageType === "agent-log") {
+      return <AgentLogs />;
     }
     if (pageType.startsWith("skillapp.")) {
       const skillId = pageType.slice(9);
@@ -848,6 +859,13 @@ function AppInner() {
                   active={activePage.endsWith(":llm-log")}
                   label="LLM Log"
                   onClick={openLlmLog}
+                  accentColor={themeInfo.accent}
+                  accentBg={themeInfo.accentBg}
+                />
+                <NavItem
+                  active={activePage.endsWith(":agent-log")}
+                  label="Agent 執行記錄"
+                  onClick={openAgentLog}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}
                 />

@@ -31,6 +31,7 @@ import { join as _pathJoin, dirname as _pathDirname, basename as _pathBasename, 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
+import { startAgentLog } from "./agent-exec-logger.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
 import { resolveDefaultModel } from "./llm-utils.mjs";
@@ -2213,6 +2214,15 @@ export async function runAgentLoop(config) {
   const startTime = Date.now();
   const timeoutMs = effectiveTimeout * 1000;
   const toolCallLog = [];
+
+  // ── Execution logger ──
+  const _logger = startAgentLog({
+    agentId: agentId || "agent",
+    prompt,
+    model: modelOverride || "default",
+    cwd,
+    maxTurns: effectiveMaxTurns,
+  });
   let snapshotTaken = false; // auto-snapshot before first file write
   const modifiedFiles = new Set(); // track modified files for post-edit test verification
 
@@ -2270,6 +2280,7 @@ export async function runAgentLoop(config) {
     // Call LLM (with context window trimming)
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
+    const _llmLog = _logger.llmCall({ turn: turns, model: llm.model, messageCount: trimmedMessages.length, contextTokens: JSON.stringify(trimmedMessages).length / 4 | 0 });
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
@@ -2289,6 +2300,7 @@ export async function runAgentLoop(config) {
     }
 
     const assistantMsg = choice.message;
+    _llmLog.done({ model: llm.model, finishReason: choice.finish_reason || null, toolCallCount: (assistantMsg.tool_calls || []).length, usage: response.usage || null });
     // sanitize content（清隱藏字元）
     let content = sanitizeContent(assistantMsg.content || "");
     const toolCalls = assistantMsg.tool_calls;
@@ -2321,15 +2333,21 @@ export async function runAgentLoop(config) {
     }
 
     // LLM wants to call tools
-    if (content && onEvent) onEvent({ type: "assistant_thinking", content });
+    let _thinkLog = null;
+    if (content) {
+      if (onEvent) onEvent({ type: "assistant_thinking", content });
+      _thinkLog = _logger.thinking(content);
+    }
 
     // Execute each tool call
     for (const call of toolCalls) {
       const _toolName = call.function?.name;
       const _ctx = { cwd, rootDir, onEvent, agentId };
+      const _toolLog = _logger.toolCall({ tool: _toolName, argsSummary: (call.function.arguments || "").slice(0, 200) });
       const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName)
         ? String(await toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), _ctx))
         : await executeTool(call, cwd, rootDir, onEvent, agentId);
+      _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       toolCallLog.push({
         turn: i + 1,
         name: call.function.name,
@@ -2352,6 +2370,12 @@ export async function runAgentLoop(config) {
   const durationMs = Date.now() - startTime;
 
   if (onEvent) onEvent({ type: "end", turns, durationMs, toolCalls: toolCallLog.length });
+
+  // End thinking log if active
+  if (_thinkLog) _thinkLog.done();
+
+  // ── Finalize execution log ──
+  await _logger.end({ turns, status: "completed" });
 
   // ── Record session to .paaw/sessions/ ──
   if (paaw && paaw.exists) {
@@ -2474,6 +2498,15 @@ export async function runAgentLoopStream(config, res) {
   const timeoutMs = timeout * 1000;
   const streamModifiedFiles = new Set(); // track modified files for post-edit verification
 
+  // ── Execution logger ──
+  const _logger = startAgentLog({
+    agentId: agentId || "coding",
+    prompt,
+    model: modelOverride || "default",
+    cwd,
+    maxTurns: effectiveMaxTurns,
+  });
+
   // SSE helper
   const sendSSE = (event, data) => {
     try {
@@ -2524,6 +2557,7 @@ export async function runAgentLoopStream(config, res) {
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     let usedLlm = llm;
+    const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: JSON.stringify(trimmedMessages).length / 4 | 0 });
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, llm.maxTokens);
     } catch (err) {
@@ -2579,6 +2613,14 @@ export async function runAgentLoopStream(config, res) {
       } catch (_e) {}
     }
 
+    // ── Log LLM result ──
+    _llmLog.done({
+      model: usedLlm.model,
+      finishReason: choice?.finish_reason || null,
+      toolCallCount: (choice?.message?.tool_calls || []).length,
+      usage: response.usage || null,
+    });
+
     const assistantMsg = choice.message;
     const content = sanitizeContent(assistantMsg.content || "");
     const toolCalls = assistantMsg.tool_calls;
@@ -2608,7 +2650,11 @@ export async function runAgentLoopStream(config, res) {
     }
 
     // Intermediate thinking
-    if (content) sendSSE("thinking", { content });
+    let _thinkLog = null;
+    if (content) {
+      sendSSE("thinking", { content });
+      _thinkLog = _logger.thinking(content);
+    }
 
     // Execute tools
     for (const call of toolCalls) {
@@ -2616,11 +2662,13 @@ export async function runAgentLoopStream(config, res) {
       try { args = JSON.parse(call.function.arguments); } catch { args = {}; }
       sendSSE("tool", { name: call.function.name, args });
 
+      const _toolLog = _logger.toolCall({ tool: call.function.name, argsSummary: JSON.stringify(args).slice(0, 200) });
       const _toolName2 = call.function?.name;
       const _ctx2 = { cwd, rootDir, onEvent: null, agentId };
       const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName2)
         ? String(await toolRegistry.execute(_toolName2, args, _ctx2))
         : await executeTool(call, cwd, rootDir, null, agentId);
+      const _toolDuration = _toolLog.done({ resultLen: toolResult.length, resultPreview: toolResult.slice(0, 200) });
       sendSSE("tool_result", { name: call.function.name, result: toolResult.slice(0, 2000) });
 
       // Track modified files for post-edit verification
@@ -2643,6 +2691,9 @@ export async function runAgentLoopStream(config, res) {
         content: toolResult,
       });
     }
+
+    // End thinking log after all tools in this turn
+    if (_thinkLog) _thinkLog.done();
   }
 
   // If we exhausted maxTurns without a final content response, force one
@@ -2687,4 +2738,10 @@ export async function runAgentLoopStream(config, res) {
   }
 
   sendSSE("done", { turns, durationMs: Date.now() - startTime });
+
+  // ── Finalize execution log ──
+  await _logger.end({
+    turns,
+    status: abortSignal?.aborted ? "interrupted" : "completed",
+  });
 }
