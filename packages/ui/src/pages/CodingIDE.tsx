@@ -1252,7 +1252,13 @@ const sendChat = useCallback(async () => {
                     }
                   }
 
-                  // info events — silently ignored (typing indicator covers this)
+                  // info events — show compaction progress briefly in action indicator
+                  if (currentEvent === "info" && data.message) {
+                    // Show compaction messages (e.g. "📦 自動壓縮對話...") in action indicator
+                    if (data.message.includes("壓縮") || data.message.includes("compact")) {
+                      setAgentAction(data.message);
+                    }
+                  }
 
                   // interrupted event — agent was stopped by user
                   if (currentEvent === "interrupted" || data.message?.includes?.("interrupted") || data.message?.includes?.("Interrupted")) {

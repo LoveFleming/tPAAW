@@ -31,6 +31,8 @@ import { join as _pathJoin, dirname as _pathDirname, basename as _pathBasename, 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { callLLMWithRetry, sanitizeContent, isMeaningfulContent, fetchStreamWithRetry } from "./llm-utils.mjs";
+import { smartTruncateToolResult, truncateToolResultsInMessages, limitHistoryTurns, estimateTokens } from "./context-truncation.mjs";
+import { compactIfNeeded, estimateMessageTokens, shouldCompact } from "./context-compaction.mjs";
 import { startAgentLog } from "./agent-exec-logger.mjs";
 import { createPaawProject } from "./paaw-project.mjs";
 import { PaawSnapshot } from "./paaw-snapshot.mjs";
@@ -1087,11 +1089,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             result = await runShell(findCmd, cwd, 10_000);
           }
         }
-        // Truncate
-        const maxLen = 20_000;
-        const truncated = result.length > maxLen
-          ? result.slice(0, maxLen) + `\n... (truncated)`
-          : result;
+        // Smart truncate (head+tail, preserves errors at end)
+        const truncated = smartTruncateToolResult(result, 20_000);
         const count = truncated.split("\n").filter(l => l.trim()).length;
         if (onEvent) onEvent({ type: "tool_end", name, result: `Found ${count} files matching '${pattern}'` });
         return truncated;
@@ -1123,11 +1122,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
             result = await runShell(grepCmd, cwd, 15_000);
           }
         }
-        // Truncate
-        const maxLen = 30_000;
-        const truncated = result.length > maxLen
-          ? result.slice(0, maxLen) + `\n... (truncated, ${result.length} bytes total)`
-          : result;
+        // Smart truncate (head+tail — preserves grep matches at end)
+        const truncated = smartTruncateToolResult(result, 30_000);
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
         return truncated;
       }
@@ -1159,15 +1155,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         if (IS_WIN) {
           const cmd = `git diff "${against}"${args.path ? ` -- "${diffPath}"` : ""}`;
           const result = await runShell(cmd, cwd, 15_000);
-          const maxLen = 30_000;
-          const truncated = result.length > maxLen ? result.slice(0, maxLen) + `\n... (truncated)` : result;
+          const truncated = smartTruncateToolResult(result, 30_000);
           if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
           return truncated || "(no changes)";
         }
         const cmd = `git diff '${against}'${args.path ? ` -- '${diffPath}'` : ""}`;
         const result = await runShell(cmd, cwd, 15_000);
-        const maxLen = 30_000;
-        const truncated = result.length > maxLen ? result.slice(0, maxLen) + `\n... (truncated)` : result;
+        const truncated = smartTruncateToolResult(result, 30_000);
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
         return truncated || "(no changes)";
       }
@@ -1178,9 +1172,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         const timeoutMs = Math.min((args._timeout || 30) * 1000, 60_000);
         const result = await runShell(cmd, cwd, timeoutMs);
         const maxLen = 30_000;
-        const truncated = result.length > maxLen
-          ? result.slice(0, maxLen) + `\n... (truncated, ${result.length} bytes total)`
-          : result;
+        const truncated = smartTruncateToolResult(result, 30_000);
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
         return truncated;
       }
@@ -1193,11 +1185,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         const timeoutSec = Math.min(args.timeout || 120, _agentCfg.bashTimeoutSeconds || 300);
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
-        // Truncate large output
-        const maxLen = 50_000;
-        const truncated = result.length > maxLen
-          ? result.slice(0, maxLen) + `\n... (truncated, ${result.length} bytes total)`
-          : result;
+        // Smart truncate (head+tail — preserves build errors/test results at end)
+        const truncated = smartTruncateToolResult(result, 50_000, { alwaysKeepTail: true });
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 500) });
         return truncated;
       }
@@ -1906,10 +1895,8 @@ const LLM_CALL_TIMEOUT_MS = 300_000;  // 5 min per LLM call (company models are 
 const MIN_PROMPT_BUDGET_RATIO = 0.5;
 const TOOL_RESULT_CONTEXT_SHARE = 0.3;
 
-function estimateTokens(text) {
-  // Rough estimate: ~3.5 chars per token for mixed CJK + English
-  return Math.ceil((text || "").length / 3.5);
-}
+// estimateTokens is now imported from context-truncation.mjs (shared)
+// (previously a local function — removed to avoid duplication)
 
 /**
  * Trim messages to fit context window.
@@ -1919,55 +1906,51 @@ function estimateTokens(text) {
  *   3. Summarize evicted middle messages into a compact summary
  *   4. Cap any single tool result at 30% of context window
  */
+/**
+ * Enhanced trimMessagesToFit — now uses shared context-truncation.mjs
+ *
+ * Pipeline: smart tool result truncation (head+tail) → history limiting → token budget check
+ * Auto-compaction (LLM summarization) is handled separately in the agent loop.
+ */
 export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WINDOW) {
   if (messages.length <= 4) return messages;
 
   const budget = contextWindow - CONTEXT_SAFETY_MARGIN;
-  const toolResultCap = Math.floor(contextWindow * TOOL_RESULT_CONTEXT_SHARE) * 4; // chars
 
-  // Pass 1: Cap oversized tool results in any message content
-  let msgs = messages.map(m => {
-    const content = m.content || "";
-    if (content.length > toolResultCap) {
-      const trimmed = content.slice(0, toolResultCap) + `\n... (tool result truncated, ${content.length} chars total, capped at ${toolResultCap} chars to preserve context budget)`;
-      return { ...m, content: trimmed };
-    }
-    return m;
-  });
+  // Pass 1: Smart tool result truncation (head+tail, preserves errors at end)
+  const afterToolTrunc = truncateToolResultsInMessages(messages);
 
-  // Pass 2: Check total fits
-  let totalTokens = msgs.reduce((s, m) => s + estimateTokens(m.content || ""), 0);
+  // Pass 2: Limit history turns (keep recent N user turns)
+  const afterHistoryLimit = limitHistoryTurns(afterToolTrunc, 12);
+
+  // Pass 3: Check total fits
+  const totalTokens = estimateMessageTokens(afterHistoryLimit);
   if (totalTokens <= budget) {
-    return msgs; // fits, no trimming needed
+    return afterHistoryLimit;
   }
 
-  // Pass 3: Sliding window — keep head (system + first user) + as many tail messages as fit
-  const head = msgs.slice(0, 2); // system + first user
-  const tailMessages = msgs.slice(2);
+  // Pass 4: Sliding window — keep head + as many tail messages as fit
+  const head = afterHistoryLimit.slice(0, 2); // system + first user
+  const tailMessages = afterHistoryLimit.slice(2);
 
-  // Greedily add tail messages from most recent backwards
   const keptTail = [];
-  let tailTokens = head.reduce((s, m) => s + estimateTokens(m.content || ""), 0);
-  const minPromptBudget = Math.min(8000, Math.floor(budget * MIN_PROMPT_BUDGET_RATIO));
-  const tailBudget = budget - tailTokens; // remaining after head
+  let tailTokens = estimateMessageTokens(head);
+  const tailBudget = budget - tailTokens;
 
   for (let i = tailMessages.length - 1; i >= 0; i--) {
-    const msgTokens = estimateTokens(tailMessages[i].content || "");
+    const msgTokens = estimateMessageTokens([tailMessages[i]]);
     if (tailTokens + msgTokens > tailBudget) break;
     keptTail.unshift(tailMessages[i]);
     tailTokens += msgTokens;
   }
 
-  // Summarize evicted messages
-  const evictedStart = 0;
-  const evictedEnd = tailMessages.length - keptTail.length;
-  const evicted = tailMessages.slice(evictedStart, evictedEnd);
+  const evicted = tailMessages.slice(0, tailMessages.length - keptTail.length);
 
   if (evicted.length === 0) {
     return [...head, ...keptTail];
   }
 
-  // Build compact summary of evicted messages
+  // Build summary of evicted messages
   const summaryParts = evicted
     .filter(m => m.role === "assistant" || m.role === "user" || m.role === "system")
     .map(m => {
@@ -1978,11 +1961,11 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
 
   const summaryMsg = {
     role: "system",
-    content: `[Context trimmed — ${evicted.length} earlier messages summarized]\n${summaryParts.join("\n")}\n[End of summary — ${evicted.length} messages evicted to fit context window]`,
+    content: `[Context trimmed — ${evicted.length} earlier messages summarized]\n${summaryParts.join("\n").slice(0, 3000)}\n[End of summary — ${evicted.length} messages evicted to fit context window]`,
   };
 
   const trimmed = [...head, summaryMsg, ...keptTail];
-  const trimmedTokens = trimmed.reduce((s,m) => s + estimateTokens(m.content || ""), 0);
+  const trimmedTokens = estimateMessageTokens(trimmed);
   console.log(`[context-trim] ${messages.length} msgs → ${trimmed.length} msgs (est. ${totalTokens} tok → ~${trimmedTokens} tok, budget=${budget})`);
   return trimmed;
 }
@@ -2277,10 +2260,26 @@ export async function runAgentLoop(config) {
 
     if (onEvent) onEvent({ type: "turn_start", turn: i + 1 });
 
-    // Call LLM (with context window trimming)
+    // ── Auto-compaction: if context is getting full, summarize older messages via LLM ──
+    if (i > 0 && i % 3 === 0) { // check every 3 turns
+      const compactResult = await compactIfNeeded(messages, {
+        apiUrl: llm.apiUrl,
+        headers: llm.headers,
+        model: llm.model,
+        contextWindow: llm.contextWindow || DEFAULT_CONTEXT_WINDOW,
+        maxTokens: llm.maxTokens,
+      }, { originalPrompt: prompt, onEvent });
+      if (compactResult.compacted) {
+        // Replace messages array contents in-place
+        messages.length = 0;
+        messages.push(...compactResult.messages);
+      }
+    }
+
+    // Call LLM (with context window trimming — smart head+tail + history limit)
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
-    const _llmLog = _logger.llmCall({ turn: turns, model: llm.model, messageCount: trimmedMessages.length, contextTokens: JSON.stringify(trimmedMessages).length / 4 | 0 });
+    const _llmLog = _logger.llmCall({ turn: turns, model: llm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
         if (onEvent) onEvent({ type: evt, ...data });
@@ -2553,11 +2552,27 @@ export async function runAgentLoopStream(config, res) {
     turns++;
     sendSSE("turn", { turn: i + 1 });
 
+    // ── Auto-compaction: if context is getting full, summarize older messages via LLM ──
+    if (i > 0 && i % 3 === 0) { // check every 3 turns
+      const compactResult = await compactIfNeeded(messages, {
+        apiUrl: llm.apiUrl,
+        headers: llm.headers,
+        model: llm.model,
+        contextWindow: llm.contextWindow || DEFAULT_CONTEXT_WINDOW,
+        maxTokens: llm.maxTokens,
+      }, { originalPrompt: prompt, onEvent: sendSSE });
+      if (compactResult.compacted) {
+        // Replace messages array contents in-place
+        messages.length = 0;
+        messages.push(...compactResult.messages);
+      }
+    }
+
     // Call LLM with fallback chain on 429/rate-limit (with context window trimming)
     const trimmedMessages = trimMessagesToFit(messages, llm.contextWindow || DEFAULT_CONTEXT_WINDOW);
     let response;
     let usedLlm = llm;
-    const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: JSON.stringify(trimmedMessages).length / 4 | 0 });
+    const _llmLog = _logger.llmCall({ turn: turns, model: usedLlm.model, messageCount: trimmedMessages.length, contextTokens: estimateMessageTokens(trimmedMessages) });
     try {
       response = await callLLM(llm.apiUrl, llm.headers, llm.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, sendSSE, agentId, llm.maxTokens);
     } catch (err) {

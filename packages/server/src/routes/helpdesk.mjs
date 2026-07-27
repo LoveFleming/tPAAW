@@ -14,6 +14,7 @@ import { fileURLToPath } from "url";
 import { readBody, json } from "./shared.mjs";
 import { JsonTaskPersistence } from "../lib/task-persistence.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
+import { truncateToolResultsInMessages, limitHistoryTurns } from "../lib/context-truncation.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -269,10 +270,12 @@ export default async function helpdeskRoute(req, res) {
 
       console.log(`[HelpDesk] Ticket ${ticketId} follow-up: "${message.slice(0, 80)}"`);
 
-      // Build conversation from ticket history
-      const conversation = ticket.messages
+      // Build conversation from ticket history (with smart truncation)
+      const rawConversation = ticket.messages
         .filter(m => m.role === "user" || m.role === "agent")
         .map(m => ({ role: m.role === "agent" ? "assistant" : "user", content: m.text }));
+      // Limit history to recent turns + truncate any oversized content
+      const conversation = limitHistoryTurns(rawConversation, 8);
 
       try {
         const result = await runHelpDeskSkill(conversation, modelOverride, { taskStore });
