@@ -1935,7 +1935,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
     model,
     messages,
     ...(tools && tools.length > 0 ? { tools, tool_choice: "auto" } : {}),
-    max_tokens: 8192,
+    max_tokens: 16384,
     stream,
   };
 
