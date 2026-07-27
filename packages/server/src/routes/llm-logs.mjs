@@ -17,6 +17,31 @@ function ensureLogDir() {
   mkdirSync(LOG_DIR, { recursive: true });
 }
 
+/** Auto-cleanup logs older than retentionDays (default 7) */
+function cleanupOldLogs(retentionDays = 7) {
+  try {
+    const files = readdirSync(LOG_DIR).filter(f => f.endsWith(".jsonl"));
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    let deleted = 0;
+    for (const f of files) {
+      const dateStr = f.replace(".jsonl", "");
+      if (dateStr < cutoffStr) {
+        unlinkSync(join(LOG_DIR, f));
+        deleted++;
+      }
+    }
+    if (deleted > 0) console.log(`[llm-logs] Cleaned up ${deleted} files older than ${retentionDays} days (before ${cutoffStr})`);
+  } catch (e) {
+    console.error(`[llm-logs] Cleanup error: ${e.message}`);
+  }
+}
+
+// Run cleanup once on module load (server startup)
+ensureLogDir();
+cleanupOldLogs(7);
+
 /** Infer agentId from caller field for old logs that lack agentId */
 function _callerToAgentId(caller) {
   if (!caller) return null;
