@@ -24,13 +24,13 @@ import { estimateTokens } from "./context-truncation.mjs";
 // ── Configuration ──
 
 /** Trigger compaction when messages exceed this fraction of context window */
-const COMPACTION_TRIGGER_RATIO = 0.75;
+const COMPACTION_TRIGGER_RATIO = 0.55;
 
 /** Keep this fraction of context for the tail (recent messages, never compacted) */
 const TAIL_KEEP_RATIO = 0.35;
 
 /** Min messages before compaction makes sense */
-const MIN_MESSAGES_FOR_COMPACTION = 12;
+const MIN_MESSAGES_FOR_COMPACTION = 8;
 
 /** Max tokens for the summary itself */
 const MAX_SUMMARY_TOKENS = 2048;
@@ -292,12 +292,12 @@ export async function compactIfNeeded(messages, llmConfig, opts = {}) {
   console.log(`[compaction] Triggered: ${decision.reason}`);
   console.log(`[compaction] Partition: head=${head.length}, compactable=${compactable.length}, tail=${tail.length}`);
 
-  // Summarize compactable messages
-  // Use the configured model for summarization (could use a cheaper model in future)
+  // Summarize compactable messages using the main model
+  // (cheap models like deepseek can't summarize coding context well)
   const summaryLlmConfig = {
     apiUrl: llmConfig.apiUrl,
     headers: llmConfig.headers,
-    model: llmConfig.model, // Use same model — future: use cheaper model for summary
+    model: llmConfig.model,
     contextWindow,
     maxTokens: MAX_SUMMARY_TOKENS,
   };

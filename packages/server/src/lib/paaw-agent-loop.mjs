@@ -1092,7 +1092,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
           }
         }
         // Smart truncate (head+tail, preserves errors at end)
-        const truncated = smartTruncateToolResult(result, 20_000);
+        const truncated = smartTruncateToolResult(result, 12_000);
         const count = truncated.split("\n").filter(l => l.trim()).length;
         if (onEvent) onEvent({ type: "tool_end", name, result: `Found ${count} files matching '${pattern}'` });
         return truncated;
@@ -1125,7 +1125,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
           }
         }
         // Smart truncate (head+tail — preserves grep matches at end)
-        const truncated = smartTruncateToolResult(result, 30_000);
+        const truncated = smartTruncateToolResult(result, 12_000);
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
         return truncated;
       }
@@ -1157,13 +1157,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         if (IS_WIN) {
           const cmd = `git diff "${against}"${args.path ? ` -- "${diffPath}"` : ""}`;
           const result = await runShell(cmd, cwd, 15_000);
-          const truncated = smartTruncateToolResult(result, 30_000);
+          const truncated = smartTruncateToolResult(result, 12_000);
           if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
           return truncated || "(no changes)";
         }
         const cmd = `git diff '${against}'${args.path ? ` -- '${diffPath}'` : ""}`;
         const result = await runShell(cmd, cwd, 15_000);
-        const truncated = smartTruncateToolResult(result, 30_000);
+        const truncated = smartTruncateToolResult(result, 12_000);
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
         return truncated || "(no changes)";
       }
@@ -1174,7 +1174,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         const timeoutMs = Math.min((args._timeout || 30) * 1000, 60_000);
         const result = await runShell(cmd, cwd, timeoutMs);
         const maxLen = 30_000;
-        const truncated = smartTruncateToolResult(result, 30_000);
+        const truncated = smartTruncateToolResult(result, 12_000);
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 300) });
         return truncated;
       }
@@ -1188,7 +1188,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         const timeoutMs = timeoutSec * 1000;
         const result = await runShell(args.command, cwd, timeoutMs);
         // Smart truncate (head+tail — preserves build errors/test results at end)
-        const truncated = smartTruncateToolResult(result, 50_000, { alwaysKeepTail: true });
+        const truncated = smartTruncateToolResult(result, 12_000, { alwaysKeepTail: true });
         if (onEvent) onEvent({ type: "tool_end", name, result: truncated.slice(0, 500) });
         return truncated;
       }
@@ -1923,7 +1923,7 @@ export function trimMessagesToFit(messages, contextWindow = DEFAULT_CONTEXT_WIND
   const afterToolTrunc = truncateToolResultsInMessages(messages);
 
   // Pass 2: Limit history turns (keep recent N user turns)
-  const afterHistoryLimit = limitHistoryTurns(afterToolTrunc, 12);
+  const afterHistoryLimit = limitHistoryTurns(afterToolTrunc, 8);
 
   // Pass 3: Check total fits
   const totalTokens = estimateMessageTokens(afterHistoryLimit);
@@ -2360,7 +2360,7 @@ export async function runAgentLoop(config) {
     if (onEvent) onEvent({ type: "turn_start", turn: i + 1 });
 
     // ── Auto-compaction: if context is getting full, summarize older messages via LLM ──
-    if (i > 0 && i % 3 === 0) { // check every 3 turns
+    if (i > 0 && i % 2 === 0) { // check every 3 turns
       const compactResult = await compactIfNeeded(messages, {
         apiUrl: llm.apiUrl,
         headers: llm.headers,
@@ -2683,7 +2683,7 @@ export async function runAgentLoopStream(config, res) {
     sendSSE("turn", { turn: i + 1 });
 
     // ── Auto-compaction: if context is getting full, summarize older messages via LLM ──
-    if (i > 0 && i % 3 === 0) { // check every 3 turns
+    if (i > 0 && i % 2 === 0) { // check every 3 turns
       const compactResult = await compactIfNeeded(messages, {
         apiUrl: llm.apiUrl,
         headers: llm.headers,

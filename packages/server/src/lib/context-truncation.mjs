@@ -15,7 +15,7 @@
 // ── Configuration ──
 
 /** Default max chars for a single tool result before truncation */
-const DEFAULT_MAX_TOOL_RESULT_CHARS = 30_000;
+const DEFAULT_MAX_TOOL_RESULT_CHARS = 12_000;
 
 /** Minimum chars to keep from the head */
 const MIN_HEAD_CHARS = 5_000;
@@ -121,7 +121,7 @@ export function smartTruncateToolResult(text, maxChars = DEFAULT_MAX_TOOL_RESULT
  * @param {number} totalBudgetChars - Overall budget for tool results (default: 40% of 128k context ≈ 50000)
  * @returns {Array} Messages with truncated tool results
  */
-export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFAULT_MAX_TOOL_RESULT_CHARS, totalBudgetChars = 50_000) {
+export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFAULT_MAX_TOOL_RESULT_CHARS, totalBudgetChars = 30_000) {
   let totalToolChars = 0;
   const toolMsgIndexes = [];
 
