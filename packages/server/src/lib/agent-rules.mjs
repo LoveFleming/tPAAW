@@ -48,9 +48,9 @@ export const AGENT_RULES = `
 - **record_decision** — 架構決策寫入 DECISIONS.md
 
 ### 🧹 暫存檔案清理（必須）
-- 暫存檔案（scratch script、測試 snippet、probe、debug 用檔案）一律寫到 `.paaw/tmp/`
+- 暫存檔案（scratch script、測試 snippet、probe、debug 用檔案）一律寫到 .paaw/tmp/
 - **絕對不要在專案原始碼目錄寫暫存檔**（src/ lib/ packages/ 等）
 - 用完的暫存檔自己刪掉：用 bash 工具執行 rm -f .paaw/tmp/xxx.mjs
-- `.paaw/tmp/` 每個 session 結束會自動清空，不要放重要檔案
+- .paaw/tmp/ 每個 session 結束會自動清空，不要放重要檔案
 - 正式的測試檔案（屬於專案的）正常寫，不算暫存
 `;

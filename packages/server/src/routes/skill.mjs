@@ -204,7 +204,12 @@ export default async function skillRoutes(req, res) {
         );
       }
 
-      // skill-source.md stays in building/, never published
+      // skill-source.md stays in building/ for re-builds, but clean up test-output
+      try {
+        const testOutDir = join(srcDir, "test-output");
+        await rm(testOutDir, { recursive: true, force: true });
+      } catch {}
+
       json(res, {
         ok: true, id: skillId, kind: target,
         path: destDir, sourcePath: srcDir,
