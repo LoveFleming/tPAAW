@@ -122,7 +122,6 @@ export function smartTruncateToolResult(text, maxChars = DEFAULT_MAX_TOOL_RESULT
  * @returns {Array} Messages with truncated tool results
  */
 export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFAULT_MAX_TOOL_RESULT_CHARS, totalBudgetChars = 30_000) {
-  let totalToolChars = 0;
   const toolMsgIndexes = [];
 
   // Build a map: tool_call_id → tool name (from preceding assistant messages)
@@ -136,56 +135,78 @@ export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFA
     }
   }
 
-  // First pass: identify tool messages and calculate total
-  // read_file results get 2x budget (file content is critical for code accuracy)
+  // Identify tool messages
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    if (msg.role === "tool" || (msg.content && typeof msg.content === "string" && msg.content.length > maxCharsPerResult)) {
+    if (msg.role === "tool") {
       toolMsgIndexes.push(i);
-      totalToolChars += (msg.content || "").length;
     }
   }
 
-  if (totalToolChars <= totalBudgetChars) {
-    // Even if under total budget, cap individual oversized results (except read_file)
-    return messages.map(msg => {
-      if (msg.role === "tool" && msg.content && msg.content.length > maxCharsPerResult) {
-        const toolName = toolNameMap.get(msg.tool_call_id) || "";
-        // read_file gets more generous cap — code accuracy depends on seeing full files
-        const cap = toolName === "read_file" ? maxCharsPerResult * 3 : maxCharsPerResult;
-        if (msg.content.length > cap) {
-          return { ...msg, content: smartTruncateToolResult(msg.content, cap) };
-        }
+  // ── 3-tier truncation strategy ──
+  // Goal: recent reads stay FULL, old stuff gets aggressively compressed
+  //
+  // Tier 1 (last 2 turns): read_file FULL (up to 36K), other tools 12K each
+  // Tier 2 (turns 3-6):    read_file 12K, other tools 4K
+  // Tier 3 (turn 7+):      everything 2K (just summary/preview)
+
+  const result = [...messages];
+
+  // Figure out turn boundaries: count assistant messages with tool_calls
+  const turnBoundaries = []; // indexes into toolMsgIndexes
+  let lastAssistantIdx = -1;
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].role === "assistant" && messages[i].tool_calls?.length > 0) {
+      lastAssistantIdx = i;
+    }
+    if (messages[i].role === "tool" && lastAssistantIdx >= 0) {
+      // This tool belongs to the current assistant turn
+      if (!turnBoundaries.length || turnBoundaries[turnBoundaries.length - 1] !== lastAssistantIdx) {
+        turnBoundaries.push(lastAssistantIdx);
       }
-      return msg;
-    });
+    }
+  }
+  const totalTurns = turnBoundaries.length;
+
+  // Assign each tool message to a turn number
+  const toolTurnMap = new Map(); // msgIndex → turnNumber (0=oldest, N=newest)
+  let turnIdx = 0;
+  for (let i = 0; i < messages.length; i++) {
+    if (i === turnBoundaries[turnIdx + 1]) turnIdx++;
+    if (messages[i].role === "tool") {
+      toolTurnMap.set(i, turnIdx);
+    }
   }
 
-  // Over budget: progressively truncate older tool results more aggressively
-  // Most recent results get full maxCharsPerResult budget
-  // Older results get progressively smaller budgets
-  const result = [...messages];
-  const toolCount = toolMsgIndexes.length;
+  let totalToolChars = 0;
 
-  // Calculate per-result budget with recency weighting
-  for (let rank = 0; rank < toolCount; rank++) {
-    const msgIdx = toolMsgIndexes[toolCount - 1 - rank]; // most recent first
+  for (const msgIdx of toolMsgIndexes) {
     const msg = result[msgIdx];
-
-    // Recency-weighted budget: most recent gets full, older get less
-    const recencyFactor = Math.max(0.3, 1 - (rank / toolCount) * 0.7);
-    // read_file gets 2.5x budget — code accuracy depends on seeing full files
+    const content = msg.content || "";
     const toolName = toolNameMap.get(msg.tool_call_id) || "";
-    const fileType = toolName === "read_file" ? 2.5 : 1;
-    const perResultBudget = Math.floor(maxCharsPerResult * recencyFactor * fileType);
+    const isReadFile = toolName === "read_file";
+    const turnNum = toolTurnMap.get(msgIdx) ?? 0;
+    const turnsAgo = totalTurns - turnNum;
 
-    if (msg.content && msg.content.length > perResultBudget) {
-      const original = msg.content;
+    let cap;
+    if (turnsAgo <= 2) {
+      // Tier 1: recent — read_file gets full content, others get normal cap
+      cap = isReadFile ? 36_000 : 12_000;
+    } else if (turnsAgo <= 6) {
+      // Tier 2: medium — read_file gets compressed, others get tight
+      cap = isReadFile ? 12_000 : 4_000;
+    } else {
+      // Tier 3: old — everything gets a preview only
+      cap = 2_000;
+    }
+
+    if (content.length > cap) {
       result[msgIdx] = {
         ...msg,
-        content: smartTruncateToolResult(original, perResultBudget, { alwaysKeepTail: rank < 5 }),
+        content: smartTruncateToolResult(content, cap, { alwaysKeepTail: turnsAgo <= 3 }),
       };
     }
+    totalToolChars += (result[msgIdx].content || "").length;
   }
 
   return result;
