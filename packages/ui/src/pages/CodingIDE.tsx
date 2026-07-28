@@ -2980,6 +2980,11 @@ const sendChat = useCallback(async () => {
                     {chatLoading && (
                       <button
                         onClick={() => {
+                          // Immediately update UI state — don't wait for SSE/stream to close
+                          setChatLoading(false);
+                          setAgentRunning(false);
+                          setAgentAction("");
+
                           // Abort whatever is running
                           if (a2aAbortRef.current) {
                             a2aAbortRef.current.abort();
@@ -2993,6 +2998,13 @@ const sendChat = useCallback(async () => {
                           const aid = activeCrew?.replace(/^coding\./, "") || "architect";
                           fetch(`${API_BASE}/api/coding-crew/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
                           fetch(`${API_BASE}/api/a2a/interrupt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agentId: aid }) }).catch(() => {});
+
+                          // Add interrupted message if not already there
+                          setChatMessages(prev => {
+                            const last = prev[prev.length - 1];
+                            if (last?.content?.includes("中斷")) return prev; // already has interrupt msg
+                            return [...prev, { role: "assistant" as const, content: "⏹️ Agent 已中斷。", ts: new Date().toISOString() }];
+                          });
                         }}
                         className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
                         title="中斷"
