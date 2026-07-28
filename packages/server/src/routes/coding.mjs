@@ -1065,6 +1065,59 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
+  // ── POST /api/coding-project/create — does NOT need ?path= (project doesn't exist yet) ──
+  if (url.startsWith("/api/coding-project/create") && method === "POST") {
+    const body = JSON.parse(await readBody(req) || "{}");
+    const parentDir = body.parentDir;
+    const projectName = (body.name || "").trim();
+    const initGit = body.initGit !== false; // default true
+    const initPaaw = body.initPaaw !== false; // default true
+
+    if (!parentDir || !projectName) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing parentDir or name" }));
+      return true;
+    }
+
+    // Validate project name (no path traversal)
+    if (projectName.includes("/") || projectName.includes("\\") || projectName.includes("..")) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid project name" }));
+      return true;
+    }
+
+    const projectDir = join(resolve(parentDir), projectName);
+
+    // Check if already exists
+    if (existsSync(projectDir)) {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Directory already exists", path: norm(projectDir) }));
+      return true;
+    }
+
+    // Create directory
+    await mkdir(projectDir, { recursive: true });
+
+    // Initialize .paaw/
+    if (initPaaw) {
+      const newPaaw = createPaawProject(projectDir);
+      await newPaaw.init();
+    }
+
+    // Initialize git
+    if (initGit) {
+      try {
+        await runShellCmd("git init", projectDir);
+      } catch (e) {
+        console.error("[project create] git init failed:", e.message);
+      }
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, path: norm(projectDir), name: projectName }));
+    return true;
+  }
+
   if (!projectPath) {
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Missing 'path' query parameter" }));
@@ -1095,59 +1148,6 @@ export default async function projectRoute(req, res) {
       const result = await paaw.init();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
-      return true;
-    }
-
-    // ── POST /api/coding-project/create — Create new project ──
-    if (url.startsWith("/api/coding-project/create") && method === "POST") {
-      const body = JSON.parse(await readBody(req) || "{}");
-      const parentDir = body.parentDir;
-      const projectName = (body.name || "").trim();
-      const initGit = body.initGit !== false; // default true
-      const initPaaw = body.initPaaw !== false; // default true
-
-      if (!parentDir || !projectName) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing parentDir or name" }));
-        return true;
-      }
-
-      // Validate project name (no path traversal)
-      if (projectName.includes("/") || projectName.includes("\\") || projectName.includes("..")) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Invalid project name" }));
-        return true;
-      }
-
-      const projectDir = join(resolve(parentDir), projectName);
-
-      // Check if already exists
-      if (existsSync(projectDir)) {
-        res.writeHead(409, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Directory already exists", path: norm(projectDir) }));
-        return true;
-      }
-
-      // Create directory
-      await mkdir(projectDir, { recursive: true });
-
-      // Initialize .paaw/
-      if (initPaaw) {
-        const newPaaw = createPaawProject(projectDir);
-        await newPaaw.init();
-      }
-
-      // Initialize git
-      if (initGit) {
-        try {
-          await runShellCmd("git init", projectDir);
-        } catch (e) {
-          console.error("[project create] git init failed:", e.message);
-        }
-      }
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, path: norm(projectDir), name: projectName }));
       return true;
     }
 
