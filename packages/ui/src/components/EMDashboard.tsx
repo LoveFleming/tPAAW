@@ -268,6 +268,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
 
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
+  const [emLog, setEmLog] = useState<string[]>([]);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
   const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
