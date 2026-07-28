@@ -2675,7 +2675,7 @@ export async function runAgentLoopStream(config, res) {
       break;
     }
     if (Date.now() - startTime > timeoutMs) {
-      sendSSE("error", { error: "Agent loop timed out" });
+      sendSSE("error", { error: `Agent loop timed out after ${Math.round(timeoutMs/60000)} min (${turns} turns completed). Task may be partially done — check action log.` });
       break;
     }
 
