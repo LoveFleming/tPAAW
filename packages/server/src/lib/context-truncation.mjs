@@ -125,7 +125,19 @@ export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFA
   let totalToolChars = 0;
   const toolMsgIndexes = [];
 
+  // Build a map: tool_call_id → tool name (from preceding assistant messages)
+  const toolNameMap = new Map();
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role === "assistant" && msg.tool_calls) {
+      for (const tc of msg.tool_calls) {
+        if (tc.id) toolNameMap.set(tc.id, tc.function?.name || "");
+      }
+    }
+  }
+
   // First pass: identify tool messages and calculate total
+  // read_file results get 2x budget (file content is critical for code accuracy)
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.role === "tool" || (msg.content && typeof msg.content === "string" && msg.content.length > maxCharsPerResult)) {
@@ -135,10 +147,15 @@ export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFA
   }
 
   if (totalToolChars <= totalBudgetChars) {
-    // Even if under total budget, cap individual oversized results
+    // Even if under total budget, cap individual oversized results (except read_file)
     return messages.map(msg => {
       if (msg.role === "tool" && msg.content && msg.content.length > maxCharsPerResult) {
-        return { ...msg, content: smartTruncateToolResult(msg.content, maxCharsPerResult) };
+        const toolName = toolNameMap.get(msg.tool_call_id) || "";
+        // read_file gets more generous cap — code accuracy depends on seeing full files
+        const cap = toolName === "read_file" ? maxCharsPerResult * 3 : maxCharsPerResult;
+        if (msg.content.length > cap) {
+          return { ...msg, content: smartTruncateToolResult(msg.content, cap) };
+        }
       }
       return msg;
     });
@@ -157,7 +174,10 @@ export function truncateToolResultsInMessages(messages, maxCharsPerResult = DEFA
 
     // Recency-weighted budget: most recent gets full, older get less
     const recencyFactor = Math.max(0.3, 1 - (rank / toolCount) * 0.7);
-    const perResultBudget = Math.floor(maxCharsPerResult * recencyFactor);
+    // read_file gets 2.5x budget — code accuracy depends on seeing full files
+    const toolName = toolNameMap.get(msg.tool_call_id) || "";
+    const fileType = toolName === "read_file" ? 2.5 : 1;
+    const perResultBudget = Math.floor(maxCharsPerResult * recencyFactor * fileType);
 
     if (msg.content && msg.content.length > perResultBudget) {
       const original = msg.content;
