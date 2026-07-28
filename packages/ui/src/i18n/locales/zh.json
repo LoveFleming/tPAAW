@@ -524,7 +524,7 @@
   "issue.decomposeTitle": "拆分任務",
   "sidebar.workflowBuilder": "Workflow Builder",
   "sidebar": {
-    "llmLog": "📡 LLM 日誌",
+    "llmLog": "LLM 日誌",
     "agentLog": "📊 Agent 執行記錄"
   }
 }

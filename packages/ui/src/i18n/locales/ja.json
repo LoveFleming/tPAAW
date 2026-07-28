@@ -522,7 +522,7 @@
   "issue.decomposeTitle": "タスク分解",
   "sidebar.workflowBuilder": "Workflow Builder",
   "sidebar": {
-    "llmLog": "📡 LLM ログ",
+    "llmLog": "LLM ログ",
     "agentLog": "📊 エージェント実行記録"
   }
 }

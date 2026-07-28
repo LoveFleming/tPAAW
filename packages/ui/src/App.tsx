@@ -516,7 +516,7 @@ function AppInner() {
     if (pageType === "wf-editor") return "Workflow Builder";
     if (pageType === "wf-exec") return "Workflows";
     if (pageType === "helpdesk") return "HelpDesk";
-    if (pageType === "llm-log") return t("sidebar.llmLog", "📡 LLM Log");
+    if (pageType === "llm-log") return t("sidebar.llmLog", "LLM Log");
     if (pageType === "agent-log") return t("sidebar.agentLog", "📊 Agent 執行記錄");
     if (pageType.startsWith("skillapp.")) {
       const appId = pageType.slice(9);
@@ -857,7 +857,7 @@ function AppInner() {
                 />
                 <NavItem
                   active={activePage.endsWith(":llm-log")}
-                  label={t("sidebar.llmLog", "📡 LLM Log")}
+                  label={t("sidebar.llmLog", "LLM Log")}
                   onClick={openLlmLog}
                   accentColor={themeInfo.accent}
                   accentBg={themeInfo.accentBg}

@@ -528,7 +528,7 @@
   "issue.decomposeTitle": "Decompose Task",
   "sidebar.workflowBuilder": "Workflow Builder",
   "sidebar": {
-    "llmLog": "📡 LLM 日誌",
+    "llmLog": "LLM 日誌",
     "agentLog": "📊 Agent 執行記錄"
   }
 }

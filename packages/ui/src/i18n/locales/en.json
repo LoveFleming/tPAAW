@@ -524,7 +524,7 @@
   "issue.decomposeTitle": "Decompose Task",
   "sidebar.workflowBuilder": "Workflow Builder",
   "sidebar": {
-    "llmLog": "📡 LLM Logs",
+    "llmLog": "LLM Logs",
     "agentLog": "📊 Agent Execution"
   }
 }
