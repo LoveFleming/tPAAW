@@ -140,8 +140,19 @@ function ContextMenu({ menu, onAction, onClose }: {
     gap: "6px",
   };
 
-  // Workspace root: only show 移除目錄
+  // Workspace root: full context menu (same as folders) + 移除目錄
   if (menu.isWsRoot) {
+    const wsItems: { label: string; icon: string; action: string; danger?: boolean }[] = [];
+    wsItems.push({ label: ti18n("knowledge.newFolder", "新增資料夾"), icon: "📁", action: "newFolder" });
+    wsItems.push({ label: ti18n("knowledge.newFile", "新增檔案"), icon: "📄", action: "newFile" });
+    wsItems.push({ label: "匯入檔案", icon: "📥", action: "importFile" });
+    wsItems.push({ label: "移動到...", icon: "📦", action: "move" });
+    wsItems.push({ label: "開啟簡報", icon: "🎤", action: "briefingPlayer" });
+    wsItems.push({ label: "編輯檔案", icon: "✏️", action: "edit" });
+    wsItems.push({ label: "複製路徑", icon: "📎", action: "copyPath" });
+    wsItems.push({ label: "AI 摘要", icon: "🤖", action: "aiSummary" });
+    wsItems.push({ label: "🗑️ 移除目錄", icon: "🗑️", action: "removeWorkspace", danger: true });
+
     return (
       <div
         ref={ref}
@@ -159,14 +170,18 @@ function ContextMenu({ menu, onAction, onClose }: {
           overflow: "hidden",
         }}
       >
-        <div
-          style={{ ...itemStyle, color: "#ef4444" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-          onClick={() => { onAction("removeWorkspace", menu); onClose(); }}
-        >
-          🗑️ 移除目錄
-        </div>
+        {wsItems.map(item => (
+          <div
+            key={item.action}
+            style={item.danger ? { ...itemStyle, color: "#ef4444" } : itemStyle}
+            onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#fef2f2" : "#f3f4f6")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            onClick={() => { onAction(item.action, menu); onClose(); }}
+          >
+            <span>{item.icon}</span>
+            <span>{item.label}</span>
+          </div>
+        ))}
       </div>
     );
   }
