@@ -2286,7 +2286,7 @@ export async function runAgentLoop(config) {
   const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
 
   const startTime = Date.now();
-  const timeoutMs = effectiveTimeout * 1000;
+  const timeoutMs = effectiveTimeout > 0 ? effectiveTimeout * 1000 : 0; // 0 = no timeout
   const toolCallLog = [];
 
   // ── Execution logger ──
@@ -2341,8 +2341,8 @@ export async function runAgentLoop(config) {
   let emptyRetryCount = 0;
 
   for (let i = 0; i < effectiveMaxTurns; i++) {
-    // Check timeout
-    if (Date.now() - startTime > timeoutMs) {
+    // Check timeout (skip if timeout=0 = no limit)
+    if (timeoutMs > 0 && Date.now() - startTime > timeoutMs) {
       finalContent += `\n\n---\n⏱️ 任務超時 (${effectiveTimeout}s)，但已完成 ${turns} 個步驟。\n已修改的檔案已保存。\n你可以跟我說「繼續」來接著完成。\n---`;
       // Save progress so we can resume
       try {
@@ -2617,7 +2617,7 @@ export async function runAgentLoopStream(config, res) {
   const effectiveTimeout = timeout ?? agentCfg.timeoutSeconds;
 
   const startTime = Date.now();
-  const timeoutMs = timeout * 1000;
+  const timeoutMs = timeout > 0 ? timeout * 1000 : 0; // 0 = no timeout
   const streamModifiedFiles = new Set(); // track modified files for post-edit verification
   const streamCreatedFiles = new Set(); // track NEW files for cleanup
 
@@ -2679,7 +2679,7 @@ export async function runAgentLoopStream(config, res) {
       sendSSE("interrupted", { message: "Agent interrupted by user", turns });
       break;
     }
-    if (Date.now() - startTime > timeoutMs) {
+    if (timeoutMs > 0 && Date.now() - startTime > timeoutMs) {
       sendSSE("error", { error: `Agent loop timed out after ${Math.round(timeoutMs/60000)} min (${turns} turns completed). Task may be partially done — check action log.` });
       break;
     }

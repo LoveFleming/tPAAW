@@ -359,7 +359,7 @@ export default async function projectRoute(req, res) {
         model: model || undefined,
         cwd: cwd || undefined,
         maxTurns: agent.maxTurns,
-        timeout: 3600, // 60 min — complex tasks (developer, architect) need time
+        timeout: 0, // no timeout — complex tasks may take arbitrarily long
         rootDir: projRoot,
         agentId: agent.agentId,
         abortSignal: chatAbort.signal,
@@ -519,7 +519,7 @@ export default async function projectRoute(req, res) {
         agentId,
         model: useModel,
         maxTurns: 30,
-        timeout: 1800, // 30 min for dispatched sub-tasks
+        timeout: 0, // no timeout for dispatched sub-tasks
         abortSignal: dispatchAbort.signal,
       }, res);
       cleanupDispatch();

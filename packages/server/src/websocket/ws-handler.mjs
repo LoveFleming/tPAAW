@@ -287,7 +287,7 @@ export function setupWebSocket() {
               model: agentState.model || undefined,
               fallbackModels,
               maxTurns: agentCfg.maxTurns || 100,
-              timeout: Math.max(agentCfg.timeoutSeconds || 1800, 3600), // at least 60min
+              timeout: 0, // no timeout — let agent run until done or interrupted
               rootDir: PAAW_ROOT,
               agentId,
               onEvent: (evt) => {
