@@ -1067,6 +1067,7 @@ export default async function projectRoute(req, res) {
 
   // ── POST /api/coding-project/create — does NOT need ?path= (project doesn't exist yet) ──
   if (url.startsWith("/api/coding-project/create") && method === "POST") {
+    const norm = normalizePath;
     const body = JSON.parse(await readBody(req) || "{}");
     const parentDir = body.parentDir;
     const projectName = (body.name || "").trim();
