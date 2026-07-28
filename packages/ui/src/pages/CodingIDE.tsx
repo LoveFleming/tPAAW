@@ -395,10 +395,11 @@ export default function CodingIDE() {
 
   // ── New Project State ──
   const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectStep, setNewProjectStep] = useState(1); // 1=template, 2=config, 3=creating
+  const [newProjectTemplate, setNewProjectTemplate] = useState("react-vite");
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDesc, setNewProjectDesc] = useState("");
   const [newProjectParent, setNewProjectParent] = useState("");
-  const [newProjectInitGit, setNewProjectInitGit] = useState(true);
-  const [newProjectInitPaaw, setNewProjectInitPaaw] = useState(true);
   const [newProjectCreating, setNewProjectCreating] = useState(false);
   const [newProjectError, setNewProjectError] = useState("");
 
@@ -1649,123 +1650,193 @@ const sendChat = useCallback(async () => {
 
     {/* New Project Dialog */}
     {showNewProject && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!newProjectCreating) setShowNewProject(false); }}>
-        <div className="bg-white rounded-xl shadow-2xl w-[420px] p-5" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">🚀</span>
-            <h3 className="text-base font-semibold text-stone-800">{tt("vibe.newProject", "New Project")}</h3>
-          </div>
-
-          <div className="space-y-3">
-            {/* Project Name */}
-            <div>
-              <label className="text-xs font-medium text-stone-500 mb-1 block">{tt("vibe.projectName", "Project Name")}</label>
-              <input
-                value={newProjectName}
-                onChange={e => { setNewProjectName(e.target.value); setNewProjectError(""); }}
-                onKeyDown={e => { if (e.key === "Enter" && newProjectName.trim() && newProjectParent.trim()) { /* trigger create */ } }}
-                placeholder="my-awesome-project"
-                className="w-full text-sm font-mono px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400"
-                style={{ borderColor: newProjectError ? "#ef4444" : undefined }}
-                autoFocus
-              />
-            </div>
-
-            {/* Parent Directory */}
-            <div>
-              <label className="text-xs font-medium text-stone-500 mb-1 block">{tt("vibe.parentDir", "Parent Directory")}</label>
-              <div className="flex gap-1.5">
-                <input
-                  value={newProjectParent}
-                  onChange={e => { setNewProjectParent(e.target.value); setNewProjectError(""); }}
-                  placeholder="/Users/you/projects"
-                  className="flex-1 text-sm font-mono px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400"
-                  style={{ borderColor: newProjectError ? "#ef4444" : undefined }}
-                />
-                <button onClick={async () => {
-                  // Use DirectoryExplorer to pick parent dir
-                  // For now, just append a note
-                }} className="text-xs px-2 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600" title={tt("coding.browseDir")}>📂</button>
-              </div>
-            </div>
-
-            {/* Options */}
-            <div className="flex items-center gap-4 pt-1">
-              <label className="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
-                <input type="checkbox" checked={newProjectInitGit} onChange={e => setNewProjectInitGit(e.target.checked)} className="accent-emerald-600" />
-                Git Init
-              </label>
-              <label className="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
-                <input type="checkbox" checked={newProjectInitPaaw} onChange={e => setNewProjectInitPaaw(e.target.checked)} className="accent-emerald-600" />
-                .paaw/ Init
-              </label>
-            </div>
-
-            {/* Preview path */}
-            {newProjectParent && newProjectName.trim() && (
-              <div className="text-[10px] text-stone-400 font-mono bg-stone-50 rounded px-2 py-1.5 truncate">
-                📁 {newProjectParent}/{newProjectName.trim()}
-              </div>
-            )}
-
-            {/* Error */}
-            {newProjectError && (
-              <div className="text-xs text-red-500 bg-red-50 rounded px-2 py-1.5">{newProjectError}</div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { if (!newProjectCreating) { setShowNewProject(false); setNewProjectStep(1); } }}>
+        <div className="bg-white rounded-xl shadow-2xl w-[520px] max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center gap-2 px-5 pt-5 pb-3">
+            <span className="text-xl">🚀</span>
+            <h3 className="text-base font-semibold text-stone-800">New Project</h3>
+            {newProjectStep > 1 && !newProjectCreating && (
+              <button onClick={() => setNewProjectStep(newProjectStep - 1)} className="ml-auto text-xs text-stone-400 hover:text-stone-600">← Back</button>
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-stone-100">
-            <button
-              onClick={() => setShowNewProject(false)}
-              disabled={newProjectCreating}
-              className="text-xs px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600"
-            >{tt("vibe.cancel")}</button>
-            <button
-              onClick={async () => {
-                if (!newProjectName.trim() || !newProjectParent.trim()) {
-                  setNewProjectError(tt("vibe.newProjectRequired", "Please fill in project name and parent directory"));
-                  return;
-                }
-                setNewProjectCreating(true);
-                setNewProjectError("");
-                try {
-                  const res = await fetch(`${API_BASE}/api/coding-project/create`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      name: newProjectName.trim(),
-                      parentDir: newProjectParent.trim(),
-                      initGit: newProjectInitGit,
-                      initPaaw: newProjectInitPaaw,
-                    }),
-                  });
-                  const data = await res.json();
-                  if (!res.ok) {
-                    setNewProjectError(data.error || `Error ${res.status}`);
+          {/* Step indicator */}
+          <div className="px-5 pb-3 flex gap-1.5">
+            {[1,2,3].map(s => (
+              <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${newProjectStep >= s ? 'bg-emerald-500' : 'bg-stone-200'}`} />
+            ))}
+          </div>
+
+          <div className="px-5 pb-5 overflow-y-auto max-h-[60vh]">
+            {/* ── STEP 1: Template Gallery ── */}
+            {newProjectStep === 1 && (
+              <div>
+                <p className="text-sm text-stone-500 mb-3">選擇專案版型</p>
+                <div className="grid grid-cols-1 gap-3">
+                  {/* React + Vite + Node.js Fullstack */}
+                  <button
+                    onClick={() => { setNewProjectTemplate("react-vite"); setNewProjectStep(2); }}
+                    className={`group flex items-start gap-3 p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${newProjectTemplate === "react-vite" ? "border-emerald-400 bg-emerald-50/50" : "border-stone-200 hover:border-stone-300"}`}
+                  >
+                    <div className="w-16 h-12 rounded bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shrink-0 text-white text-xl font-bold">⚛</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-stone-800">⚡ React + Vite + Node.js</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Fullstack</span>
+                      </div>
+                      <p className="text-xs text-stone-500 mt-0.5">前後端分離架構，Vite 開發伺服器 + Express API，AI 自動生成專案骨架與基本 UI</p>
+                      <div className="flex gap-1 mt-1.5">
+                        {"React,Vite,TypeScript,Express,Tailwind".split(",").map(t => (
+                          <span key={t} className="text-[9px] px-1 py-0.5 rounded bg-stone-100 text-stone-500">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                <p className="text-stone-400 text-xs mt-4">💡 選好版型後進入下一步描述你的專案需求</p>
+              </div>
+            )}
+
+            {/* ── STEP 2: Config ── */}
+            {newProjectStep === 2 && (
+              <div className="space-y-3">
+                {/* Selected template badge */}
+                <div className="flex items-center gap-2 p-2 bg-stone-50 rounded-lg">
+                  <span className="text-sm">⚡</span>
+                  <span className="text-xs font-medium text-stone-600">React + Vite + Node.js</span>
+                  <button onClick={() => setNewProjectStep(1)} className="text-[10px] text-stone-400 hover:text-stone-600 ml-auto">換版型</button>
+                </div>
+
+                {/* Project Name */}
+                <div>
+                  <label className="text-xs font-medium text-stone-500 mb-1 block">專案名稱 *</label>
+                  <input
+                    value={newProjectName}
+                    onChange={e => { setNewProjectName(e.target.value); setNewProjectError(""); }}
+                    placeholder="my-awesome-project"
+                    className="w-full text-sm font-mono px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400"
+                    style={{ borderColor: newProjectError ? "#ef4444" : undefined }}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Description — what to build */}
+                <div>
+                  <label className="text-xs font-medium text-stone-500 mb-1 block">描述你想做什麼 *</label>
+                  <textarea
+                    value={newProjectDesc}
+                    onChange={e => { setNewProjectDesc(e.target.value); setNewProjectError(""); }}
+                    placeholder={"例：一個待辦事項 App，可以新增、完成、刪除任務，有登入功能"}
+                    rows={3}
+                    className="w-full text-sm px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400 resize-none"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">AI 會根據你的描述自動生成專案骨架和基本 UI</p>
+                </div>
+
+                {/* Parent Directory */}
+                <div>
+                  <label className="text-xs font-medium text-stone-500 mb-1 block">存放目錄 *</label>
+                  <input
+                    value={newProjectParent}
+                    onChange={e => { setNewProjectParent(e.target.value); setNewProjectError(""); }}
+                    placeholder="/Users/you/projects"
+                    className="w-full text-sm font-mono px-3 py-2 border rounded-lg bg-stone-50 outline-none focus:border-emerald-400"
+                    style={{ borderColor: newProjectError ? "#ef4444" : undefined }}
+                  />
+                </div>
+
+                {/* Preview path */}
+                {newProjectParent && newProjectName.trim() && (
+                  <div className="text-[10px] text-stone-400 font-mono bg-stone-50 rounded px-2 py-1.5 truncate">
+                    📁 {newProjectParent}/{newProjectName.trim()}
+                  </div>
+                )}
+
+                {newProjectError && (
+                  <div className="text-xs text-red-500 bg-red-50 rounded px-2 py-1.5">{newProjectError}</div>
+                )}
+              </div>
+            )}
+
+            {/* ── STEP 3: Creating ── */}
+            {newProjectStep === 3 && (
+              <div className="py-6 flex flex-col items-center gap-3">
+                <div className="w-10 h-10 border-[3px] border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-medium text-stone-700">AI 正在建立專案骨架...</p>
+                <p className="text-xs text-stone-400">這可能需要 1-2 分鐘</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer buttons */}
+          {newProjectStep !== 3 && (
+            <div className="flex justify-end gap-2 px-5 pb-4 pt-2 border-t border-stone-100">
+              <button
+                onClick={() => { setShowNewProject(false); setNewProjectStep(1); }}
+                className="text-xs px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600"
+              >取消</button>
+              {newProjectStep === 2 && (
+                <button
+                  onClick={async () => {
+                    if (!newProjectName.trim() || !newProjectParent.trim() || !newProjectDesc.trim()) {
+                      setNewProjectError("請填寫所有欄位");
+                      return;
+                    }
+                    setNewProjectCreating(true);
+                    setNewProjectError("");
+                    setNewProjectStep(3);
+                    try {
+                      // Step 1: Create project directory + .paaw/
+                      const res = await fetch(`${API_BASE}/api/coding-project/create`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          name: newProjectName.trim(),
+                          parentDir: newProjectParent.trim(),
+                          initGit: true,
+                          initPaaw: true,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        setNewProjectError(data.error || `Error ${res.status}`);
+                        setNewProjectStep(2);
+                        setNewProjectCreating(false);
+                        return;
+                      }
+
+                      // Step 2: Open the new project
+                      setShowNewProject(false);
+                      setNewProjectStep(1);
+                      setRootPath(data.path);
+                      setExpandedDirs(new Set());
+                      setDirContents({});
+                      dirContentsRef.current = {};
+                      loadingDirsRef.current = new Set();
+                      expandDir(data.path);
+                      try { localStorage.setItem("paaw.vibeide.rootPath", data.path); } catch {}
+
+                      // Step 3: Send scaffold prompt to developer agent
+                      const scaffoldPrompt = `我剛建立了一個新的 Node.js + React + Vite 專案，請幫我搭建完整的專案骨架。\n\n專案名稱：${newProjectName.trim()}\n專案描述：${newProjectDesc.trim()}\n\n請建立以下結構：\n1. 前端：React + Vite + TypeScript + Tailwind CSS\n   - src/App.tsx — 主頁面，根據描述生成基本 UI\n   - src/main.tsx — 入口\n   - index.html\n2. 後端：Node.js + Express\n   - server/index.ts — API server，基本 health check endpoint\n3. 設定檔\n   - package.json（前後端 scripts）\n   - tsconfig.json\n   - vite.config.ts\n   - tailwind.config.js\n   - .gitignore\n4. 安裝依賴並確認可以啟動\n\n根據我的描述「${newProjectDesc.trim()}」生成對應的基本 UI 和 API。保持簡潔可用，不用完美。`;
+
+                      setChatMessages(prev => [...prev, { role: "user" as const, content: scaffoldPrompt, ts: new Date().toISOString() }]);
+                      setTimeout(() => sendChatMessage(scaffoldPrompt), 100);
+
+                    } catch (err: any) {
+                      setNewProjectError(err.message || "Unknown error");
+                      setNewProjectStep(2);
+                    }
                     setNewProjectCreating(false);
-                    return;
-                  }
-                  // Success — open the new project
-                  setShowNewProject(false);
-                  setRootPath(data.path);
-                  setExpandedDirs(new Set());
-                  setDirContents({});
-                  dirContentsRef.current = {};
-                  loadingDirsRef.current = new Set();
-                  expandDir(data.path);
-                  try { localStorage.setItem("paaw.vibeide.rootPath", data.path); } catch {}
-                } catch (err: any) {
-                  setNewProjectError(err.message || "Unknown error");
-                }
-                setNewProjectCreating(false);
-              }}
-              disabled={newProjectCreating || !newProjectName.trim() || !newProjectParent.trim()}
-              className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {newProjectCreating ? tt("vibe.creating", "Creating...") : tt("vibe.createProject", "Create")}
-            </button>
-          </div>
+                  }}
+                  disabled={newProjectCreating || !newProjectName.trim() || !newProjectParent.trim() || !newProjectDesc.trim()}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🤖 AI 建立專案
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     )}

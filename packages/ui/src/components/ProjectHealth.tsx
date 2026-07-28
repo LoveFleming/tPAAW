@@ -99,6 +99,19 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
 
   const { paawCompleteness, git, codeStats, sessions, dependencies } = health;
 
+  // Detect initial project (no code files yet)
+  const isInitial = paawCompleteness.score === 0 && (!codeStats?.totalFiles || codeStats.totalFiles <= 5);
+
+  if (isInitial) {
+    return (
+      <div className="flex flex-col h-full overflow-y-auto items-center justify-center gap-3 p-8" style={{ scrollbarWidth: "thin" }}>
+        <div className="text-4xl">🌱</div>
+        <div className="text-sm font-bold text-stone-500">Initial Project</div>
+        <div className="text-xs text-stone-400 text-center max-w-xs">專案剛建立，還沒有程式碼。讓 Developer Agent 幫你搭建骨架後，健康指標就會開始運作。</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
       {/* Overall Score */}

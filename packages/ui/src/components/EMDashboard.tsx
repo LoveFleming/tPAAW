@@ -1375,6 +1375,8 @@ function ProjectKnowledgePanel({ rootPath, tk, onOpenFile, refreshTrigger }: { r
 
   const okCount = Object.values(knowledgeStatuses).filter(s => s === "ok").length;
   const total = KNOWLEDGE_FILES.length;
+  const missingCount = Object.values(knowledgeStatuses).filter(s => s === "missing").length;
+  const isInitial = missingCount === total; // all missing = brand new project
 const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
 
   return (
@@ -1383,14 +1385,22 @@ const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
         <h3 className="text-sm font-bold text-stone-700 flex items-center gap-1.5">
           <span>📚</span> 專案知識
         </h3>
-        <span className={cn("text-xs font-bold", pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-500")}>
-          {okCount}/{total} ({pct}%)
-        </span>
+        {isInitial ? (
+          <span className="text-xs font-bold text-stone-400">🌱 Initial</span>
+        ) : (
+          <span className={cn("text-xs font-bold", pct === 100 ? "text-green-600" : pct >= 50 ? "text-amber-600" : "text-red-500")}>
+            {okCount}/{total} ({pct}%)
+          </span>
+        )}
       </div>
       {/* Progress bar */}
-      <div className="w-full h-1.5 rounded-full bg-stone-200 overflow-hidden mb-2">
-        <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${pct}%` }} />
-      </div>
+      {isInitial ? (
+        <div className="text-xs text-stone-400 py-2">🌱 專案剛建立，知識庫尚未產生</div>
+      ) : (
+        <div className="w-full h-1.5 rounded-full bg-stone-200 overflow-hidden mb-2">
+          <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${pct}%` }} />
+        </div>
+      )}
       {/* File list */}
       <div className="space-y-1">
         {KNOWLEDGE_FILES.map(f => {
