@@ -352,6 +352,18 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
             {currentEvents.length > 0 && (
               <span className="text-xs text-amber-500 ml-1">· {currentEvents.filter(e => e.type === 'tool_start').length} 個工具已執行</span>
             )}
+            <button
+              onClick={() => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({ type: "interrupt" }));
+                }
+                setBusy(false);
+                busyRef.current = false;
+              }}
+              className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-600/80 hover:bg-red-500 text-white rounded transition-colors"
+            >
+              ⏹ 中斷
+            </button>
           </div>
         )}
 

@@ -7,7 +7,7 @@ import { WebSocketServer } from "ws";
 import { spawn as ptySpawn } from "node-pty";
 import { runAgentLoop } from "../lib/paaw-agent-loop.mjs";
 import {
-  PAAW_ROOT, readFileSync, writeFileSync, appendFileSync, resolve, mkdirSync,
+  PAAW_ROOT, readFileSync, writeFileSync, appendFileSync, resolve, join, mkdirSync,
 } from "../routes/shared.mjs";
 
 // Lazy-load distill module for vibe session logging
@@ -25,6 +25,7 @@ export function setupWebSocket() {
   const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
   const ptySessions = new Map(); // ws -> { pty, id }
   const agentSessions = new Map(); // ws -> agent state for paaw-agent mode
+  const runningAgents = new Map(); // ws -> { abortController } for interrupt
 
   wss.on("connection", (ws, req) => {
     const sessionId = `pty-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -227,6 +228,20 @@ export function setupWebSocket() {
           ws.send(JSON.stringify({ type: "error", message: `Failed to start CLI: ${err.message}` }));
         }
       }
+      else if (msg.type === "interrupt") {
+        // ── Abort running agent ──
+        const running = runningAgents.get(ws);
+        if (running) {
+          running.aborted = true;
+          runningAgents.delete(ws);
+          console.log(`[Agent] Interrupt received for session ${running.id}`);
+        }
+        const agentState = agentSessions.get(ws);
+        if (agentState) {
+          agentState.busy = false;
+          ws.send(JSON.stringify({ type: "agent_done", content: "⏹️ Agent 已中斷。", turns: 0, toolCalls: 0, success: false, interrupted: true }));
+        }
+      }
       else if (msg.type === "input") {
         // ── Agent mode: run PAAW Agent Loop ──
         const agentState = agentSessions.get(ws);
@@ -237,6 +252,8 @@ export function setupWebSocket() {
             return;
           }
           agentState.busy = true;
+          const runCtx = { id: agentState.id, aborted: false };
+          runningAgents.set(ws, runCtx);
           ws.send(JSON.stringify({ type: "agent_running" }));
 
           agentState.history.push({ role: "user", content: userText });
@@ -249,16 +266,34 @@ export function setupWebSocket() {
 
           try {
             const { loadAgentConfig } = await import("../routes/context.mjs");
+            const { resolveLLMConfig } = await import("../lib/paaw-agent-loop.mjs");
             const agentCfg = await loadAgentConfig();
+            const agentId = `sre-${agentState.id}`;
+
+            // Resolve fallback models from provider config
+            let fallbackModels;
+            try {
+              const { resolveDefaultModel } = await import("../lib/llm-utils.mjs");
+              const providersFile = join(PAAW_ROOT, "data", "config", "providers.json");
+              const providerConfig = JSON.parse(readFileSync(providersFile, "utf8"));
+              const activeProvider = providerConfig.providers[providerConfig.active || "zai"];
+              if (activeProvider?.fallbackModels) fallbackModels = activeProvider.fallbackModels;
+            } catch {}
+
             const agentResult = await runAgentLoop({
               prompt: userText,
               cwd: agentState.cwd,
               systemPrompt: agentState.systemPrompt || undefined,
               model: agentState.model || undefined,
-              maxTurns: agentCfg.maxTurns,
-              timeout: agentCfg.timeoutSeconds,
+              fallbackModels,
+              maxTurns: agentCfg.maxTurns || 100,
+              timeout: Math.max(agentCfg.timeoutSeconds || 1800, 3600), // at least 60min
               rootDir: PAAW_ROOT,
+              agentId,
               onEvent: (evt) => {
+                // Check if agent was interrupted
+                if (runCtx.aborted) throw new Error("Agent interrupted by user");
+
                 if (evt.type === "tool_start") {
                   try { ws.send(JSON.stringify({ type: "agent_event", event: "tool_start", name: evt.name, args: evt.args })); } catch {}
                 }
@@ -294,11 +329,17 @@ export function setupWebSocket() {
             }
 
           } catch (err) {
-            console.error(`[Agent] Error for session ${agentState.id}:`, err.message);
-            ws.send(JSON.stringify({ type: "agent_error", message: err.message }));
+            if (err.message === "Agent interrupted by user") {
+              console.log(`[Agent] Interrupted for session ${agentState.id}`);
+              ws.send(JSON.stringify({ type: "agent_done", content: "⏹️ Agent 已中斷。", turns: 0, toolCalls: 0, success: false, interrupted: true }));
+            } else {
+              console.error(`[Agent] Error for session ${agentState.id}:`, err.message);
+              ws.send(JSON.stringify({ type: "agent_error", message: err.message }));
+            }
           }
 
           agentState.busy = false;
+          runningAgents.delete(ws);
 
           if (agentState.vibeMetaFile) {
             try {
