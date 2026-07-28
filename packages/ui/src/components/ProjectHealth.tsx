@@ -99,8 +99,8 @@ export default function ProjectHealth({ projectRoot, refreshKey = 0 }: ProjectHe
 
   const { paawCompleteness, git, codeStats, sessions, dependencies } = health;
 
-  // Detect initial project (no code files yet)
-  const isInitial = paawCompleteness.score === 0 && (!codeStats?.totalFiles || codeStats.totalFiles <= 5);
+  // Detect initial project (no source code files yet — .paaw/ templates don't count)
+  const isInitial = !codeStats?.totalFiles || codeStats.totalFiles === 0;
 
   if (isInitial) {
     return (
