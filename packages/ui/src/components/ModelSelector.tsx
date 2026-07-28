@@ -117,13 +117,17 @@ export default function ModelSelector({ feature, value, onChange, className, sty
   const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Resolve a valid model value: if the given value's provider/model doesn't exist in
-  // available providers, fallback to active provider's first model
+  // Resolve a valid model value: accept models in the list AND custom model IDs
+  // (custom IDs are passed through as-is — provider may accept models not in its config list)
   function resolveValidModelWith(provList: ProviderInfo[], val: string): string {
+    if (!val) return "";
     const { providerId, modelId } = parseValue(val);
     const provider = provList.find(p => p.id === providerId);
     if (provider?.models.some(m => m.id === modelId)) return val;
-    // Fallback: active provider's first model
+    // Model not in the provider's configured list — check if it looks like a custom model ID
+    // (provider exists, just model isn't pre-listed). Pass it through.
+    if (provider) return val;
+    // Provider doesn't exist either — fallback to active provider
     const activeProvider = provList.find(p => p.id === activeProviderCache);
     if (activeProvider?.models.length) {
       return formatValue(activeProvider.id, activeProvider.models[0].id);
@@ -211,13 +215,16 @@ export default function ModelSelector({ feature, value, onChange, className, sty
             ? "absolute right-0 bottom-full mb-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto"
             : "absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 max-h-80 overflow-y-auto"}
         >
-          {providers.map(p => (
+          {providers.map(p => {
+            const isCurrentProvider = curPid === p.id;
+            const hasCurModel = p.models.some(m => m.id === curMid);
+            return (
             <div key={p.id}>
               <div className="px-3 py-1.5 bg-stone-50 border-b border-stone-100 sticky top-0">
                 <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{p.name}</span>
               </div>
               {p.models.map(m => {
-                const selected = curPid === p.id && curMid === m.id;
+                const selected = isCurrentProvider && curMid === m.id;
                 return (
                   <button
                     key={`${p.id}/${m.id}`}
@@ -230,8 +237,18 @@ export default function ModelSelector({ feature, value, onChange, className, sty
                   </button>
                 );
               })}
+              {/* Show custom model ID if current value isn't in the list */}
+              {isCurrentProvider && !hasCurModel && curMid && (
+                <div className="px-3 py-2 text-sm bg-amber-50 border-t border-amber-100">
+                  <span className="flex items-center gap-2">
+                    <span className="flex-1 text-amber-700">{curMid} <span className="text-[10px] text-amber-400">(custom)</span></span>
+                    <span className="text-emerald-500">✓</span>
+                  </span>
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

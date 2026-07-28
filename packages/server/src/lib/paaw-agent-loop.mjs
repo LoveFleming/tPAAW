@@ -189,7 +189,12 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
   }
 
   // Get model's context window + max output tokens
+  // Note: model may be a custom ID not in the provider's models list (e.g. "aigw_gpt5.6-terra")
+  // In that case, modelDef is undefined and we use generous defaults
   const modelDef = (provider.models || []).find(m => m.id === model);
+  if (!modelDef) {
+    console.log(`[resolveLLMConfig] Model "${model}" not in provider's model list — using defaults (contextWindow=${DEFAULT_CONTEXT_WINDOW})`);
+  }
   const contextWindow = modelDef?.contextWindow || DEFAULT_CONTEXT_WINDOW;
   const maxTokens = modelDef?.maxTokens || 16384;
 
