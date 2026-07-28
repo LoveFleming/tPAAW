@@ -30,8 +30,16 @@ interface ActiveRun {
   lastTool: string | null;
 }
 
+interface WorkflowInfo {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+}
+
 export default function AgenticSettings() {
   const [bindings, setBindings] = useState<Binding[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowInfo[]>([]);
   const [editing, setEditing] = useState<Binding | null>(null);
   const [saving, setSaving] = useState(false);
   const [runs, setRuns] = useState<ActiveRun[]>([]);
@@ -42,6 +50,11 @@ export default function AgenticSettings() {
       const r = await fetch(`${API}/api/agentic-bindings`);
       const d = await r.json();
       setBindings(d.bindings || []);
+    } catch {}
+    try {
+      const r = await fetch(`${API}/api/paaw/workflows`);
+      const d = await r.json();
+      setWorkflows(Array.isArray(d) ? d : []);
     } catch {}
   }, []);
 
@@ -181,16 +194,27 @@ export default function AgenticSettings() {
 
       {/* Bindings */}
       <div className="space-y-2">
+        {bindings.length > 0 && <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Chat Tool Bindings</p>}
         {bindings.map(b => (
           <div key={b.id} className="bg-white rounded-xl border border-stone-200 shadow-sm p-4">
             <div className="flex items-center gap-3 mb-2">
               <div className={`w-2 h-2 rounded-full ${b.enabled ? "bg-emerald-500" : "bg-stone-300"}`} />
               <span className="text-sm font-semibold text-stone-800">{b.defaults?.title || b.workflowId}</span>
               <code className="text-xs text-stone-400">{b.toolName}</code>
-              <button onClick={() => setEditing(b)}
-                className="ml-auto px-2.5 py-1 text-xs bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors">
-                Edit
-              </button>
+              <div className="ml-auto flex items-center gap-1">
+                <button onClick={() => setEditing(b)}
+                  className="px-2.5 py-1 text-xs bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors">
+                  Edit
+                </button>
+                <button onClick={async () => {
+                  if (!confirm(`刪除 binding「${b.defaults?.title || b.workflowId}」？`)) return;
+                  const config: Record<string, any> = {};
+                  for (const ob of bindings) { if (ob.id !== b.id) { const { id, ...rest } = ob; config[id] = rest; } }
+                  await fetch(`${API}/api/agentic-bindings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+                  load();
+                }}
+                  className="px-2 py-1 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除">🗑</button>
+              </div>
             </div>
             <p className="text-sm text-stone-500 mb-2.5 leading-relaxed">{b.description}</p>
             <div className="flex flex-wrap gap-1">
@@ -198,26 +222,31 @@ export default function AgenticSettings() {
                 <span key={t} className="text-xs px-2 py-0.5 bg-stone-100 text-stone-600 rounded-full">{t}</span>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-stone-100">
-              <div className="text-xs">
-                <span className="text-stone-400">Room: </span>
-                <code className="text-stone-600">{b.defaults?.roomId || "—"}</code>
-              </div>
-              <div className="text-xs">
-                <span className="text-stone-400">Deadline: </span>
-                <span className="text-stone-600">{b.defaults?.deadline || "—"}</span>
-              </div>
-              <div className="text-xs">
-                <span className="text-stone-400">Participants: </span>
-                <span className="text-stone-600">{b.defaults?.participants?.length || 0}</span>
-              </div>
-            </div>
           </div>
         ))}
-        {bindings.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-xl border border-stone-200">
-            <p className="text-2xl mb-2">🤖</p>
-            <p className="text-sm text-stone-400">No agentic workflows configured</p>
+      </div>
+
+      {/* All Workflows */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Available Workflows ({workflows.length})</p>
+        {workflows.map(wf => {
+          const hasBinding = bindings.some(b => b.workflowId === wf.id);
+          return (
+            <div key={wf.id} className="bg-white rounded-xl border border-stone-200 shadow-sm p-3 flex items-center gap-3">
+              <span className="text-lg">{wf.icon || "🔗"}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-stone-800">{wf.name}</span>
+                {wf.description && <span className="text-xs text-stone-400 ml-2">{wf.description}</span>}
+              </div>
+              {hasBinding
+                ? <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full font-medium">已綁定</span>
+                : <span className="text-xs px-2 py-0.5 bg-stone-100 text-stone-400 rounded-full">未綁定</span>}
+            </div>
+          );
+        })}
+        {workflows.length === 0 && (
+          <div className="text-center py-8 bg-white rounded-xl border border-stone-200">
+            <p className="text-sm text-stone-400">沒有 workflow。到 Workflow Builder 建一個吧！</p>
           </div>
         )}
       </div>

@@ -401,6 +401,21 @@ export default function WorkflowEditor() {
     autoSave(updated); setSelectedNodeId(id);
   }, [currentWf, autoSave, setRfNodes]);
 
+  const deleteWorkflow = useCallback(async (id: string, name: string) => {
+    if (!confirm(`確定刪除「${name}」？此操作無法復原。`)) return;
+    try {
+      await fetch(`${API}/api/paaw/workflows/${id}`, { method: "DELETE" });
+      setWorkflows(prev => prev.filter(w => w.id !== id));
+      if (currentWf?.id === id) {
+        setCurrentWf(null);
+        setSelectedNodeId(null);
+      }
+      showToast("🗑 已刪除 " + name);
+    } catch (e) {
+      showToast("❌ 刪除失敗");
+    }
+  }, [currentWf]);
+
   const addWorkflow = useCallback(async () => {
     const id = "wf-" + Date.now();
     const startNode: WFNode = { id: "start", type: "start", name: "Start", position: { x: 50, y: 120 }, config: { inputMapping: {} } };
@@ -427,9 +442,12 @@ export default function WorkflowEditor() {
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {workflows.map(wf => (
-            <button key={wf.id} onClick={() => loadWorkflow(wf.id)} className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentWf?.id === wf.id ? "bg-violet-100 text-violet-800 font-medium" : "hover:bg-stone-100 text-stone-600"}`}>
-              <span className="mr-1.5">{wf.icon}</span>{wf.name}
-            </button>
+            <div key={wf.id} className="group flex items-center gap-1">
+              <button onClick={() => loadWorkflow(wf.id)} className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentWf?.id === wf.id ? "bg-violet-100 text-violet-800 font-medium" : "hover:bg-stone-100 text-stone-600"}`}>
+                <span className="mr-1.5">{wf.icon}</span>{wf.name}
+              </button>
+              <button onClick={() => deleteWorkflow(wf.id, wf.name)} className="opacity-0 group-hover:opacity-100 transition-opacity px-1.5 py-1 text-stone-400 hover:text-red-500 text-xs" title="刪除">🗑</button>
+            </div>
           ))}
         </div>
       </div>
