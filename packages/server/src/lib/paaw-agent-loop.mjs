@@ -1055,6 +1055,8 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       case "write_file": {
         const filePath = resolvePath(args.path);
+        if (!args.path) return `Error: write_file requires 'path' argument`;
+        if (args.content === undefined || args.content === null) return `Error: write_file requires 'content' argument. You must provide the file content as a string.`;
         if (!isPathAllowed(args.path, true)) {
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
           return `Error: path '${args.path}' is not writable. ${hint}`;
@@ -1082,6 +1084,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       case "edit_file": {
         const filePath = resolvePath(args.path);
+        if (!args.path) return `Error: edit_file requires 'path' argument`;
+        if (!args.old_text) return `Error: edit_file requires 'old_text' argument`;
+        if (args.new_text === undefined || args.new_text === null) return `Error: edit_file requires 'new_text' argument`;
         if (!isPathAllowed(args.path, true)) {
           const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
           return `Error: path '${args.path}' is not writable. ${hint}`;
