@@ -1159,10 +1159,10 @@ export default function AppBuilder() {
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="col-span-2">
                                             <label className="block text-sm font-semibold text-stone-500 mb-1">App 名稱</label>
-                                            <input value={appSettings.name}
-                                                onChange={e => setAppSettings(p => ({ ...p, name: e.target.value }))}
-                                                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-stone-300"
+                                            <input value={appSettings.name} readOnly
+                                                className="w-full px-3 py-2 border rounded-lg text-sm bg-stone-50 text-stone-500"
                                                 style={{ borderColor: "#d6d3d1" }} />
+                                            <p className="text-xs text-stone-400 mt-0.5">名稱在 Step 2 決定</p>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-semibold text-stone-500 mb-1">Icon (emoji)</label>

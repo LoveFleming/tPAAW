@@ -2150,7 +2150,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   // Inject cwd dynamically
   parts.push(`\nWorking directory: ${cwd}`);
   if (IS_WIN) {
-    parts.push(`\n⚠️ Windows 環境：寫檔案請用 write_file/edit_file 工具，不要用 bash 的 echo/cat 重定向（PowerShell 字元轉義會出問題）。git 命令可以正常使用。`);
+    parts.push(`\n⚠️ Windows 環境重要規則：\n- 寫檔案請用 write_file/edit_file 工具，不要用 bash 的 echo/cat 重定向（PowerShell 字元轉義會出問題）\n- **禁止用 bash 跑 Unix 指令**：find、grep、ls、cat、head、tail、wc、sed、awk、xargs 等在 Windows 上不可用或行為不同\n- 用內建工具代替：glob 找檔案、grep 工具搜尋內容、read_file 讀檔、git 查歷史\n- bash 只用於：git 命令、node/npm/npx 命令、跨平台指令\n- 路徑一律用正斜線 / 不要用反斜線 \\\n- git 命令可以正常使用`);
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
