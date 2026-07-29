@@ -2064,7 +2064,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // Only log here for the stream path (fetchStreamWithRetry doesn't log).
   const _logStreamRequest = () => {
     try {
-      const logDir = join(_PAAW_ROOT, "data", "llm-logs");
+      const logDir = join(_PAAW_ROOT, "data", "logs", "llm");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -2091,7 +2091,7 @@ export async function callLLM(apiUrl, headers, model, messages, tools, stream = 
   // Helper to log stream response (only for stream path)
   const _logStreamResponse = (response, error = null) => {
     try {
-      const logDir = join(_PAAW_ROOT, "data", "llm-logs");
+      const logDir = join(_PAAW_ROOT, "data", "logs", "llm");
       mkdirSync(logDir, { recursive: true });
       const dateStr = new Date().toISOString().slice(0, 10);
       const logPath = join(logDir, `${dateStr}.jsonl`);
@@ -2859,7 +2859,7 @@ export async function runAgentLoopStream(config, res) {
     // ── Log stream response ──
     if (response._llmCallId) {
       try {
-        const logDir = join(_PAAW_ROOT, "data", "llm-logs");
+        const logDir = join(_PAAW_ROOT, "data", "logs", "llm");
         mkdirSync(logDir, { recursive: true });
         const dateStr = new Date().toISOString().slice(0, 10);
         const logPath = join(logDir, `${dateStr}.jsonl`);

@@ -169,7 +169,7 @@ export default async function codingHealthRoute(req, res) {
 
   // 6. LLM logs (recent activity)
   try {
-    const logsDir = join(projRoot, ".paaw", "llm-logs");
+    const logsDir = join(projRoot, "data", "logs", "llm");
     let recentLogs = 0;
     if (existsSync(logsDir)) {
       const files = readdirSync(logsDir);

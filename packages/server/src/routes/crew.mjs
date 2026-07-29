@@ -173,7 +173,7 @@ export default async function crewRoute(req, res) {
       const agentCfg = await loadAgentConfig();
       const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
       const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
-      const workCwd = runCwd || resolve(PAAW_ROOT, "data", "cli-run-output");
+      const workCwd = runCwd || resolve(PAAW_ROOT, "data", "logs", "cli");
       // Ensure temp dir exists
       try { await mkdir(workCwd, { recursive: true }); } catch {}
 

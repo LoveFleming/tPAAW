@@ -11,7 +11,7 @@ import { join, resolve } from "path";
 
 import { fileURLToPath } from "url";
 const _ROOT = resolve(process.env.PAAW_ROOT || process.env.QWEN_CWD || fileURLToPath(new URL("../../../../", import.meta.url)));
-const LOG_DIR = join(_ROOT, "data", "llm-logs");
+const LOG_DIR = join(_ROOT, "data", "logs", "llm");
 
 function ensureLogDir() {
   mkdirSync(LOG_DIR, { recursive: true });

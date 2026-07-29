@@ -1,4 +1,0 @@
-{"phase":"task_start","taskInfo":{"taskId":"task-1785195448319-7qo70o","agentId":"agent","prompt":"Respond ok. No tools.","model":"default","cwd":"/tmp/paaw-test-final-1785195435819","maxTurns":1},"_ts":0}
-{"phase":"llm_start","stepId":"llm-0","turn":1,"model":"glm-5.1","messageCount":2,"contextTokens":827,"_ts":0}
-{"phase":"llm_end","stepId":"llm-0","duration":3604,"model":"glm-5.1","finishReason":"stop","toolCallCount":0,"usage":{"completion_tokens":3,"completion_tokens_details":{"reasoning_tokens":0},"prompt_tokens":2406,"prompt_tokens_details":{"cached_tokens":1600},"total_tokens":2409},"_ts":3604}
-{"phase":"task_end","totalDuration":3604,"turns":1,"status":"completed","error":null,"_ts":3604}

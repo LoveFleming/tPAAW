@@ -18,8 +18,6 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs/
-**/logs/
 
 # Vercel
 .vercel
@@ -50,6 +48,11 @@ node_modules/
 .DS_Store
 data/skills/.test-output/
 data/skills/building/*/test-*
+# Logs — unified under data/logs/
+data/logs/
+# Legacy log dirs (no longer used, kept for reference)
+data/llm-logs/
+data/agent-logs/
 data/cli-run-output/
 data/cron-output/
 .paaw-staging/

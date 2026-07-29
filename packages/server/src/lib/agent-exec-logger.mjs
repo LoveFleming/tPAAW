@@ -22,7 +22,7 @@ function _getRoot() {
   return process.env.PAAW_ROOT || resolve(__dirname, "../../../../");
 }
 
-const LOG_DIR = join(_getRoot(), "data", "agent-logs");
+const LOG_DIR = join(_getRoot(), "data", "logs", "agent");
 const INDEX_FILE = join(LOG_DIR, "index.json");
 const MAX_INDEX = 200;
 

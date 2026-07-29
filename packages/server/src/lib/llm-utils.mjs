@@ -605,7 +605,7 @@ const _PAAW_ROOT = resolve(dirname(__filename), "../../../../");
 
 function _writeLlmLog(entry) {
   try {
-    const logDir = join(_PAAW_ROOT, "data", "llm-logs");
+    const logDir = join(_PAAW_ROOT, "data", "logs", "llm");
     mkdirSync(logDir, { recursive: true });
     const dateStr = new Date().toISOString().slice(0, 10);
     const logPath = join(logDir, `${dateStr}.jsonl`);
