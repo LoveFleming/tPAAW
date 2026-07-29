@@ -2559,11 +2559,17 @@ export async function runAgentLoop(config) {
       // bash tool needs longer timeout (up to 5 min), others 30s
       const _toolTimeoutMs = _toolName === "bash" ? Math.min((_toolArgs.timeout || 120) * 1000, _agentCfg.bashTimeoutSeconds * 1000, 300_000) : 30_000;
       let toolResult;
+      let _toolEndSent = false;
+      // Wrap onEvent to track whether tool_end was emitted inside executeTool
+      const _wrappedOnEvent = onEvent ? (evt) => {
+        if (evt.type === "tool_end") _toolEndSent = true;
+        onEvent(evt);
+      } : null;
       try {
         toolResult = await Promise.race([
           toolRegistry.initialized && toolRegistry.has(_toolName)
-            ? toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), _ctx)
-            : executeTool(call, cwd, rootDir, onEvent, agentId),
+            ? toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), { cwd, rootDir, onEvent: _wrappedOnEvent, agentId })
+            : executeTool(call, cwd, rootDir, _wrappedOnEvent, agentId),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error(`Tool '${_toolName}' timed out after ${_toolTimeoutMs / 1000}s`)), _toolTimeoutMs)
           )
@@ -2571,7 +2577,11 @@ export async function runAgentLoop(config) {
         toolResult = String(toolResult);
       } catch (toolErr) {
         toolResult = `Error: ${toolErr.message}`;
-        if (onEvent) onEvent({ type: "tool_end", name: _toolName, result: `Timeout/Error: ${toolErr.message}` });
+      }
+      // GUARANTEE: always emit tool_end if executeTool didn't
+      // (fixes spinning when read_file/write_file hit error paths like isPathAllowed failures)
+      if (!_toolEndSent && onEvent) {
+        onEvent({ type: "tool_end", name: _toolName, result: toolResult.slice(0, 500) });
       }
       // Track modified/created files
       if (_toolName === "write_file" || _toolName === "edit_file") {
