@@ -2369,7 +2369,8 @@ export async function runAgentLoop(config) {
   const createdFiles = new Set(); // track NEW files (didn't exist before) for cleanup
 
   // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
-  const tmpDir = join(cwd, ".paaw", "tmp");
+  // Only create under rootDir (PAAW project root), NOT under cwd (could be an app/skill subdirectory)
+  const tmpDir = join(rootDir, ".paaw", "tmp");
   try {
     await mkdir(tmpDir, { recursive: true });
     // Clean up previous session's temp files
@@ -2738,7 +2739,8 @@ export async function runAgentLoopStream(config, res) {
   const streamCreatedFiles = new Set(); // track NEW files for cleanup
 
   // Ensure .paaw/tmp/ exists as designated temp area (auto-cleaned each session)
-  const streamTmpDir = join(cwd, ".paaw", "tmp");
+  // Only under rootDir, NOT cwd (cwd might be an app/skill subdirectory)
+  const streamTmpDir = join(rootDir, ".paaw", "tmp");
   try {
     await mkdir(streamTmpDir, { recursive: true });
     const oldTempFiles = await readdir(streamTmpDir).catch(() => []);
