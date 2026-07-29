@@ -116,6 +116,7 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
     sanitize: true,
     caller: "notes",
     agentId: "assistant",
+    fallbacks: llm.fallbacks || [],
   });
 
   let html = sanitizeContent(result.content);

@@ -282,6 +282,7 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
     validateContent = true,
     sanitize = true,
     agentId = null,
+    fallbacks = [], // [{ apiUrl, headers, model, maxTokens? }]
   } = opts;
   const _startTime = Date.now();
   const _callId = `llm-${_startTime}-${Math.random().toString(36).slice(2, 8)}`;
@@ -422,6 +423,58 @@ export async function callLLMWithRetry(apiUrl, headers, body, opts = {}) {
 
       // 非 retryable 或最後一次，直接拋出
       throw err;
+    }
+  }
+
+  // ── Primary provider exhausted — try fallbacks ──
+  if (fallbacks && fallbacks.length > 0 && lastError) {
+    const is429 = lastError.message && (lastError.message.includes("429") || lastError.message.includes("Limit Exhausted") || lastError.message.includes("rate"));
+    if (is429) {
+      for (const fb of fallbacks) {
+        console.log(`[callLLMWithRetry] Primary failed (429), trying fallback: ${fb.model} via ${fb.apiUrl.replace(/\/v.*$/, "/...")}`);
+        try {
+          const fbBody = { ...body, model: fb.model };
+          if (fb.maxTokens) fbBody.max_tokens = Math.min(fb.maxTokens, body.max_tokens || 16384);
+          const resp = await fetchWithRetry(fb.apiUrl, {
+            method: 'POST',
+            headers: fb.headers,
+            body: JSON.stringify(fbBody),
+          }, { maxRetries: 0, timeoutMs });
+
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => '');
+            throw new Error(`LLM API error ${resp.status}: ${errText.slice(0, 500)}`);
+          }
+
+          let data;
+          try { data = await resp.json(); } catch (jsonErr) { throw new Error(`Invalid JSON: ${jsonErr.message}`); }
+
+          const choice = data.choices?.[0];
+          if (!choice) throw new Error('LLM API returned no choices');
+
+          let content = choice.message?.content || '';
+          if (sanitize) content = sanitizeContent(content);
+
+          const durationMs = Date.now() - _startTime;
+          console.log(`[callLLMWithRetry] ${caller} ← FALLBACK ${fb.model} ${durationMs}ms (${content.length} chars)`);
+          _writeLlmLog({
+            id: _callId, ts: new Date().toISOString(), phase: "response-fallback",
+            agentId: agentId || opts.caller || null, model: fb.model, stream: false, durationMs,
+            fallback: true, caller: opts.caller || null,
+          });
+
+          const hasToolCalls = choice.message?.tool_calls?.length > 0;
+          if (validateContent && !hasToolCalls && !isMeaningfulContent(content)) {
+            console.warn(`[LLM-Utils] Fallback ${fb.model}: empty response`);
+            continue; // try next fallback
+          }
+
+          return { content, raw: data };
+        } catch (fbErr) {
+          console.log(`[callLLMWithRetry] Fallback ${fb.model} failed:`, fbErr.message?.slice(0, 100));
+          continue;
+        }
+      }
     }
   }
 

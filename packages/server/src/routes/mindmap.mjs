@@ -174,6 +174,7 @@ async function generateMindMap(userPrompt, content, modelOverride) {
     sanitize: true,
     caller: "mindmap",
     agentId: "assistant",
+    fallbacks: llm.fallbacks || [],
   });
 
   const markdown = cleanMarkdownResponse(result.content);

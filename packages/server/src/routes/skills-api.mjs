@@ -416,6 +416,7 @@ export default async function skillsApiRoute(req, res) {
         validateContent: true,
         caller: "skill-builder",
         agentId: "skill-builder",
+        fallbacks: llm.fallbacks || [],
       });
 
       let content = (result.content || "").trim();

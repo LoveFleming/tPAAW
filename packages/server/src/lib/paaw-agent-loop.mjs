@@ -2417,9 +2417,33 @@ export async function runAgentLoop(config) {
         if (onEvent) onEvent({ type: evt, ...data });
       }, agentId, llm.maxTokens);
     } catch (err) {
-      finalContent = `LLM API error: ${err.message}`;
-      if (onEvent) onEvent({ type: "error", error: err.message });
-      break;
+      // ── Provider-level fallback on 429/rate-limit ──
+      const is429 = err.message && (err.message.includes("429") || err.message.includes("overloaded") || err.message.includes("rate") || err.message.includes("Limit Exhausted"));
+      if (is429 && llm.fallbacks && llm.fallbacks.length > 0) {
+        for (const fb of llm.fallbacks) {
+          console.log(`[Agent Loop] 429 rate-limited on ${llm.providerId}/${llm.model}, trying fallback: ${fb.providerId}/${fb.model}`);
+          if (onEvent) onEvent({ type: "info", message: `⏳ ${llm.providerId} 限流，切換到 ${fb.providerId}/${fb.model}` });
+          try {
+            response = await callLLM(fb.apiUrl, fb.headers, fb.model, trimmedMessages, toolRegistry.initialized ? toolRegistry.getDefinitions(getToolsForAgent(agentId).map(t => t.function?.name)) : getToolsForAgent(agentId), false, (evt, data) => {
+              if (onEvent) onEvent({ type: evt, ...data });
+            }, agentId, fb.maxTokens || llm.maxTokens);
+            console.log(`[Agent Loop] Fallback to ${fb.providerId}/${fb.model} succeeded`);
+            break;
+          } catch (fbErr) {
+            console.log(`[Agent Loop] Fallback ${fb.providerId}/${fb.model} also failed:`, fbErr.message);
+            continue;
+          }
+        }
+        if (!response) {
+          finalContent = `LLM API error: All providers failed (429 rate-limited). ${err.message}`;
+          if (onEvent) onEvent({ type: "error", error: finalContent });
+          break;
+        }
+      } else {
+        finalContent = `LLM API error: ${err.message}`;
+        if (onEvent) onEvent({ type: "error", error: err.message });
+        break;
+      }
     }
 
     // Parse response

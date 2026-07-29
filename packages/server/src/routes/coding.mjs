@@ -101,6 +101,7 @@ async function callProjectLLM(body, opts = {}) {
     sanitize: true,
     caller: opts.caller || "coding",
     agentId: opts.agentId || "coding",
+    fallbacks: opts.fallbacks || [],
   });
 }
 
