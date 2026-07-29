@@ -1099,30 +1099,7 @@ export default function AppBuilder() {
                                     </div>
                                 )}
                             </div>
-                            {/* Chat input for refinement */}
-                            {chatStarted && (
-                            <div className="shrink-0 p-2 border-t" style={{ borderColor: "#333" }}>
-                                <div className="flex gap-2">
-                                    <textarea
-                                        value={chatInput}
-                                        onChange={e => setChatInput(e.target.value)}
-                                        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); handleChatSend(); } }}
-                                        placeholder={tt("appBuilder.refinePlaceholder")}
-                                        rows={2}
-                                        className="flex-1 px-3 py-2 bg-stone-800 border rounded-lg text-sm text-stone-200 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-600 resize-none"
-                                        style={{ borderColor: "#444", lineHeight: 1.5 }}
-                                    />
-                                    <button onClick={handleChatSend}
-                                        disabled={!chatInput.trim()}
-                                        className={cn(
-                                            "px-3 py-2 rounded-lg text-sm font-bold transition-colors",
-                                            chatInput.trim() ? "bg-blue-600 text-white hover:bg-blue-500" : "bg-stone-700 text-stone-500 cursor-not-allowed"
-                                        )}>
-                                        送出
-                                    </button>
-                                </div>
-                            </div>
-                            )}
+
                         </div>
                         )}
                     </div>
