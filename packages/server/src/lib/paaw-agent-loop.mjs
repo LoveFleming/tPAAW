@@ -956,7 +956,9 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   // Resolve relative paths against cwd
   const resolvePath = (p) => {
     if (!p) return cwd;
-    return p.startsWith("/") ? p : resolve(cwd, p);
+    // Cross-platform: detect absolute paths on both Unix (/...) and Windows (C:\..., C:/...)
+    if (p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p)) return p;
+    return resolve(cwd, p);
   };
 
   // Load workspace directories (read + write allowed)
@@ -973,20 +975,21 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   // Read:  cwd + rootDir + workspaceDirs
   // Write: cwd + workspaceDirs (cwd = project root, AI must be able to write project code)
   const isPathAllowed = (p, write = false) => {
-    const abs = resolvePath(p);
-    // Normalize for cross-platform: use split to compare path segments
+    // Normalize to forward slashes for consistent comparison
+    const norm = (s) => s.replace(/\\/g, "/");
+    const abs = norm(resolvePath(p));
     const startsWith = (target, prefix) => {
-      const t = target.split(/[\\/]/);
-      const p = prefix.split(/[\\/]/);
+      const t = target.split("/");
+      const p = prefix.split("/");
       if (p.length > t.length) return false;
       return p.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
     };
     if (write) {
       // Write: cwd (project root) + workspace directories
-      return startsWith(abs, cwd) || workspaceDirs.some((d) => startsWith(abs, d));
+      return startsWith(abs, norm(cwd)) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
     }
     // Read: cwd + rootDir + workspace directories
-    return startsWith(abs, cwd) || startsWith(abs, rootDir) || workspaceDirs.some((d) => startsWith(abs, d));
+    return startsWith(abs, norm(cwd)) || startsWith(abs, norm(rootDir)) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
   };
 
   // Emit tool event for SSE
@@ -1001,7 +1004,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       case "read_file": {
         const filePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path)) return `Error: path '${args.path}' is outside allowed directory`;
+        if (!isPathAllowed(args.path)) return `Error: path '${args.path}' is outside allowed directory. cwd='${cwd}'. Use a relative path instead.`;
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
         const content = await readFile(filePath, "utf-8");
         // Line-based reading with offset/limit
@@ -1025,7 +1028,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       case "write_file": {
         const filePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
+        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside allowed directory. cwd='${cwd}'. Use a relative path like 'data/apps/test/app.html' instead of absolute path.`;
         // ── P0: Inject dependency context before write ──
         const depCtx = getDependencyContext(cwd, filePath);
         if (depCtx) {
@@ -1051,7 +1054,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       case "edit_file": {
         const filePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside working directory`;
+        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside allowed directory. cwd='${cwd}'. Use a relative path like 'data/apps/test/app.html' instead of absolute path.`;
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
         // ── P0: Inject dependency context before edit ──
         const depCtx = getDependencyContext(cwd, filePath);
