@@ -56,6 +56,8 @@ export default async function crewRoute(req, res) {
     const testDir = resolve(PAAW_ROOT, relTestDir);
     try { await rm(testDir, { recursive: true, force: true }); } catch {}
     await mkdir(testDir, { recursive: true });
+    // If cwd is provided (isolated build dir), ensure it exists
+    if (cwd) { try { await mkdir(cwd, { recursive: true }); } catch {} }
 
     // Build full system context via contextEngine (skill-builder rules + knowledge + workspace)
     let systemPrompt = "";

@@ -426,6 +426,28 @@ export default async function skillsApiRoute(req, res) {
       // Also strip leading non-frontmatter lines (e.g. stray "yaml" after fence removal)
       content = content.replace(/^(?!---)\s*\w+\s*\n(?=---)/, "").trim();
 
+      // ── Quality check: ensure required sections exist ──
+      const requiredSections = ["purpose", "steps", "output", "guardrails", "validation"];
+      const missingSections = requiredSections.filter(s => {
+        const hasAt = content.includes(`@@@${s}@@@`);
+        const hasHash = content.includes(`## ${s.charAt(0).toUpperCase() + s.slice(1)}`);
+        return !hasAt && !hasHash;
+      });
+      if (missingSections.length > 0) {
+        console.log(`[SkillBuilder] Missing sections: ${missingSections.join(", ")}, appending defaults`);
+        const defaults = {
+          validation: `\n@@@validation@@@\n1. 結果格式符合 Output Contract 定義\n2. 所有必填欄位都有值\n3. 無安全違規（guardrails 未觸發）`,
+          guardrails: `\n@@@guardrails@@@\n- 只處理使用者提供的輸入，不存取外部系統\n- 不執行有安全風險的操作`,
+          output: `\n@@@output@@@\n輸出模式：both\n結果直接顯示，如指定 output_path 則同時存檔`,
+          steps: `\n@@@steps@@@\n### Tool Access\n- read_file, write_file\n\n### Execution Steps\n1. 讀取使用者輸入\n2. 根據 Purpose 執行處理\n3. 格式化輸出\n\n### Business Rules\n- 確保輸出格式一致\n\n### Error Handling\n- 輸入為空：提示使用者提供必要資訊\n- 處理失敗：回傳錯誤訊息`,
+          purpose: `\n@@@purpose@@@\n根據使用者需求執行指定任務`,
+        };
+        for (const s of missingSections) {
+          if (defaults[s]) content += defaults[s];
+        }
+        console.log(`[SkillBuilder] After patch: ${content.length} chars`);
+      }
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ content, systemPrompt, userMessage }));
     } catch (err) {

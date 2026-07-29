@@ -349,6 +349,8 @@ export default function SkillBuilder() {
   const [aiGenLoading, setAiGenLoading] = useState(false);
   const [aiGenPromptPreview, setAiGenPromptPreview] = useState<{system: string; user: string} | null>(null);
   const [workingDir, setWorkingDir] = useState("");
+  // Agent cwd should be isolated to prevent stray files in PAAW_ROOT
+  const agentCwd = workingDir ? `${workingDir}/data/skills/building/${form.id || "untitled"}` : undefined;
 
   // Builder mode: visual (step cards) vs advanced (raw prompt)
   const [builderMode, setBuilderMode] = useState<"visual" | "advanced">("visual");
@@ -651,7 +653,7 @@ ${userInputLines.join("\n")}
       const res = await fetch(`${API_BASE}/api/skill-test/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: workingDir || undefined, timeout: skillConfig.testTimeout, maxToolCalls: skillConfig.maxToolCalls, model: model || undefined }),
+        body: JSON.stringify({ skillId: form.id || "untitled", prompt, cwd: agentCwd || undefined, timeout: skillConfig.testTimeout, maxToolCalls: skillConfig.maxToolCalls, model: model || undefined }),
       });
 
       const reader = res.body?.getReader();
@@ -1094,7 +1096,7 @@ ${userInputLines.join("\n")}
                 </div>
               </div>
             ) : (
-              <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={workingDir || undefined} model={model || undefined} initialPrompt={initialPrompt} systemPrompt={buildSystemPrompt} />
+              <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={agentCwd} model={model || undefined} initialPrompt={initialPrompt} systemPrompt={buildSystemPrompt} />
             )}
           </div>
 
