@@ -1096,7 +1096,7 @@ ${userInputLines.join("\n")}
                 </div>
               </div>
             ) : (
-              <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={agentCwd} model={model || undefined} initialPrompt={initialPrompt} systemPrompt={buildSystemPrompt} />
+              <AgentConsole ref={terminalRef} key={`sb-${consoleKey}-${model}`} cwd={agentCwd} model={model || undefined} initialPrompt={initialPrompt} systemPrompt={buildSystemPrompt} assistantName="Skill Builder" accent="#3b82f6" />
             )}
           </div>
 

@@ -1140,6 +1140,8 @@ export default function AppBuilder() {
                                         model={model || undefined}
                                         systemPrompt={agentSystemPrompt || undefined}
                                         initialPrompt={initialPrompt}
+                                        assistantName="App Builder"
+                                        accent="#8b5cf6"
                                     />
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-stone-500 text-xs">
