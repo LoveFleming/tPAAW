@@ -985,7 +985,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
   ];
   const WRITE_BLACKLIST_EXTS = new Set([
     // Never allow writing these file types to rootDir (but OK in cwd/data dirs)
-    ".exe", ".dll", ".bat", ".cmd", ".ps1", ".sh",
+    "exe", "dll", "bat", "cmd", "ps1", "sh",
   ]);
 
   const isPathAllowed = (p, write = false) => {
