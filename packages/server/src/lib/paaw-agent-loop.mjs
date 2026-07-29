@@ -758,7 +758,7 @@ const IS_WIN = process.platform === "win32";
 const LOG = (...args) => { if (process.env.PAAW_DEBUG) console.log("[agent-loop]", ...args); };
 
 // Module-level agent config defaults (used by runShell + executeTool)
-const _agentCfgDefaults = { maxTurns: 200, timeoutSeconds: 1800, bashTimeoutSeconds: 300, shellTimeoutMs: 1200000 };
+const _agentCfgDefaults = { maxTurns: 200, timeoutSeconds: 0, bashTimeoutSeconds: 300, shellTimeoutMs: 1200000 };
 let _agentCfg = { ..._agentCfgDefaults };
 export function setAgentConfig(cfg) { _agentCfg = { ..._agentCfgDefaults, ...cfg }; }
 

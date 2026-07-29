@@ -37,7 +37,7 @@ import {
 // ── A2A Client ──
 
 export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
-  const { cwd, timeout = 1800000, modelOverride } = opts;
+  const { cwd, timeout = 0, modelOverride } = opts; // 0 = no HTTP timeout, agent loop handles its own
 
   const params = {
     message: { role: "user", parts: [{ type: "text", text: message }] },
@@ -62,14 +62,14 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
+      const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       const data = await res.json();
 
       if (data.error) return { success: false, content: "", error: data.error.message };
@@ -396,7 +396,7 @@ export async function runParallelSession(opts = {}) {
         agentId: config.crewId,
         model: effectiveModel,
         maxTurns: 15,
-        timeout: 900,
+        timeout: 0, // no timeout — let agent complete task
         onEvent: (event) => {
           if (event.type === "tool_call") {
             console.log(`[NightShift:${role}] tool: ${event.name}`);

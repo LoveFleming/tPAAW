@@ -115,7 +115,7 @@ export async function readSystemPrompt(type, id, fallback = "") {
 // ── Agent Config — single source of truth ──
 const DEFAULT_AGENT_CONFIG = {
   maxTurns: 100,
-  timeoutSeconds: 1800,
+  timeoutSeconds: 0,
   bashTimeoutSeconds: 300,
   shellTimeoutMs: 600000,
 };

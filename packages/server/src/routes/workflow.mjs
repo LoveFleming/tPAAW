@@ -412,7 +412,8 @@ export default async function workflowRoutes(req, res) {
         const appDir = resolve(PATHS.APPS_ROOT, appId || ".");
         const agentResult = await runAgentLoop({
           prompt: ctx.prompt || "", cwd: appDir, systemPrompt: ctx.systemPrompt || "",
-          model: model || undefined, maxTurns: agentCfg.maxTurns, timeout: agentCfg.timeoutSeconds, rootDir: PATHS.PAAW_ROOT,
+          model: model || undefined, maxTurns: agentCfg.maxTurns, timeout: 0, // no timeout — workflow tasks may need extended time
+          rootDir: PATHS.PAAW_ROOT,
         });
         const cleanOutput = (agentResult.content || "").replace(/\x1b\[[0-9;]*[mGKH]/g, "").trim();
         const jm = cleanOutput.match(/\{[\s\S]*\}/);

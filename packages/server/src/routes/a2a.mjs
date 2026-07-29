@@ -825,7 +825,7 @@ export default async function a2aRoutes(req, res) {
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
-              timeout: 1800,
+              timeout: 0, // no timeout — complex agent tasks may take arbitrarily long
               rootDir,
               agentId,
               abortSignal: streamAbort.signal,
@@ -926,7 +926,7 @@ export default async function a2aRoutes(req, res) {
               model: modelOverride,
               cwd: clientContext.cwd,
               maxTurns: agent.maxTurns,
-              timeout: 1800,
+              timeout: 0, // no timeout — complex agent tasks may take arbitrarily long
               rootDir,
               agentId,
             });

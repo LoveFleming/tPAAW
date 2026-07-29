@@ -1492,8 +1492,8 @@ function buildHandlers(apps) {
         systemPrompt,
         cwd: projRoot,
         agentId: agent.agentId,
-        maxTurns: 10,
-        timeout: 300,
+        maxTurns: 30,
+        timeout: 0, // no timeout — dispatched tasks may need extended time
         rootDir: projRoot,
       });
 
