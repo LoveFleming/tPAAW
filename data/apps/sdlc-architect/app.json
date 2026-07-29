@@ -1,0 +1,20 @@
+{
+  "id": "sdlc-architect",
+  "name": "SDLC Architect",
+  "icon": "🏗️",
+  "description": "系統架構視覺化工具 — 以 C4 Model 方式呈現服務/元件的功能、狀態與屬性，支援 AI 分析與建議",
+  "status": "published",
+  "type": "data",
+  "dataShape": "none",
+  "triggers": ["架構", "architecture", "c4", "系統圖"],
+  "schema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "aiPrompt": "SDLC Architect 是一個視覺化架構展示 App，以 C4 Model 方式呈現 Festify 平台的系統架構（Festify Server、Inference Server、NATS、Data Collector、MongoDB）。可使用此 App 向使用者展示架構、提供分析建議、或進行系統健康狀況診斷。",
+  "version": "1.0.0",
+  "createdAt": "2026-07-29T12:58:06.688Z",
+  "updatedAt": "2026-07-29T13:01:00.000Z",
+  "publishedAt": "2026-07-29T12:58:06.688Z"
+}

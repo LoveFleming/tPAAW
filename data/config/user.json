@@ -11,6 +11,7 @@
     "undefined": "zai/glm-5.1",
     "codingIDE": "zai/glm-5",
     "nightShift": "zai/glm-5.1",
-    "nightShiftFallback": "openrouter/deepseek/deepseek-v4-flash"
+    "nightShiftFallback": "openrouter/deepseek/deepseek-v4-flash",
+    "appBuilder": "openrouter/z-ai/glm-5.1"
   }
 }

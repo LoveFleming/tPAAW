@@ -1,0 +1,16 @@
+{
+  "messages": [
+    {
+      "id": "1785329789751",
+      "role": "user",
+      "text": "我要用app 的形式來展現我產品的架構\n像 c4 model 一樣 可以展現每個服務or 元件的功能 狀態和一些屬性\n有api ai 可以讀可以給建議等方向\nFestify server > inference server(model weights)\nFestify server > NATS > Data collector > MongoDB",
+      "ts": 1785329789751
+    },
+    {
+      "id": "1785329790752",
+      "role": "assistant",
+      "text": "✅ Done!",
+      "ts": 1785329790751
+    }
+  ]
+}

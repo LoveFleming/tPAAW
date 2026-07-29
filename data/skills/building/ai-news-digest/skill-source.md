@@ -9,24 +9,6 @@ userInputs:
     placeholder: "https://techcrunch.com/"
     required: true
     multiline: false
-  - id: focus_keywords
-    label: 關鍵字篩選
-    description: 只關注包含這些關鍵字的新聞，逗號分隔。留空則不篩選
-    placeholder: "AI, LLM, startup"
-    required: false
-    multiline: false
-  - id: max_articles
-    label: 最大文章數
-    description: 最多摘要幾篇文章
-    placeholder: "10"
-    required: false
-    multiline: false
-  - id: output_path
-    label: 輸出路徑（留空則僅顯示）
-    description: 留空 = 結果直接顯示；填入絕對路徑 = 存成檔案
-    placeholder: "{{PAAW_ROOT}}/data/output/ai-news-digest.md"
-    required: false
-    multiline: false
 ---
 
 @@@purpose@@@
@@ -34,9 +16,6 @@ userInputs:
 
 @@@inputs@@@
 - **新聞來源網址** (required): 要摘要的新聞網站 URL
-- **關鍵字篩選** (optional): 只關注包含這些關鍵字的新聞，逗號分隔。留空則不篩選
-- **最大文章數** (optional): 最多摘要幾篇文章
-- **輸出路徑（留空則僅顯示）** (optional): 留空 = 結果直接顯示；填入絕對路徑 = 存成檔案
 
 @@@steps@@@
 ### Tool Access
@@ -64,52 +43,7 @@ userInputs:
 - 單篇文章無法讀取：跳過該篇，在摘要中標註「⚠️ 原文無法讀取，僅提供標題」
 
 @@@output@@@
-輸出模式：both
 
-{
-  "type": "object",
-  "properties": {
-    "date": { "type": "string", "description": "摘要日期 (YYYY-MM-DD)" },
-    "source_url": { "type": "string", "description": "新聞來源網址" },
-    "total_fetched": { "type": "integer", "description": "首頁擷取到的文章總數" },
-    "total_summarized": { "type": "integer", "description": "實際摘要的文章數" },
-    "focus_keywords": { "type": "array", "items": { "type": "string" }, "description": "使用的篩選關鍵字" },
-    "articles": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "title": { "type": "string", "description": "文章標題" },
-          "url": { "type": "string", "description": "文章連結" },
-          "summary": { "type": "string", "description": "2-3 句重點摘要" },
-          "date": { "type": "string", "description": "文章發布日期" },
-          "matched_keywords": { "type": "array", "items": { "type": "string" }, "description": "符合的關鍵字" }
-        },
-        "required": ["title", "url", "summary"]
-      }
-    }
-  },
-  "required": ["date", "source_url", "total_fetched", "total_summarized", "articles"]
-}
-
-Markdown 輸出範例：
-```
-# 📰 AI News Digest — 2026-07-22
-
-**來源**：https://techcrunch.com/
-**擷取文章數**：25 | **摘要文章數**：8
-**關鍵字篩選**：AI, LLM, startup
-
----
-
-## 1. OpenAI 推出 GPT-5 Turbo
-🔗 https://techcrunch.com/...
-📅 2026-07-22 | 🏷️ AI, LLM
-
-OpenAI 今日發布 GPT-5 Turbo，推理速度較前代提升 3 倍，成本降低 40%。該模型首次支援原生多模態串流輸出，預計下週開放 API 測試。
-
-## 2. ...
-```
 
 @@@guardrails@@@
 - 僅摘要公開可存取的新聞文章，不嘗試繞過付費牆或登入限制
@@ -127,40 +61,7 @@ OpenAI 今日發布 GPT-5 Turbo，推理速度較前代提升 3 倍，成本降�
 - 若 focus_keywords 為空，則 matched_keywords 陣列為空
 
 @@@examples@@@
-### Example 1：預設 TechCrunch 摘要
-**Input**
-- source_url: `https://techcrunch.com/`
-- focus_keywords: (空)
-- max_articles: `5`
 
-**Output**
-```
-# 📰 AI News Digest — 2026-07-22
-
-**來源**：https://techcrunch.com/
-**擷取文章數**：30 | **摘要文章數**：5
-**關鍵字篩選**：無
-
----
-
-## 1. Apple Vision Pro 2 發表，售價下殺 $1,999
-🔗 https://techcrunch.com/apple-vision-pro-2
-📅 2026-07-22
-
-Apple 發表第二代 Vision Pro，重量減半、售價降至 $1,999，首次支援手勢追蹤與眼球登入。預計 9 月出貨，分析師預估將帶動空間運算普及化。
-
-## 2. ...
-```
-
-### Example 2：帶關鍵字篩選
-**Input**
-- source_url: `https://techcrunch.com/`
-- focus_keywords: `AI, startup`
-- max_articles: `8`
-
-**Output**
-- 僅摘要標題或簡述含 "AI" 或 "startup" 的文章
-- 每篇文章的 matched_keywords 標示符合的關鍵字
 
 @@@build_log@@@
 ## v1 — 2026-07-22 (AI Generate)
@@ -168,4 +69,16 @@ Apple 發表第二代 Vision Pro，重量減半、售價降至 $1,999，首次�
 - 推斷 userInputs：source_url、focus_keywords、max_articles、output_path
 - 支援關鍵字篩選與 fallback 機制
 ## v2
-- 摘要內容多一點 要標示 重點 特別 的地方 
+- 摘要內容多一點 要標示 重點 特別 的地方
+## v3 — 2026-07-29 (AI Build)
+- 補齊：Inputs section（從 frontmatter userInputs + 推斷欄位整理為完整表格）
+- 補齊：Output Contract 加入 JSON schema + 輸出模式說明
+- 擴充：Execution Steps 從簡述展開為具體子步驟（1.1–1.3、4.2–4.3 重點標示規則、5.2 Markdown 結構）
+- 補齊：Error Handling 整理為表格（4 種情境），補充單篇失敗不中止流程
+- 新增：Tool Access 明確列出無外部工具 + 可選檔案寫入需求
+- 新增：Validation checklist（7 項具體驗證規則）
+- 調整：Guardrails 補充 robots.txt 禁止情境的處理
+- 微調：摘要篇幅統一為 3–5 句 + 粗體重點標示（至少 1 處至多 3 處），摘要字鬆綁至 max 400 字
+## v4 — 2026-07-29 (AI Build)
+- 覆蓋重新編譯：確認 package/SKILL.md 與 skill-source.md 同步完成，artifact 內容無變更
+- build_log 追加本次編譯紀錄

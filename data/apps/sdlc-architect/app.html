@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDLC Architect — 系統架構視覺化</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-base: #0f1115;
+      --bg-surface: #181b20;
+      --bg-elevated: #1e2128;
+      --bg-hover: #282c35;
+      --border: #2e333d;
+      --text-primary: #e8eaed;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent: #60a5fa;
+      --accent-dim: #3b82f6;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --purple: #a78bfa;
+      --cyan: #22d3ee;
+      --orange: #fb923c;
+      --sidebar-w: 240px;
+      --header-h: 56px;
+    }
+    html, body {
+      height: 100%; width: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* Layout */
+    .app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-w); min-width: var(--sidebar-w);
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden;
+    }
+    .sidebar-header {
+      height: var(--header-h); display: flex; align-items: center;
+      padding: 0 16px; gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header .logo { font-size: 22px; }
+    .sidebar-header h1 { font-size: 15px; font-weight: 600; white-space: nowrap; }
+    .sidebar-header .ver { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; margin: 2px 8px; border-radius: 8px;
+      cursor: pointer; transition: all 0.15s;
+      font-size: 14px; color: var(--text-secondary);
+      user-select: none;
+    }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .nav-item.active {
+      background: rgba(96, 165, 250, 0.12);
+      color: var(--accent);
+    }
+    .nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
+    .nav-item .badge {
+      margin-left: auto; background: var(--bg-hover); padding: 2px 8px;
+      border-radius: 10px; font-size: 11px; color: var(--text-muted);
+    }
+    .nav-item.active .badge { background: rgba(96,165,250,0.2); color: var(--accent); }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    .header {
+      height: var(--header-h); min-height: var(--header-h);
+      display: flex; align-items: center; padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      gap: 12px;
+    }
+    .header .breadcrumb { font-size: 13px; color: var(--text-muted); }
+    .header .breadcrumb span { color: var(--text-primary); }
+    .header .spacer { flex: 1; }
+    .header .status-dot {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--green);
+    }
+    .header .status-dot::before {
+      content: ''; display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--green);
+    }
+
+    .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Cards */
+    .card {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; margin-bottom: 16px;
+    }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+    /* Architecture Canvas */
+    .arch-canvas {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px; min-height: 400px;
+      position: relative; overflow: hidden;
+    }
+    .arch-svg-wrapper { width: 100%; overflow-x: auto; }
+    .arch-svg-wrapper svg { min-width: 600px; }
+
+    .system-box { fill: var(--bg-elevated); stroke: var(--accent); stroke-width: 1.5; rx: 10; ry: 10; }
+    .system-label { fill: var(--text-primary); font-size: 13px; font-weight: 600; }
+    .system-sublabel { fill: var(--text-muted); font-size: 10px; }
+    .container-box { fill: var(--bg-elevated); stroke: var(--border); stroke-width: 1.2; rx: 8; ry: 8; }
+    .container-label { fill: var(--text-primary); font-size: 11px; font-weight: 500; }
+    .container-status { font-size: 9px; }
+    .arrow-line { stroke: var(--text-muted); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .arrow-label { fill: var(--text-muted); font-size: 9px; }
+    .arrow-dashed { stroke-dasharray: 6 4; }
+
+    /* Status colors */
+    .status-healthy { color: var(--green); }
+    .status-warning { color: var(--yellow); }
+    .status-down { color: var(--red); }
+
+    /* Grid for components */
+    .comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .comp-card {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; cursor: default;
+      transition: all 0.15s;
+    }
+    .comp-card:hover { border-color: var(--accent-dim); background: var(--bg-elevated); }
+    .comp-card .comp-icon { font-size: 24px; margin-bottom: 8px; }
+    .comp-card .comp-name { font-size: 14px; font-weight: 600; }
+    .comp-card .comp-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
+    .comp-card .comp-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .comp-card .comp-tag {
+      font-size: 11px; padding: 2px 8px; border-radius: 6px;
+      background: var(--bg-hover); color: var(--text-muted);
+    }
+    .comp-card .comp-tag.tag-green { background: rgba(52,211,153,0.12); color: var(--green); }
+    .comp-card .comp-tag.tag-blue { background: rgba(96,165,250,0.12); color: var(--accent); }
+    .comp-card .comp-tag.tag-purple { background: rgba(167,139,250,0.12); color: var(--purple); }
+    .comp-card .comp-tag.tag-yellow { background: rgba(251,191,36,0.12); color: var(--yellow); }
+    .comp-card .comp-tag.tag-cyan { background: rgba(34,211,238,0.12); color: var(--cyan); }
+
+    /* Health panel */
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .health-item {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; text-align: center;
+    }
+    .health-item .health-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      margin: 0 auto 8px;
+    }
+    .health-item .health-dot.green { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,0.4); }
+    .health-item .health-dot.yellow { background: var(--yellow); box-shadow: 0 0 8px rgba(251,191,36,0.4); }
+    .health-item .health-name { font-size: 13px; font-weight: 500; }
+    .health-item .health-val { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .health-item .health-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+    /* API Insight panel */
+    .insight-area {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; margin-top: 12px;
+      font-size: 14px; line-height: 1.7; color: var(--text-secondary);
+      max-height: 400px; overflow-y: auto;
+    }
+    .insight-area h1, .insight-area h2, .insight-area h3 { color: var(--text-primary); margin-top: 12px; margin-bottom: 6px; }
+    .insight-area h3 { font-size: 14px; }
+    .insight-area p { margin: 6px 0; }
+    .insight-area ul { padding-left: 20px; margin: 6px 0; }
+    .insight-area li { margin: 4px 0; }
+    .insight-area code {
+      background: var(--bg-hover); padding: 2px 6px; border-radius: 4px;
+      font-size: 13px; color: var(--cyan);
+    }
+    .insight-area strong { color: var(--text-primary); }
+    .insight-area blockquote {
+      border-left: 3px solid var(--accent-dim); padding-left: 12px;
+      color: var(--text-muted); margin: 8px 0;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; font-size: 13px;
+      border: 1px solid var(--border); background: var(--bg-surface);
+      color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+    }
+    .btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--text-muted); }
+    .btn-primary { background: var(--accent-dim); color: #fff; border-color: var(--accent-dim); }
+    .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+    .toolbar .spacer { flex: 1; }
+
+    /* Suggestion pills */
+    .suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+    .suggestion-pill {
+      padding: 6px 14px; border-radius: 20px; font-size: 12px;
+      background: var(--bg-hover); border: 1px solid var(--border);
+      color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+    }
+    .suggestion-pill:hover { background: rgba(96,165,250,0.12); border-color: var(--accent-dim); color: var(--accent); }
+
+    /* Chart wrapper */
+    .chart-wrapper { max-width: 500px; margin: 0 auto; }
+
+    /* Section title */
+    .section-title {
+      font-size: 13px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 20px 0 12px;
+    }
+
+    /* responsive */
+    @media (max-width: 768px) {
+      .sidebar { width: 60px; min-width: 60px; }
+      .sidebar-header h1, .sidebar-header .ver { display: none; }
+      .nav-item .label { display: none; }
+      .nav-item { justify-content: center; padding: 10px; margin: 2px 4px; }
+      .nav-item .icon { margin: 0; }
+      .nav-item .badge { display: none; }
+      .content { padding: 16px; }
+      .comp-grid { grid-template-columns: 1fr; }
+      .health-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .header { flex-wrap: wrap; height: auto; padding: 10px 16px; gap: 6px; }
+      .health-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">🏗️</span>
+      <h1>SDLC Architect</h1>
+      <span class="ver">v1.0</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-tab="tab-arch">
+        <span class="icon">🌐</span>
+        <span class="label">Architecture</span>
+      </div>
+      <div class="nav-item" data-tab="tab-components">
+        <span class="icon">🧩</span>
+        <span class="label">Components</span>
+        <span class="badge">5</span>
+      </div>
+      <div class="nav-item" data-tab="tab-health">
+        <span class="icon">💚</span>
+        <span class="label">Health</span>
+      </div>
+      <div class="nav-item" data-tab="tab-apis">
+        <span class="icon">📡</span>
+        <span class="label">API &amp; Insights</span>
+      </div>
+      <div class="nav-item" data-tab="tab-metrics">
+        <span class="icon">📊</span>
+        <span class="label">Metrics</span>
+      </div>
+    </nav>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);">
+      <div>🔌 All systems nominal</div>
+      <div>⏱ Updated just now</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Header -->
+    <header class="header">
+      <div class="breadcrumb">🏗️ <span>SDLC Architect</span></div>
+      <div class="spacer"></div>
+      <div class="status-dot">All healthy</div>
+    </header>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ============ TAB: Architecture ============ -->
+      <div class="tab-panel active" id="tab-arch">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <h2 style="font-size:18px;font-weight:600;">System Architecture</h2>
+          <span style="font-size:12px;color:var(--text-muted);">C4 Model — Container Diagram</span>
+          <div class="spacer" style="flex:1;"></div>
+          <button class="btn btn-primary" onclick="switchTab('tab-components')">🔍 View Components</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🔷 Festify Platform — System Context</div>
+          <div class="arch-svg-wrapper">
+            <svg viewBox="0 0 820 520" width="820" height="520" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                  <path d="M0,0 L8,3 L0,6 Z" fill="#9ca3af"/>
+                </marker>
+                <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                  <path d="M0,0 L8,3 L0,6 Z" fill="#60a5fa"/>
+                </marker>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+
+              <!-- System boundary: Festify -->
+              <rect x="100" y="30" width="620" height="340" rx="12" ry="12" fill="rgba(96,165,250,0.04)" stroke="var(--accent-dim)" stroke-width="1" stroke-dasharray="8 4" opacity="0.6"/>
+              <text x="120" y="55" fill="var(--accent)" font-size="12" font-weight="600">[System] Festify Platform</text>
+
+              <!-- Festify Server -->
+              <rect x="140" y="75" width="200" height="80" rx="10" ry="10" fill="var(--bg-elevated)" stroke="var(--accent)" stroke-width="1.5"/>
+              <text x="165" y="105" fill="var(--text-primary)" font-size="15" font-weight="600">🎵 Festify Server</text>
+              <text x="165" y="125" fill="var(--text-muted)" font-size="10">API Gateway • Auth • Orchestration</text>
+              <text x="165" y="142" fill="var(--green)" font-size="10">● healthy  |  v2.3.1</text>
+
+              <!-- Inference Server -->
+              <rect x="460" y="75" width="220" height="80" rx="10" ry="10" fill="var(--bg-elevated)" stroke="var(--purple)" stroke-width="1.5"/>
+              <text x="485" y="105" fill="var(--text-primary)" font-size="15" font-weight="600">🧠 Inference Server</text>
+              <text x="485" y="125" fill="var(--text-muted)" font-size="10">Model Serving • Weights • Embeddings</text>
+              <text x="485" y="142" fill="var(--green)" font-size="10">● healthy  |  model-weights-v3</text>
+
+              <!-- Arrow: Festify -> Inference -->
+              <line x1="340" y1="95" x2="455" y2="95" class="arrow-line" stroke="#a78bfa"/>
+              <text x="370" y="88" fill="var(--text-muted)" font-size="9">gRPC / REST</text>
+
+              <!-- NATS -->
+              <rect x="140" y="195" width="200" height="70" rx="10" ry="10" fill="var(--bg-elevated)" stroke="var(--cyan)" stroke-width="1.5"/>
+              <text x="165" y="222" fill="var(--text-primary)" font-size="15" font-weight="600">📨 NATS</text>
+              <text x="165" y="242" fill="var(--text-muted)" font-size="10">Message Broker • Event Bus</text>
+              <text x="165" y="255" fill="var(--green)" font-size="10">● healthy  |  3 nodes</text>
+
+              <!-- Arrow: Festify -> NATS -->
+              <line x1="240" y1="155" x2="240" y2="192" class="arrow-line"/>
+              <text x="250" y="178" fill="var(--text-muted)" font-size="9">events</text>
+
+              <!-- Data Collector -->
+              <rect x="140" y="305" width="200" height="70" rx="10" ry="10" fill="var(--bg-elevated)" stroke="var(--yellow)" stroke-width="1.5"/>
+              <text x="165" y="332" fill="var(--text-primary)" font-size="15" font-weight="600">📥 Data Collector</text>
+              <text x="165" y="352" fill="var(--text-muted)" font-size="10">Stream Processor • ETL</text>
+              <text x="165" y="365" fill="var(--green)" font-size="10">● healthy  |  2 replicas</text>
+
+              <!-- Arrow: NATS -> Data Collector -->
+              <line x1="240" y1="265" x2="240" y2="302" class="arrow-line"/>
+              <text x="250" y="288" fill="var(--text-muted)" font-size="9">subscribe</text>
+
+              <!-- MongoDB -->
+              <rect x="460" y="285" width="220" height="70" rx="10" ry="10" fill="var(--bg-elevated)" stroke="var(--green)" stroke-width="1.5"/>
+              <text x="485" y="312" fill="var(--text-primary)" font-size="15" font-weight="600">🗄️ MongoDB</text>
+              <text x="485" y="332" fill="var(--text-muted)" font-size="10">Primary DB • Analytics • Logs</text>
+              <text x="485" y="345" fill="var(--green)" font-size="10">● healthy  |  replica-set</text>
+
+              <!-- Arrow: Data Collector -> MongoDB -->
+              <line x1="340" y1="340" x2="455" y2="340" class="arrow-line"/>
+              <text x="370" y="333" fill="var(--text-muted)" font-size="9">write</text>
+
+              <!-- External: User -->
+              <rect x="30" y="400" width="220" height="60" rx="12" ry="12" fill="rgba(34,211,238,0.06)" stroke="var(--cyan)" stroke-width="1.2" stroke-dasharray="6 3"/>
+              <text x="55" y="428" fill="var(--cyan)" font-size="14" font-weight="500">👤 User / Client</text>
+              <text x="55" y="446" fill="var(--text-muted)" font-size="10">Browser • Mobile • API</text>
+              <!-- Arrow: User -> Festify -->
+              <line x1="140" y1="430" x2="240" y2="430" class="arrow-line" stroke="var(--cyan)"/>
+              <line x1="240" y1="430" x2="240" y2="158" class="arrow-line" stroke="var(--cyan)" stroke-dasharray="6 4"/>
+              <text x="185" y="424" fill="var(--cyan)" font-size="9">HTTPS</text>
+
+              <!-- External: AI Assistant -->
+              <rect x="530" y="400" width="220" height="60" rx="12" ry="12" fill="rgba(167,139,250,0.06)" stroke="var(--purple)" stroke-width="1.2" stroke-dasharray="6 3"/>
+              <text x="550" y="428" fill="var(--purple)" font-size="14" font-weight="500">🤖 AI Assistant</text>
+              <text x="550" y="446" fill="var(--text-muted)" font-size="10">API • Analysis • Suggestions</text>
+              <line x1="530" y1="430" x2="460" y2="430" class="arrow-line" stroke="var(--purple)"/>
+              <line x1="460" y1="430" x2="460" y2="158" class="arrow-line" stroke="var(--purple)" stroke-dasharray="6 4"/>
+              <text x="485" y="424" fill="var(--purple)" font-size="9">API</text>
+            </svg>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="card">
+            <div class="card-title">📋 Architecture Summary</div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">
+              <p><strong style="color:var(--text-primary);">Festify</strong> is a music intelligence platform. The system follows an <strong style="color:var(--accent);">event-driven architecture</strong> with NATS as the central message broker.</p>
+              <ul style="padding-left:16px;margin-top:8px;">
+                <li><strong style="color:var(--text-primary);">Festify Server</strong> — API gateway handling auth, orchestration, and client requests</li>
+                <li><strong style="color:var(--purple);">Inference Server</strong> — Model serving with loaded weights for embeddings &amp; predictions</li>
+                <li><strong style="color:var(--cyan);">NATS</strong> — Event bus decoupling real-time data flow</li>
+                <li><strong style="color:var(--yellow);">Data Collector</strong> — Stream processor consuming events and persisting to DB</li>
+                <li><strong style="color:var(--green);">MongoDB</strong> — Primary data store for analytics and logs</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">⚡ Data Flow (live)</div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.8;">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                <span style="padding:4px 10px;border-radius:6px;background:var(--bg-hover);font-size:11px;">User → Festify</span>
+                <span style="padding:4px 10px;border-radius:6px;background:var(--bg-hover);font-size:11px;">Festify → NATS</span>
+                <span style="padding:4px 10px;border-radius:6px;background:var(--bg-hover);font-size:11px;">NATS → Data Collector</span>
+                <span style="padding:4px 10px;border-radius:6px;background:var(--bg-hover);font-size:11px;">Data Collector → MongoDB</span>
+                <span style="padding:4px 10px;border-radius:6px;background:var(--bg-hover);font-size:11px;">Festify → Inference</span>
+              </div>
+              <p>⏱ <strong style="color:var(--text-primary);">Avg latency:</strong> 42ms (p95: 89ms)</p>
+              <p>📦 <strong style="color:var(--text-primary);">Events/min:</strong> 1,247</p>
+              <p>📊 <strong style="color:var(--text-primary);">Data collected:</strong> 2.3M records (last 24h)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ TAB: Components ============ -->
+      <div class="tab-panel" id="tab-components">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:4px;">🧩 System Components</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Detailed view of every service, container, and component in the architecture.</p>
+
+        <div class="comp-grid">
+          <!-- Festify Server -->
+          <div class="comp-card">
+            <div class="comp-icon">🎵</div>
+            <div class="comp-name">Festify Server</div>
+            <div class="comp-desc">API gateway handling auth, request routing, session management, and orchestrating downstream services.</div>
+            <div class="comp-meta">
+              <span class="comp-tag tag-blue">v2.3.1</span>
+              <span class="comp-tag tag-green">● healthy</span>
+              <span class="comp-tag">Node.js</span>
+              <span class="comp-tag tag-blue">REST</span>
+            </div>
+          </div>
+
+          <!-- Inference Server -->
+          <div class="comp-card">
+            <div class="comp-icon">🧠</div>
+            <div class="comp-name">Inference Server</div>
+            <div class="comp-desc">Model serving with loaded model weights. Provides embeddings, similarity search, and music intelligence predictions.</div>
+            <div class="comp-meta">
+              <span class="comp-tag tag-purple">model-weights-v3</span>
+              <span class="comp-tag tag-green">● healthy</span>
+              <span class="comp-tag">Python</span>
+              <span class="comp-tag tag-purple">gRPC</span>
+            </div>
+          </div>
+
+          <!-- NATS -->
+          <div class="comp-card">
+            <div class="comp-icon">📨</div>
+            <div class="comp-name">NATS</div>
+            <div class="comp-desc">High-performance message broker acting as the real-time event bus. Decouples services and enables async data flow.</div>
+            <div class="comp-meta">
+              <span class="comp-tag tag-cyan">3 nodes</span>
+              <span class="comp-tag tag-green">● healthy</span>
+              <span class="comp-tag">Go</span>
+              <span class="comp-tag tag-cyan">NATS protocol</span>
+            </div>
+          </div>
+
+          <!-- Data Collector -->
+          <div class="comp-card">
+            <div class="comp-icon">📥</div>
+            <div class="comp-name">Data Collector</div>
+            <div class="comp-desc">Stream processor subscribing to NATS topics. Performs ETL, data enrichment, and persistence to MongoDB.</div>
+            <div class="comp-meta">
+              <span class="comp-tag tag-yellow">2 replicas</span>
+              <span class="comp-tag tag-green">● healthy</span>
+              <span class="comp-tag">Rust</span>
+              <span class="comp-tag tag-yellow">ETL</span>
+            </div>
+          </div>
+
+          <!-- MongoDB -->
+          <div class="comp-card">
+            <div class="comp-icon">🗄️</div>
+            <div class="comp-name">MongoDB</div>
+            <div class="comp-desc">Primary database storing analytics events, user logs, and aggregated data. Runs as a replica set for HA.</div>
+            <div class="comp-meta">
+              <span class="comp-tag tag-green">replica-set</span>
+              <span class="comp-tag tag-green">● healthy</span>
+              <span class="comp-tag">MongoDB 7.0</span>
+              <span class="comp-tag">NoSQL</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-title">💡 AI Recommendations</div>
+          <div class="suggestions" id="ai-rec-comp"></div>
+          <div class="insight-area" id="ai-rec-text">Click a suggestion above to see AI analysis for this component group.</div>
+        </div>
+      </div>
+
+      <!-- ============ TAB: Health ============ -->
+      <div class="tab-panel" id="tab-health">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:4px;">💚 System Health</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Real-time health status and uptime for all services.</p>
+
+        <div class="health-grid" id="health-grid">
+          <div class="health-item">
+            <div class="health-dot green"></div>
+            <div class="health-name">🎵 Festify Server</div>
+            <div class="health-val">Uptime: 99.97%</div>
+            <div class="health-label">2.3K req/s</div>
+          </div>
+          <div class="health-item">
+            <div class="health-dot green"></div>
+            <div class="health-name">🧠 Inference Server</div>
+            <div class="health-val">Uptime: 99.94%</div>
+            <div class="health-label">340 req/s</div>
+          </div>
+          <div class="health-item">
+            <div class="health-dot green"></div>
+            <div class="health-name">📨 NATS</div>
+            <div class="health-val">Uptime: 99.99%</div>
+            <div class="health-label">12K msg/s</div>
+          </div>
+          <div class="health-item">
+            <div class="health-dot green"></div>
+            <div class="health-name">📥 Data Collector</div>
+            <div class="health-val">Uptime: 99.91%</div>
+            <div class="health-label">1.2K events/s</div>
+          </div>
+          <div class="health-item">
+            <div class="health-dot green"></div>
+            <div class="health-name">🗄️ MongoDB</div>
+            <div class="health-val">Uptime: 100%</div>
+            <div class="health-label">8.5K ops/s</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-title">🕐 24h Uptime Trend</div>
+          <div class="chart-wrapper">
+            <canvas id="healthChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📋 Recent Incidents</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.8;">
+            <div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:10px;color:var(--text-muted);">2h ago</span>
+              <span class="status-healthy">● resolved</span>
+              <span>Data Collector replica restart — auto-recovered</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:10px;color:var(--text-muted);">18h ago</span>
+              <span class="status-healthy">● resolved</span>
+              <span>Inference Server latency spike (p95: 210ms) — cleared after model reload</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;padding:6px 0;">
+              <span style="font-size:10px;color:var(--text-muted);">3d ago</span>
+              <span class="status-healthy">● resolved</span>
+              <span>NATS connection pool exhausted — scaled to 3 nodes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ TAB: API & Insights ============ -->
+      <div class="tab-panel" id="tab-apis">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:4px;">📡 API &amp; AI Insights</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">AI-powered analysis and suggestions for your architecture.</p>
+
+        <div class="toolbar">
+          <button class="btn" onclick="switchInsight('arch')">🏗️ Architecture Review</button>
+          <button class="btn" onclick="switchInsight('perf')">⚡ Performance</button>
+          <button class="btn" onclick="switchInsight('sec')">🔒 Security</button>
+          <button class="btn" onclick="switchInsight('scale')">📈 Scalability</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">💬 AI Analysis</div>
+          <div class="insight-area" id="insight-content"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🔍 Suggested Improvements</div>
+          <div class="suggestions" id="suggestion-list"></div>
+        </div>
+      </div>
+
+      <!-- ============ TAB: Metrics ============ -->
+      <div class="tab-panel" id="tab-metrics">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:4px;">📊 System Metrics</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Key performance indicators across all components.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <div class="card-title">📈 Request Rate (req/s)</div>
+            <div class="chart-wrapper">
+              <canvas id="reqChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">⏱ Latency (ms) p95</div>
+            <div class="chart-wrapper">
+              <canvas id="latencyChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <div class="card-title">🧠 Model Inference Count</div>
+            <div class="chart-wrapper">
+              <canvas id="inferenceChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">🗄️ MongoDB Operations</div>
+            <div class="chart-wrapper">
+              <canvas id="mongoChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ============ Tab Switching ============
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const tabId = item.dataset.tab;
+    if (tabId) switchTab(tabId);
+  });
+});
+
+// ============ Insights Content ============
+const insights = {
+  arch: {
+    md: `### 🏗️ Architecture Review: Festify Platform
+
+The Festify platform follows a **microservices + event-driven architecture** pattern. Here are key observations:
+
+- **Strengths:** NATS as a message broker provides excellent decoupling between the API layer (Festify Server) and the data pipeline (Data Collector → MongoDB). The inference server is separated from the main request path, allowing independent scaling.
+
+- **Risks:** The \`Festify Server → NATS → Data Collector → MongoDB\` path introduces **asynchronous eventual consistency** — users may not immediately see their data reflected. Consider adding a cache layer (e.g., Redis) for hot data.
+
+- **Recommendation:** Add a **health check endpoint** aggregating all downstream service statuses for better observability.
+
+\`\`\`
+Festify Server (API) ──gRPC──▶ Inference Server
+        │
+        ▼
+      NATS ──▶ Data Collector ──▶ MongoDB
+\`\`\`
+
+> *"Good architecture is not about being perfect, but about making change economical."*
+`
+  },
+  perf: {
+    md: `### ⚡ Performance Analysis
+
+**Current metrics (last 24h):**
+
+| Component | Avg Latency | P95 | Throughput |
+|-----------|:----------:|:---:|:----------:|
+| Festify Server | 12ms | 28ms | 2,300 req/s |
+| Inference Server | 48ms | 89ms | 340 req/s |
+| NATS | 3ms | 8ms | 12,000 msg/s |
+| Data Collector | 22ms | 45ms | 1,200 events/s |
+| MongoDB | 6ms | 15ms | 8,500 ops/s |
+
+**Bottlenecks:**
+1. **Inference Server** is the highest-latency component (p95: 89ms). Consider model quantization or GPU scaling.
+2. **Data Collector** at 2 replicas may become a bottleneck if event throughput doubles.
+
+**Suggestions:**
+- Add connection pooling to MongoDB (currently at 8.5K ops/s)
+- Consider horizontal scaling for Data Collector (target: 4+ replicas)
+- Implement caching for frequently accessed inference results`
+  },
+  sec: {
+    md: `### 🔒 Security Review
+
+**Current posture:**
+- ✅ All inter-service communication uses **mTLS** (Festify ↔ Inference, Festify ↔ NATS)
+- ✅ API Gateway handles **JWT authentication** and rate limiting
+- ✅ MongoDB is **not exposed publicly** — only accessible via internal network
+- ⚠️ NATS **no authentication** between internal services (acceptable in VPC, but consider NATS credentials)
+
+**Recommendations:**
+1. **Enable NATS authentication** — add JWT-based client authentication even for internal services
+2. **Audit logging** — ensure all data access is logged with timestamps and service IDs
+3. **Secrets management** — move model weights and DB credentials to a vault (e.g., HashiCorp Vault)
+
+> *"Security is not a product, but a process." — Bruce Schneier*
+`
+  },
+  scale: {
+    md: `### 📈 Scalability Analysis
+
+**Current capacity:**
+- **Festify Server:** 2,300 req/s — can scale horizontally behind a load balancer
+- **Inference Server:** 340 req/s — GPU-bound, scaling requires additional GPU nodes
+- **NATS:** 12,000 msg/s — JetStream can scale to 100K+ msg/s with more nodes
+- **Data Collector:** 1,200 events/s — CPU-bound, scales linearly with replicas
+- **MongoDB:** 8,500 ops/s — replica set can handle reads; sharding needed for writes
+
+**Scaling recommendations:**
+
+| Service | Strategy | Estimated Cost | Impact |
+|---------|----------|:-------------:|:------:|
+| Festify Server | Horizontal (k8s HPA) | Low | High |
+| Inference Server | GPU node pool | High | Critical |
+| NATS | Add 2 more nodes | Low | Medium |
+| Data Collector | Auto-scale to 4+ | Low | High |
+| MongoDB | Sharding | Medium | High |
+
+**Long-term:** Consider **Kubernetes** for orchestration with **KEDA** for event-driven auto-scaling based on NATS queue depth.`
+  }
+};
+
+function switchInsight(key) {
+  const content = insights[key];
+  if (!content) return;
+  document.getElementById('insight-content').innerHTML = marked.parse(content.md);
+  // Update suggestions
+  const suggestions = {
+    arch: ['Review cache strategy', 'Add health endpoint', 'Document API contracts'],
+    perf: ['Optimize inference queries', 'Scale Data Collector', 'Add Redis cache'],
+    sec: ['Enable NATS auth', 'Audit access logs', 'Secrets vault integration'],
+    scale: ['K8s migration plan', 'Shard MongoDB', 'KEDA auto-scaling']
+  };
+  const sugList = document.getElementById('suggestion-list');
+  sugList.innerHTML = suggestions[key].map(s => `<span class="suggestion-pill">${s}</span>`).join('');
+}
+
+// Init with arch insight
+switchInsight('arch');
+
+// ============ Component Recommendations ============
+const compRecs = [
+  '🎯 Consider adding a Redis cache between Festify Server and MongoDB for hot data access',
+  '⚡ Inference Server model weights could be quantized for 2x throughput improvement',
+  '🔗 NATS JetStream can be used for event replay and exactly-once delivery semantics',
+  '📊 Add Prometheus metrics export on all services for better observability'
+];
+
+document.getElementById('ai-rec-comp').innerHTML = compRecs.map(s =>
+  `<span class="suggestion-pill" onclick="showCompRec(this.textContent)">${s}</span>`
+).join('');
+
+function showCompRec(text) {
+  const area = document.getElementById('ai-rec-text');
+  area.innerHTML = marked.parse(`> **AI Analysis:** ${text}\n\nThis recommendation is based on current system metrics and industry best practices for event-driven architectures. Estimated effort: **medium**. Priority: **high**.`);
+}
+
+// ============ Charts ============
+function createChart(id, type, labels, datasets, opts) {
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return null;
+  return new Chart(ctx, {
+    type: type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      color: '#9ca3af',
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 10 } } }
+      },
+      scales: {
+        x: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { color: 'rgba(46,51,61,0.5)' } },
+        y: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { color: 'rgba(46,51,61,0.5)' }, beginAtZero: true }
+      },
+      ...opts
+    }
+  });
+}
+
+// Health chart (24h uptime)
+const hours = Array.from({length: 24}, (_, i) => `${i}:00`);
+createChart('healthChart', 'line', hours, [
+  { label: 'Festify Server', data: hours.map(() => 99.9 + Math.random() * 0.09), borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.1)', fill: true, tension: 0.3, pointRadius: 1 },
+  { label: 'Inference Server', data: hours.map(() => 99.8 + Math.random() * 0.19), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', fill: true, tension: 0.3, pointRadius: 1 },
+  { label: 'NATS', data: hours.map(() => 99.95 + Math.random() * 0.04), borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.08)', fill: true, tension: 0.3, pointRadius: 1 }
+], { scales: { y: { min: 99.7, max: 100 } } });
+
+// Request chart
+createChart('reqChart', 'bar', ['Festify', 'Inference', 'NATS', 'Collector', 'MongoDB'], [
+  { label: 'req/s', data: [2300, 340, 12000, 1200, 8500], backgroundColor: ['#60a5fa', '#a78bfa', '#22d3ee', '#fbbf24', '#34d399'] }
+], { indexAxis: 'y', plugins: { legend: { display: false } } });
+
+// Latency chart
+createChart('latencyChart', 'bar', ['Festify', 'Inference', 'NATS', 'Collector', 'MongoDB'], [
+  { label: 'P95 (ms)', data: [28, 89, 8, 45, 15], backgroundColor: ['rgba(96,165,250,0.6)', 'rgba(167,139,250,0.6)', 'rgba(34,211,238,0.6)', 'rgba(251,191,36,0.6)', 'rgba(52,211,153,0.6)'] }
+], { plugins: { legend: { display: false } } });
+
+// Inference chart
+createChart('inferenceChart', 'line', hours, [
+  { label: 'Inference Count', data: hours.map(() => Math.floor(15000 + Math.random() * 8000)), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', fill: true, tension: 0.3, pointRadius: 1 }
+], {});
+
+// MongoDB ops chart
+createChart('mongoChart', 'line', hours, [
+  { label: 'Reads', data: hours.map(() => Math.floor(5000 + Math.random() * 2000)), borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.08)', fill: true, tension: 0.3, pointRadius: 1 },
+  { label: 'Writes', data: hours.map(() => Math.floor(2000 + Math.random() * 1500)), borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.08)', fill: true, tension: 0.3, pointRadius: 1 }
+], {});
+</script>
+</body>
+</html>
