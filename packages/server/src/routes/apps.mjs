@@ -6,6 +6,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir, unlink, rm, stat } from "fs/promises";
+import { existsSync } from "fs";
 import { join, resolve, dirname } from "path";
 import {
   PAAW_ROOT, APPS_ROOT, INPUT_PROMPT_ROOT, PHYSICAL_SKILL_ROOT,
