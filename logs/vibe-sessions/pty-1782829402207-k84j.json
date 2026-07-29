@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782829402207-k84j",
+  "cli": "paaw-agent",
+  "model": "zai/glm-5",
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": "=== 系統路徑（不可修改） ===\n📚 Knowledge 目錄：/Users/steward/App/data/knowledge\n使用 file_list({ path: \"/Users/steward/App/data/knowledge\", workspace: \"knowledge\" }) 列出目錄內容，用 file_read({ path: \"/Users/steward/App/data/knowledge/檔名\" }) 讀取檔案。\n\n請使用 translate\nskill path : /Users/steward/App/tAgent/data/skills/physical-skill/translate/SKILL.md\n\n## 操作員提供的規格資料\n\n### 輸出路徑\n/Users/steward/App/ai-factory-portal/myenglish.md\n\n### 要翻譯的內容\n解凍資金",
+  "createdAt": "2026-06-30T14:23:22.209Z",
+  "lastActive": "2026-06-30T14:25:06.375Z"
+}

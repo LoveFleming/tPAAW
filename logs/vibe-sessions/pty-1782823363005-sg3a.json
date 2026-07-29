@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782823363005-sg3a",
+  "cli": "paaw-agent",
+  "model": "zai/glm-5.1",
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": null,
+  "createdAt": "2026-06-30T12:42:43.007Z",
+  "lastActive": "2026-06-30T12:42:43.007Z"
+}

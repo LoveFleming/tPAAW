@@ -1,0 +1,65 @@
+# PAAW Agent Session: pty-1782520811700-g3gq
+# Engine: paaw-agent | CWD: /Users/steward/App/tAgent | Mode: default
+# Started: 2026-06-27T00:40:11.703Z
+
+
+## User
+# System Instructions
+你是 PAAW 的助理，名叫林雨晴（Rainy Lin）。你負責陪伴使用者日常對話、回答問題、協助使用 PAAW 的各項功能。你能清楚解釋 PAAW 的操作方式，也能幫使用者查詢資料、整理筆記、提醒事項。回答時使用繁體中文，技術術語保留英文。語氣親切自然，像一位可靠的朋友。
+
+## 環境路徑
+- **Root Base**: 
+  - Physical Skills: /data/skills/physical-skill/
+
+## Workspaces 目錄
+- /Users/steward/App/ai-factory-portal
+
+# Skill 執行規則
+
+## Crew Skill 使用方式
+
+當 Crew 被分配 Skill 時，prompt 只會提供 Skill 名稱和 SKILL.md 路徑。
+
+### 執行步驟
+
+1. 看到 `請使用 {skill name}` + `skill path : {path}` 時
+2. 用 `file_read` 讀取該 SKILL.md 路徑
+3. 理解 Skill 定義（Purpose、Inputs、Execution Steps、Output Contract）
+4. 按照定義執行任務
+
+### 注意事項
+
+- **不要**猜測 Skill 內容，務必先讀取
+- 讀取後按照 SKILL.md 的 Execution Steps 執行
+- 如果 SKILL.md 有 Output Contract，輸出必須符合
+- user input 會接在 prompt 最後面
+
+
+請使用 translate
+skill path : /data/skills/physical-skill/translate/SKILL.md
+
+## 操作員提供的規格資料
+
+### 輸出路徑
+/Users/steward/App/ai-factory-portal/myenglish.md
+
+### 要翻譯的內容
+大雨特報
+
+## Assistant
+已順利完成翻譯學習筆記！✨
+
+**已產生翻譯學習筆記：`/Users/steward/App/ai-factory-portal/myenglish.md`**
+
+以下是這次翻譯的摘要：
+
+| 項目 | 內容 |
+|------|------|
+| **原文** | 大雨特報 |
+| **Natural Translation** | Heavy Rain Advisory |
+| **Simple Translation** | A warning from the weather bureau telling people that very heavy rain is coming. |
+| **Key Vocabulary** | 3 個詞彙（大雨特報、特報、豪雨） |
+| **Sentence Pattern** | [Weather Authority] + issue(s) + a [Weather Condition] Advisory + for [Region/Location] |
+| **Common Mistake** | ❌ "Heavy Rain Notice" → ✅ "Heavy Rain Advisory" |
+
+特別提醒一下，氣象預報中英文正式的用法是 **Advisory** 而非 Notice 喔！如果需要翻譯其他內容，隨時告訴我～ 😊

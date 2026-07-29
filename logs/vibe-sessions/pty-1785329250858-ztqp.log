@@ -1,0 +1,45 @@
+# PAAW Agent Session: pty-1785329250858-ztqp
+# Engine: paaw-agent | CWD: /Users/steward/App/tPAAW/data/apps/sdlc-archtect | Mode: default
+# Started: 2026-07-29T12:47:30.864Z
+
+
+## User
+請根據以下規格建立 App:
+
+## App 規格
+- Template 類型: custom
+- App 名稱: sdlc-archtect
+- 需求描述: 我要用app 的形式來展現我產品的架構
+像 c4 model 一樣 可以展現每個服務or 元件的功能 狀態和一些屬性
+有api ai 可以讀可以給建議等方向
+Festify server > inference server(model weights)
+Festify server > NATS > Data collector > MongoDB
+- 綁定 Skill: no-skill
+
+## 技術要求
+1. 純 HTML,所有 CSS 和 JS 都內聯
+2. 可用 Chart.js (CDN: https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js) 畫圖表
+3. 可用 marked.js (CDN: https://cdn.jsdelivr.net/npm/marked/marked.min.js) render markdown
+4. 風格:深色主題(stone/slate 色系)或根據描述調整
+5. 響應式設計
+6. 用合理的假數據做 static 展示
+7. 如指定 sidebar-tabs 版型:左側固定選單(icon + 文字)+ 右側分頁切換內容
+
+## 如果是 skill-based App
+- 請同時建立 SKILL.md(按 app-builder 規範的格式)
+- 定義 Purpose、Inputs、Deterministic Script、Guardrails、Output Contract
+- 設定觸發關鍵字(triggers)
+
+## 輸出指示
+- 只輸出 HTML 代碼
+- HTML 開頭是 <!DOCTYPE html>
+- 如果要建立 SKILL.md,用 write_file 工具寫入
+
+---
+**重要指示:** 
+1. 只能修改 data/apps/sdlc-archtect/ 目錄下的檔案(app.html、SKILL.md 等)。
+2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。
+3. 將最終的 HTML 結果直接寫入檔案 data/apps/sdlc-archtect/app.html。
+4. 如果要建立 SKILL.md,寫入 data/apps/sdlc-archtect/skills/no-skill/SKILL.md。
+5. 完成後輸出 DONE。
+6. **Working Directory:/Users/steward/App/tPAAW/data/apps/sdlc-archtect**

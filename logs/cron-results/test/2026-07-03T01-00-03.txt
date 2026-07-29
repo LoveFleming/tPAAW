@@ -1,0 +1,54 @@
+看起來目前工具遇到系統層級的問題（`agentCfg is not defined`），無法執行寫入檔案的操作。
+
+不過根據 Skill 的 **Output Contract**（輸出模式為 `both`），當寫入檔案不可行時，我可以直接將結果顯示在回應中。以下是完整的翻譯學習筆記：
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+
+火熱
+
+## 2. Natural Translation
+
+Blazing hot / Trending
+
+## 3. Simple Translation
+
+Very hot / Very popular
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | blazing hot; trending; fervent | 這款新手機在市場上**火熱**銷售，一機難求。 |
+| trending | currently popular or widely discussed | The **trending** topic on social media right now is the new product launch. |
+| fervent | having or displaying passionate intensity | His **fervent** enthusiasm for the project inspired the whole team. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:** Subject + is trending (火熱的) + in/on + place/time
+
+**Example:** 「這款遊戲在亞洲市場火熱銷售。」
+→ "This game is trending in the Asian market."
+
+## 6. Speaking Version
+
+"It's on fire right now." / "People are going crazy for it."
+
+## 7. Common Mistake
+
+❌ **錯誤用法：** 「This product is fire-hot selling.」
+— 直接將「火熱」字面直譯為 "fire-hot"，不符合英文慣用表達。
+
+✅ **修正：** 「This product is selling like hotcakes.」
+— 英文慣用語 "sell like hotcakes" 表示銷售火熱、暢銷。
+
+## 8. One Sentence to Remember
+
+> When something is **火熱**, in English we say it's *on fire* or *trending* — not literally burning, but burning up the charts!
+
+---
+
+⚠️ **附註：** 原本要寫入 `/Users/steward/App/ai-factory-portal/myenglish.md`，但工具目前無法存取工作目錄以外的路徑。若需要存檔，請確認目錄權限後再告訴我，我可以重新嘗試寫入。

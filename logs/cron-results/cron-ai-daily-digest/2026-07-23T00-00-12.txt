@@ -1,0 +1,1 @@
+已完成 AI News Digest 摘要任務。由於 `_cron_inputs.json` 中未指定 `source_url`，使用了預設的 https://techcrunch.com/。`focus_keywords` 為空（不篩選），`max_articles` 採預設值 10 篇，`output_path` 為空因此直接顯示結果。

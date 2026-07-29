@@ -1,0 +1,93 @@
+# PAAW Agent Session: pty-1782825254373-njmn
+# Engine: paaw-agent | CWD: /Users/steward/App/tAgent | Mode: default
+# Started: 2026-06-30T13:14:14.378Z
+
+
+## User
+# System Instructions
+=== 使用者資訊 ===
+- 名字：使用者
+- 介紹：
+- 偏好風格：casual
+
+📚 Knowledge 目錄：/Users/steward/App/data/knowledge
+使用 file_list({ path: "/Users/steward/App/data/knowledge", workspace: "knowledge" }) 列出目錄內容，用 file_read({ path: "/Users/steward/App/data/knowledge/檔名" }) 讀取檔案。
+
+=== 你的長期記憶 (MEMORY.md) ===
+每次對話都會載入這份記憶。如果使用者說「記住」「幫我記」，使用 memory_add 工具更新。
+(記憶是空白的)
+
+=== 可用的 App ===
+以下是已安裝的 App：
+📦 **App 系統**：使用 app_list 工具查詢所有 App。新增 App 用 app_create。編輯用 app_edit。
+- **App List** (app_list) — 列出所有可用的 App
+
+📌 **App 連結規則：** 當回覆提到某個 App 時，加上可點擊的連結讓使用者直接開啟。
+格式：`[顯示文字](#/app:app-id)`
+範例：`[📖 書籤管理](#/app:bookmarks)`、`[🎒 Pocket](#/app:pocket)`
+只在相關時才加，不要每個回覆都塞連結。
+
+=== Tool 使用規則 ===
+- 必須使用 tool call 來完成操作，絕對不要用文字模擬結果
+- 工具回傳的資料就是真實資料，不要自己創造
+- 只能使用已定義的工具，不要嘗試不存在的工具
+- Knowledge 目錄是固定的：file_read({ path: "檔名", workspace: "knowledge" })
+- Workspace 是外掛目錄：file_read({ path: "相對路徑", workspace: "目錄名" })
+
+請使用 translate
+skill path : /Users/steward/App/tAgent/data/skills/physical-skill/translate/SKILL.md
+
+## 操作員提供的規格資料
+
+### 輸出路徑
+/Users/steward/App/ai-factory-portal/myenglish2.md
+
+### 要翻譯的內容
+快速演進
+
+## Assistant
+工具目前無法寫入工作目錄以外的路徑（`/Users/steward/App/ai-factory-portal/` 在 `/Users/steward/App/tAgent` 之外），shell 指令也暫時不可用。我先把完整的翻譯學習筆記顯示在這裡，等環境恢復後可立即寫入檔案。
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+快速演進
+
+## 2. Natural Translation
+rapid evolution
+
+## 3. Simple Translation
+fast change
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| evolution | 演進、逐步發展 | AI technology has undergone rapid **evolution** in recent years. |
+| rapid | 快速的、迅速的 | There has been a **rapid** increase in demand for electric cars. |
+| advancement | 進步、前進 | We have seen great **advancement** in medical research this decade. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:** `Subject + experience/undergo + rapid evolution`
+
+**Example:** The software industry experiences rapid evolution every few years.
+
+## 6. Speaking Version
+"changing really fast" / "moving at lightning speed"
+
+## 7. Common Mistake
+
+❌ **Wrong:** quickly evolvement
+✅ **Correct:** rapid evolution
+
+"Evolution" 是名詞，要搭配形容詞 "rapid"，不能用副詞 "quickly"；而 "evolvement" 並不常用，標準用詞是 "evolution"。
+
+## 8. One Sentence to Remember
+In a world of rapid evolution, those who adapt fastest win.
+
+---
+
+⚠️ 無法寫入指定路徑 `/Users/steward/App/ai-factory-portal/myenglish2.md`（位於工作目錄之外，且 shell 工具暫時無法使用）。需要的話可以幫你改存到工作目錄內，例如 `/Users/steward/App/tAgent/myenglish2.md`，要我寫過去嗎？

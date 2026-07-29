@@ -1,0 +1,6 @@
+{"runId":"system-daily-log-purge-2026-07-27T19-00-08","status":"started","ts":"2026-07-27T19:00:08.692Z"}
+{"runId":"system-daily-log-purge-2026-07-27T19-00-08","status":"done","result":"deleted 0","ts":"2026-07-27T19:00:08.703Z"}
+{"runId":"system-daily-log-purge-2026-07-28T19-00-19","status":"started","ts":"2026-07-28T19:00:19.819Z"}
+{"runId":"system-daily-log-purge-2026-07-28T19-00-19","status":"done","result":"deleted 0","ts":"2026-07-28T19:00:19.835Z"}
+{"runId":"system-daily-log-purge-2026-07-29T19-00-15","status":"started","ts":"2026-07-29T19:00:15.579Z"}
+{"runId":"system-daily-log-purge-2026-07-29T19-00-15","status":"done","result":"deleted 0","ts":"2026-07-29T19:00:15.585Z"}

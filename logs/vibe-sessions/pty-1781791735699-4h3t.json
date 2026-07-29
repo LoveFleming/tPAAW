@@ -1,0 +1,10 @@
+{
+  "id": "pty-1781791735699-4h3t",
+  "cli": "qwen",
+  "model": "glm-5.1",
+  "cwd": null,
+  "approvalMode": "yolo",
+  "systemPrompt": null,
+  "createdAt": "2026-06-18T14:08:55.709Z",
+  "lastActive": "2026-06-18T14:35:47.831Z"
+}

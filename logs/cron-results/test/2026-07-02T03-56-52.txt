@@ -1,0 +1,47 @@
+已產生翻譯學習筆記！不過由於工具限制，輸出目標路徑 `/Users/steward/App/ai-factory-portal/` 不在可寫入範圍內，我已將結果寫入可存取的目錄：
+
+📄 **已產生翻譯學習筆記：`/Users/steward/App/aioc/myenglish.md`**
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+
+火熱
+
+## 2. Natural Translation
+
+Blazing hot / Red-hot / Fiery
+
+## 3. Simple Translation
+
+Very hot / Extremely popular
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | 1. Physically blazing hot; 2. Extremely popular or trending | 這款手機在市場上非常**火熱**，一上市就銷售一空。 |
+| red-hot | Extremely hot (physically); also used to describe something very popular or intense | The red-hot housing market shows no signs of cooling down. |
+| trending | Currently very popular or widely discussed on social media / in public | The new song has been trending on TikTok for weeks. |
+
+## 5. Useful Sentence Pattern
+
+- **Pattern:** [Subject] + is/are + [adjective] + in + [place/context]
+- **Example:** This product is **very hot** in the market right now.
+
+## 6. Speaking Version
+
+This thing is on fire right now! Everyone's talking about it.
+
+## 7. Common Mistake
+
+❌ **Wrong:** This product is firing hot. (逐字直譯「火熱」)
+✅ **Correct:** This product is selling like hotcakes / This product is red-hot right now.
+
+說明：「火熱」在中文裡可指物體溫度高或人氣高，但英文不能逐字直譯為 "firing hot"。根據語境，可以選用 "red-hot"（人氣極高）、"trending"（流行中）或 "selling like hotcakes"（熱銷）等更自然的表達。
+
+## 8. One Sentence to Remember
+
+Strike while the iron is hot — 打鐵要趁熱。

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-07-29
+### changed
+- 用 write_file 建一個測試檔案 data/apps/test-app/hello.txt，內容寫 Hello from App Builder tes (1 new file)
+
+
+
+### changed
+- +178 −135 lines across 11 files
+
 ## 2026-07-22
 ### added
 - ---

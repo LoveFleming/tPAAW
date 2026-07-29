@@ -1,0 +1,43 @@
+# Translation Learning Output
+
+## 1. Original Text
+火熱
+
+## 2. Natural Translation
+In high demand / Intense
+
+## 3. Simple Translation
+Hot / Popular
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| in high demand | 需求量大、很搶手 | Skilled engineers are in high demand right now. |
+| intense | 強烈的、極度的 | The competition in the tech industry is intense. |
+| hot | 熱門的、流行的 | AI is a hot topic this year. |
+| red-hot | 極度火熱的、非常活躍的 | The real estate market is red-hot right now. |
+| passionate | 熱情的、充滿激情的 | She is passionate about her work. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+___ is in high demand.
+
+**Example:**
+Bilingual talent is in high demand in multinational companies.
+
+## 6. Speaking Version
+
+It's super hot right now. / It's really popular.
+
+## 7. Common Mistake
+
+Don't say: "It is fire hot." (literal translation)
+Say: "It is really hot right now." or "It is in high demand."
+
+Note: "火熱" is context-dependent. For market trends, use "hot" or "in high demand." For emotions, use "passionate" or "intense."
+
+## 8. One Sentence to Remember
+
+Skilled engineers are in high demand right now.

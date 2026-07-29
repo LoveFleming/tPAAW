@@ -1,0 +1,14 @@
+已產生翻譯學習筆記：**`/Users/steward/App/ai-factory-portal/myenglish.md`**
+
+以下是翻譯摘要：
+
+| 項目 | 內容 |
+|---|---|
+| **原文** | 火熱 |
+| **Natural Translation** | Fiery / Blazing Hot |
+| **Simple Translation** | Very hot / Super popular |
+| **Key Vocabulary** | 3 個詞彙（火熱、trending、blazing） |
+| **Sentence Pattern** | `[Subject] 在 [場所/領域] 火熱 [Verb]` |
+| **Speaking Version** | It's on fire right now. / Everyone's talking about it. |
+
+> 由於「火熱」在中文裡既是溫度描述也是流行趨勢的比喻，翻譯時提供了兩種情境下的對應英文，並提醒避免直譯為 "fire hot"。

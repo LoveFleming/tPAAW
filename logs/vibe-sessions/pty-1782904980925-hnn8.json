@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782904980925-hnn8",
+  "cli": "paaw-agent",
+  "model": null,
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": "TEST-SYSTEM-PROMPT-4892chars",
+  "createdAt": "2026-07-01T11:23:00.926Z",
+  "lastActive": "2026-07-01T11:23:00.926Z"
+}

@@ -1,0 +1,43 @@
+已產生翻譯學習筆記：`/Users/steward/App/ai-factory-portal/myenglish.md`
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+
+火熱
+
+## 2. Natural Translation
+
+Scorching hot
+
+## 3. Simple Translation
+
+Very hot
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+| --- | --- | --- |
+| scorching | 極熱的、灼熱的 | The sun is scorching today. |
+| blazing | 熾熱的、猛烈的 | A blazing fire kept us warm all night. |
+| sizzling | 滾燙的、熱得發滋響的 | The sizzling steak smelled amazing. |
+
+## 5. Useful Sentence Pattern
+
+- **Pattern:** `It's scorching + (weather/time/place)`
+- **Example:** It's scorching outside right now.
+
+## 6. Speaking Version
+
+It's burning hot out there!
+
+## 7. Common Mistake
+
+- ❌ The weather is very fire. （把「火」直譯為 fire）
+- ✅ The weather is scorching hot. （用 scorching 表達「火熱」的熱度）
+
+## 8. One Sentence to Remember
+
+It's scorching hot outside — don't forget your sunscreen.

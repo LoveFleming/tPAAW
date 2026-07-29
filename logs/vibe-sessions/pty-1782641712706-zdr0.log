@@ -1,0 +1,23 @@
+# Vibe Coding Session: pty-1782641712706-zdr0
+# CLI: shell | CWD: /Users/steward/App/tAgent | Mode: default
+# Started: 2026-06-28T10:15:12.713Z
+
+%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini tAgent % llsDockerfile		data			node_modules		packages
+README.md		docker-compose.yml	package-lock.json	tsconfig.base.json
+backups			logs			package.json
+%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini tAgent % ccd..%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini App % llsai-factory-portal	aioc-pub		english			pocket			test-project
+aieoc			aprs-fabricmono		english-check		project-board
+aioc			data			my-factory		tAgent
+%                                                                                                                       
+ 
+
+steward@guowangguanjiadeMac-mini App % 

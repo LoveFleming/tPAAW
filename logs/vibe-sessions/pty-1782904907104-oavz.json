@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782904907104-oavz",
+  "cli": "paaw-agent",
+  "model": "zai/glm-5.1",
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": "TEST SYSTEM PROMPT - 4892 chars skill builder rules",
+  "createdAt": "2026-07-01T11:21:47.105Z",
+  "lastActive": "2026-07-01T11:21:47.105Z"
+}

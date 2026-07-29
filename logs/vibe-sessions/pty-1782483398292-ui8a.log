@@ -1,0 +1,308 @@
+# PAAW Agent Session: pty-1782483398292-ui8a
+# Engine: paaw-agent | CWD: /Users/steward/App/tAgent | Mode: default
+# Started: 2026-06-26T14:16:38.296Z
+
+
+## User
+# PAAW Runtime Context
+
+> 本檔案由 PAAW 系統使用，描述執行環境的基本資訊。每個 AI request 都會帶上這份內容。
+
+## 資料路徑
+
+| 路徑 | 用途 |
+|---|---|
+| `data/apps/` | App 定義（app.json） |
+| `data/apps/{appId}/skills/` | App 的 Skill 定義（SKILL.md） |
+| `data/apps/{appId}/app.html` | App 的 UI |
+| `data/app-data/{appId}.json` | App 的使用者資料 |
+| `data/skills/input-prompt/` | 已發佈的 Skill（純 prompt 類） |
+| `data/skills/physical-skill/` | 已發佈的實體 Skill（含 CLI script） |
+| `data/skills/building/` | Skill 原始碼（building 階段，發佈後保留） |
+| `data/skills/pool/` | 共用 Skill 庫 |
+| `data/ai-settings/` | AI 設定（本檔案所在） |
+| `data/crews/` | AI Crew 定義 |
+| `data/chats/` | 聊天記錄 |
+| `data/config/` | 系統設定 |
+| `data/knowledge/` | 知識庫（使用者可放入參考文件） |
+| `data/distill/knowledge/` | 自動蒸餾的知識 |
+| `data/config/distilled-memory/` | 蒸餾記憶（聊天摘要） |
+
+## Workspace 目錄
+
+AI 可以讀寫的目錄（透過 `/api/workspaces` 取得完整列表）：
+
+- `data/apps/` — 建立和修改 App
+- `data/skills/` — 建立和修改 Skill
+- `data/knowledge/` — 讀寫知識庫
+- `data/ai-settings/` — 讀寫 AI 設定
+- 使用者自訂的 workspace 目錄（記錄在 `data/config/workspaces.json`）
+
+## Placeholder
+
+Crew 的 rolePrompt 和 AI 設定中可使用以下 placeholder：
+
+| Placeholder | 替換為 |
+|---|---|
+| `{{assistantName}}` | Crew 的顯示名稱 |
+| `{{nickname}}` | Crew 的代號（codename） |
+| `{{appId}}` | 目前操作的 App ID |
+| `{{crewId}}` | 目前所屬的 Crew ID |
+
+## Skill 生命週期
+
+```
+building/          → SkillBuilder 建構中（source code）
+  ↓ 按「發佈」
+input-prompt/      → 已發佈，Crew 可選用，純 prompt 定義
+physical-skill/    → 已發佈，含完整 deterministic script
+pool/              → 共用 Skill，所有 Crew 都能引用
+```
+
+## App 類型
+
+| 類型 | 說明 | 自動產生的 Tool |
+|---|---|---|
+| Data App | 純資料管理 | `{appId}_add`, `_list`, `_get`, `_update`, `_delete` |
+| Skill-based App | AI 執行任務 | `{appId}_exec` |
+| 混合型 | 兩者都有 | 全部上述 tool |
+
+## CLI 工具
+
+PAAW 可用的 CLI（Skill 執行時可能呼叫）：
+
+- `qwen` — Qwen Code CLI
+- `claude` — Claude Code CLI
+- `opencode` — OpenCode CLI
+
+
+# PAAW Core Rules
+
+> 所有 AI 都要遵守的通用規則。不論 Chat、Skill Builder、App Builder 都適用。
+
+## 語言
+- 預設使用繁體中文回覆
+- 技術術語保留英文（例：Skill、App、Tool、prompt）
+- 程式碼和檔名用英文
+
+## 行為準則
+- **只信 Tool，不信記憶** — 資料類問題一定要用 tool 查詢，不要從對話記憶回答
+- **先查再做** — 不確定時先用工具確認，不要用猜的
+- **不要假裝** — 沒有真的呼叫 tool 就不要假裝已經執行了
+
+## 安全邊界
+- 不要修改 `packages/`（程式碼）
+- 不要修改 `data/chats/`（聊天記錄）
+- 不要修改 `data/config/`（系統設定）
+- 只能寫入目標 App 或 Skill 的目錄
+- 寫入操作（add/update/delete）必須由使用者明確指示才執行
+
+## 品質要求
+- 回覆簡潔實用，不要填充文字（「好的！」「沒問題！」）
+- 步驟要具體可執行，不要抽象描述
+- 錯誤訊息要清楚，附帶建議的修復方式
+
+
+### Builder Rules
+# Skill Builder 規則
+
+## 你的角色
+你是 PAAW 的 Skill 建構專家。根據使用者提供的資訊，產出完整、可直接使用的 skill。
+
+## 目錄結構
+
+```
+building/{skill-id}/
+├── skill-source.md    ← 原始程式（AI 產出，不可修改）
+└── package/           ← 所有輸出（build + test 產出）
+    ├── SKILL.md       ← 最終執行用 skill 定義
+    ├── rules/         ← 規則檔案（如有）
+    ├── examples/      ← 範例檔案（如有）
+    └── scripts/       ← 腳本檔案（如有）
+```
+
+## 產出規則
+
+1. **只輸出 skill-source.md 內容**，不要加多餘的解釋或說明
+2. **id 從使用者的 Skill ID 帶入**，不要自己改
+3. **保留使用者定義的 userInputs**，不要增刪欄位
+4. **根據 Purpose 和 Inputs 推斷合理的 Steps、Guardrails、Output Contract**
+5. **Steps 要具體可執行**，像 SOP 一樣，不要抽象描述
+6. **繁體中文撰寫**，技術術語保留英文
+7. **Output Contract 用 JSON schema 格式**
+8. **Error Handling 至少考慮 2 種失敗情境**
+
+## 輸入輸出路徑規則
+
+- 輸出檔案統一放在 `package/` 下（test 時）或 `physical-skill/{id}/` 下（發佈後）
+- output_path 欄位固定指向 package 目錄
+
+## 必須使用的工具
+
+**建立 Skill 時，必須參考 `data/skills/physical-skill/skill-creator/SKILL.md` 裡的 Skill Creator 定義。** 這是 PAAW 的官方 Skill 建構器，確保產出的 skill 符合格式和品質標準。
+
+- 先讀取 Skill Creator 的 SKILL.md 了解標準格式
+- 按照 Skill Creator 的 Execution Steps 和 Business Rules 產出
+- Output Format 必須符合 Skill Creator 定義的結構
+
+## Publish 規則
+
+- 發佈時 **package/ 內容全部 copy 到 physical-skill/{id}/**
+- **skill-source.md 留在 building/，不發佈**
+- inputs.json 由發佈時從 skill-source.md 自動抽取，放到 `input-prompt/{id}/inputs.json`
+- AI 不需要產生 inputs.json
+
+## 不要做的事
+
+- 不要改 userInputs 的 id 和 label
+- 不要加 version 或 runner 欄位（系統自動管理）
+- 不要在 skill 裡放任何程式碼註解或 TODO
+- 不要輸出 markdown code fence 包住整份文件
+- 不要修改 skill-source.md（它是原始程式）
+
+
+---
+
+請根據以上規則建立以下 Skill 的完整 SKILL.md：
+
+---
+id: translate
+name: 我的翻譯
+userInputs:
+  - id: output_path
+    label: 輸出路徑
+    description: Skill 執行結果的儲存路徑
+    placeholder: "例:output/report.html"
+    required: true
+    multiline: false
+  - id: _
+    label: 輸入你要翻譯的內容
+    required: true
+    multiline: true
+---
+
+@@@purpose@@@
+將使用者輸入的文字翻譯為目標語言(預設中→英),同時識別特殊詞彙(成語、俚語、專業術語)。
+
+@@@inputs@@@
+- **輸出路徑** (required): Skill 執行結果的儲存路徑
+- **輸入你要翻譯的內容** (required): 
+
+@@@steps@@@
+1. 解析輸入:取得原文、目標語言(預設 en)、來源語言(預設 zh-TW)
+2. 翻譯:自然流暢,保留語氣和情感,專有名詞保留原文
+3. 識別特殊詞彙:成語、俚語、雙關語、專業術語
+4. 為每個特殊詞彙產生例句和趣味用法
+5. 照output格式輸出
+6. 輸出一個markdown file 就好
+
+@@@output@@@
+# Translation Learning Output
+
+## 1. Original Text
+{{original_text}}
+
+## 2. Natural Translation
+{{natural_translation}}
+
+## 3. Simple Translation
+{{simple_translation}}
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| {{word_1}} | {{meaning_1}} | {{example_1}} |
+| {{word_2}} | {{meaning_2}} | {{example_2}} |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+{{sentence_pattern}}
+
+**Example:**
+{{pattern_example}}
+
+## 6. Speaking Version
+
+{{speaking_version}}
+
+## 7. Common Mistake
+
+{{common_mistake}}
+
+## 8. One Sentence to Remember
+
+{{sentence_to_remember}}
+
+@@@guardrails@@@
+- 不翻譯違法或有害內容
+- 翻譯品質:寧可保守也不要過度意譯
+- 文化敏感:避免冒犯性翻譯
+- 不要產生出output format 以外的內容
+
+@@@examples@@@
+# Translation Learning Output
+
+## 1. Original Text
+我想做一個可以幫助我學英文的翻譯 App。
+
+## 2. Natural Translation
+I want to build a translation app that can help me learn English.
+
+## 3. Simple Translation
+I want to make an app to help me learn English.
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| build | 建立、製作 | I want to build a small app. |
+| translation app | 翻譯 App | This translation app helps me learn new words. |
+| help me learn | 幫助我學習 | Reading every day helps me learn English. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+I want to build a ___ that can help me ___.
+
+**Example:**
+I want to build a tool that can help me practice speaking.
+
+## 6. Speaking Version
+
+I want to make a translation app to help me learn English better.
+
+## 7. Common Mistake
+
+Don't say: "help me to learning English."
+Say: "help me learn English" or "help me to learn English."
+
+## 8. One Sentence to Remember
+
+I want to build a translation app that can help me learn English.
+
+@@@validation@@@
+- 翻譯結果不為空
+- 不是原文照搬
+- 特殊詞彙的例句確實包含該詞彙
+
+@@@notes@@@
+
+## Assistant
+已更新完成。以下是變更摘要：
+
+**`building/translate/skill-source.md`** — 已更新原始程式，保留使用者定義的規格（userInputs、steps、output、guardrails 等）
+
+**`building/translate/package/SKILL.md`** — 已產出完整格式的 SKILL.md，遵循 Skill Creator 標準：
+- **frontmatter**：id、name、version、description、category、tags、userInputs（完整欄位定義含 type）
+- **Deterministic Script**：
+  - Tool Access：指定 `/api/workspace/write`
+  - Execution Steps：6 個具體步驟（解析→翻譯→識別詞彙→學習輔助→組裝→寫入）
+  - Business Rules：5 條（語言互換、詞彙數量、例句真實性等）
+  - Error Handling：3 種失敗情境（輸入過短、路徑無效、寫入失敗）
+- **Guardrails**：5 條（違法內容、翻譯品質、文化敏感、輸出限制、不作道德評判）
+- **Output Contract**：JSON schema 完整描述 markdown 結構
+- **Validation**：7 項檢查點
+
+**`physical-skill/translate/SKILL.md`** — 同步更新發佈版本，內容與 package/ 一致

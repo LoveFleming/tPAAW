@@ -133,13 +133,15 @@ function parseMarkdown(rawText: string, mdDir: string): ParsedMarkdown {
   return { content: contentPart, fileRefs: allRefs };
 }
 
-// ── Simple markdown renderer (theme-aware) ──
-function renderMarkdown(md: string): React.ReactNode {
+// ── Beautified markdown renderer (theme-aware) ──
+function renderMarkdown(md: string, theme?: any): React.ReactNode {
   const lines = md.split("\n");
   const elements: React.ReactNode[] = [];
   let inCodeBlock = false;
   let codeLines: string[] = [];
+  let codeLang = "";
   let tableRows: string[] = [];
+  const accent = theme?.accent || "#6366f1";
 
   const flushTable = () => {
     if (tableRows.length === 0) return;
@@ -153,12 +155,12 @@ function renderMarkdown(md: string): React.ReactNode {
     const bodyRows = dataRows.slice(1).map(parseRow);
 
     elements.push(
-      <div key={`table-${elements.length}`} className="my-2 overflow-x-auto">
-        <table className="w-full text-xs border-collapse" style={{ minWidth: "300px" }}>
+      <div key={`table-${elements.length}`} className="my-3 overflow-x-auto rounded-lg border" style={{ borderColor: accent + "25" }}>
+        <table className="w-full text-xs border-collapse">
           <thead>
-            <tr>
+            <tr style={{ background: accent + "10" }}>
               {headerCells.map((cell, ci) => (
-                <th key={ci} className="px-3 py-1.5 text-left font-semibold text-stone-800 border-b border-stone-300 whitespace-nowrap">
+                <th key={ci} className="px-3 py-2 text-left font-semibold whitespace-nowrap" style={{ color: accent, borderBottom: `2px solid ${accent}30` }}>
                   {renderInline(cell)}
                 </th>
               ))}
@@ -166,11 +168,9 @@ function renderMarkdown(md: string): React.ReactNode {
           </thead>
           <tbody>
             {bodyRows.map((row, ri) => (
-              <tr key={ri} className="hover:bg-stone-100 transition-colors">
+              <tr key={ri} className="hover:bg-stone-50/80 transition-colors" style={{ borderBottom: ri < bodyRows.length - 1 ? `1px solid ${accent}10` : "none" }}>
                 {row.map((cell, ci) => (
-                  <td key={ci} className="px-3 py-1.5 text-stone-600 border-b border-stone-200">
-                    {renderInline(cell)}
-                  </td>
+                  <td key={ci} className="px-3 py-2 text-stone-600">{renderInline(cell)}</td>
                 ))}
               </tr>
             ))}
@@ -185,15 +185,24 @@ function renderMarkdown(md: string): React.ReactNode {
     if (line.trim().startsWith("```")) {
       if (tableRows.length) flushTable();
       if (inCodeBlock) {
+        const displayedLang = codeLang || "code";
         elements.push(
-          <pre key={`code-${i}`} className="bg-stone-100 text-stone-800 rounded-lg p-3 my-2 overflow-x-auto text-xs border border-stone-200">
-            <code>{codeLines.join("\n")}</code>
-          </pre>
+          <div key={`code-${i}`} className="my-3 rounded-xl overflow-hidden border" style={{ borderColor: accent + "20" }}>
+            <div className="flex items-center justify-between px-3 py-1.5" style={{ background: accent + "08", borderBottom: `1px solid ${accent}15` }}>
+              <span className="text-[10px] font-mono font-medium" style={{ color: accent + "aa" }}>{displayedLang}</span>
+              <span className="text-[10px] text-stone-300">📋</span>
+            </div>
+            <pre className="bg-stone-50 p-4 overflow-x-auto text-xs leading-relaxed">
+              <code className="text-stone-700">{codeLines.join("\n")}</code>
+            </pre>
+          </div>
         );
         codeLines = [];
+        codeLang = "";
         inCodeBlock = false;
       } else {
         inCodeBlock = true;
+        codeLang = line.trim().slice(3).trim();
       }
       return;
     }
@@ -210,32 +219,78 @@ function renderMarkdown(md: string): React.ReactNode {
     }
 
     if (line.startsWith("# ")) {
-      elements.push(<h1 key={i} className="text-xl font-bold text-stone-800 mt-3 mb-1.5">{line.slice(2)}</h1>);
+      elements.push(
+        <div key={i} className="mt-4 mb-2">
+          <h1 className="text-xl font-bold text-stone-800 leading-tight">{line.slice(2)}</h1>
+          <div className="mt-1.5 h-0.5 w-12 rounded-full" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}30)` }} />
+        </div>
+      );
     } else if (line.startsWith("## ")) {
-      elements.push(<h2 key={i} className="text-lg font-bold text-stone-700 mt-2.5 mb-1">{line.slice(3)}</h2>);
+      elements.push(
+        <div key={i} className="mt-3.5 mb-1.5">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-5 rounded-full" style={{ background: accent }} />
+            <h2 className="text-base font-bold text-stone-700 leading-tight">{line.slice(3)}</h2>
+          </div>
+        </div>
+      );
     } else if (line.startsWith("### ")) {
-      elements.push(<h3 key={i} className="text-base font-semibold text-stone-600 mt-2 mb-1">{line.slice(4)}</h3>);
+      elements.push(
+        <div key={i} className="mt-2.5 mb-1">
+          <h3 className="text-sm font-semibold text-stone-600 leading-tight pl-3" style={{ borderLeft: `2px solid ${accent}50` }}>{line.slice(4)}</h3>
+        </div>
+      );
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       elements.push(
-        <div key={i} className="flex items-start gap-1.5 ml-2 my-0.5">
-          <span className="text-stone-400 mt-0.5">•</span>
-          <span className="text-sm text-stone-600">{renderInline(line.slice(2))}</span>
+        <div key={i} className="flex items-start gap-2 my-1 ml-1">
+          <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />
+          <span className="text-sm text-stone-600 leading-relaxed">{renderInline(line.slice(2))}</span>
+        </div>
+      );
+    } else if (/^\d+\.\s/.test(line)) {
+      const num = line.match(/^(\d+)\./)?.[1] || "1";
+      const text = line.replace(/^\d+\.\s/, "");
+      elements.push(
+        <div key={i} className="flex items-start gap-2 my-1 ml-1">
+          <span className="mt-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white shrink-0" style={{ background: accent }}>{num}</span>
+          <span className="text-sm text-stone-600 leading-relaxed">{renderInline(text)}</span>
+        </div>
+      );
+    } else if (line.startsWith("> ")) {
+      elements.push(
+        <div key={i} className="my-2 pl-3 py-1.5 rounded-r-lg" style={{ borderLeft: `3px solid ${accent}60`, background: accent + "06" }}>
+          <span className="text-sm text-stone-500 italic leading-relaxed">{renderInline(line.slice(2))}</span>
+        </div>
+      );
+    } else if (line.trim() === "---") {
+      elements.push(
+        <div key={i} className="my-3 flex items-center gap-2">
+          <div className="flex-1 h-px" style={{ background: accent + "20" }} />
+          <span className="text-stone-300 text-xs">✦</span>
+          <div className="flex-1 h-px" style={{ background: accent + "20" }} />
         </div>
       );
     } else if (line.trim() === "") {
       elements.push(<div key={i} className="h-2" />);
     } else {
-      elements.push(<p key={i} className="text-sm text-stone-600 leading-relaxed my-0.5">{renderInline(line)}</p>);
+      elements.push(<p key={i} className="text-sm text-stone-600 leading-relaxed my-1">{renderInline(line)}</p>);
     }
   });
 
   if (tableRows.length > 0) flushTable();
 
   if (inCodeBlock && codeLines.length > 0) {
+    const displayedLang = codeLang || "code";
     elements.push(
-      <pre key="code-final" className="bg-stone-100 text-stone-800 rounded-lg p-3 my-2 overflow-x-auto text-xs border border-stone-200">
-        <code>{codeLines.join("\n")}</code>
-      </pre>
+      <div key="code-final" className="my-3 rounded-xl overflow-hidden border" style={{ borderColor: accent + "20" }}>
+        <div className="flex items-center justify-between px-3 py-1.5" style={{ background: accent + "08", borderBottom: `1px solid ${accent}15` }}>
+          <span className="text-[10px] font-mono font-medium" style={{ color: accent + "aa" }}>{displayedLang}</span>
+          <span className="text-[10px] text-stone-300">📋</span>
+        </div>
+        <pre className="bg-stone-50 p-4 overflow-x-auto text-xs leading-relaxed">
+          <code className="text-stone-700">{codeLines.join("\n")}</code>
+        </pre>
+      </div>
     );
   }
 
@@ -249,7 +304,7 @@ function renderInline(text: string): React.ReactNode {
       return <strong key={i} className="font-semibold text-stone-800">{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={i} className="px-1 py-0.5 rounded bg-stone-200 text-stone-700 text-xs font-mono">{part.slice(1, -1)}</code>;
+      return <code key={i} className="px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-700 text-xs font-mono border border-stone-200/80">{part.slice(1, -1)}</code>;
     }
     return <React.Fragment key={i}>{part}</React.Fragment>;
   });
@@ -333,7 +388,7 @@ function RefOverlay({ refPath, onClose, theme }: { refPath: string; onClose: () 
           <div className="flex items-center justify-center h-full text-rose-500 text-sm">❌ {error}</div>
         ) : isMarkdown ? (
           <div className="p-6" style={{ maxWidth: "900px", margin: "0 auto" }}>
-            {renderMarkdown(content || "")}
+            {renderMarkdown(content || "", theme)}
           </div>
         ) : (
           <pre className="p-6 text-sm font-mono leading-relaxed overflow-auto" style={{ maxWidth: "1100px", margin: "0 auto" }}>
@@ -879,18 +934,18 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
         {/* Markdown content — only render if slide has markdown */}
         {slide?.markdown && (parsedMd.content || mdLoading) && (
           <div
-            className="overflow-y-auto px-5 py-3 bg-white"
+            className="overflow-y-auto bg-gradient-to-b from-white to-stone-50/50"
             style={{
               flex: imageUrl ? "1 1 38%" : "1 1 auto",
               scrollbarWidth: "thin",
-              borderLeft: imageUrl ? `1px solid ${t.accentBorder}` : "none",
-              display: imageUrl ? undefined : "flex",
-              flexDirection: imageUrl ? undefined : "column",
-              justifyContent: imageUrl ? undefined : "center",
+              borderLeft: imageUrl ? `1px solid ${t.accentBorder}60` : "none",
               maxWidth: imageUrl ? undefined : "760px",
               margin: imageUrl ? undefined : "0 auto",
             }}
           >
+            <div
+              className="flex flex-col justify-center min-h-full px-6 py-6"
+            >
             {mdLoading ? (
               <div className="flex items-center justify-center py-4 text-stone-400 text-xs gap-1.5">
                 <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -900,10 +955,11 @@ export default function BriefingPlayer({ initialDir }: { initialDir?: string | n
                 Loading content...
               </div>
             ) : parsedMd.content ? (
-              <div className="text-stone-700">{renderMarkdown(parsedMd.content)}</div>
+              <div className="text-stone-700">{renderMarkdown(parsedMd.content, t)}</div>
             ) : (
-              <div className="flex items-center justify-center h-full"><span className="text-stone-300 text-sm">No content</span></div>
+              <div className="flex items-center justify-center py-8"><span className="text-stone-300 text-sm">No content</span></div>
             )}
+            </div>
           </div>
         )}
 

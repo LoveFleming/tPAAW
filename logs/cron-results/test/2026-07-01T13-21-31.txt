@@ -1,0 +1,58 @@
+看起來無法直接寫入 `/Users/steward/App/ai-factory-portal/`（權限問題）。讓我改寫到使用者 workspace 目錄：
+
+既然無法寫入指定路徑，根據 Output Contract 的 **both** 模式（有 output_path 存檔，沒有則僅顯示），既然寫入失敗，我改為將結果直接顯示在回應中。
+
+---
+
+# Translation Learning Output
+
+## 1. Original Text
+
+火熱
+
+## 2. Natural Translation
+
+**Fiery / Blazing hot**
+
+> *Context matters:* "火熱" can describe physical heat (如火熱的鐵板 - a blazing hot iron plate), passionate emotions (如火熱的愛情 - fiery love), or trending topics (如火熱的話題 - a hot topic).
+
+## 3. Simple Translation
+
+**Very hot / Super popular**
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | blazing hot; passionate; trending | 這部電影最近 **火熱** 上映，票房一路攀升。 |
+| **fiery** | intensely hot; passionate; spirited | She gave a **fiery** speech that moved the entire audience to tears. |
+| **trending** | currently popular or widely discussed online | This hashtag has been **trending** on social media all week. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:**
+「火熱的 + [名詞]」→ "a fiery / hot + [noun]"
+
+**Example:**
+火熱的話題 → A hot topic that everyone is talking about.
+
+## 6. Speaking Version
+
+**It's on fire right now. / Everyone's talking about it.**
+
+> "火熱" is often used in casual conversation to describe something that's super popular or hyped up — like a hot new restaurant, a viral video, or a best-selling product.
+
+## 7. Common Mistake
+
+❌ **Wrong:** "This movie is fire hot selling."
+✅ **Correct:** "This movie is selling like hotcakes." / "This movie is a huge hit."
+
+> Directly translating "火熱" word-for-word as "fire hot" is unnatural in English. Use idiomatic equivalents like *blazing hot*, *on fire*, *trending*, or *a huge hit* depending on context.
+
+## 8. One Sentence to Remember
+
+> The fire of passion may cool, but a **fiery** heart never stops burning.
+
+---
+
+⚠️ **注意：** 由於指定路徑 `/Users/steward/App/ai-factory-portal/` 無法寫入（超出工作目錄權限範圍），以上結果以顯示方式呈現。若需存檔，請提供一個可寫入的路徑，例如在 `/Users/steward/App/aioc/` 目錄下。

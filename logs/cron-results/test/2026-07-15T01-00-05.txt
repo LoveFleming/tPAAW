@@ -1,0 +1,17 @@
+已產生翻譯學習筆記：`/Users/steward/App/ai-factory-portal/myenglish.md`
+
+---
+
+### 翻譯摘要
+
+| 項目 | 內容 |
+|---|---|
+| **原文** | 火熱 |
+| **來源語言** | 繁體中文 (zh-TW) |
+| **目標語言** | 英文 (en) |
+| **Natural Translation** | Trending / Fervent |
+| **Simple Translation** | Very hot / Super popular |
+| **Key Vocabulary** | 3 個詞彙（火熱、夯、發燒） |
+| **輸出路徑** | `/Users/steward/App/ai-factory-portal/myenglish.md` ✅ 已寫入 |
+
+由於「火熱」一詞具有雙重語意（字面高溫 & 比喻流行），翻譯時特別加入了語境說明，幫助學習者理解在不同情境下的正確用法。

@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782828534811-erc0",
+  "cli": "paaw-agent",
+  "model": "zai/glm-5",
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": "=== 系統路徑（不可修改） ===\n📚 Knowledge 目錄：/Users/steward/App/data/knowledge\n使用 file_list({ path: \"/Users/steward/App/data/knowledge\", workspace: \"knowledge\" }) 列出目錄內容，用 file_read({ path: \"/Users/steward/App/data/knowledge/檔名\" }) 讀取檔案。\n\n=== 使用者資訊 ===\n- 名字：使用者\n- 介紹：\n- 偏好風格：casual\n\n=== 長期記憶 (MEMORY.md) ===\n(記憶是空白的)\n\n=== 可用的 App ===\n以下是已安裝的 App：\n- **App List** (app_list) — 列出所有可用的 App\n\n請使用 translate\nskill path : /Users/steward/App/tAgent/data/skills/physical-skill/translate/SKILL.md\n\n## 操作員提供的規格資料\n\n### 輸出路徑\n/Users/steward/App/ai-factory-portal/myenglish.md\n\n### 要翻譯的內容\n解凍資金",
+  "createdAt": "2026-06-30T14:08:54.813Z",
+  "lastActive": "2026-06-30T14:10:12.288Z"
+}

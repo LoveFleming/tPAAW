@@ -1,0 +1,50 @@
+我已成功產出翻譯學習筆記。不過由於工具路徑限制，無法直接寫入 `/Users/steward/App/ai-factory-portal/` 目錄，已改寫入你的 Workspace 目錄。
+
+---
+
+已產生翻譯學習筆記：**`/Users/steward/App/aioc/myenglish.md`**
+
+---
+
+以下是翻譯學習筆記內容：
+
+# Translation Learning Output
+
+## 1. Original Text
+
+火熱
+
+## 2. Natural Translation
+
+Blazing hot / Red-hot
+
+## 3. Simple Translation
+
+Very popular / Extremely hot
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | Describes something extremely popular or high-intensity | 這款商品在市場上**火熱**到供不應求。 |
+| Red-hot | Extremely popular or successful | The red-hot startup just secured another round of funding. |
+| trending | Currently popular or widely discussed | This topic is currently trending on social media. |
+
+## 5. Useful Sentence Pattern
+
+**Pattern:** [Subject] + 火熱 + [到/得] + [result/state]
+
+**Example:** 這款 App 火熱到登上排行榜第一名。
+
+## 6. Speaking Version
+
+It's on fire right now. / Everyone's talking about it.
+
+## 7. Common Mistake
+
+❌ *Wrong:* Using 「火熱」 to directly describe literal temperature (e.g., 這杯咖啡很火熱)
+✅ *Correct:* 「火熱」 is figurative, meaning "trending" or "red-hot" — e.g., 這首歌最近很火熱 → This song is trending right now
+
+## 8. One Sentence to Remember
+
+🔥 When something is 火熱, it's not just hot — it's on fire with popularity.

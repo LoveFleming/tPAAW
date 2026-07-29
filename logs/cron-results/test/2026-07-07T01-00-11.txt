@@ -1,0 +1,44 @@
+由於無法寫入檔案（目標路徑 `/Users/steward/App/ai-factory-portal/myenglish.md` 不在工作目錄範圍內，且寫入工具出現系統層級錯誤），我將結果直接顯示如下：
+
+---
+
+以下是你的翻譯學習筆記：
+
+# Translation Learning Output
+
+## 1. Original Text
+火熱
+
+## 2. Natural Translation
+Trending / Scorching hot
+
+## 3. Simple Translation
+Very popular / Extremely hot
+
+## 4. Key Vocabulary
+
+| Word / Phrase | Meaning | Example Sentence |
+|---|---|---|
+| 火熱 (huǒ rè) | Trending; scorching hot — describes something extremely popular or physically burning hot | 這款新手機在市場上非常火熱，一上市就銷售一空。 |
+| 爆紅 (bào hóng) | Go viral; become an overnight sensation — suddenly gaining massive popularity | 這位歌手因為翻唱一首老歌而爆紅，粉絲人數一夜之間暴增。 |
+| 夯 (hāng) | Popular; in vogue — Taiwanese slang/loanword from Minnan, meaning something is trending | 最近這間咖啡廳很夯，每天都有排隊人潮。 |
+
+## 5. Useful Sentence Pattern
+**Pattern:** [Subject] + is + [adjective] + in + [place/context]
+
+**Example:** This product is trending in the market.
+
+## 6. Speaking Version
+It's blowing up right now! / Everyone's talking about it!
+
+## 7. Common Mistake
+**錯誤用法:** "He is very hot in the market."（這樣說聽起來像在說這個人很性感，而不是他的東西受歡迎。）
+
+**修正:** "His product is trending in the market."（要表達受歡迎時，用 "trending" 或 "popular" 修飾事物本身，而非人。）
+
+## 8. One Sentence to Remember
+What's trending today may be forgotten tomorrow, but quality endures.
+
+---
+
+**⚠️ 注意：** 目標路徑 `/Users/steward/App/ai-factory-portal/myenglish.md` 不在工作目錄範圍內，且寫入工具目前無法正常運作（`snapshotTaken is not defined`）。如果你希望檔案確實儲存在該路徑，請確認該目錄是否存在，或將路徑改到工作目錄 `/Users/steward/App/tPAAW/` 下，讓我可以成功寫入檔案。

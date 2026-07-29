@@ -1,0 +1,10 @@
+{
+  "id": "pty-1784643332305-rhek",
+  "cli": "paaw-agent",
+  "model": "openrouter/moonshotai/kimi-k2.6",
+  "cwd": "/Users/steward/App/tPAAW/data/apps/ai-service-monitor",
+  "approvalMode": null,
+  "systemPrompt": null,
+  "createdAt": "2026-07-21T14:15:32.307Z",
+  "lastActive": "2026-07-21T14:15:32.307Z"
+}

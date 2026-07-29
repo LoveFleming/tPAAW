@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782825008906-mby2",
+  "cli": "paaw-agent",
+  "model": "zai/glm-5",
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": "\n\n請使用 translate\nskill path : /Users/steward/App/tAgent/data/skills/physical-skill/translate/SKILL.md\n\n## 操作員提供的規格資料\n\n### 輸出路徑\n/Users/steward/App/ai-factory-portal/myenglish.md\n\n### 要翻譯的內容\n解凍資金",
+  "createdAt": "2026-06-30T13:10:08.908Z",
+  "lastActive": "2026-06-30T13:11:58.557Z"
+}

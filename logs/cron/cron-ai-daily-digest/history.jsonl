@@ -1,0 +1,51 @@
+{"runId":"cron-ai-daily-digest-2026-06-30T00-00-16","status":"started","ts":"2026-06-30T00:00:16.294Z"}
+{"runId":"cron-ai-daily-digest-2026-06-30T00-00-16","status":"error","outputLength":24,"hasHtml":false,"resultFile":"2026-06-30T00-00-16.txt","turns":11,"via":"paaw-agent-loop","ts":"2026-06-30T00:02:20.851Z"}
+{"runId":"cron-ai-daily-digest-2026-07-01T00-00-07","status":"started","ts":"2026-07-01T00:00:07.325Z"}
+{"runId":"cron-ai-daily-digest-2026-07-01T00-00-07","status":"done","outputLength":4501,"hasHtml":false,"resultFile":"2026-07-01T00-00-07.txt","turns":84,"via":"paaw-agent-loop","ts":"2026-07-01T00:11:02.231Z"}
+{"runId":"cron-ai-daily-digest-2026-07-02T00-00-27","status":"started","ts":"2026-07-02T00:00:27.697Z"}
+{"runId":"cron-ai-daily-digest-2026-07-02T00-00-27","status":"done","outputLength":4965,"hasHtml":false,"resultFile":"2026-07-02T00-00-27.txt","turns":30,"via":"paaw-agent-loop","ts":"2026-07-02T00:03:07.717Z"}
+{"runId":"cron-ai-daily-digest-2026-07-03T00-00-03","status":"started","ts":"2026-07-03T00:00:03.431Z"}
+{"runId":"cron-ai-daily-digest-2026-07-03T00-00-03","status":"done","outputLength":4558,"hasHtml":false,"resultFile":"2026-07-03T00-00-03.txt","turns":31,"via":"paaw-agent-loop","ts":"2026-07-03T00:03:46.706Z"}
+{"runId":"cron-ai-daily-digest-2026-07-04T00-00-03","status":"started","ts":"2026-07-04T00:00:03.036Z"}
+{"runId":"cron-ai-daily-digest-2026-07-04T00-00-03","status":"done","outputLength":4283,"hasHtml":false,"resultFile":"2026-07-04T00-00-03.txt","turns":11,"via":"paaw-agent-loop","ts":"2026-07-04T00:03:54.634Z"}
+{"runId":"cron-ai-daily-digest-2026-07-05T00-00-08","status":"started","ts":"2026-07-05T00:00:08.582Z"}
+{"runId":"cron-ai-daily-digest-2026-07-05T00-00-08","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-05T00:00:08.584Z"}
+{"runId":"cron-ai-daily-digest-2026-07-06T00-00-17","status":"started","ts":"2026-07-06T00:00:17.240Z"}
+{"runId":"cron-ai-daily-digest-2026-07-06T00-00-17","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-06T00:00:17.242Z"}
+{"runId":"cron-ai-daily-digest-2026-07-07T00-00-11","status":"started","ts":"2026-07-07T00:00:11.679Z"}
+{"runId":"cron-ai-daily-digest-2026-07-07T00-00-11","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-07T00:00:11.682Z"}
+{"runId":"cron-ai-daily-digest-2026-07-08T00-00-07","status":"started","ts":"2026-07-08T00:00:07.861Z"}
+{"runId":"cron-ai-daily-digest-2026-07-08T00-00-07","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-08T00:00:07.864Z"}
+{"runId":"cron-ai-daily-digest-2026-07-09T00-00-13","status":"started","ts":"2026-07-09T00:00:13.780Z"}
+{"runId":"cron-ai-daily-digest-2026-07-09T00-00-13","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-09T00:00:13.783Z"}
+{"runId":"cron-ai-daily-digest-2026-07-10T00-00-22","status":"started","ts":"2026-07-10T00:00:22.202Z"}
+{"runId":"cron-ai-daily-digest-2026-07-10T00-00-22","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-10T00:00:22.204Z"}
+{"runId":"cron-ai-daily-digest-2026-07-11T00-00-05","status":"started","ts":"2026-07-11T00:00:05.360Z"}
+{"runId":"cron-ai-daily-digest-2026-07-11T00-00-05","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-11T00:00:05.362Z"}
+{"runId":"cron-ai-daily-digest-2026-07-12T00-00-20","status":"started","ts":"2026-07-12T00:00:20.403Z"}
+{"runId":"cron-ai-daily-digest-2026-07-12T00-00-20","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-12T00:00:20.404Z"}
+{"runId":"cron-ai-daily-digest-2026-07-14T00-00-02","status":"started","ts":"2026-07-14T00:00:02.685Z"}
+{"runId":"cron-ai-daily-digest-2026-07-14T00-00-02","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-14T00:00:02.687Z"}
+{"runId":"cron-ai-daily-digest-2026-07-15T00-00-05","status":"started","ts":"2026-07-15T00:00:05.623Z"}
+{"runId":"cron-ai-daily-digest-2026-07-15T00-00-05","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-15T00:00:05.625Z"}
+{"runId":"cron-ai-daily-digest-2026-07-16T00-00-04","status":"started","ts":"2026-07-16T00:00:04.597Z"}
+{"runId":"cron-ai-daily-digest-2026-07-16T00-00-04","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-16T00:00:04.600Z"}
+{"runId":"cron-ai-daily-digest-2026-07-19T00-00-00","status":"started","ts":"2026-07-19T00:00:00.027Z"}
+{"runId":"cron-ai-daily-digest-2026-07-19T00-00-00","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-19T00:00:00.028Z"}
+{"runId":"cron-ai-daily-digest-2026-07-20T00-00-04","status":"started","ts":"2026-07-20T00:00:04.396Z"}
+{"runId":"cron-ai-daily-digest-2026-07-20T00-00-04","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-20T00:00:04.398Z"}
+{"runId":"cron-ai-daily-digest-2026-07-22T00-00-18","status":"started","ts":"2026-07-22T00:00:18.779Z"}
+{"runId":"cron-ai-daily-digest-2026-07-22T00-00-18","status":"error","error":"ENOENT: no such file or directory, open '/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest/_cron_inputs.json'","ts":"2026-07-22T00:00:18.781Z"}
+{"runId":"cron-ai-daily-digest-2026-07-23T00-00-12","status":"started","ts":"2026-07-23T00:00:12.650Z"}
+{"runId":"cron-ai-daily-digest-2026-07-23T00-00-12","status":"done","outputLength":171,"hasHtml":false,"resultFile":"2026-07-23T00-00-12.txt","turns":19,"via":"paaw-agent-loop","ts":"2026-07-23T00:03:15.204Z"}
+{"runId":"cron-ai-daily-digest-2026-07-24T00-00-18","status":"started","ts":"2026-07-24T00:00:18.558Z"}
+{"runId":"cron-ai-daily-digest-2026-07-24T00-00-18","status":"done","outputLength":4213,"hasHtml":false,"resultFile":"2026-07-24T00-00-18.txt","turns":18,"via":"paaw-agent-loop","ts":"2026-07-24T00:02:21.001Z"}
+{"runId":"cron-ai-daily-digest-2026-07-25T00-00-25","status":"started","ts":"2026-07-25T00:00:25.389Z"}
+{"runId":"cron-ai-daily-digest-2026-07-26T00-00-27","status":"started","ts":"2026-07-26T00:00:27.705Z"}
+{"runId":"cron-ai-daily-digest-2026-07-26T00-00-27","status":"done","outputLength":3437,"hasHtml":false,"resultFile":"2026-07-26T00-00-27.txt","turns":7,"via":"paaw-agent-loop","ts":"2026-07-26T00:02:01.713Z"}
+{"runId":"cron-ai-daily-digest-2026-07-27T00-00-18","status":"started","ts":"2026-07-27T00:00:18.734Z"}
+{"runId":"cron-ai-daily-digest-2026-07-27T00-00-18","status":"done","outputLength":2249,"hasHtml":false,"resultFile":"2026-07-27T00-00-18.txt","turns":10,"via":"paaw-agent-loop","ts":"2026-07-27T00:02:12.044Z"}
+{"runId":"cron-ai-daily-digest-2026-07-28T00-00-09","status":"started","ts":"2026-07-28T00:00:09.912Z"}
+{"runId":"cron-ai-daily-digest-2026-07-28T00-00-09","status":"error","error":"_thinkLog is not defined","ts":"2026-07-28T00:01:44.249Z"}
+{"runId":"cron-ai-daily-digest-2026-07-29T00-00-21","status":"started","ts":"2026-07-29T00:00:21.113Z"}
+{"runId":"cron-ai-daily-digest-2026-07-29T00-00-21","status":"error","outputLength":148,"hasHtml":false,"resultFile":"2026-07-29T00-00-21.txt","turns":1,"via":"paaw-agent-loop","ts":"2026-07-29T00:00:22.035Z"}

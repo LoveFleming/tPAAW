@@ -1,0 +1,10 @@
+{
+  "id": "pty-1782483398292-ui8a",
+  "cli": "paaw-agent",
+  "model": "deepseek/deepseek-v4-flash",
+  "cwd": "/Users/steward/App/tAgent",
+  "approvalMode": null,
+  "systemPrompt": null,
+  "createdAt": "2026-06-26T14:16:38.295Z",
+  "lastActive": "2026-06-26T14:18:11.131Z"
+}
