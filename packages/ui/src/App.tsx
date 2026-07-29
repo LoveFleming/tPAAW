@@ -16,7 +16,7 @@ import Notes from "./pages/Notes";
 import ProjectBoard from "./pages/ProjectBoard";
 import FileEditor from "./pages/FileEditor";
 import WorkflowEditor from "./pages/WorkflowEditor";
-import AgenticSettings from "./pages/AgenticSettings";
+import WorkflowExec from "./pages/WorkflowExec";
 import PluginManager from "./pages/PluginManager";
 import FileViewer from "./pages/FileViewer";
 import SidebarFileTree from "./components/SidebarFileTree";
@@ -639,7 +639,7 @@ function AppInner() {
       return <WorkflowEditor />;
     }
     if (pageType === "wf-exec") {
-      return <AgenticSettings />;
+      return <WorkflowExec />;
     }
     if (pageType === "helpdesk") {
       return <HelpDesk active={!!active} />;
@@ -837,7 +837,7 @@ function AppInner() {
                 <NavItem active={activePage.endsWith(":projects")} label="Projects" onClick={() => { const tabId = `${currentScope}:projects`; setOpenTabs((prev) => prev.includes(tabId) ? prev : [...prev, tabId]); setActivePage(tabId); }} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":cronjobs")} label={t("sidebar.cronJobs")} onClick={openCronJobs} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":coding")} label={t("sidebar.coding")} onClick={openCoding} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
-                <NavItem active={activePage.endsWith(":wf-exec")} label={t("sidebar.workflows", "Agentic Workflows")} onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
+                <NavItem active={activePage.endsWith(":wf-exec")} label={t("sidebar.workflows", "Workflows")} onClick={openWorkflowExec} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
                 <NavItem active={activePage.endsWith(":helpdesk")} label="HelpDesk" onClick={openHelpDesk} accentColor={themeInfo.accent} accentBg={themeInfo.accentBg} />
               </div>
             </SidebarSection>
