@@ -49,7 +49,7 @@ const TEMPLATES: TemplateDef[] = [
         id: "custom",
         name: "不選版型",
         icon: "✨",
-        desc: "完全自由發揮，用描述決定一切",
+        desc: "完全自由發揮,用描述決定一切",
         mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
             <rect width="200" height="140" rx="6" fill="#1e293b"/>
             <text x="100" y="60" fill="#475569" font-size="28" text-anchor="middle">✨</text>
@@ -61,7 +61,7 @@ const TEMPLATES: TemplateDef[] = [
         id: "sidebar-tabs",
         name: "Sidebar + Tabs",
         icon: "🗂️",
-        desc: "左側選單 + 右側分頁，像 Dashboard 後台",
+        desc: "左側選單 + 右側分頁,像 Dashboard 後台",
         mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
             <rect width="200" height="140" rx="6" fill="#1e293b"/>
             <rect x="0" y="0" width="45" height="140" rx="6" fill="#0f172a"/>
@@ -99,7 +99,7 @@ const TEMPLATES: TemplateDef[] = [
         id: "dashboard",
         name: "Dashboard",
         icon: "📊",
-        desc: "KPI cards + charts，適合概覽",
+        desc: "KPI cards + charts,適合概覽",
         mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
             <rect width="200" height="140" rx="6" fill="#1e293b"/>
             <rect x="10" y="10" width="55" height="35" rx="4" fill="#334155"/>
@@ -127,7 +127,7 @@ const TEMPLATES: TemplateDef[] = [
         id: "table",
         name: "Table",
         icon: "📋",
-        desc: "Data table + filters，適合清單",
+        desc: "Data table + filters,適合清單",
         mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
             <rect width="200" height="140" rx="6" fill="#1e293b"/>
             <rect x="10" y="10" width="50" height="14" rx="3" fill="#334155"/>
@@ -159,7 +159,7 @@ const TEMPLATES: TemplateDef[] = [
         id: "chart",
         name: "Chart",
         icon: "📈",
-        desc: "Charts focused，適合趨勢分析",
+        desc: "Charts focused,適合趨勢分析",
         mockup: `<svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
             <rect width="200" height="140" rx="6" fill="#1e293b"/>
             <text x="100" y="20" fill="#94a3b8" font-size="6" text-anchor="middle">Trend Overview</text>
@@ -203,25 +203,32 @@ const TEMPLATES: TemplateDef[] = [
     },
 ];
 
-const DEFAULT_PROMPT = `你是一個前端報表開發專家。請產出一個完整的 HTML 頁面。
+const USER_PROMPT_TEMPLATE = `請根據以下規格建立 App:
 
-## 報表規格
+## App 規格
 - Template 類型: {{TEMPLATE}}
 - App 名稱: {{REPORT_NAME}}
 - 需求描述: {{PARAMS}}
+- 綁定 Skill: {{SKILL_ID}}
 
 ## 技術要求
-1. 純 HTML，所有 CSS 和 JS 都內聯
+1. 純 HTML,所有 CSS 和 JS 都內聯
 2. 可用 Chart.js (CDN: https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js) 畫圖表
 3. 可用 marked.js (CDN: https://cdn.jsdelivr.net/npm/marked/marked.min.js) render markdown
-4. 風格：深色主題（stone/slate 色系）或根據描述調整
+4. 風格:深色主題(stone/slate 色系)或根據描述調整
 5. 響應式設計
 6. 用合理的假數據做 static 展示
-7. 如指定 sidebar-tabs 版型：左側固定選單（icon + 文字）+ 右側分頁切換內容
+7. 如指定 sidebar-tabs 版型:左側固定選單(icon + 文字)+ 右側分頁切換內容
 
-## 重要
+## 如果是 skill-based App
+- 請同時建立 SKILL.md(按 app-builder 規範的格式)
+- 定義 Purpose、Inputs、Deterministic Script、Guardrails、Output Contract
+- 設定觸發關鍵字(triggers)
+
+## 輸出指示
 - 只輸出 HTML 代碼
-- HTML 開頭是 <!DOCTYPE html>`;
+- HTML 開頭是 <!DOCTYPE html>
+- 如果要建立 SKILL.md,用 write_file 工具寫入`;
 
 // ── Skill Picker Dialog ──
 function SkillPickerDialog({
@@ -293,26 +300,24 @@ export default function AppBuilder() {
     const [promptPreviewContent, setPromptPreviewContent] = useState<{system: string; prompt: string} | null>(null);
 
     const handlePreviewPrompt = async () => {
-        let sysPrompt = systemPrompt || "";
+        let sysPrompt = "(System prompt is loaded automatically by agent loop from context engine)";
         let userPrompt = "";
-        // Reconstruct the filled prompt (same as handleGenerate)
         const skillId = selectedSkill?.id || "no-skill";
-        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 完成後輸出 DONE。`;
-        userPrompt = sysPrompt
+        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 如果要建立 SKILL.md，寫入 data/apps/${reportId}/skills/${skillId}/SKILL.md。\n5. 完成後輸出 DONE。`;
+        userPrompt = USER_PROMPT_TEMPLATE
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
             .replace(/\{\{SKILL_ID\}\}/g, skillId)
             .replace(/\{\{PARAMS\}\}/g, description) + outputInstruction;
-        // Fetch FINAL system prompt from context engine
+        if (systemPromptOverride) {
+            userPrompt = `[System Override]\n${systemPromptOverride}\n\n---\n${userPrompt}`;
+        }
+        // Fetch actual system prompt from context engine for preview
         try {
-            const res = await fetch(`${API}/api/ai-settings/generic-preview`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ target: "app-builder", prompt: userPrompt, model }),
-            });
+            const res = await fetch(`${API}/api/context/app-builder`);
             if (res.ok) {
                 const ctx = await res.json();
                 if (ctx.systemPrompt) sysPrompt = ctx.systemPrompt;
-                if (ctx.userPrompt) userPrompt = ctx.userPrompt;
             }
         } catch {}
         setPromptPreviewContent({ system: sysPrompt, prompt: userPrompt });
@@ -321,14 +326,17 @@ export default function AppBuilder() {
 
     // ── Advanced settings (collapsed by default) ──
     const [showAdvanced, setShowAdvanced] = useState(false);
-    const [systemPrompt, setSystemPrompt] = useState("");
+    const [systemPromptOverride, setSystemPromptOverride] = useState("");
+    // NOTE: System prompt is loaded by agent loop's context engine automatically.
+    // This field is only for user overrides (advanced).
 
-    // Load full system context from API on mount
+    // Load the real system prompt from context engine (to pass to AgentConsole)
+    const [agentSystemPrompt, setAgentSystemPrompt] = useState("");
     useEffect(() => {
         fetch(`${API}/api/context/app-builder`)
             .then(r => r.ok ? r.json() : null)
-            .then(ctx => { if (ctx?.systemPrompt) setSystemPrompt(ctx.systemPrompt); else setSystemPrompt(DEFAULT_PROMPT); })
-            .catch(() => setSystemPrompt(DEFAULT_PROMPT));
+            .then(ctx => { if (ctx?.systemPrompt) setAgentSystemPrompt(ctx.systemPrompt); })
+            .catch(() => {});
     }, []);
 
     // ── Chat / Terminal state ──
@@ -374,10 +382,10 @@ export default function AppBuilder() {
     const handleCliDone = useCallback(() => {
         // Only accept cliDone if we're actively generating
         if (!generatingRef.current) {
-            console.log('[AppBuilder] Ignored cliDone — not generating');
+            console.log('[AppBuilder] Ignored cliDone - not generating');
             return;
         }
-        console.log('[AppBuilder] cliDone fired — refreshing preview');
+        console.log('[AppBuilder] cliDone fired - refreshing preview');
         pollStoppedRef.current = true;
         setPreviewReady(true);
         setPreviewKey(Date.now());
@@ -415,7 +423,7 @@ export default function AppBuilder() {
         let fileExistedDuringWarmup = false;
         let pollCount = 0;
 
-        // Shared completion handler — called when polling detects app is ready
+        // Shared completion handler - called when polling detects app is ready
         const finishPolling = (reason: string) => {
             if (stopped) return;
             clearInterval(timer);
@@ -576,7 +584,7 @@ export default function AppBuilder() {
 
     // ── Unpublish app ──
     const handleUnpublish = useCallback((appId: string) => {
-        if (!confirm(`確定要下架「${appId}」嗎？app.html 會被移除，但 app.json 會保留。`)) return;
+        if (!confirm(`確定要下架「${appId}」嗎?app.html 會被移除,但 app.json 會保留。`)) return;
         fetch(`${API}/api/app/${appId}`, { method: "DELETE" })
             .then(r => r.json())
             .then(() => loadExistingApps())
@@ -646,14 +654,18 @@ export default function AppBuilder() {
 
         const skillId = selectedSkill?.id || "no-skill";
         const workDir = workingDir ? `${workingDir}/apps/${reportId}` : `data/apps/${reportId}`;
-        const outputInstruction = `\n\n---\n**重要指示：** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案（app.html、SKILL.md 等）。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 完成後輸出 DONE。\n5. **Working Directory：${workDir}**`;
-        const filledPrompt = systemPrompt
+        const outputInstruction = `\n\n---\n**重要指示:** \n1. 只能修改 data/apps/${reportId}/ 目錄下的檔案(app.html、SKILL.md 等)。\n2. **禁止修改**其他 app 的檔案、data/app-data/、data/chats/、data/config/、packages/、core/。\n3. 將最終的 HTML 結果直接寫入檔案 data/apps/${reportId}/app.html。\n4. 如果要建立 SKILL.md,寫入 data/apps/${reportId}/skills/${skillId}/SKILL.md。\n5. 完成後輸出 DONE。\n6. **Working Directory:${workDir}**`;
+        const filledPrompt = USER_PROMPT_TEMPLATE
             .replace(/\{\{TEMPLATE\}\}/g, selectedTemplate)
             .replace(/\{\{REPORT_NAME\}\}/g, reportName)
             .replace(/\{\{SKILL_ID\}\}/g, skillId)
             .replace(/\{\{PARAMS\}\}/g, description) + outputInstruction;
+        // Append user's system prompt override if provided
+        const finalPrompt = systemPromptOverride
+            ? `[System Override]\n${systemPromptOverride}\n\n---\n${filledPrompt}`
+            : filledPrompt;
 
-        sendToTerminal(filledPrompt);
+        sendToTerminal(finalPrompt);
 
         // Add assistant message placeholder
         setTimeout(() => {
@@ -664,7 +676,7 @@ export default function AppBuilder() {
                 ts: Date.now(),
             }]);
         }, 1000);
-    }, [reportName, selectedTemplate, description, systemPrompt, selectedSkill, reportId, sendToTerminal, workingDir]);
+    }, [reportName, selectedTemplate, description, systemPromptOverride, selectedSkill, reportId, sendToTerminal, workingDir]);
 
     // ── Chat send (iterative refinement) ──
     const handleChatSend = useCallback(() => {
@@ -684,12 +696,12 @@ export default function AppBuilder() {
         const isRefinement = chatMessages.length > 0; // first generate has assistant placeholder
         let historyBlock = "";
         if (isRefinement && userMessages.length > 0) {
-            historyBlock = "\n\n**修改記錄（之前的對話）：**\n" + userMessages.map((m, i) => `${i + 1}. ${m.text}`).join("\n") + "\n";
+            historyBlock = "\n\n**修改記錄(之前的對話):**\n" + userMessages.map((m, i) => `${i + 1}. ${m.text}`).join("\n") + "\n";
         }
 
         // Send to terminal for processing
         const workDir = workingDir ? `${workingDir}/apps/${reportId}` : `data/apps/${reportId}`;
-        const refinement = `${historyBlock}${msg}\n\n修改完成後請更新 data/apps/${reportId}/app.html。完成後輸出 DONE。\n**Working Directory：${workDir}**`;
+        const refinement = `${historyBlock}${msg}\n\n修改完成後請更新 data/apps/${reportId}/app.html。完成後輸出 DONE。\n**Working Directory:${workDir}**`;
         sendToTerminal(refinement);
 
         // Start polling for preview update
@@ -739,7 +751,7 @@ export default function AppBuilder() {
                         </div>
                         <div className="max-h-80 overflow-y-auto p-3 space-y-1.5">
                             {existingApps.length === 0 && (
-                                <div className="text-center text-stone-400 text-xs py-8">還沒有 App，先建一個吧！</div>
+                                <div className="text-center text-stone-400 text-xs py-8">還沒有 App,先建一個吧!</div>
                             )}
                             {existingApps.map(app => (
                                 <div key={app.id}
@@ -873,7 +885,7 @@ export default function AppBuilder() {
                     <div className="h-full flex flex-col items-center justify-center p-8 overflow-y-auto">
                         <div className="text-center mb-8">
                             <h2 className="text-2xl font-bold text-stone-800 mb-2">選擇版型</h2>
-                            <p className="text-stone-500 text-sm">挑一個你喜歡的佈局，後面可以再微調</p>
+                            <p className="text-stone-500 text-sm">挑一個你喜歡的佈局,後面可以再微調</p>
                         </div>
                         <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 max-w-3xl w-full">
                             {TEMPLATES.map(tmpl => (
@@ -943,12 +955,12 @@ export default function AppBuilder() {
                                     rows={4}
                                     className="w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
                                     style={{ borderColor: "#d6d3d1", lineHeight: 1.6 }} />
-                                <p className="text-xs text-stone-400 mt-1">💡 越具體越好：配色、佈局、功能、資料來源...</p>
+                                <p className="text-xs text-stone-400 mt-1">💡 越具體越好:配色、佈局、功能、資料來源...</p>
                             </div>
 
                             {/* Skill binding */}
                             <div className="mb-4">
-                                <label className="block text-sm font-bold text-stone-500 mb-1">綁定 Skill（選填）</label>
+                                <label className="block text-sm font-bold text-stone-500 mb-1">綁定 Skill(選填)</label>
                                 {!selectedSkill ? (
                                     <button onClick={() => setShowSkillPicker(true)}
                                         className="w-full p-3 border-2 border-dashed rounded-xl text-sm text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-colors"
@@ -974,12 +986,13 @@ export default function AppBuilder() {
                                 <button onClick={() => setShowAdvanced(!showAdvanced)}
                                     className="flex items-center gap-1 text-sm text-stone-400 hover:text-stone-600 transition-colors">
                                     <span style={{ transform: showAdvanced ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▶</span>
-                                    進階設定（System Prompt）
+                                    進階設定(System Prompt)
                                 </button>
                                 {showAdvanced && (
-                                    <textarea value={systemPrompt}
-                                        onChange={e => setSystemPrompt(e.target.value)}
-                                        rows={8}
+                                    <textarea value={systemPromptOverride}
+                                        onChange={e => setSystemPromptOverride(e.target.value)}
+                                        placeholder="留空 = 使用預設 System Prompt（App Builder 規則自動載入）"
+                                        rows={4}
                                         className="w-full mt-2 px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
                                         style={{ borderColor: "#d6d3d1", lineHeight: 1.6 }} />
                                 )}
@@ -1056,7 +1069,7 @@ export default function AppBuilder() {
                             </div>
                         </div>
 
-                        {/* Bottom: Terminal — AgentConsole fills entire terminal area + chat input */}
+                        {/* Bottom: Terminal - AgentConsole fills entire terminal area + chat input */}
                         {!fullscreen && (
                         <div className="min-h-0 flex flex-col" style={{ backgroundColor: "#1e1e1e" }}>
                             <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style={{ borderColor: "#333" }}>
@@ -1077,6 +1090,7 @@ export default function AppBuilder() {
                                         ref={terminalRef}
                                         cwd={workingDir ? `${workingDir}/apps/${reportId}` : undefined}
                                         model={model || undefined}
+                                        systemPrompt={agentSystemPrompt || undefined}
                                         initialPrompt={initialPrompt}
                                     />
                                 ) : (
@@ -1147,7 +1161,7 @@ export default function AppBuilder() {
                                 onClick={e => e.stopPropagation()}>
                                 {/* Header */}
                                 <div className="flex items-center justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: "#e7e5e4", backgroundColor: t.accentBg }}>
-                                    <h3 className="text-sm font-bold" style={{ color: t.accentText }}>⚙️ App 設定 — {editingAppId}</h3>
+                                    <h3 className="text-sm font-bold" style={{ color: t.accentText }}>⚙️ App 設定 - {editingAppId}</h3>
                                     <div className="flex items-center gap-2">
                                         {settingsSaved && <span className="text-xs text-green-600 font-semibold">{tt("common.saved")}</span>}
                                         <button onClick={() => setShowSettings(false)} className="text-stone-400 hover:text-red-400 text-lg leading-none">&times;</button>
@@ -1223,7 +1237,7 @@ export default function AppBuilder() {
                                     </div>
                                     {/* AI Prompt */}
                                     <div>
-                                        <label className="block text-sm font-semibold text-stone-500 mb-1">AI Prompt（給 LLM 的 App 操作提示）</label>
+                                        <label className="block text-sm font-semibold text-stone-500 mb-1">AI Prompt(給 LLM 的 App 操作提示)</label>
                                         <textarea value={appSettings.aiPrompt}
                                             onChange={e => setAppSettings(p => ({ ...p, aiPrompt: e.target.value }))}
                                             rows={4}
@@ -1248,7 +1262,7 @@ export default function AppBuilder() {
                                             placeholder='[{ "id": "translate", "path": "./skills/translate/SKILL.md", "role": "main" }]'
                                             className="w-full px-3 py-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-stone-300 resize-none"
                                             style={{ borderColor: "#d6d3d1", lineHeight: 1.5 }} />
-                                        <p className="text-xs text-stone-400 mt-1">每個 skill: {`{ id, path, role }`}，role 可選 main / support</p>
+                                        <p className="text-xs text-stone-400 mt-1">每個 skill: {`{ id, path, role }`},role 可選 main / support</p>
                                     </div>
                                 </div>
                                 {/* Footer */}
