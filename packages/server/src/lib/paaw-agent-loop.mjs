@@ -973,11 +973,26 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
   // Security: check path is within allowed dirs
   // Read:  cwd + rootDir + workspaceDirs
-  // Write: cwd + workspaceDirs (cwd = project root, AI must be able to write project code)
+  // Write: cwd + rootDir + workspaceDirs (with blacklist for dangerous locations)
+  const WRITE_BLACKLIST = [
+    // Never allow writing to these directories (relative to rootDir)
+    "/packages/",
+    "/core/",
+    "/node_modules/",
+    "/.git/",
+    "/dist/",
+    "/.next/",
+  ];
+  const WRITE_BLACKLIST_EXTS = new Set([
+    // Never allow writing these file types to rootDir (but OK in cwd/data dirs)
+    ".exe", ".dll", ".bat", ".cmd", ".ps1", ".sh",
+  ]);
+
   const isPathAllowed = (p, write = false) => {
     // Normalize to forward slashes for consistent comparison
     const norm = (s) => s.replace(/\\/g, "/");
     const abs = norm(resolvePath(p));
+    const normRoot = norm(rootDir);
     const startsWith = (target, prefix) => {
       const t = target.split("/");
       const p = prefix.split("/");
@@ -985,11 +1000,23 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       return p.every((seg, i) => seg.toLowerCase() === t[i].toLowerCase());
     };
     if (write) {
-      // Write: cwd (project root) + workspace directories
-      return startsWith(abs, norm(cwd)) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
+      // Write: cwd + rootDir + workspace directories
+      const allowed = startsWith(abs, norm(cwd)) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
+      if (!allowed) return false;
+      // Blacklist: never write to dangerous directories under rootDir
+      const relToRoot = abs.startsWith(normRoot + "/") ? abs.slice(normRoot.length) : "";
+      for (const bl of WRITE_BLACKLIST) {
+        if (relToRoot.toLowerCase().startsWith(bl.toLowerCase())) return false;
+      }
+      // Blacklist: never write dangerous file extensions directly in rootDir
+      const ext = (p.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
+      const inRootButNotSubdir = relToRoot.startsWith("/") && !relToRoot.slice(1).includes("/");
+      if (inRootButNotSubdir && (ext === "js" || ext === "mjs" || ext === "cjs")) return false;
+      if (WRITE_BLACKLIST_EXTS.has(ext)) return false;
+      return true;
     }
     // Read: cwd + rootDir + workspace directories
-    return startsWith(abs, norm(cwd)) || startsWith(abs, norm(rootDir)) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
+    return startsWith(abs, norm(cwd)) || startsWith(abs, normRoot) || workspaceDirs.some((d) => startsWith(abs, norm(d)));
   };
 
   // Emit tool event for SSE
@@ -1028,56 +1055,74 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       case "write_file": {
         const filePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside allowed directory. cwd='${cwd}'. Use a relative path like 'data/apps/test/app.html' instead of absolute path.`;
-        // ── P0: Inject dependency context before write ──
-        const depCtx = getDependencyContext(cwd, filePath);
-        if (depCtx) {
-          LOG("[dependency-context] Pre-write impact analysis for", filePath);
+        if (!isPathAllowed(args.path, true)) {
+          const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          return `Error: path '${args.path}' is not writable. ${hint}`;
         }
-        // Auto-snapshot before first modification
-        if (!snapshotTaken && paaw?.exists) {
-          try {
-            const snap = new PaawSnapshot(cwd, paaw.paawDir);
-            await snap.createPreEdit(filePath);
-            snapshotTaken = true;
-          } catch {}
+        try {
+          // ── P0: Inject dependency context before write ──
+          const depCtx = getDependencyContext(cwd, filePath);
+          if (depCtx) {
+            LOG("[dependency-context] Pre-write impact analysis for", filePath);
+          }
+          // Auto-snapshot before first modification
+          if (!snapshotTaken && paaw?.exists) {
+            try {
+              const snap = new PaawSnapshot(cwd, paaw.paawDir);
+              await snap.createPreEdit(filePath);
+              snapshotTaken = true;
+            } catch {}
+          }
+          const wasNew = !existsSync(filePath);
+          await mkdir(dirname(filePath), { recursive: true });
+          await writeFile(filePath, args.content, "utf-8");
+          // Track modified files for post-edit test verification
+          const relPath = filePath.replace(cwd + "/", "").replace(cwd + "\\", "");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)${wasNew ? " [NEW]" : ""}` });
+          const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}${wasNew ? " [NEW FILE]" : ""}`;
+          return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
+        } catch (writeErr) {
+          const errMsg = `write_file error: ${writeErr.message}. path='${args.path}', resolved='${filePath}', cwd='${cwd}'`;
+          if (onEvent) onEvent({ type: "tool_end", name, result: errMsg });
+          return errMsg;
         }
-        const wasNew = !existsSync(filePath);
-        await mkdir(dirname(filePath), { recursive: true });
-        await writeFile(filePath, args.content, "utf-8");
-        // Track modified files for post-edit test verification
-        const relPath = filePath.replace(cwd + "/", "").replace(cwd + "\\", "");
-        if (onEvent) onEvent({ type: "tool_end", name, result: `Wrote ${filePath} (${args.content.length} bytes)${wasNew ? " [NEW]" : ""}` });
-        const baseResult = `Successfully wrote ${args.content.length} bytes to ${args.path}${wasNew ? " [NEW FILE]" : ""}`;
-        return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
       }
 
       case "edit_file": {
         const filePath = resolvePath(args.path);
-        if (!isPathAllowed(args.path, true)) return `Error: path '${args.path}' is outside allowed directory. cwd='${cwd}'. Use a relative path like 'data/apps/test/app.html' instead of absolute path.`;
+        if (!isPathAllowed(args.path, true)) {
+          const hint = `cwd='${cwd}'. Use a relative path from PAAW root like 'data/apps/test/app.html'. Do NOT use Windows absolute paths like 'C:\\...'.`;
+          return `Error: path '${args.path}' is not writable. ${hint}`;
+        }
         if (!existsSync(filePath)) return `Error: file not found: ${args.path}`;
-        // ── P0: Inject dependency context before edit ──
-        const depCtx = getDependencyContext(cwd, filePath);
-        if (depCtx) {
-          LOG("[dependency-context] Pre-edit impact analysis for", filePath);
+        try {
+          // ── P0: Inject dependency context before edit ──
+          const depCtx = getDependencyContext(cwd, filePath);
+          if (depCtx) {
+            LOG("[dependency-context] Pre-edit impact analysis for", filePath);
+          }
+          // Auto-snapshot before first modification
+          if (!snapshotTaken && paaw?.exists) {
+            try {
+              const snap = new PaawSnapshot(cwd, paaw.paawDir);
+              await snap.createPreEdit(filePath);
+              snapshotTaken = true;
+            } catch {}
+          }
+          const content = await readFile(filePath, "utf-8");
+          const occurrences = content.split(args.old_text).length - 1;
+          if (occurrences === 0) return `Error: old_text not found in ${args.path}`;
+          if (occurrences > 1) return `Error: old_text found ${occurrences} times in ${args.path} — must be unique`;
+          const newContent = content.replace(args.old_text, args.new_text);
+          await writeFile(filePath, newContent, "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Edited ${filePath}` });
+          const baseResult = `Successfully edited ${args.path} (1 replacement)`;
+          return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
+        } catch (editErr) {
+          const errMsg = `edit_file error: ${editErr.message}. path='${args.path}', resolved='${filePath}', cwd='${cwd}'`;
+          if (onEvent) onEvent({ type: "tool_end", name, result: errMsg });
+          return errMsg;
         }
-        // Auto-snapshot before first modification
-        if (!snapshotTaken && paaw?.exists) {
-          try {
-            const snap = new PaawSnapshot(cwd, paaw.paawDir);
-            await snap.createPreEdit(filePath);
-            snapshotTaken = true;
-          } catch {}
-        }
-        const content = await readFile(filePath, "utf-8");
-        const occurrences = content.split(args.old_text).length - 1;
-        if (occurrences === 0) return `Error: old_text not found in ${args.path}`;
-        if (occurrences > 1) return `Error: old_text found ${occurrences} times in ${args.path} — must be unique`;
-        const newContent = content.replace(args.old_text, args.new_text);
-        await writeFile(filePath, newContent, "utf-8");
-        if (onEvent) onEvent({ type: "tool_end", name, result: `Edited ${filePath}` });
-        const baseResult = `Successfully edited ${args.path} (1 replacement)`;
-        return depCtx ? `${baseResult}\n\n${depCtx}` : baseResult;
       }
 
       // ══════════════════════════════════════════
