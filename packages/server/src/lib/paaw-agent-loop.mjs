@@ -1065,14 +1065,6 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
           if (depCtx) {
             LOG("[dependency-context] Pre-write impact analysis for", filePath);
           }
-          // Auto-snapshot before first modification
-          if (!snapshotTaken && paaw?.exists) {
-            try {
-              const snap = new PaawSnapshot(cwd, paaw.paawDir);
-              await snap.createPreEdit(filePath);
-              snapshotTaken = true;
-            } catch {}
-          }
           const wasNew = !existsSync(filePath);
           await mkdir(dirname(filePath), { recursive: true });
           await writeFile(filePath, args.content, "utf-8");
@@ -1100,14 +1092,6 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
           const depCtx = getDependencyContext(cwd, filePath);
           if (depCtx) {
             LOG("[dependency-context] Pre-edit impact analysis for", filePath);
-          }
-          // Auto-snapshot before first modification
-          if (!snapshotTaken && paaw?.exists) {
-            try {
-              const snap = new PaawSnapshot(cwd, paaw.paawDir);
-              await snap.createPreEdit(filePath);
-              snapshotTaken = true;
-            } catch {}
           }
           const content = await readFile(filePath, "utf-8");
           const occurrences = content.split(args.old_text).length - 1;
