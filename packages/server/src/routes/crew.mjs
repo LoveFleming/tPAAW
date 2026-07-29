@@ -73,14 +73,15 @@ export default async function crewRoute(req, res) {
       ? prompt
       : `${prompt}\n\n### 輸出目錄\n請將所有輸出檔案放到這個目錄：${relTestDir}\n如果有多個輸出，分別存成不同檔案（JSON、Markdown、HTML 等都可以）。`;
 
-    sendEvent({ type: "debug", engine: "paaw-agent-loop", cwd: cwd || PAAW_ROOT, testDir: relTestDir });
+    const agentCwd = cwd || testDir;
+    sendEvent({ type: "debug", engine: "paaw-agent-loop", cwd: agentCwd, testDir: relTestDir });
     console.log(`[skill-test] running via PAAW Agent Loop, skillId=${skillId}, testDir=${testDir}, model=${modelOverride || "(default)"}`);
 
     const heartbeat = setInterval(() => sendEvent({ type: "heartbeat" }), 5000);
     try {
       const agentResult = await runAgentLoop({
         prompt: fullPrompt,
-        cwd: cwd || PAAW_ROOT,
+        cwd: agentCwd,
         systemPrompt: systemPrompt || undefined,
         model: modelOverride,
         maxTurns: effectiveMaxTurns,
@@ -170,7 +171,9 @@ export default async function crewRoute(req, res) {
       const agentCfg = await loadAgentConfig();
       const effectiveMaxTurns = maxToolCalls || agentCfg.maxTurns;
       const effectiveTimeout = timeout || agentCfg.timeoutSeconds;
-      const workCwd = runCwd || PAAW_ROOT;
+      const workCwd = runCwd || resolve(PAAW_ROOT, "data", "cli-run-output");
+      // Ensure temp dir exists
+      try { await mkdir(workCwd, { recursive: true }); } catch {}
 
       if (wantStream) {
         res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });

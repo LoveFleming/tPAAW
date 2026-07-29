@@ -50,6 +50,8 @@ node_modules/
 .DS_Store
 data/skills/.test-output/
 data/skills/building/*/test-*
+data/cli-run-output/
+data/cron-output/
 .paaw-staging/
 .paaw-review/
 .paaw/tmp/

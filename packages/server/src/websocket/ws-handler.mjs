@@ -57,7 +57,8 @@ export function setupWebSocket() {
         // ════════════════════════════════════════════════════════════
         if (opts.engine === "paaw-agent" || opts.cli === "paaw-agent") {
           console.log(`[PTY] Agent mode session: ${sessionId} (cwd: ${opts.cwd || PAAW_ROOT}, systemPrompt: ${(opts.systemPrompt || "").length} chars)`);
-          const agentCwd = opts.cwd || PAAW_ROOT;
+          const agentCwd = opts.cwd || resolve(PAAW_ROOT, "data", "vibe-sessions", sessionId);
+          try { mkdirSync(agentCwd, { recursive: true }); } catch {}
           const agentState = {
             id: sessionId,
             mode: "paaw-agent",

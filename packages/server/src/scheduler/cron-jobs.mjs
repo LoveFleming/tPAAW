@@ -464,7 +464,8 @@ async function agentLoopHandler(req, res) {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     const agentCfg = await loadAgentConfig();
 
-    const workDir = cwd || PAAW_ROOT;
+    const workDir = cwd || resolve(PAAW_ROOT, "data", "cron-output", `${Date.now()}`);
+    try { mkdirSync(workDir, { recursive: true }); } catch {}
     let skillMd = "";
     let autoSystemPrompt = systemPrompt;
     if (skillId) {
@@ -507,7 +508,8 @@ async function agentLoopHandler(req, res) {
     const { loadAgentConfig } = await import("../routes/context.mjs");
     const agentCfg = await loadAgentConfig();
 
-    const workDir = cwd || PAAW_ROOT;
+    const workDir = cwd || resolve(PAAW_ROOT, "data", "cron-output", `${Date.now()}`);
+    try { mkdirSync(workDir, { recursive: true }); } catch {}
     let skillMd = "";
     let autoSystemPrompt = systemPrompt;
     if (skillId) {
