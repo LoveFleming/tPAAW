@@ -859,22 +859,26 @@ function _findConventionTests(cwd, changedFiles) {
 
 // ── Native Node.js helpers (Windows-safe, no shell) ──
 
-async function _nativeGlob(basePath, pattern, maxResults = 100) {
+async function _nativeGlob(basePath, pattern, maxResults = 100, cwd = basePath) {
   const results = [];
   const normPattern = pattern.replace(/\*\*\//g, "").replace(/\*\*/g, "*").replace(/\*/g, ".*").replace(/\?/g, ".");
   const regex = new RegExp(normPattern + "$", "i");
-  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw"]);
+  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw", "__pycache__", ".cache", ".turbo"]);
+  // Normalize cwd for relative path calculation (handle Windows backslashes)
+  const normCwd = cwd.replace(/\\/g, "/");
   async function walk(dir, depth) {
-    if (results.length >= maxResults || depth > 20) return;
+    if (results.length >= maxResults || depth > 15) return;
     let entries;
     try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       if (results.length >= maxResults) return;
-      const full = join(dir, e.name);
       if (e.isDirectory()) {
-        if (!skipDirs.has(e.name)) await walk(full, depth + 1);
+        if (!skipDirs.has(e.name)) await walk(join(dir, e.name), depth + 1);
       } else if (regex.test(e.name)) {
-        results.push(full);
+        // Return relative path from cwd (use forward slashes for cross-platform)
+        const full = join(dir, e.name).replace(/\\/g, "/");
+        const rel = full.startsWith(normCwd + "/") ? full.slice(normCwd.length + 1) : e.name;
+        results.push(rel);
       }
     }
   }
@@ -882,35 +886,39 @@ async function _nativeGlob(basePath, pattern, maxResults = 100) {
   return results.join("\n") || "(no files found)";
 }
 
-async function _nativeGrep(searchPath, pattern, include, maxResults = 50, ignoreCase = true) {
+async function _nativeGrep(searchPath, pattern, include, maxResults = 50, ignoreCase = true, cwd = searchPath) {
   const results = [];
   const flags = ignoreCase ? "i" : "";
   let regex;
   try { regex = new RegExp(pattern, flags); } catch { regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags); }
   const includeRegex = include ? new RegExp(include.replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i") : null;
-  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw"]);
-  async function walk(dir) {
-    if (results.length >= maxResults) return;
+  const skipDirs = new Set(["node_modules", ".git", "dist", ".next", ".paaw", "__pycache__", ".cache", ".turbo"]);
+  const normCwd = cwd.replace(/\\/g, "/");
+  async function walk(dir, depth) {
+    if (results.length >= maxResults || depth > 15) return;
     let entries;
     try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       if (results.length >= maxResults) return;
-      const full = join(dir, e.name);
       if (e.isDirectory()) {
-        if (!skipDirs.has(e.name)) await walk(full);
+        if (!skipDirs.has(e.name)) await walk(join(dir, e.name), depth + 1);
       } else {
         if (includeRegex && !includeRegex.test(e.name)) continue;
         try {
-          const content = await readFile(full, "utf-8");
+          const content = await readFile(join(dir, e.name), "utf-8");
           const lines = content.split("\n");
           for (let i = 0; i < lines.length && results.length < maxResults; i++) {
-            if (regex.test(lines[i])) results.push(`${full}:${i + 1}:${lines[i].trim().slice(0, 200)}`);
+            if (regex.test(lines[i])) {
+              const full = join(dir, e.name).replace(/\\/g, "/");
+              const rel = full.startsWith(normCwd + "/") ? full.slice(normCwd.length + 1) : e.name;
+              results.push(`${rel}:${i + 1}:${lines[i].trim().slice(0, 200)}`);
+            }
           }
         } catch {}
       }
     }
   }
-  await walk(searchPath);
+  await walk(searchPath, 0);
   return results.join("\n") || "(no matches)";
 }
 
@@ -1077,23 +1085,30 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         const basePath = resolvePath(args.path);
         if (!isPathAllowed(args.path || ".")) return `Error: path is outside allowed directory`;
         const pattern = args.pattern;
-        // ripgrep is cross-platform (rg.exe on Windows)
         let result;
         if (IS_WIN) {
-          // Windows: rg.exe is cross-platform
-          const cmd = `rg --files --glob "${pattern}" --max-depth 20 "${basePath}"`;
-          result = await runShell(cmd, cwd, 10_000);
-          if (result.includes("not recognized") || result.includes("command not found")) {
-            // Fallback: Node.js native (no shell escaping issues)
-            result = await _nativeGlob(basePath, pattern, 100);
+          // Windows: use Node.js native FIRST (fast, no shell overhead, no path issues)
+          result = await _nativeGlob(basePath, pattern, 100, cwd);
+          // Only try rg if native returns nothing and rg might be installed
+          if (result === "(no files found)" || result.length < 10) {
+            const cmd = `rg --files --glob "${pattern}" --max-depth 15 "${basePath}"`;
+            const rgResult = await runShell(cmd, cwd, 8_000);
+            if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
+              // Convert rg absolute paths to relative, forward-slash paths
+              const normCwd = cwd.replace(/\\/g, "/");
+              result = rgResult.split("\n").filter(l => l.trim()).map(l => {
+                const norm = l.replace(/\\/g, "/");
+                return norm.startsWith(normCwd + "/") ? norm.slice(normCwd.length + 1) : l;
+              }).join("\n");
+            }
           }
         } else {
           // Unix: use rg with glob, fallback to find
-          const cmd = `rg --files --glob '${pattern}' --max-depth 20 '${basePath}'`;
-          result = await runShell(cmd, cwd, 10_000);
+          const cmd = `rg --files --glob '${pattern}' --max-depth 15 '${basePath}'`;
+          result = await runShell(cmd, cwd, 8_000);
           if (result.includes("command not found")) {
             const findCmd = `find '${basePath}' -name '${pattern}' -not -path '*/node_modules/*' -not -path '*/.git/*' -type f | head -100`;
-            result = await runShell(findCmd, cwd, 10_000);
+            result = await runShell(findCmd, cwd, 8_000);
           }
         }
         // Smart truncate (head+tail, preserves errors at end)
@@ -1110,23 +1125,36 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         const caseFlag = args.case_sensitive ? "" : "-i";
         let result;
         if (IS_WIN) {
-          // Windows: rg.exe is cross-platform
-          const includeFlag = args.include ? `--glob "${args.include}"` : "";
-          const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading "${args.pattern}" "${searchPath}"`;
-          result = await runShell(cmd, cwd, 15_000);
-          if (result.includes("not recognized") || result.includes("command not found")) {
-            // Fallback: Node.js native grep
-            result = await _nativeGrep(searchPath, args.pattern, args.include, maxResults, !args.case_sensitive);
+          // Windows: use Node.js native FIRST (fast, no shell overhead, no path issues)
+          result = await _nativeGrep(searchPath, args.pattern, args.include, maxResults, !args.case_sensitive, cwd);
+          // Only try rg if native returns nothing and rg might be installed
+          if (result === "(no matches)" || result.length < 10) {
+            const includeFlag = args.include ? `--glob "${args.include}"` : "";
+            const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading "${args.pattern}" "${searchPath}"`;
+            const rgResult = await runShell(cmd, cwd, 10_000);
+            if (!rgResult.includes("not recognized") && !rgResult.includes("command not found") && !rgResult.includes("(no output)") && rgResult.length > result.length) {
+              // Convert rg absolute paths to relative, forward-slash paths
+              const normCwd = cwd.replace(/\\/g, "/");
+              result = rgResult.split("\n").filter(l => l.trim()).map(l => {
+                const colonIdx = l.indexOf(":");
+                if (colonIdx > 0) {
+                  const norm = l.slice(0, colonIdx).replace(/\\/g, "/");
+                  const rel = norm.startsWith(normCwd + "/") ? norm.slice(normCwd.length + 1) : l.slice(0, colonIdx);
+                  return rel + l.slice(colonIdx);
+                }
+                return l;
+              }).join("\n");
+            }
           }
         } else {
           // Unix: rg with fallback to grep
           const includeFlag = args.include ? `--glob '${args.include}'` : "";
           const cmd = `rg ${caseFlag} ${includeFlag} --max-count ${maxResults} --line-number --no-heading '${args.pattern}' '${searchPath}'`;
-          result = await runShell(cmd, cwd, 15_000);
+          result = await runShell(cmd, cwd, 10_000);
           if (result.includes("command not found")) {
             const grepInclude = args.include ? `--include='${args.include}'` : "";
             const grepCmd = `grep -rn ${caseFlag} ${grepInclude} --max-count=${maxResults} '${args.pattern}' '${searchPath}'`;
-            result = await runShell(grepCmd, cwd, 15_000);
+            result = await runShell(grepCmd, cwd, 10_000);
           }
         }
         // Smart truncate (head+tail — preserves grep matches at end)
@@ -2150,7 +2178,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   // Inject cwd dynamically
   parts.push(`\nWorking directory: ${cwd}`);
   if (IS_WIN) {
-    parts.push(`\n⚠️ Windows 環境重要規則：\n- 寫檔案請用 write_file/edit_file 工具，不要用 bash 的 echo/cat 重定向（PowerShell 字元轉義會出問題）\n- **禁止用 bash 跑 Unix 指令**：find、grep、ls、cat、head、tail、wc、sed、awk、xargs 等在 Windows 上不可用或行為不同\n- 用內建工具代替：glob 找檔案、grep 工具搜尋內容、read_file 讀檔、git 查歷史\n- bash 只用於：git 命令、node/npm/npx 命令、跨平台指令\n- 路徑一律用正斜線 / 不要用反斜線 \\\n- git 命令可以正常使用`);
+    parts.push(`\n⚠️ Windows 環境重要規則：\n- 寫檔案請用 write_file/edit_file 工具，不要用 bash 的 echo/cat 重定向（cmd.exe 字元轉義會出問題）\n- **禁止用 bash 跑 Unix 指令**：find、grep、ls、cat、head、tail、wc、sed、awk、xargs、rm、cp、mv、mkdir、touch 等在 Windows cmd.exe 不可用或行為不同\n- 用內建工具代替：glob 找檔案、grep 工具搜尋內容、read_file 讀檔、write_file 寫檔\n- bash 只用於：git 命令、node/npm/npx 命令、python 命令、跨平台指令\n- 路徑一律用正斜線 / 不要用反斜線 \\\n- 檔案路徑一律用相對路徑（如 data/apps/report/app.html），不要用絕對路徑（如 C:\\Users\\...）\n- git 命令可以正常使用\n- **每個 tool 呼叫都有 30 秒 timeout**，如果操作需要更久請分步驟執行`);
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
@@ -2455,9 +2483,24 @@ export async function runAgentLoop(config) {
         const _fullPath = resolve(cwd, _toolArgs.path);
         _wasNewFile = !existsSync(_fullPath);
       }
-      const toolResult = toolRegistry.initialized && toolRegistry.has(_toolName)
-        ? String(await toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), _ctx))
-        : await executeTool(call, cwd, rootDir, onEvent, agentId);
+      // Execute tool with timeout (prevent hanging on Windows)
+      // bash tool needs longer timeout (up to 5 min), others 30s
+      const _toolTimeoutMs = _toolName === "bash" ? Math.min((_toolArgs.timeout || 120) * 1000, _agentCfg.bashTimeoutSeconds * 1000, 300_000) : 30_000;
+      let toolResult;
+      try {
+        toolResult = await Promise.race([
+          toolRegistry.initialized && toolRegistry.has(_toolName)
+            ? toolRegistry.execute(_toolName, JSON.parse(call.function.arguments || "{}"), _ctx)
+            : executeTool(call, cwd, rootDir, onEvent, agentId),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Tool '${_toolName}' timed out after ${_toolTimeoutMs / 1000}s`)), _toolTimeoutMs)
+          )
+        ]);
+        toolResult = String(toolResult);
+      } catch (toolErr) {
+        toolResult = `Error: ${toolErr.message}`;
+        if (onEvent) onEvent({ type: "tool_end", name: _toolName, result: `Timeout/Error: ${toolErr.message}` });
+      }
       // Track modified/created files
       if (_toolName === "write_file" || _toolName === "edit_file") {
         const _p = _toolArgs.path || _toolArgs.file || "";
