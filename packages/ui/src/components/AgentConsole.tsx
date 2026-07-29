@@ -28,7 +28,7 @@ interface ChatMessage {
 }
 
 interface AgentEvent {
-  type: "tool_start" | "tool_end" | "thinking" | "response";
+  type: "tool_start" | "tool_end" | "tool_complete" | "thinking" | "response";
   name?: string;
   args?: Record<string, unknown>;
   result?: string;
@@ -121,13 +121,33 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
           setCurrentEvents([]);
           break;
         case "agent_event":
-          setCurrentEvents(prev => [...prev, {
-            type: msg.event,
-            name: msg.name,
-            args: msg.args,
-            result: msg.result,
-            content: msg.content,
-          }]);
+          setCurrentEvents(prev => {
+            // tool_end: merge with matching tool_start → tool_complete
+            if (msg.event === "tool_end" && msg.name) {
+              const newEvents = [...prev];
+              // Find the last tool_start with this name and merge it
+              for (let i = newEvents.length - 1; i >= 0; i--) {
+                if (newEvents[i].type === "tool_start" && newEvents[i].name === msg.name) {
+                  newEvents[i] = {
+                    ...newEvents[i],
+                    type: "tool_complete",
+                    result: msg.result,
+                  };
+                  return newEvents;
+                }
+              }
+              // No matching tool_start found (rare) — just append as tool_complete
+              return [...newEvents, { type: "tool_complete", name: msg.name, result: msg.result }];
+            }
+            // Other events: append normally
+            return [...prev, {
+              type: msg.event,
+              name: msg.name,
+              args: msg.args,
+              result: msg.result,
+              content: msg.content,
+            }];
+          });
           break;
         case "agent_done": {
           setBusy(false);
@@ -313,6 +333,7 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
   const renderEvent = (evt: AgentEvent, idx: number) => {
     switch (evt.type) {
       case "tool_start":
+        // Tool is still running — show spinning amber
         return (
           <div key={idx} className="flex items-center gap-1.5 text-sm text-amber-400 py-0.5">
             <span className="w-3 h-3 border-[1.5px] border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" />
@@ -320,7 +341,17 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
             {evt.args && <span className="text-stone-500 truncate max-w-[200px]">{JSON.stringify(evt.args).slice(0, 80)}</span>}
           </div>
         );
+      case "tool_complete":
+        // Tool finished — show green check with result
+        return (
+          <div key={idx} className="flex items-center gap-1.5 text-sm text-emerald-400 py-0.5">
+            <span>✅</span>
+            <span className="font-mono font-medium">{evt.name}</span>
+            {evt.result && <span className="text-stone-500 truncate max-w-[300px]">{evt.result.slice(0, 100)}</span>}
+          </div>
+        );
       case "tool_end":
+        // Legacy: standalone tool_end (shouldn't happen after merge fix, but handle gracefully)
         return (
           <div key={idx} className="flex items-center gap-1.5 text-sm text-emerald-400 py-0.5">
             <span>✅</span>
@@ -350,7 +381,7 @@ const AgentConsole = React.forwardRef<AgentConsoleHandle, AgentConsoleProps>(fun
             <span className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" />
             <span className="text-sm font-medium text-amber-400">Agent 工作中</span>
             {currentEvents.length > 0 && (
-              <span className="text-xs text-amber-500 ml-1">· {currentEvents.filter(e => e.type === 'tool_start').length} 個工具已執行</span>
+              <span className="text-xs text-amber-500 ml-1">· {currentEvents.filter(e => e.type === 'tool_start').length} 個工具執行中 · {currentEvents.filter(e => e.type === 'tool_complete').length} 個已完成</span>
             )}
             <button
               onClick={() => {
