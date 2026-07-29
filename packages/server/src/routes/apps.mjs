@@ -460,6 +460,30 @@ export default async function appsRoute(req, res) {
     }
   }
 
+  // ── DELETE /api/paaw/apps/:id — hard delete (remove entire directory) ──
+  {
+    const m = req.method === "DELETE" && req.url?.match(/^\/api\/paaw\/apps\/([\w.-]+)$/);
+    if (m) {
+      const appId = m[1];
+      const appDir = join(APPS_ROOT, appId);
+      try {
+        if (!existsSync(appDir)) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: `App '${appId}' not found` }));
+          return true;
+        }
+        await rm(appDir, { recursive: true, force: true });
+        console.log(`[apps] Hard deleted app: ${appId}`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, appId, deleted: true }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+  }
+
   // ── App builder chat GET/PUT ──
   {
     const m = req.method === "GET" && req.url?.match(/^\/api\/paaw\/app-chat\/([\w.-]+)$/);

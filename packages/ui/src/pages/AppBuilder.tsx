@@ -591,6 +591,44 @@ export default function AppBuilder() {
             .catch(() => {});
     }, [loadExistingApps]);
 
+    // ── Hard delete a draft app ──
+    const handleDeleteApp = useCallback((appId: string) => {
+        if (!confirm(`確定要刪除「${appId}」嗎？所有檔案都會被移除，無法復原。`)) return;
+        fetch(`${API}/api/paaw/apps/${appId}`, { method: "DELETE" })
+            .then(r => r.json())
+            .then((data) => {
+                if (data.ok) loadExistingApps();
+                else alert(`刪除失敗: ${data.error}`);
+            })
+            .catch(() => alert("刪除失敗"));
+    }, [loadExistingApps]);
+
+    // ── Continue building a draft app ──
+    const handleContinueBuild = useCallback(async (app: any) => {
+        setEditingAppId(app.id);
+        setReportName(app.name || app.id);
+        setStep(2); // go to Step 2 so user can adjust settings before building
+        setShowAppPicker(false);
+        setShowSettings(false);
+        // Pre-fill template
+        if (app.template) setSelectedTemplate(app.template);
+        // Load app settings
+        try {
+            setAppSettings({
+                name: app.name || "",
+                icon: app.icon || "",
+                description: app.description || "",
+                type: app.type || "data",
+                dataShape: app.dataShape || "array",
+                engine: app.engine || "paaw-agent",
+                aiPrompt: app.aiPrompt || "",
+                triggers: (app.triggers || []).join(", "),
+                schema: app.schema ? JSON.stringify(app.schema, null, 2) : "",
+                skillsText: app.skills ? JSON.stringify(app.skills, null, 2) : "",
+            });
+        } catch {}
+    }, []);
+
     // ── Save app settings ──
     const handleSaveSettings = useCallback(async () => {
         if (!editingAppId) return;
@@ -775,6 +813,16 @@ export default function AppBuilder() {
                                             <button onClick={() => handleUnpublish(app.id)}
                                                 className="text-stone-300 group-hover:text-red-400 transition-colors text-xs ml-1"
                                                 title={tt("common.unpublish")}>🗑️</button>
+                                        )}
+                                        {app.status !== "published" && (
+                                            <button onClick={() => handleContinueBuild(app)}
+                                                className="text-stone-300 group-hover:text-amber-500 transition-colors text-xs ml-1"
+                                                title="繼續建">🔨</button>
+                                        )}
+                                        {app.status !== "published" && (
+                                            <button onClick={() => handleDeleteApp(app.id)}
+                                                className="text-stone-300 group-hover:text-red-400 transition-colors text-xs ml-1"
+                                                title="刪除">❌</button>
                                         )}
                                         {/* Export App */}
                                         <button onClick={async (e) => {
