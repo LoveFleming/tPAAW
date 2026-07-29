@@ -1,0 +1,4 @@
+{"phase":"task_start","taskInfo":{"taskId":"task-1785195307291-dud610","agentId":"agent","prompt":"Just respond with the word \"hello\". Do not use any tools.","model":"default","cwd":"/tmp/paaw-cleanup-test-1785195307287","maxTurns":2},"_ts":0}
+{"phase":"llm_start","stepId":"llm-0","turn":1,"model":"glm-5.1","messageCount":2,"contextTokens":797,"_ts":2}
+{"phase":"llm_end","stepId":"llm-0","duration":3847,"model":"glm-5.1","finishReason":"stop","toolCallCount":0,"usage":{"completion_tokens":3,"completion_tokens_details":{"reasoning_tokens":0},"prompt_tokens":2376,"prompt_tokens_details":{"cached_tokens":2240},"total_tokens":2379},"_ts":3849}
+{"phase":"task_end","totalDuration":3849,"turns":1,"status":"completed","error":null,"_ts":3849}

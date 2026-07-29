@@ -396,7 +396,7 @@ export async function runParallelSession(opts = {}) {
         agentId: config.crewId,
         model: effectiveModel,
         maxTurns: 15,
-        timeout: 120,
+        timeout: 900,
         onEvent: (event) => {
           if (event.type === "tool_call") {
             console.log(`[NightShift:${role}] tool: ${event.name}`);

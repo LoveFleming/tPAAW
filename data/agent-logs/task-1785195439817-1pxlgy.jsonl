@@ -1,0 +1,8 @@
+{"phase":"task_start","taskInfo":{"taskId":"task-1785195439817-1pxlgy","agentId":"agent","prompt":"Use write_file to create .paaw/tmp/test-snippet.mjs with content console.log(42), then respond done.","model":"default","cwd":"/tmp/paaw-test-final-1785195435819","maxTurns":5},"_ts":0}
+{"phase":"llm_start","stepId":"llm-0","turn":1,"model":"glm-5.1","messageCount":2,"contextTokens":820,"_ts":1}
+{"phase":"llm_end","stepId":"llm-0","duration":4327,"model":"glm-5.1","finishReason":"tool_calls","toolCallCount":1,"usage":{"completion_tokens":67,"completion_tokens_details":{"reasoning_tokens":22},"prompt_tokens":2399,"prompt_tokens_details":{"cached_tokens":1600},"total_tokens":2466},"_ts":4328}
+{"phase":"tool_start","stepId":"tool-1","tool":"write_file","argsSummary":"{\"path\":\"/tmp/paaw-test-final-1785195435819/.paaw/tmp/test-snippet.mjs\",\"content\":\"console.log(42)\\n\"}","_ts":4328}
+{"phase":"tool_end","stepId":"tool-1","duration":6,"resultLen":49,"resultPreview":"Error in write_file: snapshotTaken is not defined","_ts":4334}
+{"phase":"llm_start","stepId":"llm-2","turn":2,"model":"glm-5.1","messageCount":4,"contextTokens":887,"_ts":4334}
+{"phase":"llm_end","stepId":"llm-2","duration":4079,"model":"glm-5.1","finishReason":"stop","toolCallCount":0,"usage":{"completion_tokens":3,"completion_tokens_details":{"reasoning_tokens":0},"prompt_tokens":2458,"prompt_tokens_details":{"cached_tokens":2368},"total_tokens":2461},"_ts":8413}
+{"phase":"task_end","totalDuration":8413,"turns":2,"status":"completed","error":null,"_ts":8413}

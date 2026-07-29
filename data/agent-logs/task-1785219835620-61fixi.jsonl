@@ -1,0 +1,8 @@
+{"phase":"task_start","taskInfo":{"taskId":"task-1785219835620-61fixi","agentId":"agent","prompt":"Read package.json and tell me the name. Use read_file.","model":"default","cwd":"/tmp/paaw-stuck-1785219835616","maxTurns":4},"_ts":0}
+{"phase":"llm_start","stepId":"llm-0","turn":1,"model":"glm-5.1","messageCount":2,"contextTokens":794,"_ts":1}
+{"phase":"llm_end","stepId":"llm-0","duration":4333,"model":"glm-5.1","finishReason":"tool_calls","toolCallCount":1,"usage":{"completion_tokens":36,"completion_tokens_details":{"reasoning_tokens":8},"prompt_tokens":2374,"prompt_tokens_details":{"cached_tokens":0},"total_tokens":2410},"_ts":4334}
+{"phase":"tool_start","stepId":"tool-1","tool":"read_file","argsSummary":"{\"path\":\"/tmp/paaw-stuck-1785219835616/package.json\"}","_ts":4334}
+{"phase":"tool_end","stepId":"tool-1","duration":5,"resultLen":12,"resultPreview":"{\"name\":\"t\"}","_ts":4339}
+{"phase":"llm_start","stepId":"llm-2","turn":2,"model":"glm-5.1","messageCount":4,"contextTokens":839,"_ts":4339}
+{"phase":"llm_end","stepId":"llm-2","duration":4791,"model":"glm-5.1","finishReason":"stop","toolCallCount":0,"usage":{"completion_tokens":35,"completion_tokens_details":{"reasoning_tokens":19},"prompt_tokens":2411,"prompt_tokens_details":{"cached_tokens":2368},"total_tokens":2446},"_ts":9130}
+{"phase":"task_end","totalDuration":9131,"turns":2,"status":"completed","error":null,"_ts":9131}

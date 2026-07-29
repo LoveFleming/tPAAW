@@ -1,0 +1,12 @@
+{"phase":"task_start","taskInfo":{"taskId":"task-1785195267956-y88wjx","agentId":"agent","prompt":"Write a temp file to .paaw/tmp/test-output.mjs with console.log(42), then respond with just \"done\"","model":"default","cwd":"/tmp/paaw-cleanup-test-1785195267950","maxTurns":3},"_ts":0}
+{"phase":"llm_start","stepId":"llm-0","turn":1,"model":"glm-5.1","messageCount":2,"contextTokens":807,"_ts":2}
+{"phase":"llm_end","stepId":"llm-0","duration":4986,"model":"glm-5.1","finishReason":"tool_calls","toolCallCount":1,"usage":{"completion_tokens":75,"completion_tokens_details":{"reasoning_tokens":30},"prompt_tokens":2388,"prompt_tokens_details":{"cached_tokens":0},"total_tokens":2463},"_ts":4988}
+{"phase":"tool_start","stepId":"tool-1","tool":"write_file","argsSummary":"{\"path\":\"/tmp/paaw-cleanup-test-1785195267950/.paaw/tmp/test-output.mjs\",\"content\":\"console.log(42)\\n\"}","_ts":4988}
+{"phase":"tool_end","stepId":"tool-1","duration":5,"resultLen":49,"resultPreview":"Error in write_file: snapshotTaken is not defined","_ts":4993}
+{"phase":"llm_start","stepId":"llm-2","turn":2,"model":"glm-5.1","messageCount":4,"contextTokens":874,"_ts":4993}
+{"phase":"llm_end","stepId":"llm-2","duration":3972,"model":"glm-5.1","finishReason":"tool_calls","toolCallCount":1,"usage":{"completion_tokens":55,"completion_tokens_details":{"reasoning_tokens":10},"prompt_tokens":2447,"prompt_tokens_details":{"cached_tokens":2368},"total_tokens":2502},"_ts":8965}
+{"phase":"tool_start","stepId":"tool-3","tool":"write_file","argsSummary":"{\"path\":\"/tmp/paaw-cleanup-test-1785195267950/.paaw/tmp/test-output.mjs\",\"content\":\"console.log(42)\\n\"}","_ts":8965}
+{"phase":"tool_end","stepId":"tool-3","duration":1,"resultLen":49,"resultPreview":"Error in write_file: snapshotTaken is not defined","_ts":8966}
+{"phase":"llm_start","stepId":"llm-4","turn":3,"model":"glm-5.1","messageCount":6,"contextTokens":941,"_ts":8967}
+{"phase":"llm_end","stepId":"llm-4","duration":4093,"model":"glm-5.1","finishReason":"tool_calls","toolCallCount":1,"usage":{"completion_tokens":70,"completion_tokens_details":{"reasoning_tokens":0},"prompt_tokens":2506,"prompt_tokens_details":{"cached_tokens":2432},"total_tokens":2576},"_ts":13060}
+{"phase":"tool_start","stepId":"tool-5","tool":"bash","argsSummary":"{\"command\":\"mkdir -p /tmp/paaw-cleanup-test-1785195267950/.paaw/tmp && printf 'console.log(42)\\\\n' > /tmp/paaw-cleanup-test-1785195267950/.paaw/tmp/test-output.mjs\"}","_ts":13060}

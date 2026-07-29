@@ -1,0 +1,4 @@
+{"phase":"task_start","taskInfo":{"taskId":"task-1785195376030-9xzqnf","agentId":"agent","prompt":"Respond with just \"ok\". Do not use tools.","model":"default","cwd":"/tmp/paaw-cleanup-test2-1785195357309","maxTurns":1},"_ts":0}
+{"phase":"llm_start","stepId":"llm-0","turn":1,"model":"glm-5.1","messageCount":2,"contextTokens":827,"_ts":1}
+{"phase":"llm_end","stepId":"llm-0","duration":3597,"model":"glm-5.1","finishReason":"stop","toolCallCount":0,"usage":{"completion_tokens":3,"completion_tokens_details":{"reasoning_tokens":0},"prompt_tokens":2408,"prompt_tokens_details":{"cached_tokens":1600},"total_tokens":2411},"_ts":3598}
+{"phase":"task_end","totalDuration":3598,"turns":1,"status":"completed","error":null,"_ts":3598}

@@ -111,7 +111,7 @@ async function aiWriteNote(userPrompt, content, modelOverride) {
     max_tokens: 4096,
   }, {
     maxRetries: 3,
-    timeoutMs: 90_000,
+    timeoutMs: 900_000,
     validateContent: true,
     sanitize: true,
     caller: "notes",

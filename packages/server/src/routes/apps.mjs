@@ -280,7 +280,7 @@ export default async function appsRoute(req, res) {
           res.write(JSON.stringify({ type: "status", data: { message: `${appMeta.name || appId}: skill 執行中...` } }) + "\n");
           try {
             const agentResult = await runAgentLoop({
-              prompt: systemPrompt, cwd: appDir, maxTurns: 15, timeout: 120, rootDir: PAAW_ROOT,
+              prompt: systemPrompt, cwd: appDir, maxTurns: 15, timeout: 900, rootDir: PAAW_ROOT,
               onEvent: (evt) => {
                 if (evt.type === "tool_end") { try { res.write(JSON.stringify({ type: "stdout", data: `🔧 ${evt.name}: ${evt.result || ""}\n` }) + "\n"); } catch {} }
               },
@@ -299,7 +299,7 @@ export default async function appsRoute(req, res) {
         }
 
         try {
-          const agentResult = await runAgentLoop({ prompt: systemPrompt, cwd: appDir, maxTurns: 15, timeout: 120, rootDir: PAAW_ROOT });
+          const agentResult = await runAgentLoop({ prompt: systemPrompt, cwd: appDir, maxTurns: 15, timeout: 900, rootDir: PAAW_ROOT });
           result.output = agentResult.content;
           result.exitCode = agentResult.success ? 0 : 1;
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -394,7 +394,7 @@ export default async function appsRoute(req, res) {
 
       try {
         const agentResult = await runAgentLoop({
-          prompt: systemPrompt, cwd: outDir, maxTurns: 25, timeout: 180, rootDir: PAAW_ROOT,
+          prompt: systemPrompt, cwd: outDir, maxTurns: 25, timeout: 900, rootDir: PAAW_ROOT,
           onEvent: (evt) => {
             if (evt.type === "tool_start") { try { res.write(JSON.stringify({ type: "stdout", data: `🔧 ${evt.name}...\n` }) + "\n"); } catch {} }
             if (evt.type === "tool_end") { try { res.write(JSON.stringify({ type: "stdout", data: `✅ ${evt.name}: ${(evt.result || "").slice(0, 200)}\n` }) + "\n"); } catch {} }
@@ -567,7 +567,7 @@ export default async function appsRoute(req, res) {
     try {
       const fullPrompt = `${prompt}\n\n### 輸出指示\n請將完整的 HTML 頁面使用 write_file 寫到 ${htmlOutFile}\n檔案必須是完整的 <!DOCTYPE html>...<\/html> 頁面。`;
       const agentResult = await runAgentLoop({
-        prompt: fullPrompt, cwd: outDir, maxTurns: 20, timeout: 180, rootDir: PAAW_ROOT,
+        prompt: fullPrompt, cwd: outDir, maxTurns: 20, timeout: 900, rootDir: PAAW_ROOT,
         onEvent: (evt) => {
           if (evt.type === "tool_start") { try { res.write(JSON.stringify({ type: "stdout", data: `🔧 ${evt.name}...\n` }) + "\n"); } catch {} }
           if (evt.type === "tool_end") { try { res.write(JSON.stringify({ type: "stdout", data: `✅ ${evt.name}: ${(evt.result || "").slice(0, 200)}\n` }) + "\n"); } catch {} }

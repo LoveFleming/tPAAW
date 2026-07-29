@@ -1,0 +1,3 @@
+{"phase":"task_start","taskInfo":{"taskId":"task-1785283221125-ul8psp","agentId":"cron:cron-ai-daily-digest","prompt":"Please use skill ai-news-digest with user inputs from _cron_inputs.json","model":"default","cwd":"/Users/steward/App/tPAAW/data/skills/physical-skill/ai-news-digest","maxTurns":100},"_ts":0}
+{"phase":"llm_start","stepId":"llm-0","turn":1,"model":"glm-5.1","messageCount":2,"contextTokens":3082,"_ts":6}
+{"phase":"task_end","totalDuration":768,"turns":1,"status":"completed","error":null,"_ts":768}

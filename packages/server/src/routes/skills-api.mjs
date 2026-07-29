@@ -412,7 +412,7 @@ export default async function skillsApiRoute(req, res) {
         temperature: 0.7,
       }, {
         maxRetries: 3,
-        timeoutMs: 90_000,
+        timeoutMs: 900_000,
         validateContent: true,
         caller: "skill-builder",
         agentId: "skill-builder",
