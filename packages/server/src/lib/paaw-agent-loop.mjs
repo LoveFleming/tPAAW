@@ -1939,11 +1939,13 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       }
 
       default:
-        return `Error: unknown tool '${name}'`;
+        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, memory_add, memory_update. Do NOT use chat tools like app_create/app_edit/app_list — use write_file to create files instead.`;
+        if (onEvent) onEvent({ type: "tool_end", name, result: unknownMsg });
+        return unknownMsg;
     }
   } catch (err) {
     const errMsg = `Error in ${name}: ${err.message}`;
-    if (onEvent) onEvent({ type: "tool_error", name, error: err.message });
+    if (onEvent) onEvent({ type: "tool_end", name, result: errMsg });
     return errMsg;
   }
 }
