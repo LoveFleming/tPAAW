@@ -80,6 +80,28 @@ async function runCronJob(job) {
 
   await appendCronLog(job.id, { runId, status: "started" });
 
+  // ── Deliver result to a chat session ──
+  async function deliverToChat(chatId, content) {
+    const chatPath = resolve(CRON_CHAT_DIR, chatId.endsWith(".json") ? chatId : `${chatId}.json`);
+    try {
+      let chat;
+      try { chat = JSON.parse(await readFile(chatPath, "utf-8")); } catch { return false; }
+      chat.messages = chat.messages || [];
+      chat.messages.push({
+        role: "assistant",
+        content,
+        timestamp: new Date().toISOString(),
+      });
+      chat.updatedAt = new Date().toISOString();
+      await writeFile(chatPath, JSON.stringify(chat, null, 2), "utf-8");
+      console.log(`[cron] Delivered to chat: ${chatId}`);
+      return true;
+    } catch (err) {
+      console.error(`[cron] Failed to deliver to chat ${chatId}:`, err.message);
+      return false;
+    }
+  }
+
   // ── System Backup type ──
   if (job._systemBackup) {
     try {
@@ -133,7 +155,12 @@ async function runCronJob(job) {
         const outFile = join(outputDir, `reminder-${runTs}.md`);
         await writeFile(outFile, `# ${job.name}\n\n${reminderContent}\n\n_${new Date().toISOString()}_`, "utf-8");
         console.log(`[cron] Reminder saved to: ${outFile}`);
+      } else if (job.chatId) {
+        // Deliver to specific chat
+        const ok = await deliverToChat(job.chatId, reminderContent);
+        if (!ok) console.log(`[cron] Reminder chat not found: ${job.chatId}`);
       } else {
+        // Legacy: deliver to latest chat
         const files = await readdir(CRON_CHAT_DIR);
         const chatFiles = files.filter(f => f.endsWith(".json"));
         let latestChat = null;
@@ -237,6 +264,14 @@ async function runCronJob(job) {
     }
     await writeFile(join(resultDir, `${runTs}.txt`), output, "utf-8");
 
+    // ── Deliver to chat if chatId specified ──
+    if (job.chatId) {
+      const summary = output.length > 2000
+        ? output.slice(0, 1000) + "\n\n... (結果已截斷，完整內容請見 cron output) ..." + output.slice(-500)
+        : output;
+      await deliverToChat(job.chatId, `📊 **${job.name}** 執行完成\n\n${summary}`);
+    }
+
     await appendCronLog(job.id, { runId, status: result.success ? "done" : "error", outputLength: output.length, hasHtml, resultFile: `${runTs}.${hasHtml ? "html" : "txt"}`, turns: result.turns, via: "paaw-agent-loop" });
 
     const jobs = await loadCronJobs();
@@ -329,6 +364,7 @@ async function cronApiHandler(req, res) {
       params: parsed.params || {},
       outputTarget: parsed.outputTarget || "chat",
       outputPath: parsed.outputPath || "",
+      chatId: parsed.chatId || "", // Deliver result to specific chat session (e.g. "rainy-afternoon-tea")
       enabled: true,
       createdAt: new Date().toISOString(),
       lastRun: null,
@@ -359,6 +395,7 @@ async function cronApiHandler(req, res) {
     if (patch.reportAppId) jobs[idx].reportAppId = patch.reportAppId;
     if (patch.outputTarget !== undefined) jobs[idx].outputTarget = patch.outputTarget;
     if (patch.outputPath !== undefined) jobs[idx].outputPath = patch.outputPath;
+    if (patch.chatId !== undefined) jobs[idx].chatId = patch.chatId;
     await saveCronJobs(jobs);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(jobs[idx]));
@@ -438,6 +475,27 @@ async function cronApiHandler(req, res) {
     runCronJob(job).catch(() => {});
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, message: "Job triggered" }));
+    return true;
+  }
+
+  // GET /api/chats — list chat sessions (for chat picker)
+  if (req.method === "GET" && req.url?.match(/^\/api\/chats(?:\?.*)?$/)) {
+    const files = await readdir(CRON_CHAT_DIR).catch(() => []);
+    const chats = [];
+    for (const f of files.filter(f => f.endsWith(".json"))) {
+      try {
+        const raw = JSON.parse(await readFile(resolve(CRON_CHAT_DIR, f), "utf-8"));
+        chats.push({
+          id: raw.id || f.replace(".json", ""),
+          title: raw.title || raw.messages?.[0]?.content?.slice(0, 40) || f,
+          updatedAt: raw.updatedAt || raw.createdAt || "",
+          messageCount: raw.messages?.length || 0,
+        });
+      } catch {}
+    }
+    chats.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(chats));
     return true;
   }
 

@@ -15,6 +15,7 @@ interface CronJob {
     params: Record<string, string>;
     outputTarget: "chat" | "path";
     outputPath?: string;
+    chatId?: string; // Deliver result to specific chat session
     enabled: boolean;
     createdAt: string;
     lastRun: string | null;
@@ -78,6 +79,8 @@ export default function CronJobsPage() {
     const [formParams, setFormParams] = useState<{ key: string; value: string }[]>([]);
     const [formOutputTarget, setFormOutputTarget] = useState<"chat" | "path">("chat");
     const [formOutputPath, setFormOutputPath] = useState("");
+    const [formChatId, setFormChatId] = useState("");
+    const [chatList, setChatList] = useState<{ id: string; title: string; messageCount: number }[]>([]);
     const [skillInputs, setSkillInputs] = useState<{ id: string; label: string; placeholder?: string; required?: boolean; multiline?: boolean }[]>([]);
 
     const resultIframeRef = useRef<HTMLIFrameElement>(null);
@@ -85,6 +88,11 @@ export default function CronJobsPage() {
     const reload = () => {
         fetch(`${API}/api/cron-jobs`).then(r => r.json()).then(setJobs).catch(() => {});
         // Load skills from /api/skills
+        fetch(`${API}/api/skills`)
+        // Load chats from /api/chats
+        fetch(`${API}/api/chats`).then(r => r.json()).then((data: any[]) => {
+            setChatList(data.map((c: any) => ({ id: c.id, title: c.title || c.id, messageCount: c.messageCount || 0 })));
+        }).catch(() => {});
         fetch(`${API}/api/skills`)
             .then(r => r.json())
             .then((data: any[]) => {
@@ -226,6 +234,7 @@ export default function CronJobsPage() {
         setFormReminderText(job.reminderText || "");
         setFormOutputTarget(job.outputTarget || "chat");
         setFormOutputPath(job.outputPath || "");
+        setFormChatId(job.chatId || "");
         const p = job.params || {};
         setFormParams(Object.entries(p).map(([key, value]) => ({ key, value })));
     };
@@ -245,6 +254,7 @@ export default function CronJobsPage() {
             params,
             outputTarget: formOutputTarget,
             outputPath: formOutputTarget === "path" ? formOutputPath : "",
+            chatId: formChatId || undefined,
         };
         if (editingJobId) {
             await fetch(`${API}/api/cron-jobs/${editingJobId}`, {
@@ -418,6 +428,21 @@ export default function CronJobsPage() {
                                     {formOutputTarget === "path" && (
                                         <input value={formOutputPath} onChange={e => setFormOutputPath(e.target.value)} placeholder="/path/to/output/folder"
                                             className="w-full px-4 py-2.5 border rounded-xl text-sm font-mono mt-2 focus:outline-none focus:ring-2 focus:ring-purple-200" style={{ borderColor: "#d6d3d1" }} />
+                                    )}
+                                    {formOutputTarget === "chat" && (
+                                        <div className="mt-2 space-y-2">
+                                            {chatList.length > 0 && (
+                                                <select value={formChatId} onChange={e => setFormChatId(e.target.value)}
+                                                    className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" style={{ borderColor: "#d6d3d1" }}>
+                                                    <option value="">— 最新聊天（預設）—</option>
+                                                    {chatList.map(c => (
+                                                        <option key={c.id} value={c.id}>{c.title} ({c.messageCount} 則)</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            <input value={formChatId} onChange={e => setFormChatId(e.target.value)} placeholder="或直接輸入聊天 ID（如 rainy-afternoon-tea）"
+                                                className="w-full px-4 py-2.5 border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-200" style={{ borderColor: "#d6d3d1" }} />
+                                        </div>
                                     )}
                                 </div>
                                 <div>
