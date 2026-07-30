@@ -261,7 +261,7 @@ export function isSemgrepAvailable() {
     execSyncCb(`${bin} --version`, {
       stdio: "pipe",
       timeout: 15000,
-      shell: IS_WIN ? "cmd.exe" : true,
+      shell: true,
       env: _semgrepEnv(),
       encoding: "utf-8",
     });

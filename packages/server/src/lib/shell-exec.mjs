@@ -17,8 +17,9 @@ import { promisify } from "util";
 
 const IS_WIN = process.platform === "win32";
 
-// Windows 用 cmd.exe，Mac/Linux 用系統 shell
-const SHELL_OPT = IS_WIN ? "cmd.exe" : true;
+// Windows 用 shell: true (Node 自動解析 cmd.exe，不會 ENOENT)
+// Mac/Linux 用系統 shell
+const SHELL_OPT = true;
 
 /**
  * Async exec — 跨平台安全
