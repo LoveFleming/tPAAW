@@ -2,105 +2,145 @@
 
 > **Build your personal AI workforce**
 
-## 一句話
+---
 
-人用 AI 自己做工具 → AI 幫你記資料 → AI 放大你記的資料 → 形成能力飛輪
+## 一個軟體工程師的一天
+
+### ☀️ 早上 9:00 — 開工
+
+打開 PAAW，EM 大總管已經幫你整理好今天的工作：
+
+- 昨晚夜間調度跑了 3 個任務：code review 完成、安全掃描發現 2 個漏洞、API 規格文件已更新
+- Git status 有 5 個未提交的變更，EM 建議你 review 後 commit
+- Action log 顯示客戶回報的 bug 已被 architect 分析完，建議派給 implement agent
+
+你不用自己翻 email、看 Jira、查 CI — **AI 幫你看過了，重點直接告訴你**。
+
+### 💻 上午 10:00 — 寫碼
+
+打開 Coding App，跟 EM 說：「幫我修那個登入 bug」。
+
+EM 自動調度：
+1. **Architect** 分析 bug 成因，規劃修法
+2. **Implement** 按照規劃寫碼，遵循專案的 coding standards
+3. **QA** 跑測試，確認修好沒有回歸
+4. **Reviewer** 審查程式碼品質
+
+你不需要一個人從頭到尾做 — **AI 團隊分工合作，你是 tech lead**。
+
+### 🧠 中午 12:00 — 學習與思考
+
+午餐後讀到一篇新技術文章。你跟 AI 說：「把這篇的重點記下來，跟之前的微服務筆記整理在一起」。
+
+AI 幫你：
+- 摘要文章重點
+- 歸類到 Knowledge Base 的對應主題
+- 跟既有知識交叉比對，標記新的洞見
+- 更新專案的技術決策記錄
+
+**你的知識不再是散落各處的筆記，而是 AI 可以讀取、搜尋、連結的結構化記憶**。
+
+### 🔧 下午 2:00 — 自動化重複工作
+
+每次都要手動做的報表，你跟 App Builder 說：「做一個週報 app，每週五自動抓 git commits 和 action log 產生摘要」。
+
+3 分鐘後：
+- App 自動產生，有 UI 介面可以直接用
+- 同時註冊為 Chat Tool，在聊天視窗說「本週報表」也能觸發
+- CronJob 設定每週五 17:00 自動產生，推送到你的頻道
+
+**你打造了一個工具，它從此幫你做這件事**。這不是用一次的 AI 對話，是你自己的數位員工。
+
+### 🌙 晚上 10:00 — 關機前
+
+EM 自動跑夜間調度：
+- 跑 semgrep 安全掃描，發現問題自動開 issue
+- Code intelligence 更新 — 新增的 API 自動歸檔到 spec
+- 明天的工作清單已排好優先序
+
+你關掉電腦。**明天回來，AI 已經把例行工作做完了**。
 
 ---
 
-## 為什麼需要 PAAW？
+## PAAW 改變了什麼？
 
-不會寫程式的人，也能用 AI 打造自己的工具，並在聊天視窗或 App 視窗使用。
+### 沒有 PAAW
 
-傳統做法：有需求 → 找工程師 → 等開發 → 等測試 → 等上線
-PAAW 做法：有需求 → 跟 AI 說一句話 → 工具自動產生 → 立刻能用
+| 工作 | 你要做的 |
+|------|---------|
+| 追蹤 bug | 翻 Jira、看 log、自己分析 |
+| 寫碼 | 一個人從頭寫到尾 |
+| 學習新技術 | 看完就忘，筆記散落各處 |
+| 重複性報表 | 每次手動做 |
+| 安全掃描 | 記得跑才行 |
+| 知識傳承 | 在腦袋裡，離職就沒了 |
+
+### 有了 PAAW
+
+| 工作 | AI 幫你做的 |
+|------|------------|
+| 追蹤 bug | EM 主動彙整，派工給團隊 |
+| 寫碼 | AI 團隊分工：規劃→實作→測試→審查 |
+| 學習新技術 | AI 幫你記、整理、連結既有知識 |
+| 重複性報表 | 做一次 App，從此自動跑 |
+| 安全掃描 | 夜間自動跑，有問題主動通知 |
+| 知識傳承 | 所有決策和知識都在 Knowledge Base 裡 |
 
 ---
 
-## 核心概念
+## 核心循環
 
-### Skill — 最小能力單元
-
-Skill 是 PAAW 的原子單位。每一個 Skill 封裝一項明確的能力，有固定的結構：
+PAAW 的力量來自一個正向循環：
 
 ```
-Prompt/Instruction → Input Schema → Context/Knowledge
-→ Tool Access → Deterministic Script → Guardrails → Output Format
+你用 AI 做工具
+    ↓
+工具幫你記資料
+    ↓
+AI 讀取資料產生洞見
+    ↓
+洞見幫你做更好的決策
+    ↓
+更好的決策產生更好的工具
+    ↓
+   （飛輪轉起來了）
 ```
 
-所有 App、Workflow、CronJob 最終都是叫用 Skill。Skill + CLI = AI as a Service，不直接 call LLM API，答案一致性高。
-
-### App — 資料驅動的應用
-
-每個新 App 自動產生 Tool，不需要手動寫 integration code。使用者從聊天視窗或 App 視窗都能用。App 產生的資料成為 AI 的記憶，AI 讀取後產生洞見，形成正向循環。
-
-### Capability Platform 三層架構
-
-```
-使用者（不會寫程式）
-  ↓ 在聊天視窗或 App Builder 說「我要做一個 XX app」
-  ↓
-App Builder（AI 幫你建 Skill + App）
-  ↓ 產出：app.json + SKILL.md + app.html
-  ↓
-自動註冊為 Chat Tool（AI 可呼叫）
-  ↓
-使用者從「聊天視窗」或「App 視窗」都能用
-  ↓
-App 產生的資料 → AI 讀取 → 產生洞見
-```
+這不是一次性對話。**你打造的每一個工具、記下的每一筆知識，都讓 AI 更了解你、更能幫你**。
 
 ---
 
 ## 功能模組
 
-| 模組 | 說明 |
-|------|------|
-| **Chat Assistant** | 聊天助理，所有 App 在聊天視窗都能用。觸發關鍵字自動匹配路由 |
-| **🤖 Coding App** | AI 輔助軟體工廠 — 7 個 AI Agent 組成開發團隊，自主規劃/寫寫碼/測試/審查/文件。詳見 [coding-app.md](coding-app.md) |
-| **Skill Builder** | 技能建構器，定義最小能力單元 |
-| **App Builder** | 應用建構器，AI 幫你從需求產出完整 App |
-| **Workflow Builder** | 工作流建構器，串接多個 Skill 完成複雜流程 |
-| **Knowledge / Files** | 知識與檔案管理，AI 的長期記憶 |
-| **Memory** | 記憶管理，累積的資料放大成洞見 |
-| **Execution Center** | 執行中心 — CronJob、監控、排程 |
+| 模組 | 你會怎麼用 |
+|------|----------|
+| **EM 大總管** | 早上問「今天要做什麼？」，EM 幫你排優先序、派工 |
+| **Coding App** | 跟 AI 說需求，7 個 Agent 組成團隊幫你寫碼 |
+| **App Builder** | 「做一個 XX app」→ 3 分鐘產出，聊天視窗也能用 |
+| **Knowledge** | AI 幫你記住所有技術決策、學習筆記、專案知識 |
+| **Chat** | 所有工具都能在聊天視窗觸發，說一句話就行 |
+| **CronJob** | 定期任務自動跑：掃描、報表、健康檢查 |
+| **Skill Builder** | 定義可重複使用的技能，一次建構到處叫用 |
 
 ---
 
 ## 關鍵規則
 
-1. **每個新 App 都自動產生 Tool** — 不需要手動寫 integration code
-2. **Skill + CLI = AI as a Service** — 不直接 call LLM API，答案一致性高
-3. **雙入口：聊天視窗 + App 視窗** — 說一句話或點開 App 都能用
-4. **App 資料 = AI 的記憶** — AI 讀 App 資料產生洞見，形成正向循環
-5. **觸發關鍵字自動匹配** — 聊天中說「幫我翻譯」→ 自動路由到 translate_exec
-6. **系統提示詞是為不會寫程式的人設計的** — 人只要描述需求，AI 做剩下的
+1. **你說需求，AI 做工具** — 不需要寫 integration code
+2. **聊天 + App 雙入口** — 說一句話或點開 App 都能用
+3. **你的資料 = AI 的記憶** — AI 讀你的資料產生洞見，越用越懂你
+4. **AI 團隊分工** — 不是一個 AI 做所有事，是 7 個專業 Agent 各司其職
+5. **夜間調度** — 你下班，AI 繼續工作，明天回來成果已準備好
+6. **知識累積** — 每個決策、每段學習都記下來，不再依賴人的腦袋
 
 ---
 
-## Per-Agent Model Dispatch
+## 給誰用？
 
-不同任務用不同模型，聰明省成本：
-
-| 工作類型 | Model | 原因 |
-|---------|-------|------|
-| 複雜推理、寫碼 | GLM 5.1 / Claude | 需要品質 |
-| 資料整理、格式轉換 | DeepSeek V4 Flash | 簡單便宜 |
-| 定期檢查 / Cron | DeepSeek V4 Flash | 高頻省成本 |
-| 翻譯、摘要 | DeepSeek V4 Flash | 夠用 |
-
-Skill Builder 可指定推薦 model，Workflow Orchestrator 根據 node 類型自動路由到合適 model。
-
----
-
-## Tool Provider 架構
-
-PAAW 支援外掛 Tool Provider，不需改核心碼即可擴充能力：
-
-- **Tool Provider** = 註冊一組 tool 的模組（e.g. discord provider 註冊 send/read/react）
-- 4 種 runner：script / api / mcp / builtin
-- 放在 `data/tools/{provider-id}/` 目錄，熱插拔
-- Skill 可呼叫 Tool、App 可宣告 Tool 依賴
+- **軟體工程師** — AI 團隊幫你寫碼、review、掃描、產文件
+- **技術主管** — EM 幫你追蹤進度、排優先序、自動報告
+- **獨立開發者** — 一個人也能有整個 AI 開發團隊
+- **知識工作者** — AI 幫你記、整理、連結，不再忘記學過的東西
 
 ---
 
@@ -108,6 +148,5 @@ PAAW 支援外掛 Tool Provider，不需改核心碼即可擴充能力：
 
 - **前端：** React + Vite
 - **後端：** Node.js (ESM)
-- **資料庫：** SQLite
 - **AI：** Multi-provider（GLM 5.1 / DeepSeek / OpenRouter / 自定義）
 - **架構：** Monorepo（packages/ui + server + shared + db + context + engine）
