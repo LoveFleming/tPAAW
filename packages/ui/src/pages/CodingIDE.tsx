@@ -2154,33 +2154,51 @@ const sendChat = useCallback(async () => {
 
             {/* === EDITOR === */}
             {activeMainTab?.type === "editor" && activeTab && (
-              <div className="flex-1 flex min-w-0 overflow-hidden">
-                <div className="shrink-0 select-none text-right overflow-hidden"
-                  style={{ color: tk.textMuted, backgroundColor: tk.bgMuted, borderRight: `1px solid ${tk.borderLight}`, width: lineNumWidth }}>
-                  <div className="py-3">
-                    {Array.from({ length: lineCount }, (_, i) => (
-                      <div key={i} className="pr-3 text-sm font-mono leading-5" style={{ height: 20 }}>{i + 1}</div>
-                    ))}
-                  </div>
-                </div>
+              <div className="flex-1 min-w-0 overflow-hidden relative">
                 {isEditing ? (
-                  <textarea ref={textareaRef} value={activeTab.content} onChange={e => handleContentChange(e.target.value)}
-                    onBlur={stopEditing}
-                    onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); stopEditing(); } }}
-                    className="flex-1 min-w-0 p-3 text-[13px] font-mono leading-5 resize-none outline-none bg-white"
-                    style={{ tabSize: 2, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }} spellCheck={false} />
+                  <div className="flex h-full w-full">
+                    <div className="shrink-0 select-none overflow-hidden" style={{ color: tk.textMuted, backgroundColor: tk.bgMuted, borderRight: `1px solid ${tk.borderLight}`, width: lineNumWidth }}>
+                      <div className="py-3">
+                        {Array.from({ length: lineCount }, (_, i) => (
+                          <div key={i} className="pr-3 text-sm font-mono leading-5" style={{ height: 20 }}>{i + 1}</div>
+                        ))}
+                      </div>
+                    </div>
+                    <textarea ref={textareaRef} value={activeTab.content} onChange={e => handleContentChange(e.target.value)}
+                      onBlur={stopEditing}
+                      onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); stopEditing(); } }}
+                      className="flex-1 min-w-0 p-3 text-[13px] font-mono leading-5 resize-none outline-none bg-white"
+                      style={{ tabSize: 2, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }} spellCheck={false} />
+                  </div>
                 ) : (
-                  <div className="flex-1 overflow-auto cursor-text" onClick={startEditing} onDoubleClick={startEditing}>
-                    <pre ref={highlightRef} className="py-3 px-4 text-[13px] leading-5 font-mono" style={{ tabSize: 2 }}>
-                      <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
-                    </pre>
+                  <div className="h-full w-full overflow-auto cursor-text" onClick={startEditing} onDoubleClick={startEditing}>
+                    <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
+                      <colgroup>
+                        <col style={{ width: lineNumWidth }} />
+                        <col />
+                      </colgroup>
+                      <tbody className="font-mono text-[13px]" style={{ tabSize: 2 }}>
+                        {highlightedCode.split("\n").map((htmlLine, i) => (
+                          <tr key={i}>
+                            <td
+                              className="text-right pr-3 select-none border-r sticky left-0 z-10"
+                              style={{ backgroundColor: tk.bgMuted, borderColor: tk.borderLight, color: tk.textMuted, lineHeight: "20px", height: "20px", whiteSpace: "nowrap", verticalAlign: "top", fontSize: "12px" }}
+                            >
+                              {i + 1}
+                            </td>
+                            <td className="pl-4" style={{ lineHeight: "20px", height: "20px", whiteSpace: "pre", verticalAlign: "top" }}
+                              dangerouslySetInnerHTML={{ __html: htmlLine || "&nbsp;" }} />
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                     <div className="absolute bottom-3 right-3 text-xs text-stone-300 bg-white/80 px-2 py-1 rounded border" style={{ borderColor: tk.borderInput }}>
                       {tt("vibe.clickToEdit")} · Cmd+S {tt("vibe.save")} · {tt("vibe.autoSave")}
                     </div>
                   </div>
                 )}
               </div>
-            )}
+            )}}
 
             {activeMainTab?.type === "editor" && !activeTab && (
               <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">
