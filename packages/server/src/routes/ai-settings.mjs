@@ -18,6 +18,7 @@ import { join, resolve, dirname } from "path";
 import { existsSync, statSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { readBody, json, urlPath } from "./context.mjs";
+import { PAAW_ROOT } from "./shared.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
