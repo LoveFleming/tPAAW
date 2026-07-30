@@ -128,8 +128,11 @@ export default function LlmLogTab() {
                   ❌ {summary.errors}
                 </span>
               )}
-              <span className="px-2 py-0.5 rounded bg-purple-900/50 text-purple-300">
-                🔤 {formatTokens(summary.totalTokens)} tokens
+              <span className="px-2 py-0.5 rounded bg-sky-900/50 text-sky-300">
+                ⬆ {formatTokens(summary.totalPromptTokens)} in
+              </span>
+              <span className="px-2 py-0.5 rounded bg-violet-900/50 text-violet-300">
+                ⬇ {formatTokens(summary.totalCompletionTokens)} out
               </span>
               <span className="px-2 py-0.5 rounded bg-amber-900/50 text-amber-300">
                 ⏱ {formatDuration(summary.totalDurationMs)}
@@ -190,7 +193,8 @@ export default function LlmLogTab() {
                 <th className="text-left px-3 py-2 font-medium">Msgs</th>
                 <th className="text-left px-3 py-2 font-medium">Tools</th>
                 <th className="text-left px-3 py-2 font-medium">Duration</th>
-                <th className="text-left px-3 py-2 font-medium">Tokens</th>
+                <th className="text-left px-3 py-2 font-medium">Input Tok</th>
+                <th className="text-left px-3 py-2 font-medium">Output Tok</th>
                 <th className="text-left px-3 py-2 font-medium">Result</th>
               </tr>
             </thead>
@@ -225,7 +229,12 @@ export default function LlmLogTab() {
                   </td>
                   <td className="px-3 py-1.5 text-stone-400 whitespace-nowrap">
                     {log.usage ? (
-                      <span className="text-purple-300">{formatTokens(log.usage.total_tokens)}</span>
+                      <span className="text-sky-300">{formatTokens(log.usage.prompt_tokens)}</span>
+                    ) : "—"}
+                  </td>
+                  <td className="px-3 py-1.5 text-stone-400 whitespace-nowrap">
+                    {log.usage ? (
+                      <span className="text-violet-300">{formatTokens(log.usage.completion_tokens)}</span>
                     ) : "—"}
                   </td>
                   <td className="px-3 py-1.5 whitespace-nowrap">
@@ -243,7 +252,7 @@ export default function LlmLogTab() {
               ))}
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-8 text-center text-stone-500">
+                  <td colSpan={10} className="px-3 py-8 text-center text-stone-500">
                     No LLM calls recorded yet. Start chatting with an AI agent to see logs here.
                   </td>
                 </tr>
