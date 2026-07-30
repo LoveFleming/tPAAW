@@ -19,13 +19,14 @@ import { promisify } from "util";
 import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { tmpdir } from "os";
+import { shellExec, IS_WIN } from "./shell-exec.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
 const exec = promisify(execCb);
-const isWin = process.platform === "win32";
+// IS_WIN is imported as IS_WIN from shell-exec.mjs
 
 // ── Logging ──
 // Always log — these go to server console and are critical for debugging Windows issues
@@ -35,14 +36,14 @@ const LOG_ERR = (...args) => console.error(`[semgrep ${new Date().toISOString().
 
 /** Normalize path: Windows backslashes → forward slashes */
 function safePath(p) {
-  if (!isWin || !p) return p;
+  if (!IS_WIN || !p) return p;
   return p.replace(/\\/g, "/");
 }
 
 /** Build env with Windows Python UTF-8 fix + Python Scripts in PATH */
 function _semgrepEnv() {
   const env = { ...process.env };
-  if (isWin) {
+  if (IS_WIN) {
     env.PYTHONUTF8 = "1";
     env.PYTHONIOENCODING = "utf-8";
     // Append Python Scripts directories to PATH so semgrep can be found
@@ -108,7 +109,7 @@ function _semgrepEnv() {
 
 // ── Installation instructions (returned when semgrep not found) ──
 
-const INSTALL_INSTRUCTIONS = isWin
+const INSTALL_INSTRUCTIONS = IS_WIN
   ? [
       "Semgrep is not installed or not in PATH.",
       "",
@@ -285,7 +286,7 @@ export async function runSemgrep(projectRoot, options = {}) {
 
   LOG("━━━ runSemgrep START ━━━");
   LOG("projectRoot:", projectRoot);
-  LOG("platform:", process.platform, "| isWin:", isWin);
+  LOG("platform:", process.platform, "| IS_WIN:", IS_WIN);
   LOG("timeout:", timeoutMs, "ms");
   LOG("SEMGREP_PATH env:", process.env.SEMGREP_PATH || "(not set)");
   LOG("PATH (first 300):", (process.env.PATH || "").slice(0, 300));
@@ -329,7 +330,7 @@ export async function runSemgrep(projectRoot, options = {}) {
   let scriptPath = null;
   let scriptLogPath = null; // persistent copy in .paaw/logs/
   let runCmd;
-  if (isWin) {
+  if (IS_WIN) {
     // Build .bat: find Python Scripts dir via `where python`, append to PATH, then run semgrep
     let batLines = "@echo off\r\n";
     batLines += "set PYTHONUTF8=1\r\n";
@@ -398,7 +399,7 @@ export async function runSemgrep(projectRoot, options = {}) {
   // ── Step 6b: Clean up temp script (keep .paaw/logs/ copy, delete tmp only) ──
   // Windows: scriptPath is in .paaw/logs/ — keep it for debugging
   // macOS/Linux: scriptPath is in tmpdir — delete after use (.paaw/logs/ copy stays)
-  if (scriptPath && !isWin) { try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", safePath(scriptPath)); } }
+  if (scriptPath && !IS_WIN) { try { unlinkSync(scriptPath); } catch { LOG("runSemgrep: could not delete script:", safePath(scriptPath)); } }
 
   // ── Step 7: Parse results ──
   let raw = null;
