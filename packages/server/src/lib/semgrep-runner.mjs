@@ -335,17 +335,22 @@ export async function runSemgrep(projectRoot, options = {}) {
   let scriptLogPath = null; // persistent copy in .paaw/logs/
   let runCmd;
   if (IS_WIN) {
-    // Build .bat with pre-computed PATH from _semgrepEnv()
-    // (avoids broken delayed-expansion in batch for/f blocks)
-    const semEnv = _semgrepEnv();
+    // Build .bat: derive semgrep dir from SEMGREP_PATH, append to PATH
     let batLines = "@echo off\r\n";
     batLines += "set PYTHONUTF8=1\r\n";
     batLines += "set PYTHONIOENCODING=utf-8\r\n";
-    // Write the pre-computed PATH with all Python Scripts dirs included
-    batLines += `set "PATH=${semEnv.PATH}"\r\n`;
-    // Write SEMGREP_PATH if set, so semgrep binary can be found
-    if (semEnv.SEMGREP_PATH) {
-      batLines += `set "SEMGREP_PATH=${semEnv.SEMGREP_PATH}"\r\n`;
+    // If SEMGREP_PATH is set, derive its directory and append to PATH
+    // e.g. SEMGREP_PATH=C:\Users\x\AppData\Roaming\Python\Python312\Scripts\semgrep.exe
+    //   → add C:\Users\x\AppData\Roaming\Python\Python312\Scripts to PATH
+    if (semgrepBin && semgrepBin !== "semgrep") {
+      const semgrepDir = dirname(semgrepBin);
+      batLines += `set PATH=%PATH%;${semgrepDir}\r\n`;
+    } else {
+      // No SEMGREP_PATH set — try to find Python Scripts via `where python`
+      batLines += "for /f \"delims=\" %%i in ('where python 2^>nul') do (\r\n";
+      batLines += "  set \"PYTHON_DIR=%%~dpi\"\r\n";
+      batLines += ")\r\n";
+      batLines += "if defined PYTHON_DIR set PATH=%PATH%;%PYTHON_DIR%Scripts\r\n";
     }
     batLines += fullCmd + "\r\n";
     scriptLogPath = `${logBase}.bat`;
