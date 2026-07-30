@@ -2198,7 +2198,7 @@ const sendChat = useCallback(async () => {
                   </div>
                 )}
               </div>
-            )}}
+            )}
 
             {activeMainTab?.type === "editor" && !activeTab && (
               <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">
