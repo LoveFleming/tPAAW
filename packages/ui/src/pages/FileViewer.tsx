@@ -220,9 +220,14 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
     try { return JSON.parse(content); } catch { return null; }
   }, [content, filePath]);
 
+  // Track last loaded filePath to know when to re-fetch
+  const [loadedPath, setLoadedPath] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!filePath) { setContent(null); setMeta(null); return; }
+    if (!filePath) { setContent(null); setMeta(null); setLoadedPath(null); return; }
     if (active === false) return; // Don't fetch when tab is hidden
+    // Already loaded this file? Don't re-fetch (preserves scroll position)
+    if (loadedPath === filePath && content !== null) return;
     const fileName = pathBasename(filePath);
     const fileType = detectFileType(fileName);
     // For images, don't fetch content — ImageView uses direct URL
@@ -230,6 +235,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
       setContent(""); // trigger loaded state
       setMeta({ size: 0 });
       setLoading(false);
+      setLoadedPath(filePath);
       return;
     }
     setLoading(true);
@@ -249,6 +255,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
           setContent(data.content ?? "");
           setMeta({ size: data.size ?? 0 });
           setLoading(false);
+          setLoadedPath(filePath);
         })
         .catch((err) => {
           if (err.name === 'AbortError') {
@@ -266,7 +273,7 @@ export default function FileViewer({ filePath, projectRoot, active }: Props) {
     };
     doFetch(0);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [filePath, active]);
+  }, [filePath, active, loadedPath, content]);
 
   const safeRoot = projectRoot || '';
   const relativePath = safeRoot ? filePath.replace(new RegExp(`^${safeRoot.replace(/[\\/]+/g, '/').replace(/\/$/, '')}/?`), '') : filePath;
