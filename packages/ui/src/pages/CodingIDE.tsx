@@ -2189,12 +2189,19 @@ const sendChat = useCallback(async () => {
               </div>
             )}
 
-            {/* === FILE VIEWER (Markdown / JSON rendered) === */}
-            {activeMainTab?.type === "viewer" && activeMainTab.filePath && (
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <FileViewer filePath={activeMainTab.filePath} projectRoot={rootPath} active={true} />
-              </div>
-            )}
+            {/* === FILE VIEWER — keep all viewer tabs alive (hidden) to preserve scroll === */}
+            {mainTabs.filter(t => t.type === "viewer" && t.filePath).map(tab => {
+              const isActive = activeMainTab?.id === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  className="flex-1 flex flex-col overflow-hidden"
+                  style={{ display: isActive ? undefined : "none" }}
+                >
+                  <FileViewer filePath={tab.filePath!} projectRoot={rootPath} active={isActive} />
+                </div>
+              );
+            })}
 
             {/* === GIT PANEL (Diff / Blame / Status / Review) === */}
             {activeMainTab?.type === "git" && (
