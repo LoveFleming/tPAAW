@@ -297,6 +297,13 @@ export async function buildSystemPrompt(agentId, opts = {}) {
 
   const parts = [];
 
+  // 0. Current date/time — so agents know what day it is
+  const _now = new Date();
+  const _dateStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const _weekday = ["日", "一", "二", "三", "四", "五", "六"][_now.getDay()];
+  const _timeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
+  parts.push(`=== 當前日期時間 ===\n今天是 ${_dateStr}（星期${_weekday}），時間 ${_timeStr}，時區 Asia/Taipei (UTC+8)`);
+
   // 0. If ai-settings/{agentId}/system-prompt.md exists, use it as base prompt
   const aiSettingsPromptPath = resolve(PAAW_ROOT, "data", "ai-settings", agentId, "system-prompt.md");
   if (existsSync(aiSettingsPromptPath)) {
