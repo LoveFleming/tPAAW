@@ -82,6 +82,12 @@ async function callProjectLLM(body, opts = {}) {
   const model = body.model || resolveDefaultModel(providerConfig);
   const provider = providerConfig.providers[providerId];
   if (!provider?.apiKey || provider.apiKey === "na") { return { content: null }; }
+
+  // Resolve maxTokens: caller override > model config in providers.json > 16384
+  const modelConfig = (provider.models || []).find(m => m.id === model);
+  const defaultMaxTokens = modelConfig?.maxTokens || providerConfig.defaultMaxTokens || 16384;
+  const maxTokens = body.maxTokens ?? defaultMaxTokens;
+
   const apiUrl = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
   const headers = {
     "Content-Type": "application/json",
@@ -92,7 +98,7 @@ async function callProjectLLM(body, opts = {}) {
     model,
     messages: body.messages,
     temperature: body.temperature ?? 0.3,
-    max_tokens: body.maxTokens ?? 4000,
+    max_tokens: maxTokens,
   };
   return callLLMWithRetry(apiUrl, headers, reqBody, {
     maxRetries: opts.maxRetries ?? 3,
