@@ -830,7 +830,7 @@ export default function CodingIDE() {
     const mainTabId = `file:${path}`;
     const name = path.split(/[\\/]/).pop() || path;
     const ext = name.split(".").pop()?.toLowerCase() ?? "";
-    const useViewer = ["md", "markdown", "json"].includes(ext);
+    const useViewer = ["md", "markdown"].includes(ext);
 
     if (useViewer) {
       // openMainTab handles dedup + activate
