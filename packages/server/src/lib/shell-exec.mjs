@@ -27,12 +27,16 @@ const SHELL_OPT = IS_WIN ? "cmd.exe" : true;
  * @returns {Promise<{ stdout: string, stderr: string }>}
  */
 export async function shellExec(command, options = {}) {
+  // Merge env: caller env merged ON TOP of process.env (not replacing)
+  const callerEnv = options.env || {};
+  const mergedEnv = { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", ...callerEnv };
+  const { env: _discard, ...restOpts } = options;
   const opts = {
     shell: SHELL_OPT,
     maxBuffer: 10 * 1024 * 1024,
     timeout: 30_000,
-    env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-    ...options,
+    env: mergedEnv,
+    ...restOpts,
   };
   return promisify(execCb)(command, opts);
 }
@@ -44,13 +48,17 @@ export async function shellExec(command, options = {}) {
  * @returns {string} stdout
  */
 export function shellExecSync(command, options = {}) {
+  // Merge env: caller env merged ON TOP of process.env (not replacing)
+  const callerEnv = options.env || {};
+  const mergedEnv = { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb", ...callerEnv };
+  const { env: _discard, ...restOpts } = options;
   const opts = {
     encoding: "utf-8",
     shell: SHELL_OPT,
     timeout: 30_000,
     maxBuffer: 10 * 1024 * 1024,
-    env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1", TERM: "dumb" },
-    ...options,
+    env: mergedEnv,
+    ...restOpts,
   };
   return execSync(command, opts);
 }

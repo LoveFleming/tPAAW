@@ -46,6 +46,10 @@ function _semgrepEnv() {
   if (IS_WIN) {
     env.PYTHONUTF8 = "1";
     env.PYTHONIOENCODING = "utf-8";
+    // Ensure COMSPEC is set so cmd.exe can be found by child_process
+    if (!env.COMSPEC) env.COMSPEC = join(env.SystemRoot || "C:\\Windows", "system32", "cmd.exe");
+    // Ensure SystemRoot is set
+    if (!env.SystemRoot) env.SystemRoot = "C:\\Windows";
     // Append Python Scripts directories to PATH so semgrep can be found
     const pathParts = [env.PATH];
     // User-level pip install: %APPDATA%\Python\PythonXX\Scripts
