@@ -359,6 +359,9 @@ export async function runSemgrep(projectRoot, options = {}) {
     LOG("runSemgrep: .bat written to", safePath(scriptPath), `(${batLines.length} bytes)`);
     // Run the .bat file — avoids cmd.exe 8191-char limit
     runCmd = `call "${scriptPath}"`;
+    LOG("runSemgrep: runCmd =", runCmd);
+    LOG("runSemgrep: .bat content preview:");
+    for (const ln of batLines.split("\r\n").filter(l => l)) LOG("  |", ln);
   } else {
     const scriptExt = ".sh";
     scriptPath = join(tmpdir(), `semgrep-scan-${randomUUID()}${scriptExt}`);
