@@ -1877,7 +1877,7 @@ export default async function projectRoute(req, res) {
             model: cuModelOverride || undefined,
             messages: [{ role: "user", content: fullPrompt }],
             temperature: 0.2,
-            maxTokens: step.id === "feature-map" ? 16000 : 4000,
+            maxTokens: 16000,
           }, { timeoutMs: 600_000, maxRetries: 3 }); // 10 min timeout for single step
 
           const content = result.content || "";
@@ -2273,7 +2273,7 @@ export default async function projectRoute(req, res) {
               model: cuModelOverride || undefined,
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
-              maxTokens: step.id === "feature-map" ? 16000 : 4000,
+              maxTokens: 16000,
             }, { timeoutMs: 600_000 }); // 10 min per step in bulk mode
 
             const content = result.content || "";
@@ -2589,7 +2589,7 @@ export default async function projectRoute(req, res) {
           model: modelOverride || undefined,
           messages,
           temperature: 0.3,
-          maxTokens: 4000,
+          maxTokens: 16000,
         });
 
         sendEvent("done", { content: result.content || "" });
@@ -2707,7 +2707,7 @@ export default async function projectRoute(req, res) {
             const result = await callProjectLLM({
               messages: [{ role: "user", content: fullPrompt }],
               temperature: 0.2,
-              maxTokens: 4000,
+              maxTokens: 16000,
             });
             const content = result.content || "";
 
@@ -2962,7 +2962,7 @@ Output ONLY the markdown document, starting with # Coding Standards (Auto-Genera
     const result = await callProjectLLM({
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
-      maxTokens: 2000,
+      maxTokens: 16000,
     });
     return result.content || null;
   } catch (err) {
