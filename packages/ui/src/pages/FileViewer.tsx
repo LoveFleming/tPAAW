@@ -110,7 +110,6 @@ function MarkdownView({ content }: { content: string }) {
 function CodeView({ content, fileName }: { content: string; fileName: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const codeRef = useRef<HTMLElement>(null);
-  const lineNumRef = useRef<HTMLDivElement>(null);
 
   const lines = content.split("\n");
   const lineCount = lines.length;
@@ -135,55 +134,55 @@ function CodeView({ content, fileName }: { content: string; fileName: string }) 
     }
   }, [content, lang]);
 
-  // Sync scroll between line numbers and code
-  const handleScroll = useCallback(() => {
-    if (containerRef.current && lineNumRef.current) {
-      lineNumRef.current.scrollTop = containerRef.current.scrollTop;
-    }
-  }, []);
-
   // Line number width (dynamic)
   const lineNumWidth = Math.max(3, String(lineCount).length) * 10 + 16;
 
-  return (
-    <div className="flex h-full w-full">
-      {/* Line numbers */}
-      <div
-        ref={lineNumRef}
-        className="shrink-0 overflow-hidden select-none border-r"
-        style={{
-          width: lineNumWidth,
-          backgroundColor: "#f8f8f8",
-          borderColor: "#e5e5e5",
-        }}
-      >
-        <div className="py-4">
-          {lines.map((_, i) => (
-            <div
-              key={i}
-              className="text-right pr-3 text-xs leading-5 font-mono"
-              style={{ color: "#b0b0b0", height: 20 }}
-            >
-              {i + 1}
-            </div>
-          ))}
-        </div>
-      </div>
+  // Split highlighted HTML into per-line chunks
+  const highlightedLines = useMemo(() => {
+    const temp = document.createElement("div");
+    temp.innerHTML = highlighted;
+    // hljs outputs <span>s that may span multiple lines — split by \n
+    const html = temp.innerHTML;
+    return html.split("\n");
+  }, [highlighted]);
 
-      {/* Code */}
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-auto"
-        onScroll={handleScroll}
-      >
-        <pre className="py-4 px-4 text-sm leading-5 font-mono" style={{ tabSize: 2 }}>
-          <code
-            ref={codeRef}
-            className={lang ? `language-${lang}` : ""}
-            dangerouslySetInnerHTML={{ __html: highlighted }}
-          />
-        </pre>
-      </div>
+  return (
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-auto w-full h-full"
+    >
+      <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
+        <colgroup>
+          <col style={{ width: lineNumWidth }} />
+          <col />
+        </colgroup>
+        <tbody className="font-mono text-sm" style={{ tabSize: 2 }}>
+          {highlightedLines.map((htmlLine, i) => (
+            <tr key={i}>
+              <td
+                className="text-right pr-3 select-none border-r sticky left-0 z-10"
+                style={{
+                  backgroundColor: "#f8f8f8",
+                  borderColor: "#e5e5e5",
+                  color: "#b0b0b0",
+                  fontSize: "12px",
+                  lineHeight: "20px",
+                  height: "20px",
+                  whiteSpace: "nowrap",
+                  verticalAlign: "top",
+                }}
+              >
+                {i + 1}
+              </td>
+              <td
+                className="pl-4"
+                style={{ lineHeight: "20px", height: "20px", whiteSpace: "pre", verticalAlign: "top" }}
+                dangerouslySetInnerHTML={{ __html: htmlLine || "&nbsp;" }}
+              />
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
