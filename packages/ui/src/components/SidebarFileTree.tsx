@@ -235,8 +235,9 @@ function ContextMenu({ menu, onAction, onClose }: {
   );
 }
 
-let globalCtxMenuSetter: ((m: CtxMenuState | null) => void) | null = null;
-function closeGlobalCtxMenu() { globalCtxMenuSetter?.(null); }
+// Track all active context-menu setters so multiple SidebarFileTree instances don't clobber each other.
+const ctxMenuSetters = new Set<(m: CtxMenuState | null) => void>();
+function closeGlobalCtxMenu() { ctxMenuSetters.forEach(fn => fn(null)); }
 
 /** Check if a path starts with a given prefix, handling both / and \ separators */
 function pathStartsWith(p: string, prefix: string): boolean {
@@ -417,8 +418,8 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
 
   // register global setter so tree nodes can open context menu
   useEffect(() => {
-    globalCtxMenuSetter = setCtxMenu;
-    return () => { globalCtxMenuSetter = null; };
+    ctxMenuSetters.add(setCtxMenu);
+    return () => { ctxMenuSetters.delete(setCtxMenu); };
   }, []);
 
   useEffect(() => {
@@ -510,8 +511,8 @@ export default function SidebarFileTree({ projectRoot, activeFilePath, openFileP
 
   // ── Context menu handler for tree nodes ──
   const handleCtx = useCallback((e: React.MouseEvent, fullPath: string, relPath: string, isDir: boolean, name: string, isWsRoot?: boolean) => {
-    closeGlobalCtxMenu();
-    globalCtxMenuSetter?.({ x: e.clientX, y: e.clientY, fullPath, relativePath: relPath, isDir, name, isWsRoot });
+    ctxMenuSetters.forEach(fn => fn(null));
+    setCtxMenu({ x: e.clientX, y: e.clientY, fullPath, relativePath: relPath, isDir, name, isWsRoot });
   }, []);
 
   // ── Context menu actions ──
