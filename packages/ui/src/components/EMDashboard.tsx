@@ -200,7 +200,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
   };
 
   // ── Chat State ──
-  const EM_CHAT_ID = "coding.em-dashboard";
+  const EM_CHAT_ID = "coding.em";
   const [messagesLoaded, setMessagesLoaded] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
