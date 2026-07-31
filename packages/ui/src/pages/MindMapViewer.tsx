@@ -98,6 +98,15 @@ export default function MindMapViewer() {
   const [showUserPrompt, setShowUserPrompt] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
+  // ── AI Chat state ──
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{role: "user" | "assistant"; content: string; ts: string}[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [sourceContent, setSourceContent] = useState(""); // raw data used to generate
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const composingRef = useRef(false);
+
   // ── Model selector state ──
   const [providers, setProviders] = useState<Record<string, any>>({});
   const [activeProviderId, setActiveProviderId] = useState("");
@@ -247,6 +256,8 @@ export default function MindMapViewer() {
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "產生失敗");
       setMarkdown(data.markdown);
+      setSourceContent(""); // file-based generation doesn't return raw content
+      setShowChat(true); // auto-open chat after generation
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -271,6 +282,8 @@ export default function MindMapViewer() {
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "產生失敗");
       setMarkdown(data.markdown);
+      setSourceContent(inputText);
+      setShowChat(true);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -316,6 +329,75 @@ export default function MindMapViewer() {
   }, [markdown, saveName]);
 
   // ── Toolbar ──
+  // ── AI Chat: send message ──
+  const sendChatMessage = useCallback(async (text?: string) => {
+    const msgText = (text ?? chatInput).trim();
+    if (!msgText || chatLoading) return;
+    const userMsg = { role: "user" as const, content: msgText, ts: new Date().toISOString() };
+    const newHistory = [...chatMessages, userMsg];
+    setChatMessages(newHistory);
+    setChatInput("");
+    setChatLoading(true);
+    try {
+      const resp = await fetch("/api/mindmap/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: msgText,
+          history: chatMessages.map(m => ({ role: m.role, content: m.content })),
+          sourceContent,
+          mindmapMarkdown: markdown,
+          model: fullModelForApi(),
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success) throw new Error(data.error || "AI 回應失敗");
+      setChatMessages(prev => [...prev, { role: "assistant", content: data.content, ts: new Date().toISOString() }]);
+    } catch (err: any) {
+      setChatMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.message}`, ts: new Date().toISOString() }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, chatMessages, sourceContent, markdown, fullModelForApi]);
+
+  // ── Right-click on mindmap SVG nodes ──
+  const handleSvgContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    // Find nearest text element (markmap renders <text> inside <g>)
+    const target = e.target as SVGElement;
+    let textContent = "";
+    // Walk up to find a <g> with a <text> child
+    let el: Element | null = target;
+    while (el && el.tagName !== "svg") {
+      if (el.tagName === "g") {
+        const textEl = el.querySelector("text");
+        if (textEl) {
+          textContent = textEl.textContent || "";
+          break;
+        }
+      }
+      el = el.parentElement;
+    }
+    if (!textContent) {
+      // fallback: try direct text
+      const t = target.closest("text");
+      if (t) textContent = t.textContent || "";
+    }
+    if (textContent.trim()) {
+      setShowChat(true);
+      const quote = `請針對心智圖中的這個節點做詳細說明：\n\n**${textContent.trim()}**`;
+      setChatInput(quote);
+      setTimeout(() => chatInputRef.current?.focus(), 100);
+    }
+  }, []);
+
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
   const fitToScreen = useCallback(() => mmRef.current?.fit(), []);
   const zoomIn = useCallback(() => mmRef.current?.rescale(1.25), []);
   const zoomOut = useCallback(() => mmRef.current?.rescale(0.8), []);
@@ -406,7 +488,7 @@ export default function MindMapViewer() {
           🧠 Mind Map
         </span>
         {markdown && (
-          <button onClick={() => { setMarkdown(""); setSelectedFiles([]); setSelectedDir(null); mmRef.current = null; }} style={btnStyle}>
+          <button onClick={() => { setMarkdown(""); setSelectedFiles([]); setSelectedDir(null); setSourceContent(""); setChatMessages([]); setShowChat(false); mmRef.current = null; }} style={btnStyle}>
             ← 新建
           </button>
         )}
@@ -415,6 +497,10 @@ export default function MindMapViewer() {
         {markdown && <button onClick={fitToScreen} style={btnStyle}>⛶ 符合視窗</button>}
         {markdown && <button onClick={exportSVG} style={btnStyle}>⬇ SVG</button>}
         {markdown && <button onClick={() => setShowSaveDialog(true)} style={btnStyle}>{tt("appBuilder.saveButton")}</button>}
+        {markdown && <button
+          onClick={() => setShowChat(v => !v)}
+          style={{ ...btnStyle, background: showChat ? tk.accent : tk.bgMuted, color: showChat ? "#fff" : tk.textSecondary }}
+        >💬 AI 討論</button>}
         <button onClick={() => { loadSavedList(); setShowSaved(true); }} style={btnStyle}>📂 載入</button>
         {/* Model selector */}
         <div style={{ position: "relative" }}>
@@ -653,8 +739,100 @@ export default function MindMapViewer() {
           )}
         </div>
       ) : (
-        <div style={{ flex: 1, position: "relative", overflow: "hidden", background: tk.accentBg }}>
-          <svg ref={svgRef} style={{ width: "100%", height: "100%" }} />
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          {/* Mind Map SVG */}
+          <div style={{ flex: 1, position: "relative", overflow: "hidden", background: tk.accentBg }}>
+            <svg ref={svgRef} style={{ width: "100%", height: "100%" }} onContextMenu={handleSvgContextMenu} />
+            {/* Hint */}
+            <div style={{ position: "absolute", bottom: 8, left: 12, fontSize: 11, color: tk.textMuted, pointerEvents: "none" }}>
+              💡 右鍵點擊節點可傳給 AI 討論
+            </div>
+          </div>
+          {/* AI Chat Panel */}
+          {showChat && (
+            <div style={{
+              width: 380, flexShrink: 0, borderLeft: `1px solid ${tk.border}`,
+              display: "flex", flexDirection: "column", background: tk.bg,
+            }}>
+              {/* Chat Header */}
+              <div style={{
+                padding: "10px 14px", borderBottom: `1px solid ${tk.borderLight}`,
+                display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: tk.textPrimary }}>💬 AI 討論</span>
+                <button onClick={() => setShowChat(false)} style={{ ...btnStyle, padding: "2px 8px", fontSize: 16 }}>✕</button>
+              </div>
+              {/* Chat Messages */}
+              <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+                {chatMessages.length === 0 && (
+                  <div style={{ color: tk.textMuted, fontSize: 13, textAlign: "center", marginTop: 40 }}>
+                    🤖 可以問我任何關於這份心智圖的問題！<br />
+                    右鍵心智圖節點也能快速提問。
+                  </div>
+                )}
+                {chatMessages.map((m, i) => (
+                  <div key={i} style={{
+                    alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                    maxWidth: "85%",
+                  }}>
+                    <div style={{
+                      padding: "8px 12px", borderRadius: 10, fontSize: 13, lineHeight: 1.6,
+                      background: m.role === "user" ? tk.accent : tk.bgMuted,
+                      color: m.role === "user" ? "#fff" : tk.textPrimary,
+                      border: m.role === "user" ? "none" : `1px solid ${tk.borderLight}`,
+                      whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    }}>
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div style={{ alignSelf: "flex-start", padding: "8px 12px", color: tk.textMuted, fontSize: 13 }}>
+                    🤖 思考中...
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              {/* Chat Input */}
+              <div style={{ padding: "10px 12px", borderTop: `1px solid ${tk.borderLight}`, flexShrink: 0 }}>
+                <textarea
+                  ref={chatInputRef}
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onCompositionStart={() => { composingRef.current = true; }}
+                  onCompositionEnd={() => { composingRef.current = false; }}
+                  onKeyDown={e => {
+                    if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendChatMessage();
+                    }
+                  }}
+                  placeholder="輸入訊息..."
+                  rows={3}
+                  style={{
+                    width: "100%", resize: "none", padding: "8px 10px",
+                    border: `1px solid ${tk.borderInput}`, borderRadius: 8,
+                    background: tk.bg, color: tk.textPrimary, fontSize: 13,
+                    fontFamily: "inherit", lineHeight: 1.5,
+                  }}
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+                  <button
+                    onClick={() => sendChatMessage()}
+                    disabled={chatLoading || !chatInput.trim()}
+                    style={{
+                      ...btnStyle,
+                      background: chatLoading || !chatInput.trim() ? tk.bgMuted : tk.accent,
+                      color: chatLoading || !chatInput.trim() ? tk.textMuted : "#fff",
+                      cursor: chatLoading || !chatInput.trim() ? "not-allowed" : "pointer",
+                      padding: "6px 16px",
+                    }}
+                  >送出</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

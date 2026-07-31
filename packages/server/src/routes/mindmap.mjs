@@ -289,6 +289,67 @@ async function handleMindMapRoutes(req, res) {
     return true;
   }
 
+  // POST /api/mindmap/chat — AI chat with mindmap + source context
+  if (req.method === "POST" && req.url?.startsWith("/api/mindmap/chat")) {
+    let body;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      return true;
+    }
+    const { message, history = [], sourceContent = "", mindmapMarkdown = "", model } = body;
+    if (!message || !message.trim()) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing message" }));
+      return true;
+    }
+    try {
+      const llm = resolveLLM(model);
+      let systemPrompt = getSystemPrompt();
+      try {
+        const { contextEngine } = await import("../context-engine.mjs");
+        const ctx = await contextEngine.build({ target: "mindmap" });
+        systemPrompt = ctx.systemPrompt || systemPrompt;
+      } catch {}
+      // Append context: mindmap + source data
+      const contextParts = [];
+      if (mindmapMarkdown) {
+        contextParts.push(`--- 當前心智圖結構 ---\n${mindmapMarkdown}`);
+      }
+      if (sourceContent) {
+        const truncated = sourceContent.length > 20000 ? sourceContent.slice(0, 20000) + "\n...(截斷)" : sourceContent;
+        contextParts.push(`--- 原始資料 ---\n${truncated}`);
+      }
+      const fullSystem = systemPrompt + (contextParts.length ? "\n\n以下是目前的討論背景資料：\n\n" + contextParts.join("\n\n") : "") + "\n\n請根據以上資料回答使用者的問題。可以引用心智圖結構或原始資料的內容來支持你的回答。";
+      const messages = [
+        { role: "system", content: fullSystem },
+        ...history.map(h => ({ role: h.role, content: h.content })),
+        { role: "user", content: message },
+      ];
+      const result = await callLLMWithRetry(llm.apiUrl, llm.headers, {
+        model: llm.model,
+        messages,
+        max_tokens: 4096,
+      }, {
+        maxRetries: 2,
+        timeoutMs: 120_000,
+        validateContent: true,
+        sanitize: true,
+        caller: "mindmap-chat",
+        agentId: "assistant",
+        fallbacks: llm.fallbacks || [],
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, content: result.content }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // GET /api/mindmap/list
   if (req.method === "GET" && req.url?.startsWith("/api/mindmap/list")) {
     try {
