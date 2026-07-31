@@ -452,6 +452,9 @@ export default function CodingIDE() {
     setRootPath("");
     setOpenTabs([]);
     setActiveTabId(null);
+    setMainTabs([DASHBOARD_TAB]);
+    setActiveMainTabId(DASHBOARD_TAB_ID);
+    tabsRestoredRef.current = null;
     setExpandedDirs(new Set());
     setDirContents({});
     dirContentsRef.current = {};
@@ -644,6 +647,54 @@ export default function CodingIDE() {
     if (rootPath) {
       fetch(`${API_BASE}/api/coding-project/recent?path=${encodeURIComponent(rootPath)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).catch(() => {});
     }
+  }, [rootPath]);
+
+  // ── Persist main tabs to localStorage (per project) ──
+  useEffect(() => {
+    if (!rootPath) return;
+    // Only persist closable tabs; skip dashboard
+    const tabsToSave = mainTabs.filter(t => t.id !== DASHBOARD_TAB_ID);
+    try {
+      localStorage.setItem(`paaw.vibeide.tabs:${rootPath}`, JSON.stringify({ tabs: tabsToSave, activeMainTabId }));
+    } catch {}
+  }, [mainTabs, activeMainTabId, rootPath]);
+
+  // ── Restore main tabs when project loads ──
+  const tabsRestoredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!rootPath || tabsRestoredRef.current === rootPath) return;
+    tabsRestoredRef.current = rootPath;
+    try {
+      const saved = localStorage.getItem(`paaw.vibeide.tabs:${rootPath}`);
+      if (saved) {
+        const { tabs: savedTabs, activeMainTabId: savedActive } = JSON.parse(saved);
+        if (Array.isArray(savedTabs) && savedTabs.length > 0) {
+          // Restore tabs (dashboard is already present)
+          const existingIds = new Set(mainTabsRef.current.map(t => t.id));
+          const newTabs = savedTabs.filter((t: MainTab) => !existingIds.has(t.id));
+          if (newTabs.length > 0) {
+            setMainTabs(prev => [DASHBOARD_TAB, ...prev.filter(t => t.id !== DASHBOARD_TAB_ID), ...newTabs]);
+          }
+          // Restore active tab (delay to ensure tabs are rendered)
+          if (savedActive && savedActive !== DASHBOARD_TAB_ID) {
+            setTimeout(() => setActiveMainTabId(savedActive), 0);
+          }
+          // Reload editor tab file contents
+          savedTabs.filter((t: MainTab) => t.type === "editor" && t.filePath).forEach((t: MainTab) => {
+            fetch(`${API_BASE}/api/vibe-fs/read?path=${encodeURIComponent(t.filePath!)}`)
+              .then(r => r.json())
+              .then(data => {
+                if (data.content !== undefined) {
+                  setOpenTabs(prev => {
+                    if (prev.find(ot => ot.path === t.filePath)) return prev;
+                    return [...prev, { id: t.filePath!, name: t.filePath!.split(/[\\/]/).pop() || t.filePath!, path: t.filePath!, content: data.content, originalContent: data.content, modified: false, language: getLanguage(t.filePath!), hljsLang: getHljsLang(t.filePath!), lastSaved: data.modified }];
+                  });
+                }
+              }).catch(() => {});
+          });
+        }
+      }
+    } catch {}
   }, [rootPath]);
 
   // Load recent projects on mount
