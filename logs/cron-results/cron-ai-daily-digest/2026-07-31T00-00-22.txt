@@ -1,0 +1,109 @@
+現在我已取得所有 10 篇文章的內容，開始組裝新聞摘要。
+
+---
+
+# AI News Digest — 2026-07-30
+
+**來源：** https://techcrunch.com/
+
+**統計：** 共找到 24 篇，本次摘要 10 篇
+
+---
+
+## AI hedge fund Situational Awareness may have sold its public portfolio, but it still has its Anthropic shares
+
+**連結：** https://techcrunch.com/2026/07/30/ai-hedge-fund-situational-awareness-may-have-sold-its-public-portfolio-but-it-still-has-its-anthropic-shares/
+
+**發布日期：** 2026-07-30
+
+由前 OpenAI 研究員 Leopold Aschenbrenner 創立的對沖基金 Situational Awareness，在過去一個月因 AI 基礎設施投資大幅下跌後，已將**大部分公開股票投資組合出售給 Ken Griffin 的 Citadel**。該基金今年截至 6 月回報率高達 439%，資產管理規模一度達到 450 億美元，但隨後急轉直下。Aschenbrenner 曾呼籲投資人加碼進場，但未能獲得預期的資金承諾。值得注意的是，該基金仍保留其持有的 Anthropic 股份，這部分未上市資產的價值將是決定基金最終表現的關鍵。
+
+---
+
+## Apple stockpiles inventory as it braces for 'significant supply constraints'
+
+**連結：** https://techcrunch.com/2026/07/30/apple-stockpiles-inventory-as-it-braces-for-significant-supply-constraints/
+
+**發布日期：** 2026-07-30
+
+Apple 在交出「最強勁的 6 月季度」成績單的同時，正在為嚴峻的供應鏈挑戰做準備。生成式 AI 熱潮導致硬體元件需求暴增，Apple 正面臨被稱為 **「RAMageddon」的記憶體短缺危機**。Apple 的庫存已從去年 9 月的 57 億美元翻倍至 111 億美元，這意味著 Cook 長期堅持的「零庫存」供應鏈策略正在被打破。這些限制已迫使 Apple 在 6 月調漲 Mac 和 iPad 售價，而即將離任的 CEO Tim Cook 預警供應鏈影響將「顯著增加」。
+
+---
+
+## Investors love AI, as long as you're a cloud host
+
+**連結：** https://techcrunch.com/2026/07/30/investors-love-ai-as-long-as-youre-a-cloud-host/
+
+**發布日期：** 2026-07-30
+
+Amazon 公布優於預期的第二季財報，股價在盤後交易大漲近 10%。儘管市場普遍認為投資人希望企業縮減支出，但 Amazon 並未放緩資料中心投資——**全年資本支出預測從 2000 億美元上調至 2200 億美元**，為此已開始動用現金儲備。AWS 營收年增 37% 達 420 億美元，是支撐這項鉅額投資的關鍵引擎。分析指出，由於資料中心從動工到產出有數年時間差，目前的投資規模顯示 Amazon 對長期 AI 需求深具信心。
+
+---
+
+## Reddit reports a solid quarter but shows signs of AI's impact
+
+**連結：** https://techcrunch.com/2026/07/30/reddit-reports-a-solid-quarter-but-shows-signs-of-ais-impact/
+
+**發布日期：** 2026-07-30
+
+Reddit 第二季營收 8.05 億美元（年增 61%）、淨利 2.53 億美元（年增 183%），雙雙超越華爾街預期，但股價盤後仍下跌逾 10%。原因在於 CEO Steve Huffman 在股東信中提及**搜尋引擎流量變得「不穩定」（choppy）**，投資人擔憂 Google 的 AI 摘要功能正在蠶食 Reddit 的流量。Reddit 在 2024 年與 Google 簽訂了內容授權協議，但如今 AI 搜尋摘要反而可能減少用戶點擊進入 Reddit 的意願，公司對於是否續約態度不明。
+
+---
+
+## Friend, the lonely AI wearable, returns with a new voice and a much bigger price tag
+
+**連結：** https://techcrunch.com/2026/07/30/friend-the-lonely-ai-wearable-returns-with-a-new-voice-and-a-much-bigger-price-tag/
+
+**發布日期：** 2026-07-30
+
+創辦人 Avi Schiffmann 兩年前推出旨在對抗孤獨感的 AI 穿戴裝置 Friend，如今推出 2.0 版本——最大的升級是加入了**內建揚聲器，讓 AI 能以獨特且一致的個性與使用者對話**。新售價從 99 美元大幅調漲至 249 美元。Schiffmann 表示這款產品不是助理、也不是戀人，而是某種「知己、朋友、甚至神」。然而 AI 穿戴裝置至今尚未獲得主流市場接受——最相似的競爭產品 Humane 的 AI Pin 在不到一年內就關閉了業務。
+
+---
+
+## CareCloud begins to notify hundreds of thousands after hackers stole medical records
+
+**連結：** https://techcrunch.com/2026/07/30/carecloud-begins-to-notify-hundreds-of-thousands-after-hackers-stole-medical-records/
+
+**發布日期：** 2026-07-30
+
+美國醫療科技巨頭 CareCloud 開始向數十萬人發送通知，告知其醫療記錄在年初的網路攻擊中被竊取。**至少 34.5 萬人受影響**，且人數可能持續上升。駭客在 3 月 10 日至 16 日期間至少六天內持續存取該公司儲存於 AWS 的資料庫，竊取的資料包括姓名、地址、社會安全號碼、護照資料、銀行帳戶資訊及大量醫療健康資料。這是今年一系列醫療保健業資料外洩事件的最新一起，此前 TriZetto 和 NYC Health + Hospitals 也曾遭駭。
+
+---
+
+## LinkedIn adds a button to report AI-generated 'slop'
+
+**連結：** https://techcrunch.com/2026/07/30/linkedin-adds-a-button-to-report-ai-generated-slop/
+
+**發布日期：** 2026-07-30
+
+LinkedIn 宣布新增「看起來像 AI 廢文」（seems like AI slop）按鈕，讓用戶檢舉低品質的 AI 生成內容。這反映線上平台對 AI 內容的全面反撲——Substack 上週也推出了 AI 內容辨識工具，Cloudflare 報告指出**網路上的機器人流量已正式超過人類請求**。LinkedIn 同時正在撤除原有的「AI 協助潤飾貼文」功能，改為僅提供校對服務。該平台每日阻擋「數十萬」筆自動化留言嘗試，並將開始私下通知用戶其內容被認為過度依賴 AI。
+
+---
+
+## Judge says Trump admin still lacks evidence for Anthropic 'supply-chain risk' label
+
+**連結：** https://techcrunch.com/2026/07/30/judge-says-trump-admin-still-lacks-evidence-for-anthropic-supply-chain-risk-label/
+
+**發布日期：** 2026-07-30
+
+美國聯邦法官 Rita Lin 在聽證會上表示，川普政府仍未提出足夠證據來證明將 Anthropic 標記為「供應鏈風險」的正當性。此案源於 Anthropic 拒絕與國防部簽訂合約，因為該公司不願其 AI 被用於大規模監控美國公民或致命的武器瞄準與開火決策。**法官警告政府以「不同意政府立場」為由報復承包商的做法「非常令人擔憂」**，可能開創危險先例。Lin 在今年 3 月已暫時阻止該禁令，目前正在考慮是否將其永久化。
+
+---
+
+## TechCrunch Disrupt 2026's biggest stage features leaders from Amazon, Replit, Tether, with much more to come
+
+**連結：** https://techcrunch.com/2026/07/30/techcrunch-disrupt-2026s-biggest-stage-features-leaders-from-amazon-replit-tether-with-much-more-to-come/
+
+**發布日期：** 2026-07-30
+
+TechCrunch Disrupt 2026 將於 10 月 13–15 日在舊金山 Moscone Center 舉行，**今年的 Disrupt Stage 邀請到 Amazon 裝置與服務副總裁 Panos Panay、Replit CEO Amjad Masad、Tether 的 Paolo Ardoino** 等重量級講者，以及 Benchmark 全體五位合夥人同台辯論。主題聚焦於 AI 時代中的創業、資金與規模化挑戰。此外還包括 Rivian CEO RJ Scaringe、Harvey AI 等企業領袖的對談。
+
+---
+
+## Apple says gaming slowdown and App Store changes hurt services growth
+
+**連結：** https://techcrunch.com/2026/07/30/apple-says-gaming-slowdown-and-app-store-changes-hurt-services-growth/
+
+**發布日期：** 2026-07-30
+
+Apple 的服務業務付費訂閱數已突破 15 億，但該部門在最新季度僅錄得 307.4 億美元營收，低於分析師預期的 312.2 億美元，導致股價盤後下跌逾 4%。Apple CFO 指出**手遊市場放緩以及部分國家（包括美國）App Store 商業模式變革**是主要影響因素——後者指法院命令 Apple 允許開發者繞過 App Store 處理支付，避開 Apple 的佣金抽成。儘管如此，App Store 仍創下 6 月季度營收新高，Apple Ads、Apple TV 等服務也表現亮眼。
