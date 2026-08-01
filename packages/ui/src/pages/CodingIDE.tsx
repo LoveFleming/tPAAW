@@ -687,23 +687,28 @@ export default function CodingIDE() {
   useEffect(() => {
     if (!rootPath || tabsRestoredRef.current === rootPath) return;
     tabsRestoredRef.current = rootPath;
+    (async () => {
     try {
       const saved = localStorage.getItem(`paaw.vibeide.tabs:${rootPath}`);
       if (saved) {
         const { tabs: savedTabs, activeMainTabId: savedActive } = JSON.parse(saved);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
+          // Filter out tabs with invalid types (e.g. removed "memory" type)
+          const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "health", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager"]);
+          const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
           // Restore tabs (dashboard is already present)
           const existingIds = new Set(mainTabsRef.current.map(t => t.id));
-          const newTabs = savedTabs.filter((t: MainTab) => !existingIds.has(t.id));
+          const newTabs = validTabs.filter((t: MainTab) => !existingIds.has(t.id));
           if (newTabs.length > 0) {
             setMainTabs(prev => [DASHBOARD_TAB, ...prev.filter(t => t.id !== DASHBOARD_TAB_ID), ...newTabs]);
           }
           // Restore active tab (delay to ensure tabs are rendered)
-          if (savedActive && savedActive !== DASHBOARD_TAB_ID) {
-            setTimeout(() => setActiveMainTabId(savedActive), 0);
+          const validActive = validTabs.find((t: MainTab) => t.id === savedActive);
+          if (validActive && savedActive !== DASHBOARD_TAB_ID) {
+            setTimeout(() => setActiveMainTabId(savedActive), 50);
           }
           // Reload editor tab file contents
-          savedTabs.filter((t: MainTab) => t.type === "editor" && t.filePath).forEach((t: MainTab) => {
+          validTabs.filter((t: MainTab) => t.type === "editor" && t.filePath).forEach((t: MainTab) => {
             fetch(`${API_BASE}/api/vibe-fs/read?path=${encodeURIComponent(t.filePath!)}`)
               .then(r => r.json())
               .then(data => {
@@ -715,9 +720,23 @@ export default function CodingIDE() {
                 }
               }).catch(() => {});
           });
+
+          // Pre-load conversations for restored AI crew tabs
+          const crewTabs = validTabs.filter((t: MainTab) => t.type === "ai-crew" && t.crewId);
+          for (const tab of crewTabs) {
+            try {
+              const res = await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(tab.crewId!)}?cwd=${encodeURIComponent(rootPath)}`);
+              const data = await res.json();
+              if (data.messages && data.messages.length > 0) {
+                setCrewConversations(prev => ({ ...prev, [tab.crewId!]: data.messages }));
+              }
+              setLoadedCrews(prev => new Set(prev).add(tab.crewId!));
+            } catch {}
+          }
         }
       }
     } catch {}
+    })();
   }, [rootPath]);
 
   // Load recent projects on mount
