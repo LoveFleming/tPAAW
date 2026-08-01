@@ -639,14 +639,14 @@ const AGENT_FALLBACK_GROUPS = {
   developer: ["core", "memory", "decisions", "project", "project-edit"],
   // Tester: full core + project
   tester: ["core", "memory", "decisions", "project", "project-edit"],
-  // Doc-writer: full core + project-edit + docs + notes
-  "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs", "notes"],
+  // Doc-writer: full core + project-edit + docs
+  "doc-writer": ["core", "memory", "decisions", "project", "project-edit", "docs"],
   // QA: read-only + project + project-edit
   qa: ["core-read", "memory", "project", "project-edit"],
-  // Helpdesk: read-only + project + notes
-  helpdesk: ["core-read", "memory", "project", "notes"],
-  // EM: read-only + project + project-edit + notes + docs + browser
-  em: ["core-read", "memory", "decisions", "project", "project-edit", "notes", "docs", "browser", "tasks", "dispatch"],
+  // Helpdesk: read-only + project
+  helpdesk: ["core-read", "memory", "decisions", "project", "project-edit"],
+  // EM: read-only + project + project-edit + docs + tasks + dispatch (no notes/browser)
+  em: ["core-read", "memory", "decisions", "project", "project-edit", "docs", "tasks", "dispatch"],
 };
 
 // ── Cache for crew toolGroups loaded from JSON ──

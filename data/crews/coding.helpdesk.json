@@ -21,7 +21,8 @@
   "toolGroups": [
     "core-read",
     "memory",
+    "decisions",
     "project",
-    "notes"
+    "project-edit"
   ]
 }

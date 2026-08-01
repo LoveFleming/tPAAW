@@ -19,7 +19,10 @@
   "emoji": "🌸",
   "toolGroups": [
     "core-read",
-    "notes"
+    "memory",
+    "decisions",
+    "project",
+    "project-edit"
   ],
   "_source": "global",
   "_clonedAt": "2026-08-01T05:31:46.158Z",
