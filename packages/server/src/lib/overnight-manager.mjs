@@ -620,7 +620,15 @@ export async function runParallelSession(opts = {}) {
   sendSSE("info", { message: "📝 產生報告中..." });
   const agentResults = results.map(r => r.status === "fulfilled" ? r.value : { role: "unknown", status: "failed", error: r.reason?.message });
   console.log(`[NightShift] Phase 2: Results: ${agentResults.filter(r => r.status === "completed").length}✅ ${agentResults.filter(r => r.status === "failed").length}❌`);
-  const report = generateParallelReport(agentResults, ctx, dynamicCrewLabels);
+
+  // ── Phase 4: Documentation (Doc Writer → Help Desk review loop) ──
+  const docResult = await runDocPhase(rootDir, PAAW_ROOT, modelOverride, fallbackModels, effectiveModel, sendSSE).catch(err => {
+    console.error(`[NightShift] Phase 4: Doc phase failed:`, err.message);
+    return { summary: `❌ Doc phase failed: ${err.message}`, reviewed: false, iterations: 0 };
+  });
+
+  const report = generateParallelReport(agentResults, ctx, dynamicCrewLabels) +
+    (docResult.summary ? `\n\n---\n\n## 📝 文檔更新\n\n${docResult.summary}\n` : "");
   saveNightShiftReport(rootDir, report, "parallel");
   console.log(`[NightShift] Phase 3: Report saved (${report.length} chars)`);
   sendSSE("report", { report });
@@ -631,6 +639,189 @@ export async function runParallelSession(opts = {}) {
   sendSSE("done", { totalTasks: agentResults.length, succeeded, failed });
 
   return { report, results: agentResults };
+}
+
+// ── Phase 4: Documentation Review Loop (Doc Writer → Help Desk, max 3 rounds) ──
+async function runDocPhase(rootDir, paawRoot, modelOverride, fallbackModels, effectiveModel, sendSSE) {
+  const { resolve } = await import("path");
+  const { getUndocumentedCommits, updateDocCoverage } = await import("./doc-coverage.mjs");
+  const { runGit } = await import("../routes/vibe-fs.mjs");
+  const { loadCrew } = await import("./domain-agent-registry.mjs");
+  const { runAgentLoop } = await import("./paaw-agent-loop.mjs");
+  const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
+
+  // Check for undocumented commits
+  const { commits, lastDocumented, currentHead } = await getUndocumentedCommits(rootDir, runGit);
+  if (commits.length === 0) {
+    console.log("[NightShift] Phase 4: All commits documented, skipping");
+    sendSSE("info", { message: "📝 文檔已是最新，無需更新" });
+    return { summary: "✅ 所有 commit 已有對應文件", reviewed: true, iterations: 0 };
+  }
+
+  console.log(`[NightShift] Phase 4: ${commits.length} undocumented commits since ${lastDocumented || "start"}`);
+  sendSSE("info", { message: `📝 文檔階段啟動：${commits.length} 筆未文件化 commit` });
+
+  // Get full diff for context
+  const diffRange = lastDocumented ? `${lastDocumented}..HEAD` : "HEAD~10..HEAD";
+  const diffResult = await runGit(["diff", "--stat", diffRange], rootDir);
+  const gitLogResult = await runGit(["log", "--oneline", diffRange], rootDir);
+
+  // ── Step 1: Doc Writer writes docs ──
+  const docCrew = await loadCrew("coding.doc-writer", rootDir);
+  const docModel = resolveAgentModel(rootDir, "coding.doc-writer", "nightShift", effectiveModel || "");
+  const docFallbacks = resolveAgentFallbacks(rootDir, "coding.doc-writer", fallbackModels);
+
+  const docTask = `夜班文檔掃描任務
+
+以下是尚未文件化的 commit 清單：
+
+${gitLogResult.stdout}
+
+變更統計：
+${diffResult.stdout}
+
+請依照「夜班文檔掃描模式」流程執行：
+1. 判斷哪些 commit 需要補文件
+2. 寫好文件並 git add
+3. 輸出 Doc Update Report
+
+當前 commit 範圍：${lastDocumented || "(首次)"} → ${currentHead}`;
+
+  sendSSE("info", { message: "📝 Doc Writer (Megan) 撰寫文件中..." });
+  let docOutput = "";
+  try {
+    docOutput = await runAgentLoop({
+      prompt: docTask,
+      cwd: rootDir,
+      rootDir: paawRoot,
+      systemPrompt: docCrew?.rolePrompt || "",
+      agentId: "coding.doc-writer",
+      model: docModel || effectiveModel,
+      fallbackModels: docFallbacks,
+      maxTurns: 15,
+      timeout: 0,
+    });
+    docOutput = typeof docOutput === "string" ? docOutput : JSON.stringify(docOutput);
+  } catch (err) {
+    console.error(`[NightShift] Phase 4: Doc Writer failed: ${err.message}`);
+    return { summary: `❌ Doc Writer 失敗: ${err.message}`, reviewed: false, iterations: 0 };
+  }
+  console.log(`[NightShift] Phase 4: Doc Writer done (${docOutput.length} chars)`);
+
+  // ── Step 2: Help Desk reviews (max 3 rounds) ──
+  const hdCrew = await loadCrew("coding.helpdesk", rootDir);
+  const hdModel = resolveAgentModel(rootDir, "coding.helpdesk", "nightShift", effectiveModel || "");
+  const hdFallbacks = resolveAgentFallbacks(rootDir, "coding.helpdesk", fallbackModels);
+
+  // Get staged diff for review
+  const stagedDiff = await runGit(["diff", "--cached"], rootDir);
+  let currentDocOutput = docOutput;
+  let reviewRounds = 0;
+  const maxRounds = 3;
+  let finalVerdict = "";
+
+  while (reviewRounds < maxRounds) {
+    reviewRounds++;
+    const currentStaged = await runGit(["diff", "--cached"], rootDir);
+
+    const reviewTask = `文件審核任務（第 ${reviewRounds}/${maxRounds} 輪）
+
+以下是 Doc Writer (Megan) 剛 stage 的文件變更：
+
+${currentStaged.stdout.slice(0, 12000) || "(無 staged 變更)"}
+
+Doc Writer 的報告：
+${currentDocOutput.slice(0, 2000)}
+
+請依照「文件審核模式」流程審核，輸出 Doc Review Verdict。`;
+
+    sendSSE("info", { message: `🌸 Help Desk (小春) 文件審核中...（第 ${reviewRounds} 輪）` });
+    let reviewOutput = "";
+    try {
+      reviewOutput = await runAgentLoop({
+        prompt: reviewTask,
+        cwd: rootDir,
+        rootDir: paawRoot,
+        systemPrompt: hdCrew?.rolePrompt || "",
+        agentId: "coding.helpdesk",
+        model: hdModel || effectiveModel,
+        fallbackModels: hdFallbacks,
+        maxTurns: 10,
+        timeout: 0,
+      });
+      reviewOutput = typeof reviewOutput === "string" ? reviewOutput : JSON.stringify(reviewOutput);
+    } catch (err) {
+      console.error(`[NightShift] Phase 4: Help Desk review failed: ${err.message}`);
+      break;
+    }
+    console.log(`[NightShift] Phase 4: Help Desk review round ${reviewRounds} done`);
+
+    // Check verdict
+    const passed = /verdict.*通過|✅.*通過|Verdict.*✅/i.test(reviewOutput) && !/❌|⚠️.*需修改/i.test(reviewOutput.split('\n').slice(0, 5).join(''));
+    const needsFix = /⚠️|需修改|反饋|問題/i.test(reviewOutput);
+
+    if (passed || !needsFix) {
+      finalVerdict = reviewOutput.slice(0, 500);
+      console.log(`[NightShift] Phase 4: ✅ Doc approved (round ${reviewRounds})`);
+      sendSSE("info", { message: `✅ 文件審核通過（第 ${reviewRounds} 輪）` });
+      break;
+    }
+
+    if (reviewRounds < maxRounds) {
+      // ── Send feedback to Doc Writer for fixing ──
+      sendSSE("info", { message: `📝 Doc Writer 修改文件中...（第 ${reviewRounds + 1} 輪）` });
+      const fixTask = `文件審核反饋
+
+Help Desk (小春) 審核了你的文件，以下是反饋：
+
+${reviewOutput}
+
+請根據反饋修改文件，修改後重新 git add，並輸出修正摘要。`;
+      try {
+        currentDocOutput = await runAgentLoop({
+          prompt: fixTask,
+          cwd: rootDir,
+          rootDir: paawRoot,
+          systemPrompt: docCrew?.rolePrompt || "",
+          agentId: "coding.doc-writer",
+          model: docModel || effectiveModel,
+          fallbackModels: docFallbacks,
+          maxTurns: 10,
+          timeout: 0,
+        });
+        currentDocOutput = typeof currentDocOutput === "string" ? currentDocOutput : JSON.stringify(currentDocOutput);
+      } catch (err) {
+        console.error(`[NightShift] Phase 4: Doc Writer fix failed: ${err.message}`);
+        break;
+      }
+    } else {
+      finalVerdict = reviewOutput.slice(0, 500);
+      console.log(`[NightShift] Phase 4: ⚠️ Max rounds reached, needs manual review`);
+      sendSSE("info", { message: `⚠️ 文件審核 ${maxRounds} 輪未通過，需人工確認` });
+    }
+  }
+
+  // ── Update doc coverage ──
+  updateDocCoverage(rootDir, currentHead, commits.map(c => c.split(" ")[0]));
+
+  // ── Build summary ──
+  const approved = /✅.*通過|Verdict.*✅/i.test(finalVerdict);
+  const summary = `### 📝 文檔更新報告
+
+**掃描範圍：** ${commits.length} 筆 commit${lastDocumented ? `（自 ${lastDocumented.slice(0, 8)}）` : "（首次）"}
+**審核結果：** ${approved ? "✅ 審核通過" : "⚠️ 需人工確認"}
+**審核輪數：** ${reviewRounds}/${maxRounds}
+
+**Doc Writer 摘要：**
+${currentDocOutput.slice(0, 1000)}
+
+**Help Desk 審核：**
+${finalVerdict || "(未產生審核結果)"}
+
+${reviewRounds >= maxRounds && !approved ? "⚠️ **此文件變更需要人工審核後再 push。**" : ""}`;
+
+  console.log(`[NightShift] Phase 4: Done (${approved ? "approved" : "manual"}, ${reviewRounds} rounds)`);
+  return { summary, reviewed: approved, iterations: reviewRounds };
 }
 
 // ── Report Generators ──

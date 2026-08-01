@@ -13,7 +13,7 @@ import { normalizePath, PAAW_ROOT, DATA_ROOT, PORT } from "./shared.mjs";
 const CODE_REVIEW_PROMPT_PATH = resolve(PAAW_ROOT, "data/ai-settings/coding/code-review.md");
 
 // ── Helper: run git command ──
-async function runGit(args, cwd) {
+export async function runGit(args, cwd) {
   return new Promise((resolve) => {
     const child = spawn("git", args, { cwd, timeout: 15000 });
     let stdout = "", stderr = "";
