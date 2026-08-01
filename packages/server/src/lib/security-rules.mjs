@@ -17,7 +17,7 @@ export const SECURITY_RULES = `
 
 ### 執行安全
 - **破壞性指令需確認** — rm -rf、git push --force、DROP TABLE、truncate、大量刪檔等操作，必須先說明影響範圍，等使用者明確同意才執行
-- **不自動 push** — git push 必須由人類觸發，agent 完成後只 commit
+- **不自動 commit 或 push** — agent 完成後只 git add（stage），commit 和 push 必須由人類觸發
 - **不修改 git 設定** — 不要改 .git/config、不要 reset/rebase 已有 commit
 - **暫存檔案只寫 .paaw/tmp/** — 不在 src/ lib/ packages/ 等正式目錄寫 scratch file
 

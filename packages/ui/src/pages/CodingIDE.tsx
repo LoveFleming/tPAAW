@@ -2995,37 +2995,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     })()}
                     {/* Generic test endpoints */}
                     {projectApiExamples.length === 0 && projectApis.length === 0 && (
-                      <span className="text-xs text-stone-400 italic">No project APIs found — run CU init first</span>
+                      <span className="text-xs text-stone-400 italic">No project APIs found — agent 寫 API 時會自動產生 sample</span>
                     )}
-                    <div className="w-px h-4 bg-stone-200 mx-1" />
-                    {[
-                      { label: "JSONPlaceholder", url: "https://jsonplaceholder.typicode.com/posts/1", method: "GET" },
-                      { label: "HTTPBin", url: "https://httpbin.org/get", method: "GET" },
-                      { label: "⚡ LLM Stream", url: "", method: "POST", stream: true },
-                    ].map(q => (
-                      <button key={q.label} onClick={() => {
-                        if (q.url) setApiUrl(q.url);
-                        setApiMethod(q.method);
-                        if (q.stream) {
-                          setApiStreamMode(true);
-                          setApiHeaders([
-                            { key: "Content-Type", value: "application/json", enabled: true },
-                            { key: "Authorization", value: "Bearer YOUR_API_KEY", enabled: true },
-                          ]);
-                          setApiBody(JSON.stringify({
-                            model: "gpt-4o-mini",
-                            messages: [{ role: "user", content: "Say hello in 3 languages" }],
-                            stream: true,
-                          }, null, 2));
-                        } else {
-                          setApiStreamMode(false);
-                        }
-                      }}
-                        className={cn("text-xs px-2 py-0.5 rounded-full border transition-colors",
-                          q.stream ? "border-purple-200 text-purple-500 hover:bg-purple-50" : "border-stone-200 text-stone-500 hover:bg-stone-50 hover:border-stone-300")}>
-                        {q.label}
-                      </button>
-                    ))}
                   </div>
                   {/* URL bar */}
                   <div className="flex items-center gap-2">
