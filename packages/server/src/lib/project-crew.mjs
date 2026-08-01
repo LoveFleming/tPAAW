@@ -474,7 +474,7 @@ export function resolveAgentFallbacks(projectDir, agentId, globalFallbacks = [])
  */
 export function getDispatchableAgents(projectDir) {
   const { agents, config } = readProjectCrew(projectDir);
-  return agents
+  let result = agents
     .filter(a => a.id !== EM_CREW_ID)
     .map(a => ({
       id: a.id,
@@ -483,6 +483,23 @@ export function getDispatchableAgents(projectDir) {
       emoji: a.emoji,
       expertise: a.expertise || a.description || "",
     }));
+
+  // ── Apply EM config constraints (dispatchableAgents / blockedAgents) ──
+  try {
+    const emConfigPath = join(projectDir, '.paaw', 'em', 'config.json');
+    if (existsSync(emConfigPath)) {
+      const emConfig = JSON.parse(readFileSync(emConfigPath, 'utf-8'));
+      const { dispatchableAgents = [], blockedAgents = [] } = emConfig;
+      if (blockedAgents.length > 0) {
+        result = result.filter(a => !blockedAgents.includes(a.id));
+      }
+      if (dispatchableAgents.length > 0) {
+        result = result.filter(a => dispatchableAgents.includes(a.id));
+      }
+    }
+  } catch { /* config read error, skip filtering */ }
+
+  return result;
 }
 
 /**

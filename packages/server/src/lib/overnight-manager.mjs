@@ -94,7 +94,17 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
 async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = [], sendSSE = (() => {})) {
   const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
   const { callLLMWithRetry } = await import("./llm-utils.mjs");
-  const llm = resolveLLMConfig(rootDir, modelOverride);
+
+  // ── Read EM config for planning behavior ──
+  let emConfig = null;
+  try {
+    const { readEMConfig } = await import("./em-config.mjs");
+    emConfig = readEMConfig(rootDir);
+  } catch { /* em-config not available */ }
+
+  // Resolve planning model: EM config > param > global default
+  const planningModel = emConfig?.model?.planning || modelOverride;
+  const llm = resolveLLMConfig(rootDir, planningModel);
 
   // ── Build dynamic agent list from project crew ──
   const { getDispatchableAgents } = await import("./project-crew.mjs");
@@ -103,6 +113,48 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
     const shortId = a.id.replace(/^(coding\.|custom\.)/, "");
     return `- **${shortId}** — ${a.expertise || a.title || "(no expertise listed)"}`;
   }).join("\n");
+
+  // ── Build EM config-driven prompt sections ──
+  const strategy = emConfig?.dispatchStrategy || 'balanced';
+  const maxSubs = emConfig?.taskDecomposition?.maxSubtasks || 15;
+  const defaultEffort = emConfig?.taskDecomposition?.defaultEffort || 'S';
+  const requireEstimate = emConfig?.taskDecomposition?.requireEstimate ?? true;
+  const reportFormat = emConfig?.reporting?.format || 'summary';
+  const scope = emConfig?.planningScope || {};
+
+  // Strategy description
+  const strategyDesc = {
+    conservative: '【保守模式】只規劃，不自動執行。每項工作都要人工確認後才執行。',
+    balanced: '【平衡模式】規劃完成後等待人工確認，確認後逐一執行。',
+    aggressive: '【積極模式】規劃完成後直接執行，不需人工確認。盡量多做。',
+  }[strategy] || '【平衡模式】規劃完成後等待人工確認。';
+
+  // Planning scope sections (dynamic)
+  const scopeSections = [];
+  if (scope.gitChanges !== false) scopeSections.push(`### 1. Git Changes（程式碼變更）
+- 最近 commit 改了什麼？有沒有遺漏？
+- 有未 push 的 commit → 報告中標注，但**不指派 push**
+- 有未提交的變更 → 評估是否需要 developer 補完`);
+  if (scope.openIssues !== false) scopeSections.push(`### 2. Open Issues（已知問題）
+- 每個 open issue 都要評估是否在這次處理
+- high priority issue → 優先指派 agent 修復
+- 需要先有 architect 評估的 → 指派 architect`);
+  if (scope.openTasks !== false) scopeSections.push(`### 3. Open Tasks（待辦任務）
+- 已經建立但未完成的 task
+- 有 assignee 的 → 確認是否方向正確
+- security 類 task → 高優先級`);
+  if (scope.securityFindings !== false) scopeSections.push(`### 4. Security Findings（安全掃描）
+- WARNING+ 以上的 finding 要認真處理
+- 最常見的檔案優先修復
+- 可以一次修多個 → 一個 developer task 處理一個檔案`);
+  if (scope.codeIntelligence) scopeSections.push(`### 5. Code Intelligence（程式碼智慧）
+- 分析模組依賴關係和架構風險
+- 複雜度過高的函式 → 指派 architect 評估`);
+  if (scope.testCoverage !== false) scopeSections.push(`### ${scope.codeIntelligence ? '6' : '5'}. Code Quality（程式碼品質）
+- 缺少測試的模組 → 指派 tester
+- 缺少文檔的功能 → 指派 doc-writer
+- 架構有風險 → 指派 architect`);
+  const scopeText = scopeSections.join('\n\n');
 
   const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (陳哲宇 Ethan)。
 
@@ -113,38 +165,18 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
 ## 可調度的 Agent 及能力
 ${agentListText}
 
-## 規劃範圍（五大面向）
+## 調度策略
+${strategyDesc}
 
-你需要統整以下五個面向來規劃工作，不要只看 git change：
+## 規劃範圍
 
-### 1. Git Changes（程式碼變更）
-- 最近 commit 改了什麼？有沒有遺漏？
-- 有未 push 的 commit → 報告中標注，但**不指派 push**
-- 有未提交的變更 → 評估是否需要 developer 補完
+你需要統整以下面向來規劃工作，不要只看 git change：
 
-### 2. Open Issues（已知問題）
-- 每個 open issue 都要評估是否在這次處理
-- high priority issue → 優先指派 agent 修復
-- 需要先有 architect 評估的 → 指派 architect
-
-### 3. Open Tasks（待辦任務）
-- 已經建立但未完成的 task
-- 有 assignee 的 → 確認是否方向正確
-- security 類 task → 高優先級
-
-### 4. Security Findings（安全掃描）
-- WARNING+ 以上的 finding 要認真處理
-- 最常見的檔案優先修復
-- 可以一次修多個 → 一個 developer task 處理一個檔案
-
-### 5. Code Quality（程式碼品質）
-- 缺少測試的模組 → 指派 tester
-- 缺少文檔的功能 → 指派 doc-writer
-- 架構有風險 → 指派 architect
+${scopeText}
 
 ## 長時間調度策略
 
-這是長時間的調度任務，一次可能要跑 8-15 項工作。規劃時注意：
+這是長時間的調度任務，一次可能要跑 ${Math.min(maxSubs, 5)}-${maxSubs} 項工作。規劃時注意：
 
 1. **批次設計** — 相關工作分在同一批次（例如 3 個 security fix 都指派給 developer）
 2. **順序相依** — 如果 A 的結果影響 B，A 要排在前面
@@ -168,10 +200,13 @@ ${agentListText}
 - ✅ "修復 packages/server/src/routes/coding.mjs 的 path traversal 風險（CWE-22）：line 1340 的 date 參數未做路徑驗證"
 
 ## 數量指引
-- 少量高品質變更：5-8 項
-- 中量例行工作：8-12 項
-- 大量累積工作：12-15 項
-- 不要超過 15 項，每項都要能切實完成
+- 上限：${maxSubs} 項（不要超過）
+- 少量高品質：${Math.min(Math.floor(maxSubs/2), 5)}-${Math.min(maxSubs-2, 8)} 項
+- 每項都要能切實完成
+${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为默认）' : ''}
+
+## 報告偏好
+- 格式：${reportFormat}${reportFormat === 'executive' ? '（簡潔决策導向）' : reportFormat === 'detailed' ? '（完整細節）' : '（摘要）'}
 
 ## 輸出格式（嚴格 JSON array，不要其他文字）
 \`\`\`json
@@ -194,7 +229,7 @@ ${agentListText}
 
   // ── LLM call with model fallback ──
   async function callWithFallback(body, opts = {}) {
-    const models = [modelOverride, ...fallbackModels].filter(Boolean);
+    const models = [planningModel, ...fallbackModels].filter(Boolean);
     if (models.length === 0) {
       const result = await callLLMWithRetry(llm.apiUrl, llm.headers, body, {
         maxRetries: 3,
@@ -235,8 +270,8 @@ ${agentListText}
       max_tokens: llm.maxTokens || 16384,
       stream: false,
     };
-    sendSSE("llm_start", { message: "📡 呼叫 LLM 規劃中...", model: llm.model || modelOverride || "default", contextLength: situationReport.length });
-    console.log(`[EM] planWorkList: calling LLM (model=${llm.model || modelOverride || "default"}, context=${situationReport.length} chars)`);
+    sendSSE("llm_start", { message: "📡 呼叫 LLM 規劃中...", model: llm.model || planningModel || "default", contextLength: situationReport.length });
+    console.log(`[EM] planWorkList: calling LLM (model=${llm.model || planningModel || "default"}, context=${situationReport.length} chars, strategy=${strategy}, maxSubs=${maxSubs})`);
     const result = await callWithFallback(body);
     const text = result?.content || "";
     console.log("[EM] planWorkList LLM response length:", text.length);
@@ -293,11 +328,21 @@ async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
 export async function planEMSession(opts = {}) {
   const { rootDir, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
 
+  // ── Read EM config for planning model ──
+  let emPlanningModel = null;
+  try {
+    const { readEMConfig } = await import("./em-config.mjs");
+    const emConfig = readEMConfig(rootDir);
+    emPlanningModel = emConfig?.model?.planning || null;
+  } catch { /* em-config not available */ }
+
+  const effectiveModel = emPlanningModel || modelOverride;
+
   console.log("[NightShift] 🎖️═══ EM Plan (no execute) ═══🎖️");
-  console.log(`[NightShift] rootDir=${rootDir}, since=${since || "today"}, model=${modelOverride || "default"}`);
+  console.log(`[NightShift] rootDir=${rootDir}, since=${since || "today"}, model=${effectiveModel || "default"}${emPlanningModel ? " (from EM config)" : ""}`);
 
   // ── Phase 0 ──
-  await runPhase0(rootDir, modelOverride, fallbackModels, sendSSE);
+  await runPhase0(rootDir, effectiveModel, fallbackModels, sendSSE);
 
   // ── Phase 1: Deterministic gathering ──
   console.log("[NightShift] ═══ Phase 1: Context Gathering ═══");
@@ -314,7 +359,7 @@ export async function planEMSession(opts = {}) {
   // ── Phase 2: LLM planning ──
   console.log("[NightShift] ═══ Phase 2: LLM Work Planning ═══");
   sendSSE("info", { message: "🧠 規劃工作清單中..." });
-  const workList = await planWorkList(situationReport, rootDir, modelOverride, fallbackModels, sendSSE);
+  const workList = await planWorkList(situationReport, rootDir, effectiveModel, fallbackModels, sendSSE);
   console.log(`[NightShift] Phase 2: EM planned ${workList.length} tasks`);
 
   return { workList, situationReport };
@@ -323,6 +368,13 @@ export async function planEMSession(opts = {}) {
 // ── EM Execute only (Phase 3-4): dispatch agents + report ──
 export async function executeEMSession(opts = {}) {
   const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+
+  // ── Read EM config for execution behavior ──
+  let emConfig = null;
+  try {
+    const { readEMConfig } = await import("./em-config.mjs");
+    emConfig = readEMConfig(rootDir);
+  } catch { /* em-config not available */ }
 
   // ── Per-agent model resolution ──
   const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
@@ -335,35 +387,80 @@ export async function executeEMSession(opts = {}) {
     return { report, workList: [], results: [] };
   }
 
-  sendSSE("plan", { workList });
+  // ── Conservative strategy: just show plan, don't execute ──
+  if (emConfig?.dispatchStrategy === 'conservative') {
+    sendSSE("info", { message: "📋 保守模式：僅顯示計畫，不自動執行。" });
+    sendSSE("plan", { workList });
+    sendSSE("done", { totalTasks: workList.length, succeeded: 0, failed: 0, skipped: true, reason: 'conservative' });
+    const report = generateEMReport(workList, [], situationReport, { skipped: true });
+    saveNightShiftReport(rootDir, report, "em");
+    return { report, workList, results: [] };
+  }
+
+  // ── Filter work list by autoExecute rules ──
+  const autoExec = emConfig?.autoExecute || {};
+  const safeWorkList = workList.filter(task => {
+    // Determine category from task content
+    const content = (task.task || '').toLowerCase();
+    let category = null;
+    if (/breaking|\bbreak\b|remove.*api|deprecat/i.test(content)) category = 'breakingChange';
+    else if (/security|vulnerability|cwe-|injection|xss|csrf/i.test(content)) category = 'securityFix';
+    else if (/refactor|rename|restructure|move.*to/i.test(content)) category = 'refactor';
+    else if (/test|coverage|spec/i.test(content)) category = 'tests';
+    else if (/doc|readme|changelog|comment/i.test(content)) category = 'docs';
+
+    if (category && !autoExec[category]) {
+      task._skipped = category;
+      return false;
+    }
+    return true;
+  });
+
+  const skippedTasks = workList.filter(t => t._skipped);
+  if (skippedTasks.length > 0) {
+    sendSSE("warning", { message: `⚠️ ${skippedTasks.length} 項工作需人工確認（${[...new Set(skippedTasks.map(t => t._skipped))].join(', ')}）`, skipped: skippedTasks.map(t => ({ agent: t.agent, task: t.task.slice(0, 80), category: t._skipped })) });
+  }
+
+  const execList = safeWorkList;
+  if (execList.length === 0) {
+    sendSSE("info", { message: "📋 所有工作都需人工確認。" });
+    sendSSE("plan", { workList });
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, skipped: true });
+    const report = generateEMReport(workList, [], situationReport, { skipped: true, skippedReasons: skippedTasks });
+    saveNightShiftReport(rootDir, report, "em");
+    return { report, workList, results: [] };
+  }
+
+  sendSSE("plan", { workList: execList, skipped: skippedTasks.length > 0 ? skippedTasks : undefined });
 
   // ── Phase 3: Deterministic execution ──
-  console.log("[NightShift] ═══ Phase 3: Agent Dispatch (serial) ═══");
+  console.log(`[NightShift] ═══ Phase 3: Agent Dispatch (serial, ${execList.length}/${workList.length} tasks) ═══`);
   const results = [];
-  for (let i = 0; i < workList.length; i++) {
-    const task = workList[i];
-    // Resolve per-agent EM model (falls back to global modelOverride)
+  for (let i = 0; i < execList.length; i++) {
+    const task = execList[i];
+    // Resolve per-agent EM model (falls back to global modelOverride or EM dispatch model)
     const crewId = task.crewId || `coding.${task.agent}`;
-    const agentModel = resolveAgentModel(rootDir, crewId, "em", modelOverride || "");
+    const dispatchModel = emConfig?.model?.dispatch || modelOverride;
+    const agentModel = resolveAgentModel(rootDir, crewId, "em", dispatchModel || "");
     const agentFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
 
-    console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
-    sendSSE("task_start", { index: i + 1, total: workList.length, ...task });
+    console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
+    sendSSE("task_start", { index: i + 1, total: execList.length, ...task });
 
     const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
       cwd: rootDir,
       timeout: 1800000,
-      modelOverride: agentModel || modelOverride,
+      modelOverride: agentModel || dispatchModel,
       fallbackModels: agentFallbacks,
     });
 
     results.push({ ...task, ...result });
 
     if (result.success) {
-      console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] ✅ ${task.agent} done (${result.content.length} chars)`);
+      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars)`);
       sendSSE("task_done", { index: i + 1, agent: task.agent, preview: result.content.slice(0, 200) });
     } else {
-      console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] ❌ ${task.agent} failed: ${result.error}`);
+      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} failed: ${result.error}`);
       sendSSE("task_error", { index: i + 1, agent: task.agent, error: result.error });
     }
   }
@@ -371,7 +468,16 @@ export async function executeEMSession(opts = {}) {
   // ── Phase 4: Report ──
   console.log("[NightShift] ═══ Phase 4: Report Generation ═══");
   sendSSE("info", { message: "📝 產生報告中..." });
-  const report = generateEMReport(workList, results, situationReport);
+  const reportOpts = {};
+  if (emConfig?.reporting) {
+    reportOpts.format = emConfig.reporting.format;
+    reportOpts.includeCodeChanges = emConfig.reporting.includeCodeChanges;
+    reportOpts.includeActionLog = emConfig.reporting.includeActionLog;
+  }
+  if (skippedTasks.length > 0) {
+    reportOpts.skipped = skippedTasks;
+  }
+  const report = generateEMReport(execList, results, situationReport, reportOpts);
   saveNightShiftReport(rootDir, report, "em");
   console.log(`[NightShift] Phase 4: Report saved (${report.length} chars)`);
   sendSSE("report", { report });
@@ -379,8 +485,8 @@ export async function executeEMSession(opts = {}) {
   await addActionLog({
     agent: "em",
     action: "decide",
-    summary: `EM session 完成：調度 ${workList.length} 項工作，成功 ${results.filter(r => r.success).length} 項`,
-    details: workList.map(w => `${w.priority}/${w.agent}: ${w.task}`).join("\n"),
+    summary: `EM session 完成：調度 ${execList.length}/${workList.length} 項工作（${skippedTasks.length} 項需人工確認），成功 ${results.filter(r => r.success).length} 項`,
+    details: [...execList.map(w => `${w.priority}/${w.agent}: ${w.task}`), ...skippedTasks.map(w => `⚠️ SKIPPED(${w._skipped})/${w.agent}: ${w.task}`)].join("\n"),
     affectedFiles: [],
     result: "adr",
     priority: "high",
@@ -388,8 +494,8 @@ export async function executeEMSession(opts = {}) {
 
   const succeeded = results.filter(r => r.success).length;
   const failed = results.filter(r => !r.success).length;
-  console.log(`[NightShift] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${workList.length} total`);
-  sendSSE("done", { totalTasks: workList.length, succeeded, failed });
+  console.log(`[NightShift] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed, ${skippedTasks.length} skipped`);
+  sendSSE("done", { totalTasks: execList.length, succeeded, failed, skipped: skippedTasks.length });
 
   return { report, workList, results };
 }
@@ -529,30 +635,57 @@ export async function runParallelSession(opts = {}) {
 
 // ── Report Generators ──
 
-function generateEMReport(workList, results, situationReport) {
+function generateEMReport(workList, results, situationReport, opts = {}) {
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const succeeded = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
+  const failed = results.filter(r => !r.success && !r._skipped).length;
+  const skipped = opts.skipped || [];
+  const format = opts.format || 'summary';
 
   let report = `# 🎖️ Engineering Manager 報告\n\n`;
   report += `**日期：** ${dateStr}\n`;
   report += `**時間：** ${now.toTimeString().slice(0, 8)}\n`;
-  report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n`;
-  report += `**模式：** EM 智慧調度\n\n---\n\n## 📊 專案現況\n\n${situationReport}\n\n---\n\n## 📋 工作清單\n\n`;
+  if (skipped.length > 0) {
+    report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ⏸️ ${skipped.length} 待確認 / ${workList.length} 執行\n`;
+  } else {
+    report += `**結果：** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${workList.length} 總計\n`;
+  }
+  report += `**模式：** EM 智慧調度${opts.skipped ? '（部分工作需人工確認）' : ''}\n\n---\n\n`;
+
+  // Executive format: skip full situation report
+  if (format !== 'executive') {
+    report += `## 📊 專案現況\n\n${situationReport}\n\n---\n\n`;
+  } else {
+    // Executive: just a one-line summary
+    report += `## 📊 摘要\n\n${workList.length} 項工作，${succeeded} 項成功。\n\n---\n\n`;
+  }
+
+  report += `## 📋 工作清單\n\n`;
 
   for (let i = 0; i < workList.length; i++) {
     const w = workList[i];
     const r = results[i];
-    const icon = r.success ? "✅" : "❌";
+    const icon = r?.success ? "✅" : (r?.error ? "❌" : "⏳");
     report += `### ${i + 1}. ${icon} [${w.priority}] ${w.agent} — ${w.task}\n`;
     if (w.reason) report += `> ${w.reason}\n`;
     report += `\n`;
-    if (r.success) {
-      report += `**結果：**\n\`\`\`\n${r.content.slice(0, 1500)}\n\`\`\`\n\n`;
-    } else {
+    if (r?.success) {
+      // Detailed format includes full output; summary/executive truncates more
+      const maxLen = format === 'detailed' ? 3000 : (format === 'executive' ? 200 : 800);
+      report += `**結果：**\n\`\`\`\n${r.content.slice(0, maxLen)}\n\`\`\`\n\n`;
+    } else if (r?.error) {
       report += `**錯誤：** ${r.error}\n\n`;
     }
+  }
+
+  // Skipped tasks section
+  if (skipped.length > 0) {
+    report += `---\n\n## ⏸️ 需人工確認的工作\n\n`;
+    for (const s of skipped) {
+      report += `- **[${s._skipped}]** ${s.agent}: ${s.task.slice(0, 120)}\n`;
+    }
+    report += `\n`;
   }
 
   report += `---\n\n*由 PAAW Engineering Manager 自動產生*\n`;
