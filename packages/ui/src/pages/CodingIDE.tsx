@@ -679,7 +679,10 @@ export default function CodingIDE() {
     const tabsToSave = mainTabs.filter(t => t.id !== DASHBOARD_TAB_ID);
     try {
       localStorage.setItem(`paaw.vibeide.tabs:${rootPath}`, JSON.stringify({ tabs: tabsToSave, activeMainTabId }));
-    } catch {}
+      console.log(`[CodingIDE] Saved ${tabsToSave.length} tabs to localStorage, active=${activeMainTabId}`, tabsToSave.map(t => `${t.type}:${t.id}`).join(", "));
+    } catch (e) {
+      console.warn(`[CodingIDE] Failed to save tabs:`, e);
+    }
   }, [mainTabs, activeMainTabId, rootPath]);
 
   // ── Restore main tabs when project loads ──
@@ -687,18 +690,27 @@ export default function CodingIDE() {
   useEffect(() => {
     if (!rootPath || tabsRestoredRef.current === rootPath) return;
     tabsRestoredRef.current = rootPath;
+    console.log(`[CodingIDE] Restore effect fired, rootPath=${rootPath}`);
     (async () => {
     try {
       const saved = localStorage.getItem(`paaw.vibeide.tabs:${rootPath}`);
+      if (!saved) {
+        console.log(`[CodingIDE] No saved tabs found in localStorage`);
+      } else {
+        console.log(`[CodingIDE] Found saved tabs data (${saved.length} chars)`);
+      }
       if (saved) {
         const { tabs: savedTabs, activeMainTabId: savedActive } = JSON.parse(saved);
+        console.log(`[CodingIDE] Parsed ${savedTabs?.length || 0} saved tabs, active=${savedActive}`);
         if (Array.isArray(savedTabs) && savedTabs.length > 0) {
           // Filter out tabs with invalid types (e.g. removed "memory" type)
           const VALID_TYPES = new Set(["editor", "viewer", "git", "api", "terminal", "ai-crew", "standards", "sessions", "decisions", "health", "em-dashboard", "prompts", "issues", "tasks", "features", "nightshift", "security", "crew-manager"]);
           const validTabs = savedTabs.filter((t: MainTab) => VALID_TYPES.has(t.type));
+          console.log(`[CodingIDE] Valid tabs after filter: ${validTabs.length}/${savedTabs.length}`, validTabs.map((t: MainTab) => `${t.type}:${t.id}`).join(", "));
           // Restore tabs (dashboard is already present)
           const existingIds = new Set(mainTabsRef.current.map(t => t.id));
           const newTabs = validTabs.filter((t: MainTab) => !existingIds.has(t.id));
+          console.log(`[CodingIDE] New tabs to restore: ${newTabs.length} (existing: ${existingIds.size})`);
           if (newTabs.length > 0) {
             setMainTabs(prev => [DASHBOARD_TAB, ...prev.filter(t => t.id !== DASHBOARD_TAB_ID), ...newTabs]);
           }
