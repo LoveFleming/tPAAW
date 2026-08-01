@@ -1,0 +1,12 @@
+{
+  "createdAt": "2026-08-01T22:30:00+08:00",
+  "agent": "coding.developer",
+  "codename": "Priya",
+  "task": "測試 staged-changes banner 顯示",
+  "summary": "📋 Work Summary\n├─ 改了什麼：packages/ui/src/pages/CodingIDE.tsx\n├─ 為什麼改：測試黃色 banner 是否正確顯示\n├─ 怎麼測試：打開 Git tab 看 banner\n└─ 風險注意：無（測試用）",
+  "files": [
+    { "path": "packages/ui/src/pages/CodingIDE.tsx", "reason": "測試 banner 顯示功能" }
+  ],
+  "howToTest": "打開 Coding App → 切到 Git tab → 看黃色 banner 有沒有顯示摘要",
+  "risk": "無（這是測試資料）"
+}

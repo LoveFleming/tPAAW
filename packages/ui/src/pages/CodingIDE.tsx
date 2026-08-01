@@ -1762,13 +1762,13 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
     if (activeMainTab?.type === "git" && rootPath) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }
   }, [activeMainTab?.type, rootPath]);
 
-  // Fetch staged-changes summary when entering git tab
+  // Fetch staged-changes summary when entering git tab or opening git panel
   useEffect(() => {
-    if (activeMainTab?.type === "git" && rootPath) {
+    if ((activeMainTab?.type === "git" || showGitPanel) && rootPath) {
       fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`)
         .then(r => r.json()).then(data => setStagedSummary(data)).catch(() => {});
     }
-  }, [activeMainTab?.type, rootPath]);
+  }, [activeMainTab?.type, rootPath, showGitPanel]);
 
   // Load git reviews when entering review tab
   useEffect(() => {
@@ -2523,7 +2523,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     </button>
                   ))}
                   <span className="flex-1" />
-                  <button onClick={() => { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
+                  <button onClick={() => { refreshGitStatus(); refreshGitLog(); loadGitDiff(); if (rootPath) fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`).then(r=>r.json()).then(data=>setStagedSummary(data)).catch(()=>{}); }} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
                 </div>
 
                 {/* ⚠️ Pending review banner — staged but not committed */}
