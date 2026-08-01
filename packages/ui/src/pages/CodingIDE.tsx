@@ -591,6 +591,20 @@ export default function CodingIDE() {
   const [aiCommitLoading, setAiCommitLoading] = useState(false);
   const [gitReviews, setGitReviews] = useState<{ id: string; ts: string; comment: string; branch?: string; files?: string[] }[]>([]);
 
+  // ── Staged Changes Summary (from agents) ──
+  interface StagedChangeSummary {
+    exists: boolean;
+    agent?: string;
+    codename?: string;
+    task?: string;
+    summary?: string;
+    files?: { path: string; reason: string }[];
+    howToTest?: string;
+    risk?: string;
+    createdAt?: string;
+  }
+  const [stagedSummary, setStagedSummary] = useState<StagedChangeSummary | null>(null);
+
   // ── API Tester State ──
   const [apiMethod, setApiMethod] = useState("GET");
   const [apiUrl, setApiUrl] = useState("");
@@ -1748,6 +1762,14 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
     if (activeMainTab?.type === "git" && rootPath) { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }
   }, [activeMainTab?.type, rootPath]);
 
+  // Fetch staged-changes summary when entering git tab
+  useEffect(() => {
+    if (activeMainTab?.type === "git" && rootPath) {
+      fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath)}`)
+        .then(r => r.json()).then(data => setStagedSummary(data)).catch(() => {});
+    }
+  }, [activeMainTab?.type, rootPath]);
+
   // Load git reviews when entering review tab
   useEffect(() => {
     if (gitTab === "review" && rootPath) {
@@ -2505,10 +2527,60 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                 </div>
 
                 {/* ⚠️ Pending review banner — staged but not committed */}
-                {gitStatus?.staged?.length > 0 && gitTab !== "review" && (
-                  <div className="px-3 py-1.5 flex items-center gap-2 text-xs bg-amber-50 border-b" style={{ borderColor: '#fcd34d' }}>
-                    <span className="text-amber-600 font-bold">⚠️ 有 {gitStatus.staged.length} 個檔案已 staged 但尚未 commit</span>
-                    <button onClick={() => { setGitTab("review"); runQaReview(); }} className="ml-auto text-amber-600 hover:text-amber-800 font-bold underline">🔬 送 QA Review</button>
+                {gitStatus?.staged?.length > 0 && (
+                  <div className="px-3 py-2 bg-amber-50 border-b space-y-1.5" style={{ borderColor: '#fcd34d' }}>
+                    {/* Line 1: status + actions */}
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-amber-600 font-bold">⚠️ 有 {gitStatus.staged.length} 個檔案已 staged 但尚未 commit</span>
+                      <span className="flex-1" />
+                      {stagedSummary?.exists && stagedSummary?.summary && (
+                        <button onClick={() => {
+                          const s = stagedSummary!;
+                          const lines = [`[${s.task || 'update'}]`];
+                          if (s.files) for (const f of s.files) lines.push(`- ${f.path}: ${f.reason}`);
+                          if (s.howToTest) lines.push('', 'Test:', s.howToTest);
+                          setGitCommitMsg(lines.join('\n'));
+                          setGitTab('status');
+                        }} className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold">📋 帶入 commit message</button>
+                      )}
+                      <button onClick={() => { setGitTab("review"); runQaReview(); }} className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold">🔬 送 QA Review</button>
+                    </div>
+                    {/* Line 2: staged summary (if exists) */}
+                    {stagedSummary?.exists && stagedSummary?.summary && (
+                      <div className="text-xs text-stone-600 leading-relaxed">
+                        <div className="flex items-start gap-1.5">
+                          <span className="text-amber-500 shrink-0 mt-0.5">📝</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-bold text-stone-700">{stagedSummary.codename || stagedSummary.agent || 'Agent'}</span>
+                            {stagedSummary.task && <span className="text-stone-400"> · {stagedSummary.task.slice(0, 80)}</span>}
+                          </div>
+                        </div>
+                        {/* File reasons */}
+                        {stagedSummary.files && stagedSummary.files.length > 0 && (
+                          <div className="mt-1 ml-5 space-y-0.5">
+                            {stagedSummary.files.map((f, i) => (
+                              <div key={i} className="text-stone-500 truncate">
+                                <span className="font-mono text-emerald-600">{f.path.split(/[\\/]/).pop()}</span>
+                                <span className="text-stone-400 mx-1">·</span>
+                                <span>{f.reason}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* How to test */}
+                        {stagedSummary.howToTest && (
+                          <div className="mt-1 ml-5 text-stone-500">
+                            <span className="font-bold">🧪 怎麼測：</span> {stagedSummary.howToTest}
+                          </div>
+                        )}
+                        {/* Risk */}
+                        {stagedSummary.risk && stagedSummary.risk !== '無' && (
+                          <div className="mt-0.5 ml-5 text-red-500">
+                            <span className="font-bold">⚠️ 風險：</span> {stagedSummary.risk}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2544,6 +2616,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         setGitActionMsg(`✅ Committed ${files.length} file(s): ${commitData.output || commitData.message}`);
                         setGitCommitMsg("");
                         setSelectedFiles(new Set());
+                        // Clear staged-changes summary
+                        try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath!)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
                         refreshGitStatus(); refreshGitLog();
                       }} disabled={selectedFiles.size === 0} className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-40">✅ Commit ({selectedFiles.size})</button>
                       {/* Commit All */}
@@ -2564,6 +2638,8 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                         setGitActionMsg(`✅ ${commitData.output || commitData.message}`);
                         setGitCommitMsg("");
                         setSelectedFiles(new Set());
+                        // Clear staged-changes summary
+                        try { await fetch(`${API_BASE}/api/coding-staged/changes?path=${encodeURIComponent(rootPath!)}`, { method: "DELETE" }); setStagedSummary(null); } catch {}
                         refreshGitStatus(); refreshGitLog();
                       }} className="text-xs px-2 py-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors">📦 All</button>
                       {/* Push */}
