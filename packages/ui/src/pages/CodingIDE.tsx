@@ -1634,11 +1634,12 @@ const sendChat = useCallback(async () => {
     try { const res = await fetch(`${API_BASE}/api/vibe-git/log?path=${encodeURIComponent(rootPath)}&count=30`); const data = await res.json(); setGitLog(data.commits || []); } catch {}
   }, [rootPath]);
 
-  const loadGitDiff = useCallback(async (file?: string, cached?: boolean) => {
+  const loadGitDiff = useCallback(async (file?: string, cached?: boolean, mode?: string) => {
     if (!rootPath) return;
     const params = new URLSearchParams({ path: rootPath });
     if (file) params.set("file", file);
     if (cached) params.set("cached", "true");
+    if (mode) params.set("mode", mode);
     try { const res = await fetch(`${API_BASE}/api/vibe-git/diff?${params}`); const data = await res.json(); setGitDiff(data.diff || ""); setGitDiffFile(file || ""); setGitDiffCached(!!cached); } catch {}
   }, [rootPath]);
 
@@ -2654,20 +2655,55 @@ const sendChat = useCallback(async () => {
                 {/* Diff View */}
                 {gitTab === "diff" && (
                   <div className="flex-1 overflow-auto">
+                    {/* Diff toolbar */}
                     <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 bg-white z-10" style={{ borderBottom: `1px solid ${tk.borderLight}` }}>
-                      <span className="text-xs font-bold text-stone-500">{gitDiffFile || tt("vibe.allChanges")}</span>
-                      <label className="flex items-center gap-1 text-xs text-stone-400 cursor-pointer">
-                        <input type="checkbox" checked={gitDiffCached} onChange={e => { setGitDiffCached(e.target.checked); loadGitDiff(gitDiffFile || undefined, e.target.checked); }} className="w-3 h-3" />
-                        Staged only
-                      </label>
+                      <div className="flex gap-0.5">
+                        <button onClick={() => { loadGitDiff(undefined, false); setGitDiffFile(""); }}
+                          className={cn("text-xs px-2 py-0.5 rounded", !gitDiffCached && !gitDiffFile ? "bg-stone-200 text-stone-700 font-bold" : "text-stone-400 hover:bg-stone-100")}>
+                          Working
+                        </button>
+                        <button onClick={() => { loadGitDiff(undefined, true); setGitDiffFile(""); }}
+                          className={cn("text-xs px-2 py-0.5 rounded", gitDiffCached ? "bg-emerald-100 text-emerald-700 font-bold" : "text-stone-400 hover:bg-stone-100")}>
+                          Staged
+                        </button>
+                        <button onClick={() => { loadGitDiff(undefined, false, "HEAD"); setGitDiffFile("__HEAD__"); }}
+                          className={cn("text-xs px-2 py-0.5 rounded", gitDiffFile === "__HEAD__" ? "bg-blue-100 text-blue-700 font-bold" : "text-stone-400 hover:bg-stone-100")}>
+                          Last Commit
+                        </button>
+                      </div>
                       <span className="flex-1" />
-                      {activeTab && <button onClick={() => loadBlame(activeTab.path)} className="text-xs px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200">{tt('vibe.gitBlameFile')}</button>}
-                      <button onClick={generateAiComment} disabled={!gitDiff} className="text-xs px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>🤖 AI Review</button>
+                      {gitDiffFile && gitDiffFile !== "__HEAD__" && !gitDiffFile.startsWith("__commit__") && <span className="text-xs text-stone-400 truncate max-w-48">{gitDiffFile}</span>}
+                      {gitDiffFile?.startsWith("__commit__") && <span className="text-xs font-mono text-stone-400">{gitDiffFile.slice(10)}</span>}
+                      <button onClick={generateAiComment} disabled={!gitDiff} className="text-xs px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>AI Review</button>
                     </div>
+
                     {gitDiff ? (
                       <DiffViewer diffText={gitDiff} />
                     ) : (
-                      <div className="flex items-center justify-center h-full text-xs text-stone-400">{tt('vibe.gitNoChanges')}</div>
+                      /* No working changes — show recent commits with click-to-diff */
+                      <div className="p-3 space-y-1">
+                        <div className="text-xs text-stone-400 mb-2">最近提交（點擊查看 diff）</div>
+                        {gitLog.length > 0 ? gitLog.slice(0, 15).map((c, i) => (
+                          <div key={c.hash} className="flex items-start gap-2 p-2 rounded hover:bg-stone-50 cursor-pointer text-xs"
+                            onClick={async () => {
+                              setGitDiffFile("__commit__" + c.hash);
+                              try {
+                                const res = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath!)}&commit=${encodeURIComponent(c.hash)}`);
+                                const data = await res.json();
+                                setGitDiff(data.diff || "");
+                              } catch {}
+                            }}>
+                            <span className="font-mono text-stone-400 shrink-0">{c.short}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-stone-700 truncate">{c.subject}</div>
+                              <div className="text-stone-400 mt-0.5">{c.author} · {fmtTime(c.date)}</div>
+                            </div>
+                            {i === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 shrink-0">HEAD</span>}
+                          </div>
+                        )) : (
+                          <div className="flex items-center justify-center h-32 text-xs text-stone-400">{tt('vibe.gitNoChanges')}</div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

@@ -131,10 +131,12 @@ export default async function vibeFsRoute(req, res) {
     const file = params.get("file") || "";
     const cached = params.get("cached") === "true";
     const commit = params.get("commit") || "";
+    const mode = params.get("mode") || ""; // "HEAD" = show last commit diff, "staged" = cached
     if (!cwd) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Missing path" })); return true; }
-    const args = ["diff"];
-    if (cached) args.push("--cached");
-    if (commit) args.push(commit);
+    const args = ["diff", "--no-color"];
+    if (commit) { args.push(commit); args.push("^!"); }
+    else if (mode === "HEAD") { args.push("HEAD~1"); args.push("HEAD"); }
+    else if (cached || mode === "staged") args.push("--cached");
     if (file) args.push("--", file);
     const r = await runGit(args, cwd);
     res.writeHead(200, { "Content-Type": "application/json" });
