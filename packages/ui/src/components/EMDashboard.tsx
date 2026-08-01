@@ -809,81 +809,96 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
     <div className="flex-1 flex min-w-0 overflow-hidden">
       {/* ════════ LEFT: EM Chat (60%) ════════ */}
       <div className="flex-1 flex flex-col min-w-0 border-r" style={{ borderColor: tk.borderLight }}>
-        {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-2.5 border-b" style={{ borderColor: tk.borderLight, backgroundColor: tk.bgMuted }}>
-          {emProfile.imageUrl ? (
-            <img src={`${API_BASE}${emProfile.imageUrl}`} className="w-7 h-7 rounded-full object-cover" style={{ border: "1px solid #8b5cf633" }} />
-          ) : (
-            <span className="text-lg">🎖️</span>
-          )}
-          <span className="text-sm font-bold text-stone-700">{emProfile.codename || "EM 大總管"}</span>
-          <span className="text-sm text-stone-400">Engineering Manager</span>
-          <div className="flex-1" />
-          <button
-            onClick={async () => {
-              try {
-                const res = await fetch(`${API_BASE}/a2a/em/system-prompt${rootPath ? `?cwd=${encodeURIComponent(rootPath)}` : ""}`);
-                const data = await res.json();
-                setEmContextDebug(data);
-                setShowEmContextDebug(true);
-              } catch (e: any) {
-                setEmContextDebug({ error: e.message });
-                setShowEmContextDebug(true);
-              }
-            }}
-            className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
-            title="查看 EM 注入的 Context & Prompts"
-          >
-            🔍
-          </button>
-          {onModelChange && (
-            <ModelSelector feature="codingIDE.emDashboard" value={model || ""} onChange={onModelChange} />
-          )}
-          {/* EM auto dispatch */}
-          <button
-            onClick={runEM}
-            disabled={emRunning}
-            className={cn("text-sm px-3 py-1 rounded-md font-bold flex items-center gap-1",
-              emRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-amber-600 text-white hover:bg-amber-700")}
-          >
-            {emRunning ? "⏳ 執行中..." : "🚀 EM 自動調度"}
-          </button>
-          <button
-            onClick={startNightShift}
-            disabled={nsRunning}
-            className={cn("text-sm px-3 py-1 rounded-md font-bold flex items-center gap-1",
-              nsRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700")}
-            title="掃描今天的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review"
-          >
-            {nsRunning ? `⏳ ${nsStatus}` : "🌙 Night Shift"}
-          </button>
-          {!nsRunning && nsStatus && <span className="text-xs text-indigo-600">{nsStatus}</span>}
-          <button
-            onClick={async () => {
-              if (messages.length <= 1) return; // only greeting, nothing to archive
-              try {
-                // Archive active conversation + start new
-                await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}/new-session?cwd=${encodeURIComponent(rootPath)}`, { method: "POST" });
-                // Reset UI
-                setMessages([{ role: "assistant", content: "🎖️ 新對話已開啟。告訴我你想做什麼！", ts: new Date().toISOString() }]);
-                setActiveSessionId("active");
-                await fetchEmSessions();
-              } catch (e: any) {
-                alert("切換新對話失敗: " + e.message);
-              }
-            }}
-            className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
-            title="將目前對話存入歷史，開啟新對話"
-          >
-            ✨ 新對話
-          </button>
-          <button
-            onClick={() => { setShowSessions(!showSessions); if (!showSessions) fetchEmSessions(); }}
-            className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
-            title="查看歷史對話"
-          >
-            📜
-          </button>
+        {/* Header — matches crew agent header layout */}
+        <div className="shrink-0 px-4 py-3 border-b relative" style={{ borderColor: tk.borderLight, background: `linear-gradient(135deg, #8b5cf611 0%, #8b5cf608 100%)` }}>
+          <div className="flex items-center gap-3">
+            {emProfile.imageUrl ? (
+              <img src={`${API_BASE}${emProfile.imageUrl}`} className="w-10 h-10 rounded-full object-cover" style={{ border: "2px solid #8b5cf644" }} />
+            ) : (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: "#8b5cf622", border: "2px solid #8b5cf644" }}>🎖️</div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-stone-800">{emProfile.codename || "EM 大總管"}</span>
+                <span className="text-[11px] text-stone-400">Engineering Manager</span>
+              </div>
+              <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">規劃工作、調度 agent、審查進度</p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {/* History button */}
+              <button
+                onClick={() => { setShowSessions(!showSessions); if (!showSessions) fetchEmSessions(); }}
+                className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                title="歷史對話"
+              >
+                📋
+              </button>
+              {/* Context debug button */}
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`${API_BASE}/a2a/em/system-prompt${rootPath ? `?cwd=${encodeURIComponent(rootPath)}` : ""}`);
+                    const data = await res.json();
+                    setEmContextDebug(data);
+                    setShowEmContextDebug(true);
+                  } catch (e: any) {
+                    setEmContextDebug({ error: e.message });
+                    setShowEmContextDebug(true);
+                  }
+                }}
+                className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors"
+                title="查看注入的 Context & Prompts"
+              >
+                🔍
+              </button>
+              {/* New conversation button */}
+              <button
+                onClick={async () => {
+                  if (messages.length <= 1) return;
+                  try {
+                    await fetch(`${API_BASE}/api/coding-crew/conversations/${encodeURIComponent(EM_CHAT_ID)}/new-session?cwd=${encodeURIComponent(rootPath)}`, { method: "POST" });
+                    setMessages([{ role: "assistant", content: "🎖️ 新對話已開啟。告訴我你想做什麼！", ts: new Date().toISOString() }]);
+                    setActiveSessionId("active");
+                    await fetchEmSessions();
+                  } catch (e: any) {
+                    alert("切換新對話失敗: " + e.message);
+                  }
+                }}
+                disabled={messages.length === 0}
+                className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30 transition-colors"
+                title="開新對話"
+              >
+                ✨
+              </button>
+              {/* Model selector */}
+              {onModelChange && (
+                <ModelSelector feature="codingIDE.emDashboard" value={model || ""} onChange={onModelChange} />
+              )}
+              {/* Divider */}
+              <div className="w-px h-5 bg-stone-200 mx-1" />
+              {/* EM-specific action buttons */}
+              <button
+                onClick={runEM}
+                disabled={emRunning}
+                className={cn("text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1",
+                  emRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-amber-600 text-white hover:bg-amber-700")}
+              >
+                {emRunning ? "⏳" : "🚀 EM"}
+              </button>
+              <button
+                onClick={startNightShift}
+                disabled={nsRunning}
+                className={cn("text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1",
+                  nsRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700")}
+                title="掃描今天的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review"
+              >
+                {nsRunning ? "⏳" : "🌙"}
+              </button>
+            </div>
+          </div>
+          {/* Night Shift status line */}
+          {!nsRunning && nsStatus && <div className="text-[11px] text-indigo-600 mt-1">{nsStatus}</div>}
+          {nsRunning && nsStatus && <div className="text-[11px] text-indigo-600 mt-1 animate-pulse">{nsStatus}</div>}
         </div>
 
         {/* EM sessions dropdown */}

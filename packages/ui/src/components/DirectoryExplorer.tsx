@@ -83,10 +83,8 @@ export default function DirectoryExplorer({
     const handleManualGo = async () => {
         const p = manualInput.trim();
         if (!p) return;
-        // Expand ~ to home directory
-        const expanded = p.startsWith("~")
-            ? (process.env.HOME || "") + p.slice(1)
-            : p;
+        // ~ expansion is handled server-side
+        const expanded = p;
         setManualError("");
         setLoading(true);
         setError("");
