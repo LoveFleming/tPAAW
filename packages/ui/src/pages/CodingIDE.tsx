@@ -43,6 +43,7 @@ import TaskBoard from "../components/TaskBoard";
 import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
 import NightShiftPanel from "../components/NightShiftPanel";
+import CrewManager from "../components/CrewManager";
 // ReportsTab removed — merged into NightShiftPanel
 import SecurityTab from "../components/SecurityTab";
 import FileViewer from "../pages/FileViewer";
@@ -68,7 +69,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "memory" | "features" | "nightshift" | "security";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "memory" | "features" | "nightshift" | "security" | "crew-manager";
 
 interface MainTab {
   id: string;
@@ -428,15 +429,38 @@ export default function CodingIDE() {
     return () => document.removeEventListener("click", handler);
   }, []);
 
-  // ── Coding Crew Definitions ──
-  const codingCrews = [
-    { id: "coding.architect", emoji: "🏛️", title: "林曉薇 架構師", mode: "chat" as const, agentId: "architect" },
-    { id: "coding.developer", emoji: "💻", title: "普里亞 Developer", mode: "chat" as const, agentId: "developer" },
-    { id: "coding.tester", emoji: "🧪", title: "迪維雅 Tester", mode: "chat" as const, agentId: "tester" },
-    { id: "coding.doc-writer", emoji: "📝", title: "梅根 Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
-    { id: "coding.helpdesk", emoji: "🌸", title: "小春 Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
-    { id: "coding.qa", emoji: "🔬", title: "武大安 QA", mode: "chat" as const, agentId: "qa" },
-  ];
+  // ── Coding Crew Definitions (dynamic from project crew API) ──
+  const [codingCrews, setCodingCrews] = useState<Array<{ id: string; emoji: string; title: string; mode: "chat"; agentId: string }>>([
+    { id: "coding.architect", emoji: "🏛️", title: "架構師", mode: "chat" as const, agentId: "architect" },
+    { id: "coding.developer", emoji: "💻", title: "Developer", mode: "chat" as const, agentId: "developer" },
+    { id: "coding.tester", emoji: "🧪", title: "Tester", mode: "chat" as const, agentId: "tester" },
+    { id: "coding.doc-writer", emoji: "📝", title: "Doc Writer", mode: "chat" as const, agentId: "doc-writer" },
+    { id: "coding.helpdesk", emoji: "🌸", title: "Helpdesk", mode: "chat" as const, agentId: "helpdesk" },
+    { id: "coding.qa", emoji: "🔬", title: "QA", mode: "chat" as const, agentId: "qa" },
+  ]);
+
+  // Refresh coding crew from API when rootPath changes
+  const refreshCodingCrew = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-project/crew?path=${encodeURIComponent(rootPath)}`);
+      const data = await res.json();
+      if (data.agents && Array.isArray(data.agents)) {
+        const crews = data.agents
+          .filter((a: any) => a.id !== "coding.em")
+          .map((a: any) => ({
+            id: a.id,
+            emoji: a.emoji || "🤖",
+            title: `${a.codename || a.title || a.id}`,
+            mode: "chat" as const,
+            agentId: a.id.replace(/^(coding\.|custom\.)/, ""),
+          }));
+        setCodingCrews(crews);
+      }
+    } catch {}
+  }, [rootPath]);
+
+  useEffect(() => { refreshCodingCrew(); }, [refreshCodingCrew]);
 
   // ── EM Orchestration State ──
   const [emRunning, setEmRunning] = useState(false);
@@ -2090,6 +2114,12 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:nightshift") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:nightshift" ? tk.toolbarActive : "transparent"; }}
           title={tt("nightShift.title")}>🌙 Night Shift</button>
+        <button onClick={() => openMainTab({ id: "tool:crew", type: "crew-manager", label: "AI Crew", icon: "👥", closable: true })}
+          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
+          style={{ backgroundColor: activeMainTab?.id === "tool:crew" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:crew") ? tk.toolbarText : tk.toolbarTextMuted }}
+          onMouseEnter={e => { if (activeMainTab?.id !== "tool:crew") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:crew" ? tk.toolbarActive : "transparent"; }}
+          title="AI Crew 管理">👥 AI Crew</button>
         <button onClick={() => openMainTab({ id: "tool:security", type: "security", label: "Security", icon: "🔒", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:security" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:security") ? tk.toolbarText : tk.toolbarTextMuted }}
@@ -3314,6 +3344,18 @@ const sendChat = useCallback(async () => {
                     }
                   }}
                   agentBusy={(agentId: string) => !!crewAgentRunning[`coding.${agentId}`]}
+                />
+              </div>
+            )}
+
+            {/* === Crew Manager Tab === */}
+            {mainTabs.some(t => t.type === "crew-manager") && rootPath && (
+              <div key="tool:crew" className="flex-1 flex flex-col min-w-0"
+                style={{ display: activeMainTab?.type === "crew-manager" ? undefined : "none" }}>
+                <CrewManager
+                  rootPath={rootPath}
+                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, border: tk.borderInput, accent: tk.accent, accentLight: tk.accentLight, accentText: tk.accentText, text: tk.textPrimary }}
+                  onCrewChanged={refreshCodingCrew}
                 />
               </div>
             )}
