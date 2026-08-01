@@ -405,8 +405,36 @@ export const PAAW_TOOLS = [
         },
       },
     },
-
-  // ── Project Knowledge Tool (unified — replaces 14 separate project_* tools) ──
+    // ── Staged Summary Tool (for agents to record why they staged files) ──
+    {
+      type: "function",
+      function: {
+        name: "staged_summary",
+        description: "記錄你剛才 git add 了什麼、為什麼、怎麼測試。每次 git add 後必須呼叫此工具。人類和 QA Agent 會在 Git tab 看到這份摘要。",
+        parameters: {
+          type: "object",
+          properties: {
+            task: { type: "string", description: "原始任務描述（人類叫你做什麼）" },
+            summary: { type: "string", description: "Work Summary 完整內容" },
+            files: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  path: { type: "string", description: "檔案路徑" },
+                  reason: { type: "string", description: "這個檔案為什麼改，一句話" },
+                },
+                required: ["path", "reason"],
+              },
+              description: "你改了哪些檔案 + 每個檔案為什麼改",
+            },
+            howToTest: { type: "string", description: "具體測試步驟，讓非寫碼的人也能照著做" },
+            risk: { type: "string", description: "風險注意，沒有寫「無」" },
+          },
+          required: ["task", "summary", "files", "howToTest"],
+        },
+      },
+    },
   {
     type: "function",
     function: {
@@ -610,6 +638,9 @@ const TOOL_GROUP_MAP = {
 
   // Decision & changelog
   record_decision: "decisions", docs: "decisions",
+
+  // Staged summary (agents record why they staged files)
+  staged_summary: "core",
 
   // Project Info — unified tool (replaces 14 separate project_* read tools)
   project_info: "project",
@@ -1331,6 +1362,29 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       }
 
       // ══════════════════════════════════════════
+      // ── Staged Summary Tool ──
+      case "staged_summary": {
+        try {
+          const summaryPath = join(cwd, ".paaw", "staged-changes.json");
+          const summaryData = {
+            createdAt: new Date().toISOString(),
+            agent: agentId || "unknown",
+            task: args.task || "",
+            summary: args.summary || "",
+            files: args.files || [],
+            howToTest: args.howToTest || "",
+            risk: args.risk || "無",
+          };
+          await mkdir(dirname(summaryPath), { recursive: true });
+          await writeFile(summaryPath, JSON.stringify(summaryData, null, 2) + "\n", "utf-8");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `Staged summary saved to .paaw/staged-changes.json (${summaryData.files.length} files)` });
+          return `✅ Staged summary saved. ${summaryData.files.length} files recorded.\nHuman will see this in Git tab.`;
+        } catch (err) {
+          return `Error saving staged summary: ${err.message}`;
+        }
+      }
+
+      // ══════════════════════════════════════════
       // ── Project Knowledge Read Tools (structured .paaw/ access) ──
       // ── Unified project_info handler ──
       case "project_info": {
@@ -1944,7 +1998,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
       }
 
       default:
-        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, memory_add, memory_update. Do NOT use chat tools like app_create/app_edit/app_list — use write_file to create files instead.`;
+        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, memory_add, memory_update, task_create, task_update, task_list, dispatch_agent. Do NOT use chat tools like app_create/app_edit/app_list — use write_file to create files instead.`;
         if (onEvent) onEvent({ type: "tool_end", name, result: unknownMsg });
         return unknownMsg;
     }
