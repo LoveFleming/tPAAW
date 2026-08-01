@@ -96,6 +96,14 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
   const { callLLMWithRetry } = await import("./llm-utils.mjs");
   const llm = resolveLLMConfig(rootDir, modelOverride);
 
+  // ── Build dynamic agent list from project crew ──
+  const { getDispatchableAgents } = await import("./project-crew.mjs");
+  const dispatchable = getDispatchableAgents(rootDir);
+  const agentListText = dispatchable.map(a => {
+    const shortId = a.id.replace(/^(coding\.|custom\.)/, "");
+    return `- **${shortId}** — ${a.expertise || a.title || "(no expertise listed)"}`;
+  }).join("\n");
+
   const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (陳哲宇 Ethan)。
 
 ## 你的角色
@@ -103,12 +111,7 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
 你不寫程式、不跑測試。你規劃、分配、追蹤。
 
 ## 可調度的 Agent 及能力
-- **architect** — 架構審查、技術決策（ADR）、風險評估、模組邊界規劃
-- **developer** — 寫程式、修 bug、refactor、實作功能、全端開發
-- **tester** — 撰寫單元測試/整合測試/E2E、跑測試、覆蓋率分析
-- **doc-writer** — 寫 README、API docs、changelog、技術文件
-- **qa** — Code review、品質把關、安全性檢查、issue 追蹤
-- **helpdesk** — 技術支援、排查問題、操作指引
+${agentListText}
 
 ## 規劃範圍（五大面向）
 
@@ -321,6 +324,9 @@ export async function planEMSession(opts = {}) {
 export async function executeEMSession(opts = {}) {
   const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
 
+  // ── Per-agent model resolution ──
+  const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
+
   if (!workList || workList.length === 0) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
     const report = generateEMReport([], [], situationReport);
@@ -336,13 +342,19 @@ export async function executeEMSession(opts = {}) {
   const results = [];
   for (let i = 0; i < workList.length; i++) {
     const task = workList[i];
-    console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] → ${task.agent}: ${task.task.slice(0, 80)}...`);
+    // Resolve per-agent EM model (falls back to global modelOverride)
+    const crewId = task.crewId || `coding.${task.agent}`;
+    const agentModel = resolveAgentModel(rootDir, crewId, "em", modelOverride || "");
+    const agentFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
+
+    console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
     sendSSE("task_start", { index: i + 1, total: workList.length, ...task });
 
     const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
       cwd: rootDir,
       timeout: 1800000,
-      modelOverride,
+      modelOverride: agentModel || modelOverride,
+      fallbackModels: agentFallbacks,
     });
 
     results.push({ ...task, ...result });
@@ -418,12 +430,29 @@ export async function runParallelSession(opts = {}) {
   const agentRoles = Object.entries(prompts);
   sendSSE("info", { message: `🚀 啟動 ${agentRoles.length} 個 agent...` });
 
+  // ── Per-agent model resolution ──
+  const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
+  const { readProjectCrew } = await import("./project-crew.mjs");
+
+  // Build dynamic crew labels from project crew
+  const { agents: crewAgents } = readProjectCrew(PAAW_ROOT);
+  const dynamicCrewLabels = {};
+  for (const a of crewAgents) {
+    const shortId = a.id.replace(/^(coding\.|custom\.)/, "");
+    dynamicCrewLabels[shortId] = `${a.emoji || "🤖"} ${a.codename || shortId}`;
+  }
+
   const effectiveModel = modelOverride || undefined;
 
   const results = await Promise.allSettled(agentRoles.map(async ([role, config]) => {
-    const crewFile = join(PAAW_ROOT, "data", "crews", `${config.crewId}.json`);
-    let crew = null;
-    try { crew = JSON.parse(readFileSync(crewFile, "utf-8")); } catch {}
+    const crewId = config.crewId || `coding.${role}`;
+    // Resolve per-agent nightShift model
+    const nsModel = resolveAgentModel(rootDir, crewId, "nightShift", effectiveModel || "");
+    const nsFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
+
+    // Load crew from project layer (overrides global)
+    const { loadCrew } = await import("./domain-agent-registry.mjs");
+    const crew = await loadCrew(crewId, rootDir);
 
     const fileList = ctx.changedFiles.map(f => `- ${f}`).join("\n");
     const taskPrompt = (config.task || "")
@@ -438,6 +467,8 @@ export async function runParallelSession(opts = {}) {
     try { actionLogText = (await listActionLog(rootDir, 5)).map(e => `- ${e.agentId}: ${e.action}`).join("\n"); } catch {}
 
     const systemPrompt = (crew?.rolePrompt || "") +
+      (crew?.expertise ? `\n\n## 專業範圍\n${crew.expertise}` : "") +
+      (crew?.guardrails?.redirectRules ? `\n\n## 護欄\n### 轉介規則\n${crew.guardrails.redirectRules}` : "") +
       (memoryText ? `\n\n## Your Long-term Memory\n${memoryText}` : "") +
       (actionLogText ? `\n\n## Recent Action Log\n${actionLogText}` : "");
 
@@ -448,7 +479,8 @@ export async function runParallelSession(opts = {}) {
         rootDir: PAAW_ROOT,
         systemPrompt,
         agentId: config.crewId,
-        model: effectiveModel,
+        model: nsModel || effectiveModel,
+        fallbackModels: nsFallbacks,
         maxTurns: 15,
         timeout: 0, // no timeout — let agent complete task
         onEvent: (event) => {
@@ -468,13 +500,13 @@ export async function runParallelSession(opts = {}) {
       return {
         role,
         status: "completed",
-        codename: crew?.codename,
+        codename: crew?.codename || dynamicCrewLabels[role]?.replace(/^[^ ]+ /, "") || role,
         result: typeof result === "string" ? result.slice(-500) : "ok",
         report: agentReport.slice(0, 2000) || (typeof result === "string" ? result.slice(-500) : "done"),
       };
     } catch (err) {
       console.error(`[NightShift:${role}] failed:`, err.message);
-      return { role, status: "failed", codename: crew?.codename, error: err.message };
+      return { role, status: "failed", codename: crew?.codename || role, error: err.message };
     }
   }));
 
@@ -482,7 +514,7 @@ export async function runParallelSession(opts = {}) {
   sendSSE("info", { message: "📝 產生報告中..." });
   const agentResults = results.map(r => r.status === "fulfilled" ? r.value : { role: "unknown", status: "failed", error: r.reason?.message });
   console.log(`[NightShift] Phase 2: Results: ${agentResults.filter(r => r.status === "completed").length}✅ ${agentResults.filter(r => r.status === "failed").length}❌`);
-  const report = generateParallelReport(agentResults, ctx);
+  const report = generateParallelReport(agentResults, ctx, dynamicCrewLabels);
   saveNightShiftReport(rootDir, report, "parallel");
   console.log(`[NightShift] Phase 3: Report saved (${report.length} chars)`);
   sendSSE("report", { report });
@@ -527,16 +559,16 @@ function generateEMReport(workList, results, situationReport) {
   return report;
 }
 
-function generateParallelReport(agentResults, ctx) {
+function generateParallelReport(agentResults, ctx, dynamicLabels = null) {
   const now = new Date();
-  const crewLabels = {
-    architect: "🏛️ 林曉薇 (Architect)",
-    developer: "💻 Priya (Developer)",
-    tester: "🧪 Divya (Tester)",
-    "doc-writer": "📝 Megan (Doc Writer)",
-    qa: "🔍 武大安 (QA)",
-    helpdesk: "🎫 小春 (Helpdesk)",
-  };
+
+  // Use dynamic labels if provided, otherwise build from results
+  const crewLabels = dynamicLabels || {};
+  if (Object.keys(crewLabels).length === 0) {
+    for (const r of agentResults) {
+      if (!crewLabels[r.role]) crewLabels[r.role] = `🤖 ${r.codename || r.role}`;
+    }
+  }
 
   const succeeded = agentResults.filter(r => r.status === "completed").length;
   const failed = agentResults.filter(r => r.status === "failed").length;
