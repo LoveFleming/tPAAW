@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-08-01
+### changed
+- Please use skill translate with user inputs from _cron_inputs.json (1 new file)
+
+
+
+### changed
+- +9 −1 lines across 6 files
+
 ## 2026-07-31
 ### changed
 - Please use skill translate with user inputs from _cron_inputs.json (1 new file)

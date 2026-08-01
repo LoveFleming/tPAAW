@@ -16,6 +16,7 @@ import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { SECURITY_RULES } from "./security-rules.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -353,6 +354,9 @@ export async function buildSystemPrompt(agentId, opts = {}) {
       parts.push(`\n## 護欄\n${lines.join("\n")}`);
     }
   }
+
+  // 1c. Security rules (injected into every agent)
+  parts.push(SECURITY_RULES);
 
   // 2. Context from providers
   const { contextProviders = {} } = await import("./context-providers.mjs");

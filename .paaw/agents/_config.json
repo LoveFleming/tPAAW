@@ -17,8 +17,30 @@
       "fallbacks": [],
       "emModel": "",
       "nightShiftModel": ""
+    },
+    "coding.tester": {
+      "primary": "",
+      "fallbacks": [],
+      "emModel": "",
+      "nightShiftModel": ""
+    },
+    "coding.helpdesk": {
+      "primary": "openrouter/deepseek/deepseek-v4-flash",
+      "fallbacks": [
+        "zai/glm-5"
+      ],
+      "emModel": "zai/glm-5.1",
+      "nightShiftModel": "openrouter/deepseek/deepseek-v4-flash"
     }
   },
-  "skillBindings": {},
+  "skillBindings": {
+    "coding.architect": [
+      "translate",
+      "help-desk"
+    ],
+    "coding.helpdesk": [
+      "translate"
+    ]
+  },
   "contextOverrides": {}
 }

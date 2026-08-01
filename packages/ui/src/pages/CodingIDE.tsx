@@ -3097,6 +3097,20 @@ const sendChat = useCallback(async () => {
                     agentAction={agentAction}
                     activeTools={agentToolLog.map(t => ({ name: t.name, status: t.result !== "..." ? "done" as const : "running" as const }))}
                     endRef={chatEndRef}
+                    assignableAgents={codingCrews
+                      .filter(c => c.id !== activeCrew)
+                      .map(c => ({ id: c.id, emoji: c.emoji, title: c.title }))
+                    }
+                    onAssignToAgent={(agentId, messageContent) => {
+                      // Switch to target crew tab and pre-fill input with the message
+                      const targetCrew = codingCrews.find(c => c.id === agentId);
+                      if (targetCrew) {
+                        setActiveCrew(targetCrew.id);
+                        setChatMode(targetCrew.mode);
+                        openMainTab({ id: `crew:${targetCrew.id}`, type: "ai-crew", label: targetCrew.title, icon: targetCrew.emoji || "🤖", closable: true, crewId: targetCrew.id });
+                        setChatInput(`> ${messageContent.slice(0, 500)}${messageContent.length > 500 ? "..." : ""}`);
+                      }
+                    }}
                   />
                 </div>
 

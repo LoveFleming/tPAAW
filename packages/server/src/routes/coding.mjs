@@ -65,6 +65,7 @@ function cuLog(step, msg) {
 
 // Shared agent rules
 import { AGENT_RULES } from "../lib/agent-rules.mjs";
+import { SECURITY_RULES } from "../lib/security-rules.mjs";
 import { resolveDefaultModel } from "../lib/llm-utils.mjs";
 
 // ── Running agent tracking (for busy check + interrupt) ──
@@ -280,6 +281,7 @@ export default async function projectRoute(req, res) {
         } catch {}
       }
       extraContext.push(AGENT_RULES);
+      extraContext.push(SECURITY_RULES);
       const fullSystemPrompt = systemPrompt + extraContext.join("");
 
       // Build messages array with conversation history
@@ -487,6 +489,7 @@ export default async function projectRoute(req, res) {
       if (agentMemoryText) extraContext.push(`\n## Your Long-term Memory\n${agentMemoryText}`);
 
       extraContext.push(AGENT_RULES);
+      extraContext.push(SECURITY_RULES);
       const fullSystemPrompt = systemPrompt + extraContext.join("");
 
       const messages = [

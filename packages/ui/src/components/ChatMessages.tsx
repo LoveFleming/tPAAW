@@ -32,6 +32,12 @@ export interface ChatMessageItem {
   [k: string]: any;
 }
 
+export interface AssignableAgent {
+  id: string;
+  emoji?: string;
+  title: string;
+}
+
 export interface ChatMessagesProps {
   messages: ChatMessageItem[];
   /** Accent color for avatars, buttons, etc. */
@@ -61,6 +67,10 @@ export interface ChatMessagesProps {
   endRef?: React.RefObject<HTMLDivElement>;
   /** Additional class name for the container */
   className?: string;
+  /** Agents that can be assigned via right-click */
+  assignableAgents?: AssignableAgent[];
+  /** Called when user right-clicks a message and picks an agent */
+  onAssignToAgent?: (agentId: string, messageContent: string) => void;
 }
 
 // ── Helpers ──
@@ -192,8 +202,48 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   onDeepLink,
   endRef,
   className = "",
+  assignableAgents = [],
+  onAssignToAgent,
 }) => {
   const mdComponents = markdownComponents(accent, onDeepLink);
+
+  // ── Right-click context menu state ──
+  const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number; msg: ChatMessageItem } | null>(null);
+  const [showAgentPicker, setShowAgentPicker] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!ctxMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setCtxMenu(null);
+        setShowAgentPicker(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setCtxMenu(null); setShowAgentPicker(false); }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [ctxMenu]);
+
+  const handleMessageContextMenu = (e: React.MouseEvent, msg: ChatMessageItem) => {
+    if (!onAssignToAgent || assignableAgents.length === 0) return;
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, msg });
+  };
+
+  const handlePickAgent = (agentId: string) => {
+    if (ctxMenu && onAssignToAgent) {
+      onAssignToAgent(agentId, ctxMenu.msg.content);
+    }
+    setCtxMenu(null);
+    setShowAgentPicker(false);
+  };
 
   return (
     <div className={`w-full px-4 py-4 space-y-3 ${className}`}>
@@ -227,7 +277,9 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                   )}
                 </div>
                 {/* Content */}
-                <div className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${
+                <div
+                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                  className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${
                   msg.role === "assistant"
                     ? msg._thinking
                       ? "bg-stone-50 border border-stone-200 text-stone-500 italic"
@@ -310,6 +362,55 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
       )}
 
       {endRef && <div ref={endRef} />}
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 min-w-[180px] bg-white rounded-lg shadow-lg border border-stone-200 py-1"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        >
+          {!showAgentPicker ? (
+            <>
+              <button
+                onClick={() => setShowAgentPicker(true)}
+                className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-blue-50 flex items-center gap-2"
+              >
+                <span>📤</span>
+                <span>指派給 Agent...</span>
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(ctxMenu.msg.content);
+                  setCtxMenu(null);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2"
+              >
+                <span>📋</span>
+                <span>複製文字</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-xs font-semibold text-stone-400 border-b border-stone-100">
+                指派給 Agent
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                {assignableAgents.map((agent) => (
+                  <button
+                    key={agent.id}
+                    onClick={() => handlePickAgent(agent.id)}
+                    className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-blue-50 flex items-center gap-2"
+                  >
+                    <span className="text-base">{agent.emoji || "🤖"}</span>
+                    <span>{agent.title}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
