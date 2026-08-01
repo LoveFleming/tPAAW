@@ -1461,6 +1461,113 @@ const sendChat = useCallback(async () => {
     setTimeout(() => sendChat(), 0);
   }, [sendChat]);
 
+  // ── Assign message to another agent: switch crew + auto-send ──
+  const assignToAgent = useCallback(async (agentId: string, messageContent: string) => {
+    const targetCrew = codingCrews.find(c => c.id === agentId);
+    if (!targetCrew) return;
+
+    const quotedContent = `> ${messageContent.slice(0, 500)}${messageContent.length > 500 ? "..." : ""}\n\n請幫我處理以上內容。`;
+    const userMsg: ChatMessage = { role: "user", content: quotedContent, ts: new Date().toISOString() };
+
+    // 1. Switch crew + tab
+    setActiveCrew(targetCrew.id);
+    setChatMode(targetCrew.mode);
+    openMainTab({ id: `crew:${targetCrew.id}`, type: "ai-crew", label: targetCrew.title, icon: targetCrew.emoji || "🤖", closable: true, crewId: targetCrew.id });
+
+    // 2. Add message to target crew's conversation
+    setCrewConversations(prev => ({
+      ...prev,
+      [targetCrew.id]: [...(prev[targetCrew.id] || []), userMsg],
+    }));
+
+    // 3. Send to target agent via A2A
+    const CREW_TO_AGENT: Record<string, string> = {
+      "coding.architect": "architect",
+      "coding.helpdesk": "helpdesk",
+      "coding.developer": "developer",
+      "coding.tester": "tester",
+      "coding.doc-writer": "doc-writer",
+      "coding.qa": "qa",
+      "coding.em": "em",
+    };
+    const a2aAgentId = CREW_TO_AGENT[targetCrew.id] || targetCrew.id.replace(/^coding\./, "");
+    const modelForCrew = crewModels[targetCrew.id] || "";
+
+    setCrewAgentRunning(prev => ({ ...prev, [targetCrew.id]: true }));
+    setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "thinking" }));
+
+    try {
+      const res = await fetch(`${API_BASE}/a2a/${a2aAgentId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "message/stream",
+          params: {
+            message: { role: "user", parts: [{ type: "text", text: quotedContent }] },
+            context: { cwd: rootPath || undefined },
+            metadata: modelForCrew ? { model: modelForCrew } : undefined,
+            conversationHistory: (crewConversations[targetCrew.id] || []).map(({ _greeting, ...rest }: any) => rest),
+          },
+          id: `assign-${Date.now()}`,
+        }),
+      });
+
+      if (!res.ok || !res.body) {
+        const errText = await res.text();
+        setCrewConversations(prev => ({
+          ...prev,
+          [targetCrew.id]: [...(prev[targetCrew.id] || []), { role: "assistant", content: `❌ Agent error: ${errText.slice(0, 200)}`, ts: new Date().toISOString() }],
+        }));
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let finalContent = "";
+      let buffer = "";
+
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.type === "thinking") {
+              setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "thinking" }));
+            } else if (evt.type === "tool_call") {
+              setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: `tool:${evt.name || "?"}` }));
+            } else if (evt.type === "tool_result") {
+              setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "thinking" }));
+            } else if (evt.type === "content" || evt.type === "text") {
+              finalContent += evt.text || evt.content || "";
+            } else if (evt.type === "done" || evt.type === "complete") {
+              finalContent += evt.text || evt.content || evt.result?.content || "";
+            }
+          } catch {}
+        }
+      }
+
+      const reply = finalContent.trim() || "(已完成，無輸出)";
+      setCrewConversations(prev => ({
+        ...prev,
+        [targetCrew.id]: [...(prev[targetCrew.id] || []), { role: "assistant", content: reply, ts: new Date().toISOString() }],
+      }));
+    } catch (err: any) {
+      setCrewConversations(prev => ({
+        ...prev,
+        [targetCrew.id]: [...(prev[targetCrew.id] || []), { role: "assistant", content: `❌ 指派失敗: ${err.message}`, ts: new Date().toISOString() }],
+      }));
+    } finally {
+      setCrewAgentRunning(prev => ({ ...prev, [targetCrew.id]: false }));
+      setCrewAgentAction(prev => ({ ...prev, [targetCrew.id]: "" }));
+    }
+  }, [codingCrews, rootPath, crewConversations, crewModels, openMainTab]);
+
   const handleChatKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (composingRef.current || e.nativeEvent.isComposing || e.keyCode === 229) return; // IME guard
     if (e.key === "Enter" && !e.shiftKey) {
@@ -3094,16 +3201,7 @@ const sendChat = useCallback(async () => {
                       .filter(c => c.id !== activeCrew)
                       .map(c => ({ id: c.id, emoji: c.emoji, title: c.title }))
                     }
-                    onAssignToAgent={(agentId, messageContent) => {
-                      // Switch to target crew tab and pre-fill input with the message
-                      const targetCrew = codingCrews.find(c => c.id === agentId);
-                      if (targetCrew) {
-                        setActiveCrew(targetCrew.id);
-                        setChatMode(targetCrew.mode);
-                        openMainTab({ id: `crew:${targetCrew.id}`, type: "ai-crew", label: targetCrew.title, icon: targetCrew.emoji || "🤖", closable: true, crewId: targetCrew.id });
-                        setChatInput(`> ${messageContent.slice(0, 500)}${messageContent.length > 500 ? "..." : ""}`);
-                      }
-                    }}
+                    onAssignToAgent={(agentId, messageContent) => assignToAgent(agentId, messageContent)}
                   />
                 </div>
 
