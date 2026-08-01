@@ -583,8 +583,7 @@ export default function CodingIDE() {
   const [gitDiffCached, setGitDiffCached] = useState(false);
   const [blameData, setBlameData] = useState<BlameLine[] | null>(null);
   const [blameFile, setBlameFile] = useState("");
-  const [aiComment, setAiComment] = useState("");
-  const [aiCommentLoading, setAiCommentLoading] = useState(false);
+
   const [gitTab, setGitTab] = useState<"status" | "log" | "diff" | "blame" | "review">("status");
   const [gitCommitMsg, setGitCommitMsg] = useState("");
   const [gitActionMsg, setGitActionMsg] = useState<string | null>(null);
@@ -1648,36 +1647,97 @@ const sendChat = useCallback(async () => {
     try { const res = await fetch(`${API_BASE}/api/vibe-git/blame?path=${encodeURIComponent(rootPath)}&file=${encodeURIComponent(filePath)}`); const data = await res.json(); setBlameData(data.lines || []); setBlameFile(filePath); setGitTab("blame"); setActiveSubPanel("blame"); } catch {}
   }, [rootPath]);
 
-  const generateAiComment = useCallback(async () => {
+  // ── QA Code Review: send staged diff to QA agent (武大安) ──
+  const [qaReviewLoading, setQaReviewLoading] = useState(false);
+  const [qaReview, setQaReview] = useState("");
+  const runQaReview = useCallback(async () => {
     if (!rootPath) return;
-    setAiCommentLoading(true);
-    setAiComment("");
+    setQaReviewLoading(true);
+    setQaReview("");
+    setGitTab("review");
     try {
-      // Auto-load diff if not available
-      let currentDiff = gitDiff;
-      if (!currentDiff) {
-        const diffRes = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
+      // Get staged diff (fallback to working diff)
+      let diffText = gitDiff;
+      if (!diffText) {
+        const diffRes = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}&cached=true`);
         const diffData = await diffRes.json();
-        currentDiff = diffData.diff || "";
-        setGitDiff(currentDiff);
+        diffText = diffData.diff || "";
       }
-      const res = await fetch(`${API_BASE}/api/vibe-git/ai-comment?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ diff: currentDiff, commits: gitLog.slice(0, 5), context: activeTab ? `Current file: ${activeTab.path}` : "" }),
+      if (!diffText) {
+        const diffRes = await fetch(`${API_BASE}/api/vibe-git/diff?path=${encodeURIComponent(rootPath)}`);
+        diffText = (await diffRes.json()).diff || "";
+      }
+      // Build review request for QA agent
+      const fileList = gitStatus?.staged?.map(f => f.path).join(", ") || gitStatus?.all?.map(f => f.path).join(", ") || "";
+      const reviewTask = `請 review 以下 staged diff，這是另一個 agent 剛完成的變更。
+
+**變更檔案：** ${fileList}
+**分支：** ${gitStatus?.branch || "unknown"}
+
+**Diff：**
+\n${'```'}diff
+${diffText.slice(0, 12000)}
+${'```'}\n
+請檢查：
+1. ⚠️ 潛在 bug 或邊界情況
+2. 🔒 安全問題
+3. 🔄 跨平台相容性
+4. ♿ 可訪問性
+5. 📝 缺漏的錯誤處理
+6. 🧪 建議的測試步驟
+
+最後給出 verdict：✅ 可以 commit / ⚠️ 有風險但可 commit / ❌ 不要 commit
+
+${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : ""}`;
+
+      const res = await fetch(`${API_BASE}/api/coding-crew/dispatch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: "qa", task: reviewTask, cwd: rootPath }),
       });
-      const data = await res.json();
-      setAiComment(data.comment || "No comment generated");
-      setGitTab("review");
+      if (!res.ok) {
+        const errText = await res.text();
+        setQaReview(`❌ QA Agent 派工失敗: ${errText.slice(0, 200)}`);
+        setQaReviewLoading(false);
+        return;
+      }
+      // Read SSE stream
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
+      let buffer = "";
+      let currentEvent = "";
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) currentEvent = line.slice(6).trim();
+            if (line.startsWith("data:")) {
+              try {
+                const evt = JSON.parse(line.slice(5).trim());
+                if (currentEvent === "text" && evt.text) {
+                  result += evt.text;
+                  setQaReview(result);
+                }
+              } catch {}
+            }
+          }
+        }
+      }
       // Save review to server
       try {
         await fetch(`${API_BASE}/api/vibe-git/reviews?path=${encodeURIComponent(rootPath)}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comment: data.comment, branch: gitStatus?.branch, files: gitStatus?.all?.map(f => f.path), diffLength: gitDiff?.length }),
+          body: JSON.stringify({ comment: result, branch: gitStatus?.branch, files: gitStatus?.staged?.map(f => f.path), diffLength: diffText?.length }),
         });
       } catch {}
-    } catch (err: any) { setAiComment(`❌ Error: ${err.message}`); }
-    setAiCommentLoading(false);
-  }, [rootPath, gitDiff, gitLog, activeTab, gitStatus]);
+    } catch (err: any) { setQaReview(`❌ Error: ${err.message}`); }
+    setQaReviewLoading(false);
+  }, [rootPath, gitDiff, gitLog, gitStatus]);
 
   // Auto-refresh git when panel opens or when switching to git tab
   useEffect(() => {
@@ -2437,12 +2497,20 @@ const sendChat = useCallback(async () => {
                     <button key={gitT} onClick={() => { setGitTab(gitT); if (gitT === "diff") setActiveSubPanel("diff"); if (gitT === "blame" && blameData) setActiveSubPanel("blame"); }}
                       className={cn("px-2.5 py-1 rounded text-xs font-semibold transition-colors",
                         gitTab === gitT ? "bg-stone-100 text-stone-700" : "text-stone-400 hover:text-stone-600")}>
-                      {gitT === "status" ? tt("vibe.gitStatus") : gitT === "diff" ? tt("vibe.gitDiff") : gitT === "blame" ? tt("vibe.gitBlame") : tt("vibe.gitReview")}
+                      {gitT === "status" ? tt("vibe.gitStatus") : gitT === "diff" ? tt("vibe.gitDiff") : gitT === "blame" ? tt("vibe.gitBlame") : "🔬 Review"}
                     </button>
                   ))}
                   <span className="flex-1" />
                   <button onClick={() => { refreshGitStatus(); refreshGitLog(); loadGitDiff(); }} className="text-xs text-stone-400 hover:text-stone-600 px-1.5 py-0.5 rounded hover:bg-stone-50">🔄</button>
                 </div>
+
+                {/* ⚠️ Pending review banner — staged but not committed */}
+                {gitStatus?.staged?.length > 0 && gitTab !== "review" && (
+                  <div className="px-3 py-1.5 flex items-center gap-2 text-xs bg-amber-50 border-b" style={{ borderColor: '#fcd34d' }}>
+                    <span className="text-amber-600 font-bold">⚠️ 有 {gitStatus.staged.length} 個檔案已 staged 但尚未 commit</span>
+                    <button onClick={() => { setGitTab("review"); runQaReview(); }} className="ml-auto text-amber-600 hover:text-amber-800 font-bold underline">🔬 送 QA Review</button>
+                  </div>
+                )}
 
                 {/* Git Status */}
                 {gitTab === "status" && (
@@ -2674,7 +2742,7 @@ const sendChat = useCallback(async () => {
                       <span className="flex-1" />
                       {gitDiffFile && gitDiffFile !== "__HEAD__" && !gitDiffFile.startsWith("__commit__") && <span className="text-xs text-stone-400 truncate max-w-48">{gitDiffFile}</span>}
                       {gitDiffFile?.startsWith("__commit__") && <span className="text-xs font-mono text-stone-400">{gitDiffFile.slice(10)}</span>}
-                      <button onClick={generateAiComment} disabled={!gitDiff} className="text-xs px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>AI Review</button>
+                      <button onClick={runQaReview} disabled={qaReviewLoading || (!gitDiff && !gitStatus?.staged?.length)} className="text-xs px-2 py-0.5 rounded text-white disabled:opacity-40" style={{ backgroundColor: tk.accent }}>{qaReviewLoading ? "⏳ Reviewing..." : "🔬 QA Review"}</button>
                     </div>
 
                     {gitDiff ? (
@@ -2739,28 +2807,29 @@ const sendChat = useCallback(async () => {
                   </div>
                 )}
 
-                {/* AI Review */}
+                {/* QA Code Review */}
                 {gitTab === "review" && (
                   <div className="flex-1 overflow-auto p-3">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-bold text-stone-700">🤖 {tt("vibe.gitReview")}</span>
+                      <span className="text-xs font-bold text-stone-700">🔬 QA Agent Code Review</span>
+                      <span className="text-xs text-stone-400">由 武大安 審查 staged changes</span>
                       <span className="flex-1" />
-                      <button onClick={generateAiComment} disabled={aiCommentLoading}
+                      <button onClick={runQaReview} disabled={qaReviewLoading}
                         className="text-xs px-3 py-1 rounded text-white disabled:opacity-40 active:scale-95"
                         style={{ backgroundColor: tk.accent }}>
-                        {aiCommentLoading ? `⏳ ${tt("vibe.gitReviewing")}` : tt("vibe.gitNewReview")}
+                        {qaReviewLoading ? "⏳ 審查中..." : "🔍 開始 Review"}
                       </button>
                     </div>
-                    {aiCommentLoading ? (
-                      <div className="flex items-center justify-center h-32 text-stone-400 text-sm animate-pulse">🤖 {tt("vibe.gitReviewing")}</div>
-                    ) : aiComment ? (
-                      <div className="prose prose-sm max-w-none text-xs leading-relaxed whitespace-pre-wrap">{aiComment}</div>
+                    {qaReviewLoading ? (
+                      <div className="flex items-center justify-center h-32 text-stone-400 text-sm animate-pulse">🔬 QA Agent 審查中...</div>
+                    ) : qaReview ? (
+                      <div className="prose prose-sm max-w-none text-xs leading-relaxed whitespace-pre-wrap">{qaReview}</div>
                     ) : null}
                     {/* Review History */}
                     {gitReviews.length > 0 && (
                       <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${tk.borderLight}` }}>
-                        <div className="text-xs font-bold text-stone-500 mb-2">📜 {tt("vibe.gitReviewHistory")} ({gitReviews.length})</div>
-                        {gitReviews.filter(r => r.comment !== aiComment).slice(0, 10).map((r, i) => (
+                        <div className="text-xs font-bold text-stone-500 mb-2">📜 Review 歷史 ({gitReviews.length})</div>
+                        {gitReviews.filter(r => r.comment !== qaReview).slice(0, 10).map((r, i) => (
                           <details key={r.id || i} className="mb-2">
                             <summary className="text-xs text-stone-500 cursor-pointer hover:text-stone-700">
                               {r.branch && <span className="text-emerald-500 mr-1">🔀 {r.branch}</span>}
@@ -2774,11 +2843,11 @@ const sendChat = useCallback(async () => {
                         ))}
                       </div>
                     )}
-                    {!aiComment && gitReviews.length === 0 && (
+                    {!qaReview && gitReviews.length === 0 && (
                       <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400 text-xs">
-                        <span className="text-2xl">🤖</span>
-                        <p>{tt("vibe.gitReviewHint")}</p>
-                        <p>{tt("vibe.gitReviewHint2")}</p>
+                        <span className="text-2xl">🔬</span>
+                        <p>點「開始 Review」讓 QA Agent 審查 staged changes</p>
+                        <p className="text-stone-300">QA 會檢查 bug、安全、跨平台、測試建議</p>
                       </div>
                     )}
                   </div>
