@@ -503,7 +503,13 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
 
       child.stderr.on("data", (d) => { stderr += d; });
 
-      child.on("close", () => {
+      child.on("close", (code) => {
+        // rg exit code 0 = found matches, 1 = no matches, 2+ = error
+        if (code !== null && code > 1) {
+          // rg errored — use native fallback
+          console.log(`[search] rg exited with code ${code}, falling back to native search`);
+          return nativeSearch(cwd, query, { caseSensitive, wholeWord, useRegex }, maxResults, res);
+        }
         const allResults = Array.from(fileMap.values()).sort((a, b) => b.matches.length - a.matches.length);
         const truncated = allResults.reduce((sum, f) => sum + f.matches.length, 0) > maxResults;
         // Limit matches per file
@@ -519,62 +525,8 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
       });
 
       child.on("error", () => {
-        // rg not found — fallback to Node.js native search (cross-platform, no ripgrep needed)
-        try {
-          const { readdirSync, readFileSync: readSync, statSync } = require("fs");
-          const results = [];
-          const fileMap = new Map();
-          const maxDepth = 10;
-          const ignoreDirs = new Set([".git", "node_modules", "dist", "build", ".next", "__pycache__", ".paaw", ".cache"]);
-
-          function walkDir(dir, depth) {
-            if (depth > maxDepth) return;
-            try {
-              const entries = readdirSync(dir, { withFileTypes: true });
-              for (const entry of entries) {
-                if (entry.isDirectory()) {
-                  if (ignoreDirs.has(entry.name)) continue;
-                  walkDir(join(dir, entry.name), depth + 1);
-                } else if (entry.isFile()) {
-                  try {
-                    const fullPath = join(dir, entry.name);
-                    const stat = statSync(fullPath);
-                    if (stat.size > 1024 * 1024) continue; // skip > 1MB
-                    const content = readSync(fullPath, "utf-8");
-                    const lines = content.split("\n");
-                    const isBinary = /\0/.test(content.slice(0, 8000));
-                    if (isBinary) continue;
-                    const matches = [];
-                    let searchStr = query;
-                    let flags = "g";
-                    if (!caseSensitive) flags += "i";
-                    if (!useRegex) searchStr = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                    if (wholeWord) searchStr = `\\b${searchStr}\\b`;
-                    const re = new RegExp(searchStr, flags);
-                    for (let i = 0; i < lines.length && matches.length < 20; i++) {
-                      if (re.test(lines[i])) {
-                        matches.push({ line: i + 1, content: lines[i].trimEnd(), before: 0, after: 0 });
-                        re.lastIndex = 0;
-                      }
-                    }
-                    if (matches.length > 0) {
-                      const fileName = entry.name;
-                      fileMap.set(fullPath, { path: fullPath, filename: fileName, matches });
-                    }
-                  } catch {}
-                }
-              }
-            } catch {}
-          }
-
-          walkDir(cwd, 0);
-          const allResults = Array.from(fileMap.values()).sort((a, b) => b.matches.length - a.matches.length);
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ results: allResults.slice(0, maxResults), total: allResults.reduce((s, f) => s + f.matches.length, 0), truncated: false }));
-        } catch (fallbackErr) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ results: [], error: "search failed: " + fallbackErr.message, total: 0, truncated: false }));
-        }
+        // rg not found — fallback to Node.js native search
+        return nativeSearch(cwd, query, { caseSensitive, wholeWord, useRegex }, maxResults, res);
       });
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -584,4 +536,63 @@ if ($fb.ShowDialog() -eq 'OK') { $fb.SelectedPath } else { '' }
   }
 
   return false;
+}
+
+// ── Native cross-platform search (fallback when rg is unavailable or errors) ──
+
+async function nativeSearch(cwd, query, opts, maxResults, res) {
+  const { readdirSync, statSync } = await import("fs");
+  const fileMap = new Map();
+  const maxDepth = 10;
+  const ignoreDirs = new Set([".git", "node_modules", "dist", "build", ".next", "__pycache__", ".paaw", ".cache"]);
+  const { caseSensitive, wholeWord, useRegex } = opts;
+
+  function walkDir(dir, depth) {
+    if (depth > maxDepth) return;
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          if (ignoreDirs.has(entry.name)) continue;
+          walkDir(join(dir, entry.name), depth + 1);
+        } else if (entry.isFile()) {
+          try {
+            const fullPath = join(dir, entry.name);
+            const stat = statSync(fullPath);
+            if (stat.size > 1024 * 1024) continue; // skip > 1MB
+            const content = readFileSync(fullPath, "utf-8");
+            const lines = content.split("\n");
+            const isBinary = /\0/.test(content.slice(0, 8000));
+            if (isBinary) continue;
+            const matches = [];
+            let searchStr = query;
+            let flags = "g";
+            if (!caseSensitive) flags += "i";
+            if (!useRegex) searchStr = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            if (wholeWord) searchStr = `\\b${searchStr}\\b`;
+            const re = new RegExp(searchStr, flags);
+            for (let i = 0; i < lines.length && matches.length < 20; i++) {
+              if (re.test(lines[i])) {
+                matches.push({ line: i + 1, content: lines[i].trimEnd(), before: 0, after: 0 });
+                re.lastIndex = 0;
+              }
+            }
+            if (matches.length > 0) {
+              fileMap.set(fullPath, { path: fullPath, filename: entry.name, matches });
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+
+  try {
+    walkDir(cwd, 0);
+    const allResults = Array.from(fileMap.values()).sort((a, b) => b.matches.length - a.matches.length);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ results: allResults.slice(0, maxResults), total: allResults.reduce((s, f) => s + f.matches.length, 0), truncated: false }));
+  } catch (err) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ results: [], error: "search failed: " + err.message, total: 0, truncated: false }));
+  }
 }
