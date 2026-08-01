@@ -604,6 +604,7 @@ export default function CodingIDE() {
     createdAt?: string;
   }
   const [stagedSummary, setStagedSummary] = useState<StagedChangeSummary | null>(null);
+  const [showStagedDetail, setShowStagedDetail] = useState(false);
 
   // ── API Tester State ──
   const [apiMethod, setApiMethod] = useState("GET");
@@ -2528,12 +2529,14 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
 
                 {/* ⚠️ Pending review banner — staged but not committed */}
                 {gitStatus?.staged?.length > 0 && (
-                  <div className="px-3 py-2 bg-amber-50 border-b space-y-1.5" style={{ borderColor: '#fcd34d' }}>
-                    {/* Line 1: status + actions */}
+                  <div className="px-3 py-1.5 bg-amber-50 border-b" style={{ borderColor: '#fcd34d' }}>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-amber-600 font-bold">⚠️ 有 {gitStatus.staged.length} 個檔案已 staged 但尚未 commit</span>
+                      <span className="text-amber-600 font-bold shrink-0">⚠️ {gitStatus.staged.length} staged</span>
+                      {stagedSummary?.exists && (
+                        <span className="text-stone-400 truncate hidden sm:inline">{stagedSummary.task?.slice(0, 60) || ''}</span>
+                      )}
                       <span className="flex-1" />
-                      {stagedSummary?.exists && stagedSummary?.summary && (
+                      {stagedSummary?.exists && (
                         <button onClick={() => {
                           const s = stagedSummary!;
                           const lines = [`[${s.task || 'update'}]`];
@@ -2541,45 +2544,53 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                           if (s.howToTest) lines.push('', 'Test:', s.howToTest);
                           setGitCommitMsg(lines.join('\n'));
                           setGitTab('status');
-                        }} className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold">📋 帶入 commit message</button>
+                        }} className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold shrink-0">📋 帶入</button>
                       )}
-                      <button onClick={() => { setGitTab("review"); runQaReview(); }} className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold">🔬 送 QA Review</button>
+                      <button onClick={() => { setGitTab("review"); runQaReview(); }} className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold shrink-0">🔬 QA</button>
+                      <button onClick={() => setShowStagedDetail(!showStagedDetail)} className="text-xs px-1 py-0.5 text-amber-500 hover:text-amber-700 shrink-0">{showStagedDetail ? '▲' : '▼'}</button>
                     </div>
-                    {/* Line 2: staged summary (if exists) */}
-                    {stagedSummary?.exists && stagedSummary?.summary && (
-                      <div className="text-xs text-stone-600 leading-relaxed">
-                        <div className="flex items-start gap-1.5">
-                          <span className="text-amber-500 shrink-0 mt-0.5">📝</span>
-                          <div className="flex-1 min-w-0">
-                            <span className="font-bold text-stone-700">{stagedSummary.codename || stagedSummary.agent || 'Agent'}</span>
-                            {stagedSummary.task && <span className="text-stone-400"> · {stagedSummary.task.slice(0, 80)}</span>}
-                          </div>
+                    {/* Collapsible detail */}
+                    {showStagedDetail && stagedSummary?.exists && (
+                      <div className="mt-1.5 pt-1.5 text-xs leading-relaxed space-y-1" style={{ borderTop: '1px solid #fde68a' }}>
+                        {/* Task + agent */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-stone-700 shrink-0">{stagedSummary.codename || stagedSummary.agent || 'Agent'}</span>
+                          {stagedSummary.task && <span className="text-stone-400 truncate">· {stagedSummary.task}</span>}
                         </div>
-                        {/* File reasons */}
+                        {/* Files — compact */}
                         {stagedSummary.files && stagedSummary.files.length > 0 && (
-                          <div className="mt-1 ml-5 space-y-0.5">
-                            {stagedSummary.files.map((f, i) => (
-                              <div key={i} className="text-stone-500 truncate">
-                                <span className="font-mono text-emerald-600">{f.path.split(/[\\/]/).pop()}</span>
-                                <span className="text-stone-400 mx-1">·</span>
-                                <span>{f.reason}</span>
+                          <div className="space-y-0.5">
+                            {stagedSummary.files.slice(0, 5).map((f, i) => (
+                              <div key={i} className="flex items-baseline gap-1.5">
+                                <span className="font-mono text-emerald-600 shrink-0 max-w-[40%] truncate">{f.path.split(/[\\/]/).pop()}</span>
+                                <span className="text-stone-300 shrink-0">·</span>
+                                <span className="text-stone-500 truncate flex-1">{f.reason}</span>
                               </div>
                             ))}
+                            {stagedSummary.files.length > 5 && (
+                              <div className="text-stone-400 pl-1">+{stagedSummary.files.length - 5} more...</div>
+                            )}
                           </div>
                         )}
                         {/* How to test */}
                         {stagedSummary.howToTest && (
-                          <div className="mt-1 ml-5 text-stone-500">
-                            <span className="font-bold">🧪 怎麼測：</span> {stagedSummary.howToTest}
+                          <div className="flex items-start gap-1">
+                            <span className="shrink-0">🧪</span>
+                            <span className="text-stone-500 flex-1">{stagedSummary.howToTest}</span>
                           </div>
                         )}
                         {/* Risk */}
                         {stagedSummary.risk && stagedSummary.risk !== '無' && (
-                          <div className="mt-0.5 ml-5 text-red-500">
-                            <span className="font-bold">⚠️ 風險：</span> {stagedSummary.risk}
+                          <div className="flex items-start gap-1">
+                            <span className="shrink-0 text-red-400">⚠️</span>
+                            <span className="text-red-500 flex-1">{stagedSummary.risk}</span>
                           </div>
                         )}
                       </div>
+                    )}
+                    {/* No summary hint */}
+                    {showStagedDetail && !stagedSummary?.exists && (
+                      <div className="mt-1 pt-1 text-xs text-stone-400" style={{ borderTop: '1px solid #fde68a' }}>Agent 未寫摘要。手動 commit 或提醒 agent 補寫。</div>
                     )}
                   </div>
                 )}
