@@ -40,11 +40,9 @@ const TOOL_GROUPS = [
   { id: "decisions", name: "📋 Decisions", desc: "決策記錄", tier: "basic" },
   { id: "project", name: "📂 Project Info", desc: "專案資訊、feature map", tier: "basic" },
   { id: "project-edit", name: "✏️ Project Edit", desc: "修改專案設定", tier: "advanced" },
-  { id: "notes", name: "📝 Notes", desc: "筆記", tier: "basic" },
   { id: "tasks", name: "📌 Tasks", desc: "任務管理", tier: "basic" },
   { id: "docs", name: "📡 Docs", desc: "文檔生成", tier: "basic" },
   { id: "dispatch", name: "🚀 Dispatch", desc: "EM 調度權限", tier: "advanced" },
-  { id: "browser", name: "🌐 Browser", desc: "瀏覽器操作", tier: "advanced" },
 ];
 
 const EMOJI_CHOICES = ["🤖", "👩‍💻", "👨‍💻", "🧙", "🦸", "🕵️", "🎨", "📝", "🔧", "🔍", "⚡", "🌟", "🛡️", "📊", "🎯", "🧪", "📡", "🗂️", "💡", "🚀"];
