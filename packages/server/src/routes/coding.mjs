@@ -1115,6 +1115,152 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
+  // ════════════════════════════════════════════════════════
+  // ── Per-Project Crew Management (Phase 1: Data Layer) ──
+  // ════════════════════════════════════════════════════════
+
+  // These must come before the generic /create route
+  if (url.startsWith("/api/coding-project/crew")) {
+    const { initProjectCrew, readProjectCrew, readProjectAgent, updateProjectAgent, createCustomAgent, deleteCustomAgent, resetProjectAgent, updateAgentModel, updateAgentSkills } = await import("../lib/project-crew.mjs");
+    const crewUrl = url.replace(/^\/api\/coding-project\/crew/, "") || "/";
+    const crewPathParts = crewUrl.replace(/^\//, "").split("/");
+    const agentIdParam = crewPathParts[0] ? decodeURIComponent(crewPathParts[0]) : null;
+    const cwd = q.path || projectPath || PAAW_ROOT;
+    const projectDir = resolve(cwd);
+    const isSub = crewPathParts.length > 1; // /crew/:agentId/reset|model|skills
+    const subAction = isSub ? crewPathParts[1] : null;
+
+    // POST /api/coding-project/crew/init — Initialize project crew from global templates
+    if (crewUrl === "/init" && method === "POST") {
+      const body = JSON.parse(await readBody(req) || "{}");
+      try {
+        const result = initProjectCrew(projectDir, { force: body.force || false });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // GET /api/coding-project/crew — List all agents (merged global + project + custom)
+    if ((method === "GET") && !agentIdParam) {
+      try {
+        const result = readProjectCrew(projectDir);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // POST /api/coding-project/crew — Create new custom agent
+    if (method === "POST" && !agentIdParam) {
+      const body = JSON.parse(await readBody(req) || "{}");
+      try {
+        const created = createCustomAgent(projectDir, body);
+        res.writeHead(201, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(created));
+      } catch (err) {
+        res.writeHead(err.message.includes("exists") || err.message.includes("must start") ? 400 : 500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return true;
+    }
+
+    // Routes with :agentId
+    if (agentIdParam) {
+      // POST /api/coding-project/crew/:agentId/reset — Reset to global default
+      if (subAction === "reset" && method === "POST") {
+        try {
+          const result = resetProjectAgent(projectDir, agentIdParam);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(err.message.includes("No global") ? 404 : 500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // PATCH /api/coding-project/crew/:agentId/model — Update per-agent model
+      if (subAction === "model" && method === "PATCH") {
+        const body = JSON.parse(await readBody(req) || "{}");
+        try {
+          const result = updateAgentModel(projectDir, agentIdParam, body);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // PUT /api/coding-project/crew/:agentId/skills — Update skill bindings
+      if (subAction === "skills" && (method === "PUT" || method === "POST")) {
+        const body = JSON.parse(await readBody(req) || "{}");
+        try {
+          const result = updateAgentSkills(projectDir, agentIdParam, body.skills || body.skillIds || []);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // GET /api/coding-project/crew/:agentId — Read single agent
+      if (method === "GET" && !subAction) {
+        try {
+          const agent = readProjectAgent(projectDir, agentIdParam);
+          if (!agent) {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: `Agent not found: ${agentIdParam}` }));
+          } else {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(agent));
+          }
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // PATCH /api/coding-project/crew/:agentId — Update agent
+      if (method === "PATCH" && !subAction) {
+        const body = JSON.parse(await readBody(req) || "{}");
+        try {
+          const updated = updateProjectAgent(projectDir, agentIdParam, body);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(updated));
+        } catch (err) {
+          res.writeHead(err.message.includes("not found") ? 404 : 500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+
+      // DELETE /api/coding-project/crew/:agentId — Delete custom agent
+      if (method === "DELETE" && !subAction) {
+        try {
+          const result = deleteCustomAgent(projectDir, agentIdParam);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(err.message.includes("Only custom") || err.message.includes("not found") ? 400 : 500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return true;
+      }
+    }
+  }
+
   // ── POST /api/coding-project/create — does NOT need ?path= (project doesn't exist yet) ──
   if (url.startsWith("/api/coding-project/create") && method === "POST") {
     const norm = normalizePath;

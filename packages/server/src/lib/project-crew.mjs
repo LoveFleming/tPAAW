@@ -1,0 +1,508 @@
+/**
+ * project-crew.mjs — Per-Project AI Crew Manager
+ *
+ * Each Code Project gets its own crew copy in {project}/.paaw/agents/.
+ * Global crew (data/crews/coding.*.json) is the template.
+ * Project crew overrides global, custom agents extend.
+ *
+ * Directory layout:
+ *   {project}/.paaw/agents/
+ *     _config.json              ← crew-level config (models, skills, night shift)
+ *     coding.architect.json     ← copied from global, can be edited
+ *     coding.developer.json
+ *     custom.reviewer.json      ← new custom agent
+ */
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "fs";
+import { join, resolve } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = resolve(__filename, "..");
+
+// Resolve global crews directory
+// lib/ → src/ → server/ → packages/ → root = 4 levels up
+const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
+const GLOBAL_CREWS_DIR = join(PAAW_ROOT, "data", "crews");
+
+// Default crew IDs (the 6 coding agents + EM)
+const DEFAULT_CREW_IDS = [
+  "coding.architect",
+  "coding.developer",
+  "coding.tester",
+  "coding.doc-writer",
+  "coding.qa",
+  "coding.helpdesk",
+];
+
+// EM is special — included in dispatch list but not in regular crew chat list
+const EM_CREW_ID = "coding.em";
+
+// ── Config schema ──
+
+const DEFAULT_CONFIG = {
+  version: 1,
+  initialized: false,
+  initializedAt: null,
+  globalCrewIds: [...DEFAULT_CREW_IDS],
+  customAgents: [],
+  models: {},        // { "coding.architect": { "primary": "", "fallbacks": [], "emModel": "", "nightShiftModel": "" } }
+  skillBindings: {}, // { "coding.architect": ["skill-id-1", "skill-id-2"] }
+  contextOverrides: {}, // { "coding.architect": { "injectProjectContext": true, "extraContext": "" } }
+};
+
+// ── Helpers ──
+
+function ensureAgentsDir(projectDir) {
+  const agentsDir = join(projectDir, ".paaw", "agents");
+  if (!existsSync(agentsDir)) {
+    mkdirSync(agentsDir, { recursive: true });
+  }
+  return agentsDir;
+}
+
+function readJson(filePath, fallback = null) {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf-8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(filePath, data) {
+  writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+}
+
+function getConfigPath(projectDir) {
+  return join(projectDir, ".paaw", "agents", "_config.json");
+}
+
+function getAgentPath(projectDir, agentId) {
+  return join(projectDir, ".paaw", "agents", `${agentId}.json`);
+}
+
+function readGlobalCrew(crewId) {
+  const filePath = join(GLOBAL_CREWS_DIR, `${crewId}.json`);
+  return readJson(filePath, null);
+}
+
+function listGlobalCrewIds() {
+  try {
+    const files = readdirSync(GLOBAL_CREWS_DIR);
+    return files
+      .filter(f => f.endsWith(".json") && !f.startsWith("_"))
+      .map(f => f.replace(/\.json$/, ""))
+      .filter(id => id.startsWith("coding.") && id !== EM_CREW_ID);
+  } catch {
+    return [...DEFAULT_CREW_IDS];
+  }
+}
+
+// ── Public API ──
+
+/**
+ * Initialize project crew from global templates.
+ * Copies all coding.*.json (except EM) to {project}/.paaw/agents/
+ * Creates _config.json with defaults.
+ *
+ * @param {string} projectDir - absolute path to project root
+ * @param {object} opts - { force: boolean }
+ * @returns {object} { ok, crewCount, agents: [...] }
+ */
+export function initProjectCrew(projectDir, opts = {}) {
+  const { force = false } = opts;
+  const agentsDir = ensureAgentsDir(projectDir);
+  const configPath = getConfigPath(projectDir);
+
+  // Check if already initialized
+  const existingConfig = readJson(configPath, null);
+  if (existingConfig?.initialized && !force) {
+    return {
+      ok: true,
+      alreadyExists: true,
+      message: "Project crew already initialized",
+      crewCount: existingConfig.globalCrewIds.length + existingConfig.customAgents.length,
+    };
+  }
+
+  // Copy global crew files
+  const globalIds = listGlobalCrewIds();
+  const copied = [];
+  for (const crewId of globalIds) {
+    const globalDef = readGlobalCrew(crewId);
+    if (!globalDef) continue;
+    // Write a copy (without modifying original)
+    const destPath = getAgentPath(projectDir, crewId);
+    if (!existsSync(destPath) || force) {
+      writeJson(destPath, { ...globalDef, _source: "global", _clonedAt: new Date().toISOString() });
+    }
+    copied.push(crewId);
+  }
+
+  // Also copy EM (needed for dispatch, but not in regular crew chat list)
+  const emDef = readGlobalCrew(EM_CREW_ID);
+  if (emDef) {
+    const emPath = getAgentPath(projectDir, EM_CREW_ID);
+    if (!existsSync(emPath) || force) {
+      writeJson(emPath, { ...emDef, _source: "global", _clonedAt: new Date().toISOString() });
+    }
+  }
+
+  // Create/update config
+  const config = {
+    ...DEFAULT_CONFIG,
+    initialized: true,
+    initializedAt: new Date().toISOString(),
+    globalCrewIds: copied,
+  };
+  writeJson(configPath, config);
+
+  return {
+    ok: true,
+    alreadyExists: false,
+    message: `Initialized crew with ${copied.length} agents`,
+    crewCount: copied.length,
+    agents: copied,
+  };
+}
+
+/**
+ * Read full project crew — merge global defaults with project overrides.
+ * Returns list of agents (excluding EM).
+ *
+ * @param {string} projectDir
+ * @returns {object} { agents: [...], config: {...}, initialized: boolean }
+ */
+export function readProjectCrew(projectDir) {
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+
+  if (!config.initialized) {
+    // Not initialized yet — auto-init from global
+    initProjectCrew(projectDir);
+  }
+
+  const updatedConfig = readJson(configPath, { ...DEFAULT_CONFIG });
+  const allIds = [...(updatedConfig.globalCrewIds || []), ...(updatedConfig.customAgents || [])];
+
+  const agents = [];
+  for (const agentId of allIds) {
+    // Project layer takes priority
+    const projectAgent = readJson(getAgentPath(projectDir, agentId), null);
+    if (projectAgent) {
+      agents.push(stripInternal(projectAgent));
+    } else {
+      // Fallback to global
+      const globalAgent = readGlobalCrew(agentId);
+      if (globalAgent) {
+        agents.push(stripInternal(globalAgent));
+      }
+    }
+  }
+
+  return {
+    agents,
+    config: updatedConfig,
+    initialized: updatedConfig.initialized || false,
+  };
+}
+
+/**
+ * Read a single agent definition.
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @returns {object|null} agent definition or null
+ */
+export function readProjectAgent(projectDir, agentId) {
+  // Project layer first
+  const projectAgent = readJson(getAgentPath(projectDir, agentId), null);
+  if (projectAgent) return stripInternal(projectAgent);
+
+  // Fallback to global
+  const globalAgent = readGlobalCrew(agentId);
+  if (globalAgent) return stripInternal(globalAgent);
+
+  return null;
+}
+
+/**
+ * Update an existing agent (project layer override).
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @param {object} patch — { rolePrompt?, codename?, description?, emoji?, ... }
+ * @returns {object} updated agent
+ */
+export function updateProjectAgent(projectDir, agentId, patch) {
+  ensureAgentsDir(projectDir);
+
+  // Read current (project or global)
+  const current = readJson(getAgentPath(projectDir, agentId), null) || readGlobalCrew(agentId);
+  if (!current) {
+    throw new Error(`Agent not found: ${agentId}`);
+  }
+
+  // Merge patch
+  const updated = { ...current, ...patch, id: agentId, _source: current._source || "global", _updatedAt: new Date().toISOString() };
+
+  // Write to project layer
+  writeJson(getAgentPath(projectDir, agentId), updated);
+
+  return stripInternal(updated);
+}
+
+/**
+ * Create a new custom agent.
+ *
+ * @param {string} projectDir
+ * @param {object} def — { id, codename, title, emoji, rolePrompt, description, expertise, ... }
+ * @returns {object} created agent
+ */
+export function createCustomAgent(projectDir, def) {
+  ensureAgentsDir(projectDir);
+
+  // Validate ID
+  const agentId = def.id || def.agentId;
+  if (!agentId) throw new Error("Agent ID is required");
+  if (!agentId.startsWith("custom.")) {
+    throw new Error('Custom agent ID must start with "custom."');
+  }
+
+  // Check if already exists
+  const existing = readJson(getAgentPath(projectDir, agentId), null);
+  if (existing) {
+    throw new Error(`Agent already exists: ${agentId}`);
+  }
+
+  // Build agent definition
+  const agent = {
+    id: agentId,
+    title: def.title || def.codename || "Custom Agent",
+    codename: def.codename || def.title || "Custom Agent",
+    emoji: def.emoji || "🤖",
+    rolePrompt: def.rolePrompt || `You are ${def.codename || "a custom AI agent"}.`,
+    description: def.description || "",
+    expertise: def.expertise || "",
+    injectProjectContext: def.injectProjectContext ?? true,
+    chatConfig: def.chatConfig || { greeting: `Hi! I'm ${def.codename || "a custom agent"} 🤖`, maxTokens: 4096, temperature: 0.4 },
+    toolGroups: def.toolGroups || ["core-read", "memory", "project"],
+    guardrails: def.guardrails || {},
+    _source: "custom",
+    _createdAt: new Date().toISOString(),
+  };
+
+  if (def.imageUrl) agent.imageUrl = def.imageUrl;
+
+  // Write agent file
+  writeJson(getAgentPath(projectDir, agentId), agent);
+
+  // Update config
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+  if (!config.customAgents.includes(agentId)) {
+    config.customAgents.push(agentId);
+  }
+  // Initialize model entry
+  if (!config.models[agentId]) {
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", nightShiftModel: "" };
+  }
+  writeJson(configPath, config);
+
+  return stripInternal(agent);
+}
+
+/**
+ * Delete a custom agent. Default agents (coding.*) cannot be deleted.
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @returns {object} { ok, deletedId }
+ */
+export function deleteCustomAgent(projectDir, agentId) {
+  if (!agentId.startsWith("custom.")) {
+    throw new Error("Only custom agents can be deleted");
+  }
+
+  const agentPath = getAgentPath(projectDir, agentId);
+  if (!existsSync(agentPath)) {
+    throw new Error(`Agent not found: ${agentId}`);
+  }
+
+  rmSync(agentPath);
+
+  // Update config
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+  config.customAgents = (config.customAgents || []).filter(id => id !== agentId);
+  delete config.models[agentId];
+  delete config.skillBindings[agentId];
+  delete config.contextOverrides[agentId];
+  writeJson(configPath, config);
+
+  return { ok: true, deletedId: agentId };
+}
+
+/**
+ * Reset an agent to its global default (removes project override).
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @returns {object} reset agent
+ */
+export function resetProjectAgent(projectDir, agentId) {
+  const globalDef = readGlobalCrew(agentId);
+  if (!globalDef) {
+    throw new Error(`No global definition for: ${agentId}`);
+  }
+
+  const agentPath = getAgentPath(projectDir, agentId);
+  const reset = { ...globalDef, _source: "global", _resetAt: new Date().toISOString() };
+  writeJson(agentPath, reset);
+
+  // Clear model/skill overrides for this agent
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+  if (config.models[agentId]) {
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", nightShiftModel: "" };
+  }
+  delete config.skillBindings[agentId];
+  delete config.contextOverrides[agentId];
+  writeJson(configPath, config);
+
+  return stripInternal(reset);
+}
+
+/**
+ * Update per-agent model configuration.
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @param {object} modelConfig — { primary?, fallbacks?, emModel?, nightShiftModel? }
+ * @returns {object} updated model config for this agent
+ */
+export function updateAgentModel(projectDir, agentId, modelConfig) {
+  ensureAgentsDir(projectDir);
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+
+  if (!config.models[agentId]) {
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", nightShiftModel: "" };
+  }
+
+  // Merge patch
+  const current = config.models[agentId];
+  if (modelConfig.primary !== undefined) current.primary = modelConfig.primary;
+  if (modelConfig.fallbacks !== undefined) current.fallbacks = modelConfig.fallbacks;
+  if (modelConfig.emModel !== undefined) current.emModel = modelConfig.emModel;
+  if (modelConfig.nightShiftModel !== undefined) current.nightShiftModel = modelConfig.nightShiftModel;
+
+  writeJson(configPath, config);
+
+  return current;
+}
+
+/**
+ * Update per-agent skill bindings.
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @param {string[]} skillIds — list of skill IDs to bind
+ * @returns {object} { agentId, skills: skillIds }
+ */
+export function updateAgentSkills(projectDir, agentId, skillIds) {
+  ensureAgentsDir(projectDir);
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+
+  config.skillBindings[agentId] = skillIds || [];
+  writeJson(configPath, config);
+
+  return { agentId, skills: skillIds || [] };
+}
+
+/**
+ * Resolve the model to use for a specific agent in a specific context.
+ * Falls back through: per-agent → per-project default → global default.
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @param {string} context — "interactive" | "em" | "nightShift"
+ * @param {string} globalDefault — global default model
+ * @returns {string|null} model ID or null (use global default)
+ */
+export function resolveAgentModel(projectDir, agentId, context = "interactive", globalDefault = "") {
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+  const agentModels = config.models?.[agentId];
+
+  if (!agentModels) return globalDefault || null;
+
+  if (context === "em") {
+    return agentModels.emModel || agentModels.primary || globalDefault || null;
+  }
+  if (context === "nightShift") {
+    return agentModels.nightShiftModel || agentModels.primary || globalDefault || null;
+  }
+  // interactive
+  return agentModels.primary || globalDefault || null;
+}
+
+/**
+ * Resolve fallback models for a specific agent.
+ *
+ * @param {string} projectDir
+ * @param {string} agentId
+ * @param {string[]} globalFallbacks
+ * @returns {string[]} fallback model IDs
+ */
+export function resolveAgentFallbacks(projectDir, agentId, globalFallbacks = []) {
+  const configPath = getConfigPath(projectDir);
+  const config = readJson(configPath, { ...DEFAULT_CONFIG });
+  const agentModels = config.models?.[agentId];
+  if (agentModels?.fallbacks && agentModels.fallbacks.length > 0) {
+    return agentModels.fallbacks;
+  }
+  return globalFallbacks;
+}
+
+/**
+ * Get list of agent IDs available for EM dispatch.
+ * Includes all crew agents (no EM itself).
+ *
+ * @param {string} projectDir
+ * @returns {string[]} agent IDs
+ */
+export function getDispatchableAgents(projectDir) {
+  const { agents, config } = readProjectCrew(projectDir);
+  return agents
+    .filter(a => a.id !== EM_CREW_ID)
+    .map(a => ({
+      id: a.id,
+      codename: a.codename,
+      title: a.title,
+      emoji: a.emoji,
+      expertise: a.expertise || a.description || "",
+    }));
+}
+
+/**
+ * Get EM agent definition (from project or global).
+ *
+ * @param {string} projectDir
+ * @returns {object|null} EM agent definition
+ */
+export function readEMAgent(projectDir) {
+  const projectEM = readJson(getAgentPath(projectDir, EM_CREW_ID), null);
+  if (projectEM) return stripInternal(projectEM);
+  return readGlobalCrew(EM_CREW_ID);
+}
+
+// ── Internal helpers ──
+
+function stripInternal(agent) {
+  const { _source, _clonedAt, _updatedAt, _createdAt, _resetAt, ...rest } = agent;
+  return {
+    ...rest,
+    _source: _source || "global",
+  };
+}
