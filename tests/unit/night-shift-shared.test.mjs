@@ -18,11 +18,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ── Mock child_process ──
+// night-shift-shared.mjs imports shellExecSync from ./shell-exec.mjs,
+// which internally calls child_process.execSync. We mock shell-exec.mjs
+// directly so all git commands route to mockShellExecSync.
 const mockExecSync = vi.fn();
 const mockExecCb = vi.fn();
+const mockShellExecSync = vi.fn();
 vi.mock("child_process", () => ({
   execSync: mockExecSync,
   exec: mockExecCb,
+}));
+
+// ── Mock shell-exec.mjs ──
+// gatherContext() uses shellExecSync (not execSync) for git commands.
+// Mock it at the module level so the mock is captured at import time.
+vi.mock("../../packages/server/src/lib/shell-exec.mjs", () => ({
+  shellExecSync: mockShellExecSync,
+  shellExec: vi.fn(),
 }));
 
 // ── Mock fs ──
@@ -84,10 +96,10 @@ let mod;
 beforeEach(async () => {
   vi.clearAllMocks();
 
-  // Default mocks for gatherContext
-  mockExecSync.mockImplementation(function mockExecSyncImpl(cmd) {
+  // Default mocks for gatherContext — all git commands go through shellExecSync
+  mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
     if (cmd.includes("git status --short")) return "";
-    if (cmd.includes("git log --since=") && cmd.includes("wc -l")) return "5";
+    if (cmd.includes("git log --since=") && cmd.includes("find")) return "5";
     if (cmd.includes("git log --since=")) return "abc1234 feat: something";
     if (cmd.includes("git diff --name-only")) return "src/a.mjs\nsrc/b.mjs";
     if (cmd.includes("git diff --stat")) return "src/a.mjs | 10 +";
@@ -159,7 +171,7 @@ describe("gatherContext()", () => {
 
   it("should use the provided sinceDate when given", async () => {
     await mod.gatherContext(rootDir, "2026-01-01");
-    const logCall = mockExecSync.mock.calls.find(
+    const logCall = mockShellExecSync.mock.calls.find(
       ([cmd]) => cmd.includes('git log --since="2026-01-01T00:00:00"')
     );
     expect(logCall).toBeTruthy();
@@ -167,7 +179,7 @@ describe("gatherContext()", () => {
 
   it("should default sinceDate to today when not provided", async () => {
     await mod.gatherContext(rootDir);
-    const logCall = mockExecSync.mock.calls.find(
+    const logCall = mockShellExecSync.mock.calls.find(
       ([cmd]) => cmd.includes(`git log --since="${today}T00:00:00"`)
     );
     expect(logCall).toBeTruthy();
@@ -175,20 +187,20 @@ describe("gatherContext()", () => {
 
   it("should handle sinceDate already containing T (ISO format)", async () => {
     await mod.gatherContext(rootDir, "2026-01-15T14:30:00");
-    const logCall = mockExecSync.mock.calls.find(
+    const logCall = mockShellExecSync.mock.calls.find(
       ([cmd]) => cmd.includes('git log --since="2026-01-15T14:30:00"')
     );
     expect(logCall).toBeTruthy();
     // Should NOT append T00:00:00
-    const wrongCall = mockExecSync.mock.calls.find(
+    const wrongCall = mockShellExecSync.mock.calls.find(
       ([cmd]) => cmd.includes('2026-01-15T14:30:00T00:00:00')
     );
     expect(wrongCall).toBeUndefined();
   });
 
-  it("should parse commitCount as integer from git log | wc -l", async () => {
-    mockExecSync.mockImplementation(function mockExecSyncImpl(cmd) {
-      if (cmd.includes("wc -l")) return " 5 ";
+  it("should parse commitCount as integer from git log count", async () => {
+    mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
+      if (cmd.includes("find")) return "5";
       if (cmd.includes("origin/dev")) return "";
       return "";
     });
@@ -197,8 +209,8 @@ describe("gatherContext()", () => {
   });
 
   it("should fallback commitCount to 0 on parse failure", async () => {
-    mockExecSync.mockImplementation(function mockExecSyncImpl(cmd) {
-      if (cmd.includes("wc -l")) throw new Error("git failed");
+    mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
+      if (cmd.includes("find")) throw new Error("git failed");
       if (cmd.includes("origin/dev")) return "";
       return "";
     });
@@ -207,7 +219,7 @@ describe("gatherContext()", () => {
   });
 
   it("should fallback all git fields to empty on exec failure", async () => {
-    mockExecSync.mockImplementation(function mockExecSyncImpl() {
+    mockShellExecSync.mockImplementation(function mockShellExecSyncImpl() {
       throw new Error("no git");
     });
     const ctx = await mod.gatherContext(rootDir);
@@ -223,7 +235,7 @@ describe("gatherContext()", () => {
   });
 
   it("should filter empty strings from changedFiles", async () => {
-    mockExecSync.mockImplementation(function mockExecSyncImpl(cmd) {
+    mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
       if (cmd.includes("git diff --name-only")) return "src/a.mjs\n\nsrc/b.mjs\n\n";
       if (cmd.includes("git status")) return "";
       if (cmd.includes("origin/dev")) return "";
@@ -234,13 +246,13 @@ describe("gatherContext()", () => {
   });
 
   it("should limit commitCount to 50 for HEAD~N diff commands", async () => {
-    mockExecSync.mockImplementation(function mockExecSyncImpl(cmd) {
-      if (cmd.includes("wc -l")) return " 200 ";
+    mockShellExecSync.mockImplementation(function mockShellExecSyncImpl(cmd) {
+      if (cmd.includes("find")) return "200";
       return "";
     });
     const ctx = await mod.gatherContext(rootDir);
     expect(ctx.commitCount).toBe(200);
-    const diffCall = mockExecSync.mock.calls.find(
+    const diffCall = mockShellExecSync.mock.calls.find(
       ([cmd]) => cmd.includes("git diff --name-only")
     );
     expect(diffCall).toBeTruthy();

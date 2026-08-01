@@ -604,7 +604,23 @@
       "updatedAt": "2026-07-22T13:32:19.572Z",
       "resolvedAt": null,
       "createdBy": "user"
+    },
+    {
+      "id": "ISS-027",
+      "title": "gatherContext() uses undefined `projectRoot` — all git commands silently fail",
+      "priority": "critical",
+      "status": "open",
+      "labels": [
+        "bug",
+        "night-shift",
+        "gatherContext"
+      ],
+      "description": "## Bug Report\n\n**File:** `packages/server/src/lib/night-shift-shared.mjs`, function `gatherContext(rootDir, sinceDate)`\n\n**Problem:** The function parameter is `rootDir`, but all `shellExecSync` calls use `cwd: projectRoot` — a variable that is **never defined** in scope.\n\n```js\nexport async function gatherContext(rootDir, sinceDate) {\n  // ...\n  ctx.gitStatus = shellExecSync(`git status --short`, { cwd: projectRoot, ... }).trim();\n  //                                      undefined ^^^^^^^^^^^\n```\n\nThis causes a `ReferenceError: projectRoot is not defined` on every git command, caught by the surrounding try/catch blocks, resulting in all git fields silently falling back to empty defaults.\n\n**Impact:**\n- `gatherContext()` never actually collects real git data — gitStatus, gitLog, commitCount, changedFiles, diffStat, and unpushed are always empty/default\n- Night Shift reports based on this data are inaccurate\n- 6 unit tests in `night-shift-shared.test.mjs` fail because of this\n\n**Fix:** Replace all instances of `projectRoot` with `rootDir` in `gatherContext()`.\n\n**Lines to fix:** 38, 43, 49, 59, 67, 75 in `night-shift-shared.mjs`",
+      "featureId": null,
+      "createdAt": "2026-08-01T07:58:23.372Z",
+      "notes": []
     }
   ],
-  "updatedAt": "2026-07-22T13:37:37.561Z"
+  "updatedAt": "2026-07-22T13:37:37.561Z",
+  "nextId": 28
 }
