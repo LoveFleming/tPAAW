@@ -26,11 +26,18 @@ interface ChatMessage {
 
 interface ChatAction {
   label: string; // e.g. "📄報告", "🔧修復", "💻派 Developer"
-  type: "openReport" | "dispatchCrew";
+  type: "openReport" | "dispatchCrew" | "confirmPlan" | "cancelPlan";
   reportId?: string; // for openReport
   crewId?: string; // for dispatchCrew
   prompt?: string; // for dispatchCrew — pre-filled message
   findingIndex?: number; // specific finding to highlight
+  planData?: { workList: any[]; situationReport: string }; // for confirmPlan
+}
+
+// Pending EM plan state (awaiting user confirmation)
+interface PendingPlan {
+  workList: any[];
+  situationReport: string;
 }
 
 interface CodeScoreItem {
@@ -268,7 +275,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
 
   useEffect(() => { fetchEmSessions(); }, [fetchEmSessions]);
   const [emRunning, setEmRunning] = useState(false);
-  const [emLog, setEmLog] = useState<string[]>([]);
+  const [pendingPlan, setPendingPlan] = useState<PendingPlan | null>(null);
   const [showEmContextDebug, setShowEmContextDebug] = useState(false);
   const [emContextDebug, setEmContextDebug] = useState<any>(null);
   const [emAction, setEmAction] = useState(""); // current EM action (thinking vs tool)
@@ -572,15 +579,18 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
     }
   };
 
-  // ── EM Auto-orchestrate ──
+  // ── EM Auto-orchestrate: Phase 1 — Plan only (show in chat for confirmation) ──
   const runEM = async () => {
     if (emRunning || !rootPath) return;
     setEmRunning(true);
-    setEmLog([]);
-    setMessages(prev => [...prev, { role: "user", content: "🚀 啟動 EM 自動調度", ts: new Date().toISOString() }]);
+    setPendingPlan(null);
+    setMessages(prev => [...prev, { role: "user", content: "🚀 啟動 EM 調度規劃", ts: new Date().toISOString() }]);
+
+    // Add thinking bubble
+    setMessages(prev => [...prev, { role: "assistant", content: "🎖️ 收集專案狀態中...", ts: new Date().toISOString(), _thinking: true }]);
 
     try {
-      const res = await fetch(`${API_BASE}/api/coding-crew/em-run`, {
+      const res = await fetch(`${API_BASE}/api/coding-crew/em-plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cwd: rootPath, model: model || undefined }),
@@ -588,9 +598,8 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      const logLines: string[] = [];
-      // Track completed steps for rich actions
-      const completedSteps: { stepId: string; name: string; summary: string; reportId?: string; stats?: any }[] = [];
+      let plannedWorkList: any[] = [];
+      let situationReport = "";
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -604,38 +613,101 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
           try {
             const d = JSON.parse(line.slice(6));
 
-            // ── Handle overnight-manager SSE events ──
-            // info messages
-            if (d.message && !d.step && !d.agent && !d.workList && d.totalTasks === undefined) {
-              logLines.push(d.message);
-              setEmLog([...logLines]);
+            // info messages — show as thinking updates
+            if (d.message && !d.workList && !d.totalTasks) {
+              setMessages(prev => {
+                const lastThink = [...prev].reverse().findIndex(m => m._thinking);
+                if (lastThink >= 0) {
+                  const idx = prev.length - 1 - lastThink;
+                  const updated = [...prev];
+                  updated[idx] = { ...updated[idx], content: `🎖️ ${d.message}` } as any;
+                  return updated;
+                }
+                return prev;
+              });
             }
 
-            // plan — show work list
+            // plan_ready — show plan in chat with confirm/cancel buttons
             if (d.workList) {
-              const priorityIcon: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
-              const agentIcon: Record<string, string> = {
-                architect: "🏛️", developer: "💻", tester: "🧪",
-                "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
-              };
-              const planText = d.workList.map((w: any, i: number) => {
-                const pi = priorityIcon[w.priority as string] || "⚪";
-                const ai = agentIcon[w.agent as string] || "🔧";
-                return `### ${pi} ${i + 1}. ${ai} ${w.agent}\n\n**任務：** ${w.task}\n${w.reason ? `\n> 💡 ${w.reason}\n` : ""}`;
-              }).join("\n---\n\n");
-              setMessages(prev => [...prev, {
-                role: "assistant",
-                content: `## 📋 工作規劃\n\n共 **${d.workList.length}** 項工作：\n\n---\n\n${planText}`,
-                ts: new Date().toISOString(),
-              }]);
-            }
+              plannedWorkList = d.workList;
+              situationReport = d.situationReport || "";
+              setMessages(prev => [...prev.filter(m => !m._thinking)]);
 
-            // task_start — agent starting work
+              if (d.workList.length === 0) {
+                setMessages(prev => [...prev, {
+                  role: "assistant",
+                  content: "✅ 目前沒有需要調度的工作，專案狀態良好。",
+                  ts: new Date().toISOString(),
+                }]);
+              } else {
+                const priorityIcon: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
+                const agentIcon: Record<string, string> = {
+                  architect: "🏛️", developer: "💻", tester: "🧪",
+                  "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
+                };
+                const planText = d.workList.map((w: any, i: number) => {
+                  const pi = priorityIcon[w.priority as string] || "⚪";
+                  const ai = agentIcon[w.agent as string] || "🔧";
+                  return `### ${pi} ${i + 1}. ${ai} ${w.agent}\n\n**任務：** ${w.task}${w.reason ? `\n\n> 💡 ${w.reason}` : ""}`;
+                }).join("\n---\n\n");
+
+                setMessages(prev => [...prev, {
+                  role: "assistant",
+                  content: `## 📋 EM 調度規劃\n\n共 **${d.workList.length}** 項工作，確認後開始執行：\n\n---\n\n${planText}`,
+                  ts: new Date().toISOString(),
+                  actions: [
+                    { label: "✅ 確認執行", type: "confirmPlan", planData: { workList: d.workList, situationReport } },
+                    { label: "❌ 取消", type: "cancelPlan" },
+                  ],
+                } as any]);
+              }
+            }
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      setMessages(prev => [...prev.filter(m => !m._thinking)]);
+      setMessages(prev => [...prev, { role: "assistant", content: `❌ EM error: ${err.message}`, ts: new Date().toISOString() }]);
+    }
+    setEmRunning(false);
+  };
+
+  // ── EM Execute confirmed plan ──
+  const confirmEMPlan = async (plan: PendingPlan) => {
+    if (emRunning || !rootPath) return;
+    setEmRunning(true);
+    setPendingPlan(null);
+    setMessages(prev => [...prev, { role: "user", content: "✅ 確認執行 EM 調度計畫", ts: new Date().toISOString() }]);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-crew/em-execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: rootPath, workList: plan.workList, situationReport: plan.situationReport, model: model || undefined }),
+      });
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const completedSteps: { stepId: string; name: string; summary: string; reportId?: string }[] = [];
+
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const d = JSON.parse(line.slice(6));
+            const agentIcon: Record<string, string> = {
+              architect: "🏛️", developer: "💻", tester: "🧪",
+              "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
+            };
+
+            // task_start
             if (d.agent && d.task && d.preview === undefined && d.error === undefined) {
-              const agentIcon: Record<string, string> = {
-                architect: "🏛️", developer: "💻", tester: "🧪",
-                "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
-              };
               const ai = agentIcon[d.agent as string] || "🔧";
               setMessages(prev => [...prev, {
                 role: "assistant",
@@ -643,16 +715,10 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                 ts: new Date().toISOString(),
                 _emProgress: true,
               } as any]);
-              logLines.push(`▶ [${d.index}/${d.total}] ${d.agent}: ${d.task}`);
-              setEmLog([...logLines]);
             }
 
-            // task_done — agent finished
+            // task_done
             if (d.agent && d.preview !== undefined) {
-              const agentIcon: Record<string, string> = {
-                architect: "🏛️", developer: "💻", tester: "🧪",
-                "doc-writer": "📝", qa: "🔬", helpdesk: "🌸",
-              };
               const ai = agentIcon[d.agent as string] || "🔧";
               completedSteps.push({ stepId: d.agent, name: d.agent, summary: d.preview });
               setMessages(prev => {
@@ -665,8 +731,6 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                 }
                 return [...prev, { role: "assistant", content: `✅ **${d.agent}** — ${d.preview.slice(0, 200)}`, ts: new Date().toISOString() } as any];
               });
-              logLines.push(`✅ [${d.index}] ${d.agent}: ${d.preview.slice(0, 100)}`);
-              setEmLog([...logLines]);
             }
 
             // task_error
@@ -681,62 +745,17 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                 }
                 return [...prev, { role: "assistant", content: `❌ **${d.agent}** — ${d.error}`, ts: new Date().toISOString() } as any];
               });
-              logLines.push(`❌ [${d.index}] ${d.agent}: ${d.error}`);
-              setEmLog([...logLines]);
-            }
-
-            // done — session complete
-            if (d.totalTasks !== undefined) {
-              if (d.empty) {
-                logLines.push("ℹ️ LLM 規劃返回空，可能是專案狀態良好或 LLM 回覆格式不符");
-                setEmLog([...logLines]);
-              }
-            }
-
-            // report content — now in Night Shift tab, not displayed here
-
-            // ── Legacy CU step events (security-scan, code-intelligence, etc.) ──
-            if (d.step && d.message && d.summary === undefined) {
-              setMessages(prev => [...prev, { role: "assistant", content: `⏳ **${d.name}** 執行中...`, ts: new Date().toISOString(), _emProgress: true } as any]);
-              logLines.push(d.message);
-              setEmLog([...logLines]);
-            }
-            if (d.step && d.summary !== undefined) {
-              const stepId = d.step;
-              const stepName = d.name || stepId;
-              const reportIdMap: Record<string, string> = { "security-scan": "security", "code-intelligence": "code-intelligence", "test-intelligence": "test-intelligence", "change-intelligence": "change-intelligence" };
-              const reportId = reportIdMap[stepId];
-              completedSteps.push({ stepId, name: stepName, summary: d.summary, reportId, stats: d.stats });
-              const actions: ChatAction[] = [];
-              if (reportId) actions.push({ label: "📄報告", type: "openReport", reportId });
-              if (stepId === "security-scan" && d.stats?.total > 0) {
-                actions.push({ label: "🔧派 QA 修復", type: "dispatchCrew", crewId: "coding.qa", prompt: `Security Scan 修復：${d.stats.total} findings` });
-                actions.push({ label: "💻派 Developer", type: "dispatchCrew", crewId: "coding.developer", prompt: `Security Scan 修復：${d.stats.total} findings` });
-              }
-              setMessages(prev => {
-                const lastProg = [...prev].reverse().findIndex(m => m._emProgress);
-                if (lastProg >= 0) {
-                  const idx = prev.length - 1 - lastProg;
-                  const updated = [...prev];
-                  updated[idx] = { role: "assistant", content: `✅ **${stepName}** — ${d.summary}`, ts: new Date().toISOString(), actions, reportRef: reportId } as any;
-                  return updated;
-                }
-                return [...prev, { role: "assistant", content: `✅ **${stepName}** — ${d.summary}`, ts: new Date().toISOString(), actions, reportRef: reportId } as any];
-              });
             }
           } catch {}
         }
       }
 
-      // Final summary message with report link
-      const totalSteps = completedSteps.length;
+      // Final summary
       const finalActions: ChatAction[] = [];
-      if (totalSteps > 0) {
+      if (completedSteps.length > 0) {
         finalActions.push({ label: "📊完整報告", type: "openReport", reportId: "em-report" });
       }
-      const summaryText = totalSteps > 0
-        ? `🎖️ EM 調度完成！完成 ${totalSteps} 項工作。\n\n${completedSteps.map(s => `  ✅ ${s.name}: ${s.summary}`).join("\n")}`
-        : "🎖️ EM 調度完成（沒有執行任何工作）\n\n可能原因：\n• LLM 規劃返回空（專案狀態良好）\n• LLM 回覆格式不符（不是 JSON array）\n• LLM 呼叫失敗（檢查 server log）";
+      const summaryText = `🎖️ EM 調度完成！完成 ${completedSteps.length} 項工作。\n\n${completedSteps.map(s => `  ✅ ${s.name}: ${s.summary.slice(0, 100)}`).join("\n")}`;
       setMessages(prev => [...prev, { role: "assistant", content: summaryText, ts: new Date().toISOString(), actions: finalActions }]);
       refreshData();
     } catch (err: any) {
@@ -949,16 +968,6 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
           </div>
         )}
 
-        {/* EM running progress */}
-        {emLog.length > 0 && (
-          <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 max-h-32 overflow-y-auto">
-            {emLog.map((line, i) => (
-              <div key={i} className="text-sm text-amber-800 leading-relaxed">{line}</div>
-            ))}
-            {emRunning && <div className="text-sm text-amber-600 animate-pulse">⏳ 執行中...</div>}
-          </div>
-        )}
-
         {/* Chat Messages */}
         <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: "thin" }}>
           {messages.map((msg, i) => (
@@ -990,6 +999,16 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                         <button
                           key={j}
                           onClick={() => {
+                            if (action.type === "confirmPlan" && action.planData) {
+                              confirmEMPlan(action.planData);
+                            }
+                            if (action.type === "cancelPlan") {
+                              setMessages(prev => [...prev, {
+                                role: "assistant",
+                                content: "❌ EM 調度計畫已取消。",
+                                ts: new Date().toISOString(),
+                              }]);
+                            }
                             if (action.type === "dispatchCrew" && onDispatchToCrew) {
                               onDispatchToCrew(action.crewId || "", action.prompt || "");
                             // Push dispatch confirmation to chat
@@ -1013,9 +1032,14 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                               }
                             }
                           }}
+                          disabled={action.type === "confirmPlan" && emRunning}
                           className={cn(
                             "text-xs px-2.5 py-1.5 rounded-md font-semibold transition-colors",
-                            action.type === "openReport"
+                            action.type === "confirmPlan"
+                              ? "bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-300"
+                              : action.type === "cancelPlan"
+                              ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                              : action.type === "openReport"
                               ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
                               : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
                           )}

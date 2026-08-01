@@ -974,7 +974,97 @@ export default async function projectRoute(req, res) {
     return true;
   }
 
-  // ── POST /api/coding-crew/em-run — Trigger EM orchestration (SSE) ──
+  // ── POST /api/coding-crew/em-plan — EM Plan only (no execute) ──
+  if (url === "/api/coding-crew/em-plan" && method === "POST") {
+    const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
+    const { cwd, since, model } = JSON.parse(body || "{}");
+    const rootDir = cwd || projectPath || PAAW_ROOT;
+
+    let nsConfig = null;
+    try {
+      const nsConfigPath = join(rootDir, ".paaw", "night-shift", "config.json");
+      if (existsSync(nsConfigPath)) nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
+    } catch {}
+    const modelOverride = model || nsConfig?.model?.primary || undefined;
+    const fallbackModels = nsConfig?.model?.fallbacks || [];
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+    const sendSSE = (type, data) => {
+      if (res.writableEnded || res.destroyed) return;
+      try {
+        res.write(`event: ${type}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch {}
+    };
+
+    try {
+      const { planEMSession } = await import("../lib/overnight-manager.mjs");
+      sendSSE("start", { message: "🎖️ EM 規劃啟動", ts: new Date().toISOString() });
+      const { workList, situationReport } = await planEMSession({ rootDir, sendSSE, since, modelOverride, fallbackModels });
+      sendSSE("plan_ready", { workList, situationReport });
+    } catch (err) {
+      console.error("[EM-Plan] error:", err);
+      sendSSE("error", { message: err.message });
+    }
+    if (!res.writableEnded) res.end();
+    return true;
+  }
+
+  // ── POST /api/coding-crew/em-execute — EM Execute with confirmed workList ──
+  if (url === "/api/coding-crew/em-execute" && method === "POST") {
+    const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
+    const { cwd, workList, situationReport, model } = JSON.parse(body || "{}");
+    const rootDir = cwd || projectPath || PAAW_ROOT;
+
+    let nsConfig = null;
+    try {
+      const nsConfigPath = join(rootDir, ".paaw", "night-shift", "config.json");
+      if (existsSync(nsConfigPath)) nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
+    } catch {}
+    const modelOverride = model || nsConfig?.model?.primary || undefined;
+    const fallbackModels = nsConfig?.model?.fallbacks || [];
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+    const sendSSE = (type, data) => {
+      if (res.writableEnded || res.destroyed) return;
+      try {
+        res.write(`event: ${type}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch {}
+    };
+
+    try {
+      const { executeEMSession } = await import("../lib/overnight-manager.mjs");
+      sendSSE("start", { message: "🎖️ EM 開始執行", ts: new Date().toISOString() });
+      const { report, results } = await executeEMSession({ rootDir, workList, situationReport, modelOverride, fallbackModels, sendSSE });
+      sendSSE("complete", { workList, results, report });
+    } catch (err) {
+      console.error("[EM-Execute] error:", err);
+      sendSSE("error", { message: err.message });
+    }
+    if (!res.writableEnded) res.end();
+    return true;
+  }
+
+  // ── POST /api/coding-crew/em-run — Trigger EM orchestration (SSE, full plan+execute) ──
   if (url === "/api/coding-crew/em-run" && method === "POST") {
     const body = await new Promise((ok, fail) => { let d = ""; req.on("data", c => d += c); req.on("end", () => ok(d)); req.on("error", fail); });
     const { cwd, since, model } = JSON.parse(body || "{}");

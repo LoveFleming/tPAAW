@@ -235,14 +235,14 @@ async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
 
 // ── EM Mode: Run EM Session ──
 
-export async function runEMSession(opts = {}) {
-  const { rootDir, baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+// ── EM Plan only (Phase 0-2): gather context + LLM planning ──
+export async function planEMSession(opts = {}) {
+  const { rootDir, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
 
-  console.log("[NightShift] 🎖️═══ EM 智慧調度開始 ═══🎖️");
+  console.log("[NightShift] 🎖️═══ EM Plan (no execute) ═══🎖️");
   console.log(`[NightShift] rootDir=${rootDir}, since=${since || "today"}, model=${modelOverride || "default"}`);
 
   // ── Phase 0 ──
-  console.log("[NightShift] EM Phase 0 starting...");
   await runPhase0(rootDir, modelOverride, fallbackModels, sendSSE);
 
   // ── Phase 1: Deterministic gathering ──
@@ -263,7 +263,14 @@ export async function runEMSession(opts = {}) {
   const workList = await planWorkList(situationReport, rootDir, modelOverride, fallbackModels);
   console.log(`[NightShift] Phase 2: EM planned ${workList.length} tasks`);
 
-  if (!workList.length) {
+  return { workList, situationReport };
+}
+
+// ── EM Execute only (Phase 3-4): dispatch agents + report ──
+export async function executeEMSession(opts = {}) {
+  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+
+  if (!workList || workList.length === 0) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
     const report = generateEMReport([], [], situationReport);
     saveNightShiftReport(rootDir, report, "em");
@@ -272,10 +279,76 @@ export async function runEMSession(opts = {}) {
   }
 
   sendSSE("plan", { workList });
-  sendSSE("info", { message: `📋 規劃了 ${workList.length} 項工作：` });
-  for (const w of workList) {
-    sendSSE("info", { message: `  • [${w.priority}] ${w.agent}: ${w.task}${w.reason ? ` — ${w.reason}` : ""}` });
+
+  // ── Phase 3: Deterministic execution ──
+  console.log("[NightShift] ═══ Phase 3: Agent Dispatch (serial) ═══");
+  const results = [];
+  for (let i = 0; i < workList.length; i++) {
+    const task = workList[i];
+    console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] → ${task.agent}: ${task.task.slice(0, 80)}...`);
+    sendSSE("task_start", { index: i + 1, total: workList.length, ...task });
+
+    const result = await a2aCallAgent(baseUrl, task.agent, task.task, {
+      cwd: rootDir,
+      timeout: 1800000,
+      modelOverride,
+    });
+
+    results.push({ ...task, ...result });
+
+    if (result.success) {
+      console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] ✅ ${task.agent} done (${result.content.length} chars)`);
+      sendSSE("task_done", { index: i + 1, agent: task.agent, preview: result.content.slice(0, 200) });
+    } else {
+      console.log(`[NightShift] Phase 3: [${i + 1}/${workList.length}] ❌ ${task.agent} failed: ${result.error}`);
+      sendSSE("task_error", { index: i + 1, agent: task.agent, error: result.error });
+    }
   }
+
+  // ── Phase 4: Report ──
+  console.log("[NightShift] ═══ Phase 4: Report Generation ═══");
+  sendSSE("info", { message: "📝 產生報告中..." });
+  const report = generateEMReport(workList, results, situationReport);
+  saveNightShiftReport(rootDir, report, "em");
+  console.log(`[NightShift] Phase 4: Report saved (${report.length} chars)`);
+  sendSSE("report", { report });
+
+  await addActionLog({
+    agent: "em",
+    action: "decide",
+    summary: `EM session 完成：調度 ${workList.length} 項工作，成功 ${results.filter(r => r.success).length} 項`,
+    details: workList.map(w => `${w.priority}/${w.agent}: ${w.task}`).join("\n"),
+    affectedFiles: [],
+    result: "adr",
+    priority: "high",
+  }, rootDir);
+
+  const succeeded = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  console.log(`[NightShift] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${workList.length} total`);
+  sendSSE("done", { totalTasks: workList.length, succeeded, failed });
+
+  return { report, workList, results };
+}
+
+// ── EM Full session (plan + execute in one go — backward compat) ──
+export async function runEMSession(opts = {}) {
+  const { rootDir, since, modelOverride, fallbackModels = [], sendSSE = (() => {}) } = opts;
+
+  console.log("[NightShift] 🎖️═══ EM 智慧調度開始 ═══🎖️");
+
+  const { workList, situationReport } = await planEMSession({ rootDir, since, modelOverride, fallbackModels, sendSSE });
+
+  if (!workList.length) {
+    sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
+    const report = generateEMReport([], [], situationReport);
+    saveNightShiftReport(rootDir, report, "em");
+    sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
+    return { report, workList: [], results: [] };
+  }
+
+  return executeEMSession({ rootDir, workList, situationReport, modelOverride, fallbackModels, sendSSE });
+}
 
   // ── Phase 3: Deterministic execution ──
   console.log("[NightShift] ═══ Phase 3: Agent Dispatch (serial) ═══");
