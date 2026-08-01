@@ -781,6 +781,15 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-1">規劃工作、調度 agent、審查進度</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              {/* EM Settings */}
+              <button
+                onClick={() => { if (!showEmConfig) fetchEmConfig(); setShowEmConfig(!showEmConfig); }}
+                className={cn("text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100 transition-colors",
+                  showEmConfig && "bg-purple-100 text-purple-700")}
+                title="EM 調度設定"
+              >
+                ⚙️
+              </button>
               {/* History button */}
               <button
                 onClick={() => { setShowSessions(!showSessions); if (!showSessions) fetchEmSessions(); }}
@@ -847,15 +856,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 title="打開 Night Shift 面板"
               >
                 🌙
-              </button>
-              {/* EM Settings */}
-              <button
-                onClick={() => { if (!showEmConfig) fetchEmConfig(); setShowEmConfig(!showEmConfig); }}
-                className={cn("text-xs px-2 py-1 rounded-md font-bold flex items-center gap-1 transition-colors",
-                  showEmConfig ? "bg-purple-100 text-purple-700" : "text-stone-500 hover:bg-stone-100")}
-                title="EM 調度設定"
-              >
-                ⚙️
               </button>
             </div>
           </div>
