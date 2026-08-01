@@ -161,6 +161,64 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
   const [showCUModal, setShowCUModal] = useState(false);
   const [singleStepRunning, setSingleStepRunning] = useState<string | null>(null); // step id being retried
 
+  // ── EM Config ──
+  const [emConfig, setEmConfig] = useState<any>(null);
+  const [showEmConfig, setShowEmConfig] = useState(false);
+  const [emConfigDirty, setEmConfigDirty] = useState(false);
+
+  const fetchEmConfig = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-em/config?path=${encodeURIComponent(rootPath)}`);
+      const d = await res.json();
+      setEmConfig(d);
+      setEmConfigDirty(false);
+    } catch {}
+  }, [rootPath]);
+
+  useEffect(() => { fetchEmConfig(); }, [fetchEmConfig]);
+
+  const patchEmConfig = async (patch: any) => {
+    setEmConfig((prev: any) => ({ ...prev, ...patch }));
+    setEmConfigDirty(true);
+  };
+
+  const patchEmConfigDeep = async (section: string, key: string, value: any) => {
+    setEmConfig((prev: any) => {
+      if (!prev) return prev;
+      const sectionData = prev[section] || {};
+      return { ...prev, [section]: { ...sectionData, [key]: value } };
+    });
+    setEmConfigDirty(true);
+  };
+
+  const saveEmConfig = async () => {
+    if (!rootPath || !emConfig) return;
+    try {
+      await fetch(`${API_BASE}/api/coding-em/config?path=${encodeURIComponent(rootPath)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emConfig),
+      });
+      setEmConfigDirty(false);
+    } catch (e: any) {
+      alert("儲存 EM 設定失敗: " + e.message);
+    }
+  };
+
+  const resetEmConfig = async () => {
+    if (!rootPath) return;
+    if (!confirm("重置 EM 設定為預設值？")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/coding-em/config/reset?path=${encodeURIComponent(rootPath)}`, { method: "POST" });
+      const d = await res.json();
+      setEmConfig(d.config);
+      setEmConfigDirty(false);
+    } catch (e: any) {
+      alert("重置失敗: " + e.message);
+    }
+  };
+
   // ── CU step definitions (must match server) ──
   const CU_STEPS = [
     { id: "scan", name: "🔍 掃描專案結構", file: "scan.json" },
@@ -790,6 +848,15 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
               >
                 🌙
               </button>
+              {/* EM Settings */}
+              <button
+                onClick={() => { if (!showEmConfig) fetchEmConfig(); setShowEmConfig(!showEmConfig); }}
+                className={cn("text-xs px-2 py-1 rounded-md font-bold flex items-center gap-1 transition-colors",
+                  showEmConfig ? "bg-purple-100 text-purple-700" : "text-stone-500 hover:bg-stone-100")}
+                title="EM 調度設定"
+              >
+                ⚙️
+              </button>
             </div>
           </div>
         </div>
@@ -839,6 +906,154 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 </button>
               ))
             )}
+          </div>
+        )}
+
+        {/* EM Config Panel */}
+        {showEmConfig && emConfig && (
+          <div className="border-b bg-stone-50" style={{ borderColor: tk.borderLight, maxHeight: "70%", overflowY: "auto" }}>
+            <div className="flex items-center justify-between px-4 py-2 border-b sticky top-0 bg-white z-10" style={{ borderColor: tk.borderLight }}>
+              <span className="text-sm font-bold text-stone-700">⚙️ EM 調度設定</span>
+              <div className="flex items-center gap-2">
+                {emConfigDirty && <span className="text-[10px] text-amber-600">● 未儲存</span>}
+                <button onClick={saveEmConfig} disabled={!emConfigDirty} className="text-xs px-2 py-1 rounded bg-blue-500 text-white disabled:opacity-30 hover:bg-blue-600">💾 儲存</button>
+                <button onClick={resetEmConfig} className="text-xs px-2 py-1 rounded text-stone-500 hover:bg-stone-100">↩️ 重置</button>
+                <button onClick={() => setShowEmConfig(false)} className="text-xs text-stone-400 hover:text-stone-600">✕</button>
+              </div>
+            </div>
+            <div className="px-4 py-3 space-y-4">
+              {/* Dispatch Strategy */}
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">🧭 調度策略</label>
+                <div className="flex gap-1.5">
+                  {[
+                    { v: "conservative", label: "保守", desc: "每步都問人" },
+                    { v: "balanced", label: "平衡", desc: "計畫→確認→執行" },
+                    { v: "aggressive", label: "積極", desc: "收到目標直接做完" },
+                  ].map(s => (
+                    <button key={s.v} onClick={() => patchEmConfig({ dispatchStrategy: s.v })}
+                      className={cn("text-xs px-3 py-1.5 rounded-md border transition-all",
+                        emConfig.dispatchStrategy === s.v ? "bg-purple-100 border-purple-300 text-purple-700 font-bold" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300")}
+                      title={s.desc}
+                    >{s.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Auto-Execute Rules */}
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">⚡ 自動執行規則</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { key: "tests", label: "補測試" },
+                    { key: "docs", label: "寫文件" },
+                    { key: "refactor", label: "重構" },
+                    { key: "securityFix", label: "安全修復" },
+                    { key: "breakingChange", label: "破壞性變更" },
+                  ].map(r => (
+                    <label key={r.key} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <input type="checkbox"
+                        checked={!!emConfig.autoExecute?.[r.key]}
+                        onChange={e => patchEmConfigDeep("autoExecute", r.key, e.target.checked)}
+                        className="accent-purple-500"
+                      />
+                      <span className={emConfig.autoExecute?.[r.key] ? "text-stone-700 font-medium" : "text-stone-400"}>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-stone-400 mt-1">未勾選的項目 EM 會先問人再執行</p>
+              </div>
+
+              {/* Task Decomposition */}
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">📋 任務拆分設定</label>
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-1 text-xs text-stone-600">
+                    最多子任務:
+                    <input type="number" min={1} max={50}
+                      value={emConfig.taskDecomposition?.maxSubtasks ?? 10}
+                      onChange={e => patchEmConfigDeep("taskDecomposition", "maxSubtasks", parseInt(e.target.value) || 10)}
+                      className="w-14 px-1.5 py-0.5 rounded border border-stone-200 text-xs"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-stone-600">
+                    預設 Effort:
+                    <select value={emConfig.taskDecomposition?.defaultEffort ?? "S"}
+                      onChange={e => patchEmConfigDeep("taskDecomposition", "defaultEffort", e.target.value)}
+                      className="px-1.5 py-0.5 rounded border border-stone-200 text-xs bg-white"
+                    >
+                      <option value="XS">XS</option>
+                      <option value="S">S</option>
+                      <option value="M">M</option>
+                      <option value="L">L</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-stone-600">
+                    <input type="checkbox"
+                      checked={!!emConfig.taskDecomposition?.requireEstimate}
+                      onChange={e => patchEmConfigDeep("taskDecomposition", "requireEstimate", e.target.checked)}
+                      className="accent-purple-500"
+                    />
+                    拆完附估時
+                  </label>
+                </div>
+              </div>
+
+              {/* Reporting */}
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">📊 報告格式</label>
+                <div className="flex flex-wrap gap-3">
+                  <select value={emConfig.reporting?.format ?? "summary"}
+                    onChange={e => patchEmConfigDeep("reporting", "format", e.target.value)}
+                    className="px-2 py-1 rounded border border-stone-200 text-xs bg-white"
+                  >
+                    <option value="summary">摘要</option>
+                    <option value="detailed">詳細</option>
+                    <option value="executive">執行摘要</option>
+                  </select>
+                  <label className="flex items-center gap-1 text-xs text-stone-600">
+                    <input type="checkbox"
+                      checked={!!emConfig.reporting?.includeCodeChanges}
+                      onChange={e => patchEmConfigDeep("reporting", "includeCodeChanges", e.target.checked)}
+                      className="accent-purple-500"
+                    />
+                    附 Code Diff
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-stone-600">
+                    <input type="checkbox"
+                      checked={!!emConfig.reporting?.includeActionLog}
+                      onChange={e => patchEmConfigDeep("reporting", "includeActionLog", e.target.checked)}
+                      className="accent-purple-500"
+                    />
+                    附 Action Log
+                  </label>
+                </div>
+              </div>
+
+              {/* Planning Scope */}
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">🔍 規劃範圍</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { key: "gitChanges", label: "Git 變更" },
+                    { key: "openIssues", label: "Open Issues" },
+                    { key: "openTasks", label: "Open Tasks" },
+                    { key: "securityFindings", label: "安全發現" },
+                    { key: "codeIntelligence", label: "Code Intelligence" },
+                    { key: "testCoverage", label: "測試覆蓋率" },
+                  ].map(r => (
+                    <label key={r.key} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <input type="checkbox"
+                        checked={!!emConfig.planningScope?.[r.key]}
+                        onChange={e => patchEmConfigDeep("planningScope", r.key, e.target.checked)}
+                        className="accent-purple-500"
+                      />
+                      <span className={emConfig.planningScope?.[r.key] ? "text-stone-700 font-medium" : "text-stone-400"}>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
