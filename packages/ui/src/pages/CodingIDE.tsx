@@ -40,7 +40,6 @@ import ModelSelector from "../components/ModelSelector";
 import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
 import TaskBoard from "../components/TaskBoard";
-import AgentMemoryPanel from "../components/AgentMemoryPanel";
 import FeatureMap from "../components/FeatureMap";
 import NightShiftPanel from "../components/NightShiftPanel";
 import CrewManager from "../components/CrewManager";
@@ -69,7 +68,7 @@ interface OpenTab {
 }
 
 // ── Main Tab Types ──
-type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "memory" | "features" | "nightshift" | "security" | "crew-manager";
+type MainTabType = "editor" | "viewer" | "git" | "api" | "terminal" | "ai-crew" | "standards" | "sessions" | "decisions" | "health" | "em-dashboard" | "prompts" | "issues" | "tasks" | "features" | "nightshift" | "security" | "crew-manager";
 
 interface MainTab {
   id: string;
@@ -2096,12 +2095,6 @@ const sendChat = useCallback(async () => {
           onMouseEnter={e => { if (activeMainTab?.id !== "tool:tasks") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:tasks" ? tk.toolbarActive : "transparent"; }}
           title="Tasks">📌 Tasks</button>
-        <button onClick={() => openMainTab({ id: "tool:memory", type: "memory", label: "Memory", icon: "🧠", closable: true })}
-          className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
-          style={{ backgroundColor: activeMainTab?.id === "tool:memory" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:memory") ? tk.toolbarText : tk.toolbarTextMuted }}
-          onMouseEnter={e => { if (activeMainTab?.id !== "tool:memory") e.currentTarget.style.backgroundColor = tk.toolbarHover; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeMainTab?.id === "tool:memory" ? tk.toolbarActive : "transparent"; }}
-          title={tt("memory.title")}>🧠 Memory</button>
         <button onClick={() => openMainTab({ id: "tool:features", type: "features", label: "Features", icon: "🗺️", closable: true })}
           className={cn("flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors")}
           style={{ backgroundColor: activeMainTab?.id === "tool:features" ? tk.toolbarActive : "transparent", color: mainTabs.some(t => t.id === "tool:features") ? tk.toolbarText : tk.toolbarTextMuted }}
@@ -3286,17 +3279,6 @@ const sendChat = useCallback(async () => {
                     }
                     setActiveMainTabId("tool:issues");
                   }}
-                />
-              </div>
-            )}
-
-            {/* === MEMORY TAB === (keep mounted, hide with CSS) */}
-            {mainTabs.some(t => t.type === "memory") && rootPath && (
-              <div key="tool:memory" className="flex-1 flex flex-col min-w-0"
-                style={{ display: activeMainTab?.type === "memory" ? undefined : "none" }}>
-                <AgentMemoryPanel
-                  rootPath={rootPath}
-                  theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                 />
               </div>
             )}

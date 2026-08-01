@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-08-01
+### added
+- 新增 shared-utils.test.ts（42 tests）和 dependency-context.test.mjs（25 tests）單元測試覆蓋。修復 night-shift-shared.test.mjs mock 策略以匹配 shellExecSync。發現並開立 critical bug ISS-027（gatherContext 使用未定義 projectRoot）。
+
+
+
+### changed
+- code changes (1 new file) (4 modified)
+
+### changed
+- +69 −6 lines across 3 files
+
 ## 2026-07-29
 ### changed
 - 用 write_file 建一個測試檔案 data/apps/test-app/hello.txt，內容寫 Hello from App Builder tes (1 new file)
