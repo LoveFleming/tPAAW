@@ -33,6 +33,7 @@ export default function DirectoryExplorer({
     const [error, setError] = useState("");
     const [manualInput, setManualInput] = useState("");
     const [showManual, setShowManual] = useState(false);
+    const [manualError, setManualError] = useState("");
     const [selectedDir, setSelectedDir] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
@@ -79,12 +80,32 @@ export default function DirectoryExplorer({
         if (parentPath) browse(parentPath);
     };
 
-    const handleManualGo = () => {
+    const handleManualGo = async () => {
         const p = manualInput.trim();
-        if (p) {
-            browse(p);
+        if (!p) return;
+        // Expand ~ to home directory
+        const expanded = p.startsWith("~")
+            ? (process.env.HOME || "") + p.slice(1)
+            : p;
+        setManualError("");
+        setLoading(true);
+        setError("");
+        try {
+            const res = await fetch(`${API}/api/fs/browse?path=${encodeURIComponent(expanded)}`);
+            const data = await res.json();
+            if (data.error) {
+                setManualError(data.error);
+                return; // keep input visible so user can fix
+            }
+            setCurrentPath(data.currentPath);
+            setParentPath(data.parent || null);
+            setDirs(data.directories || []);
             setManualInput("");
             setShowManual(false);
+        } catch (err: any) {
+            setManualError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -154,7 +175,13 @@ export default function DirectoryExplorer({
                         {currentPath}
                     </div>
                     <button
-                        onClick={() => setShowManual(!showManual)}
+                        onClick={() => {
+                            if (!showManual) {
+                                setManualInput(currentPath);
+                                setManualError("");
+                            }
+                            setShowManual(!showManual);
+                        }}
                         className="px-2 py-1.5 rounded-lg border text-sm transition-colors"
                         style={{ borderColor: t.accentBorder, color: t.accent + "99" }}
                         title="手動輸入路徑"
@@ -189,6 +216,11 @@ export default function DirectoryExplorer({
                         >
                             Go
                         </button>
+                    </div>
+                )}
+                {showManual && manualError && (
+                    <div className="px-4 py-1.5 text-xs text-red-500 border-b" style={{ borderColor: t.accentBorder + "40" }}>
+                        ❌ {manualError}
                     </div>
                 )}
 

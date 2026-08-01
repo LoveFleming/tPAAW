@@ -733,7 +733,9 @@ export default async function crewRoute(req, res) {
   if (req.method === "GET" && req.url?.startsWith("/api/fs/browse") && !req.url?.startsWith("/api/fs/browse-files")) {
     const params = new URL(req.url, "http://localhost").searchParams;
     const dirPath = params.get("path") || "";
-    const absPath = dirPath ? resolve(dirPath) : resolve(process.env.HOME || "/");
+    // Expand ~ to home directory (Unix convention)
+    const expandedPath = dirPath.startsWith("~") ? (process.env.HOME || "") + dirPath.slice(1) : dirPath;
+    const absPath = expandedPath ? resolve(expandedPath) : resolve(process.env.HOME || "/");
     const norm = (p) => p.replace(/\\/g, "/");
     try {
       const s = await stat(absPath);
