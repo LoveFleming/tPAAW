@@ -392,7 +392,7 @@ export async function executeEMSession(opts = {}) {
     sendSSE("info", { message: "📋 保守模式：僅顯示計畫，不自動執行。" });
     sendSSE("plan", { workList });
     sendSSE("done", { totalTasks: workList.length, succeeded: 0, failed: 0, skipped: true, reason: 'conservative' });
-    const report = generateEMReport(workList, [], situationReport, { skipped: true });
+    const report = generateEMReport(workList, [], situationReport, { skipped: true, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
     saveNightShiftReport(rootDir, report, "em");
     return { report, workList, results: [] };
   }
@@ -426,7 +426,7 @@ export async function executeEMSession(opts = {}) {
     sendSSE("info", { message: "📋 所有工作都需人工確認。" });
     sendSSE("plan", { workList });
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, skipped: true });
-    const report = generateEMReport(workList, [], situationReport, { skipped: true, skippedReasons: skippedTasks });
+    const report = generateEMReport(workList, [], situationReport, { skipped: true, skippedReasons: skippedTasks, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
     saveNightShiftReport(rootDir, report, "em");
     return { report, workList, results: [] };
   }
