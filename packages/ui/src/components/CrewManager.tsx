@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "../utils";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
+import AgentBuilder from "./AgentBuilder";
 
 // ── Types ──
 interface AgentDef {
@@ -366,43 +367,16 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
     setSaving(false);
   };
 
-  // ── Create custom agent ──
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newAgent, setNewAgent] = useState({ id: "", codename: "", title: "", emoji: "🤖", rolePrompt: "", description: "" });
+  // ── AgentBuilder wizard ──
+  const [showBuilder, setShowBuilder] = useState(false);
 
-  const createAgent = async () => {
-    if (!rootPath) return;
-    const agentId = newAgent.id.trim();
-    if (!agentId.startsWith("custom.")) {
-      setSavedMsg('❌ ID 必須以 "custom." 開頭');
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-project/crew?path=${encodeURIComponent(rootPath)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: agentId,
-          codename: newAgent.codename || agentId,
-          title: newAgent.title || "Custom Agent",
-          emoji: newAgent.emoji || "🤖",
-          rolePrompt: newAgent.rolePrompt || `You are ${newAgent.codename || "a custom agent"}.`,
-          description: newAgent.description || "",
-        }),
-      });
-      const data = await res.json();
-      if (data.id) {
-        setShowCreateForm(false);
-        setNewAgent({ id: "", codename: "", title: "", emoji: "🤖", rolePrompt: "", description: "" });
-        await loadCrew();
-        setSelectedAgentId(data.id);
-        onCrewChanged?.();
-      }
-    } catch (err: any) {
-      setSavedMsg(`❌ ${err.message}`);
-    }
-    setSaving(false);
+  const handleAgentCreated = async (agentId: string) => {
+    setShowBuilder(false);
+    await loadCrew();
+    setSelectedAgentId(agentId);
+    onCrewChanged?.();
+    setSavedMsg("✅ Agent 建立成功！");
+    setTimeout(() => setSavedMsg(""), 3000);
   };
 
   const selectedAgent = agents.find(a => a.id === selectedAgentId);
@@ -461,21 +435,10 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
         {/* Create agent */}
         <div className="p-2 border-t" style={{ borderColor: t.borderLight }}>
-          {showCreateForm ? (
-            <div className="space-y-2 p-2 bg-white rounded-lg border" style={{ borderColor: t.borderLight }}>
-              <input placeholder="custom.reviewer" value={newAgent.id} onChange={e => setNewAgent({ ...newAgent, id: e.target.value })} className="w-full px-2 py-1 text-xs border rounded font-mono" style={{ borderColor: t.borderLight }} />
-              <input placeholder="名字 / Codename" value={newAgent.codename} onChange={e => setNewAgent({ ...newAgent, codename: e.target.value })} className="w-full px-2 py-1 text-xs border rounded" style={{ borderColor: t.borderLight }} />
-              <input placeholder="角色 Title" value={newAgent.title} onChange={e => setNewAgent({ ...newAgent, title: e.target.value })} className="w-full px-2 py-1 text-xs border rounded" style={{ borderColor: t.borderLight }} />
-              <input placeholder="Emoji 🤖" value={newAgent.emoji} onChange={e => setNewAgent({ ...newAgent, emoji: e.target.value })} className="w-full px-2 py-1 text-xs border rounded" style={{ borderColor: t.borderLight }} />
-              <textarea placeholder="Role Prompt..." value={newAgent.rolePrompt} onChange={e => setNewAgent({ ...newAgent, rolePrompt: e.target.value })} rows={3} className="w-full px-2 py-1 text-xs border rounded resize-none" style={{ borderColor: t.borderLight }} />
-              <div className="flex gap-1">
-                <button onClick={createAgent} disabled={saving || !newAgent.id.trim()} className="flex-1 px-2 py-1 text-xs font-bold text-white rounded" style={{ backgroundColor: t.accent }}>建立</button>
-                <button onClick={() => { setShowCreateForm(false); setNewAgent({ id: "", codename: "", title: "", emoji: "🤖", rolePrompt: "", description: "" }); }} className="px-2 py-1 text-xs text-stone-500 hover:bg-stone-100 rounded">取消</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={() => setShowCreateForm(true)} className="w-full px-3 py-2 text-xs font-medium text-stone-500 hover:bg-white rounded-lg flex items-center justify-center gap-1 transition-colors">➕ 新增 Agent</button>
-          )}
+          <button onClick={() => setShowBuilder(true)} className="w-full px-3 py-2 text-xs font-medium text-white rounded-lg flex items-center justify-center gap-1 transition-colors"
+            style={{ backgroundColor: t.accent }}>
+            ➕ 新增 Agent
+          </button>
         </div>
       </div>
 
@@ -890,6 +853,16 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
           <div className="flex items-center justify-center h-full text-stone-400 text-sm">選擇一個 Agent 開始編輯</div>
         )}
       </div>
+
+      {/* AgentBuilder Modal */}
+      {showBuilder && (
+        <AgentBuilder
+          rootPath={rootPath}
+          theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, border: t.border, accent: t.accent, accentLight: t.accentLight, accentText: t.accentText, text: t.text }}
+          onClose={() => setShowBuilder(false)}
+          onCreated={handleAgentCreated}
+        />
+      )}
     </div>
   );
 }
