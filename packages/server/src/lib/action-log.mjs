@@ -121,15 +121,23 @@ export async function saveAgentMemory(agentId, content, cwd) {
  * Load agent long-term memory
  * @param {string} agentId
  * @param {string} [cwd]
- * @param {number} [maxChars] - max chars to return (default 2000)
+ * @param {number} [maxChars] - max chars to return (default 6000)
  * @returns {Promise<string>}
  */
 export async function loadAgentMemory(agentId, cwd, maxChars = 6000) {
   const dir = getAgentMemoryDir(cwd);
-  const filePath = join(dir, `${agentId}.md`);
-  if (!existsSync(filePath)) return "";
-  const { readFile: rf } = await import("fs/promises");
-  const content = await rf(filePath, "utf-8");
-  if (content.length <= maxChars) return content;
-  return content.slice(0, maxChars) + "\n... (truncated)";
+  // Try full agentId first (e.g. "coding.architect"), then short form (e.g. "architect")
+  const candidates = [
+    join(dir, `${agentId}.md`),
+    join(dir, agentId.replace(/^(coding\.|custom\.)/, "") + ".md"),
+  ];
+  for (const filePath of candidates) {
+    if (existsSync(filePath)) {
+      const { readFile: rf } = await import("fs/promises");
+      const content = await rf(filePath, "utf-8");
+      if (content.length <= maxChars) return content;
+      return content.slice(0, maxChars) + "\n... (truncated)";
+    }
+  }
+  return "";
 }

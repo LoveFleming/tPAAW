@@ -91,15 +91,6 @@ export default function AgentBuilder({ rootPath, theme: t, onClose, onCreated }:
         opts.push({ value: `${p.id}/${m.id}`, label: m.name || m.id, group: p.name });
       }
     }
-    const known = new Set(opts.map(o => o.value));
-    const common = [
-      { value: "zai/glm-5.1", label: "GLM 5.1 (zai)" },
-      { value: "openrouter/z-ai/glm-5.1", label: "GLM 5.1 (OpenRouter)" },
-      { value: "openrouter/deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
-    ];
-    for (const c of common) {
-      if (!known.has(c.value)) opts.push({ value: c.value, label: c.label, group: "Other" });
-    }
     return opts;
   }, [providers]);
 

@@ -33,7 +33,7 @@
  *   GET    /api/coding-crew/conversations/:crewId/archives/:id?cwd=... — Load archived conversation
  */
 
-import { readFile, writeFile, readdir, mkdir, unlink, appendFile } from "fs/promises";
+import { readFile, writeFile, readdir, mkdir, unlink, appendFile, stat as fsStat } from "fs/promises";
 import { existsSync, readFileSync as readSync } from "fs";
 import { resolve, join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -1165,6 +1165,196 @@ export default async function projectRoute(req, res) {
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ skills }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── Agent Memory endpoints ──
+  // GET /api/coding-project/agent-memory?path=...&agentId=coding.architect
+  if (url.startsWith("/api/coding-project/agent-memory") && req.method === "GET") {
+    try {
+      const projectDir = q.path || "";
+      const agentId = q.agentId || "";
+      if (!projectDir || !agentId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and agentId required" }));
+        return true;
+      }
+      const { loadAgentMemory } = await import("../lib/action-log.mjs");
+      const content = await loadAgentMemory(agentId, projectDir, 999999);
+      // Get file stats — check both full and short form filenames
+      const shortId = agentId.replace(/^(coding\.|custom\.)/, "");
+      const memPaths = [
+        join(projectDir, ".paaw", "agent-memory", `${agentId}.md`),
+        join(projectDir, ".paaw", "agent-memory", `${shortId}.md`),
+      ];
+      let updatedAt = null, size = 0;
+      for (const mp of memPaths) {
+        try { const stat = await fsStat(mp); updatedAt = stat.mtime; size = stat.size; break; } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ agentId, content, updatedAt, size }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // PUT /api/coding-project/agent-memory — Save agent memory
+  if (url.startsWith("/api/coding-project/agent-memory") && req.method === "PUT") {
+    try {
+      const body = JSON.parse(await readBody(req) || "{}");
+      const { path: projectDir, agentId, content } = body;
+      if (!projectDir || !agentId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and agentId required" }));
+        return true;
+      }
+      const { saveAgentMemory } = await import("../lib/action-log.mjs");
+      await saveAgentMemory(agentId, content, projectDir);
+      const memPath = join(projectDir, ".paaw", "agent-memory", `${agentId}.md`);
+      let updatedAt = null, size = 0;
+      try { const stat = await fsStat(memPath); updatedAt = stat.mtime; size = stat.size; } catch {}
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, agentId, updatedAt, size }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // DELETE /api/coding-project/agent-memory — Clear agent memory
+  if (url.startsWith("/api/coding-project/agent-memory") && req.method === "DELETE") {
+    try {
+      const projectDir = q.path || "";
+      const agentId = q.agentId || "";
+      if (!projectDir || !agentId) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and agentId required" }));
+        return true;
+      }
+      const shortId = agentId.replace(/^(coding\.|custom\.)/, "");
+      const memPaths = [
+        join(projectDir, ".paaw", "agent-memory", `${agentId}.md`),
+        join(projectDir, ".paaw", "agent-memory", `${shortId}.md`),
+      ];
+      for (const mp of memPaths) {
+        try { await unlink(mp); } catch {}
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, agentId }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // ── Crew Export/Import endpoints ──
+  // GET /api/coding-project/crew-export?path=...
+  if (url.startsWith("/api/coding-project/crew-export") && req.method === "GET") {
+    try {
+      const projectDir = q.path || "";
+      if (!projectDir) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path required" }));
+        return true;
+      }
+      const { readProjectCrew, readProjectSkills } = await import("../lib/project-crew.mjs");
+      const { agents, config } = readProjectCrew(projectDir);
+      const skillBindings = {};
+      for (const a of agents) {
+        const skills = readProjectSkills(projectDir, a.id);
+        if (skills.length > 0) skillBindings[a.id] = skills.map(s => s.id);
+      }
+      // Read all agent memories
+      const memDir = join(projectDir, ".paaw", "agent-memory");
+      const memories = {};
+      try {
+        const memFiles = await readdir(memDir);
+        for (const f of memFiles) {
+          if (f.endsWith(".md")) {
+            const agentId = f.replace(/\.md$/, "");
+            memories[agentId] = await readFile(join(memDir, f), "utf-8");
+          }
+        }
+      } catch {}
+      const exportData = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        agents: agents.map(({ _source, _clonedAt, _updatedAt, _createdAt, _resetAt, ...rest }) => rest),
+        config,
+        skillBindings,
+        memories,
+      };
+      res.writeHead(200, { "Content-Type": "application/json", "Content-Disposition": "attachment; filename=crew-export.json" });
+      res.end(JSON.stringify(exportData, null, 2));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
+  // POST /api/coding-project/crew-import — Import crew config
+  if (url.startsWith("/api/coding-project/crew-import") && req.method === "POST") {
+    try {
+      const body = JSON.parse(await readBody(req) || "{}");
+      const { path: projectDir, data } = body;
+      if (!projectDir || !data) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "path and data required" }));
+        return true;
+      }
+      const { initProjectCrew, updateProjectAgent, updateAgentModel, updateAgentSkills } = await import("../lib/project-crew.mjs");
+      const { saveAgentMemory } = await import("../lib/action-log.mjs");
+      // Initialize crew structure
+      initProjectCrew(projectDir);
+      let imported = 0, skipped = 0;
+      // Import agents (only non-default fields are patched)
+      if (data.agents) {
+        for (const agent of data.agents) {
+          try {
+            // Only patch fields that differ from defaults
+            const patch = {};
+            const skipKeys = new Set(["id", "_source", "_clonedAt", "_updatedAt", "_createdAt", "_resetAt"]);
+            for (const [k, v] of Object.entries(agent)) {
+              if (!skipKeys.has(k) && v !== undefined) patch[k] = v;
+            }
+            if (Object.keys(patch).length > 0) {
+              updateProjectAgent(projectDir, agent.id, patch);
+              imported++;
+            } else {
+              skipped++;
+            }
+          } catch { skipped++; }
+        }
+      }
+      // Import models
+      if (data.config?.models) {
+        for (const [agentId, modelCfg] of Object.entries(data.config.models)) {
+          try { updateAgentModel(projectDir, agentId, modelCfg); } catch {}
+        }
+      }
+      // Import skill bindings
+      if (data.skillBindings) {
+        for (const [agentId, skills] of Object.entries(data.skillBindings)) {
+          try { updateAgentSkills(projectDir, agentId, skills); } catch {}
+        }
+      }
+      // Import memories
+      if (data.memories) {
+        for (const [agentId, content] of Object.entries(data.memories)) {
+          try { await saveAgentMemory(agentId, content, projectDir); } catch {}
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, imported, skipped }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

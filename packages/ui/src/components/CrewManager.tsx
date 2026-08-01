@@ -126,8 +126,10 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   const [editData, setEditData] = useState<AgentDef | null>(null);
   const [editModel, setEditModel] = useState({ primary: "", fallbacks: [] as string[], emModel: "", nightShiftModel: "" });
   const [editSkills, setEditSkills] = useState<string[]>([]);
-  const [agentMemory, setAgentMemory] = useState<any[]>([]);
+  const [agentMemory, setAgentMemory] = useState("");
   const [memoryLoading, setMemoryLoading] = useState(false);
+  const [memoryDirty, setMemoryDirty] = useState(false);
+  const [memoryMeta, setMemoryMeta] = useState<{ updatedAt: string | null; size: number }>({ updatedAt: null, size: 0 });
 
   // ── Build flat model list from providers ──
   const modelOptions = useMemo(() => {
@@ -139,17 +141,6 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
         const fullId = `${p.id}/${m.id}`;
         opts.push({ value: fullId, label: `${m.name || m.id}`, group: p.name });
       }
-    }
-    // Also include common fallback models that might not be in providers
-    const known = new Set(opts.map(o => o.value));
-    const common = [
-      { value: "zai/glm-5.1", label: "GLM 5.1 (zai)" },
-      { value: "openrouter/z-ai/glm-5.1", label: "GLM 5.1 (OpenRouter)" },
-      { value: "openrouter/deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
-      { value: "openrouter/deepseek/deepseek-v4", label: "DeepSeek V4" },
-    ];
-    for (const c of common) {
-      if (!known.has(c.value)) opts.push({ value: c.value, label: c.label, group: "Other" });
     }
     return opts;
   }, [providers]);
@@ -211,10 +202,14 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
   useEffect(() => {
     if (detailTab !== "memory" || !selectedAgentId || !rootPath) return;
     setMemoryLoading(true);
-    fetch(`${API_BASE}/api/coding-crew/${selectedAgentId}/memory?cwd=${encodeURIComponent(rootPath)}`)
+    setMemoryDirty(false);
+    fetch(`${API_BASE}/api/coding-project/agent-memory?path=${encodeURIComponent(rootPath)}&agentId=${encodeURIComponent(selectedAgentId)}`)
       .then(r => r.json())
-      .then(data => { setAgentMemory(data.entries || data.memory || []); })
-      .catch(() => setAgentMemory([]))
+      .then(data => {
+        setAgentMemory(data.content || "");
+        setMemoryMeta({ updatedAt: data.updatedAt, size: data.size || 0 });
+      })
+      .catch(() => { setAgentMemory(""); setMemoryMeta({ updatedAt: null, size: 0 }); })
       .finally(() => setMemoryLoading(false));
   }, [detailTab, selectedAgentId, rootPath]);
 
@@ -426,12 +421,61 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
           ))}
         </div>
 
-        {/* Create agent */}
-        <div className="p-2 border-t" style={{ borderColor: t.borderLight }}>
+        {/* Create agent + Import/Export */}
+        <div className="p-2 border-t space-y-1.5" style={{ borderColor: t.borderLight }}>
           <button onClick={() => setShowBuilder(true)} className="w-full px-3 py-2 text-xs font-medium text-white rounded-lg flex items-center justify-center gap-1 transition-colors"
             style={{ backgroundColor: t.accent }}>
             ➕ 新增 Agent
           </button>
+          <div className="flex gap-1.5">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${API_BASE}/api/coding-project/crew-export?path=${encodeURIComponent(rootPath)}`);
+                  const data = await res.json();
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `crew-${new Date().toISOString().slice(0,10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  setSavedMsg("✅ 已匯出");
+                  setTimeout(() => setSavedMsg(""), 2000);
+                } catch { setSavedMsg("❌ 匯出失敗"); }
+              }}
+              className="flex-1 px-2 py-1.5 text-[11px] text-stone-600 rounded-lg border hover:bg-stone-50"
+              style={{ borderColor: t.borderLight }}
+            >📥 匯出</button>
+            <label className="flex-1 px-2 py-1.5 text-[11px] text-stone-600 rounded-lg border hover:bg-stone-50 cursor-pointer text-center"
+              style={{ borderColor: t.borderLight }}>
+              📤 匯入
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!confirm("匯入會覆寫現有 crew 設定，確定？")) return;
+                  const text = await file.text();
+                  const data = JSON.parse(text);
+                  const res = await fetch(`${API_BASE}/api/coding-project/crew-import`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: rootPath, data }),
+                  });
+                  const result = await res.json();
+                  if (result.ok) {
+                    setSavedMsg(`✅ 匯入成功（${result.imported} agents）`);
+                    loadCrew();
+                    onCrewChanged?.();
+                  } else { setSavedMsg("❌ 匯入失敗"); }
+                  setTimeout(() => setSavedMsg(""), 3000);
+                }}
+              />
+            </label>
+          </div>
         </div>
       </div>
 
@@ -691,9 +735,10 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <div className="text-xs font-semibold text-blue-700 mb-1">💡 成本策略建議</div>
                     <div className="text-[11px] text-blue-600 space-y-0.5">
-                      <div>🔴 <b>架構師/Developer/QA</b> → GLM 5.1（需要品質）</div>
-                      <div>🟢 <b>Tester/Doc Writer/Helpdesk</b> → DeepSeek Flash（省成本）</div>
-                      <div>🌙 <b>Night Shift</b> → 一律 DeepSeek Flash（高頻省成本）</div>
+                      <div>🔴 <b>架構/開發/QA</b> → 用強模型（需要品質）</div>
+                      <div>🟢 <b>測試/文件/客服</b> → 用經濟模型（省成本）</div>
+                      <div>🌙 <b>Night Shift</b> → 建議用經濟模型（高頻省成本）</div>
+                      <div className="text-stone-400 mt-1">以上為建議，實際可用模型取決於你的 Provider 設定</div>
                     </div>
                   </div>
 
@@ -801,28 +846,77 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
               {/* ════ Memory Tab ════ */}
               {detailTab === "memory" && (
                 <div className="space-y-3 max-w-2xl">
-                  <div className="text-xs text-stone-500 bg-stone-50 border rounded-lg px-3 py-2" style={{ borderColor: t.borderLight }}>
-                    💾 Agent 記憶 — 最近的對話摘要和學到的教訓
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-stone-500">
+                      💾 Agent 長期記憶 — 對話後自動累積、也可手動編輯
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {memoryMeta.size > 0 && (
+                        <span className="text-[10px] text-stone-400">
+                          {memoryMeta.size > 1024 ? `${(memoryMeta.size/1024).toFixed(1)} KB` : `${memoryMeta.size} B`}
+                          {memoryMeta.updatedAt && ` · ${new Date(memoryMeta.updatedAt).toLocaleDateString()}`}
+                        </span>
+                      )}
+                      <button
+                        onClick={async () => {
+                          if (!selectedAgentId || !rootPath) return;
+                          if (!confirm(`清空 ${selectedAgentId} 的記憶？此操作無法復原。`)) return;
+                          setSaving(true);
+                          try {
+                            await fetch(`${API_BASE}/api/coding-project/agent-memory?path=${encodeURIComponent(rootPath)}&agentId=${encodeURIComponent(selectedAgentId)}`, { method: "DELETE" });
+                            setAgentMemory("");
+                            setMemoryMeta({ updatedAt: null, size: 0 });
+                            setSavedMsg("記憶已清空");
+                            setTimeout(() => setSavedMsg(""), 2000);
+                          } catch { setSavedMsg("❌ 清空失敗"); }
+                          setSaving(false);
+                        }}
+                        className="text-[11px] text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                      >🗑 清空</button>
+                    </div>
                   </div>
                   {memoryLoading ? (
-                    <div className="text-sm text-stone-400">載入中...</div>
-                  ) : agentMemory.length === 0 ? (
-                    <div className="text-sm text-stone-400 py-8 text-center">
-                      目前沒有記憶條目。<br />
-                      <span className="text-xs">Agent 對話後會自動累積記憶。</span>
-                    </div>
+                    <div className="text-sm text-stone-400 py-8 text-center">載入中...</div>
                   ) : (
-                    <div className="space-y-2">
-                      {agentMemory.map((entry, i) => (
-                        <div key={i} className="p-3 rounded-lg border" style={{ borderColor: t.borderLight }}>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-mono">{entry.type || entry.kind || "memory"}</span>
-                            <span className="text-[10px] text-stone-400">{entry.ts || entry.timestamp || ""}</span>
-                          </div>
-                          <p className="text-xs text-stone-600 whitespace-pre-wrap">{entry.content || entry.text || entry.summary || JSON.stringify(entry)}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <>
+                      <textarea
+                        value={agentMemory}
+                        onChange={e => { setAgentMemory(e.target.value); setMemoryDirty(true); }}
+                        placeholder={`# 我的記憶\n\n## 專案慣例\n- ...\n\n## 踩過的坑\n- ...\n\n## 使用者偏好\n- ...`}
+                        className="w-full h-96 p-3 text-xs font-mono rounded-lg border bg-white resize-y focus:outline-none focus:ring-2"
+                        style={{
+                          borderColor: memoryDirty ? t.accent : t.borderLight,
+                          boxShadow: memoryDirty ? `0 0 0 2px ${t.accentLight}` : undefined,
+                        }}
+                      />
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={async () => {
+                            if (!selectedAgentId || !rootPath) return;
+                            setSaving(true);
+                            try {
+                              const res = await fetch(`${API_BASE}/api/coding-project/agent-memory`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ path: rootPath, agentId: selectedAgentId, content: agentMemory }),
+                              });
+                              const data = await res.json();
+                              if (data.ok) {
+                                setMemoryDirty(false);
+                                setMemoryMeta({ updatedAt: data.updatedAt, size: data.size });
+                                setSavedMsg("✅ 記憶已儲存");
+                                setTimeout(() => setSavedMsg(""), 2000);
+                              } else { setSavedMsg("❌ 儲存失敗"); }
+                            } catch { setSavedMsg("❌ 儲存失敗"); }
+                            setSaving(false);
+                          }}
+                          disabled={!memoryDirty || saving}
+                          className="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-50"
+                          style={{ backgroundColor: memoryDirty ? t.accent : t.borderLight }}
+                        >{saving ? "儲存中..." : "💾 儲存記憶"}</button>
+                        {memoryDirty && <span className="text-[11px] text-amber-600">● 未儲存變更</span>}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
