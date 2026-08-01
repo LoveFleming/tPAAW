@@ -11,6 +11,7 @@ import { cn } from "../utils";
 import API_BASE from "../api";
 import { useI18n } from "../i18n";
 import AgentBuilder from "./AgentBuilder";
+import SkillPicker from "./SkillPicker";
 
 // ── Types ──
 interface AgentDef {
@@ -86,14 +87,6 @@ const TOOL_GROUPS = [
   { id: "docs", name: "📡 Docs", desc: "文檔生成" },
   { id: "dispatch", name: "🚀 Dispatch", desc: "EM 調度" },
   { id: "browser", name: "🌐 Browser", desc: "瀏覽器操作" },
-];
-
-const AVAILABLE_SKILLS = [
-  { id: "security-audit", name: "🔒 Security Audit", desc: "安全性審計" },
-  { id: "code-review-checklist", name: "📋 Code Review Checklist", desc: "Code Review 檢查表" },
-  { id: "react-test-generator", name: "⚛️ React Test Generator", desc: "React 測試生成" },
-  { id: "api-docs-generator", name: "📡 API Docs Generator", desc: "API 文檔生成" },
-  { id: "translate", name: "🌐 Translate", desc: "翻譯" },
 ];
 
 type DetailTab = "rules" | "model" | "context" | "skills" | "memory";
@@ -789,28 +782,14 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
               {detailTab === "skills" && (
                 <div className="space-y-3 max-w-2xl">
                   <div className="text-xs text-stone-500 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
-                    🔧 掛載技能後，Skill 的 prompt 會注入到此 Agent 的 system prompt。
+                    🔧 掛載技能後，Skill 的定義會注入到此 Agent 的 system prompt。\n                    Agent 對話時會自動遵循技能的規則和流程。
                   </div>
-                  <div className="space-y-2">
-                    {AVAILABLE_SKILLS.map(skill => {
-                      const bound = editSkills.includes(skill.id);
-                      return (
-                        <label key={skill.id}
-                          className={cn("flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors",
-                            bound ? "bg-indigo-50 border-indigo-200" : "hover:bg-stone-50")}
-                          style={!bound ? { borderColor: t.borderLight } : {}}>
-                          <input type="checkbox" checked={bound}
-                            onChange={e => { if (e.target.checked) setEditSkills([...editSkills, skill.id]); else setEditSkills(editSkills.filter(s => s !== skill.id)); }}
-                            className="w-4 h-4 accent-indigo-500" />
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-stone-700">{skill.name}</div>
-                            <div className="text-[11px] text-stone-400">{skill.desc}</div>
-                          </div>
-                          {bound && <span className="text-[10px] text-indigo-500 font-medium">✓ 已掛載</span>}
-                        </label>
-                      );
-                    })}
-                  </div>
+                  <SkillPicker
+                    rootPath={rootPath}
+                    selected={editSkills}
+                    onChange={setEditSkills}
+                    theme={{ bg: t.bg, bgMuted: t.bgMuted, borderLight: t.borderLight, accent: t.accent, text: t.text }}
+                  />
                   <button onClick={saveSkills} disabled={saving}
                     className="px-4 py-2 text-sm font-bold text-white rounded-lg"
                     style={{ backgroundColor: t.accent, opacity: saving ? 0.6 : 1 }}>

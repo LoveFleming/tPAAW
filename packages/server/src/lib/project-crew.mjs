@@ -506,3 +506,69 @@ function stripInternal(agent) {
     _source: _source || "global",
   };
 }
+
+// ── Skill prompt injection ──
+
+/**
+ * Read skill prompts for a specific agent from project skillBindings.
+ *
+ * @param {string} projectDir
+ * @param {string} crewId - e.g. "coding.architect"
+ * @returns {Array<{id: string, name: string, prompt: string}>}
+ */
+export function readProjectSkills(projectDir, crewId) {
+  const config = readJson(getConfigPath(projectDir), null);
+  if (!config || !config.skillBindings || !config.skillBindings[crewId]) return [];
+
+  const skillIds = config.skillBindings[crewId];
+  if (!Array.isArray(skillIds) || skillIds.length === 0) return [];
+
+  const results = [];
+  for (const skillId of skillIds) {
+    const skillData = readSkillContent(skillId);
+    if (skillData) {
+      results.push({ id: skillId, name: skillData.name, prompt: skillData.prompt });
+    }
+  }
+  return results;
+}
+
+/**
+ * Read a skill's prompt content from data/skills/ directories.
+ * Tries physical-skill first (SKILL.md), then input-prompt (inputs.json).
+ */
+function readSkillContent(skillId) {
+  const roots = [
+    { dir: resolve(PAAW_ROOT, "data", "skills", "physical-skill"), kind: "physical" },
+    { dir: resolve(PAAW_ROOT, "data", "skills", "input-prompt"), kind: "input" },
+    { dir: resolve(PAAW_ROOT, "data", "skills", "building"), kind: "building" },
+  ];
+
+  for (const { dir } of roots) {
+    // Try SKILL.md
+    const skillMdPath = join(dir, skillId, "SKILL.md");
+    try {
+      const raw = readFileSync(skillMdPath, "utf-8");
+      const nameMatch = raw.match(/^name:\s*(.+)$/m);
+      // Extract body (after frontmatter)
+      const bodyMatch = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+      const body = bodyMatch ? bodyMatch[1].trim() : raw;
+      return {
+        name: (nameMatch && nameMatch[1]) || skillId,
+        prompt: body,
+      };
+    } catch {}
+
+    // Try inputs.json
+    const inputsPath = join(dir, skillId, "inputs.json");
+    try {
+      const data = JSON.parse(readFileSync(inputsPath, "utf-8"));
+      return {
+        name: data.name || skillId,
+        prompt: data.description || data.systemPrompt || `Skill: ${skillId}`,
+      };
+    } catch {}
+  }
+
+  return null;
+}

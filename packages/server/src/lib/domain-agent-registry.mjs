@@ -22,21 +22,38 @@ const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "../../../..");
 const CREWS_DIR = resolve(PAAW_ROOT, "data", "crews");
 
-// ── Crew cache ──
+// ── Crew cache (keyed by crewId only; project overrides merged at call time) ──
 const _crewCache = {};
 
-async function loadCrew(crewId) {
-  if (_crewCache[crewId]) return _crewCache[crewId];
-  const crewFile = join(CREWS_DIR, `${crewId}.json`);
-  if (!existsSync(crewFile)) return null;
-  try {
-    const crew = JSON.parse(readSync(crewFile, "utf-8"));
-    _crewCache[crewId] = crew;
-    return crew;
-  } catch (err) {
-    console.error(`[DomainAgent] Failed to load crew ${crewId}:`, err.message);
-    return null;
+async function loadCrew(crewId, projectDir = null) {
+  // Always read from cache or global file first
+  let crew = _crewCache[crewId];
+  if (!crew) {
+    const crewFile = join(CREWS_DIR, `${crewId}.json`);
+    if (!existsSync(crewFile)) return null;
+    try {
+      crew = JSON.parse(readSync(crewFile, "utf-8"));
+      _crewCache[crewId] = crew;
+    } catch (err) {
+      console.error(`[DomainAgent] Failed to load crew ${crewId}:`, err.message);
+      return null;
+    }
   }
+  if (!crew) return null;
+
+  // If projectDir provided, check for project-level overrides
+  if (projectDir) {
+    const projectAgentPath = join(projectDir, ".paaw", "agents", `${crewId}.json`);
+    if (existsSync(projectAgentPath)) {
+      try {
+        const projectOverride = JSON.parse(readSync(projectAgentPath, "utf-8"));
+        // Deep merge: project fields override global fields
+        return { ...crew, ...projectOverride, id: crewId };
+      } catch {}
+    }
+  }
+
+  return crew;
 }
 
 /** Clear crew cache (for hot-reload during dev) */
@@ -292,7 +309,8 @@ export async function buildSystemPrompt(agentId, opts = {}) {
   const agent = getAgent(agentId);
   if (!agent) throw new Error(`Unknown agent: ${agentId}`);
 
-  const crew = await loadCrew(agent.crewId);
+  const projDir = opts.cwd ? resolve(opts.cwd) : null;
+  const crew = await loadCrew(agent.crewId, projDir);
   if (!crew) throw new Error(`Crew not found: ${agent.crewId}`);
 
   const parts = [];
@@ -358,6 +376,22 @@ export async function buildSystemPrompt(agentId, opts = {}) {
     parts.push(`\n## 目前開啟的檔案\n${opts.clientContext.activeFile}`);
     if (opts.clientContext.activeFileContent) {
       parts.push(`\n\`\`\`\n${opts.clientContext.activeFileContent.slice(0, 3000)}\n\`\`\``);
+    }
+  }
+
+  // 4. Inject skill prompts from project crew skillBindings
+  if (projDir) {
+    try {
+      const { readProjectSkills } = await import("./project-crew.mjs");
+      const skillPrompts = readProjectSkills(projDir, agent.crewId);
+      if (skillPrompts && skillPrompts.length > 0) {
+        const skillSection = skillPrompts.map(s =>
+          `### Skill: ${s.name}\n${s.prompt}`
+        ).join("\n\n");
+        parts.push(`\n## 已掛載技能 (Skills)\n以下是綁定到此 Agent 的技能定義，請在對話中遵循這些規則：\n\n${skillSection}`);
+      }
+    } catch (err) {
+      console.error(`[DomainAgent] Skill injection error for ${agent.crewId}:`, err.message);
     }
   }
 

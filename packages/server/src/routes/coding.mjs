@@ -1119,6 +1119,59 @@ export default async function projectRoute(req, res) {
   // ── Per-Project Crew Management (Phase 1: Data Layer) ──
   // ════════════════════════════════════════════════════════
 
+  // ── GET /api/coding-project/skills — List all available skills for SkillPicker ──
+  if (url.startsWith("/api/coding-project/skills") && req.method === "GET") {
+    try {
+      const { readdirSync, readFileSync: rf, existsSync: exists } = await import("fs");
+      const { join, resolve: resv } = await import("path");
+      const skillsRoot = resv(PAAW_ROOT, "data", "skills");
+      const skills = [];
+
+      // Scan physical-skill and input-prompt dirs
+      const scanDirs = [
+        { dir: join(skillsRoot, "physical-skill"), kind: "physical" },
+        { dir: join(skillsRoot, "input-prompt"), kind: "input-prompt" },
+      ];
+      const seen = new Set();
+      for (const { dir, kind } of scanDirs) {
+        if (!exists(dir)) continue;
+        let dirs;
+        try { dirs = readdirSync(dir); } catch { continue; }
+        for (const d of dirs) {
+          if (seen.has(d)) continue;
+          let name = d, description = "", category = "";
+          // Try SKILL.md
+          const skillMd = join(dir, d, "SKILL.md");
+          const inputsJson = join(dir, d, "inputs.json");
+          try {
+            const raw = rf(skillMd, "utf-8");
+            const nm = raw.match(/^name:\s*(.+)$/m);
+            const ds = raw.match(/^description:\s*(.+)$/m);
+            const ct = raw.match(/^category:\s*(.+)$/m);
+            if (nm) name = nm[1].trim();
+            if (ds) description = ds[1].trim();
+            if (ct) category = ct[1].trim();
+            seen.add(d);
+          } catch {
+            try {
+              const ij = JSON.parse(rf(inputsJson, "utf-8"));
+              name = ij.name || d;
+              description = ij.description || "";
+              seen.add(d);
+            } catch {}
+          }
+          skills.push({ id: d, name, description, category, kind });
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ skills }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return true;
+  }
+
   // These must come before the generic /create route
   if (url.startsWith("/api/coding-project/crew")) {
     const { initProjectCrew, readProjectCrew, readProjectAgent, updateProjectAgent, createCustomAgent, deleteCustomAgent, resetProjectAgent, updateAgentModel, updateAgentSkills } = await import("../lib/project-crew.mjs");
