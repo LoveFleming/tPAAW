@@ -239,7 +239,10 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
   const handlePickAgent = (agentId: string) => {
     if (ctxMenu && onAssignToAgent) {
-      onAssignToAgent(agentId, ctxMenu.msg.content);
+      // Use mouse-selected text if available, otherwise fall back to full message
+      const selection = window.getSelection()?.toString().trim();
+      const content = selection || ctxMenu.msg.content;
+      onAssignToAgent(agentId, content);
     }
     setCtxMenu(null);
     setShowAgentPicker(false);
@@ -381,7 +384,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
               </button>
               <button
                 onClick={() => {
-                  navigator.clipboard?.writeText(ctxMenu.msg.content);
+                  const sel = window.getSelection()?.toString().trim();
+                  navigator.clipboard?.writeText(sel || ctxMenu.msg.content);
                   setCtxMenu(null);
                 }}
                 className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center gap-2"
