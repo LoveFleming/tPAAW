@@ -67,13 +67,13 @@ interface EMDashboardProps {
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
   // Dispatch to crew with pre-filled message
   onDispatchToCrew?: (crewId: string, message: string) => void;
-  // Open a report tab (EM chat → Report)
-  onOpenReportTab?: (reportId: string) => void;
+  // Open Night Shift tab
+  onOpenNightShift?: () => void;
   model?: string;
   onModelChange?: (m: string) => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenReportTab, model, onModelChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenNightShift, model, onModelChange }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -81,130 +81,6 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
       setEmProfile({ codename: d.codename, imageUrl: d.imageUrl, emoji: d.emoji });
     }).catch(() => {});
   }, []);
-
-  // ── Night Shift State ──
-  const [nsRunning, setNsRunning] = useState(false);
-  const [nsStatus, setNsStatus] = useState<string>("");
-  const nightShiftPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Clean up night shift poll on unmount
-  useEffect(() => {
-    return () => { if (nightShiftPollRef.current) clearInterval(nightShiftPollRef.current); };
-  }, []);
-  // emSinceDate/nsSinceDate removed — EM works from commit changes, user can give time commands in chat
-
-  const startNightShift = async () => {
-    setNsRunning(true);
-    setNsStatus("啟動中...");
-    setMessages(prev => [...prev, { role: "user", content: "🌙 啟動 Night Shift", ts: new Date().toISOString() }]);
-    try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setNsStatus("🌙 Night Shift 已啟動！6 個 agent 平行工作中...");
-      } else {
-        setNsStatus("❌ 啟動失敗: " + (data.error || "unknown"));
-        setMessages(prev => [...prev, { role: "assistant", content: `❌ Night Shift 啟動失敗: ${data.error || "unknown"}`, ts: new Date().toISOString() }]);
-        setNsRunning(false);
-        return;
-      }
-    } catch (err: any) {
-      setNsStatus("❌ " + err.message);
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ Night Shift error: ${err.message}`, ts: new Date().toISOString() }]);
-      setNsRunning(false);
-      return;
-    }
-    // Poll status and update chat
-    const agentEmojis: Record<string,string> = { architect: "🏗️", developer: "💻", tester: "🧪", "doc-writer": "📝", qa: "🔍", helpdesk: "🎫" };
-    let prevCompleted = 0;
-    let progressMsg = "🌙 Night Shift 啟動中...";
-    nightShiftPollRef.current = setInterval(async () => {
-      try {
-        const sr = await fetch(`${API_BASE}/api/coding-night-shift/status${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`);
-        const sd = await sr.json();
-        if (sd.status === "completed") {
-          if (nightShiftPollRef.current) { clearInterval(nightShiftPollRef.current); nightShiftPollRef.current = null; }
-          setNsRunning(false);
-          const done = sd.completedAgents || 0;
-          const total = sd.totalAgents || 6;
-          setNsStatus(`✅ Night Shift 完成！${done}/${total} agents 完成，耗時 ${Math.round((sd.duration || 0) / 1000)}s`);
-          // Build final chat message with per-agent results
-          const agentResults = (sd.results || []).map((r: any) => {
-            const e = agentEmojis[r.agentId] || "🤖";
-            return `${e} ${r.agentId}: ${r.error ? "❌ " + r.error.slice(0, 80) : "✅ " + (r.summary || "完成").slice(0, 80)}`;
-          }).join("\n");
-          const nsActions: ChatAction[] = [
-            { label: "📊完整報告", type: "openReport", reportId: "em-report" },
-          ];
-          // If any agent had errors, add retry actions
-          const failedAgents = (sd.results || []).filter((r: any) => r.error);
-          for (const fa of failedAgents) {
-            const crewMap: Record<string, string> = { architect: "coding.architect", developer: "coding.developer", tester: "coding.tester", "doc-writer": "coding.doc-writer", qa: "coding.qa", helpdesk: "coding.helpdesk" };
-            nsActions.push({ label: `🔄重試 ${fa.agentId}`, type: "dispatchCrew", crewId: crewMap[fa.agentId] || "", prompt: `Night Shift 發現錯誤：${fa.error.slice(0, 100)}\n請重新執行這個任務。` });
-          }
-          setMessages(prev => {
-            const lastNs = [...prev].reverse().findIndex(m => (m as any)._nsProgress);
-            if (lastNs >= 0) {
-              const idx = prev.length - 1 - lastNs;
-              const updated = [...prev];
-              updated[idx] = { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString(), actions: nsActions } as any;
-              return updated;
-            }
-            return [...prev, { role: "assistant", content: `🌙 Night Shift 完成！${done}/${total} agents\n\n${agentResults || "詳見右側報告"}`, ts: new Date().toISOString(), actions: nsActions } as any];
-          });
-          refreshData();
-        } else if (sd.status === "running") {
-          const completed = sd.completedAgents || 0;
-          const total = sd.totalAgents || 6;
-          setNsStatus(`⏳ ${completed}/${total} agents 完成...`);
-          // Update progress in chat
-          if (completed > prevCompleted) {
-            prevCompleted = completed;
-            const agentList = (sd.agentStatuses || []).map((a: any) => {
-              const e = agentEmojis[a.agentId] || "🤖";
-              const s = a.status === "completed" ? "✅" : a.status === "running" ? "⏳" : a.status === "error" ? "❌" : "⏸️";
-              return `${e} ${a.agentId}: ${s}`;
-            }).join("\n");
-            progressMsg = `🌙 Night Shift 進度 ${completed}/${total}:\n\n${agentList}`;
-            setMessages(prev => {
-              const lastNs = [...prev].reverse().findIndex(m => (m as any)._nsProgress);
-              if (lastNs >= 0) {
-                const idx = prev.length - 1 - lastNs;
-                const updated = [...prev];
-                updated[idx] = { ...updated[idx], content: progressMsg } as any;
-                return updated;
-              }
-              return [...prev, { role: "assistant", content: progressMsg, ts: new Date().toISOString(), _nsProgress: true } as any];
-            });
-          }
-        } else if (sd.status === "failed" || sd.status === "interrupted" || sd.status === "error") {
-          // Terminal states — stop polling
-          if (nightShiftPollRef.current) { clearInterval(nightShiftPollRef.current); nightShiftPollRef.current = null; }
-          setNsRunning(false);
-          const errMsg = sd.error || sd.message || sd.status;
-          setNsStatus(`❌ Night Shift 終止: ${errMsg.slice(0, 100)}`);
-          setMessages(prev => {
-            const lastNs = [...prev].reverse().findIndex(m => (m as any)._nsProgress);
-            if (lastNs >= 0) {
-              const idx = prev.length - 1 - lastNs;
-              const updated = [...prev];
-              updated[idx] = { role: "assistant", content: `❌ Night Shift 終止 (${sd.status})
-
-${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any;
-              return updated;
-            }
-            return [...prev, { role: "assistant", content: `❌ Night Shift 終止 (${sd.status})
-
-${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
-          });
-        }
-      } catch {}
-    }, 5000);
-  };
 
   // ── Chat State ──
   const EM_CHAT_ID = "coding.em";
@@ -905,19 +781,14 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                 {emRunning ? "⏳" : "🚀 EM"}
               </button>
               <button
-                onClick={startNightShift}
-                disabled={nsRunning}
-                className={cn("text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1",
-                  nsRunning ? "bg-stone-200 text-stone-400 cursor-not-allowed" : "bg-indigo-600 text-white hover:bg-indigo-700")}
-                title="掃描今天的 git 變更，自動派 6 個 agent 補測試/補文件/做 Code Review"
+                onClick={() => onOpenNightShift?.()}
+                className="text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1 bg-indigo-600 text-white hover:bg-indigo-700"
+                title="打開 Night Shift 面板"
               >
-                {nsRunning ? "⏳" : "🌙"}
+                🌙
               </button>
             </div>
           </div>
-          {/* Night Shift status line */}
-          {!nsRunning && nsStatus && <div className="text-[11px] text-indigo-600 mt-1">{nsStatus}</div>}
-          {nsRunning && nsStatus && <div className="text-[11px] text-indigo-600 mt-1 animate-pulse">{nsStatus}</div>}
         </div>
 
         {/* EM sessions dropdown */}
@@ -1021,15 +892,8 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
                             if (el2) el2.scrollTop = el2.scrollHeight;
                             }
                             if (action.type === "openReport" && action.reportId) {
-                              // Open report tab
-                              if (onOpenReportTab) {
-                                onOpenReportTab(action.reportId);
-                              } else if (onOpenFile) {
-                                // Fallback: open file
-                                if (action.reportId === "security") {
-                                  onOpenFile(".paaw/security/scan-results.json");
-                                }
-                              }
+                              // Open Night Shift tab (reports live there)
+                              onOpenNightShift?.();
                             }
                           }}
                           disabled={action.type === "confirmPlan" && emRunning}

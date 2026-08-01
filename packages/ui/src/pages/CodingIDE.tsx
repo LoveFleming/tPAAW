@@ -3179,8 +3179,7 @@ const sendChat = useCallback(async () => {
                     setTimeout(() => chatInputRef.current?.focus(), 300);
                   }
                 }}
-                onOpenReportTab={(reportId) => {
-                  // Open the Night Shift tab (reports merged into NightShift)
+                onOpenNightShift={() => {
                   openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Night Shift", icon: "🌙", closable: true });
                 }}
               />
