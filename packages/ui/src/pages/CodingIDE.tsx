@@ -2974,7 +2974,7 @@ const sendChat = useCallback(async () => {
                       >
                         ✨
                       </button>
-                      <ModelSelector feature="codingIDE" value={codingModel} onChange={setCodingModel} />
+                      <ModelSelector feature={`codingIDE.${activeCrew}`} value={codingModel} onChange={setCodingModel} />
                     </div>
                   </div>
                 </div>

@@ -837,7 +837,7 @@ ${errMsg.slice(0, 200)}`, ts: new Date().toISOString() } as any];
             🔍
           </button>
           {onModelChange && (
-            <ModelSelector feature="codingIDE" value={model || ""} onChange={onModelChange} />
+            <ModelSelector feature="codingIDE.emDashboard" value={model || ""} onChange={onModelChange} />
           )}
           {/* EM auto dispatch */}
           <button
