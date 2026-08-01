@@ -491,12 +491,15 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
             // info messages — show as thinking updates
             if (d.message && !d.workList && !d.totalTasks) {
+              const displayMsg = d.contextLength
+                ? `🎖️ ${d.message}\n   📊 Context: ${d.contextLength} chars | Model: ${d.model || "default"}`
+                : `🎖️ ${d.message}`;
               setMessages(prev => {
                 const lastThink = [...prev].reverse().findIndex(m => m._thinking);
                 if (lastThink >= 0) {
                   const idx = prev.length - 1 - lastThink;
                   const updated = [...prev];
-                  updated[idx] = { ...updated[idx], content: `🎖️ ${d.message}` } as any;
+                  updated[idx] = { ...updated[idx], content: displayMsg } as any;
                   return updated;
                 }
                 return prev;

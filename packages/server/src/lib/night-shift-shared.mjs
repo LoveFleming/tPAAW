@@ -96,7 +96,93 @@ export async function gatherContext(rootDir, sinceDate) {
   // 9. Feature summary
   ctx.featuresSummary = getFeatureSummaryText(rootDir);
 
+  // 10. Open Issues
+  ctx.issues = await gatherOpenIssues(rootDir);
+
+  // 11. Open Tasks
+  ctx.tasks = await gatherOpenTasks(rootDir);
+
+  // 12. Security findings summary
+  ctx.securitySummary = gatherSecuritySummary(rootDir);
+
   return ctx;
+}
+
+// ── Helper: gather open issues from coding-issues ──
+
+async function gatherOpenIssues(rootDir) {
+  const issuesFile = join(rootDir, ".paaw", "issues.json");
+  if (!existsSync(issuesFile)) return { summary: "", count: 0, items: [] };
+  try {
+    const data = JSON.parse(readFileSync(issuesFile, "utf-8"));
+    const issues = Array.isArray(data) ? data : (data.issues || []);
+    const open = issues.filter(i => i.status === "open" || i.status === "in_progress");
+    if (open.length === 0) return { summary: "No open issues.", count: 0, items: [] };
+    const items = open.map(i => ({
+      id: i.id,
+      priority: i.priority || "medium",
+      type: i.type || "bug",
+      title: i.title || i.description?.slice(0, 80) || "(no title)",
+      file: i.file,
+      assignee: i.assignee,
+    }));
+    const summary = items.map(i => `- [${i.priority}] ${i.type}: ${i.title}${i.file ? ` (${i.file})` : ""}`).join("\n");
+    return { summary, count: open.length, items };
+  } catch {
+    return { summary: "(error reading issues)", count: 0, items: [] };
+  }
+}
+
+// ── Helper: gather open tasks from coding-tasks ──
+
+async function gatherOpenTasks(rootDir) {
+  const tasksFile = join(rootDir, ".paaw", "tasks.json");
+  if (!existsSync(tasksFile)) return { summary: "", count: 0, items: [] };
+  try {
+    const data = JSON.parse(readFileSync(tasksFile, "utf-8"));
+    const tasks = Array.isArray(data) ? data : (data.tasks || []);
+    const open = tasks.filter(t => t.status === "open" || t.status === "in_progress");
+    if (open.length === 0) return { summary: "No open tasks.", count: 0, items: [] };
+    const items = open.map(t => ({
+      id: t.id,
+      priority: t.priority || "medium",
+      type: t.type || "chore",
+      title: t.title || "(no title)",
+      assignee: t.assignee,
+      parentId: t.parentId,
+    }));
+    const summary = items.map(t => `- [${t.priority}] ${t.type} → ${t.assignee || "unassigned"}: ${t.title}`).join("\n");
+    return { summary, count: open.length, items };
+  } catch {
+    return { summary: "(error reading tasks)", count: 0, items: [] };
+  }
+}
+
+// ── Helper: security findings summary ──
+
+function gatherSecuritySummary(rootDir) {
+  const scanFile = join(rootDir, ".paaw", "security", "scan-results.json");
+  if (!existsSync(scanFile)) return { summary: "", count: 0, topFindings: [] };
+  try {
+    const data = JSON.parse(readFileSync(scanFile, "utf-8"));
+    const findings = (data.findings || []).filter(f => f.severity !== "INFO");
+    if (findings.length === 0) return { summary: "No WARNING+ findings.", count: 0, topFindings: [] };
+    // Group by file, pick top 10 most relevant (WARNING+ with unique files)
+    const byFile = {};
+    for (const f of findings) {
+      const relFile = (f.file || "").replace(rootDir + "/", "");
+      if (!byFile[relFile]) byFile[relFile] = [];
+      byFile[relFile].push(f);
+    }
+    const topFindings = Object.entries(byFile)
+      .sort(([, a], [, b]) => b.length - a.length)
+      .slice(0, 10)
+      .map(([file, fs]) => ({ file, count: fs.length, severity: fs[0].severity, sample: fs[0].message?.slice(0, 100) }));
+    const summary = `${findings.length} findings (${Object.keys(byFile).length} files affected). Top: ${topFindings.slice(0, 5).map(f => `${f.file} (${f.count})`).join(", ")}`;
+    return { summary, count: findings.length, topFindings };
+  } catch {
+    return { summary: "(error reading security scan)", count: 0, topFindings: [] };
+  }
 }
 
 // ── Helper: feature summary text ──
@@ -145,6 +231,28 @@ export function buildSituationReport(ctx) {
 
   if (ctx.paawContext) {
     report += `### 專案知識\n${ctx.paawContext}\n`;
+  }
+
+  // Open Issues
+  if (ctx.issues && ctx.issues.count > 0) {
+    report += `### 🔥 Open Issues (${ctx.issues.count})\n${ctx.issues.summary}\n\n`;
+  }
+
+  // Open Tasks
+  if (ctx.tasks && ctx.tasks.count > 0) {
+    report += `### 📝 Open Tasks (${ctx.tasks.count})\n${ctx.tasks.summary}\n\n`;
+  }
+
+  // Security Findings
+  if (ctx.securitySummary && ctx.securitySummary.count > 0) {
+    report += `### 🔒 Security Findings (${ctx.securitySummary.count})\n${ctx.securitySummary.summary}\n`;
+    if (ctx.securitySummary.topFindings?.length > 0) {
+      report += `\n**Top affected files:**\n`;
+      for (const f of ctx.securitySummary.topFindings.slice(0, 8)) {
+        report += `- ${f.file} (${f.count} findings, ${f.severity}): ${f.sample}\n`;
+      }
+      report += "\n";
+    }
   }
 
   return report;

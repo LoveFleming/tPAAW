@@ -91,7 +91,7 @@ export async function a2aCallAgent(baseUrl, agentId, message, opts = {}) {
 
 // ── LLM Work Planning（EM 模式用） ──
 
-async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = []) {
+async function planWorkList(situationReport, rootDir, modelOverride, fallbackModels = [], sendSSE = (() => {})) {
   const { resolveLLMConfig } = await import("./paaw-agent-loop.mjs");
   const { callLLMWithRetry } = await import("./llm-utils.mjs");
   const llm = resolveLLMConfig(rootDir, modelOverride);
@@ -110,31 +110,79 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
 - **qa** — Code review、品質把關、安全性檢查、issue 追蹤
 - **helpdesk** — 技術支援、排查問題、操作指引
 
-## 規劃原則
-1. **從 change 水位出發** — 看 action log 裡最近的變更，找出未完成的工作或遺漏
-2. **有未 push 的 commit** → 報告中標注，但**不指派 push**（push 只由人執行）
-3. **有未提交的變更** → 評估是否需要 developer 補完
-4. **缺少測試** → 指派 tester 補測試
-5. **缺少文檔** → 指派 doc-writer 補文檔
-6. **架構有風險** → 指派 architect 審查
-7. 每項任務必須**具體、可執行** — agent 拿到就能直接做
-8. 3-5 項，不要太多。品質 > 數量
+## 規劃範圍（五大面向）
+
+你需要統整以下五個面向來規劃工作，不要只看 git change：
+
+### 1. Git Changes（程式碼變更）
+- 最近 commit 改了什麼？有沒有遺漏？
+- 有未 push 的 commit → 報告中標注，但**不指派 push**
+- 有未提交的變更 → 評估是否需要 developer 補完
+
+### 2. Open Issues（已知問題）
+- 每個 open issue 都要評估是否在這次處理
+- high priority issue → 優先指派 agent 修復
+- 需要先有 architect 評估的 → 指派 architect
+
+### 3. Open Tasks（待辦任務）
+- 已經建立但未完成的 task
+- 有 assignee 的 → 確認是否方向正確
+- security 類 task → 高優先級
+
+### 4. Security Findings（安全掃描）
+- WARNING+ 以上的 finding 要認真處理
+- 最常見的檔案優先修復
+- 可以一次修多個 → 一個 developer task 處理一個檔案
+
+### 5. Code Quality（程式碼品質）
+- 缺少測試的模組 → 指派 tester
+- 缺少文檔的功能 → 指派 doc-writer
+- 架構有風險 → 指派 architect
+
+## 長時間調度策略
+
+這是長時間的調度任務，一次可能要跑 8-15 項工作。規劃時注意：
+
+1. **批次設計** — 相關工作分在同一批次（例如 3 個 security fix 都指派給 developer）
+2. **順序相依** — 如果 A 的結果影響 B，A 要排在前面
+3. **獨立性** — 每個 task 要能獨立執行，不能依賴另一個 task 的結果
+4. **不要重複** — 同一個檔案的修復合併成一個 task
+5. **每個 task 要具體、可執行** — agent 拿到就能直接做
+
+## Context 管理規則
+
+每個 agent 都是獨立 session，看不到其他 agent 的對話。所以：
+- task 描述要包含所有必要 context（檔案路徑、問題描述、預期結果）
+- 不要假設 agent 知道之前的 task 做了什麼
+- 如果 task 需要參考某個文件 → 在 task 中指明（例如「參考 .paaw/CODING-STANDARDS.md 的路徑規範」）
 
 ## 任務描述規則
 - ❌ "改善程式碼品質"（太空泛）
-- ✅ "為 packages/ui/src/components/SidebarFileTree.tsx 的 openFile 函數寫單元測試"
+- ✅ "修復 packages/ui/src/components/DirectoryExplorer.tsx 的 ~ 路徑展開問題：手動輸入 ~/App 時 server 端 resolve() 產生錯誤路徑。在 crew.mjs 的 /api/fs/browse handler 加入 ~ 展開邏輯"
 - ❌ "更新文檔"（太模糊）
-- ✅ "根據最近 5 個 commit 更新 .paaw/CHANGELOG.md"
+- ✅ "根據最近 5 個 commit 更新 .paaw/CHANGELOG.md，包含 DirectoryExplorer 修復和 EM header 統一"
+- ❌ "修 security"（太模糊）
+- ✅ "修復 packages/server/src/routes/coding.mjs 的 path traversal 風險（CWE-22）：line 1340 的 date 參數未做路徑驗證"
+
+## 數量指引
+- 少量高品質變更：5-8 項
+- 中量例行工作：8-12 項
+- 大量累積工作：12-15 項
+- 不要超過 15 項，每項都要能切實完成
 
 ## 輸出格式（嚴格 JSON array，不要其他文字）
+\`\`\`json
 [
   {
     "agent": "developer",
-    "task": "具體任務描述，agent 拿到就能執行",
+    "task": "具體任務描述，包含檔案路徑、問題、預期結果。agent 看到就能獨立執行",
     "priority": "high",
     "reason": "為什麼需要這項工作（一句話）"
   }
-]`;
+]
+\`\`\`
+
+ priorities: high / medium / low`;
 
   const messages = [
     { role: "system", content: EM_PROMPT },
@@ -184,10 +232,13 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
       max_tokens: llm.maxTokens || 16384,
       stream: false,
     };
+    sendSSE("llm_start", { message: "📡 呼叫 LLM 規劃中...", model: llm.model || modelOverride || "default", contextLength: situationReport.length });
+    console.log(`[EM] planWorkList: calling LLM (model=${llm.model || modelOverride || "default"}, context=${situationReport.length} chars)`);
     const result = await callWithFallback(body);
     const text = result?.content || "";
     console.log("[EM] planWorkList LLM response length:", text.length);
     console.log("[EM] planWorkList LLM response preview:", text.slice(0, 500));
+    sendSSE("llm_done", { message: `✅ LLM 回覆 ${text.length} chars`, preview: text.slice(0, 200) });
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
       try {
@@ -260,7 +311,7 @@ export async function planEMSession(opts = {}) {
   // ── Phase 2: LLM planning ──
   console.log("[NightShift] ═══ Phase 2: LLM Work Planning ═══");
   sendSSE("info", { message: "🧠 規劃工作清單中..." });
-  const workList = await planWorkList(situationReport, rootDir, modelOverride, fallbackModels);
+  const workList = await planWorkList(situationReport, rootDir, modelOverride, fallbackModels, sendSSE);
   console.log(`[NightShift] Phase 2: EM planned ${workList.length} tasks`);
 
   return { workList, situationReport };
