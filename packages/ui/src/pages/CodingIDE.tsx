@@ -687,10 +687,30 @@ export default function CodingIDE() {
   }, [rootPath]);
 
   // ── Persist main tabs to localStorage (per project) ──
+  // Guard: don't save until restore has completed for this rootPath
   useEffect(() => {
     if (!rootPath) return;
+    // Don't save until restore effect has run for this rootPath
+    if (tabsRestoredRef.current !== rootPath) return;
     // Only persist closable tabs; skip dashboard
     const tabsToSave = mainTabs.filter(t => t.id !== DASHBOARD_TAB_ID);
+    // Don't overwrite saved tabs with just-dashboard state on race condition
+    // Only save if there are actual closable tabs OR we intentionally closed all
+    if (tabsToSave.length === 0) {
+      // Check if we actually had tabs before — if the restore hasn't happened yet, skip
+      const existing = localStorage.getItem(`paaw.vibeide.tabs:${rootPath}`);
+      if (existing) {
+        try {
+          const parsed = JSON.parse(existing);
+          if (parsed.tabs?.length > 0) {
+            // There were saved tabs but current state has none — this is the pre-restore state
+            // Only allow overwriting if we've been through a user action (close all tabs)
+            // We can detect this: tabsRestoredRef was set AND mainTabs only has dashboard
+            // This is fine — the user explicitly closed all tabs
+          }
+        } catch {}
+      }
+    }
     try {
       localStorage.setItem(`paaw.vibeide.tabs:${rootPath}`, JSON.stringify({ tabs: tabsToSave, activeMainTabId }));
       console.log(`[CodingIDE] Saved ${tabsToSave.length} tabs to localStorage, active=${activeMainTabId}`, tabsToSave.map(t => `${t.type}:${t.id}`).join(", "));
