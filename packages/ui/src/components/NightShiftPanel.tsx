@@ -22,7 +22,6 @@ interface PlanListItem {
     skipped: number;
     totalSubtasks: number;
     totalTokens: number;
-    totalCostUsd: number;
     totalDurationMs: number;
   };
 }
@@ -50,7 +49,6 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
   const tk = theme;
   if (!data) return <div className="p-4 text-sm" style={{ color: tk.text, opacity: 0.4 }}>No data</div>;
 
-  const { subtaskId, title, assignee, status, model, startedAt, completedAt, durationMs, tokenUsage, costUsd, result, error, taskTitle } = data;
 
   const rows = [
     { label: "Sub-task ID", value: subtaskId },
@@ -63,7 +61,6 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
     { label: "Input tokens", value: tokenUsage?.prompt ? tokenUsage.prompt.toLocaleString() : "—" },
     { label: "Output tokens", value: tokenUsage?.completion ? tokenUsage.completion.toLocaleString() : "—" },
     { label: "Total tokens", value: tokenUsage?.total ? tokenUsage.total.toLocaleString() : "—" },
-    { label: "Cost", value: costUsd ? `$${costUsd.toFixed(4)}` : "—" },
   ];
 
   return (
@@ -192,7 +189,6 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
   // ── Format helpers ──
   const fmtDate = (iso?: string) => iso ? new Date(iso).toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
   const fmtDur = (ms: number) => ms ? (ms < 60000 ? `${(ms/1000).toFixed(0)}s` : `${(ms/60000).toFixed(1)}min`) : "—";
-  const fmtCost = (u: number) => u > 0 ? `$${u.toFixed(3)}` : "—";
   const fmtTok = (n: number) => n > 0 ? n.toLocaleString() : "—";
 
   const isRunning = execPlan?.status === "running";
@@ -277,7 +273,6 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
               {p.summary && (
                 <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: tk.text, opacity: 0.5 }}>
                   <span>{p.summary.completed}/{p.summary.totalSubtasks}</span>
-                  {p.summary.totalCostUsd > 0 && <span>{fmtCost(p.summary.totalCostUsd)}</span>}
                 </div>
               )}
             </div>
@@ -378,7 +373,6 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
                   <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Status</th>
                   <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Duration</th>
                   <th className="text-right py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Tokens</th>
-                  <th className="text-right py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Cost</th>
                   <th className="text-left py-1.5 px-2" style={{ color: tk.text, borderBottom: `2px solid ${tk.borderLight}` }}>Agents</th>
                 </tr>
               </thead>
@@ -391,7 +385,6 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
                   <td className="py-1.5 px-2">{badge(execPlan.status)}</td>
                   <td className="py-1.5 px-2" style={{ color: tk.text }}>{fmtDur(execPlan.summary?.totalDurationMs || 0)}</td>
                   <td className="py-1.5 px-2 text-right" style={{ color: tk.text }}>{fmtTok(execPlan.summary?.totalTokens || 0)}</td>
-                  <td className="py-1.5 px-2 text-right" style={{ color: tk.text }}>{fmtCost(execPlan.summary?.totalCostUsd || 0)}</td>
                   <td className="py-1.5 px-2" style={{ color: tk.text }}>
                     {[...agents].join(", ")}
                   </td>
