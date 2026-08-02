@@ -759,25 +759,21 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
     <div className="flex h-full" style={{ background: theme.bg }}>
       {/* Left: Task List / Pipeline / Overnight */}
       <div className="w-1/2 flex flex-col border-r" style={{ borderColor: theme.borderLight }}>
-        {/* Top bar with stats */}
-        <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: `1px solid ${theme.borderLight}`, background: theme.bgMuted }}>
-          <div className="flex-1" />
-          <button
-            onClick={() => { fetchTasks(); fetchStats(); }}
-            className="text-xs px-1.5 py-1 rounded shrink-0"
-            style={{ background: theme.bg, color: theme.text }}
-          >
-            🔄
-          </button>
-        </div>
-
-        {/* Stats bar (list mode only) */}
+        {/* Stats bar with refresh */}
         {stats && (
           <div className="flex items-center gap-2 px-3 py-2 text-xs flex-wrap" style={{ background: theme.bgMuted, borderBottom: `1px solid ${theme.borderLight}` }}>
             <span style={{ color: theme.text, opacity: 0.6 }}>{t("task.tasks", "Tasks")}: <b>{stats.total}</b></span>
             <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.open.bg, color: STATUS_STYLES.open.text }}>{t("task.open", "Open")}: {stats.open}</span>
             {stats.inProgress > 0 && <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES["in-progress"].bg, color: STATUS_STYLES["in-progress"].text }}>{t("task.active", "Active")}: {stats.inProgress}</span>}
             <span className="px-1.5 py-0.5 rounded" style={{ background: STATUS_STYLES.resolved.bg, color: STATUS_STYLES.resolved.text }}>{t("task.done", "Done")}: {stats.resolved}</span>
+            <div className="flex-1" />
+            <button
+              onClick={() => { fetchTasks(); fetchStats(); }}
+              className="text-xs px-1.5 py-1 rounded shrink-0"
+              style={{ background: theme.bg, color: theme.text }}
+            >
+              🔄
+            </button>
           </div>
         )}
 
