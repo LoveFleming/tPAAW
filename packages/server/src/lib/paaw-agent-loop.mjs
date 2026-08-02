@@ -89,7 +89,7 @@ export function resolveLLMConfig(_rootDir, modelOverride, fallbackModels) {
   if (!fallbackModels || fallbackModels.length === 0) {
     try {
       const userPrefs = JSON.parse(readSync(resolve(_PAAW_ROOT, "data/config/user.json"), "utf-8"))?.preferences || {};
-      // Collect all *Fallback keys (e.g. nightShiftFallback, codingIDEFallback)
+      // Collect all *Fallback keys (e.g. autoDispatchFallback, codingIDEFallback)
       const userFbs = Object.entries(userPrefs)
         .filter(([k]) => k.endsWith("Fallback"))
         .map(([, v]) => v)
@@ -1855,7 +1855,7 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         // LLM steps — these re-run the CU step via API (requires server running)
         const llmSteps = steps.filter(s => !["code-intelligence", "test-intelligence", "security-scan", "change-intelligence"].includes(s));
         if (llmSteps.length > 0) {
-          results.push(`\n⚠️ LLM steps (${llmSteps.join(", ")}) require calling POST /api/coding-project/ai-initial-step — use from Coding IDE or night shift.`);
+          results.push(`\n⚠️ LLM steps (${llmSteps.join(", ")}) require calling POST /api/coding-project/ai-initial-step — use from Coding IDE or auto dispatch.`);
         }
 
         const output = results.length > 0 ? `CU Refresh Results:\n${results.join("\n")}` : "No steps to refresh.";

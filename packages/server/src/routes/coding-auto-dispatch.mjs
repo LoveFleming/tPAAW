@@ -1,17 +1,17 @@
 /**
- * Coding Night Shift — HTTP Routes
+ * Coding Auto Dispatch — HTTP Routes
  *
- * POST   /api/coding-night-shift/start           — 啟動（body: { mode, model, since }）
- * POST   /api/coding-night-shift/reset            — Force reset stuck status
- * GET    /api/coding-night-shift/status           — 最新執行狀態
- * GET    /api/coding-night-shift/report           — 最新報告（markdown）
- * GET    /api/coding-night-shift/last-run         — 上次執行時間 + 模式
+ * POST   /api/coding-auto-dispatch/start           — 啟動（body: { mode, model, since }）
+ * POST   /api/coding-auto-dispatch/reset            — Force reset stuck status
+ * GET    /api/coding-auto-dispatch/status           — 最新執行狀態
+ * GET    /api/coding-auto-dispatch/report           — 最新報告（markdown）
+ * GET    /api/coding-auto-dispatch/last-run         — 上次執行時間 + 模式
  *
- * 報告統一存到 .paaw/night-shift/reports/YYYY-MM-DD.md（共用）
+ * 報告統一存到 .paaw/auto-dispatch/reports/YYYY-MM-DD.md（共用）
  * 歷史報告 API: /api/coding-reports/*（coding-reports.mjs）
  *
- * 核心邏輯在 lib/overnight-manager.mjs（EM 模式 + Parallel 模式）
- * 共用邏輯在 lib/night-shift-shared.mjs
+ * 核心邏輯在 lib/auto-dispatch-manager.mjs（EM 模式 + Parallel 模式）
+ * 共用邏輯在 lib/auto-dispatch-shared.mjs
  */
 import { readFileSync as readSync, existsSync, writeFileSync, mkdirSync } from "fs";
 import { join, resolve, dirname } from "path";
@@ -21,7 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PAAW_ROOT = resolve(__dirname, "..", "..", "..", "..");
 
-const NIGHT_SHIFT_DIR = ".paaw/night-shift";
+const AUTO_DISPATCH_DIR = ".paaw/auto-dispatch";
 const STATUS_FILE = "status.json";
 const REPORT_FILE = "report.md";
 
@@ -29,7 +29,7 @@ const REPORT_FILE = "report.md";
  * Atomically read-modify-write status.json with a mutator function.
  *
  * This centralizes ALL status writes to prevent race conditions between
- * the async Night Shift run (sendSSE callback), the global timeout handler,
+ * the async Auto Dispatch run (sendSSE callback), the global timeout handler,
  * the error handler, and the /reset endpoint.
  *
  * Rules enforced:
@@ -53,12 +53,12 @@ function updateStatusFile(statusPath, mutator) {
     writeFileSync(statusPath, JSON.stringify(updated, null, 2));
     return updated;
   } catch (err) {
-    console.error("[NightShift] updateStatusFile error:", err.message);
+    console.error("[AutoDispatch] updateStatusFile error:", err.message);
     return null;
   }
 }
 
-export default async function codingNightShiftRoute(req, res) {
+export default async function codingAutoDispatchRoute(req, res) {
   const urlObj = new URL(req.url, "http://localhost");
   const method = req.method;
 
@@ -75,18 +75,18 @@ export default async function codingNightShiftRoute(req, res) {
 
   let projRoot = urlObj.searchParams.get("path") || PAAW_ROOT;
 
-  // ── POST /api/coding-night-shift/start ──
-  if (urlObj.pathname === "/api/coding-night-shift/start" && method === "POST") {
-    const nsDir = join(projRoot, NIGHT_SHIFT_DIR);
+  // ── POST /api/coding-auto-dispatch/start ──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/start" && method === "POST") {
+    const nsDir = join(projRoot, AUTO_DISPATCH_DIR);
     if (!existsSync(nsDir)) mkdirSync(nsDir, { recursive: true });
 
     let reqBody = {};
     try { reqBody = JSON.parse(await readBody(req) || "{}"); } catch {}
 
-    // Load night shift config for mode + model
+    // Load auto dispatch config for mode + model
     let nsConfig = null;
     try {
-      const nsConfigPath = join(projRoot, ".paaw", "night-shift", "config.json");
+      const nsConfigPath = join(projRoot, ".paaw", "auto-dispatch", "config.json");
       if (existsSync(nsConfigPath)) {
         nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
       }
@@ -114,7 +114,7 @@ export default async function codingNightShiftRoute(req, res) {
     sendJSON(res, 200, { ok: true, message: `Night shift started (mode: ${mode})`, startedAt: status.startedAt, mode });
 
     // ── Global timeout: 10 min ──
-    const NIGHT_SHIFT_TIMEOUT_MS = (nsConfig?.projectPhase === 'bootstrap' || nsConfig?.projectPhase === 'mvp')
+    const AUTO_DISPATCH_TIMEOUT_MS = (nsConfig?.projectPhase === 'bootstrap' || nsConfig?.projectPhase === 'mvp')
       ? 30 * 60 * 1000  // 30 min for early stage (dev-heavy)
       : 20 * 60 * 1000; // 20 min for stable/refactor
     const statusPath = join(nsDir, STATUS_FILE);
@@ -126,21 +126,21 @@ export default async function codingNightShiftRoute(req, res) {
           status: "failed",
           completedAt: new Date().toISOString(),
           duration: Date.now() - startTime,
-          error: `Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s`,
+          error: `Timed out after ${AUTO_DISPATCH_TIMEOUT_MS / 1000}s`,
         };
       });
       if (updated) {
-        console.error(`[NightShift] Timed out after ${NIGHT_SHIFT_TIMEOUT_MS / 1000}s`);
+        console.error(`[AutoDispatch] Timed out after ${AUTO_DISPATCH_TIMEOUT_MS / 1000}s`);
       }
-    }, NIGHT_SHIFT_TIMEOUT_MS);
+    }, AUTO_DISPATCH_TIMEOUT_MS);
 
-    // ── Run via overnight-manager ──
+    // ── Run via auto-dispatch-manager ──
     try {
-      const { runNightShift } = await import("../lib/overnight-manager.mjs");
+      const { runAutoDispatch } = await import("../lib/auto-dispatch-manager.mjs");
 
       // SSE-like: collect progress into status updates
       const sendSSE = (type, data) => {
-        console.log(`[NightShift:${mode}] ${type}:`, typeof data === "string" ? data : JSON.stringify(data).slice(0, 200));
+        console.log(`[AutoDispatch:${mode}] ${type}:`, typeof data === "string" ? data : JSON.stringify(data).slice(0, 200));
 
         if (type === "task_start" || type === "task_done" || type === "task_error") {
           updateStatusFile(statusPath, (current) => {
@@ -162,7 +162,7 @@ export default async function codingNightShiftRoute(req, res) {
         }
       };
 
-      const result = await runNightShift({
+      const result = await runAutoDispatch({
         mode,
         rootDir: projRoot,
         baseUrl: `http://127.0.0.1:${req.socket.localPort || process.env.PAAW_PORT || 4097}`,
@@ -190,9 +190,9 @@ export default async function codingNightShiftRoute(req, res) {
       writeFileSync(join(nsDir, REPORT_FILE), result.report, "utf-8");
 
       const finalDuration = Date.now() - startTime;
-      console.log(`[NightShift] Complete in ${finalDuration}ms (mode: ${mode})`);
+      console.log(`[AutoDispatch] Complete in ${finalDuration}ms (mode: ${mode})`);
     } catch (err) {
-      console.error("[NightShift] Error:", err.message, err.stack?.slice(0, 300));
+      console.error("[AutoDispatch] Error:", err.message, err.stack?.slice(0, 300));
       updateStatusFile(statusPath, (current) => {
         if (current.status === "interrupted") return null; // user reset — respect it
         return {
@@ -210,9 +210,9 @@ export default async function codingNightShiftRoute(req, res) {
     return true;
   }
 
-  // ── POST /api/coding-night-shift/reset — Force reset stuck status ──
-  if (urlObj.pathname === "/api/coding-night-shift/reset" && method === "POST") {
-    const statusFile = join(projRoot, NIGHT_SHIFT_DIR, STATUS_FILE);
+  // ── POST /api/coding-auto-dispatch/reset — Force reset stuck status ──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/reset" && method === "POST") {
+    const statusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE);
     if (existsSync(statusFile)) {
       try {
         const current = JSON.parse(readSync(statusFile, "utf-8"));
@@ -230,24 +230,24 @@ export default async function codingNightShiftRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/coding-night-shift/last-run ──
-  if (urlObj.pathname === "/api/coding-night-shift/last-run" && method === "GET") {
+  // ── GET /api/coding-auto-dispatch/last-run ──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/last-run" && method === "GET") {
     let lastRunAt = null;
     let lastRunBy = null;
     let lastRunMode = null;
 
-    // Night Shift status.json
-    const nsStatusFile = join(projRoot, NIGHT_SHIFT_DIR, STATUS_FILE);
+    // Auto Dispatch status.json
+    const nsStatusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE);
     if (existsSync(nsStatusFile)) {
       try {
         const ns = JSON.parse(readSync(nsStatusFile, "utf-8"));
-        if (ns.completedAt) { lastRunAt = ns.completedAt; lastRunBy = "night-shift"; lastRunMode = ns.mode; }
-        else if (ns.startedAt) { lastRunAt = ns.startedAt; lastRunBy = "night-shift"; lastRunMode = ns.mode; }
+        if (ns.completedAt) { lastRunAt = ns.completedAt; lastRunBy = "auto-dispatch"; lastRunMode = ns.mode; }
+        else if (ns.startedAt) { lastRunAt = ns.startedAt; lastRunBy = "auto-dispatch"; lastRunMode = ns.mode; }
       } catch {}
     }
 
     // Also check reports dir for latest
-    const reportsDir = join(projRoot, ".paaw", "night-shift", "reports");
+    const reportsDir = join(projRoot, ".paaw", "auto-dispatch", "reports");
     if (existsSync(reportsDir)) {
       try {
         const { readdirSync } = await import("fs");
@@ -257,7 +257,7 @@ export default async function codingNightShiftRoute(req, res) {
           const reportTime = new Date(fileDate + "T23:59:59").toISOString();
           if (!lastRunAt || reportTime > lastRunAt) {
             lastRunAt = reportTime;
-            lastRunBy = "night-shift-reports";
+            lastRunBy = "auto-dispatch-reports";
           }
         }
       } catch {}
@@ -279,11 +279,11 @@ export default async function codingNightShiftRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/coding-night-shift/status ──
-  if (urlObj.pathname === "/api/coding-night-shift/status" && method === "GET") {
-    const statusFile = join(projRoot, NIGHT_SHIFT_DIR, STATUS_FILE);
+  // ── GET /api/coding-auto-dispatch/status ──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/status" && method === "GET") {
+    const statusFile = join(projRoot, AUTO_DISPATCH_DIR, STATUS_FILE);
     if (!existsSync(statusFile)) {
-      sendJSON(res, 200, { status: "never", message: "No night shift has been run yet." });
+      sendJSON(res, 200, { status: "never", message: "No auto dispatch has been run yet." });
       return true;
     }
     try {
@@ -295,9 +295,9 @@ export default async function codingNightShiftRoute(req, res) {
     return true;
   }
 
-  // ── GET /api/coding-night-shift/report ──
-  if (urlObj.pathname === "/api/coding-night-shift/report" && method === "GET") {
-    const reportFile = join(projRoot, NIGHT_SHIFT_DIR, REPORT_FILE);
+  // ── GET /api/coding-auto-dispatch/report ──
+  if (urlObj.pathname === "/api/coding-auto-dispatch/report" && method === "GET") {
+    const reportFile = join(projRoot, AUTO_DISPATCH_DIR, REPORT_FILE);
     if (!existsSync(reportFile)) {
       sendJSON(res, 200, { report: "" });
       return true;

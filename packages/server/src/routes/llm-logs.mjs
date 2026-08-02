@@ -48,7 +48,7 @@ cleanupOldLogs(7);
 function _callerToAgentId(caller) {
   if (!caller) return null;
   const map = {
-    "night-shift": "night-shift",
+    "auto-dispatch": "auto-dispatch",
     "tool-engine": "assistant",
     "chat": "assistant",
     "coding": "coding",

@@ -1,15 +1,15 @@
 /**
- * night-shift-shared.mjs — Night Shift 共用邏輯
+ * auto-dispatch-shared.mjs — Auto Dispatch 共用邏輯
  *
- * 抽出 overnight-manager.mjs 和 coding-night-shift.mjs 的重複功能：
+ * 抽出 auto-dispatch-manager.mjs 和 coding-auto-dispatch.mjs 的重複功能：
  * - gatherContext() — 收集 git context（統一版）
  * - buildSituationReport() — 整理成現況摘要
  * - refreshFeatureMapping() — Feature Map 刷新（不再兩邊複製）
  * - runFullValidation() — L3 驗證 wrapper
  *
  * 由誰使用：
- * - overnight-manager.mjs（EM 模式）
- * - coding-night-shift.mjs（Parallel 模式）
+ * - auto-dispatch-manager.mjs（EM 模式）
+ * - coding-auto-dispatch.mjs（Parallel 模式）
  */
 
 import { execSync } from "child_process";
@@ -24,7 +24,7 @@ import { listActionLog } from "./action-log.mjs";
 
 /**
  * 收集專案的 git + .paaw context
- * 合併自 overnight-manager.gatherContext 和 coding-night-shift.getChangesSince
+ * 合併自 auto-dispatch-manager.gatherContext 和 coding-auto-dispatch.getChangesSince
  */
 export async function gatherContext(rootDir, sinceDate) {
   const safeDir = JSON.stringify(rootDir);
@@ -360,8 +360,8 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
         timeoutMs: 300000,
         validateContent: true,
         sanitize: true,
-        caller: "night-shift",
-        agentId: "night-shift",
+        caller: "auto-dispatch",
+        agentId: "auto-dispatch",
         ...opts,
       });
       return result;
@@ -374,8 +374,8 @@ export async function refreshFeatureMapping(projRoot, modelOverride, fallbackMod
           timeoutMs: 300000,
           validateContent: true,
           sanitize: true,
-          caller: "night-shift",
-          agentId: "night-shift",
+          caller: "auto-dispatch",
+          agentId: "auto-dispatch",
           ...opts,
         });
         if (result) return result;
@@ -539,10 +539,10 @@ export async function validateFeatureMap(projRoot, sendSSE) {
 // ── Unified Report Storage ──
 
 /**
- * Save report to .paaw/night-shift/reports/YYYY-MM-DD.md
+ * Save report to .paaw/auto-dispatch/reports/YYYY-MM-DD.md
  */
-export function saveNightShiftReport(rootDir, report, mode = "em") {
-  const reportsDir = join(rootDir, ".paaw", "night-shift", "reports");
+export function saveAutoDispatchReport(rootDir, report, mode = "em") {
+  const reportsDir = join(rootDir, ".paaw", "auto-dispatch", "reports");
   if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
   const dateStr = new Date().toISOString().slice(0, 10);
   const filename = `${dateStr}.md`;
@@ -551,13 +551,13 @@ export function saveNightShiftReport(rootDir, report, mode = "em") {
 }
 
 /**
- * List all reports from .paaw/night-shift/reports/
+ * List all reports from .paaw/auto-dispatch/reports/
  */
-export async function listNightShiftReports(rootDir) {
+export async function listAutoDispatchReports(rootDir) {
   const { readdir, stat, readFile } = await import("fs/promises");
   const reports = [];
 
-  const dir = join(rootDir, ".paaw", "night-shift", "reports");
+  const dir = join(rootDir, ".paaw", "auto-dispatch", "reports");
   if (!existsSync(dir)) return reports;
 
   try {
@@ -586,9 +586,9 @@ export async function listNightShiftReports(rootDir) {
 /**
  * Read a specific report by date
  */
-export async function readNightShiftReport(rootDir, date) {
+export async function readAutoDispatchReport(rootDir, date) {
   const { readFile } = await import("fs/promises");
-  const filePath = join(rootDir, ".paaw", "night-shift", "reports", `${date}.md`);
+  const filePath = join(rootDir, ".paaw", "auto-dispatch", "reports", `${date}.md`);
   if (!existsSync(filePath)) return null;
   return await readFile(filePath, "utf-8");
 }
@@ -596,9 +596,9 @@ export async function readNightShiftReport(rootDir, date) {
 /**
  * Delete a report by date
  */
-export async function deleteNightShiftReport(rootDir, date) {
+export async function deleteAutoDispatchReport(rootDir, date) {
   const { unlink } = await import("fs/promises");
-  const filePath = join(rootDir, ".paaw", "night-shift", "reports", `${date}.md`);
+  const filePath = join(rootDir, ".paaw", "auto-dispatch", "reports", `${date}.md`);
   if (!existsSync(filePath)) return false;
   await unlink(filePath);
   return true;
@@ -623,7 +623,7 @@ function extractReportMetadata(content) {
 
   // Detect mode from title
   let mode = "em";
-  if (content.includes("🌙 Night Shift")) mode = "parallel";
+  if (content.includes("🌙 Auto Dispatch")) mode = "parallel";
   else if (content.includes("🎖️ Engineering Manager")) mode = "em";
 
   return { result: resultLine, summary, mode };

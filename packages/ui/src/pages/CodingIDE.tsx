@@ -41,9 +41,9 @@ import { ChatMessages, type ChatMessageItem } from "../components/ChatMessages";
 import IssueTracker from "../components/IssueTracker";
 import TaskBoard from "../components/TaskBoard";
 import FeatureMap from "../components/FeatureMap";
-import NightShiftPanel, { SubTaskDetail } from "../components/NightShiftPanel";
+import AutoDispatchPanel, { SubTaskDetail } from "../components/AutoDispatchPanel";
 import CrewManager from "../components/CrewManager";
-// ReportsTab removed — merged into NightShiftPanel
+// ReportsTab removed — merged into AutoDispatchPanel
 import SecurityTab from "../components/SecurityTab";
 import FileViewer from "../pages/FileViewer";
 
@@ -3538,7 +3538,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     setTimeout(() => chatInputRef.current?.focus(), 300);
                   }
                 }}
-                onOpenNightShift={() => {
+                onOpenAutoDispatch={() => {
                   openMainTab({ id: "tool:nightshift", type: "nightshift", label: "Auto Dispatch", icon: "🏭", closable: true });
                 }}
               />
@@ -3617,11 +3617,11 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
               </div>
             )}
 
-            {/* === Night Shift === (keep mounted, hide with CSS) */}
+            {/* === Auto Dispatch === (keep mounted, hide with CSS) */}
             {mainTabs.some(t => t.type === "nightshift") && (
               <div key="tool:nightshift" className="flex-1 flex flex-col min-w-0"
                 style={{ display: activeMainTab?.type === "nightshift" ? undefined : "none" }}>
-                <NightShiftPanel
+                <AutoDispatchPanel
                   theme={{ bg: tk.bg, bgMuted: tk.bgMuted, borderLight: tk.borderLight, accent: tk.accent, accentBg: tk.accentBg, text: tk.text }}
                   rootPath={rootPath}
                   model={emModel}

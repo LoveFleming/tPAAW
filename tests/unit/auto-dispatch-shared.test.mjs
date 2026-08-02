@@ -1,15 +1,15 @@
 /**
- * Unit tests — night-shift-shared.mjs
+ * Unit tests — auto-dispatch-shared.mjs
  *
  * Covers all exported functions:
  *   - gatherContext()
  *   - buildSituationReport()
  *   - refreshFeatureMapping()
  *   - validateFeatureMap()
- *   - saveNightShiftReport()
- *   - listNightShiftReports()
- *   - readNightShiftReport()
- *   - deleteNightShiftReport()
+ *   - saveAutoDispatchReport()
+ *   - listAutoDispatchReports()
+ *   - readAutoDispatchReport()
+ *   - deleteAutoDispatchReport()
  *
  * Strategy:
  *   - Mock all external dependencies (child_process, fs, fs/promises, PaawProject, action-log)
@@ -18,7 +18,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ── Mock child_process ──
-// night-shift-shared.mjs imports shellExecSync from ./shell-exec.mjs,
+// auto-dispatch-shared.mjs imports shellExecSync from ./shell-exec.mjs,
 // which internally calls child_process.execSync. We mock shell-exec.mjs
 // directly so all git commands route to mockShellExecSync.
 const mockExecSync = vi.fn();
@@ -120,7 +120,7 @@ beforeEach(async () => {
   // Default mocks for fs/promises
   mockReaddir.mockResolvedValue(["2026-01-15.md", "2026-01-14.md"]);
   mockStat.mockResolvedValue({ size: 200, mtime: new Date("2026-01-15T12:00:00Z") });
-  mockReadFile.mockResolvedValue("# Night Shift Report\n**結果：** ✅ 3 成功 / ❌ 1 失敗\n## 📊 Status\nAll good.");
+  mockReadFile.mockResolvedValue("# Auto Dispatch Report\n**結果：** ✅ 3 成功 / ❌ 1 失敗\n## 📊 Status\nAll good.");
   mockUnlink.mockResolvedValue(undefined);
 
   // Default mocks for refreshFeatureMapping dependencies
@@ -140,7 +140,7 @@ beforeEach(async () => {
   });
 
   // Dynamic import after mocks are set
-  mod = await import("../../packages/server/src/lib/night-shift-shared.mjs");
+  mod = await import("../../packages/server/src/lib/auto-dispatch-shared.mjs");
 });
 
 afterEach(() => {
@@ -358,16 +358,16 @@ describe("buildSituationReport()", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// saveNightShiftReport()
+// saveAutoDispatchReport()
 // ═══════════════════════════════════════════════════════════════
 
-describe("saveNightShiftReport()", () => {
+describe("saveAutoDispatchReport()", () => {
   const rootDir = "/test/project";
   const reportContent = "# Test Report\nOK";
 
   it("should create reports directory if not exists", () => {
     mockExistsSync.mockReturnValue(false);
-    const result = mod.saveNightShiftReport(rootDir, reportContent, "em");
+    const result = mod.saveAutoDispatchReport(rootDir, reportContent, "em");
     expect(mockMkdirSync).toHaveBeenCalled();
     expect(mockWriteFileSync).toHaveBeenCalled();
     expect(result).toHaveProperty("filename");
@@ -378,22 +378,22 @@ describe("saveNightShiftReport()", () => {
 
   it("should not create directory if already exists", () => {
     mockExistsSync.mockReturnValue(true);
-    mod.saveNightShiftReport(rootDir, reportContent, "em");
+    mod.saveAutoDispatchReport(rootDir, reportContent, "em");
     expect(mockMkdirSync).not.toHaveBeenCalled();
     expect(mockWriteFileSync).toHaveBeenCalled();
   });
 
   it("should report correct mode in result", () => {
     mockExistsSync.mockReturnValue(true);
-    const result = mod.saveNightShiftReport(rootDir, "report", "parallel");
+    const result = mod.saveAutoDispatchReport(rootDir, "report", "parallel");
     expect(result.mode).toBe("parallel");
   });
 
   it("should write report content to file", () => {
     mockExistsSync.mockReturnValue(true);
-    mod.saveNightShiftReport(rootDir, reportContent, "em");
+    mod.saveAutoDispatchReport(rootDir, reportContent, "em");
     expect(mockWriteFileSync).toHaveBeenCalledWith(
-      expect.stringContaining(".paaw/night-shift/reports/"),
+      expect.stringContaining(".paaw/auto-dispatch/reports/"),
       reportContent,
       "utf-8"
     );
@@ -401,7 +401,7 @@ describe("saveNightShiftReport()", () => {
 
   it("should include current date in filename", () => {
     mockExistsSync.mockReturnValue(true);
-    const result = mod.saveNightShiftReport(rootDir, "report", "em");
+    const result = mod.saveAutoDispatchReport(rootDir, "report", "em");
     const today = new Date().toISOString().slice(0, 10);
     expect(result.filename).toBe(`${today}.md`);
     expect(result.dateStr).toBe(today);
@@ -409,14 +409,14 @@ describe("saveNightShiftReport()", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// listNightShiftReports()
+// listAutoDispatchReports()
 // ═══════════════════════════════════════════════════════════════
 
-describe("listNightShiftReports()", () => {
+describe("listAutoDispatchReports()", () => {
   const rootDir = "/test/project";
 
   it("should return an array of reports sorted by date descending", async () => {
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(Array.isArray(reports)).toBe(true);
     expect(reports.length).toBeGreaterThan(0);
     for (let i = 1; i < reports.length; i++) {
@@ -426,89 +426,89 @@ describe("listNightShiftReports()", () => {
 
   it("should return empty array when directory does not exist", async () => {
     mockExistsSync.mockReturnValue(false);
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports).toEqual([]);
   });
 
   it("should filter for .md files only", async () => {
     mockReaddir.mockResolvedValue(["2026-01-15.md", "notes.txt", "data.json", "2026-01-14.md"]);
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports).toHaveLength(2);
     expect(reports.every(r => r.filename.endsWith(".md"))).toBe(true);
   });
 
   it("should attach metadata from report content", async () => {
     mockReadFile.mockResolvedValue("# Report\n**結果：** ✅ 3 成功 / ❌ 1 失敗\n## 📊 Status\nAll good.\n");
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports[0]).toHaveProperty("result");
     expect(reports[0]).toHaveProperty("summary");
     expect(reports[0]).toHaveProperty("mode");
   });
 
   it("should detect parallel mode from title", async () => {
-    mockReadFile.mockResolvedValue("# 🌙 Night Shift Report\nStuff\n");
-    const reports = await mod.listNightShiftReports(rootDir);
+    mockReadFile.mockResolvedValue("# 🌙 Auto Dispatch Report\nStuff\n");
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports[0].mode).toBe("parallel");
   });
 
   it("should detect em mode by default", async () => {
     mockReadFile.mockResolvedValue("# Regular Report\n**Result:** OK\n");
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports[0].mode).toBe("em");
   });
 
   it("should include file stats (size, modified)", async () => {
     mockStat.mockResolvedValue({ size: 512, mtime: new Date("2026-01-15T10:00:00Z") });
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports[0].size).toBe(512);
     expect(reports[0].modified).toBe("2026-01-15T10:00:00.000Z");
   });
 
   it("should handle readdir/stat errors gracefully", async () => {
     mockReaddir.mockRejectedValue(new Error("permission denied"));
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports).toEqual([]);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════
-// readNightShiftReport()
+// readAutoDispatchReport()
 // ═══════════════════════════════════════════════════════════════
 
-describe("readNightShiftReport()", () => {
+describe("readAutoDispatchReport()", () => {
   const rootDir = "/test/project";
 
   it("should return report content when file exists", async () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFile.mockResolvedValue("# Report\ncontent");
-    const content = await mod.readNightShiftReport(rootDir, "2026-01-15");
+    const content = await mod.readAutoDispatchReport(rootDir, "2026-01-15");
     expect(content).toBe("# Report\ncontent");
   });
 
   it("should return null when file does not exist", async () => {
     mockExistsSync.mockReturnValue(false);
-    const content = await mod.readNightShiftReport(rootDir, "2026-01-15");
+    const content = await mod.readAutoDispatchReport(rootDir, "2026-01-15");
     expect(content).toBeNull();
   });
 });
 
 // ═══════════════════════════════════════════════════════════════
-// deleteNightShiftReport()
+// deleteAutoDispatchReport()
 // ═══════════════════════════════════════════════════════════════
 
-describe("deleteNightShiftReport()", () => {
+describe("deleteAutoDispatchReport()", () => {
   const rootDir = "/test/project";
 
   it("should return true when file exists and is deleted", async () => {
     mockExistsSync.mockReturnValue(true);
-    const result = await mod.deleteNightShiftReport(rootDir, "2026-01-15");
+    const result = await mod.deleteAutoDispatchReport(rootDir, "2026-01-15");
     expect(result).toBe(true);
     expect(mockUnlink).toHaveBeenCalled();
   });
 
   it("should return false when file does not exist", async () => {
     mockExistsSync.mockReturnValue(false);
-    const result = await mod.deleteNightShiftReport(rootDir, "2026-01-15");
+    const result = await mod.deleteAutoDispatchReport(rootDir, "2026-01-15");
     expect(result).toBe(false);
     expect(mockUnlink).not.toHaveBeenCalled();
   });
@@ -657,27 +657,27 @@ describe("validateFeatureMap()", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// extractReportMetadata (internal helper, tested via listNightShiftReports)
+// extractReportMetadata (internal helper, tested via listAutoDispatchReports)
 // ═══════════════════════════════════════════════════════════════
 
-describe("extractReportMetadata (via listNightShiftReports)", () => {
+describe("extractReportMetadata (via listAutoDispatchReports)", () => {
   const rootDir = "/test/project";
 
   it("should extract result line with Chinese characters", async () => {
     mockReadFile.mockResolvedValue("# Report\n**結果：** ✅ 3 成功 / ❌ 1 失敗\n## 📊 Status\nOK");
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports[0].result).toContain("3 成功");
   });
 
   it("should extract result line with English", async () => {
     mockReadFile.mockResolvedValue("# Report\n**Result:** 5 passed / 1 failed\n## 📊 Status\nOK");
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports[0].result).toContain("5 passed");
   });
 
   it("should extract summary from first section after header", async () => {
     mockReadFile.mockResolvedValue("# Report\n**結果：** OK\n## 📊 專案狀態\nAll tests passing.\nEverything is great.");
-    const reports = await mod.listNightShiftReports(rootDir);
+    const reports = await mod.listAutoDispatchReports(rootDir);
     expect(reports[0].summary).toBeTruthy();
     expect(reports[0].summary.length).toBeLessThanOrEqual(200);
   });

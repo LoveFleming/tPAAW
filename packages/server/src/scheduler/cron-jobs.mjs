@@ -209,11 +209,11 @@ async function runCronJob(job) {
     return;
   }
 
-  // ── Night Shift type: trigger overnight runner ──
-  if (job.type === 'night-shift') {
+  // ── Auto Dispatch type: trigger overnight runner ──
+  if (job.type === 'auto-dispatch') {
     const projectPath = job.params?.projectPath || '';
     const mode = job.params?.mode || 'em';
-    console.log(`[cron] Night Shift triggered: ${projectPath} mode=${mode}`);
+    console.log(`[cron] Auto Dispatch triggered: ${projectPath} mode=${mode}`);
     try {
       // ── Check for incomplete plans first ──
       try {
@@ -227,21 +227,21 @@ async function runCronJob(job) {
         }
       } catch {}
 
-      const resp = await fetch(`http://127.0.0.1:${PORT}/api/coding-night-shift/start?path=${encodeURIComponent(projectPath)}`, {
+      const resp = await fetch(`http://127.0.0.1:${PORT}/api/coding-auto-dispatch/start?path=${encodeURIComponent(projectPath)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode }),
       });
       const data = await resp.json();
-      console.log(`[cron] Night Shift result:`, JSON.stringify(data).slice(0, 200));
+      console.log(`[cron] Auto Dispatch result:`, JSON.stringify(data).slice(0, 200));
       await appendCronLog(job.id, { runId, status: data.error ? 'error' : 'done', result: data });
 
       // Deliver summary to chat if chatId specified
       if (job.chatId && data.summary) {
-        await deliverToChat(job.chatId, `🌙 **夜班執行完成**\n\n處理了 ${data.summary?.totalProcessed || 0} 項任務\n✅ ${data.summary?.succeeded || 0} 成功 / ❌ ${data.summary?.failed || 0} 失敗`);
+        await deliverToChat(job.chatId, `🌙 **自動派工執行完成**\n\n處理了 ${data.summary?.totalProcessed || 0} 項任務\n✅ ${data.summary?.succeeded || 0} 成功 / ❌ ${data.summary?.failed || 0} 失敗`);
       }
     } catch (err) {
-      console.error(`[cron] Night Shift error:`, err.message);
+      console.error(`[cron] Auto Dispatch error:`, err.message);
       await appendCronLog(job.id, { runId, status: 'error', error: err.message });
     }
     job.lastRun = new Date().toISOString();

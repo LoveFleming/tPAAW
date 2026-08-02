@@ -82,7 +82,7 @@ EM 不只是傳話筒，他能**自主完成整個開發流程**：
 ├── issues/              # 問題追蹤
 ├── tasks/               # 任務管理
 ├── agent-memory/        # 各 Agent 的長期記憶
-├── night-shift/         # 夜間巡邏報告
+├── auto-dispatch/         # 夜間巡邏報告
 └── conversations/       # Agent 對話歷史
 ```
 
@@ -119,24 +119,24 @@ AI 自動掃描專案，產出結構化的專案知識：
 
 ---
 
-## 夜間巡邏 — Night Shift
+## 夜間巡邏 — Auto Dispatch
 
 **睡覺時 AI 也在工作。**
 
-Night Shift 是自動化的夜間開發流程：
+Auto Dispatch 是自動化的夜間開發流程：
 
 | 模式 | 說明 |
 |------|------|
 | **EM 模式** | EM 自動分析現況、規劃工作、派工執行，像白天的自主模式一樣 |
 | **Parallel 模式** | 多個 agent 同時處理不同任務，加速產出 |
 
-### Night Shift 做什麼？
+### Auto Dispatch 做什麼？
 - 掃描未 push 的 commit
 - 修安全問題
 - 補測試
 - 補文件
 - Code review
-- 產出報告存到 `.paaw/night-shift/reports/YYYY-MM-DD.md`
+- 產出報告存到 `.paaw/auto-dispatch/reports/YYYY-MM-DD.md`
 
 ### 安全機制
 - 可隨時中斷（interrupt）
@@ -183,7 +183,7 @@ Coding App 的 AI 不只寫碼，還能自動產出完整的專案知識：
 - Provider 設定是否正確
 - Feature map 覆蓋率
 - 未解決的 Issue
-- Night Shift 狀態（偵測卡住的 run）
+- Auto Dispatch 狀態（偵測卡住的 run）
 - 安全掃描新鮮度
 - LLM 活動
 - Coding standards 是否存在
@@ -205,4 +205,4 @@ Coding App 的 AI 不只寫碼，還能自動產出完整的專案知識：
 3. **大任務先拆分** — 不一次丟一大坨工作給 agent，逐個派工逐個驗收
 4. **知識持續累積** — `.paaw/` 是 AI 團隊的共享記憶，越用越聰明
 5. **安全第一** — 安全掃描、護欄、commit 紀律，多層保障
-6. **睡覺也在進步** — Night Shift 讓專案 24 小時在改善
+6. **睡覺也在進步** — Auto Dispatch 讓專案 24 小時在改善

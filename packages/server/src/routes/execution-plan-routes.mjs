@@ -1,13 +1,13 @@
 /**
- * Night Shift Execution Plan API routes
+ * Auto Dispatch Execution Plan API routes
  *
- * POST   /api/night-shift/plan/create           — 建立執行計畫
- * GET    /api/night-shift/plan/latest            — 取得最新 plan（UI 用）
- * GET    /api/night-shift/plan/list              — 列出所有 plans
- * GET    /api/night-shift/plan/:planId           — 取得完整 plan
- * GET    /api/night-shift/plan/:planId/summary   — 摘要
- * PATCH  /api/night-shift/plan/:planId/subtask/:subId — 更新 sub-task
- * POST   /api/night-shift/plan/:planId/execute   — 開始執行（由 overnight-manager 呼叫）
+ * POST   /api/auto-dispatch/plan/create           — 建立執行計畫
+ * GET    /api/auto-dispatch/plan/latest            — 取得最新 plan（UI 用）
+ * GET    /api/auto-dispatch/plan/list              — 列出所有 plans
+ * GET    /api/auto-dispatch/plan/:planId           — 取得完整 plan
+ * GET    /api/auto-dispatch/plan/:planId/summary   — 摘要
+ * PATCH  /api/auto-dispatch/plan/:planId/subtask/:subId — 更新 sub-task
+ * POST   /api/auto-dispatch/plan/:planId/execute   — 開始執行（由 auto-dispatch-manager 呼叫）
  */
 
 import {
@@ -22,8 +22,8 @@ export default async function executionPlanRoutes(req, res) {
   const urlObj = new URL(url, 'http://localhost');
   const rootDir = urlObj.searchParams.get('path') || process.env.PAAW_ROOT || process.cwd();
 
-  // ── POST /api/night-shift/plan/create ──
-  if (req.method === 'POST' && urlObj.pathname === '/api/night-shift/plan/create') {
+  // ── POST /api/auto-dispatch/plan/create ──
+  if (req.method === 'POST' && urlObj.pathname === '/api/auto-dispatch/plan/create') {
     try {
       const body = await _readBody(req);
       const { projectPath, projectPhase, mode, items } = body;
@@ -43,8 +43,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── GET /api/night-shift/plan/latest ──
-  if (req.method === 'GET' && urlObj.pathname === '/api/night-shift/plan/latest') {
+  // ── GET /api/auto-dispatch/plan/latest ──
+  if (req.method === 'GET' && urlObj.pathname === '/api/auto-dispatch/plan/latest') {
     try {
       const plan = await getLatestPlan(rootDir);
       if (!plan) {
@@ -62,8 +62,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── GET /api/night-shift/plan/list ──
-  if (req.method === 'GET' && urlObj.pathname === '/api/night-shift/plan/list') {
+  // ── GET /api/auto-dispatch/plan/list ──
+  if (req.method === 'GET' && urlObj.pathname === '/api/auto-dispatch/plan/list') {
     try {
       const plans = await listPlans(rootDir);
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -76,8 +76,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── GET /api/night-shift/plan/:planId/summary ──
-  const summaryMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)\/summary$/);
+  // ── GET /api/auto-dispatch/plan/:planId/summary ──
+  const summaryMatch = urlObj.pathname.match(/^\/api\/auto-dispatch\/plan\/([^/]+)\/summary$/);
   if (req.method === 'GET' && summaryMatch) {
     try {
       const summary = await getPlanSummary(rootDir, summaryMatch[1]);
@@ -96,8 +96,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── GET /api/night-shift/plan/:planId ──
-  const getMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)$/);
+  // ── GET /api/auto-dispatch/plan/:planId ──
+  const getMatch = urlObj.pathname.match(/^\/api\/auto-dispatch\/plan\/([^/]+)$/);
   if (req.method === 'GET' && getMatch) {
     try {
       const plan = await getPlan(rootDir, getMatch[1]);
@@ -116,8 +116,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── PATCH /api/night-shift/plan/:planId/subtask/:subId ──
-  const subMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)\/subtask\/(.+)$/);
+  // ── PATCH /api/auto-dispatch/plan/:planId/subtask/:subId ──
+  const subMatch = urlObj.pathname.match(/^\/api\/auto-dispatch\/plan\/([^/]+)\/subtask\/(.+)$/);
   if (req.method === 'PATCH' && subMatch) {
     try {
       const body = await _readBody(req);
@@ -132,12 +132,12 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── POST /api/night-shift/plan/:planId/execute ──
-  const execMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)\/execute$/);
+  // ── POST /api/auto-dispatch/plan/:planId/execute ──
+  const execMatch = urlObj.pathname.match(/^\/api\/auto-dispatch\/plan\/([^/]+)\/execute$/);
   if (req.method === 'POST' && execMatch) {
     try {
       await markPlanStarted(rootDir, execMatch[1]);
-      // Actual execution is handled by overnight-manager via SSE
+      // Actual execution is handled by auto-dispatch-manager via SSE
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, message: 'Plan execution started' }));
       return true;
@@ -148,8 +148,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── GET /api/night-shift/plan/incomplete ── (find unfinished plans)
-  if (req.method === 'GET' && urlObj.pathname === '/api/night-shift/plan/incomplete') {
+  // ── GET /api/auto-dispatch/plan/incomplete ── (find unfinished plans)
+  if (req.method === 'GET' && urlObj.pathname === '/api/auto-dispatch/plan/incomplete') {
     try {
       const plans = await findIncompletePlans(rootDir);
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -162,8 +162,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── POST /api/night-shift/plan/:planId/resume ──
-  const resumeMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)\/resume$/);
+  // ── POST /api/auto-dispatch/plan/:planId/resume ──
+  const resumeMatch = urlObj.pathname.match(/^\/api\/auto-dispatch\/plan\/([^/]+)\/resume$/);
   if (req.method === 'POST' && resumeMatch) {
     try {
       const { plan, resumedCount } = await resumePlan(rootDir, resumeMatch[1]);
@@ -177,8 +177,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── DELETE /api/night-shift/plan/:planId ──
-  const delMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)$/);
+  // ── DELETE /api/auto-dispatch/plan/:planId ──
+  const delMatch = urlObj.pathname.match(/^\/api\/auto-dispatch\/plan\/([^/]+)$/);
   if (req.method === 'DELETE' && delMatch) {
     try {
       await deletePlan(rootDir, delMatch[1]);
@@ -192,8 +192,8 @@ export default async function executionPlanRoutes(req, res) {
     }
   }
 
-  // ── PATCH /api/night-shift/plan/:planId/status ──
-  const statusMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)\/status$/);
+  // ── PATCH /api/auto-dispatch/plan/:planId/status ──
+  const statusMatch = urlObj.pathname.match(/^\/api\/auto-dispatch\/plan\/([^/]+)\/status$/);
   if (req.method === 'PATCH' && statusMatch) {
     try {
       const body = await _readBody(req);

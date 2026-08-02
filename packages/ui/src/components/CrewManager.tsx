@@ -3,7 +3,7 @@
  *
  * Phase 3: Full agent editing — Rules / Model / Context
  * - Rules: codename, description, expertise, rolePrompt, guardrails, chatConfig
- * - Model: per-agent model (interactive/EM/nightShift) + fallback chain
+ * - Model: per-agent model (interactive/EM/autoDispatch) + fallback chain
  * - Context: injectProjectContext + toolGroups selector
  */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -43,7 +43,7 @@ interface CrewConfig {
   initialized: boolean;
   globalCrewIds: string[];
   customAgents: string[];
-  models: Record<string, { primary: string; fallbacks: string[]; emModel: string; nightShiftModel: string }>;
+  models: Record<string, { primary: string; fallbacks: string[]; emModel: string; autoDispatchModel: string }>;
   skillBindings: Record<string, string[]>;
   contextOverrides: Record<string, any>;
 }
@@ -122,7 +122,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
 
   // Editable state for selected agent
   const [editData, setEditData] = useState<AgentDef | null>(null);
-  const [editModel, setEditModel] = useState({ primary: "", fallbacks: [] as string[], emModel: "", nightShiftModel: "" });
+  const [editModel, setEditModel] = useState({ primary: "", fallbacks: [] as string[], emModel: "", autoDispatchModel: "" });
   const [editSkills, setEditSkills] = useState<string[]>([]);
   const [agentMemory, setAgentMemory] = useState("");
   const [memoryLoading, setMemoryLoading] = useState(false);
@@ -186,7 +186,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
     if (config?.models?.[selectedAgentId]) {
       setEditModel({ ...config.models[selectedAgentId], fallbacks: config.models[selectedAgentId].fallbacks || [] });
     } else {
-      setEditModel({ primary: "", fallbacks: [], emModel: "", nightShiftModel: "" });
+      setEditModel({ primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" });
     }
     if (config?.skillBindings?.[selectedAgentId]) {
       setEditSkills([...config.skillBindings[selectedAgentId]]);
@@ -322,7 +322,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
       const data = await res.json();
       if (data.id) {
         setEditData(JSON.parse(JSON.stringify(data)));
-        setEditModel({ primary: "", fallbacks: [], emModel: "", nightShiftModel: "" });
+        setEditModel({ primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" });
         setEditSkills([]);
         setSavedMsg("✅ 已重置為預設");
         setTimeout(() => setSavedMsg(""), 2500);
@@ -709,7 +709,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                     })()}
                   </Section>
 
-                  {/* EM / Night Shift */}
+                  {/* EM / Auto Dispatch */}
                   <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className={labelCls}>🚀 EM Dispatch Model（EM 調度執行時）</label>
@@ -720,8 +720,8 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                       <p className="text-[11px] text-stone-400 mt-1">空 = 使用 Interactive Model</p>
                     </div>
                     <div>
-                      <label className={labelCls}>🌙 Night Shift Model（夜間批次）</label>
-                      <select value={editModel.nightShiftModel} onChange={e => setEditModel({ ...editModel, nightShiftModel: e.target.value })}
+                      <label className={labelCls}>🌙 Auto Dispatch Model（夜間批次）</label>
+                      <select value={editModel.autoDispatchModel} onChange={e => setEditModel({ ...editModel, autoDispatchModel: e.target.value })}
                         className={cn(inputCls, "bg-white")} style={inputStyle}>
                         {modelOptions.map(m => <option key={`ns_${m.value || "_default"}`} value={m.value}>{m.group ? `[${m.group}] ` : ""}{m.label}</option>)}
                       </select>
@@ -735,7 +735,7 @@ export default function CrewManager({ rootPath, theme: t, onCrewChanged }: CrewM
                     <div className="text-[11px] text-blue-600 space-y-0.5">
                       <div>🔴 <b>架構/開發/QA</b> → 用強模型（需要品質）</div>
                       <div>🟢 <b>測試/文件/客服</b> → 用經濟模型（省成本）</div>
-                      <div>🌙 <b>Night Shift</b> → 建議用經濟模型（高頻省成本）</div>
+                      <div>🌙 <b>Auto Dispatch</b> → 建議用經濟模型（高頻省成本）</div>
                       <div className="text-stone-400 mt-1">以上為建議，實際可用模型取決於你的 Provider 設定</div>
                     </div>
                   </div>

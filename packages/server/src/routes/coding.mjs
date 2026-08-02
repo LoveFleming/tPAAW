@@ -985,7 +985,7 @@ export default async function projectRoute(req, res) {
 
     let nsConfig = null;
     try {
-      const nsConfigPath = join(rootDir, ".paaw", "night-shift", "config.json");
+      const nsConfigPath = join(rootDir, ".paaw", "auto-dispatch", "config.json");
       if (existsSync(nsConfigPath)) nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
     } catch {}
     const modelOverride = model || nsConfig?.model?.primary || undefined;
@@ -1010,7 +1010,7 @@ export default async function projectRoute(req, res) {
     };
 
     try {
-      const { planEMSession } = await import("../lib/overnight-manager.mjs");
+      const { planEMSession } = await import("../lib/auto-dispatch-manager.mjs");
       sendSSE("start", { message: "🎖️ EM 規劃啟動", ts: new Date().toISOString() });
       const { workList, situationReport } = await planEMSession({ rootDir, sendSSE, since, modelOverride, fallbackModels });
       sendSSE("plan_ready", { workList, situationReport });
@@ -1030,7 +1030,7 @@ export default async function projectRoute(req, res) {
 
     let nsConfig = null;
     try {
-      const nsConfigPath = join(rootDir, ".paaw", "night-shift", "config.json");
+      const nsConfigPath = join(rootDir, ".paaw", "auto-dispatch", "config.json");
       if (existsSync(nsConfigPath)) nsConfig = JSON.parse(readSync(nsConfigPath, "utf-8"));
     } catch {}
     const modelOverride = model || nsConfig?.model?.primary || undefined;
@@ -1055,7 +1055,7 @@ export default async function projectRoute(req, res) {
     };
 
     try {
-      const { executeEMSession } = await import("../lib/overnight-manager.mjs");
+      const { executeEMSession } = await import("../lib/auto-dispatch-manager.mjs");
       sendSSE("start", { message: "🎖️ EM 開始執行", ts: new Date().toISOString() });
       const { report, results } = await executeEMSession({ rootDir, workList, situationReport, modelOverride, fallbackModels, sendSSE, projectPhase: nsConfig?.projectPhase || 'bootstrap' });
       sendSSE("complete", { workList, results, report });

@@ -1,13 +1,13 @@
 /**
- * Execution Plan — EM 夜班執行計畫
+ * Execution Plan — EM 自動派工執行計畫
  *
- * EM 啟動夜班時產生一份執行計畫，每個 sub-task 是獨立工作單元，
+ * EM 啟動自動派工時產生一份執行計畫，每個 sub-task 是獨立工作單元，
  * 有明確的 agent、timeout（預設 2h）、token/cost 追蹤。
  *
  * Plan 歸 plan，TASKS.json 歸 task — 不混淆。
  * Sub-task 完成後可以回寫 note 到對應的 TASK。
  *
- * 存儲：{projectRoot}/.paaw/night-shift/plans/{planId}.json
+ * 存儲：{projectRoot}/.paaw/auto-dispatch/plans/{planId}.json
  */
 
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
@@ -19,7 +19,7 @@ const DEFAULT_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
 // ── 工具函數 ──
 
 function _plansDir(rootDir) {
-  return join(rootDir, '.paaw', 'night-shift', 'plans');
+  return join(rootDir, '.paaw', 'auto-dispatch', 'plans');
 }
 
 function _planPath(rootDir, planId) {

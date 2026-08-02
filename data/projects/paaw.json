@@ -269,7 +269,7 @@
       "id": "coding-ide",
       "name": "Coding IDE",
       "icon": "💻",
-      "description": "多 Agent 協作、終端機、Night Shift、A2A Protocol",
+      "description": "多 Agent 協作、終端機、Auto Dispatch、A2A Protocol",
       "tasks": [
         {
           "id": "t_mqweppzleomn",
@@ -304,8 +304,8 @@
           "end": "2026-07-01"
         },
         {
-          "id": "t_ide_night_shift",
-          "name": "Night Shift 自動化 (排程執行 + 報告)",
+          "id": "t_ide_auto_dispatch",
+          "name": "Auto Dispatch 自動化 (排程執行 + 報告)",
           "status": "done",
           "priority": "medium",
           "start": "2026-06-25",
@@ -604,7 +604,7 @@
       "id": "m_mqweppzl3rdb",
       "name": "PAAW v0.9 — AI 協作引擎",
       "status": "done",
-      "note": "多 Agent 協作 + A2A + Night Shift + EM 大總管 + 記憶系統 + Context Window 優化",
+      "note": "多 Agent 協作 + A2A + Auto Dispatch + EM 大總管 + 記憶系統 + Context Window 優化",
       "date": "2026-07"
     },
     {

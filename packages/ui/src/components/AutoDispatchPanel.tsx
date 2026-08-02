@@ -100,7 +100,7 @@ export function SubTaskDetail({ theme, data }: { theme: any; data: any }) {
 }
 
 // ── Main Panel ──
-export default function NightShiftPanel({ theme, rootPath, model, openMainTab }: { theme: any; rootPath?: string; model?: string; openMainTab?: (tab: any) => void }) {
+export default function AutoDispatchPanel({ theme, rootPath, model, openMainTab }: { theme: any; rootPath?: string; model?: string; openMainTab?: (tab: any) => void }) {
   const { t } = useI18n();
   const tk = theme;
 
@@ -119,7 +119,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
   const fetchConfig = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const res = await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath)}`);
+      const res = await fetch(`${API_BASE}/api/coding-auto-dispatch/config?path=${encodeURIComponent(rootPath)}`);
       setNsConfig(await res.json());
     } catch {}
   }, [rootPath]);
@@ -128,8 +128,8 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
     if (!rootPath) return;
     try {
       const [planRes, listRes] = await Promise.all([
-        fetch(`${API_BASE}/api/night-shift/plan/latest?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
-        fetch(`${API_BASE}/api/night-shift/plan/list?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/auto-dispatch/plan/latest?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/auto-dispatch/plan/list?path=${encodeURIComponent(rootPath)}`).then(r => r.ok ? r.json() : null),
       ]);
       setExecPlan(planRes?.plan || null);
       setPlanList(listRes?.plans || []);
@@ -144,7 +144,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
     fetch(`${API_BASE}/api/cron-jobs`)
       .then(r => r.json())
       .then((jobs: any[]) => {
-        const found = jobs.find(j => j.id?.startsWith('night-shift-') && j.params?.projectPath === rootPath);
+        const found = jobs.find(j => j.id?.startsWith('auto-dispatch-') && j.params?.projectPath === rootPath);
         setCronJob(found || null);
       })
       .catch(() => setCronJob(null));
@@ -160,7 +160,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
   const handleStart = async () => {
     setStarting(true);
     try {
-      await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
+      await fetch(`${API_BASE}/api/coding-auto-dispatch/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "em", model: model || undefined }),
       });
@@ -174,7 +174,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
       // Optimistic: immediately mark as running so UI hides resume button
       setExecPlan((prev: any) => prev ? { ...prev, status: 'running' } : prev);
       // Trigger actual EM execution with existing plan
-      await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
+      await fetch(`${API_BASE}/api/coding-auto-dispatch/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "em", planId }),
       });
@@ -190,7 +190,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
   const handleDelete = async (planId: string) => {
     if (!confirm(`刪除 plan ${planId}？`)) return;
     try {
-      await fetch(`${API_BASE}/api/night-shift/plan/${planId}?path=${encodeURIComponent(rootPath || "")}`, { method: "DELETE" });
+      await fetch(`${API_BASE}/api/auto-dispatch/plan/${planId}?path=${encodeURIComponent(rootPath || "")}`, { method: "DELETE" });
       setSelectedPlanId(null);
       await refreshPlans();
     } catch {}
@@ -198,7 +198,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
 
   const handleStatusChange = async (planId: string, newStatus: string) => {
     try {
-      await fetch(`${API_BASE}/api/night-shift/plan/${planId}/status?path=${encodeURIComponent(rootPath || "")}`, {
+      await fetch(`${API_BASE}/api/auto-dispatch/plan/${planId}/status?path=${encodeURIComponent(rootPath || "")}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -209,7 +209,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
   const loadPlan = async (planId: string) => {
     if (!rootPath) return;
     try {
-      const res = await fetch(`${API_BASE}/api/night-shift/plan/${planId}?path=${encodeURIComponent(rootPath)}`);
+      const res = await fetch(`${API_BASE}/api/auto-dispatch/plan/${planId}?path=${encodeURIComponent(rootPath)}`);
       const d = await res.json();
       setExecPlan(d?.plan || null);
       setSelectedPlanId(planId);
@@ -318,7 +318,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
               </div>
               <div>
                 <div className="text-[11px] font-bold mb-1" style={{ color: tk.text }}>🤖 Model</div>
-                <ModelSelector feature="nightShift" value={nsConfig.model?.primary || ""}
+                <ModelSelector feature="autoDispatch" value={nsConfig.model?.primary || ""}
                   onChange={(v: string) => setNsConfig({ ...nsConfig, model: { ...nsConfig.model, primary: v } })} />
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
               <button onClick={async () => {
                   setSavingConfig(true); setSaveResult("");
                   try {
-                    const r = await fetch(`${API_BASE}/api/coding-night-shift/config?path=${encodeURIComponent(rootPath || "")}`, {
+                    const r = await fetch(`${API_BASE}/api/coding-auto-dispatch/config?path=${encodeURIComponent(rootPath || "")}`, {
                       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(nsConfig) });
                     setSaveResult(r.ok ? "ok" : "err"); if (r.ok) setTimeout(() => setSaveResult(""), 3000);
                   } catch { setSaveResult("err"); }

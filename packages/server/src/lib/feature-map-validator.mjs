@@ -12,7 +12,7 @@
  *
  * Used by:
  *   - EM Phase 0 (after AI refresh)
- *   - Night Shift Phase 0 (after AI refresh)
+ *   - Auto Dispatch Phase 0 (after AI refresh)
  *   - Manual health check
  *   - Future: auto-retry loop when AI output fails validation
  */

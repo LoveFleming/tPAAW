@@ -67,13 +67,13 @@ interface EMDashboardProps {
   codeUnderstanding?: { running: boolean; steps: CodeUnderstandingStep[] };
   // Dispatch to crew with pre-filled message
   onDispatchToCrew?: (crewId: string, message: string) => void;
-  // Open Night Shift tab
-  onOpenNightShift?: () => void;
+  // Open Auto Dispatch tab
+  onOpenAutoDispatch?: () => void;
   model?: string;
   onModelChange?: (m: string) => void;
 }
 
-export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenNightShift, model, onModelChange }: EMDashboardProps) {
+export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCodeUnderstanding, codeUnderstanding, onDispatchToCrew, onOpenAutoDispatch, model, onModelChange }: EMDashboardProps) {
   // ── EM Profile (avatar from crew API) ──
   const [emProfile, setEmProfile] = useState<{ codename?: string; imageUrl?: string; emoji?: string }>({});
   useEffect(() => {
@@ -133,7 +133,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
 
   // ── Project Status ──
   // Project status state removed — was only for git/unpushed display
-  // actionLog/report state removed — Night Shift tab handles both
+  // actionLog/report state removed — Auto Dispatch tab handles both
 
   // ── EM Sessions (active + history) ──
   const [emSessions, setEmSessions] = useState<{ sessionId: string; title: string; messageCount: number; lastUpdated: string | null; isActive?: boolean }[]>([]);
@@ -851,9 +851,9 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                 {emRunning ? "⏳" : "🚀 EM"}
               </button>
               <button
-                onClick={() => onOpenNightShift?.()}
+                onClick={() => onOpenAutoDispatch?.()}
                 className="text-xs px-3 py-1 rounded-md font-bold flex items-center gap-1 bg-indigo-600 text-white hover:bg-indigo-700"
-                title="打開 Night Shift 面板"
+                title="打開 Auto Dispatch 面板"
               >
                 🌙
               </button>
@@ -1110,8 +1110,8 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
                             if (el2) el2.scrollTop = el2.scrollHeight;
                             }
                             if (action.type === "openReport" && action.reportId) {
-                              // Open Night Shift tab (reports live there)
-                              onOpenNightShift?.();
+                              // Open Auto Dispatch tab (reports live there)
+                              onOpenAutoDispatch?.();
                             }
                           }}
                           disabled={action.type === "confirmPlan" && emRunning}
@@ -1275,7 +1275,7 @@ export default function EMDashboard({ rootPath, theme: tk, onOpenFile, onStartCo
           )}
         </div>
 
-        {/* Agent Activity + Overnight Report removed — Night Shift tab handles reports */}
+        {/* Agent Activity + Overnight Report removed — Auto Dispatch tab handles reports */}
 
         {/* ── 專案知識面板 (Project Knowledge) ── */}
         <ProjectKnowledgePanel rootPath={rootPath} tk={tk} onOpenFile={onOpenFile} refreshTrigger={cuFinishCount} />

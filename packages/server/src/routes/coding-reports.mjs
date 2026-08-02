@@ -1,16 +1,16 @@
 /**
- * coding-reports.mjs — Night Shift 報告 API（統一版）
+ * coding-reports.mjs — Auto Dispatch 報告 API（統一版）
  *
  * GET    /api/coding-reports/list?path=...        — 列出所有報告
  * GET    /api/coding-reports/:date?path=...       — 取得單一報告內容
  * DELETE /api/coding-reports/:date?path=...       — 刪除報告
  *
- * 報告來源：.paaw/night-shift/reports/
+ * 報告來源：.paaw/auto-dispatch/reports/
  *
- * 核心邏輯在 lib/night-shift-shared.mjs
+ * 核心邏輯在 lib/auto-dispatch-shared.mjs
  */
 
-import { listNightShiftReports, readNightShiftReport, deleteNightShiftReport } from "../lib/night-shift-shared.mjs";
+import { listAutoDispatchReports, readAutoDispatchReport, deleteAutoDispatchReport } from "../lib/auto-dispatch-shared.mjs";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -27,7 +27,7 @@ export default async function codingReportsRoutes(req, res) {
   // GET /api/coding-reports/list
   if (req.method === 'GET' && url.includes('/api/coding-reports/list')) {
     try {
-      const reports = await listNightShiftReports(rootDir);
+      const reports = await listAutoDispatchReports(rootDir);
       sendJSON(200, { reports, total: reports.length });
     } catch (err) {
       sendJSON(500, { error: err.message });
@@ -43,7 +43,7 @@ export default async function codingReportsRoutes(req, res) {
     // GET
     if (req.method === 'GET') {
       try {
-        const content = await readNightShiftReport(rootDir, date);
+        const content = await readAutoDispatchReport(rootDir, date);
         if (content === null) {
           sendJSON(404, { error: `Report ${date} not found` });
         } else {
@@ -58,7 +58,7 @@ export default async function codingReportsRoutes(req, res) {
     // DELETE
     if (req.method === 'DELETE') {
       try {
-        const deleted = await deleteNightShiftReport(rootDir, date);
+        const deleted = await deleteAutoDispatchReport(rootDir, date);
         if (!deleted) {
           sendJSON(404, { error: `Report ${date} not found` });
         } else {

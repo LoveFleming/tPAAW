@@ -506,12 +506,6 @@
   "feature.byFile": "按檔案",
   "feature.noFiles": "沒有已映射的檔案",
   "feature.filesMapped": "個已映射檔案",
-  "nightShift.title": "自動派工",
-  "nightShift.start": "開始派工",
-  "nightShift.description": "EM 自動規劃工作，分派給 agent 執行，產生 execution plan",
-  "nightShift.lastRun": "上次執行",
-  "nightShift.noReport": "尚無執行計畫",
-  "nightShift.noReportHint": "點上方按鈕啟動自動派工",
   "notes.quickAddToSection": "在此分類新增筆記",
   "notes.moveToSection": "切換分類",
   "llmLog.title": "LLM 日誌",
@@ -624,7 +618,7 @@
   "task.noResults": "尚無夜間結果",
   "sidebar": {
     "llmLog": "LLM 日誌",
-    "agentLog": "📊 Agent 執行記錄"
+    "agentLog": "Agent 執行記錄"
   },
   "autoDispatch.title": "自動派工",
   "autoDispatch.start": "開始派工",

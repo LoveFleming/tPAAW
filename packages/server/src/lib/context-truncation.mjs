@@ -6,7 +6,7 @@
  *   - paaw-agent-loop.mjs (coding, EM, crew)
  *   - a2a.mjs (ChatView)
  *   - helpdesk.mjs
- *   - night-shift-shared.mjs / overnight-manager.mjs
+ *   - auto-dispatch-shared.mjs / auto-dispatch-manager.mjs
  *
  * Key principle: never blindly slice(0, N) — always preserve the tail
  * where errors, exceptions, and summaries live.

@@ -10,9 +10,10 @@
     "skillBuilder": "openrouter/moonshotai/kimi-k2.6",
     "undefined": "zai/glm-5.1",
     "codingIDE": "zai/glm-5",
-    "nightShift": "zai/glm-5.1",
-    "nightShiftFallback": "openrouter/deepseek/deepseek-v4-flash",
+    "autoDispatch": "zai/glm-5.1",
+    "autoDispatchFallback": "openrouter/deepseek/deepseek-v4-flash-0731",
     "appBuilder": "openrouter/z-ai/glm-5.1",
-    "codingIDE.coding.developer": "zai/glm-5.1"
+    "codingIDE.coding.developer": "zai/glm-5.1",
+    "codingIDE.coding.architect": "zai/glm-5.1"
   }
 }

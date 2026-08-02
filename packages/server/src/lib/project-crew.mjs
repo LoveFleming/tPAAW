@@ -7,7 +7,7 @@
  *
  * Directory layout:
  *   {project}/.paaw/agents/
- *     _config.json              ← crew-level config (models, skills, night shift)
+ *     _config.json              ← crew-level config (models, skills, auto dispatch)
  *     coding.architect.json     ← copied from global, can be edited
  *     coding.developer.json
  *     custom.reviewer.json      ← new custom agent
@@ -45,7 +45,7 @@ const DEFAULT_CONFIG = {
   initializedAt: null,
   globalCrewIds: [...DEFAULT_CREW_IDS],
   customAgents: [],
-  models: {},        // { "coding.architect": { "primary": "", "fallbacks": [], "emModel": "", "nightShiftModel": "" } }
+  models: {},        // { "coding.architect": { "primary": "", "fallbacks": [], "emModel": "", "autoDispatchModel": "" } }
   skillBindings: {}, // { "coding.architect": ["skill-id-1", "skill-id-2"] }
   contextOverrides: {}, // { "coding.architect": { "injectProjectContext": true, "extraContext": "" } }
 };
@@ -304,7 +304,7 @@ export function createCustomAgent(projectDir, def) {
   }
   // Initialize model entry
   if (!config.models[agentId]) {
-    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", nightShiftModel: "" };
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
   }
   writeJson(configPath, config);
 
@@ -363,7 +363,7 @@ export function resetProjectAgent(projectDir, agentId) {
   const configPath = getConfigPath(projectDir);
   const config = readJson(configPath, { ...DEFAULT_CONFIG });
   if (config.models[agentId]) {
-    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", nightShiftModel: "" };
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
   }
   delete config.skillBindings[agentId];
   delete config.contextOverrides[agentId];
@@ -377,7 +377,7 @@ export function resetProjectAgent(projectDir, agentId) {
  *
  * @param {string} projectDir
  * @param {string} agentId
- * @param {object} modelConfig — { primary?, fallbacks?, emModel?, nightShiftModel? }
+ * @param {object} modelConfig — { primary?, fallbacks?, emModel?, autoDispatchModel? }
  * @returns {object} updated model config for this agent
  */
 export function updateAgentModel(projectDir, agentId, modelConfig) {
@@ -386,7 +386,7 @@ export function updateAgentModel(projectDir, agentId, modelConfig) {
   const config = readJson(configPath, { ...DEFAULT_CONFIG });
 
   if (!config.models[agentId]) {
-    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", nightShiftModel: "" };
+    config.models[agentId] = { primary: "", fallbacks: [], emModel: "", autoDispatchModel: "" };
   }
 
   // Merge patch
@@ -394,7 +394,7 @@ export function updateAgentModel(projectDir, agentId, modelConfig) {
   if (modelConfig.primary !== undefined) current.primary = modelConfig.primary;
   if (modelConfig.fallbacks !== undefined) current.fallbacks = modelConfig.fallbacks;
   if (modelConfig.emModel !== undefined) current.emModel = modelConfig.emModel;
-  if (modelConfig.nightShiftModel !== undefined) current.nightShiftModel = modelConfig.nightShiftModel;
+  if (modelConfig.autoDispatchModel !== undefined) current.autoDispatchModel = modelConfig.autoDispatchModel;
 
   writeJson(configPath, config);
 
@@ -426,7 +426,7 @@ export function updateAgentSkills(projectDir, agentId, skillIds) {
  *
  * @param {string} projectDir
  * @param {string} agentId
- * @param {string} context — "interactive" | "em" | "nightShift"
+ * @param {string} context — "interactive" | "em" | "autoDispatch"
  * @param {string} globalDefault — global default model
  * @returns {string|null} model ID or null (use global default)
  */
@@ -440,8 +440,8 @@ export function resolveAgentModel(projectDir, agentId, context = "interactive", 
   if (context === "em") {
     return agentModels.emModel || agentModels.primary || globalDefault || null;
   }
-  if (context === "nightShift") {
-    return agentModels.nightShiftModel || agentModels.primary || globalDefault || null;
+  if (context === "autoDispatch") {
+    return agentModels.autoDispatchModel || agentModels.primary || globalDefault || null;
   }
   // interactive
   return agentModels.primary || globalDefault || null;

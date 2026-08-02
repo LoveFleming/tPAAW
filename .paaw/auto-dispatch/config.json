@@ -1,0 +1,16 @@
+{
+  "mode": "em",
+  "projectPhase": "bootstrap",
+  "schedule": {
+    "enabled": true,
+    "time": "22:30",
+    "tz": "Asia/Taipei"
+  },
+  "model": {
+    "primary": "zai/glm-5.1",
+    "fallbacks": []
+  },
+  "tasks": [
+    "feature-map-refresh"
+  ]
+}

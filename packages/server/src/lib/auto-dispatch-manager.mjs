@@ -1,5 +1,5 @@
 /**
- * Overnight Manager — Engineering Manager 自動調度 + Night Shift Parallel
+ * Overnight Manager — Engineering Manager 自動調度 + Auto Dispatch Parallel
  *
  * 設計原則：
  *   收集和執行用決定性程式，規劃用 LLM prompt
@@ -8,7 +8,7 @@
  *   mode: "em"       → EM 先讀現況 → LLM 規劃 → A2A 調度 agent（聰明但慢）
  *   mode: "parallel" → 全員平行跑，固定 6 agent（快但固定）
  *
- * 共用邏輯在 night-shift-shared.mjs
+ * 共用邏輯在 auto-dispatch-shared.mjs
  *
  * 流程（EM 模式）：
  *   1. 【決定性】收集 context
@@ -31,8 +31,8 @@ import {
   buildSituationReport,
   refreshFeatureMapping,
   validateFeatureMap,
-  saveNightShiftReport,
-} from "./night-shift-shared.mjs";
+  saveAutoDispatchReport,
+} from "./auto-dispatch-shared.mjs";
 
 // ── A2A Client ──
 
@@ -359,27 +359,27 @@ ${requireEstimate ? '- 每項必須附預估 effort（' + defaultEffort + ' 为�
 // ── Phase 0: Feature Map Refresh + Validation（共用） ──
 
 async function runPhase0(rootDir, modelOverride, fallbackModels, sendSSE) {
-  console.log("[NightShift] ═══ Phase 0: Feature Map Refresh + Validation ═══");
+  console.log("[AutoDispatch] ═══ Phase 0: Feature Map Refresh + Validation ═══");
   // Feature Map refresh
   sendSSE("info", { message: "🗺️ Phase 0: 更新 Feature Map..." });
   try {
     const refreshed = await refreshFeatureMapping(rootDir, modelOverride, fallbackModels, sendSSE);
     if (refreshed.ok) {
-      console.log(`[NightShift] Phase 0: Feature Map updated ${refreshed.updated}/${refreshed.total}`);
+      console.log(`[AutoDispatch] Phase 0: Feature Map updated ${refreshed.updated}/${refreshed.total}`);
     } else {
-      console.log(`[NightShift] Phase 0: Feature Map failed: ${refreshed.error}`);
+      console.log(`[AutoDispatch] Phase 0: Feature Map failed: ${refreshed.error}`);
       sendSSE("warning", { message: `🗺️ Feature Map 更新失敗：${refreshed.error || 'unknown'}` });
     }
   } catch (err) {
-    console.log(`[NightShift] Phase 0: Feature Map skipped: ${err.message}`);
+    console.log(`[AutoDispatch] Phase 0: Feature Map skipped: ${err.message}`);
     sendSSE("warning", { message: `🗺️ Feature Map 更新略過：${err.message}` });
   }
 
   // L3 Validation
-  console.log("[NightShift] Phase 0: Validating Feature Map...");
+  console.log("[AutoDispatch] Phase 0: Validating Feature Map...");
   sendSSE("info", { message: "🔍 Phase 0: 驗證 Feature Map..." });
   await validateFeatureMap(rootDir, sendSSE);
-  console.log("[NightShift] Phase 0: Done ✓");
+  console.log("[AutoDispatch] Phase 0: Done ✓");
 }
 
 // ── EM Mode: Run EM Session ──
@@ -398,18 +398,18 @@ export async function planEMSession(opts = {}) {
 
   const effectiveModel = emPlanningModel || modelOverride;
 
-  console.log("[NightShift] 🎖️═══ EM Plan (no execute) ═══🎖️");
-  console.log(`[NightShift] rootDir=${rootDir}, since=${since || "today"}, model=${effectiveModel || "default"}${emPlanningModel ? " (from EM config)" : ""}`);
+  console.log("[AutoDispatch] 🎖️═══ EM Plan (no execute) ═══🎖️");
+  console.log(`[AutoDispatch] rootDir=${rootDir}, since=${since || "today"}, model=${effectiveModel || "default"}${emPlanningModel ? " (from EM config)" : ""}`);
 
   // ── Phase 0 ──
   await runPhase0(rootDir, effectiveModel, fallbackModels, sendSSE);
 
   // ── Phase 1: Deterministic gathering ──
-  console.log("[NightShift] ═══ Phase 1: Context Gathering ═══");
+  console.log("[AutoDispatch] ═══ Phase 1: Context Gathering ═══");
   sendSSE("info", { message: "🎖️ EM 啟動，收集專案狀態..." });
   const ctx = await gatherContext(rootDir, since);
   const situationReport = buildSituationReport(ctx);
-  console.log(`[NightShift] Phase 1: ${ctx.commitCount} commits, ${ctx.changedFiles.length} files changed, ${ctx.unpushed ? ctx.unpushed.split("\n").length + " unpushed" : "all pushed"}`);
+  console.log(`[AutoDispatch] Phase 1: ${ctx.commitCount} commits, ${ctx.changedFiles.length} files changed, ${ctx.unpushed ? ctx.unpushed.split("\n").length + " unpushed" : "all pushed"}`);
   sendSSE("info", { message: `📊 現況摘要收集完成` });
 
   if (ctx.unpushed) {
@@ -417,10 +417,10 @@ export async function planEMSession(opts = {}) {
   }
 
   // ── Phase 2: LLM planning ──
-  console.log("[NightShift] ═══ Phase 2: LLM Work Planning ═══");
+  console.log("[AutoDispatch] ═══ Phase 2: LLM Work Planning ═══");
   sendSSE("info", { message: "🧠 規劃工作清單中..." });
   const workList = await planWorkList(situationReport, rootDir, effectiveModel, fallbackModels, sendSSE, opts.projectPhase || 'bootstrap');
-  console.log(`[NightShift] Phase 2: EM planned ${workList.length} tasks`);
+  console.log(`[AutoDispatch] Phase 2: EM planned ${workList.length} tasks`);
 
   return { workList, situationReport };
 }
@@ -449,7 +449,7 @@ export async function executeEMSession(opts = {}) {
       // Re-read after resume
       plan = await getPlan(rootDir, existingPlanId);
       sendSSE("plan_resumed", { planId: plan.planId, resumedCount, totalSubtasks: plan.summary.totalSubtasks });
-      console.log(`[NightShift] 📋 Execution Plan resumed: ${plan.planId} (${resumedCount} subtasks back to pending)`);
+      console.log(`[AutoDispatch] 📋 Execution Plan resumed: ${plan.planId} (${resumedCount} subtasks back to pending)`);
     } else {
       const planItems = (workList || []).map((w, i) => ({
         title: w.task || `Task ${i + 1}`,
@@ -467,10 +467,10 @@ export async function executeEMSession(opts = {}) {
       });
       await markPlanStarted(rootDir, plan.planId);
       sendSSE("plan_created", { planId: plan.planId, totalSubtasks: plan.summary.totalSubtasks });
-      console.log(`[NightShift] 📋 Execution Plan created: ${plan.planId} (${plan.summary.totalSubtasks} subtasks)`);
+      console.log(`[AutoDispatch] 📋 Execution Plan created: ${plan.planId} (${plan.summary.totalSubtasks} subtasks)`);
     }
   } catch (err) {
-    console.error(`[NightShift] Plan creation failed (non-fatal):`, err.message);
+    console.error(`[AutoDispatch] Plan creation failed (non-fatal):`, err.message);
   }
 
   // ── Per-agent model resolution ──
@@ -494,7 +494,7 @@ export async function executeEMSession(opts = {}) {
         }
       }
     }
-    console.log(`[NightShift] 📋 Resumed ${effectiveWorkList.length} pending sub-tasks from plan`);
+    console.log(`[AutoDispatch] 📋 Resumed ${effectiveWorkList.length} pending sub-tasks from plan`);
     if (effectiveWorkList.length === 0) {
       sendSSE("info", { message: "✅ Plan 裡所有工作已完成。" });
       const report = generateEMReport([], [], situationReport);
@@ -506,7 +506,7 @@ export async function executeEMSession(opts = {}) {
   if (!effectiveWorkList || effectiveWorkList.length === 0) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
     const report = generateEMReport([], [], situationReport);
-    saveNightShiftReport(rootDir, report, "em");
+    saveAutoDispatchReport(rootDir, report, "em");
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, workList: [], results: [] };
   }
@@ -517,7 +517,7 @@ export async function executeEMSession(opts = {}) {
     sendSSE("plan", { workList: effectiveWorkList });
     sendSSE("done", { totalTasks: effectiveWorkList.length, succeeded: 0, failed: 0, skipped: true, reason: 'conservative' });
     const report = generateEMReport(effectiveWorkList, [], situationReport, { skipped: true, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
-    saveNightShiftReport(rootDir, report, "em");
+    saveAutoDispatchReport(rootDir, report, "em");
     return { report, workList: effectiveWorkList, results: [] };
   }
 
@@ -551,14 +551,14 @@ export async function executeEMSession(opts = {}) {
     sendSSE("plan", { workList });
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, skipped: true });
     const report = generateEMReport(workList, [], situationReport, { skipped: true, skippedReasons: skippedTasks, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
-    saveNightShiftReport(rootDir, report, "em");
+    saveAutoDispatchReport(rootDir, report, "em");
     return { report, workList, results: [] };
   }
 
   sendSSE("plan", { workList: execList, skipped: skippedTasks.length > 0 ? skippedTasks : undefined });
 
   // ── Phase 3: Deterministic execution ──
-  console.log(`[NightShift] ═══ Phase 3: Agent Dispatch (serial, ${execList.length}/${workList.length} tasks) ═══`);
+  console.log(`[AutoDispatch] ═══ Phase 3: Agent Dispatch (serial, ${execList.length}/${workList.length} tasks) ═══`);
   const results = [];
 
   // ── Load plan helpers for sub-task tracking ──
@@ -577,7 +577,7 @@ export async function executeEMSession(opts = {}) {
     const agentModel = resolveAgentModel(rootDir, crewId, "em", dispatchModel || "");
     const agentFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
 
-    console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}]${subtaskId ? ` ${subtaskId}` : ''} → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
+    console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}]${subtaskId ? ` ${subtaskId}` : ''} → ${task.agent}${agentModel ? ` (model: ${agentModel})` : ""}: ${task.task.slice(0, 80)}...`);
     sendSSE("task_start", { index: i + 1, total: execList.length, subtaskId, ...task });
 
     // ── Mark sub-task as running ──
@@ -613,7 +613,7 @@ export async function executeEMSession(opts = {}) {
     results.push({ ...task, ...result, subtaskId, durationMs: _durationMs, tokenUsage: _tokens, costUsd: _cost });
 
     if (result.success) {
-      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
+      console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ✅ ${task.agent} done (${result.content.length} chars, ${(_durationMs / 1000).toFixed(0)}s, ${_tokens.total} tokens)`);
       sendSSE("task_done", { index: i + 1, agent: task.agent, subtaskId, preview: result.content.slice(0, 200), durationMs: _durationMs, tokens: _tokens, costUsd: _cost });
 
       // ── Mark sub-task as done ──
@@ -632,7 +632,7 @@ export async function executeEMSession(opts = {}) {
     } else {
       const timedOut = _durationMs >= 7200000; // 2h
       const stStatus = timedOut ? 'timeout' : 'fail';
-      console.log(`[NightShift] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} ${stStatus}: ${result.error}`);
+      console.log(`[AutoDispatch] Phase 3: [${i + 1}/${execList.length}] ❌ ${task.agent} ${stStatus}: ${result.error}`);
       sendSSE("task_error", { index: i + 1, agent: task.agent, subtaskId, error: result.error, status: stStatus });
 
       if (plan && planHelpers && subtaskId) {
@@ -651,7 +651,7 @@ export async function executeEMSession(opts = {}) {
   }
 
   // ── Phase 4: Report ──
-  console.log("[NightShift] ═══ Phase 4: Report Generation ═══");
+  console.log("[AutoDispatch] ═══ Phase 4: Report Generation ═══");
   sendSSE("info", { message: "📝 產生報告中..." });
   const reportOpts = {};
   if (emConfig?.reporting) {
@@ -663,8 +663,8 @@ export async function executeEMSession(opts = {}) {
     reportOpts.skipped = skippedTasks;
   }
   const report = generateEMReport(execList, results, situationReport, reportOpts);
-  saveNightShiftReport(rootDir, report, "em");
-  console.log(`[NightShift] Phase 4: Report saved (${report.length} chars)`);
+  saveAutoDispatchReport(rootDir, report, "em");
+  console.log(`[AutoDispatch] Phase 4: Report saved (${report.length} chars)`);
   sendSSE("report", { report });
 
   await addActionLog({
@@ -682,8 +682,8 @@ export async function executeEMSession(opts = {}) {
   const _totalTokens = results.reduce((sum, r) => sum + (r.tokenUsage?.total || 0), 0);
   const _totalCost = results.reduce((sum, r) => sum + (r.costUsd || 0), 0);
   const _totalDuration = results.reduce((sum, r) => sum + (r.durationMs || 0), 0);
-  console.log(`[NightShift] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed, ${skippedTasks.length} skipped`);
-  console.log(`[NightShift] 📊 Tokens: ${_totalTokens} | Cost: $${_totalCost.toFixed(4)} | Duration: ${(_totalDuration / 1000 / 60).toFixed(1)}min`);
+  console.log(`[AutoDispatch] 🎖️ EM Session complete: ${succeeded}✅ ${failed}❌ / ${execList.length} executed, ${skippedTasks.length} skipped`);
+  console.log(`[AutoDispatch] 📊 Tokens: ${_totalTokens} | Cost: $${_totalCost.toFixed(4)} | Duration: ${(_totalDuration / 1000 / 60).toFixed(1)}min`);
   sendSSE("done", { totalTasks: execList.length, succeeded, failed, skipped: skippedTasks.length, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration });
 
   return { report, workList: effectiveWorkList, results };
@@ -702,13 +702,13 @@ export async function runParallelSession(opts = {}) {
   await runPhase0(rootDir, modelOverride, fallbackModels, sendSSE);
 
   // ── Phase 1: Gather context ──
-  sendSSE("info", { message: "🌙 Night Shift 啟動，收集變更..." });
+  sendSSE("info", { message: "🌙 Auto Dispatch 啟動，收集變更..." });
   const ctx = await gatherContext(rootDir, since);
 
   if (ctx.changedFiles.length === 0 && !ctx.gitLog) {
     sendSSE("info", { message: "ℹ️ 沒有變更，無需審查。" });
-    const report = `# 🌙 Night Shift Report\n\n**Date:** ${new Date().toISOString().slice(0, 10)}\n\nℹ️ No changes today. Nothing to review.`;
-    saveNightShiftReport(rootDir, report, "parallel");
+    const report = `# 🌙 Auto Dispatch Report\n\n**Date:** ${new Date().toISOString().slice(0, 10)}\n\nℹ️ No changes today. Nothing to review.`;
+    saveAutoDispatchReport(rootDir, report, "parallel");
     sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, results: [] };
   }
@@ -716,7 +716,7 @@ export async function runParallelSession(opts = {}) {
   sendSSE("info", { message: `📊 ${ctx.changedFiles.length} files changed, ${ctx.commitCount} commits` });
 
   // ── Phase 2: Load prompts + run all agents in parallel ──
-  const { getPromptsFile } = await import("../routes/coding-night-shift-prompts.mjs");
+  const { getPromptsFile } = await import("../routes/coding-auto-dispatch-prompts.mjs");
   const prompts = await getPromptsFile(rootDir);
   const { runAgentLoop } = await import("./paaw-agent-loop.mjs");
   const { loadAgentMemory, listActionLog } = await import("./action-log.mjs");
@@ -741,8 +741,8 @@ export async function runParallelSession(opts = {}) {
 
   const results = await Promise.allSettled(agentRoles.map(async ([role, config]) => {
     const crewId = config.crewId || `coding.${role}`;
-    // Resolve per-agent nightShift model
-    const nsModel = resolveAgentModel(rootDir, crewId, "nightShift", effectiveModel || "");
+    // Resolve per-agent autoDispatch model
+    const nsModel = resolveAgentModel(rootDir, crewId, "autoDispatch", effectiveModel || "");
     const nsFallbacks = resolveAgentFallbacks(rootDir, crewId, fallbackModels);
 
     // Load crew from project layer (overrides global)
@@ -780,13 +780,13 @@ export async function runParallelSession(opts = {}) {
         timeout: 0, // no timeout — let agent complete task
         onEvent: (event) => {
           if (event.type === "tool_call") {
-            console.log(`[NightShift:${role}] tool: ${event.name}`);
+            console.log(`[AutoDispatch:${role}] tool: ${event.name}`);
           }
         },
       });
 
       // Read agent's report file if it wrote one
-      const reportFile = join(rootDir, ".paaw", "night-shift", `${role}-report.md`);
+      const reportFile = join(rootDir, ".paaw", "auto-dispatch", `${role}-report.md`);
       let agentReport = "";
       if (existsSync(reportFile)) {
         agentReport = readFileSync(reportFile, "utf-8");
@@ -800,7 +800,7 @@ export async function runParallelSession(opts = {}) {
         report: agentReport.slice(0, 2000) || (typeof result === "string" ? result.slice(-500) : "done"),
       };
     } catch (err) {
-      console.error(`[NightShift:${role}] failed:`, err.message);
+      console.error(`[AutoDispatch:${role}] failed:`, err.message);
       return { role, status: "failed", codename: crew?.codename || role, error: err.message };
     }
   }));
@@ -808,23 +808,23 @@ export async function runParallelSession(opts = {}) {
   // ── Phase 3: Generate report ──
   sendSSE("info", { message: "📝 產生報告中..." });
   const agentResults = results.map(r => r.status === "fulfilled" ? r.value : { role: "unknown", status: "failed", error: r.reason?.message });
-  console.log(`[NightShift] Phase 2: Results: ${agentResults.filter(r => r.status === "completed").length}✅ ${agentResults.filter(r => r.status === "failed").length}❌`);
+  console.log(`[AutoDispatch] Phase 2: Results: ${agentResults.filter(r => r.status === "completed").length}✅ ${agentResults.filter(r => r.status === "failed").length}❌`);
 
   // ── Phase 4: Documentation (Doc Writer → Help Desk review loop) ──
   const docResult = await runDocPhase(rootDir, PAAW_ROOT, modelOverride, fallbackModels, effectiveModel, sendSSE).catch(err => {
-    console.error(`[NightShift] Phase 4: Doc phase failed:`, err.message);
+    console.error(`[AutoDispatch] Phase 4: Doc phase failed:`, err.message);
     return { summary: `❌ Doc phase failed: ${err.message}`, reviewed: false, iterations: 0 };
   });
 
   const report = generateParallelReport(agentResults, ctx, dynamicCrewLabels) +
     (docResult.summary ? `\n\n---\n\n## 📝 文檔更新\n\n${docResult.summary}\n` : "");
-  saveNightShiftReport(rootDir, report, "parallel");
-  console.log(`[NightShift] Phase 3: Report saved (${report.length} chars)`);
+  saveAutoDispatchReport(rootDir, report, "parallel");
+  console.log(`[AutoDispatch] Phase 3: Report saved (${report.length} chars)`);
   sendSSE("report", { report });
 
   const succeeded = agentResults.filter(r => r.status === "completed").length;
   const failed = agentResults.filter(r => r.status === "failed").length;
-  console.log(`[NightShift] 🌙 Night Shift complete: ${succeeded}✅ ${failed}❌ / ${agentResults.length} total`);
+  console.log(`[AutoDispatch] 🌙 Auto Dispatch complete: ${succeeded}✅ ${failed}❌ / ${agentResults.length} total`);
   sendSSE("done", { totalTasks: agentResults.length, succeeded, failed });
 
   return { report, results: agentResults };
@@ -842,12 +842,12 @@ async function runDocPhase(rootDir, paawRoot, modelOverride, fallbackModels, eff
   // Check for undocumented commits
   const { commits, lastDocumented, currentHead } = await getUndocumentedCommits(rootDir, runGit);
   if (commits.length === 0) {
-    console.log("[NightShift] Phase 4: All commits documented, skipping");
+    console.log("[AutoDispatch] Phase 4: All commits documented, skipping");
     sendSSE("info", { message: "📝 文檔已是最新，無需更新" });
     return { summary: "✅ 所有 commit 已有對應文件", reviewed: true, iterations: 0 };
   }
 
-  console.log(`[NightShift] Phase 4: ${commits.length} undocumented commits since ${lastDocumented || "start"}`);
+  console.log(`[AutoDispatch] Phase 4: ${commits.length} undocumented commits since ${lastDocumented || "start"}`);
   sendSSE("info", { message: `📝 文檔階段啟動：${commits.length} 筆未文件化 commit` });
 
   // Get full diff for context
@@ -857,10 +857,10 @@ async function runDocPhase(rootDir, paawRoot, modelOverride, fallbackModels, eff
 
   // ── Step 1: Doc Writer writes docs ──
   const docCrew = await loadCrew("coding.doc-writer", rootDir);
-  const docModel = resolveAgentModel(rootDir, "coding.doc-writer", "nightShift", effectiveModel || "");
+  const docModel = resolveAgentModel(rootDir, "coding.doc-writer", "autoDispatch", effectiveModel || "");
   const docFallbacks = resolveAgentFallbacks(rootDir, "coding.doc-writer", fallbackModels);
 
-  const docTask = `夜班文檔掃描任務
+  const docTask = `自動派工文檔掃描任務
 
 以下是尚未文件化的 commit 清單：
 
@@ -869,7 +869,7 @@ ${gitLogResult.stdout}
 變更統計：
 ${diffResult.stdout}
 
-請依照「夜班文檔掃描模式」流程執行：
+請依照「自動派工文檔掃描模式」流程執行：
 1. 判斷哪些 commit 需要補文件
 2. 寫好文件並 git add
 3. 輸出 Doc Update Report
@@ -892,14 +892,14 @@ ${diffResult.stdout}
     });
     docOutput = typeof docOutput === "string" ? docOutput : JSON.stringify(docOutput);
   } catch (err) {
-    console.error(`[NightShift] Phase 4: Doc Writer failed: ${err.message}`);
+    console.error(`[AutoDispatch] Phase 4: Doc Writer failed: ${err.message}`);
     return { summary: `❌ Doc Writer 失敗: ${err.message}`, reviewed: false, iterations: 0 };
   }
-  console.log(`[NightShift] Phase 4: Doc Writer done (${docOutput.length} chars)`);
+  console.log(`[AutoDispatch] Phase 4: Doc Writer done (${docOutput.length} chars)`);
 
   // ── Step 2: Help Desk reviews (max 3 rounds) ──
   const hdCrew = await loadCrew("coding.helpdesk", rootDir);
-  const hdModel = resolveAgentModel(rootDir, "coding.helpdesk", "nightShift", effectiveModel || "");
+  const hdModel = resolveAgentModel(rootDir, "coding.helpdesk", "autoDispatch", effectiveModel || "");
   const hdFallbacks = resolveAgentFallbacks(rootDir, "coding.helpdesk", fallbackModels);
 
   // Get staged diff for review
@@ -940,10 +940,10 @@ ${currentDocOutput.slice(0, 2000)}
       });
       reviewOutput = typeof reviewOutput === "string" ? reviewOutput : JSON.stringify(reviewOutput);
     } catch (err) {
-      console.error(`[NightShift] Phase 4: Help Desk review failed: ${err.message}`);
+      console.error(`[AutoDispatch] Phase 4: Help Desk review failed: ${err.message}`);
       break;
     }
-    console.log(`[NightShift] Phase 4: Help Desk review round ${reviewRounds} done`);
+    console.log(`[AutoDispatch] Phase 4: Help Desk review round ${reviewRounds} done`);
 
     // Check verdict
     const passed = /verdict.*通過|✅.*通過|Verdict.*✅/i.test(reviewOutput) && !/❌|⚠️.*需修改/i.test(reviewOutput.split('\n').slice(0, 5).join(''));
@@ -951,7 +951,7 @@ ${currentDocOutput.slice(0, 2000)}
 
     if (passed || !needsFix) {
       finalVerdict = reviewOutput.slice(0, 500);
-      console.log(`[NightShift] Phase 4: ✅ Doc approved (round ${reviewRounds})`);
+      console.log(`[AutoDispatch] Phase 4: ✅ Doc approved (round ${reviewRounds})`);
       sendSSE("info", { message: `✅ 文件審核通過（第 ${reviewRounds} 輪）` });
       break;
     }
@@ -980,12 +980,12 @@ ${reviewOutput}
         });
         currentDocOutput = typeof currentDocOutput === "string" ? currentDocOutput : JSON.stringify(currentDocOutput);
       } catch (err) {
-        console.error(`[NightShift] Phase 4: Doc Writer fix failed: ${err.message}`);
+        console.error(`[AutoDispatch] Phase 4: Doc Writer fix failed: ${err.message}`);
         break;
       }
     } else {
       finalVerdict = reviewOutput.slice(0, 500);
-      console.log(`[NightShift] Phase 4: ⚠️ Max rounds reached, needs manual review`);
+      console.log(`[AutoDispatch] Phase 4: ⚠️ Max rounds reached, needs manual review`);
       sendSSE("info", { message: `⚠️ 文件審核 ${maxRounds} 輪未通過，需人工確認` });
     }
   }
@@ -1009,7 +1009,7 @@ ${finalVerdict || "(未產生審核結果)"}
 
 ${reviewRounds >= maxRounds && !approved ? "⚠️ **此文件變更需要人工審核後再 push。**" : ""}`;
 
-  console.log(`[NightShift] Phase 4: Done (${approved ? "approved" : "manual"}, ${reviewRounds} rounds)`);
+  console.log(`[AutoDispatch] Phase 4: Done (${approved ? "approved" : "manual"}, ${reviewRounds} rounds)`);
   return { summary, reviewed: approved, iterations: reviewRounds };
 }
 
@@ -1086,7 +1086,7 @@ function generateParallelReport(agentResults, ctx, dynamicLabels = null) {
   const succeeded = agentResults.filter(r => r.status === "completed").length;
   const failed = agentResults.filter(r => r.status === "failed").length;
 
-  let report = `# 🌙 Night Shift Report\n\n`;
+  let report = `# 🌙 Auto Dispatch Report\n\n`;
   report += `**Date:** ${now.toLocaleDateString("zh-TW")}\n`;
   report += `**Time:** ${now.toTimeString().slice(0, 8)}\n`;
   report += `**Result:** ✅ ${succeeded} 成功 / ❌ ${failed} 失敗 / ${agentResults.length} 總計\n`;
@@ -1137,7 +1137,7 @@ function generateParallelReport(agentResults, ctx, dynamicLabels = null) {
  * @param {string[]} opts.fallbackModels - Fallback models
  * @param {function} opts.sendSSE - SSE callback
  */
-export async function runNightShift(opts = {}) {
+export async function runAutoDispatch(opts = {}) {
   const mode = opts.mode || "em";
   if (mode === "parallel") {
     return runParallelSession(opts);
@@ -1151,7 +1151,7 @@ export async function runNightShift(opts = {}) {
   if (!workList.length) {
     opts.sendSSE?.("info", { message: "✅ 沒有需要調度的工作。" });
     const report = generateEMReport([], [], situationReport);
-    saveNightShiftReport(opts.rootDir, report, "em");
+    saveAutoDispatchReport(opts.rootDir, report, "em");
     opts.sendSSE?.("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
     return { report, workList: [], results: [] };
   }

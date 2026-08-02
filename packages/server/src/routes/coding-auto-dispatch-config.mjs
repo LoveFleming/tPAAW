@@ -1,10 +1,10 @@
 /**
- * coding-night-shift-config.mjs — Night Shift 設定 API
+ * coding-auto-dispatch-config.mjs — Auto Dispatch 設定 API
  *
- * GET  /api/coding-night-shift/config   — 取得設定
- * POST /api/coding-night-shift/config   — 更新設定
+ * GET  /api/coding-auto-dispatch/config   — 取得設定
+ * POST /api/coding-auto-dispatch/config   — 更新設定
  *
- * 設定存在 .paaw/night-shift/config.json:
+ * 設定存在 .paaw/auto-dispatch/config.json:
  * {
  *   "mode": "em",  // "em" = EM 智慧調度, "parallel" = 全員平行
  *   "schedule": { "enabled": true, "time": "22:00", "tz": "Asia/Taipei" },
@@ -48,7 +48,7 @@ const DEFAULT_CONFIG = {
 };
 
 async function getConfig(rootDir) {
-  const configPath = join(rootDir, '.paaw', 'night-shift', 'config.json');
+  const configPath = join(rootDir, '.paaw', 'auto-dispatch', 'config.json');
   if (!existsSync(configPath)) return DEFAULT_CONFIG;
   try {
     const raw = await readFile(configPath, 'utf-8');
@@ -59,20 +59,20 @@ async function getConfig(rootDir) {
 }
 
 async function saveConfig(rootDir, config) {
-  const dir = join(rootDir, '.paaw', 'night-shift');
+  const dir = join(rootDir, '.paaw', 'auto-dispatch');
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
   const configPath = join(dir, 'config.json');
   await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
   return config;
 }
 
-export default async function nightShiftConfigRoutes(req, res) {
+export default async function autoDispatchConfigRoutes(req, res) {
   const url = req.url || '';
   const urlObj = new URL(url, 'http://localhost');
   const rootDir = urlObj.searchParams.get('path') || process.env.PAAW_ROOT || process.cwd();
 
-  // GET /api/coding-night-shift/config
-  if (req.method === 'GET' && urlObj.pathname === '/api/coding-night-shift/config') {
+  // GET /api/coding-auto-dispatch/config
+  if (req.method === 'GET' && urlObj.pathname === '/api/coding-auto-dispatch/config') {
     try {
       const config = await getConfig(rootDir);
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -85,8 +85,8 @@ export default async function nightShiftConfigRoutes(req, res) {
     }
   }
 
-  // POST /api/coding-night-shift/config
-  if (req.method === 'POST' && urlObj.pathname === '/api/coding-night-shift/config') {
+  // POST /api/coding-auto-dispatch/config
+  if (req.method === 'POST' && urlObj.pathname === '/api/coding-auto-dispatch/config') {
     try {
       const { readBody } = await import('./shared.mjs');
       const body = JSON.parse(await readBody(req) || '{}');
@@ -108,13 +108,13 @@ export default async function nightShiftConfigRoutes(req, res) {
         try {
           const [hour, minute] = merged.schedule.time.split(':');
           const expr = `${minute || '0'} ${hour || '22'} * * *`;
-          const cronJobId = `night-shift-${Buffer.from(rootDir || '').toString('hex').slice(-20)}`;
+          const cronJobId = `auto-dispatch-${Buffer.from(rootDir || '').toString('hex').slice(-20)}`;
 
           // Check if cron job already exists
           const listResp = await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`);
           const existingJobs = listResp.ok ? await listResp.json() : [];
           // Also clean up old-style duplicate IDs
-          const allNightJobs = existingJobs.filter(j => j.id.startsWith('night-shift-'));
+          const allNightJobs = existingJobs.filter(j => j.id.startsWith('auto-dispatch-'));
           const existing = allNightJobs.find(j => j.params?.projectPath === rootDir);
           for (const j of allNightJobs) {
             if (j !== existing && j.params?.projectPath === rootDir) {
@@ -123,8 +123,8 @@ export default async function nightShiftConfigRoutes(req, res) {
           }
 
           const cronPayload = {
-            name: `Night Shift (${merged.projectPhase || 'bootstrap'})`,
-            type: 'night-shift',
+            name: `Auto Dispatch (${merged.projectPhase || 'bootstrap'})`,
+            type: 'auto-dispatch',
             schedule: expr,
             prompt: '',
             params: { projectPath: rootDir, projectPhase: merged.projectPhase, mode: merged.mode },
@@ -139,7 +139,7 @@ export default async function nightShiftConfigRoutes(req, res) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ...cronPayload, enabled: true }),
             });
-            console.log(`[NightShift] Updated cron job: ${cronJobId} schedule=${expr}`);
+            console.log(`[AutoDispatch] Updated cron job: ${cronJobId} schedule=${expr}`);
           } else {
             // Create new
             await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`, {
@@ -147,19 +147,19 @@ export default async function nightShiftConfigRoutes(req, res) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: cronJobId, ...cronPayload }),
             });
-            console.log(`[NightShift] Created cron job: ${cronJobId} schedule=${expr}`);
+            console.log(`[AutoDispatch] Created cron job: ${cronJobId} schedule=${expr}`);
           }
         } catch (err) {
-          console.error(`[NightShift] Failed to register cron job:`, err.message);
+          console.error(`[AutoDispatch] Failed to register cron job:`, err.message);
         }
       } else {
         // Schedule disabled — disable the cron job if it exists
         try {
-          const cronJobId = `night-shift-${Buffer.from(rootDir || '').toString('hex').slice(-20)}`;
+          const cronJobId = `auto-dispatch-${Buffer.from(rootDir || '').toString('hex').slice(-20)}`;
           const listResp = await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`);
           const existingJobs = listResp.ok ? await listResp.json() : [];
           // Also clean up old-style duplicate IDs
-          const allNightJobs = existingJobs.filter(j => j.id.startsWith('night-shift-'));
+          const allNightJobs = existingJobs.filter(j => j.id.startsWith('auto-dispatch-'));
           const existing = allNightJobs.find(j => j.params?.projectPath === rootDir);
           for (const j of allNightJobs) {
             if (j !== existing && j.params?.projectPath === rootDir) {
@@ -172,7 +172,7 @@ export default async function nightShiftConfigRoutes(req, res) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ enabled: false }),
             });
-            console.log(`[NightShift] Disabled cron job: ${cronJobId}`);
+            console.log(`[AutoDispatch] Disabled cron job: ${cronJobId}`);
           }
         } catch {}
       }

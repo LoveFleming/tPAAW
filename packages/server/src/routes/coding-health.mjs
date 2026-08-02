@@ -5,7 +5,7 @@
  * - Provider config
  * - Feature map coverage
  * - Issues
- * - Night Shift status (detects stuck runs)
+ * - Auto Dispatch status (detects stuck runs)
  * - Security scan freshness
  * - LLM activity
  * - Coding standards
@@ -122,14 +122,14 @@ export default async function codingHealthRoute(req, res) {
     checks.issues = { status: "fail", message: err.message };
   }
 
-  // 4. Night Shift
+  // 4. Auto Dispatch
   try {
-    const nsStatusFile = join(projRoot, ".paaw", "night-shift", "status.json");
+    const nsStatusFile = join(projRoot, ".paaw", "auto-dispatch", "status.json");
     if (existsSync(nsStatusFile)) {
       const ns = JSON.parse(readSync(nsStatusFile, "utf-8"));
       const ageHours = ns.startedAt ? (Date.now() - new Date(ns.startedAt).getTime()) / 3600000 : 0;
       const isStuck = ns.status === "running" && ageHours > 1;
-      checks.nightShift = {
+      checks.autoDispatch = {
         status: isStuck ? "fail" : "ok",
         lastStatus: ns.status,
         startedAt: ns.startedAt,
@@ -139,10 +139,10 @@ export default async function codingHealthRoute(req, res) {
       };
       if (isStuck) allHealthy = false;
     } else {
-      checks.nightShift = { status: "ok", message: "Never run" };
+      checks.autoDispatch = { status: "ok", message: "Never run" };
     }
   } catch (err) {
-    checks.nightShift = { status: "fail", message: err.message };
+    checks.autoDispatch = { status: "fail", message: err.message };
   }
 
   // 5. Security scan freshness
