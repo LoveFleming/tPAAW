@@ -623,12 +623,12 @@ export const PAAW_TOOLS = [
     type: "function",
     function: {
       name: "reference_read",
-      description: "Browse and read reference files from workspace/ and knowledge/ directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. workspace/ has user documents, knowledge/ has project knowledge.",
+      description: "Browse and read reference files from knowledge/ and project workspace directories (read-only). Use this to find existing code examples, architecture docs, templates, and reference materials. knowledge = data/knowledge/ (project docs), workspace = project root from workspaces.json (existing source code).",
       parameters: {
         type: "object",
         properties: {
           action: { type: "string", enum: ["list", "read", "search"], description: "list: browse files in a directory, read: read a specific file, search: search file contents" },
-          source: { type: "string", enum: ["workspace", "knowledge"], description: "Which reference directory to access" },
+          source: { type: "string", enum: ["workspace", "knowledge"], description: "knowledge = data/knowledge/ project docs, workspace = project root directory with source code" },
           path: { type: "string", description: "For list: subdirectory path (e.g. 'Pics' or ''). For read: file path. For search: search query." },
           maxResults: { type: "number", description: "For search: max results (default 20)" },
         },
@@ -1146,9 +1146,20 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
 
       // ── Reference Read Tool (workspace/ and knowledge/) ──
       case "reference_read": {
-        const refBase = args.source === "knowledge"
-          ? resolve(rootDir, "data/knowledge")
-          : resolve(rootDir, "data/workspace");
+        // knowledge → data/knowledge/
+        // workspace → external dirs from workspaces.json (first one as primary)
+        let refBase;
+        if (args.source === "knowledge") {
+          refBase = resolve(rootDir, "data/knowledge");
+        } else {
+          // workspace: use first directory from workspaces.json
+          try {
+            const ws = JSON.parse(readSync(resolve(rootDir, "data/workspaces.json"), "utf-8"));
+            refBase = ws.directories?.[0] || resolve(rootDir, "data/workspace");
+          } catch {
+            refBase = resolve(rootDir, "data/workspace");
+          }
+        }
         if (!existsSync(refBase)) {
           if (onEvent) onEvent({ type: "tool_end", name, result: `${args.source}/ not found` });
           return `(${args.source}/ directory does not exist yet)`;
@@ -2628,29 +2639,25 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
       } catch {}
     }
 
-    // 2. Workspace directory — list top-level files/dirs
-    const workspaceDir = resolve(PAAW_R, "data/workspace");
-    if (existsSync(workspaceDir)) {
-      try {
-        const entries = readdirSync(workspaceDir).sort();
-        const workspaceItems = entries.map(e => {
-          const fp = join(workspaceDir, e);
-          try {
-            const isDir = statSync(fp).isDirectory();
-            return isDir ? `📁 ${e}/` : `📄 ${e}`;
-          } catch { return `📄 ${e}`; }
-        });
-        if (workspaceItems.length > 0) {
-          refPaths.push(`📂 Workspace (data/workspace/) — 使用 reference_read(action="list|read|search", source="workspace") 存取：\n${workspaceItems.map(i => "  " + i).join("\n")}`);
-        }
-      } catch {}
-    }
-
-    // 3. External workspace directories from workspaces.json
+    // 2. Workspace: external dirs from workspaces.json (actual project directories)
     try {
       const ws = JSON.parse(readSync(resolve(PAAW_R, "data/workspaces.json"), "utf-8"));
       if (ws.directories?.length) {
-        refPaths.push(`📋 外部 Workspace 目錄（read_file 可讀取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
+        const wsList = ws.directories.map((d, i) => {
+          try {
+            const entries = readdirSync(d).sort();
+            const topItems = entries.filter(e => !e.startsWith(".")).slice(0, 15).map(e => {
+              const fp = join(d, e);
+              try {
+                return statSync(fp).isDirectory() ? `  📁 ${e}/` : `  📄 ${e}`;
+              } catch { return `  📄 ${e}`; }
+            });
+            return `📂 Workspace ${i + 1}: ${d} — 使用 reference_read(action="list|read|search", source="workspace", path="...") 存取：\n${topItems.join("\n")}${entries.length > 15 ? `\n  ... (${entries.length - 15} more)` : ""}`;
+          } catch {
+            return `📂 Workspace ${i + 1}: ${d}`;
+          }
+        });
+        refPaths.push(wsList.join("\n"));
       }
     } catch {}
 

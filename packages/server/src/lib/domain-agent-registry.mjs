@@ -420,28 +420,25 @@ export async function buildSystemPrompt(agentId, opts = {}) {
       } catch {}
     }
 
-    // Workspace directory
-    const workspaceDir = resolve(PAAW_ROOT, "data/workspace");
-    if (existsSync(workspaceDir)) {
-      try {
-        const entries = readdirSync(workspaceDir).sort();
-        const items = entries.map(e => {
-          const fp = join(workspaceDir, e);
-          try {
-            return statSync(fp).isDirectory() ? `📁 ${e}/` : `📄 ${e}`;
-          } catch { return `📄 ${e}`; }
-        });
-        if (items.length > 0) {
-          refPaths.push(`📂 Workspace (data/workspace/) — 使用 reference_read(action="list|read|search", source="workspace") 存取：\n${items.map(i => "  " + i).join("\n")}`);
-        }
-      } catch {}
-    }
-
-    // External workspace directories
+    // Workspace: external dirs from workspaces.json (these are the actual project directories)
     try {
       const ws = JSON.parse(readSync(resolve(PAAW_ROOT, "data/workspaces.json"), "utf-8"));
       if (ws.directories?.length) {
-        refPaths.push(`📋 外部 Workspace 目錄（read_file 可讀取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
+        const wsList = ws.directories.map((d, i) => {
+          try {
+            const entries = readdirSync(d).sort();
+            const topItems = entries.filter(e => !e.startsWith(".")).slice(0, 15).map(e => {
+              const fp = join(d, e);
+              try {
+                return statSync(fp).isDirectory() ? `  📁 ${e}/` : `  📄 ${e}`;
+              } catch { return `  📄 ${e}`; }
+            });
+            return `📂 Workspace ${i + 1}: ${d} — 使用 reference_read(action="list|read|search", source="workspace", path="...") 存取：\n${topItems.join("\n")}${entries.length > 15 ? `\n  ... (${entries.length - 15} more)` : ""}`;
+          } catch {
+            return `📂 Workspace ${i + 1}: ${d}`;
+          }
+        });
+        refPaths.push(wsList.join("\n"));
       }
     } catch {}
 
