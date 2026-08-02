@@ -13,7 +13,7 @@ import { createServer } from "http";
 import {
   PORT, PAAW_ROOT,
   readdir, readFile, writeFile, mkdir,
-  resolve, dirname,
+  resolve, dirname, join,
 } from "./routes/shared.mjs";
 import { setupWebSocket } from "./websocket/ws-handler.mjs";
 
@@ -262,4 +262,26 @@ server.listen(PORT, async () => {
 
   console.log(`[PAAW] Listening on http://127.0.0.1:${PORT}`);
   console.log(`[PAAW] ${ROUTE_MODULES.length} route modules + scheduler loaded`);
+
+  // ── Check for interrupted execution plans ──
+  try {
+    const { markInterruptedPlans } = await import('./lib/execution-plan.mjs');
+    const { existsSync } = await import('fs');
+    // Check all known project paths from workspaces
+    const workspacesPath = join(PAAW_ROOT, 'data', 'workspaces.json');
+    const projectPaths = [PAAW_ROOT]; // Always check PAAW root
+    try {
+      if (existsSync(workspacesPath)) {
+        const ws = JSON.parse(await readFile(workspacesPath, 'utf-8'));
+        if (Array.isArray(ws)) ws.forEach(w => { if (w.path) projectPaths.push(w.path); });
+      }
+    } catch {}
+    // Also check recent projects from .paaw/tasks/TASKS.json locations
+    for (const pp of projectPaths) {
+      try {
+        const marked = await markInterruptedPlans(pp);
+        if (marked > 0) console.log(`[PAAW] 📋 ${marked} interrupted plan(s) found in ${pp}`);
+      } catch {}
+    }
+  } catch {}
 });

@@ -215,6 +215,18 @@ async function runCronJob(job) {
     const mode = job.params?.mode || 'em';
     console.log(`[cron] Night Shift triggered: ${projectPath} mode=${mode}`);
     try {
+      // ── Check for incomplete plans first ──
+      try {
+        const { findIncompletePlans, resumePlan } = await import('../lib/execution-plan.mjs');
+        const incomplete = await findIncompletePlans(projectPath);
+        if (incomplete.length > 0) {
+          for (const p of incomplete) {
+            console.log(`[cron] Resuming incomplete plan: ${p.planId}`);
+            await resumePlan(projectPath, p.planId);
+          }
+        }
+      } catch {}
+
       const resp = await fetch(`http://127.0.0.1:${PORT}/api/coding-night-shift/start?path=${encodeURIComponent(projectPath)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

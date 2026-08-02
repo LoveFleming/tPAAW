@@ -331,3 +331,83 @@ export async function markPlanStarted(rootDir, planId) {
   await writeFile(_planPath(rootDir, planId), JSON.stringify(plan, null, 2) + '\n', 'utf-8');
   return plan;
 }
+
+// ── Resume & Recovery ──
+
+/**
+ * 找出未完成的 plan（status = running 但有 pending/running sub-task）
+ */
+export async function findIncompletePlans(rootDir) {
+  const plans = await listPlans(rootDir);
+  const incomplete = [];
+  for (const p of plans) {
+    if (p.status === 'running' || p.status === 'created') {
+      const full = await getPlan(rootDir, p.planId);
+      if (!full) continue;
+      const hasPending = full.tasks.some(t => t.subtasks.some(st => st.status === 'pending' || st.status === 'running'));
+      if (hasPending) incomplete.push(full);
+    }
+  }
+  return incomplete;
+}
+
+/**
+ * 標記被中斷的 sub-task（running → interrupted）
+ * 在 server 重啟時呼叫
+ */
+export async function markInterruptedPlans(rootDir) {
+  const incomplete = await findIncompletePlans(rootDir);
+  let marked = 0;
+  for (const plan of incomplete) {
+    let changed = false;
+    for (const task of plan.tasks) {
+      for (const st of task.subtasks) {
+        if (st.status === 'running') {
+          st.status = 'interrupted';
+          st.error = st.error || 'Server restarted while running';
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      _recomputeSummary(plan);
+      await writeFile(_planPath(rootDir, plan.planId), JSON.stringify(plan, null, 2) + '\n', 'utf-8');
+      console.log(`[ExecutionPlan] Marked interrupted: ${plan.planId}`);
+      marked++;
+    }
+  }
+  return marked;
+}
+
+/**
+ * Resume a plan — 把 interrupted/pending sub-task 重設為 pending，繼續執行
+ */
+export async function resumePlan(rootDir, planId) {
+  const plan = await getPlan(rootDir, planId);
+  if (!plan) throw new Error(`Plan not found: ${planId}`);
+
+  let resumed = 0;
+  for (const task of plan.tasks) {
+    for (const st of task.subtasks) {
+      if (st.status === 'interrupted' || st.status === 'pending') {
+        st.status = 'pending';
+        st.startedAt = null;
+        st.completedAt = null;
+        st.error = null;
+        resumed++;
+      }
+    }
+  }
+
+  // Reset parent task status
+  for (const task of plan.tasks) {
+    const allDone = task.subtasks.every(s => s.status === 'done' || s.status === 'fail' || s.status === 'timeout' || s.status === 'skipped');
+    if (!allDone) task.status = 'pending';
+  }
+
+  plan.status = 'running';
+  _recomputeSummary(plan);
+  await writeFile(_planPath(rootDir, plan.planId), JSON.stringify(plan, null, 2) + '\n', 'utf-8');
+  console.log(`[ExecutionPlan] Resumed ${plan.planId}: ${resumed} subtasks back to pending`);
+  return { plan, resumedCount: resumed };
+}

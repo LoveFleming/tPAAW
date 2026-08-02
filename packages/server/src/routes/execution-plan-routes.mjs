@@ -13,6 +13,7 @@
 import {
   createPlan, getPlan, getLatestPlan, listPlans,
   getPlanSummary, updateSubTask, markPlanStarted, getNextPendingSubTask,
+  findIncompletePlans, markInterruptedPlans, resumePlan,
 } from '../lib/execution-plan.mjs';
 
 export default async function executionPlanRoutes(req, res) {
@@ -138,6 +139,35 @@ export default async function executionPlanRoutes(req, res) {
       // Actual execution is handled by overnight-manager via SSE
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, message: 'Plan execution started' }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  // ── GET /api/night-shift/plan/incomplete ── (find unfinished plans)
+  if (req.method === 'GET' && urlObj.pathname === '/api/night-shift/plan/incomplete') {
+    try {
+      const plans = await findIncompletePlans(rootDir);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, plans, count: plans.length }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  // ── POST /api/night-shift/plan/:planId/resume ──
+  const resumeMatch = urlObj.pathname.match(/^\/api\/night-shift\/plan\/([^/]+)\/resume$/);
+  if (req.method === 'POST' && resumeMatch) {
+    try {
+      const { plan, resumedCount } = await resumePlan(rootDir, resumeMatch[1]);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, plan, resumedCount }));
       return true;
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });

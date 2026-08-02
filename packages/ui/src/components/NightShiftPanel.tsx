@@ -417,7 +417,7 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
                 color: execPlan.status === 'completed' ? '#22c55e' : execPlan.status === 'running' ? '#eab308' : execPlan.status === 'failed' ? '#ef4444' : '#9ca3af',
                 fontWeight: 600,
               }}>
-                {execPlan.status === 'completed' ? '✅ 完成' : execPlan.status === 'running' ? '⏳ 執行中' : execPlan.status === 'partial' ? '⚠️ 部分' : execPlan.status === 'failed' ? '❌ 失敗' : '⏸ 待執行'}
+                {execPlan.status === 'completed' ? '✅ 完成' : execPlan.status === 'running' ? '⏳ 執行中' : execPlan.status === 'partial' ? '⚠️ 部分' : execPlan.status === 'failed' ? '❌ 失敗' : execPlan.status === 'interrupted' ? '⚡ 中斷' : '⏸ 待執行'}
               </span>
             </div>
             <div className="text-[10px]" style={{ opacity: 0.5 }}>
@@ -433,7 +433,7 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
                       <span style={{
                         color: st.status === 'done' ? '#22c55e' : st.status === 'running' ? '#eab308' : st.status === 'fail' ? '#ef4444' : st.status === 'timeout' ? '#f97316' : '#9ca3af',
                       }}>
-                        {st.status === 'done' ? '✅' : st.status === 'running' ? '⏳' : st.status === 'fail' ? '❌' : st.status === 'timeout' ? '⏰' : '⬜'}
+                        {st.status === 'done' ? '✅' : st.status === 'running' ? '⏳' : st.status === 'fail' ? '❌' : st.status === 'timeout' ? '⏰' : st.status === 'interrupted' ? '⚡' : '⬜'}
                       </span>
                       <span style={{ fontWeight: 500 }}>{st.assignee}</span>
                       <span style={{ opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -460,6 +460,25 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
                 {execPlan.summary.totalCostUsd > 0 && <span>💰 ${execPlan.summary.totalCostUsd.toFixed(3)}</span>}
                 {execPlan.summary.totalDurationMs > 0 && <span>⏱ {(execPlan.summary.totalDurationMs / 1000 / 60).toFixed(0)}min</span>}
               </div>
+            )}
+
+            {/* Resume button for interrupted plans */}
+            {execPlan.tasks?.some((t: any) => t.subtasks?.some((st: any) => st.status === 'interrupted' || st.status === 'pending')) && execPlan.status !== 'running' && (
+              <button
+                onClick={async () => {
+                  try {
+                    await fetch(`${API_BASE}/api/night-shift/plan/${execPlan.planId}/resume?path=${encodeURIComponent(rootPath || "")}`, { method: "POST" });
+                    // Refresh
+                    fetch(`${API_BASE}/api/night-shift/plan/latest?path=${encodeURIComponent(rootPath || "")}`)
+                      .then(r => r.json())
+                      .then(d => setExecPlan(d?.plan || null));
+                  } catch {}
+                }}
+                className="w-full py-1 rounded text-xs font-medium mt-1"
+                style={{ background: "#f59e0b", color: "#fff" }}
+              >
+                ▶️ 恢復執行
+              </button>
             )}
           </div>
         )}
