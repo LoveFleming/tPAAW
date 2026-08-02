@@ -171,7 +171,11 @@ export default function NightShiftPanel({ theme, rootPath, model, openMainTab }:
 
   const handleResume = async (planId: string) => {
     try {
-      await fetch(`${API_BASE}/api/night-shift/plan/${planId}/resume?path=${encodeURIComponent(rootPath || "")}`, { method: "POST" });
+      // Trigger actual EM execution with existing plan
+      await fetch(`${API_BASE}/api/coding-night-shift/start${rootPath ? `?path=${encodeURIComponent(rootPath)}` : ""}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "em", planId }),
+      });
       await refreshPlans();
     } catch {}
   };

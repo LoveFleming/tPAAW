@@ -427,7 +427,7 @@ export async function planEMSession(opts = {}) {
 
 // ── EM Execute only (Phase 3-4): dispatch agents + report ──
 export async function executeEMSession(opts = {}) {
-  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap' } = opts;
+  const { rootDir, workList, situationReport = "", baseUrl = `http://127.0.0.1:${process.env.PAAW_PORT || 4097}`, modelOverride, fallbackModels = [], sendSSE = (() => {}), projectPhase = 'bootstrap', existingPlanId = null } = opts;
 
   // ── Read EM config for execution behavior ──
   let emConfig = null;
@@ -439,24 +439,36 @@ export async function executeEMSession(opts = {}) {
   // ── Create Execution Plan ──
   let plan = null;
   try {
-    const { createPlan, markPlanStarted, updateSubTask } = await import("./execution-plan.mjs");
-    const planItems = (workList || []).map((w, i) => ({
-      title: w.task || `Task ${i + 1}`,
-      assignee: w.agent || 'developer',
-      source: w.source || 'em_plan',
-      sourceRef: w.sourceRef || null,
-      priority: w.priority || 'medium',
-      subtasks: [{ title: w.task || `Task ${i + 1}`, assignee: w.agent || 'developer' }],
-    }));
-    plan = await createPlan({
-      projectPath: rootDir,
-      projectPhase,
-      mode: 'em',
-      items: planItems,
-    });
-    await markPlanStarted(rootDir, plan.planId);
-    sendSSE("plan_created", { planId: plan.planId, totalSubtasks: plan.summary.totalSubtasks });
-    console.log(`[NightShift] 📋 Execution Plan created: ${plan.planId} (${plan.summary.totalSubtasks} subtasks)`);
+    const { createPlan, markPlanStarted, updateSubTask, resumePlan, getPlan } = await import("./execution-plan.mjs");
+
+    if (existingPlanId) {
+      // Resume existing plan — don't create new one
+      plan = await getPlan(rootDir, existingPlanId);
+      if (!plan) throw new Error(`Plan not found: ${existingPlanId}`);
+      const { resumedCount } = await resumePlan(rootDir, existingPlanId);
+      // Re-read after resume
+      plan = await getPlan(rootDir, existingPlanId);
+      sendSSE("plan_resumed", { planId: plan.planId, resumedCount, totalSubtasks: plan.summary.totalSubtasks });
+      console.log(`[NightShift] 📋 Execution Plan resumed: ${plan.planId} (${resumedCount} subtasks back to pending)`);
+    } else {
+      const planItems = (workList || []).map((w, i) => ({
+        title: w.task || `Task ${i + 1}`,
+        assignee: w.agent || 'developer',
+        source: w.source || 'em_plan',
+        sourceRef: w.sourceRef || null,
+        priority: w.priority || 'medium',
+        subtasks: [{ title: w.task || `Task ${i + 1}`, assignee: w.agent || 'developer' }],
+      }));
+      plan = await createPlan({
+        projectPath: rootDir,
+        projectPhase,
+        mode: 'em',
+        items: planItems,
+      });
+      await markPlanStarted(rootDir, plan.planId);
+      sendSSE("plan_created", { planId: plan.planId, totalSubtasks: plan.summary.totalSubtasks });
+      console.log(`[NightShift] 📋 Execution Plan created: ${plan.planId} (${plan.summary.totalSubtasks} subtasks)`);
+    }
   } catch (err) {
     console.error(`[NightShift] Plan creation failed (non-fatal):`, err.message);
   }
@@ -1102,6 +1114,10 @@ export async function runNightShift(opts = {}) {
   const mode = opts.mode || "em";
   if (mode === "parallel") {
     return runParallelSession(opts);
+  }
+  // If resuming, skip EM planning phase and go straight to execution
+  if (opts.existingPlanId) {
+    return executeEMSession({ ...opts, workList: [], situationReport: "Resuming interrupted plan" });
   }
   // EM mode: plan + execute in sequence
   const { workList, situationReport } = await planEMSession(opts);

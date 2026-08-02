@@ -171,6 +171,7 @@ export default async function codingNightShiftRoute(req, res) {
         fallbackModels,
         sendSSE,
         projectPhase: nsConfig?.projectPhase || 'bootstrap',
+        existingPlanId: reqBody.planId || urlObj.searchParams.get('planId') || null,
       });
 
       // Update final status (only if not interrupted by user)
