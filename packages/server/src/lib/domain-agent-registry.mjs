@@ -12,7 +12,7 @@
  */
 
 import { readFile } from "fs/promises";
-import { existsSync, readFileSync as readSync } from "fs";
+import { existsSync, readFileSync as readSync, readdirSync, statSync } from "fs";
 import { resolve, join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -398,6 +398,57 @@ export async function buildSystemPrompt(agentId, opts = {}) {
       console.error(`[DomainAgent] Skill injection error for ${agent.crewId}:`, err.message);
     }
   }
+
+  // 5. Inject knowledge + workspace reference paths (so agents know what's available)
+  try {
+    const refPaths = [];
+
+    // Knowledge directory
+    const knowledgeDir = resolve(PAAW_ROOT, "data/knowledge");
+    if (existsSync(knowledgeDir)) {
+      try {
+        const entries = readdirSync(knowledgeDir).sort();
+        const items = entries.map(e => {
+          const fp = join(knowledgeDir, e);
+          try {
+            return statSync(fp).isDirectory() ? `📁 ${e}/` : `📄 ${e}`;
+          } catch { return `📄 ${e}`; }
+        });
+        if (items.length > 0) {
+          refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取：\n${items.map(i => "  " + i).join("\n")}`);
+        }
+      } catch {}
+    }
+
+    // Workspace directory
+    const workspaceDir = resolve(PAAW_ROOT, "data/workspace");
+    if (existsSync(workspaceDir)) {
+      try {
+        const entries = readdirSync(workspaceDir).sort();
+        const items = entries.map(e => {
+          const fp = join(workspaceDir, e);
+          try {
+            return statSync(fp).isDirectory() ? `📁 ${e}/` : `📄 ${e}`;
+          } catch { return `📄 ${e}`; }
+        });
+        if (items.length > 0) {
+          refPaths.push(`📂 Workspace (data/workspace/) — 使用 reference_read(action="list|read|search", source="workspace") 存取：\n${items.map(i => "  " + i).join("\n")}`);
+        }
+      } catch {}
+    }
+
+    // External workspace directories
+    try {
+      const ws = JSON.parse(readSync(resolve(PAAW_ROOT, "data/workspaces.json"), "utf-8"));
+      if (ws.directories?.length) {
+        refPaths.push(`📋 外部 Workspace 目錄（read_file 可讀取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
+      }
+    } catch {}
+
+    if (refPaths.length > 0) {
+      parts.push(`\n=== \u53c3\u8003\u8cc7\u6599\u8def\u5f91 ===\n${refPaths.join("\n\n")}\n\n\u4f7f\u7528 reference_read tool \u700f\u89bd\u548c\u641c\u5c0b\u4ee5\u4e0a\u8cc7\u6599\u3002\u958b\u767c\u76f8\u4f3c\u529f\u80fd\u6642\uff0c\u5148\u7528 reference_read(action="search", source="knowledge", path="\u95dc\u9375\u5b57") \u641c\u5c0b\u73fe\u6709\u7bc4\u4f8b\u3002`);
+    }
+  } catch {}
 
   return parts.join("\n\n");
 }

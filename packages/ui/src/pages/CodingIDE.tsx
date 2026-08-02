@@ -3871,11 +3871,11 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   </div>
                 )}
                 {/* Dynamic Context Sections */}
-                {contextDebug.dynamicContext?.map((ctx: { source: string; content: string }, i: number) => (
+                {contextDebug.dynamicContext?.map((ctx: { source: string; content?: string }, i: number) => (
                   <div key={i}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">⚡ {ctx.source}</span>
-                      <span className="text-[10px] text-stone-500">{ctx.content.length.toLocaleString()} chars</span>
+                      <span className="text-[10px] text-stone-500">{(ctx.content?.length ?? 0).toLocaleString()} chars</span>
                     </div>
                     <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "200px", overflowY: "auto" }}>
                       {ctx.content}
@@ -3930,7 +3930,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                   <div key={i}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">⚡ {ctx.source}</span>
-                      <span className="text-[10px] text-stone-500">{ctx.content.length.toLocaleString()} chars</span>
+                      <span className="text-[10px] text-stone-500">{(ctx.content?.length ?? 0).toLocaleString()} chars</span>
                     </div>
                     <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "200px", overflowY: "auto" }}>
                       {ctx.content}
