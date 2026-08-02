@@ -618,6 +618,72 @@ export const PAAW_TOOLS = [
     },
   },
 
+  // ── Task Management Tools ──
+  {
+    type: "function",
+    function: {
+      name: "task_list",
+      description: "List coding tasks. Can filter by pipeline phase, status, type, or priority. Also supports reading a single task by ID.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Get a single task by ID (e.g. 'TASK-014')" },
+          status: { type: "string", description: "Filter by flat status: open, in-progress, resolved, closed" },
+          pipelinePhase: { type: "string", description: "Filter by pipeline phase: spec, implement, review, test, qa, docs, commit", enum: ["spec", "implement", "review", "test", "qa", "docs", "commit"] },
+          type: { type: "string", description: "Filter by type: feature, bugfix, refactor, test, docs, chore" },
+          priority: { type: "string", description: "Filter by priority: critical, high, medium, low" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "task_create",
+      description: "Create a new coding task. Tasks are the unit of work in the pipeline (spec → implement → review → test → qa → docs → commit).",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Task title" },
+          type: { type: "string", enum: ["feature", "bugfix", "refactor", "test", "docs", "chore"], description: "Task type" },
+          priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Priority level" },
+          description: { type: "string", description: "Detailed description of what needs to be done" },
+          parentId: { type: "string", description: "Parent task ID (for subtasks from decompose)" },
+          source: { type: "string", enum: ["vibe", "discussion", "pm", "issue", "security", "manual"], description: "Where this task came from" },
+          fileScope: { type: "array", items: { type: "string" }, description: "Files/directories this task should touch" },
+          acceptanceCriteria: { type: "array", items: { type: "string" }, description: "Criteria for considering this task done" },
+          labels: { type: "array", items: { type: "string" }, description: "Labels/tags" },
+        },
+        required: ["title", "type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "task_update",
+      description: "Update an existing task. Can change pipeline phase status, add notes, update fields, or advance/reject pipeline.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Task ID to update" },
+          action: { type: "string", enum: ["update", "advance", "reject", "note", "assign"], description: "What to do: update fields, advance pipeline phase, reject phase, add note, or assign" },
+          title: { type: "string", description: "New title (action=update)" },
+          status: { type: "string", description: "New flat status (action=update)" },
+          priority: { type: "string", description: "New priority (action=update)" },
+          phase: { type: "string", description: "Pipeline phase to advance/reject (action=advance/reject): spec, implement, review, test, qa, docs, commit" },
+          result: { type: "string", description: "Result data as JSON string (action=advance): { passed, failed, coverage, etc }" },
+          feedback: { type: "string", description: "Feedback reason (action=reject)" },
+          backTo: { type: "string", description: "Phase to return to (action=reject): e.g. 'implement'" },
+          note: { type: "string", description: "Note content (action=note)" },
+          assignTo: { type: "string", description: "Assign to agent or 'ai_overnight' (action=assign)" },
+          changes: { type: "string", description: "JSON string of file changes to record: { filesAdded: [], filesModified: [], filesDeleted: [] }" },
+        },
+        required: ["id", "action"],
+      },
+    },
+  },
+
   ];
 
 // ── Tool Group System — load only what each agent needs ──
@@ -666,8 +732,8 @@ const CORE_READ_TOOLS = new Set(["read_file", "glob", "grep", "diff", "ask_user"
 const AGENT_FALLBACK_GROUPS = {
   // Architect: read-only + decisions + project
   architect: ["core-read", "memory", "decisions", "project", "project-edit"],
-  // Developer: full core + memory + project
-  developer: ["core", "memory", "decisions", "project", "project-edit"],
+  // Developer: full core + memory + project + tasks
+  developer: ["core", "memory", "decisions", "project", "project-edit", "tasks"],
   // Tester: full core + project
   tester: ["core", "memory", "decisions", "project", "project-edit"],
   // Doc-writer: full core + project-edit + docs
@@ -1997,8 +2063,172 @@ export async function executeTool(call, cwd, rootDir, onEvent, agentId) {
         }
       }
 
+      // ── Task Management Tools ──
+      case "task_list": {
+        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
+        if (!existsSync(tasksFile)) {
+          if (onEvent) onEvent({ type: "tool_end", name, result: "no tasks file" });
+          return "(No tasks initialized. Use task_create to create the first task.)";
+        }
+        try {
+          const data = JSON.parse(readSync(tasksFile, "utf-8"));
+          let tasks = data.tasks || [];
+          // Single task by ID
+          if (args.id) {
+            const task = tasks.find(t => t.id === args.id);
+            if (!task) return `Task ${args.id} not found.`;
+            return JSON.stringify(task, null, 2);
+          }
+          // Filters
+          if (args.status) tasks = tasks.filter(t => t.status === args.status);
+          if (args.type) tasks = tasks.filter(t => t.type === args.type);
+          if (args.priority) tasks = tasks.filter(t => t.priority === args.priority);
+          if (args.pipelinePhase) {
+            tasks = tasks.filter(t => {
+              const p = t.pipeline?.[args.pipelinePhase];
+              return p && p.status !== "done" && p.status !== "skipped";
+            });
+          }
+          if (tasks.length === 0) {
+            if (onEvent) onEvent({ type: "tool_end", name, result: "0 tasks" });
+            return "(No matching tasks found)";
+          }
+          const lines = tasks.map(t => {
+            const phases = ["spec","implement","review","test","qa","docs","commit"];
+            const phaseStr = phases.map(ph => {
+              const s = t.pipeline?.[ph]?.status || "?";
+              return s === "done" ? "\u2705" : s === "in_progress" ? "\ud83d\udd04" : s === "failed" ? "\u274c" : s === "needs_human" ? "\u26a0\ufe0f" : "\u23f3";
+            }).join(" ");
+            return `[${t.id}] ${t.status} | ${t.priority} | ${t.title}\n  Pipeline: ${phaseStr}`;
+          }).join("\n\n");
+          if (onEvent) onEvent({ type: "tool_end", name, result: `${tasks.length} tasks` });
+          return `Tasks (${tasks.length}):
+${lines}`;
+        } catch (e) {
+          return `Error reading tasks: ${e.message}`;
+        }
+      }
+
+      case "task_create": {
+        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
+        const tasksDir = join(cwd, ".paaw", "tasks");
+        if (!existsSync(tasksDir)) await mkdir(tasksDir, { recursive: true });
+        let data = { tasks: [], updatedAt: new Date().toISOString() };
+        if (existsSync(tasksFile)) {
+          try { data = JSON.parse(readSync(tasksFile, "utf-8")); } catch {}
+        }
+        const now = new Date().toISOString();
+        const nums = data.tasks.map(t => parseInt((t.id || "").replace(/^TASK-/, "")) || 0);
+        const nextNum = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
+        const id = `TASK-${String(nextNum).padStart(3, "0")}`;
+        const task = {
+          id,
+          title: args.title,
+          type: args.type || "feature",
+          status: "open",
+          priority: args.priority || "medium",
+          parentId: args.parentId || null,
+          description: args.description || "",
+          labels: args.labels || [],
+          assignee: null,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: "agent",
+          source: { type: args.source || "manual" },
+          spec: args.acceptanceCriteria || args.fileScope ? {
+            description: args.description || "",
+            acceptanceCriteria: args.acceptanceCriteria || [],
+            fileScope: args.fileScope || [],
+            outOfScope: [],
+          } : null,
+          pipeline: {
+            spec:      { status: "done", by: "agent", at: now },
+            implement: { status: "pending" },
+            review:    { status: "pending" },
+            test:      { status: "pending" },
+            qa:        { status: "pending" },
+            docs:      { status: "pending" },
+            commit:    { status: "pending" },
+          },
+          changes: { filesAdded: [], filesModified: [], filesDeleted: [] },
+          git: { baseCommit: null, branch: null, staged: false, committedSha: null },
+          notes: [],
+          discussion: [],
+        };
+        data.tasks.push(task);
+        data.updatedAt = now;
+        await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
+        if (onEvent) onEvent({ type: "tool_end", name, result: id });
+        return `\u2705 Task created: ${id} "${args.title}"\nType: ${task.type} | Priority: ${task.priority}\nPipeline: spec \u2705 \u2192 implement \u23f3 \u2192 review \u23f3 \u2192 test \u23f3 \u2192 qa \u23f3 \u2192 docs \u23f3 \u2192 commit \u23f3`;
+      }
+
+      case "task_update": {
+        const tasksFile = join(cwd, ".paaw", "tasks", "TASKS.json");
+        if (!existsSync(tasksFile)) return "Error: No tasks file. Create tasks first.";
+        const data = JSON.parse(readSync(tasksFile, "utf-8"));
+        const task = data.tasks.find(t => t.id === args.id);
+        if (!task) return `Error: Task ${args.id} not found.`;
+        const now = new Date().toISOString();
+        const action = args.action;
+
+        if (action === "update") {
+          if (args.title) task.title = args.title;
+          if (args.status) task.status = args.status;
+          if (args.priority) task.priority = args.priority;
+          task.updatedAt = now;
+        } else if (action === "advance") {
+          const phase = args.phase;
+          if (!phase) return "Error: 'phase' is required for advance action.";
+          if (!task.pipeline) task.pipeline = {};
+          if (!task.pipeline[phase]) task.pipeline[phase] = {};
+          task.pipeline[phase].status = "done";
+          task.pipeline[phase].by = "agent";
+          task.pipeline[phase].at = now;
+          if (args.result) {
+            try { task.pipeline[phase].result = JSON.parse(args.result); } catch {}
+          }
+          // Derive flat status
+          if (phase === "commit") task.status = "resolved";
+          else task.status = "in-progress";
+          task.updatedAt = now;
+        } else if (action === "reject") {
+          const phase = args.phase;
+          if (!phase) return "Error: 'phase' is required for reject action.";
+          if (!task.pipeline) task.pipeline = {};
+          if (!task.pipeline[phase]) task.pipeline[phase] = {};
+          task.pipeline[phase].status = "failed";
+          task.pipeline[phase].feedback = args.feedback || "";
+          if (args.backTo) {
+            if (!task.pipeline[args.backTo]) task.pipeline[args.backTo] = {};
+            task.pipeline[args.backTo].status = "pending";
+          }
+          task.status = "in-progress";
+          task.updatedAt = now;
+        } else if (action === "note") {
+          if (!task.notes) task.notes = [];
+          task.notes.push({ text: args.note, at: now, by: "agent" });
+          task.updatedAt = now;
+        } else if (action === "assign") {
+          task.assignee = args.assignTo;
+          if (!task.notes) task.notes = [];
+          task.notes.push({ text: `Assigned to ${args.assignTo}`, at: now, by: "agent" });
+          task.updatedAt = now;
+        } else if (action === "update" && args.changes) {
+          try {
+            const ch = JSON.parse(args.changes);
+            if (ch.filesAdded) task.changes.filesAdded = ch.filesAdded;
+            if (ch.filesModified) task.changes.filesModified = ch.filesModified;
+            if (ch.filesDeleted) task.changes.filesDeleted = ch.filesDeleted;
+          } catch {}
+        }
+
+        await writeFile(tasksFile, JSON.stringify(data, null, 2), "utf-8");
+        if (onEvent) onEvent({ type: "tool_end", name, result: `${args.id} ${action}` });
+        return `\u2705 Task ${args.id} updated (${action}). Status: ${task.status}`;
+      }
+
       default:
-        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, memory_add, memory_update, task_create, task_update, task_list, dispatch_agent. Do NOT use chat tools like app_create/app_edit/app_list — use write_file to create files instead.`;
+        const unknownMsg = `Error: unknown tool '${name}'. Available tools: read_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user, project_info, project_edit, staged_summary, record_decision, docs, action_log_add, action_log_list, task_list, task_create, task_update. Do NOT use chat tools like app_create/app_edit/app_list — use write_file to create files instead.`;
         if (onEvent) onEvent({ type: "tool_end", name, result: unknownMsg });
         return unknownMsg;
     }
@@ -2275,7 +2505,7 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
   }
 
   // Tool overview (compact — full schemas are sent via function-calling format)
-  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
+  parts.push(`\n## Tools Overview\nproject_info(cat=...) → context/decisions/standards/changelog/issues/features/feature_detail/runbook/faq/test_map/security/recent_changes\nproject_edit(action=...) → issue_create/update/delete, change_record, feature_update_mapping\nread_file, write_file, edit_file, glob, grep, diff, git, bash, ask_user\ntask_list(id?, status?, pipelinePhase?, type?, priority?) → list tasks or get single task\ntask_create(title, type, description?, fileScope?, acceptanceCriteria?, source?) → create new task with pipeline\ntask_update(id, action=update|advance|reject|note|assign, ...) → update task, advance/reject pipeline phase, add notes\ncu_refresh, record_decision, docs(action=...), action_log_add/list, agent_memory_save/load`);
 
   if (skillMd) {
     parts.push(`\n## Skill Instructions\n\n${skillMd}`);

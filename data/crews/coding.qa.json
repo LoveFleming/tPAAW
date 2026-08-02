@@ -22,6 +22,7 @@
     "core-read",
     "memory",
     "project",
-    "project-edit"
+    "project-edit",
+    "tasks"
   ]
 }
