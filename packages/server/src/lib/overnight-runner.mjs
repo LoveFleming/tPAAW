@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PIPELINE_ORDER = ["implement", "test", "qa", "docs"];
+const PIPELINE_ORDER = ["implement", "review", "test", "qa", "docs"];
 
 export class OvernightRunner {
   constructor(projectPath) {
@@ -48,13 +48,15 @@ export class OvernightRunner {
    * Get tonight's queue — tasks with pipeline phases assigned to ai_overnight and pending.
    * Returns { implement: [], test: [], qa: [], docs: [] }
    */
-  async getQueue() {
+  async getQueue(phases = null) {
+    const phasesToCheck = phases || PIPELINE_ORDER;
     const tasks = await this._loadTasks();
-    const queue = { implement: [], test: [], qa: [], docs: [] };
+    const queue = {};
+    for (const phase of phasesToCheck) queue[phase] = [];
 
     for (const task of tasks) {
       if (!task.pipeline) continue;
-      for (const phase of PIPELINE_ORDER) {
+      for (const phase of phasesToCheck) {
         const p = task.pipeline[phase];
         if (p && p.status === "pending" && p.assignTo === "ai_overnight") {
           queue[phase].push({
@@ -160,19 +162,24 @@ export class OvernightRunner {
 
   /**
    * Run the full overnight batch.
-   * Processes all pending ai_overnight tasks in pipeline order:
-   * all implements first, then tests, then qa, then docs.
+   * Processes all pending ai_overnight tasks in pipeline order.
+   *
+   * Options:
+   *   phases: array of phase names to run (default: all in PIPELINE_ORDER)
+   *   Early stage projects typically only run ["implement", "review"]
+   *   and skip test/qa/docs until the project stabilizes.
    */
-  async run() {
+  async run(opts = {}) {
+    const runPhases = opts.phases || PIPELINE_ORDER;
     const startTime = new Date();
     const tasks = await this._loadTasks();
     const results = [];
 
-    // Collect all pending overnight tasks
+    // Collect all pending overnight tasks for the requested phases
     const toProcess = [];
     for (const task of tasks) {
       if (!task.pipeline) continue;
-      for (const phase of PIPELINE_ORDER) {
+      for (const phase of runPhases) {
         const p = task.pipeline[phase];
         if (p && p.status === "pending" && p.assignTo === "ai_overnight") {
           toProcess.push({ task, phase });
@@ -194,8 +201,8 @@ export class OvernightRunner {
       return summary;
     }
 
-    // Process in pipeline order: all implements first, then tests, then qa, then docs
-    for (const phase of PIPELINE_ORDER) {
+    // Process in pipeline order (only requested phases)
+    for (const phase of runPhases) {
       const phaseTasks = toProcess.filter((x) => x.phase === phase);
       for (const { task } of phaseTasks) {
         try {
