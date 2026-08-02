@@ -136,23 +136,62 @@ async function gatherOpenIssues(rootDir) {
 // ── Helper: gather open tasks from coding-tasks ──
 
 async function gatherOpenTasks(rootDir) {
-  const tasksFile = join(rootDir, ".paaw", "tasks.json");
-  if (!existsSync(tasksFile)) return { summary: "", count: 0, items: [] };
+  // Try new pipeline path first, fall back to old path
+  const tasksFile = join(rootDir, ".paaw", "tasks", "TASKS.json");
+  const oldTasksFile = join(rootDir, ".paaw", "tasks.json");
+  const filePath = existsSync(tasksFile) ? tasksFile : (existsSync(oldTasksFile) ? oldTasksFile : null);
+  if (!filePath) return { summary: "", count: 0, items: [] };
   try {
-    const data = JSON.parse(readFileSync(tasksFile, "utf-8"));
+    const data = JSON.parse(readFileSync(filePath, "utf-8"));
     const tasks = Array.isArray(data) ? data : (data.tasks || []);
-    const open = tasks.filter(t => t.status === "open" || t.status === "in_progress");
-    if (open.length === 0) return { summary: "No open tasks.", count: 0, items: [] };
-    const items = open.map(t => ({
-      id: t.id,
-      priority: t.priority || "medium",
-      type: t.type || "chore",
-      title: t.title || "(no title)",
-      assignee: t.assignee,
-      parentId: t.parentId,
-    }));
-    const summary = items.map(t => `- [${t.priority}] ${t.type} → ${t.assignee || "unassigned"}: ${t.title}`).join("\n");
-    return { summary, count: open.length, items };
+    if (tasks.length === 0) return { summary: "No tasks.", count: 0, items: [] };
+
+    // Include open/in_progress tasks AND tasks with pending pipeline phases
+    const actionable = tasks.filter(t => {
+      if (t.status === "open" || t.status === "in_progress") return true;
+      // Also check pipeline for pending phases
+      if (t.pipeline) {
+        return Object.values(t.pipeline).some(p => p && p.status === "pending");
+      }
+      return false;
+    });
+
+    if (actionable.length === 0) return { summary: "No open tasks.", count: 0, items: [] };
+
+    const items = actionable.map(t => {
+      // Extract pending pipeline phases
+      const pendingPhases = [];
+      if (t.pipeline) {
+        for (const [phase, p] of Object.entries(t.pipeline)) {
+          if (p && p.status === "pending") {
+            pendingPhases.push({ phase, assignTo: p.assignTo || null });
+          }
+        }
+      }
+      return {
+        id: t.id,
+        priority: t.priority || "medium",
+        type: t.type || "chore",
+        title: t.title || "(no title)",
+        assignee: t.assignee,
+        parentId: t.parentId,
+        status: t.status,
+        description: t.description ? t.description.slice(0, 200) : "",
+        relatedFiles: t.relatedFiles || [],
+        pendingPhases,
+      };
+    });
+
+    const summary = items.map(t => {
+      let line = `- [${t.priority}] ${t.type} → ${t.assignee || "unassigned"}: ${t.title}`;
+      if (t.pendingPhases.length > 0) {
+        const phases = t.pendingPhases.map(p => `${p.phase}${p.assignTo ? `→${p.assignTo}` : ""}`).join(", ");
+        line += ` (pending: ${phases})`;
+      }
+      return line;
+    }).join("\n");
+
+    return { summary, count: actionable.length, items };
   } catch {
     return { summary: "(error reading tasks)", count: 0, items: [] };
   }
@@ -240,7 +279,22 @@ export function buildSituationReport(ctx) {
 
   // Open Tasks
   if (ctx.tasks && ctx.tasks.count > 0) {
-    report += `### 📝 Open Tasks (${ctx.tasks.count})\n${ctx.tasks.summary}\n\n`;
+    report += `### 📝 Open Tasks (${ctx.tasks.count})\n`;
+    for (const t of ctx.tasks.items) {
+      report += `\n**${t.id}** [${t.priority}] ${t.type} → ${t.assignee || "unassigned"}\n`;
+      report += `${t.title}\n`;
+      if (t.pendingPhases?.length > 0) {
+        const phases = t.pendingPhases.map(p => `${p.phase}${p.assignTo ? `→${p.assignTo}` : ""}`).join(", ");
+        report += `Pipeline pending: ${phases}\n`;
+      }
+      if (t.description) {
+        report += `${t.description}\n`;
+      }
+      if (t.relatedFiles?.length > 0) {
+        report += `Files: ${t.relatedFiles.join(", ")}\n`;
+      }
+    }
+    report += "\n";
   }
 
   // Security Findings

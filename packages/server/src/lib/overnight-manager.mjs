@@ -165,10 +165,13 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
 - 每個 open issue 都要評估是否在這次處理
 - high priority issue → 優先指派 agent 修復
 - 需要先有 architect 評估的 → 指派 architect`);
-  if (scope.openTasks !== false) scopeSections.push(`### 3. Open Tasks（待辦任務）
-- 已經建立但未完成的 task
+  if (scope.openTasks !== false) scopeSections.push(`### 3. Open Tasks（待辦任務 — 最高優先）
+- ⚠️ Task pipeline 裡 pending 的 task 是最優先要做的！
+- 特別是 pipeline.implement.status = "pending" 的 task → 指派 developer 去做
+- task 的 description 裡有完整的規格和步驟，直接照著做
 - 有 assignee 的 → 確認是否方向正確
-- security 類 task → 高優先級`);
+- security 類 task → 高優先級
+- task 做完後在報告中標注完成狀態`);
   if (scope.securityFindings !== false) scopeSections.push(`### 4. Security Findings（安全掃描）
 - WARNING+ 以上的 finding 要認真處理
 - 最常見的檔案優先修復
