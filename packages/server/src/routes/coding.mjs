@@ -1057,7 +1057,7 @@ export default async function projectRoute(req, res) {
     try {
       const { executeEMSession } = await import("../lib/overnight-manager.mjs");
       sendSSE("start", { message: "🎖️ EM 開始執行", ts: new Date().toISOString() });
-      const { report, results } = await executeEMSession({ rootDir, workList, situationReport, modelOverride, fallbackModels, sendSSE });
+      const { report, results } = await executeEMSession({ rootDir, workList, situationReport, modelOverride, fallbackModels, sendSSE, projectPhase: nsConfig?.projectPhase || 'bootstrap' });
       sendSSE("complete", { workList, results, report });
     } catch (err) {
       console.error("[EM-Execute] error:", err);
