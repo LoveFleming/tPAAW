@@ -166,6 +166,15 @@ function tryFormatJson(str: string): string {
   try { return JSON.stringify(JSON.parse(str), null, 2); } catch { return str; }
 }
 
+// Safety: ensure value is a renderable string (not object/array/null)
+function safeStr(v: any): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (typeof v === "object") { try { return JSON.stringify(v, null, 2); } catch { return "{}"; } }
+  return String(v);
+}
+
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -3854,7 +3863,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       <span className="text-[10px] text-stone-500">{(contextDebug.baseSystemPrompt.length || 0).toLocaleString()} chars</span>
                     </div>
                     <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                      {contextDebug.baseSystemPrompt}
+                      {safeStr(contextDebug.baseSystemPrompt)}
                     </pre>
                   </div>
                 )}
@@ -3866,7 +3875,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       <span className="text-[10px] text-stone-500">{contextDebug.systemPromptLength?.toLocaleString()} chars total</span>
                     </div>
                     <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                      {contextDebug.systemPromptPreview}
+                      {safeStr(contextDebug.systemPromptPreview)}
                     </pre>
                   </div>
                 )}
@@ -3878,7 +3887,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       <span className="text-[10px] text-stone-500">{(ctx.content?.length ?? 0).toLocaleString()} chars</span>
                     </div>
                     <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                      {ctx.content}
+                      {safeStr(ctx.content)}
                     </pre>
                   </div>
                 ))}
@@ -3922,7 +3931,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                     <span className="text-[10px] text-stone-500">{(agentContextData.baseSystemPrompt?.length || 0).toLocaleString()} chars</span>
                   </div>
                   <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                    {agentContextData.baseSystemPrompt || "(empty)"}
+                    {safeStr(agentContextData.baseSystemPrompt) || "(empty)"}
                   </pre>
                 </div>
                 {/* Dynamic Context Sections */}
@@ -3933,7 +3942,7 @@ ${gitLog[0] ? `**最近 commit：** ${gitLog[0].short} ${gitLog[0].subject}` : "
                       <span className="text-[10px] text-stone-500">{(ctx.content?.length ?? 0).toLocaleString()} chars</span>
                     </div>
                     <pre className="text-xs text-stone-300 bg-stone-900/80 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-stone-800" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                      {ctx.content}
+                      {safeStr(ctx.content)}
                     </pre>
                   </div>
                 ))}
