@@ -108,19 +108,25 @@ export default async function nightShiftConfigRoutes(req, res) {
         try {
           const [hour, minute] = merged.schedule.time.split(':');
           const expr = `${minute || '0'} ${hour || '22'} * * *`;
-          const cronJobId = `night-shift-${(rootDir || '').replace(/[^a-zA-Z0-9]/g, '-').slice(-40)}`;
+          const cronJobId = `night-shift-${Buffer.from(rootDir || '').toString('hex').slice(-20)}`;
 
           // Check if cron job already exists
           const listResp = await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`);
           const existingJobs = listResp.ok ? await listResp.json() : [];
-          const existing = existingJobs.find(j => j.id === cronJobId);
+          // Also clean up old-style duplicate IDs
+          const allNightJobs = existingJobs.filter(j => j.id.startsWith('night-shift-'));
+          const existing = allNightJobs.find(j => j.params?.projectPath === rootDir);
+          for (const j of allNightJobs) {
+            if (j !== existing && j.params?.projectPath === rootDir) {
+              await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs/${j.id}`, { method: 'DELETE' });
+            }
+          }
 
           const cronPayload = {
             name: `Night Shift (${merged.projectPhase || 'bootstrap'})`,
-            type: 'report',
-            skillId: '',
+            type: 'night-shift',
             schedule: expr,
-            prompt: `You are the Night Shift EM. Read the night shift config from .paaw/night-shift/config.json in the project root. Project phase: ${merged.projectPhase || 'bootstrap'}. Mode: ${merged.mode}. Execute the overnight runner by calling: POST http://127.0.0.1:${PORT}/api/coding-night-shift/start?path=${encodeURIComponent(rootDir)} with body {"mode":"${merged.mode}"}. Report the results.`,
+            prompt: '',
             params: { projectPath: rootDir, projectPhase: merged.projectPhase, mode: merged.mode },
             outputTarget: 'chat',
             chatId: '',
@@ -149,10 +155,17 @@ export default async function nightShiftConfigRoutes(req, res) {
       } else {
         // Schedule disabled — disable the cron job if it exists
         try {
-          const cronJobId = `night-shift-${(rootDir || '').replace(/[^a-zA-Z0-9]/g, '-').slice(-40)}`;
+          const cronJobId = `night-shift-${Buffer.from(rootDir || '').toString('hex').slice(-20)}`;
           const listResp = await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs`);
           const existingJobs = listResp.ok ? await listResp.json() : [];
-          const existing = existingJobs.find(j => j.id === cronJobId);
+          // Also clean up old-style duplicate IDs
+          const allNightJobs = existingJobs.filter(j => j.id.startsWith('night-shift-'));
+          const existing = allNightJobs.find(j => j.params?.projectPath === rootDir);
+          for (const j of allNightJobs) {
+            if (j !== existing && j.params?.projectPath === rootDir) {
+              await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs/${j.id}`, { method: 'DELETE' });
+            }
+          }
           if (existing && existing.enabled) {
             await fetch(`http://127.0.0.1:${PORT}/api/cron-jobs/${cronJobId}`, {
               method: 'PATCH',

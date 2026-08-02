@@ -102,11 +102,11 @@ export default function NightShiftPanel({ theme, rootPath, model }: { theme: any
   // Fetch cron job status
   useEffect(() => {
     if (!rootPath) return;
-    const cronId = `night-shift-${rootPath.replace(/[^a-zA-Z0-9]/g, '-').slice(-40)}`;
+    const cronId = `night-shift-${Array.from(rootPath).map(c => c.charCodeAt(0).toString(16)).join('').slice(-20)}`;
     fetch(`${API_BASE}/api/cron-jobs`)
       .then(r => r.json())
       .then((jobs: any[]) => {
-        const found = jobs.find(j => j.id === cronId);
+        const found = jobs.find(j => j.id === cronId || (j.id.startsWith('night-shift-') && j.params?.projectPath === rootPath));
         setCronJob(found || null);
       })
       .catch(() => setCronJob(null));
