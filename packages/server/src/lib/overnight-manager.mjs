@@ -476,7 +476,34 @@ export async function executeEMSession(opts = {}) {
   // ── Per-agent model resolution ──
   const { resolveAgentModel, resolveAgentFallbacks } = await import("./project-crew.mjs");
 
-  if (!workList || workList.length === 0) {
+  // ── If resuming, build workList from pending plan sub-tasks ──
+  let effectiveWorkList = workList;
+  if (existingPlanId && plan && (!workList || workList.length === 0)) {
+    effectiveWorkList = [];
+    for (const task of plan.tasks || []) {
+      for (const st of task.subtasks || []) {
+        if (st.status === 'pending' || st.status === 'interrupted') {
+          effectiveWorkList.push({
+            task: st.title || task.title,
+            agent: st.assignee || 'developer',
+            source: 'plan_resume',
+            sourceRef: st.subtaskId,
+            priority: 'high',
+            _resumeSubTaskId: st.subtaskId,
+          });
+        }
+      }
+    }
+    console.log(`[NightShift] 📋 Resumed ${effectiveWorkList.length} pending sub-tasks from plan`);
+    if (effectiveWorkList.length === 0) {
+      sendSSE("info", { message: "✅ Plan 裡所有工作已完成。" });
+      const report = generateEMReport([], [], situationReport);
+      sendSSE("done", { totalTasks: 0, succeeded: 0, failed: 0, empty: true });
+      return { report, workList: [], results: [] };
+    }
+  }
+
+  if (!effectiveWorkList || effectiveWorkList.length === 0) {
     sendSSE("info", { message: "✅ 目前沒有需要調度的工作，專案狀態良好。" });
     const report = generateEMReport([], [], situationReport);
     saveNightShiftReport(rootDir, report, "em");
@@ -487,16 +514,16 @@ export async function executeEMSession(opts = {}) {
   // ── Conservative strategy: just show plan, don't execute ──
   if (emConfig?.dispatchStrategy === 'conservative') {
     sendSSE("info", { message: "📋 保守模式：僅顯示計畫，不自動執行。" });
-    sendSSE("plan", { workList });
-    sendSSE("done", { totalTasks: workList.length, succeeded: 0, failed: 0, skipped: true, reason: 'conservative' });
-    const report = generateEMReport(workList, [], situationReport, { skipped: true, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
+    sendSSE("plan", { workList: effectiveWorkList });
+    sendSSE("done", { totalTasks: effectiveWorkList.length, succeeded: 0, failed: 0, skipped: true, reason: 'conservative' });
+    const report = generateEMReport(effectiveWorkList, [], situationReport, { skipped: true, format: emConfig?.reporting?.format, includeCodeChanges: emConfig?.reporting?.includeCodeChanges, includeActionLog: emConfig?.reporting?.includeActionLog });
     saveNightShiftReport(rootDir, report, "em");
-    return { report, workList, results: [] };
+    return { report, workList: effectiveWorkList, results: [] };
   }
 
   // ── Filter work list by autoExecute rules ──
   const autoExec = emConfig?.autoExecute || {};
-  const safeWorkList = workList.filter(task => {
+  const safeWorkList = effectiveWorkList.filter(task => {
     // Determine category from task content
     const content = (task.task || '').toLowerCase();
     let category = null;
@@ -513,7 +540,7 @@ export async function executeEMSession(opts = {}) {
     return true;
   });
 
-  const skippedTasks = workList.filter(t => t._skipped);
+  const skippedTasks = effectiveWorkList.filter(t => t._skipped);
   if (skippedTasks.length > 0) {
     sendSSE("warning", { message: `⚠️ ${skippedTasks.length} 項工作需人工確認（${[...new Set(skippedTasks.map(t => t._skipped))].join(', ')}）`, skipped: skippedTasks.map(t => ({ agent: t.agent, task: t.task.slice(0, 80), category: t._skipped })) });
   }
@@ -542,7 +569,7 @@ export async function executeEMSession(opts = {}) {
 
   for (let i = 0; i < execList.length; i++) {
     const task = execList[i];
-    const subtaskId = plan ? `${plan.tasks[i]?.subtasks[0]?.subtaskId || ''}` : null;
+    const subtaskId = task._resumeSubTaskId || (plan ? `${plan.tasks[i]?.subtasks[0]?.subtaskId || ''}` : null);
 
     // Resolve per-agent EM model (falls back to global modelOverride or EM dispatch model)
     const crewId = task.crewId || `coding.${task.agent}`;
@@ -643,7 +670,7 @@ export async function executeEMSession(opts = {}) {
   await addActionLog({
     agent: "em",
     action: "decide",
-    summary: `EM session 完成：調度 ${execList.length}/${workList.length} 項工作（${skippedTasks.length} 項需人工確認），成功 ${results.filter(r => r.success).length} 項`,
+    summary: `EM session 完成：調度 ${execList.length}/${effectiveWorkList.length} 項工作（${skippedTasks.length} 項需人工確認），成功 ${results.filter(r => r.success).length} 項`,
     details: [...execList.map(w => `${w.priority}/${w.agent}: ${w.task}`), ...skippedTasks.map(w => `⚠️ SKIPPED(${w._skipped})/${w.agent}: ${w.task}`)].join("\n"),
     affectedFiles: [],
     result: "adr",
@@ -659,7 +686,7 @@ export async function executeEMSession(opts = {}) {
   console.log(`[NightShift] 📊 Tokens: ${_totalTokens} | Cost: $${_totalCost.toFixed(4)} | Duration: ${(_totalDuration / 1000 / 60).toFixed(1)}min`);
   sendSSE("done", { totalTasks: execList.length, succeeded, failed, skipped: skippedTasks.length, totalTokens: _totalTokens, totalCostUsd: _totalCost, totalDurationMs: _totalDuration });
 
-  return { report, workList, results };
+  return { report, workList: effectiveWorkList, results };
 }
 
 
