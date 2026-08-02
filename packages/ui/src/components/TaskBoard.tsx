@@ -859,6 +859,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
             <div className="text-sm">{t("task.selectTask", "Select a task")}</div>
           </div>
         ) : showCreate ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
             <h2 className="text-lg font-bold" style={{ color: theme.text }}>📋 {t("task.newTask", "New Task")}</h2>
             <div>
@@ -898,9 +899,9 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                 <input type="text" value={editForm.assignee || ""} onChange={e => setEditForm({ ...editForm, assignee: e.target.value })} className="w-full text-sm px-2 py-1.5 rounded border outline-none" style={inputStyle} placeholder="developer, tester, em..." />
               </div>
             </div>
-            <div>
+            <div className="flex-1 flex flex-col">
               <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.description", "Description")}</label>
-              <textarea ref={descRef} value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="w-full text-sm px-2 py-1.5 rounded border outline-none resize-y" style={inputStyle} />
+              <textarea ref={descRef} value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} rows={8} className="w-full flex-1 text-sm px-2 py-1.5 rounded border outline-none resize-y" style={{ ...inputStyle, minHeight: "120px" }} />
             </div>
             {/* New: Source type */}
             <div>
@@ -963,9 +964,10 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                 </div>
               )}
             </div>
-            <div className="flex gap-2 mt-2">
+          </div>
+            <div className="flex gap-2 p-3 border-t" style={{ borderColor: theme.borderLight, background: theme.bgMuted }}>
               <button onClick={() => handleCreate(editForm)} className="text-sm px-4 py-1.5 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>✅ {t("task.create", "Create")}</button>
-              <button onClick={() => setShowCreate(false)} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
+              <button onClick={() => setShowCreate(false)} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bg, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
             </div>
           </div>
         ) : showDecompose && selected ? (
@@ -992,6 +994,7 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
             </div>
           </div>
         ) : editing ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
             <h2 className="text-lg font-bold" style={{ color: theme.text }}>✏️ {t("task.edit", "Edit")} {selected!.id}</h2>
             <div>
@@ -1030,13 +1033,14 @@ export default function TaskBoard({ rootPath, theme, onOpenFile, onNavigateIssue
                 <input type="text" value={editForm.assignee || ""} onChange={e => setEditForm({ ...editForm, assignee: e.target.value })} className="w-full text-sm px-2 py-1.5 rounded border outline-none" style={inputStyle} />
               </div>
             </div>
-            <div>
+            <div className="flex-1 flex flex-col">
               <label className="text-xs font-semibold uppercase block mb-1" style={{ color: theme.text, opacity: 0.6 }}>{t("task.description", "Description")}</label>
-              <textarea value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="w-full text-sm px-2 py-1.5 rounded border outline-none resize-y" style={inputStyle} />
+              <textarea value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} rows={8} className="w-full flex-1 text-sm px-2 py-1.5 rounded border outline-none resize-y" style={{ ...inputStyle, minHeight: "120px" }} />
             </div>
-            <div className="flex gap-2 mt-2">
+          </div>
+            <div className="flex gap-2 p-3 border-t" style={{ borderColor: theme.borderLight, background: theme.bgMuted }}>
               <button onClick={() => handleUpdate(selected!.id, editForm)} className="text-sm px-4 py-1.5 rounded font-medium" style={{ background: theme.accentBg, color: theme.accent }}>✅ {t("task.save", "Save")}</button>
-              <button onClick={() => setEditing(false)} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bgMuted, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
+              <button onClick={() => setEditing(false)} className="text-sm px-4 py-1.5 rounded" style={{ background: theme.bg, color: theme.text }}>{t("task.cancel", "Cancel")}</button>
             </div>
           </div>
         ) : selected && (
