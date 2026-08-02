@@ -22,6 +22,8 @@
     "memory",
     "decisions",
     "project",
-    "project-edit"
+    "project-edit",
+    "tasks",
+    "docs"
   ]
 }
