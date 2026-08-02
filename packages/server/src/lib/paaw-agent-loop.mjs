@@ -19,7 +19,7 @@
  */
 
 import { readFile, writeFile, readdir, stat, mkdir, rm } from "fs/promises";
-import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync } from "fs";
+import { existsSync, readFileSync as readSync, mkdirSync, appendFileSync, writeFileSync as writeSync, readdirSync, statSync } from "fs";
 import { exec as execCb } from "child_process";
 import { shellExec, IS_WIN as IS_WIN_SHARED } from "./shell-exec.mjs";
 import { resolve, join, dirname, relative } from "path";
@@ -2605,12 +2605,57 @@ function buildSystemPrompt({ cwd, skillMd, customPrompt, params, paawContext }) 
     }
   }
 
-  // Inject base context: knowledge + workspace paths (required for every AI request)
+  // Inject base context: knowledge listing + workspace paths (required for every AI request)
   const PAAW_R = _PAAW_ROOT;
   try {
-    const ws = JSON.parse(readSync(resolve(PAAW_R, "data/config/workspaces.json"), "utf-8"));
-    if (ws.directories?.length) {
-      parts.push(`\n=== 檔案路徑 ===\n📖 Knowledge：使用 file_list({ workspace: "knowledge" }) 和 file_read({ workspace: "knowledge", path: "檔名" }) 透過 API 存取。\n\n使用者的 Workspace 目錄（可讀寫）：\n${ws.directories.map(d => "- " + d).join("\n")}`);
+    const refPaths = [];
+
+    // 1. Knowledge directory — list top-level files/dirs so agent knows what's available
+    const knowledgeDir = resolve(PAAW_R, "data/knowledge");
+    if (existsSync(knowledgeDir)) {
+      try {
+        const entries = readdirSync(knowledgeDir).sort();
+        const knowledgeItems = entries.map(e => {
+          const fp = join(knowledgeDir, e);
+          try {
+            const isDir = statSync(fp).isDirectory();
+            return isDir ? `📁 ${e}/` : `📄 ${e}`;
+          } catch { return `📄 ${e}`; }
+        });
+        if (knowledgeItems.length > 0) {
+          refPaths.push(`📖 Knowledge (data/knowledge/) — 使用 reference_read(action="list|read|search", source="knowledge") 存取：\n${knowledgeItems.map(i => "  " + i).join("\n")}`);
+        }
+      } catch {}
+    }
+
+    // 2. Workspace directory — list top-level files/dirs
+    const workspaceDir = resolve(PAAW_R, "data/workspace");
+    if (existsSync(workspaceDir)) {
+      try {
+        const entries = readdirSync(workspaceDir).sort();
+        const workspaceItems = entries.map(e => {
+          const fp = join(workspaceDir, e);
+          try {
+            const isDir = statSync(fp).isDirectory();
+            return isDir ? `📁 ${e}/` : `📄 ${e}`;
+          } catch { return `📄 ${e}`; }
+        });
+        if (workspaceItems.length > 0) {
+          refPaths.push(`📂 Workspace (data/workspace/) — 使用 reference_read(action="list|read|search", source="workspace") 存取：\n${workspaceItems.map(i => "  " + i).join("\n")}`);
+        }
+      } catch {}
+    }
+
+    // 3. External workspace directories from workspaces.json
+    try {
+      const ws = JSON.parse(readSync(resolve(PAAW_R, "data/workspaces.json"), "utf-8"));
+      if (ws.directories?.length) {
+        refPaths.push(`📋 外部 Workspace 目錄（read_file 可讀取）：\n${ws.directories.map(d => "  - " + d).join("\n")}`);
+      }
+    } catch {}
+
+    if (refPaths.length > 0) {
+      parts.push(`\n=== 參考資料路徑 ===\n${refPaths.join("\n\n")}\n\n使用 reference_read tool 瀏覽和搜尋以上資料。開發相似功能時，先用 reference_read(action="search", source="knowledge", path="關鍵字") 搜尋現有範例。`);
     }
   } catch {}
 
