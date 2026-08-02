@@ -155,34 +155,45 @@ async function planWorkList(situationReport, rootDir, modelOverride, fallbackMod
 - 重點：不要打壞現有功能，每步都要謹慎`,
   }[projectPhase] || phaseConstraints.bootstrap;
 
-  // Planning scope sections (dynamic)
+  // Planning scope — aligned with EM chat tool project_info categories
   const scopeSections = [];
-  if (scope.gitChanges !== false) scopeSections.push(`### 1. Git Changes（程式碼變更）
-- 最近 commit 改了什麼？有沒有遺漏？
-- 有未 push 的 commit → 報告中標注，但**不指派 push**
-- 有未提交的變更 → 評估是否需要 developer 補完`);
-  if (scope.openIssues !== false) scopeSections.push(`### 2. Open Issues（已知問題）
-- 每個 open issue 都要評估是否在這次處理
-- high priority issue → 優先指派 agent 修復
-- 需要先有 architect 評估的 → 指派 architect`);
-  if (scope.openTasks !== false) scopeSections.push(`### 3. Open Tasks（待辦任務 — 最高優先）
+  if (scope.gitChanges !== false) scopeSections.push(`### 1. Open Tasks — 待辦任務（最高優先）
 - ⚠️ Task pipeline 裡 pending 的 task 是最優先要做的！
 - 特別是 pipeline.implement.status = "pending" 的 task → 指派 developer 去做
 - task 的 description 裡有完整的規格和步驟，直接照著做
-- 有 assignee 的 → 確認是否方向正確
-- security 類 task → 高優先級
-- task 做完後在報告中標注完成狀態`);
-  if (scope.securityFindings !== false) scopeSections.push(`### 4. Security Findings（安全掃描）
+- task 做完後在報告中標注完成狀態
+- 對應 chat 工具：task_list(status=open)`);
+  if (scope.openIssues !== false) scopeSections.push(`### 2. Open Issues — 已知問題
+- 每個 open issue 都要評估是否在這次處理
+- high priority issue → 優先指派 agent 修復
+- 對應 chat 工具：project_info(category=issues)`);
+  if (scope.securityFindings !== false) scopeSections.push(`### 3. Security Findings — 安全掃描
 - WARNING+ 以上的 finding 要認真處理
 - 最常見的檔案優先修復
-- 可以一次修多個 → 一個 developer task 處理一個檔案`);
-  if (scope.codeIntelligence) scopeSections.push(`### 5. Code Intelligence（程式碼智慧）
-- 分析模組依賴關係和架構風險
-- 複雜度過高的函式 → 指派 architect 評估`);
-  if (scope.testCoverage !== false) scopeSections.push(`### ${scope.codeIntelligence ? '6' : '5'}. Code Quality（程式碼品質）
-- 缺少測試的模組 → 指派 tester
-- 缺少文檔的功能 → 指派 doc-writer
-- 架構有風險 → 指派 architect`);
+- 可以一次修多個 → 一個 developer task 處理一個檔案
+- 對應 chat 工具：project_info(category=security)`);
+  if (scope.gitChanges !== false) scopeSections.push(`### 4. Git Changes — 程式碼變更
+- 最近 commit 改了什麼？有沒有遺漏？
+- 有未 push 的 commit → 報告中標注，但**不指派 push**
+- 有未提交的變更 → 評估是否需要 developer 補完
+- 近期變更 → 檢查有没有欠測試、欠文檔
+- 對應 chat 工具：project_info(category=recent_changes)`);
+  scopeSections.push(`### 5. Feature Health — 功能健康度
+- Feature 有 mapping 但缺測試或缺文檔的 → 記錄下來
+- 對應 chat 工具：project_info(category=features)`);
+  scopeSections.push(`### 6. Test Coverage Gaps — 測試覆蓋缺口
+- 改了 code 但沒測試的檔案 → 記錄下來（初期階段可先不指派 tester）
+- 對應 chat 工具：project_info(category=test_map)`);
+  scopeSections.push(`### 7. Action Log — 交接簿
+- 看上一班 agent 做了什麼、留了什麼待辦
+- 「需人工確認」「失敗待重試」的項目 → 優先處理
+- 對應 chat 工具：action_log_list`);
+  scopeSections.push(`### 8. Tech Debt — 技術債
+- 專案文件裡列的已知技術債（例如「No test suite」「No API schema」）
+- 對應 chat 工具：project_info(category=context) 讀 PROJECT.md / STATUS.md / KNOWN-ISSUES.md`);
+  scopeSections.push(`### 9. 專案決策與規範
+- ADR、Coding Standards、Changelog — 作為規劃依據
+- 對應 chat 工具：project_info(category=decisions / standards / changelog)`);
   const scopeText = scopeSections.join('\n\n');
 
   const EM_PROMPT = `你是 AI Coding Team 的 Engineering Manager (陳哲宇 Ethan)。
